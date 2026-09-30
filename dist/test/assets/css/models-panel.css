@@ -415,3 +415,130 @@ body[data-viewer-theme="dark"] #planButton {
   font-size: 11px;
   opacity: 0.8;
 }
+
+.plans-feature-locked {
+  list-style: none;
+  margin-left: -15px;
+  opacity: 0.75;
+}
+
+.plans-feature-locked > .plan-lock-icon {
+  margin: 0 4px 0 0;
+}
+
+.plans-card-head strong {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The purchase linked to an account (monetization/account-link.js). */
+.plans-account {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.plans-account .plans-panel-note {
+  margin: 0;
+}
+
+.plans-account-row,
+.plans-account-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.plans-account-user {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.plans-account-form input {
+  flex: 1 1 120px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+}
+
+.plans-account button {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.plans-account button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* "Delete account and data": plans panel and login panel (see
+   viewer/legal/delete-account.html). */
+.delete-account-link {
+  align-self: flex-start;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--viewer-panel-text) 70%, transparent);
+}
+
+.delete-account-link:hover,
+.delete-account-link:focus-visible {
+  color: var(--viewer-panel-text);
+}
+
+/* The plan next to a user name: plans panel, account panel, admin panel. */
+.plan-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--viewer-panel-border);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.plan-badge[data-tier="pro"] {
+  border-color: transparent;
+  background: #0284c7;
+  color: #fff;
+}
+
+.plan-badge[data-tier="business"] {
+  border-color: transparent;
+  background: linear-gradient(90deg, #2563eb, #db2777);
+  color: #fff;
+}
+
+/* The repository address without the Business plan: shown locked, a tap
+   opens the plans panel (ui/models-panel.js). */
+.models-panel-repository[data-locked="true"] label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.models-panel-repository[data-locked="true"] .models-panel-repository-row {
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.models-panel-repository[data-locked="true"] .models-panel-repository-row > * {
+  pointer-events: none;
+}

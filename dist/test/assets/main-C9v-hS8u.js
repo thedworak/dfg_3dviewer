@@ -1,4 +1,4 @@
-import { a9 as THREE, aa as exports$1, ab as unzipSync$1, ac as ViewHelper, ad as Vector3, ae as Matrix4, af as Quaternion, ag as Euler, ah as MathUtils$1, ai as FontLoader, aj as TextGeometry, ak as OrbitControls, al as TransformControls } from './three-DwEzltWR.js';
+import { a9 as THREE, aa as exports$1, ab as EffectComposer, ac as RenderPass, ad as SMAAPass, ae as OutputPass, af as FXAAPass, ag as unzipSync$1, ah as ViewHelper, ai as Vector3, aj as Matrix4, ak as Quaternion, al as Euler, am as MathUtils$1, an as FontLoader, ao as TextGeometry, ap as OrbitControls, aq as TransformControls } from './three-CtlVvEc8.js';
 
 window.THREE = THREE;
 
@@ -87,6 +87,9 @@ const FEATURES = {
   // The repository address field in the models panel; free/pro use the
   // one the app was built with.
   customRepository: ["business"],
+  // Browsing the repository's models (models panel, "Remote"); the other
+  // plans keep the models on the device. Uploading is not affected.
+  remoteModels: ["business"],
   // Sends the RevenueCat app user id with uploads; the worker then applies
   // WORKER_LIMIT_BUSINESS_* (see worker/entitlements.py).
   serverBusinessLimits: ["business"],
@@ -102,6 +105,10 @@ const LOCKED_TOOLS = {
   materials: "materialsEditor",
 };
 
+// Shown until the store answers with its own (localized) price, and in
+// builds without the store. Override: mobile.monetization.prices.
+const DEFAULT_PRICES = { pro: "20 €", business: "20 €" };
+
 const TIER_KEY = "dfg3dviewer-plan";
 // Testing builds only: forces a plan without buying it (plans panel).
 const OVERRIDE_KEY = "dfg3dviewer-plan-override";
@@ -110,8 +117,9 @@ const listeners = new Set();
 let tier = "free";
 let purchases = null; // the RevenueCat plugin once configured
 let appUserId = "";
+let ready = Promise.resolve();
 
-function readStorage$1(key) {
+function readStorage$2(key) {
   try {
     return window.localStorage.getItem(key);
   } catch {
@@ -119,7 +127,7 @@ function readStorage$1(key) {
   }
 }
 
-function writeStorage$1(key, value) {
+function writeStorage$2(key, value) {
   try {
     if (value === null) window.localStorage.removeItem(key);
     else window.localStorage.setItem(key, value);
@@ -146,7 +154,16 @@ function currentTier() {
 
 function hasFeature(feature) {
   if (!isPlansEnabled()) return true;
-  return (FEATURES[feature] || []).includes(tier);
+  return tierHasFeature(tier, feature);
+}
+
+// Whether a plan (not necessarily the current one) includes a feature.
+function tierHasFeature(planTier, feature) {
+  return (FEATURES[feature] || []).includes(planTier);
+}
+
+function defaultPrice(planTier) {
+  return monetizationSettings()?.prices?.[planTier] || DEFAULT_PRICES[planTier] || "";
 }
 
 function getAppUserId() {
@@ -163,7 +180,7 @@ function setTier(next) {
   const value = TIERS.includes(next) ? next : "free";
   // Remembered so the app starts on the last known plan offline, before
   // RevenueCat answers.
-  writeStorage$1(TIER_KEY, value);
+  writeStorage$2(TIER_KEY, value);
   if (value === tier) return;
   tier = value;
   document.body?.setAttribute("data-app-plan", tier);
@@ -179,14 +196,24 @@ function tierFromCustomerInfo(customerInfo) {
 }
 
 function applyCustomerInfo(customerInfo) {
-  if (isTestingBuild() && readStorage$1(OVERRIDE_KEY)) return;
+  if (isTestingBuild() && readStorage$2(OVERRIDE_KEY)) return;
   setTier(tierFromCustomerInfo(customerInfo));
 }
 
-async function initPlan() {
+// Resolves once initPlan() has the store's answer (or gave up on it).
+function whenPlanReady() {
+  return ready;
+}
+
+function initPlan() {
+  ready = loadPlan();
+  return ready;
+}
+
+async function loadPlan() {
   if (!isPlansEnabled()) return;
-  tier = TIERS.includes(readStorage$1(TIER_KEY)) ? readStorage$1(TIER_KEY) : "free";
-  const override = isTestingBuild() ? readStorage$1(OVERRIDE_KEY) : null;
+  tier = TIERS.includes(readStorage$2(TIER_KEY)) ? readStorage$2(TIER_KEY) : "free";
+  const override = isTestingBuild() ? readStorage$2(OVERRIDE_KEY) : null;
   if (TIERS.includes(override)) tier = override;
   document.body?.setAttribute("data-app-plan", tier);
 
@@ -254,7 +281,7 @@ async function restorePlans() {
 // Testing builds: pick a plan without the store (null = back to the store's).
 function setTierOverride(value) {
   if (!isTestingBuild()) return;
-  writeStorage$1(OVERRIDE_KEY, TIERS.includes(value) ? value : null);
+  writeStorage$2(OVERRIDE_KEY, TIERS.includes(value) ? value : null);
   if (TIERS.includes(value)) {
     setTier(value);
   } else if (purchases) {
@@ -265,7 +292,7 @@ function setTierOverride(value) {
 }
 
 function getTierOverride() {
-  return isTestingBuild() ? readStorage$1(OVERRIDE_KEY) : null;
+  return isTestingBuild() ? readStorage$2(OVERRIDE_KEY) : null;
 }
 
 // The repository the viewer talks to (worker API, converted models). A normal
@@ -349,6 +376,12 @@ function remoteAssetUrl(url) {
   return base + url;
 }
 
+// The page to request deleting an account and its data (viewer/legal/),
+// served by the repository the account lives on.
+function deleteAccountUrl() {
+  return remoteAssetUrl('/delete-account.html');
+}
+
 // body.viewer-app hides what cannot work from inside the app (sign-in and user
 // management rely on a same-site session cookie); body.viewer-no-remote hides
 // everything that needs a repository when none is configured.
@@ -357,27 +390,93 @@ function initRemote() {
   document.body?.classList.toggle('viewer-no-remote', !hasRemote());
 }
 
-// The app's launch splash (capacitor.config.json: SplashScreen.launchAutoHide
-// false) stays until the first model is on screen or failed to load - then
-// the viewer, not an empty page, is what the splash fades into. The plugin is
-// reached through the native bridge, so the web builds bundle nothing of it,
-// and it does not depend on the settings (a start that fails before they load
-// must still hide it). A fallback timer, started as soon as the script runs,
-// hides it anyway, so a stalled start never keeps the app behind the splash.
+// The app's launch splash. Android's own splash (androidx SplashScreen, used
+// by @capacitor/splash-screen on every Android version) only shows the app
+// icon on a plain background - never the full-screen artwork. So it hands
+// over to this page-level splash: resources/splash(-dark).png, copied to
+// assets/img/app-splash(-dark).webp by rollup.config.js. The native one is
+// hidden as soon as the artwork is on screen, so the two meet without a gap.
+//
+// The artwork stays until the first model is on screen or failed to load
+// (hideAppSplash from loaders.js / renderFatalError), at least MIN_VISIBLE_MS,
+// and at most FALLBACK_MS - a stalled start never keeps the app behind it.
+// Native app only: it does not depend on the settings (a start that fails
+// before they load must still end it), and web builds never show it.
+const MIN_VISIBLE_MS = 1800;
 const FALLBACK_MS = 6000;
-let hidden = false;
+const FADE_MS = 400;
+
+let overlay = null;
+let shownAt = 0;
+let hiding = false;
+let resolveDone;
+
+// Resolves once the splash is gone (ads wait for it: a native banner would
+// be drawn over the artwork).
+const appSplashDone = new Promise((resolve) => {
+  resolveDone = resolve;
+});
 
 function isNativeApp() {
   return window.Capacitor?.isNativePlatform?.() === true;
 }
 
-function hideAppSplash() {
-  if (hidden || !isNativeApp()) return;
-  hidden = true;
-  window.Capacitor.Plugins?.SplashScreen?.hide?.()?.catch?.(() => {});
+function hideNativeSplash() {
+  window.Capacitor?.Plugins?.SplashScreen?.hide?.({ fadeOutDuration: 200 })?.catch?.(() => {});
 }
 
-if (isNativeApp()) window.setTimeout(hideAppSplash, FALLBACK_MS);
+function showWebSplash() {
+  const dark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches === true;
+  overlay = document.createElement("div");
+  overlay.id = "appSplash";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.dataset.theme = dark ? "dark" : "light";
+  const image = new Image();
+  image.alt = "";
+  image.decoding = "async";
+  // Whatever happens to the image, the native splash must not stay.
+  const handOver = () => hideNativeSplash();
+  image.addEventListener("load", handOver, { once: true });
+  image.addEventListener("error", handOver, { once: true });
+  window.setTimeout(handOver, 1500);
+  image.src = new URL(`assets/img/app-splash${dark ? "-dark" : ""}.webp`, document.baseURI).href;
+  // The artwork is square and shown whole; a blurred copy fills the rest
+  // of the screen around it, so no edge shows.
+  const fill = new Image();
+  fill.alt = "";
+  fill.className = "app-splash-fill";
+  fill.src = image.src;
+  overlay.append(fill, image);
+  document.body.appendChild(overlay);
+  shownAt = Date.now();
+}
+
+function hideAppSplash() {
+  if (!isNativeApp() || hiding) return;
+  hiding = true;
+  hideNativeSplash();
+  if (!overlay) {
+    resolveDone();
+    return;
+  }
+  const wait = Math.max(0, MIN_VISIBLE_MS - (Date.now() - shownAt));
+  window.setTimeout(() => {
+    overlay.classList.add("app-splash--hiding");
+    window.setTimeout(() => {
+      overlay.remove();
+      overlay = null;
+      resolveDone();
+    }, FADE_MS);
+  }, wait);
+}
+
+if (isNativeApp()) {
+  if (document.body) showWebSplash();
+  else document.addEventListener("DOMContentLoaded", showWebSplash, { once: true });
+  window.setTimeout(hideAppSplash, FALLBACK_MS);
+} else {
+  resolveDone();
+}
 
 // String helpers
 function isValidUrl(urlString) {
@@ -552,6 +651,23 @@ const VIEWER_I18N = {
       switchToEnglish: "Switch to English",
       switchToGerman: "Switch to German",
     },
+    toolPanel: {
+      move: "Move panel (double tap: dock)",
+      minimize: "Minimize panel",
+      restore: "Restore panel",
+    },
+    bugReport: {
+      button: "Report a bug",
+      title: "Report a bug",
+      description: "What went wrong? What did you do just before?",
+      email: "E-mail (optional, if we may ask you about it)",
+      includeDiagnostics: "Attach technical details (device, browser, model, recent errors)",
+      privacy: "The report goes to the viewer's developers only.",
+      send: "Send report",
+      cancel: "Cancel",
+      sent: "Thank you - the report was sent.",
+      failed: "The report could not be sent. Please try again later.",
+    },
     hints: {
       pickingSelect: "Select at least one face to add annotation.",
       picking: "Click a face, Ctrl + click to add more, Shift + drag to select an area",
@@ -640,6 +756,15 @@ const VIEWER_I18N = {
       perspectiveProjection: "Switch to perspective projection",
       environmentMap: "Environment map",
       environmentMapToggle: "Toggle environment map",
+      rendering: "Rendering",
+      toneMapping: "Tone mapping",
+      toneMappingNeutral: "Neutral",
+      toneMappingLinear: "Linear",
+      toneMappingNone: "None",
+      exposure: "Exposure",
+      postprocessing: "Post-processing",
+      antialiasing: "Anti-aliasing",
+      antialiasingNone: "None",
       environmentMapIntensity: "Environment map intensity",
       environmentMapStyleNeutral: "Neutral",
       environmentMapStyleSunny: "Sunny",
@@ -762,6 +887,7 @@ const VIEWER_I18N = {
       closeAria: "Close account panel",
       notRequired: "Accounts are not enabled on this server.",
       openSignedIn: "Signed in as {user}",
+      planTitle: "Plan in the mobile app",
     },
     modelsPanel: {
       title: "Previously generated models",
@@ -814,6 +940,7 @@ const VIEWER_I18N = {
       businessFeature2: "Higher upload and conversion limits",
       businessFeature3: "Connect your own repository",
       businessFeature4: "Annotations, IIIF export and the materials editor",
+      businessFeature5: "Browse the models on {host}",
       current: "Your plan",
       buy: "Buy",
       subscribe: "Subscribe",
@@ -822,12 +949,31 @@ const VIEWER_I18N = {
       storeUnavailable: "The store is not available right now - buying is disabled.",
       testOverride: "Test: force plan",
       testStore: "from the store",
+      accountTitle: "Account",
+      accountHint: "Log in to link your plan to your account on the repository.",
+      accountUnavailable: "Connect a repository to link your plan to an account.",
+      accountLink: "Link",
+      accountLinked: "Linked to {user}",
+      accountUnlink: "Unlink",
+      accountDelete: "Delete account and data",
     },
     adminPanel: {
+      lastUpload: "last upload {date}",
+      sortBy: "Sort by",
+      sortPlan: "Plan",
+      sortName: "Name",
+      sortModels: "Uploaded models",
+      sortStorage: "Storage used",
+      sortLastUpload: "Last upload",
+      sortAscending: "Ascending",
+      sortDescending: "Descending",
       limitsUsage: "Uploads {hour} this hour, {day} today · Storage {storage} MB · Models {models}",
+      planRenews: "renews/ends {date}",
+      planChecked: "checked {date}",
       limitsShow: "Edit limits",
       limitsHide: "Hide limits",
       limitsAdmin: "Admins are not limited.",
+      limitsBusiness: "Business plan: its limits are the defaults here.",
       limitsDefault: "default: {value}",
       limitsHint: "Empty = default, 0 = unlimited.",
       limitsSave: "Save limits",
@@ -955,6 +1101,8 @@ const VIEWER_I18N = {
       planPurchaseError: "The purchase did not go through - try again later.",
       planRestored: "Purchases restored.",
       planRestoreNone: "No purchases to restore.",
+      planLinked: "Your plan is linked to the account.",
+      planLinkError: "Could not link the account: {message}",
 
       annotationDataMissing: "Annotation data not found for this POI.",
       selectFaceRequired: "Select at least one face to add annotation.",
@@ -1000,6 +1148,7 @@ const VIEWER_I18N = {
     },
     pointCloud: {
       title: "Point cloud",
+      toggle: "Point cloud settings",
       collapse: "Hide settings",
       expand: "Show settings",
       size: "Point size ×{value}",
@@ -1235,6 +1384,15 @@ const VIEWER_I18N = {
       perspectiveProjection: "Przełącz na projekcję perspektywiczną",
       environmentMap: "Mapa otoczenia",
       environmentMapToggle: "Przełącz mapę otoczenia",
+      rendering: "Renderowanie",
+      toneMapping: "Mapowanie tonów",
+      toneMappingNeutral: "Neutralne",
+      toneMappingLinear: "Liniowe",
+      toneMappingNone: "Brak",
+      exposure: "Ekspozycja",
+      postprocessing: "Postprocessing",
+      antialiasing: "Wygładzanie krawędzi",
+      antialiasingNone: "Brak",
       environmentMapIntensity: "Intensywność mapy otoczenia",
       environmentMapStyleNeutral: "Neutralny",
       environmentMapStyleSunny: "Słoneczny",
@@ -1357,6 +1515,7 @@ const VIEWER_I18N = {
       closeAria: "Zamknij panel konta",
       notRequired: "Konta nie są włączone na tym serwerze.",
       openSignedIn: "Zalogowano jako {user}",
+      planTitle: "Plan w aplikacji mobilnej",
     },
     modelsPanel: {
       title: "Wcześniej wygenerowane modele",
@@ -1409,6 +1568,7 @@ const VIEWER_I18N = {
       businessFeature2: "Wyższe limity przesyłania i konwersji",
       businessFeature3: "Podłączenie własnego repozytorium",
       businessFeature4: "Adnotacje, eksport IIIF i edytor materiałów",
+      businessFeature5: "Przeglądanie modeli z {host}",
       current: "Twój plan",
       buy: "Kup",
       subscribe: "Subskrybuj",
@@ -1417,12 +1577,48 @@ const VIEWER_I18N = {
       storeUnavailable: "Sklep jest teraz niedostępny - zakupy są wyłączone.",
       testOverride: "Test: wymuś plan",
       testStore: "ze sklepu",
+      accountTitle: "Konto",
+      accountHint: "Zaloguj się, aby połączyć plan z kontem w repozytorium.",
+      accountUnavailable: "Połącz repozytorium, aby powiązać plan z kontem.",
+      accountLink: "Połącz",
+      accountLinked: "Połączono z {user}",
+      accountUnlink: "Odłącz",
+      accountDelete: "Usuń konto i dane",
+    },
+    toolPanel: {
+      move: "Przesuń panel (podwójne dotknięcie: przypnij z powrotem)",
+      minimize: "Zminimalizuj panel",
+      restore: "Rozwiń panel",
+    },
+    bugReport: {
+      button: "Zgłoś błąd",
+      title: "Zgłoś błąd",
+      description: "Co poszło nie tak? Co działo się tuż przed tym?",
+      email: "E-mail (opcjonalnie, jeśli możemy dopytać)",
+      includeDiagnostics: "Dołącz dane techniczne (urządzenie, przeglądarka, model, ostatnie błędy)",
+      privacy: "Zgłoszenie trafia wyłącznie do twórców przeglądarki.",
+      send: "Wyślij zgłoszenie",
+      cancel: "Anuluj",
+      sent: "Dziękujemy - zgłoszenie zostało wysłane.",
+      failed: "Nie udało się wysłać zgłoszenia. Spróbuj ponownie później.",
     },
     adminPanel: {
+      lastUpload: "ostatni upload {date}",
+      sortBy: "Sortuj wg",
+      sortPlan: "Plan",
+      sortName: "Nazwa",
+      sortModels: "Przesłane modele",
+      sortStorage: "Zajęte miejsce",
+      sortLastUpload: "Ostatni upload",
+      sortAscending: "Rosnąco",
+      sortDescending: "Malejąco",
       limitsUsage: "Przesłane {hour} w tej godzinie, {day} dzisiaj · Miejsce {storage} MB · Modele {models}",
+      planRenews: "odnowienie/koniec {date}",
+      planChecked: "sprawdzono {date}",
       limitsShow: "Edytuj limity",
       limitsHide: "Ukryj limity",
       limitsAdmin: "Administratorzy nie mają limitów.",
+      limitsBusiness: "Plan Business: domyślne są tu jego limity.",
       limitsDefault: "domyślnie: {value}",
       limitsHint: "Puste = domyślnie, 0 = bez limitu.",
       limitsSave: "Zapisz limity",
@@ -1550,6 +1746,8 @@ const VIEWER_I18N = {
       planPurchaseError: "Zakup się nie powiódł - spróbuj później.",
       planRestored: "Zakupy przywrócone.",
       planRestoreNone: "Brak zakupów do przywrócenia.",
+      planLinked: "Plan jest połączony z kontem.",
+      planLinkError: "Nie udało się połączyć konta: {message}",
 
       annotationDataMissing: "Nie znaleziono danych adnotacji dla tego punktu.",
       selectFaceRequired: "Wybierz co najmniej jedną ścianę, aby dodać adnotację.",
@@ -1595,6 +1793,7 @@ const VIEWER_I18N = {
     },
     pointCloud: {
       title: "Chmura punktów",
+      toggle: "Ustawienia chmury punktów",
       collapse: "Ukryj ustawienia",
       expand: "Pokaż ustawienia",
       size: "Rozmiar punktów ×{value}",
@@ -1829,6 +2028,15 @@ const VIEWER_I18N = {
       perspectiveProjection: "Zur perspektivischen Projektion wechseln",
       environmentMap: "Umgebungsmap",
       environmentMapToggle: "Umgebungsmap wechseln",
+      rendering: "Rendering",
+      toneMapping: "Tone Mapping",
+      toneMappingNeutral: "Neutral",
+      toneMappingLinear: "Linear",
+      toneMappingNone: "Keins",
+      exposure: "Belichtung",
+      postprocessing: "Nachbearbeitung",
+      antialiasing: "Kantenglättung",
+      antialiasingNone: "Keine",
       environmentMapIntensity: "Intensität der Umgebungsmap",
       environmentMapStyleNeutral: "Neutral",
       environmentMapStyleSunny: "Sonnig",
@@ -1897,6 +2105,23 @@ const VIEWER_I18N = {
     localPreview: {
       loadExampleModel: "Beispielmodell laden",
     },
+    toolPanel: {
+      move: "Panel verschieben (Doppeltipp: andocken)",
+      minimize: "Panel minimieren",
+      restore: "Panel wiederherstellen",
+    },
+    bugReport: {
+      button: "Fehler melden",
+      title: "Fehler melden",
+      description: "Was ist schiefgelaufen? Was haben Sie kurz davor getan?",
+      email: "E-Mail (optional, für Rückfragen)",
+      includeDiagnostics: "Technische Details anhängen (Gerät, Browser, Modell, letzte Fehler)",
+      privacy: "Die Meldung geht nur an die Entwickler des Viewers.",
+      send: "Meldung senden",
+      cancel: "Abbrechen",
+      sent: "Danke - die Meldung wurde gesendet.",
+      failed: "Die Meldung konnte nicht gesendet werden. Bitte später erneut versuchen.",
+    },
     embedPanel: {
       title: "Einbettungsoptionen",
       closeAria: "Einbettungsoptionen schließen",
@@ -1951,6 +2176,7 @@ const VIEWER_I18N = {
       closeAria: "Kontobereich schließen",
       notRequired: "Konten sind auf diesem Server nicht aktiviert.",
       openSignedIn: "Angemeldet als {user}",
+      planTitle: "Tarif in der mobilen App",
     },
     modelsPanel: {
       title: "Zuvor generierte Modelle",
@@ -2003,6 +2229,7 @@ const VIEWER_I18N = {
       businessFeature2: "Höhere Upload- und Konvertierungslimits",
       businessFeature3: "Eigenes Repository verbinden",
       businessFeature4: "Annotationen, IIIF-Export und Material-Editor",
+      businessFeature5: "Modelle auf {host} durchsuchen",
       current: "Ihr Tarif",
       buy: "Kaufen",
       subscribe: "Abonnieren",
@@ -2011,12 +2238,31 @@ const VIEWER_I18N = {
       storeUnavailable: "Der Store ist gerade nicht verfügbar - Käufe sind deaktiviert.",
       testOverride: "Test: Tarif erzwingen",
       testStore: "aus dem Store",
+      accountTitle: "Konto",
+      accountHint: "Melden Sie sich an, um Ihren Tarif mit Ihrem Konto im Repository zu verknüpfen.",
+      accountUnavailable: "Verbinden Sie ein Repository, um Ihren Tarif mit einem Konto zu verknüpfen.",
+      accountLink: "Verknüpfen",
+      accountLinked: "Verknüpft mit {user}",
+      accountUnlink: "Trennen",
+      accountDelete: "Konto und Daten löschen",
     },
     adminPanel: {
+      lastUpload: "letzter Upload {date}",
+      sortBy: "Sortieren nach",
+      sortPlan: "Tarif",
+      sortName: "Name",
+      sortModels: "Hochgeladene Modelle",
+      sortStorage: "Belegter Speicher",
+      sortLastUpload: "Letzter Upload",
+      sortAscending: "Aufsteigend",
+      sortDescending: "Absteigend",
       limitsUsage: "Uploads {hour} in dieser Stunde, {day} heute · Speicher {storage} MB · Modelle {models}",
+      planRenews: "Verlängerung/Ende {date}",
+      planChecked: "geprüft {date}",
       limitsShow: "Limits bearbeiten",
       limitsHide: "Limits ausblenden",
       limitsAdmin: "Admins sind nicht begrenzt.",
+      limitsBusiness: "Business-Tarif: dessen Limits sind hier die Standardwerte.",
       limitsDefault: "Standard: {value}",
       limitsHint: "Leer = Standard, 0 = unbegrenzt.",
       limitsSave: "Limits speichern",
@@ -2144,6 +2390,8 @@ const VIEWER_I18N = {
       planPurchaseError: "Der Kauf ist fehlgeschlagen - bitte später erneut versuchen.",
       planRestored: "Käufe wiederhergestellt.",
       planRestoreNone: "Keine Käufe zum Wiederherstellen.",
+      planLinked: "Ihr Tarif ist mit dem Konto verknüpft.",
+      planLinkError: "Das Konto konnte nicht verknüpft werden: {message}",
 
       annotationDataMissing: "Keine Annotationsdaten für diesen Punkt gefunden.",
       selectFaceRequired: "Wählen Sie mindestens eine Fläche aus, um eine Annotation hinzuzufügen.",
@@ -2189,6 +2437,7 @@ const VIEWER_I18N = {
     },
     pointCloud: {
       title: "Punktwolke",
+      toggle: "Punktwolken-Einstellungen",
       collapse: "Einstellungen ausblenden",
       expand: "Einstellungen anzeigen",
       size: "Punktgröße ×{value}",
@@ -2988,6 +3237,29 @@ async function setupCamera(_object, _data) {
   await fitCameraToCenteredObject(_object, true, fitConfig);
 }
 
+// Whether this browser (a cookie) or device (app storage) has used the
+// viewer before: then the hand hint only sweeps twice instead of until the
+// first touch. Set on the first interaction with the model.
+const VIEWER_USED_KEY = "dfg3dviewer-used";
+
+function hasUsedViewer() {
+  try {
+    if (window.localStorage.getItem(VIEWER_USED_KEY) === "1") return true;
+  } catch {
+    // Storage blocked - the cookie may still say.
+  }
+  return document.cookie.split(";").some((part) => part.trim().startsWith(`${VIEWER_USED_KEY}=1`));
+}
+
+function markViewerUsed() {
+  try {
+    window.localStorage.setItem(VIEWER_USED_KEY, "1");
+  } catch {
+    // Storage blocked: the cookie alone.
+  }
+  document.cookie = `${VIEWER_USED_KEY}=1; max-age=${365 * 24 * 3600}; path=/; SameSite=Lax`;
+}
+
   // Show interaction hint on first load
   function showInteractionHint(boxCenter) {
   if (window.__E2E__) return;
@@ -2997,6 +3269,8 @@ async function setupCamera(_object, _data) {
 
   if (core.GESTURE == null) return;
   core.GESTURE.rotate = true;
+  // Returning users: two sweeps, then it stops (0 = until the first touch).
+  core.GESTURE.maxCycles = hasUsedViewer() ? 2 : 0;
 
   core.GESTURE.target = boxCenter.clone();
   core.controls.target.copy(core.GESTURE.target);
@@ -4702,7 +4976,8 @@ function attachUploadPanel(Viewer) {
 // from the device and models saved from the repository. IndexedDB stores the
 // files as Blobs (no base64 round trip), in the app and in the browser alike.
 // An entry: { id, name, fileName, size, savedAt, source: "device" |
-// "repository", remoteId?, file: Blob, thumbnail?: Blob }.
+// "repository", remoteId?, file: Blob, thumbnail?: Blob, ifcProperties?: object }
+// (ifcProperties: the model's <name>_ifc.json, see viewer/ifc-properties.js).
 const DB_NAME = "dfg3dviewer-library";
 const STORE = "models";
 
@@ -4744,7 +5019,7 @@ async function listLibrary() {
   return (entries || []).sort((a, b) => b.savedAt - a.savedAt);
 }
 
-async function saveToLibrary({ id, name, fileName, source, remoteId, file, thumbnail }) {
+async function saveToLibrary({ id, name, fileName, source, remoteId, file, thumbnail, ifcProperties }) {
   const entry = {
     id: id || `${source}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: name || fileName,
@@ -4755,6 +5030,7 @@ async function saveToLibrary({ id, name, fileName, source, remoteId, file, thumb
     remoteId: remoteId ?? null,
     file,
     thumbnail: thumbnail ?? null,
+    ifcProperties: ifcProperties ?? null,
   };
   await run("readwrite", (store) => store.put(entry));
   requestPersistentStorage();
@@ -4771,6 +5047,4343 @@ function libraryEntryFile(entry) {
 }
 
 const repositoryEntryId = (jobId) => `repository-${jobId}`;
+
+// The app's purchase linked to an account on the repository (worker
+// POST /api/app/link|sync|unlink, see worker/entitlements.py). The worker
+// checks the plan with RevenueCat itself and stores it on the account, so the
+// admin panel and the account's name show it. The app only remembers which
+// account it is linked to.
+
+const ACCOUNT_KEY = "dfg3dviewer-plan-account";
+// Testing builds without the store have no RevenueCat id: a random one per
+// device stands in for it.
+const TEST_ID_KEY = "dfg3dviewer-plan-test-id";
+
+function readStorage$1(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage$1(key, value) {
+  try {
+    if (value) window.localStorage.setItem(key, value);
+    else window.localStorage.removeItem(key);
+  } catch {
+    // Kept for this session only.
+  }
+}
+
+function linkId() {
+  const id = getAppUserId();
+  if (id || !isTestingBuild()) return id;
+  let testId = readStorage$1(TEST_ID_KEY);
+  if (!testId) {
+    testId = `test:${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    writeStorage$1(TEST_ID_KEY, testId);
+  }
+  return testId;
+}
+
+function canLinkAccount() {
+  return hasRemote() && Boolean(linkId());
+}
+
+function linkedAccount() {
+  return readStorage$1(ACCOUNT_KEY) || "";
+}
+
+async function appRequest(action, body) {
+  const headers = { "X-App-User-Id": linkId() };
+  if (body) headers["Content-Type"] = "application/json";
+  const response = await fetch(apiUrl(`/api/app/${action}`), {
+    method: "POST",
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
+  }
+  if (!response.ok) {
+    const error = new Error(data.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  writeStorage$1(ACCOUNT_KEY, data.user || "");
+  return data;
+}
+
+// The tier goes along only for workers that accept it unverified (testing,
+// WORKER_APP_PLANS_UNVERIFIED); otherwise the worker asks RevenueCat.
+function linkAccount(username, password) {
+  return appRequest("link", { username, password, tier: currentTier() });
+}
+
+function unlinkAccount() {
+  return appRequest("unlink");
+}
+
+// Re-reports the plan of a linked account (after a purchase, a restore or on
+// start). Quiet: no network or no repository just means it waits for the
+// next time.
+async function syncAccountLink() {
+  await whenPlanReady();
+  if (!linkedAccount() || !canLinkAccount()) return null;
+  try {
+    return await appRequest("sync", { tier: currentTier() });
+  } catch (error) {
+    console.warn("Plans: account sync failed", error);
+    return null;
+  }
+}
+
+// Tone mapping and the optional post-processing chain of the main canvas.
+//
+// Settings shape (viewer-settings.json viewer.rendering, AIM3D manifest
+// AIM3DViewer.viewer.rendering):
+//   { toneMapping: "neutral", exposure: 1,
+//     postprocessing: { enabled: false, antialias: "msaa" } }
+//
+// Without post-processing the renderer tone maps while drawing to the canvas.
+// With it the scene is drawn into a linear half-float target and OutputPass
+// applies the same renderer.toneMapping / exposure and the sRGB conversion,
+// so switching the chain on or off does not change the image's tonality.
+
+const TONE_MAPPING_MODES = {
+  none: THREE.NoToneMapping,
+  linear: THREE.LinearToneMapping,
+  reinhard: THREE.ReinhardToneMapping,
+  cineon: THREE.CineonToneMapping,
+  aces: THREE.ACESFilmicToneMapping,
+  agx: THREE.AgXToneMapping,
+  neutral: THREE.NeutralToneMapping,
+};
+
+// msaa: multisampled render target, smaa/fxaa: screen-space passes.
+const ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
+
+const RENDERING_DEFAULTS = Object.freeze({
+  toneMapping: "neutral",
+  exposure: 1,
+  postprocessing: Object.freeze({
+    enabled: false,
+    antialias: "msaa",
+  }),
+});
+
+const MSAA_SAMPLES = 4;
+
+let composer = null;
+let renderPass = null;
+// Antialias mode the current composer was built for.
+let composerAntialias = null;
+const canvasSize = new THREE.Vector2();
+
+function isPlainObject$3(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function cloneSettings(settings) {
+  return {
+    toneMapping: settings.toneMapping,
+    exposure: settings.exposure,
+    postprocessing: { ...settings.postprocessing },
+  };
+}
+
+// `input` merged over `base`; unknown or malformed values keep the base value.
+function normalizeRenderingSettings(input, base = RENDERING_DEFAULTS) {
+  const result = cloneSettings(base);
+  if (!isPlainObject$3(input)) return result;
+
+  const toneMapping = typeof input.toneMapping === "string" ? input.toneMapping.trim().toLowerCase() : "";
+  if (toneMapping in TONE_MAPPING_MODES) result.toneMapping = toneMapping;
+
+  const exposure = Number(input.exposure);
+  if (input.exposure !== undefined && input.exposure !== null && Number.isFinite(exposure) && exposure >= 0) {
+    result.exposure = exposure;
+  }
+
+  if (isPlainObject$3(input.postprocessing)) {
+    const { enabled, antialias } = input.postprocessing;
+    if (typeof enabled === "boolean") result.postprocessing.enabled = enabled;
+    if (ANTIALIAS_MODES.includes(antialias)) result.postprocessing.antialias = antialias;
+  }
+  return result;
+}
+
+function getRenderingSettings() {
+  return cloneSettings(core.rendering || RENDERING_DEFAULTS);
+}
+
+function isPostProcessingActive() {
+  return composer !== null;
+}
+
+function disposeComposer() {
+  if (!composer) return;
+  composer.passes.forEach((pass) => pass.dispose?.());
+  composer.dispose();
+  composer = null;
+  renderPass = null;
+  composerAntialias = null;
+}
+
+function buildComposer(renderer, antialias) {
+  const renderTarget = new THREE.WebGLRenderTarget(1, 1, {
+    type: THREE.HalfFloatType,
+    samples: antialias === "msaa" ? MSAA_SAMPLES : 0,
+  });
+
+  composer = new EffectComposer(renderer, renderTarget);
+  renderPass = new RenderPass(core.scene, core.camera);
+  composer.addPass(renderPass);
+  // SMAA works on linear colors (before OutputPass), FXAA on the final
+  // sRGB image (after it).
+  if (antialias === "smaa") composer.addPass(new SMAAPass());
+  composer.addPass(new OutputPass());
+  if (antialias === "fxaa") composer.addPass(new FXAAPass());
+  composerAntialias = antialias;
+  syncComposerSize(renderer);
+}
+
+// Keeps the composer's buffers and passes at the canvas size.
+function syncComposerSize(renderer) {
+  renderer.getSize(canvasSize);
+  const pixelRatio = renderer.getPixelRatio();
+  if (composer._width === canvasSize.x && composer._height === canvasSize.y && composer._pixelRatio === pixelRatio) return;
+  composer.setPixelRatio(pixelRatio);
+  composer.setSize(canvasSize.x, canvasSize.y);
+}
+
+// Merges `patch` into the current settings and applies them to the renderer.
+function applyRenderingSettings(patch = {}) {
+  const settings = normalizeRenderingSettings(patch, core.rendering || RENDERING_DEFAULTS);
+  setCore("rendering", settings);
+
+  const renderer = core.renderer;
+  if (!renderer) return settings;
+
+  // Materials pick the new mode up by themselves: the renderer recompiles a
+  // program whose tone mapping no longer matches.
+  renderer.toneMapping = TONE_MAPPING_MODES[settings.toneMapping];
+  renderer.toneMappingExposure = settings.exposure;
+
+  const { enabled, antialias } = settings.postprocessing;
+  if (!enabled) {
+    disposeComposer();
+  } else if (composerAntialias !== antialias) {
+    disposeComposer();
+    buildComposer(renderer, antialias);
+  }
+  return settings;
+}
+
+// Called once the main renderer exists. `configSettings` is the deployment's
+// viewer-settings.json viewer.rendering, a fallback for the defaults.
+function initRendering(renderer, configSettings) {
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  setCore("rendering", normalizeRenderingSettings(configSettings));
+  return applyRenderingSettings();
+}
+
+// Draws one frame of the main scene to the canvas.
+function renderFrame(renderer = core.renderer) {
+  if (!renderer || !core.scene || !core.camera) return;
+  if (!composer) {
+    renderer.render(core.scene, core.camera);
+    return;
+  }
+  // setCameraProjection() swaps core.camera and loaders may replace the
+  // scene, so rebind every frame.
+  renderPass.scene = core.scene;
+  renderPass.camera = core.camera;
+  // Follow the canvas size (layout changes, thumbnail capture) without
+  // every resize path having to know about the composer.
+  syncComposerSize(renderer);
+  composer.render();
+}
+
+// The size of one scene unit, in meters, for measurements. Taken from, in
+// this order:
+//   user      the unit picked in the measurement menu, remembered per model
+//   manifest  IIIF Presentation 4 Scene.spatialScale, or AIM3DViewer units
+//   file      the model file's own unit (FBX UnitScaleFactor, 3MF / AMF unit,
+//             USD metersPerUnit, COLLADA <unit>)
+//   config    viewer.measurement.modelUnitInMeters (viewer-settings.json)
+//   default   meters (glTF, IFC and point clouds are meters by definition;
+//             OBJ, STL, PLY have no unit)
+// Files are wrong sometimes (a model made in centimeters, exported to glTF
+// as if in meters): a model of implausible size gets a hint in the
+// measurement panel, with the units that would make it plausible.
+
+const MODEL_UNITS = {
+  m: 1,
+  cm: 0.01,
+  mm: 0.001,
+  in: 0.0254,
+  ft: 0.3048,
+};
+
+// Unit names as manifests and files write them.
+const UNIT_ALIASES = {
+  m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
+  cm: 0.01, centimeter: 0.01, centimeters: 0.01, centimetre: 0.01, centimetres: 0.01,
+  mm: 0.001, millimeter: 0.001, millimeters: 0.001, millimetre: 0.001, millimetres: 0.001,
+  um: 1e-6, micron: 1e-6, micrometer: 1e-6, micrometre: 1e-6,
+  km: 1000, kilometer: 1000, kilometre: 1000,
+  in: 0.0254, inch: 0.0254, inches: 0.0254,
+  ft: 0.3048, foot: 0.3048, feet: 0.3048,
+  yd: 0.9144, yard: 0.9144,
+};
+
+// A model whose largest side lies outside this range (in meters) is
+// probably in another unit than the one assumed.
+const PLAUSIBLE_SIZE = { min: 0.005, max: 500 };
+// ...and the units suggested are those giving it a size in this range.
+const SUGGESTED_SIZE = { min: 0.05, max: 300 };
+
+const STORAGE_PREFIX = "dfg3dviewer-model-unit:";
+const DISPLAY_STORAGE_KEY = "dfg3dviewer-measure-display";
+
+function unitNameToMeters(name) {
+  const meters = UNIT_ALIASES[String(name || "").trim().toLowerCase()];
+  return Number.isFinite(meters) ? meters : null;
+}
+
+// The unit key of a size in meters (0.01 -> "cm"), or null for another one.
+function unitKeyOf(meters) {
+  return Object.keys(MODEL_UNITS).find((key) => Math.abs(MODEL_UNITS[key] - meters) <= MODEL_UNITS[key] * 1e-6) || null;
+}
+
+function readStorage(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch (_error) {
+    // Storage blocked: the choice lasts for this page only.
+  }
+}
+
+// The 3MF model part's unit attribute (default millimeter), read from the
+// archive without parsing its geometry again.
+async function read3MFUnit(url) {
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  const files = unzipSync$1(new Uint8Array(await response.arrayBuffer()), {
+    filter: (file) => /\.model$/i.test(file.name),
+  });
+  const model = Object.values(files)[0];
+  if (!model) return null;
+  const head = new TextDecoder().decode(model.subarray(0, 4096));
+  const unit = head.match(/<model\b[^>]*\bunit\s*=\s*["']([^"']+)["']/i)?.[1] || "millimeter";
+  return unitNameToMeters(unit);
+}
+
+// The unit of a loaded model file, in meters per unit of its geometry - or
+// null when the file has none. Call before the loader's root transform is
+// reset (loaders.js): COLLADA and USD put their unit in the root's scale.
+async function detectFileUnit(object, extension, url) {
+  const ext = String(extension || "").toLowerCase();
+  const root = Array.isArray(object) ? object[0] : object;
+  if (!root) return null;
+  try {
+    if (ext === "fbx") {
+      // Centimeters per unit.
+      const factor = Number(root.userData?.unitScaleFactor);
+      return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
+    }
+    if (ext === "amf") {
+      // AMFLoader scales the geometry to millimeters.
+      return 0.001;
+    }
+    if (ext === "3mf") {
+      return url ? await read3MFUnit(url) : 0.001;
+    }
+    if (ext === "dae" || ext === "usd" || ext === "usda" || ext === "usdc" || ext === "usdz") {
+      // <unit meter="..."> / metersPerUnit, as the root's (uniform) scale.
+      const { x, y, z } = root.scale;
+      const uniform = Math.abs(x - y) < 1e-9 && Math.abs(x - z) < 1e-9;
+      return uniform && x > 0 && Math.abs(x - 1) > 1e-9 ? x : null;
+    }
+  } catch (error) {
+    console.warn("Could not read the model file's unit", error);
+  }
+  return null;
+}
+
+function trim(value, digits) {
+  return Number(value.toFixed(digits)).toString();
+}
+
+function attachModelUnits(Viewer) {
+  Object.assign(Viewer, {
+    // Set per load: the manifest's unit and the file's (meters per unit).
+    manifestUnitMeters: null,
+    detectedModelUnitMeters: null,
+
+    resetModelUnits() {
+      Viewer.manifestUnitMeters = null;
+      Viewer.detectedModelUnitMeters = null;
+    },
+
+    // The model the user's unit choice is remembered for.
+    getModelUnitStorageKey() {
+      const id = core.fileObject?.originalPath || "";
+      return id ? `${STORAGE_PREFIX}${id}` : null;
+    },
+
+    getModelUnitOverride() {
+      const key = Viewer.getModelUnitStorageKey();
+      const stored = key ? readStorage(key) : null;
+      return stored && MODEL_UNITS[stored] ? stored : null;
+    },
+
+    // { meters, source, key } for one scene unit.
+    resolveModelUnit() {
+      const pick = (meters, source) => ({ meters, source, key: unitKeyOf(meters) });
+      const override = Viewer.getModelUnitOverride();
+      if (override) return pick(MODEL_UNITS[override], "user");
+      if (Number(Viewer.manifestUnitMeters) > 0) return pick(Number(Viewer.manifestUnitMeters), "manifest");
+      if (Number(Viewer.detectedModelUnitMeters) > 0) return pick(Number(Viewer.detectedModelUnitMeters), "file");
+      const configured = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
+      if (Number.isFinite(configured) && configured > 0 && configured !== 1) return pick(configured, "config");
+      return pick(1, "default");
+    },
+
+    // "auto" (or null) forgets the user's choice for this model.
+    setModelUnit(unit) {
+      const key = Viewer.getModelUnitStorageKey();
+      if (key) writeStorage(key, unit && unit !== "auto" && MODEL_UNITS[unit] ? unit : null);
+      Viewer.refreshMeasurementUnits?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    getMeasureDisplaySystem() {
+      return readStorage(DISPLAY_STORAGE_KEY) === "imperial" ? "imperial" : "metric";
+    },
+
+    setMeasureDisplaySystem(system) {
+      writeStorage(DISPLAY_STORAGE_KEY, system === "imperial" ? "imperial" : null);
+      Viewer.refreshMeasurementUnits?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    // ---- formatting, from scene units -------------------------------------
+
+    formatLength(sceneUnits) {
+      const meters = sceneUnits * Viewer.resolveModelUnit().meters;
+      if (!Number.isFinite(meters)) return { text: "0", meters: 0 };
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const feet = meters / 0.3048;
+        if (feet >= 5280) return { text: `${trim(feet / 5280, 2)} mi`, meters };
+        if (feet >= 1) return { text: `${feet.toFixed(2)} ft`, meters };
+        return { text: `${(feet * 12).toFixed(feet * 12 >= 1 ? 1 : 2)} in`, meters };
+      }
+      if (meters >= 1000) return { text: `${trim(meters / 1000, 2)} km`, meters };
+      if (meters >= 1) return { text: `${meters.toFixed(2)} m`, meters };
+      if (meters >= 0.01) return { text: `${(meters * 100).toFixed(1)} cm`, meters };
+      return { text: `${(meters * 1000).toFixed(meters * 1000 >= 1 ? 0 : 2)} mm`, meters };
+    },
+
+    formatArea(sceneUnits2) {
+      const scale = Viewer.resolveModelUnit().meters;
+      const m2 = sceneUnits2 * scale * scale;
+      if (!Number.isFinite(m2)) return "0";
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const ft2 = m2 / (0.3048 * 0.3048);
+        if (ft2 >= 1) return `${ft2.toFixed(2)} ft²`;
+        return `${(ft2 * 144).toFixed(1)} in²`;
+      }
+      if (m2 >= 1e6) return `${trim(m2 / 1e6, 3)} km²`;
+      if (m2 >= 0.01) return `${m2.toFixed(m2 >= 1 ? 2 : 3)} m²`;
+      if (m2 >= 1e-4) return `${(m2 * 1e4).toFixed(1)} cm²`;
+      return `${(m2 * 1e6).toFixed(0)} mm²`;
+    },
+
+    formatVolume(sceneUnits3) {
+      const scale = Viewer.resolveModelUnit().meters;
+      const m3 = sceneUnits3 * scale * scale * scale;
+      if (!Number.isFinite(m3)) return "0";
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const ft3 = m3 / (0.3048 ** 3);
+        if (ft3 >= 1000) return `${Math.round(ft3).toLocaleString("en-US")} ft³`;
+        if (ft3 >= 1) return `${ft3.toFixed(2)} ft³`;
+        return `${(ft3 * 1728).toFixed(1)} in³`;
+      }
+      if (m3 >= 1e9) return `${trim(m3 / 1e9, 2)} km³`;
+      if (m3 >= 1000) return `${Math.round(m3).toLocaleString("en-US")} m³`;
+      if (m3 >= 0.001) return `${m3.toFixed(3)} m³`;
+      if (m3 >= 1e-6) return `${(m3 * 1e6).toFixed(1)} cm³`;
+      return `${(m3 * 1e9).toFixed(0)} mm³`;
+    },
+
+    // ---- plausibility -----------------------------------------------------
+
+    // The models' largest side, in scene units (0 when nothing is loaded).
+    getModelLargestSide() {
+      const box = new THREE.Box3();
+      (core.mainObject || []).flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
+        .filter((root) => root?.isObject3D)
+        .forEach((root) => box.expandByObject(root));
+      if (box.isEmpty()) return 0;
+      const size = box.getSize(new THREE.Vector3());
+      return Math.max(size.x, size.y, size.z);
+    },
+
+    // null, or { meters: the largest side as measured now, suggestions: unit
+    // keys that would make it plausible } - unless the user chose the unit.
+    getModelUnitWarning() {
+      const unit = Viewer.resolveModelUnit();
+      if (unit.source === "user") return null;
+      const side = Viewer.getModelLargestSide();
+      if (!(side > 0)) return null;
+      const meters = side * unit.meters;
+      if (meters >= PLAUSIBLE_SIZE.min && meters <= PLAUSIBLE_SIZE.max) return null;
+      const suggestions = Object.keys(MODEL_UNITS)
+        .filter((key) => key !== unit.key)
+        .filter((key) => {
+          const size = side * MODEL_UNITS[key];
+          return size >= SUGGESTED_SIZE.min && size <= SUGGESTED_SIZE.max;
+        })
+        // Metric first, then the closest to the unit assumed now.
+        .sort((a, b) => {
+          const imperial = (key) => (key === "in" || key === "ft" ? 1 : 0);
+          const distance = (key) => Math.abs(Math.log(MODEL_UNITS[key] / unit.meters));
+          return imperial(a) - imperial(b) || distance(a) - distance(b);
+        });
+      return { meters, suggestions: suggestions.slice(0, 3) };
+    },
+
+    describeModelUnitSource(source) {
+      return t$1(`measurement.unitSource.${source}`, source);
+    },
+  });
+}
+
+// Error tracking with GlitchTip (self-hosted, docker-compose.glitchtip.yml),
+// through the Sentry browser SDK - GlitchTip speaks Sentry's protocol. Off
+// until viewer-settings.json names a project DSN (docs/error-tracking.md):
+//   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
+// The SDK is loaded only then, as its own chunk.
+
+const BUILD_ID$2 = "48b5b21" ;
+const BUILD = "test" ;
+
+let initPromise = null;
+
+function getErrorTrackingConfig() {
+  return core.CONFIG?.viewer?.errorTracking || {};
+}
+
+function isErrorTrackingConfigured() {
+  return Boolean(getErrorTrackingConfig().dsn);
+}
+
+// Resolves to the SDK once it is set up, or null when error tracking is off
+// or the SDK failed to load.
+function initErrorTracking() {
+  if (initPromise) return initPromise;
+  const config = getErrorTrackingConfig();
+  if (!config.dsn) return Promise.resolve(null);
+
+  initPromise = import('./error-tracking-sdk-tSSwO2zV.js')
+    .then((Sentry) => {
+      // autoCapture: false sends only what users report with the bug button,
+      // not every uncaught error.
+      const autoCapture = config.autoCapture !== false;
+      Sentry.init({
+        dsn: config.dsn,
+        release: BUILD_ID$2,
+        environment: config.environment || (isAppBuild() ? "app" : BUILD),
+        sendDefaultPii: false,
+        sampleRate: Number.isFinite(config.sampleRate) ? config.sampleRate : 1,
+        ...(autoCapture ? {} : { defaultIntegrations: false }),
+      });
+      Sentry.setTag("platform", isAppBuild() ? "app" : "web");
+      return Sentry;
+    })
+    .catch((error) => {
+      console.warn("Error tracking unavailable:", error);
+      return null;
+    });
+  return initPromise;
+}
+
+// "Report a bug" in the editor toolbar. With error tracking set up
+// (error-tracking.js) it opens a short form and sends the report to
+// GlitchTip, with the diagnostics below. Without it, it opens a new issue on
+// the repository's tracker instead, pre-filled with the same. Settings:
+//   "viewer": { "bugReport": { "enabled": true, "url": "https://..." } }
+// url (issue tracker fallback) gets ?title=...&body=... appended.
+
+const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
+const BUILD_ID$1 = "48b5b21" ;
+const MAX_RECENT_ERRORS = 5;
+// Issue trackers reject very long URLs.
+const MAX_BODY_LENGTH = 6000;
+
+const recentErrors = [];
+
+function rememberError(message) {
+  if (!message) return;
+  recentErrors.push(`${new Date().toISOString()} ${String(message).slice(0, 300)}`);
+  if (recentErrors.length > MAX_RECENT_ERRORS) recentErrors.shift();
+}
+
+window.addEventListener("error", (event) => {
+  rememberError(event.error?.stack?.split("\n").slice(0, 3).join(" | ") || event.message);
+});
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  rememberError(reason?.stack?.split("\n").slice(0, 3).join(" | ") || reason?.message || reason);
+});
+
+function getBugReportConfig() {
+  return core.CONFIG?.viewer?.bugReport || {};
+}
+
+function isBugReportEnabled() {
+  return getBugReportConfig().enabled !== false;
+}
+
+function getGpuRenderer() {
+  try {
+    const gl = core.renderer?.getContext?.();
+    const info = gl?.getExtension("WEBGL_debug_renderer_info");
+    return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : "";
+  } catch {
+    return "";
+  }
+}
+
+function getModelName() {
+  const file = core.fileObject;
+  if (!file?.basename) return "";
+  return file.extension ? `${file.basename}.${file.extension}` : file.basename;
+}
+
+function collectBugReportDiagnostics() {
+  return {
+    build: BUILD_ID$1,
+    platform: isAppBuild() ? "app" : "web",
+    // The app page is served from inside the package; its URL says nothing.
+    page: isAppBuild() ? "" : window.location.href,
+    model: getModelName(),
+    language: core.currentLanguage || navigator.language,
+    userAgent: navigator.userAgent,
+    screen: `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio || 1}x`,
+    gpu: getGpuRenderer(),
+    recentErrors: [...recentErrors],
+  };
+}
+
+function formatBody(diagnostics) {
+  const lines = [
+    "### What happened?",
+    "",
+    "",
+    "### Steps to reproduce",
+    "1. ",
+    "",
+    "### Environment",
+    ...Object.entries(diagnostics)
+      .filter(([key, value]) => key !== "recentErrors" && value)
+      .map(([key, value]) => `- **${key}:** ${value}`),
+  ];
+  if (diagnostics.recentErrors.length) {
+    lines.push("", "### Recent errors", "```", ...diagnostics.recentErrors, "```");
+  }
+  return lines.join("\n").slice(0, MAX_BODY_LENGTH);
+}
+
+function openIssueTracker(diagnostics) {
+  const url = new URL(getBugReportConfig().url || DEFAULT_REPORT_URL);
+  const model = diagnostics.model ? ` (${diagnostics.model})` : "";
+  url.searchParams.set("title", `[Bug] ${diagnostics.platform}${model}: `);
+  url.searchParams.set("body", formatBody(diagnostics));
+  window.open(url.toString(), "_blank", "noopener");
+}
+
+async function sendReport({ description, email, includeDiagnostics }) {
+  const Sentry = await initErrorTracking();
+  if (!Sentry) return false;
+  const summary = description.split("\n")[0].slice(0, 100);
+  const diagnostics = collectBugReportDiagnostics();
+  Sentry.captureMessage(`User report: ${summary}`, {
+    level: "info",
+    tags: { user_report: "true" },
+    user: email ? { email } : undefined,
+    extra: { description },
+    contexts: includeDiagnostics ? { diagnostics } : undefined,
+  });
+  return Sentry.flush(8000);
+}
+
+let dialog = null;
+
+function buildDialog() {
+  const root = document.createElement("div");
+  root.id = "bugReportDialog";
+  root.hidden = true;
+  root.innerHTML = `
+    <div class="annotation-dialog__backdrop" data-bug-report-dismiss="true"></div>
+    <div class="annotation-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="bugReportDialogTitle">
+      <div class="annotation-dialog__header">
+        <h3 id="bugReportDialogTitle"></h3>
+        <button type="button" class="annotation-dialog__close" data-bug-report-dismiss="true">&times;</button>
+      </div>
+      <form class="annotation-dialog__form">
+        <label>
+          <span data-bug-report-label="description"></span>
+          <textarea name="description" rows="6" maxlength="4000" required></textarea>
+        </label>
+        <label>
+          <span data-bug-report-label="email"></span>
+          <input name="email" type="email" maxlength="200" autocomplete="email" />
+        </label>
+        <label class="annotation-dialog__checkbox">
+          <input name="includeDiagnostics" type="checkbox" checked />
+          <span data-bug-report-label="diagnostics"></span>
+        </label>
+        <p class="bug-report-dialog__privacy" data-bug-report-label="privacy"></p>
+        <div class="annotation-dialog__actions">
+          <button type="submit" data-bug-report-label="send"></button>
+          <button type="button" data-bug-report-dismiss="true" data-bug-report-label="cancel"></button>
+        </div>
+      </form>
+    </div>
+  `;
+  ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
+    root.addEventListener(type, (event) => event.stopPropagation());
+  });
+  const form = root.querySelector("form");
+  const close = () => { root.hidden = true; };
+  root.addEventListener("click", (event) => {
+    if (event.target.closest("[data-bug-report-dismiss='true']")) close();
+  });
+  root.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") close();
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submit = form.querySelector("button[type='submit']");
+    const description = form.elements.description.value.trim();
+    if (!description) return;
+    submit.disabled = true;
+    const sent = await sendReport({
+      description,
+      email: form.elements.email.value.trim(),
+      includeDiagnostics: form.elements.includeDiagnostics.checked,
+    });
+    submit.disabled = false;
+    if (sent) {
+      form.reset();
+      close();
+      showToast(t$1("bugReport.sent", "Thank you - the report was sent."), "success");
+    } else {
+      showToast(t$1("bugReport.failed", "The report could not be sent. Please try again later."), "error");
+    }
+  });
+  document.body.appendChild(root);
+  return root;
+}
+
+function syncDialogLabels(root) {
+  root.querySelector("#bugReportDialogTitle").textContent = t$1("bugReport.title", "Report a bug");
+  const closeButton = root.querySelector(".annotation-dialog__close");
+  closeButton.setAttribute("aria-label", t$1("bugReport.cancel", "Cancel"));
+  const labels = {
+    description: t$1("bugReport.description", "What went wrong? What did you do just before?"),
+    email: t$1("bugReport.email", "E-mail (optional, if we may ask you about it)"),
+    diagnostics: t$1("bugReport.includeDiagnostics", "Attach technical details (device, browser, model, recent errors)"),
+    privacy: t$1("bugReport.privacy", "The report goes to the viewer's developers only."),
+    send: t$1("bugReport.send", "Send report"),
+    cancel: t$1("bugReport.cancel", "Cancel"),
+  };
+  root.querySelectorAll("[data-bug-report-label]").forEach((element) => {
+    element.textContent = labels[element.dataset.bugReportLabel] || "";
+  });
+}
+
+function reportBug() {
+  if (!isErrorTrackingConfigured()) {
+    openIssueTracker(collectBugReportDiagnostics());
+    return;
+  }
+  dialog = dialog?.isConnected ? dialog : buildDialog();
+  syncDialogLabels(dialog);
+  dialog.hidden = false;
+  dialog.querySelector("textarea").focus();
+}
+
+// Floating tool panels (section planes, measurements, point cloud, tour) take
+// a lot of a phone screen. On touch devices and in the app their header gets a
+// grip to drag the panel anywhere over the viewer (double tap: back to the
+// side stack) and a button that minimizes it to the header alone.
+
+const DOUBLE_TAP_MS$1 = 320;
+const TAP_SLOP_PX = 6;
+const undockedPanels = new Set();
+
+// Sent on document whenever one of these panels appears, so the editor
+// toolbar can fold its secondary tools away (editor-toolbar.js).
+const TOOL_PANEL_OPEN_EVENT = "viewer-tool-panel-open";
+
+function watchPanelVisibility(panel, root) {
+  const isShown = () => !panel.hidden && !root.hidden;
+  const announce = () => document.dispatchEvent(new CustomEvent(TOOL_PANEL_OPEN_EVENT, { detail: { panel } }));
+  let shown = isShown();
+  if (shown) announce();
+  const observer = new MutationObserver(() => {
+    const now = isShown();
+    if (now && !shown) announce();
+    shown = now;
+  });
+  [...new Set([panel, root])].forEach((element) => {
+    observer.observe(element, { attributes: true, attributeFilter: ["hidden"] });
+  });
+}
+
+function isToolPanelChromeEnabled() {
+  return isAppBuild() || window.matchMedia?.("(pointer: coarse)").matches === true;
+}
+
+// The panel is positioned inside its side stack (position: absolute there),
+// kept within the viewer container.
+function clampPanel(panel) {
+  const stack = panel.offsetParent;
+  const container = core.container;
+  if (!stack || !container) return;
+  const stackRect = stack.getBoundingClientRect();
+  const bounds = container.getBoundingClientRect();
+  // A fullscreen viewer runs on under the app's ad banner (main.css).
+  const bannerHeight = document.fullscreenElement
+    ? parseFloat(getComputedStyle(document.body).getPropertyValue("--app-ad-banner-height")) || 0
+    : 0;
+  const minLeft = bounds.left - stackRect.left;
+  const minTop = bounds.top - stackRect.top;
+  const maxLeft = bounds.right - stackRect.left - panel.offsetWidth;
+  const maxTop = bounds.bottom - bannerHeight - stackRect.top - panel.offsetHeight;
+  const left = Math.min(Math.max(parseFloat(panel.style.left) || 0, minLeft), Math.max(minLeft, maxLeft));
+  const top = Math.min(Math.max(parseFloat(panel.style.top) || 0, minTop), Math.max(minTop, maxTop));
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+}
+
+function undockPanel(panel) {
+  if (panel.classList.contains("is-undocked")) return;
+  panel.style.width = `${panel.offsetWidth}px`;
+  panel.style.left = `${panel.offsetLeft}px`;
+  panel.style.top = `${panel.offsetTop}px`;
+  panel.classList.add("is-undocked");
+  undockedPanels.add(panel);
+}
+
+function dockPanel(panel) {
+  panel.classList.remove("is-undocked");
+  panel.style.removeProperty("left");
+  panel.style.removeProperty("top");
+  panel.style.removeProperty("width");
+  undockedPanels.delete(panel);
+}
+
+window.addEventListener("resize", () => undockedPanels.forEach(clampPanel));
+
+function createGrip(panel) {
+  const grip = document.createElement("button");
+  grip.type = "button";
+  grip.className = "tool-panel-chrome_grip";
+  grip.textContent = "⠿";
+  let lastTap = 0;
+
+  grip.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let startLeft = 0;
+    let startTop = 0;
+    let moved = false;
+    grip.setPointerCapture?.(event.pointerId);
+
+    const onMove = (moveEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      if (!moved) {
+        if (Math.hypot(dx, dy) < TAP_SLOP_PX) return;
+        moved = true;
+        undockPanel(panel);
+        startLeft = parseFloat(panel.style.left) || 0;
+        startTop = parseFloat(panel.style.top) || 0;
+      }
+      panel.style.left = `${startLeft + dx}px`;
+      panel.style.top = `${startTop + dy}px`;
+      clampPanel(panel);
+    };
+    const onEnd = (endEvent) => {
+      grip.releasePointerCapture?.(endEvent.pointerId);
+      grip.removeEventListener("pointermove", onMove);
+      grip.removeEventListener("pointerup", onEnd);
+      grip.removeEventListener("pointercancel", onEnd);
+      if (moved || endEvent.type === "pointercancel") return;
+      const now = performance.now();
+      if (now - lastTap < DOUBLE_TAP_MS$1) {
+        dockPanel(panel);
+        lastTap = 0;
+      } else {
+        lastTap = now;
+      }
+    };
+    grip.addEventListener("pointermove", onMove);
+    grip.addEventListener("pointerup", onEnd);
+    grip.addEventListener("pointercancel", onEnd);
+  });
+  return grip;
+}
+
+function createMinimize(panel) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "tool-panel-chrome_minimize";
+  // Headers that drag their dialog (materials, shading) must not start a
+  // drag - and capture the pointer - from this button.
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", () => {
+    panel.classList.toggle("is-minimized");
+    syncMinimize(panel, button);
+    if (panel.classList.contains("is-undocked")) clampPanel(panel);
+  });
+  return button;
+}
+
+function syncMinimize(panel, button) {
+  const minimized = panel.classList.contains("is-minimized");
+  const label = minimized ? t$1("toolPanel.restore", "Restore panel") : t$1("toolPanel.minimize", "Minimize panel");
+  button.textContent = minimized ? "▢" : "–";
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-expanded", String(!minimized));
+}
+
+// Adds the grip (first in `header`) and the minimize button (before `before`,
+// or last) to a panel. `movable: false` for dialogs that already drag by
+// their header; `visibilityRoot`: the element whose `hidden` shows and hides
+// the panel, when that is not the panel itself. Safe to call again on every
+// render: panels that rebuild their header get the same buttons put back.
+// While minimized, only the header stays visible (tool-panel-chrome in
+// viewer-tools.css).
+function attachToolPanelChrome(panel, header, {
+  before = null,
+  minimizable = true,
+  movable = true,
+  visibilityRoot = panel,
+} = {}) {
+  if (!panel || !header || !isToolPanelChromeEnabled()) return;
+  if (!panel.toolPanelChrome) {
+    panel.toolPanelChrome = {
+      grip: movable ? createGrip(panel) : null,
+      minimize: minimizable ? createMinimize(panel) : null,
+    };
+    panel.classList.add("has-tool-chrome");
+    watchPanelVisibility(panel, visibilityRoot);
+  }
+  const { grip, minimize } = panel.toolPanelChrome;
+  header.classList.add("tool-panel-chrome");
+  if (grip) {
+    const label = t$1("toolPanel.move", "Move panel (double tap: dock)");
+    grip.title = label;
+    grip.setAttribute("aria-label", label);
+    if (header.firstChild !== grip) header.prepend(grip);
+  }
+  if (minimize) {
+    syncMinimize(panel, minimize);
+    const anchor = before && before.parentNode === header ? before : null;
+    if (minimize.nextSibling !== anchor || minimize.parentNode !== header) header.insertBefore(minimize, anchor);
+  }
+}
+
+function getEditorToolbarIcon(icon) {
+  const icons = {
+    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="1.4" fill="currentColor"/><circle cx="16" cy="7" r="1.4" fill="currentColor"/><circle cx="8" cy="12" r="1.4" fill="currentColor"/><circle cx="16" cy="12" r="1.4" fill="currentColor"/><circle cx="8" cy="17" r="1.4" fill="currentColor"/><circle cx="16" cy="17" r="1.4" fill="currentColor"/></svg>',
+    orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
+    move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
+    materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shading: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingStandard: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.15"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2" fill="currentColor" opacity="0.6"/></svg>',
+    shadingPhong: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2.2" fill="currentColor"/></svg>',
+    shadingLambert: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.25"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    shadingToon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9a6.5 6.5 0 0 1 9-3M6.5 15a6.5 6.5 0 0 0 8 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
+    rendering: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5 15.5 12M20.5 12l-8.5 3.5M12 20.5 8.5 12M3.5 12l8.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    toneMapping: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20c5 0 6-11 16-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    antialias: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4v-4h4v-4h4V8h4V4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.45"/><path d="M4 20 20 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
+    intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> </svg>',
+    resetSettings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5A8 8 0 1 1 4 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    displayHelperX: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8 8 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    displayHelperY: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 12 13 17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 13v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    displayHelperZ: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 17h10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7 6h5v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2.5" stroke-linejoin="round"/></svg>',
+    ruler: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    measureDistance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17 12 9l7 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="17" r="2" fill="currentColor"/><circle cx="12" cy="9" r="2" fill="currentColor"/><circle cx="19" cy="14" r="2" fill="currentColor"/></svg>',
+    measureAngle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 19H5L15 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 19a5.5 5.5 0 0 0-2.4-4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    measureArea: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7 14 4l6 9-8 7-7-5z" fill="currentColor" fill-opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    measureDimensions: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 7.5 12 12l8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    measureClear: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>',
+    annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    annotateTour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 7.2v5.6l4.6-2.8z" fill="currentColor"/></svg>',
+    annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+    statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+    performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
+    performanceLow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#2ECC40"/></svg>',
+    expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    projection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8l5-3h7v14h-7l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5v14" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M5 12l7 7 7-7M4 19h16a1 1 0 0 1 1 1v2H3v-2a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    background: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>',
+    backgroundLinear: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>',
+    backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
+    backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
+    backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
+    pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
+    reportBug: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5a4 4 0 0 1 8 0V14a4 4 0 0 1-8 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M20 11h-4M8 15.5l-3 2M16 15.5l3 2M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
+  };
+
+  return icons[icon] || icons.advancedEditor;
+}
+
+function syncEditorToolbarSecondaryTrayWidth(viewer) {
+  if (!viewer.editorToolbarSecondaryTray) return;
+
+  const tray = viewer.editorToolbarSecondaryTray;
+  const trayStyle = getComputedStyle(tray);
+  const gapValue = Number.parseFloat(trayStyle.columnGap || trayStyle.gap || "0");
+  const gap = Number.isFinite(gapValue) ? gapValue : 0;
+  const childCount = tray.children.length;
+  const buttonsWidth = Array.from(tray.children).reduce(
+    (sum, el) => sum + (el?.offsetWidth || 0),
+    0
+  );
+  const width = Math.max(0, buttonsWidth + Math.max(childCount - 1, 0) * gap);
+
+  const widthValue = `${Math.ceil(width)}px`;
+  viewer.editorToolbarSecondaryTray.style.setProperty(
+    "--viewer-toolbar-secondary-width",
+    widthValue
+  );
+
+  (core.editorToolbar || null)?.style.setProperty(
+    "--viewer-toolbar-secondary-width",
+    widthValue
+  );
+}
+
+// Phones - the same media query as the phone toolbar rules in
+// editor-toolbar.css: the secondary tools open as a card above the toolbar.
+const PHONE_TOOLBAR_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
+
+// Toasts sit at the bottom of the viewer; on phones the toolbar (and its
+// expanded card, whose height depends on how many rows it wraps into, and an
+// open submenu above that) covers that spot, so lift them above whatever of
+// it is on screen.
+function syncNoticeAboveToolbar() {
+  const notice = core.noticeContainer;
+  const toolbar = core.editorToolbar;
+  if (!notice) return;
+  const parent = notice.offsetParent;
+  if (!toolbar || !parent || !window.matchMedia(PHONE_TOOLBAR_QUERY).matches) {
+    notice.style.removeProperty("--viewer-notice-safe-bottom");
+    return;
+  }
+  let top = toolbar.getBoundingClientRect().top;
+  const tray = toolbar.querySelector(":scope > .viewer-editor-toolbar_secondary-tray");
+  if (tray && toolbar.classList.contains("expanded")) {
+    top = Math.min(top, tray.getBoundingClientRect().top);
+    // An open submenu (tapped on touch screens) sits above the card.
+    tray.querySelectorAll(":scope > .submenu-open > .viewer-editor-tool_submenu").forEach((submenu) => {
+      top = Math.min(top, submenu.getBoundingClientRect().top);
+    });
+  }
+  const offset = Math.max(8, Math.round(parent.getBoundingClientRect().bottom - top + 10));
+  notice.style.setProperty("--viewer-notice-safe-bottom", `${offset}px`);
+}
+
+// Touch screens have no hover: a tap leaves a tool "hovered" and focused, so
+// its CSS-opened submenu could not be closed by tapping the tool again. In the
+// secondary tray a tap toggles .submenu-open instead (see editor-toolbar.css);
+// opening one closes the others, and a tap outside the toolbar closes all.
+// Submenus are centred on their tool, so near a screen edge - or a nested
+// one wider than a phone (the lights' environment map) - they ran off
+// screen. Shifts the submenu back inside with a margin (its transform is
+// left to the CSS); in the toolbar's own units, as the toolbar is scaled.
+// Lights > Rendering submenu buttons -> the setting value they select.
+const RENDERING_TONE_MAPPING_KEYS = {
+  renderingToneMappingNeutral: "neutral",
+  renderingToneMappingAgx: "agx",
+  renderingToneMappingAces: "aces",
+  renderingToneMappingReinhard: "reinhard",
+  renderingToneMappingCineon: "cineon",
+  renderingToneMappingLinear: "linear",
+  renderingToneMappingNone: "none",
+};
+const RENDERING_ANTIALIAS_KEYS = {
+  renderingAntialiasMsaa: "msaa",
+  renderingAntialiasSmaa: "smaa",
+  renderingAntialiasFxaa: "fxaa",
+  renderingAntialiasNone: "none",
+};
+
+function getRenderingMenuLabels() {
+  return {
+    rendering: t$1("gui.rendering", "Rendering"),
+    renderingToneMapping: t$1("gui.toneMapping", "Tone mapping"),
+    renderingToneMappingNeutral: t$1("gui.toneMappingNeutral", "Neutral"),
+    renderingToneMappingAgx: "AgX",
+    renderingToneMappingAces: "ACES Filmic",
+    renderingToneMappingReinhard: "Reinhard",
+    renderingToneMappingCineon: "Cineon",
+    renderingToneMappingLinear: t$1("gui.toneMappingLinear", "Linear"),
+    renderingToneMappingNone: t$1("gui.toneMappingNone", "None"),
+    renderingExposure: t$1("gui.exposure", "Exposure"),
+    renderingPostprocessing: t$1("gui.postprocessing", "Post-processing"),
+    renderingAntialias: t$1("gui.antialiasing", "Anti-aliasing"),
+    renderingAntialiasMsaa: "MSAA",
+    renderingAntialiasSmaa: "SMAA",
+    renderingAntialiasFxaa: "FXAA",
+    renderingAntialiasNone: t$1("gui.antialiasingNone", "None"),
+  };
+}
+
+const SUBMENU_EDGE = 8;
+
+function fitSubmenuToViewport(submenu) {
+  if (!submenu) return;
+  // Measured where it ends up open: the closed state has another transform,
+  // and the opening transition would report a place on the way.
+  const transition = submenu.style.transition;
+  submenu.style.transition = "none";
+  submenu.style.marginLeft = "";
+  const rect = submenu.getBoundingClientRect();
+  if (rect.width > 0) {
+    const right = document.documentElement.clientWidth - SUBMENU_EDGE;
+    let shift = 0;
+    if (rect.width > right - SUBMENU_EDGE || rect.left < SUBMENU_EDGE) shift = SUBMENU_EDGE - rect.left;
+    else if (rect.right > right) shift = right - rect.right;
+    if (Math.abs(shift) >= 1) {
+      const scale = rect.width / (submenu.offsetWidth || rect.width);
+      submenu.style.marginLeft = `${shift / scale}px`;
+    }
+  }
+  submenu.getBoundingClientRect();
+  submenu.style.transition = transition;
+}
+
+function bindSubmenuFitting(viewer, toolbar) {
+  const fit = (event) => {
+    // Touch opens submenus on the tap itself (bindTouchSubmenus fits them).
+    if (window.matchMedia("(hover: none)").matches) return;
+    const item = event.target.closest?.(".has-submenu");
+    if (item && toolbar.contains(item)) {
+      fitSubmenuToViewport(item.querySelector(":scope > .viewer-editor-tool_submenu"));
+    }
+  };
+  // Hover and keyboard open submenus in CSS.
+  viewer.bindEventListener(toolbar, "pointerover", fit);
+  viewer.bindEventListener(toolbar, "focusin", fit);
+}
+
+function bindTouchSubmenus(viewer, toolbar, tray) {
+  const closeOpenSubmenus = (keep = null) => {
+    tray.querySelectorAll(".has-submenu.submenu-open").forEach((item) => {
+      if (!keep || !item.contains(keep)) item.classList.remove("submenu-open");
+    });
+  };
+
+  viewer.bindEventListener(tray, "click", (event) => {
+    if (!window.matchMedia("(hover: none)").matches) return;
+    const item = event.target.closest(".has-submenu");
+    if (!item || !tray.contains(item)) return;
+    const submenu = item.querySelector(":scope > .viewer-editor-tool_submenu");
+    if (!submenu || submenu.contains(event.target)) return;
+    const open = !item.classList.contains("submenu-open");
+    closeOpenSubmenus(item);
+    item.classList.toggle("submenu-open", open);
+    if (open) fitSubmenuToViewport(submenu);
+    syncNoticeAboveToolbar();
+  });
+
+  viewer.bindEventListener(document, "click", (event) => {
+    if (toolbar.contains(event.target) || !tray.querySelector(".submenu-open")) return;
+    closeOpenSubmenus();
+    syncNoticeAboveToolbar();
+  });
+}
+
+function getEditorToolbarHost(viewer) {
+  if (core.container?.classList.contains("viewer-window-controls-enabled")) {
+    return core.container;
+  }
+  return core.viewerWrapper || core.container || null;
+}
+
+function getEditorToolbarConfig(viewer) {
+  return core.CONFIG?.viewer?.editorToolbar || viewer?.CONFIG?.viewer?.editorToolbar || {};
+}
+
+function isEditorToolbarEnabled(viewer) {
+  const enabled = getEditorToolbarConfig(viewer).enabled;
+  const parsedEnabled = viewer.parseBooleanParam?.(enabled);
+
+  if (parsedEnabled != null) {
+    return parsedEnabled;
+  }
+
+  return enabled !== false;
+}
+
+function getToolbarBaseLeft(toolbar) {
+  if (!toolbar) return 0;
+  const computedLeft = Number.parseFloat(getComputedStyle(toolbar).left);
+  return Number.isFinite(computedLeft) ? computedLeft : 0;
+}
+
+function hasConfiguredToolbarPosition(viewer) {
+  if (viewer?.editorToolbarPositionExplicit === true) return true;
+  const position = getEditorToolbarConfig(viewer).position || {};
+  const parsedX = viewer.parseFloatParam?.(position.x);
+  const parsedY = viewer.parseFloatParam?.(position.y);
+  if (parsedX == null && parsedY == null) return false;
+  return Boolean((parsedX ?? 0) !== 0 || (parsedY ?? 0) !== 0);
+}
+
+function getInitialToolbarPosition(viewer, toolbar = null, host = null) {
+  const position = getEditorToolbarConfig(viewer).position || {};
+  const parsedX = viewer.parseFloatParam?.(position.x);
+  const parsedY = viewer.parseFloatParam?.(position.y);
+
+  if (parsedX != null || parsedY != null) {
+    return {
+      x: parsedX ?? 0,
+      y: parsedY ?? 0,
+    };
+  }
+
+  if (toolbar && host) {
+    const hostRect = host.getBoundingClientRect();
+    const baseLeft = getToolbarBaseLeft(toolbar);
+    const centeredX = Math.max((hostRect.width - toolbar.offsetWidth) / 2 - baseLeft, 0);
+
+    return {
+      x: centeredX,
+      y: 0,
+    };
+  }
+
+  return {
+    x: 0,
+    y: 0,
+  };
+}
+
+function syncToolbarExpandAnchorMode(viewer, toolbar = core.editorToolbar) {
+  if (!toolbar) return;
+  const isExplicit = viewer?.editorToolbarPositionExplicit === true;
+  toolbar.classList.toggle("viewer-editor-toolbar_anchor-left", isExplicit);
+  toolbar.classList.toggle("viewer-editor-toolbar_anchor-center", !isExplicit);
+}
+
+function syncToolbarExpandOffset(viewer, toolbar = core.editorToolbar) {
+  if (!toolbar) return;
+  const isExplicit = viewer?.editorToolbarPositionExplicit === true;
+  const isExpanded = viewer?.isToolbarExpanded === true;
+  const shift = !isExplicit && isExpanded
+    ? "calc(var(--viewer-toolbar-secondary-width, 0px) / -2)"
+    : "0px";
+  toolbar.style.setProperty("--viewer-toolbar-expand-shift", shift);
+}
+
+function setStoredToolbarPosition(viewer, x, y, options = {}) {
+  const {
+    explicit = true,
+    toolbarElement = null,
+  } = options;
+  const nextPosition = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+
+  viewer.editorToolbarPosition = nextPosition;
+  viewer.editorToolbarPositionExplicit = explicit === true;
+
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.editorToolbar ??= {};
+  core.CONFIG.viewer.editorToolbar.position = nextPosition;
+
+  const toolbar = toolbarElement || core.editorToolbar;
+  syncToolbarExpandAnchorMode(viewer, toolbar);
+  syncToolbarExpandOffset(viewer, toolbar);
+}
+
+function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
+  let dragState = null;
+  let positionIsExplicit = hasConfiguredToolbarPosition(viewer);
+
+  // persistent toolbar position
+  const initialPosition = getInitialToolbarPosition(viewer, toolbar, host);
+  let currentX = initialPosition.x;
+  let currentY = initialPosition.y;
+  setStoredToolbarPosition(viewer, currentX, currentY, { explicit: positionIsExplicit });
+
+  const getScale = () => {
+    const style = getComputedStyle(toolbar);
+    const scale = parseFloat(
+      style.getPropertyValue("--viewer-toolbar-scale")
+    );
+
+    return Number.isFinite(scale) ? scale : 1;
+  };
+
+  const clampPosition = (x, y) => {
+    const hostRect = host.getBoundingClientRect();
+
+    return {
+      x: Math.min(
+        Math.max(x, -hostRect.width),
+        hostRect.width
+      ),
+
+      y: Math.min(
+        Math.max(y, -hostRect.height),
+        hostRect.height
+      ),
+    };
+  };
+
+  const applyPosition = () => {
+    toolbar.style.setProperty("--drag-x", `${currentX}px`);
+    toolbar.style.setProperty("--drag-y", `${currentY}px`);
+    setStoredToolbarPosition(viewer, currentX, currentY, {
+      explicit: positionIsExplicit,
+      toolbarElement: toolbar,
+    });
+  };
+
+  toolbar.__setViewerToolbarPosition = (x, y, options = {}) => {
+    if (Number.isFinite(x)) currentX = x;
+    if (Number.isFinite(y)) currentY = y;
+    if (typeof options.explicit === "boolean") {
+      positionIsExplicit = options.explicit;
+    }
+    applyPosition();
+  };
+
+  const updateToolbarPosition = (event) => {
+    if (!dragState) return;
+
+    const scale = getScale();
+
+    const dx = (event.clientX - dragState.startX) / scale;
+    const dy = (event.clientY - dragState.startY) / scale;
+
+    const pos = clampPosition(
+      dragState.originX + dx,
+      dragState.originY + dy
+    );
+
+    currentX = pos.x;
+    currentY = pos.y;
+
+    applyPosition();
+  };
+
+  const stopToolbarDrag = () => {
+    if (!dragState) return;
+
+    dragState = null;
+
+    toolbar.classList.remove("viewer-editor-toolbar_dragging");
+
+    document.removeEventListener(
+      "pointermove",
+      updateToolbarPosition
+    );
+
+    document.removeEventListener(
+      "pointerup",
+      stopToolbarDrag
+    );
+
+    document.removeEventListener(
+      "pointercancel",
+      stopToolbarDrag
+    );
+
+    requestAnimationFrame(() => {
+      toolbar.style.removeProperty("transition");
+    });
+  };
+
+  const startToolbarDrag = (event) => {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!positionIsExplicit && viewer.isToolbarExpanded === true) {
+      const secondaryWidth = Number.parseFloat(
+        getComputedStyle(toolbar).getPropertyValue("--viewer-toolbar-secondary-width")
+      );
+      if (Number.isFinite(secondaryWidth) && secondaryWidth > 0) {
+        // Keep the current visual position when switching from center mode
+        // (negative expand shift) to explicit left-anchor mode.
+        currentX -= secondaryWidth / 2;
+      }
+    }
+
+    positionIsExplicit = true;
+    applyPosition();
+
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentX,
+      originY: currentY,
+    };
+
+    toolbar.classList.add("viewer-editor-toolbar_dragging");
+
+    toolbar.style.transition = "none";
+
+    document.addEventListener(
+      "pointermove",
+      updateToolbarPosition,
+      {passive: true}
+    );
+
+    document.addEventListener(
+      "pointerup",
+      stopToolbarDrag
+    );
+
+    document.addEventListener(
+      "pointercancel",
+      stopToolbarDrag
+    );
+  };
+
+  viewer.bindEventListener(
+    handle,
+    "pointerdown",
+    startToolbarDrag
+  );
+
+  viewer.bindEventListener(handle, "click", (event) => {
+    event.stopPropagation();
+  });
+
+  // keep position valid after resize
+  const resizeObserver = new ResizeObserver(() => {
+    const hostRect = host.getBoundingClientRect();
+    const nextX = positionIsExplicit
+      ? currentX
+      : Math.max((hostRect.width - toolbar.offsetWidth) / 2 - getToolbarBaseLeft(toolbar), 0);
+    const pos = clampPosition(nextX, currentY);
+
+    currentX = pos.x;
+    currentY = pos.y;
+
+    applyPosition();
+  });
+
+  resizeObserver.observe(host);
+
+  applyPosition();
+}
+
+function attachEditorToolbar(viewer) {
+  if (!core.editorToolbar || !core.container) return;
+  if (getComputedStyle(core.container).position === 'static') {
+    core.container.style.position = 'relative';
+  }
+  const host = core.container.classList.contains("viewer-window-controls-enabled")
+    ? core.container
+    : getEditorToolbarHost();
+  if (!host || core.editorToolbar.parentElement === host) return;
+  host.appendChild(core.editorToolbar);
+}
+
+function toggleToolbarExpanded(viewer) {
+  if (!core.editorToolbar) return;
+
+  const host = getEditorToolbarHost();
+  const previousRect = core.editorToolbar.getBoundingClientRect();
+  const previousLeft = previousRect.left;
+
+  syncEditorToolbarSecondaryTrayWidth(viewer);
+  viewer.isToolbarExpanded = !viewer.isToolbarExpanded;
+  if (!viewer.isToolbarExpanded) {
+    viewer.editorToolbarSecondaryTray
+      ?.querySelectorAll(".has-submenu.submenu-open")
+      .forEach((item) => item.classList.remove("submenu-open"));
+  }
+  // After the tray's open/close transition (0.2s on phones).
+  setTimeout(syncNoticeAboveToolbar, 250);
+  requestAnimationFrame(updateToolbarGroups);
+  core.editorToolbar.classList.toggle("expanded", viewer.isToolbarExpanded);
+  core.editorToolbar.classList.toggle("collapsed", !viewer.isToolbarExpanded);
+  syncToolbarExpandOffset(viewer, core.editorToolbar);
+  viewer.editorToolbarButtons.expand.classList.toggle("expanded-icon", viewer.isToolbarExpanded);
+  viewer.editorToolbarButtons.expand.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
+  const icon = viewer.editorToolbarButtons.expand.querySelector(".viewer-editor-tool_icon");
+  if (icon) {
+    icon.innerHTML = getEditorToolbarIcon(viewer.isToolbarExpanded ? "collapse" : "expand");
+  }
+
+  requestAnimationFrame(() => {
+    if (!core.editorToolbar || !host) return;
+
+    const isExplicitAnchor = viewer.editorToolbarPositionExplicit === true;
+    if (!isExplicitAnchor) {
+      return;
+    }
+
+    const nextRect = core.editorToolbar.getBoundingClientRect();
+    const scale = (() => {
+      const style = getComputedStyle(core.editorToolbar);
+      const value = Number.parseFloat(style.getPropertyValue("--viewer-toolbar-scale"));
+      return Number.isFinite(value) && value > 0 ? value : 1;
+    })();
+
+    const currentPosition = viewer.editorToolbarPosition || getInitialToolbarPosition(viewer);
+    const offsetDelta = nextRect.left - previousLeft;
+
+    if (Math.abs(offsetDelta) > 0.5) {
+      const nextX = currentPosition.x - (offsetDelta / scale);
+      setStoredToolbarPosition(viewer, nextX, currentPosition.y, {
+        explicit: isExplicitAnchor,
+      });
+      core.editorToolbar.style.setProperty("--drag-x", `${nextX}px`);
+    }
+  });
+
+  viewer.updateEditorToolbarLabels();
+}
+
+async function downloadFile(fileName = "model.glb") {
+  if (!core.downloadModel) return;
+
+  const handle = await window.showSaveFilePicker({
+    suggestedName: fileName,
+  });
+
+  const writable = await handle.createWritable();
+
+  const response = await fetch(core.downloadModelElement.href);
+  const blob = await response.blob();
+  if (!blob) {
+    toastHelper("downloadError", "error");
+    return;
+  }
+
+  await writable.write(blob);
+  await writable.close();
+
+  toastHelper("downloadSuccess", "success");
+}
+
+function createEditorToolbar(viewer) {
+  if (!core.EDITOR || viewer.urlOptions.hideUi || core.editorToolbar || !core.container || !isEditorToolbarEnabled(viewer)) return;
+
+  const toolbar = document.createElement("div");
+  toolbar.id = "viewerEditorToolbar";
+  toolbar.setAttribute("role", "toolbar");
+  toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
+
+  // Ordered by theme; each `group` sits on a faint shared background
+  // (updateToolbarGroups), without extra spacing.
+  const tools = [
+    { key: "moveToolbar", icon: "moveToolbar", onClick: () => {}, pressed:true, primary: true },
+    // Transform the model.
+    { key: "orbit", group: "transform", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
+    { key: "move", group: "transform", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
+    { key: "rotate", group: "transform", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
+    { key: "scale", group: "transform", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
+    // Shown only while a point cloud is loaded (updateEditorToolbarState):
+    // opens its settings window (editor/point-cloud-panel.js).
+    { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
+    { key: "fullScreen", group: "display", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
+    // Camera and view.
+    { key: "resetCamera", group: "view", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
+    { key: "projection", group: "view", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
+    { key: "clippingPlanes", group: "view", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
+    // Appearance.
+    { key: "lights", group: "appearance", icon: "lights", onClick: () => {}, pressed: false, primary: false },
+    { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
+    { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
+    { key: "wireframe", group: "appearance", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
+    { key: "background", group: "appearance", icon: "background", onClick: () => {}, pressed: false, primary: false },
+    { key: "resetSettings", group: "appearance", icon: "resetSettings", onClick: () => viewer.resetModelSettings(), primary: false },
+    // Inspect, measure, annotate.
+    { key: "picking", group: "inspect", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
+    { key: "hierarchy", group: "inspect", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
+    { key: "ruler", group: "inspect", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
+    { key: "annotate", group: "inspect", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
+    { key: "statistics", group: "inspect", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+    // Help.
+    { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
+    { key: "help", group: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
+  ];
+
+  // Not in the app (remote.js): the WebView ignores download links, and the
+  // preview and save buttons send to the server.
+  if ((!core.isLightweight || core.isLocalPreview) && !isAppBuild()) {
+    // File: before the help group.
+    tools.splice(tools.findIndex((tool) => tool.group === "help"), 0,
+      { key: "loadingLogs", group: "file", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
+      { key: "download", group: "file", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
+      { key: "preview", group: "file", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
+      { key: "save", group: "file", icon: "save", onClick: () => {}, primary: false }
+    );
+  }
+
+  if (!isBugReportEnabled()) {
+    tools.splice(tools.findIndex((tool) => tool.key === "reportBug"), 1);
+  }
+
+  // A tool panel opening (touch devices, ui/tool-panel-chrome.js) folds the
+  // secondary tools away, so the expanded tray does not cover the model too.
+  // After the tap that opened it: bindTouchSubmenus would otherwise open the
+  // tool's submenu again on the folded tray; folding closes submenus.
+  viewer.bindEventListener(document, TOOL_PANEL_OPEN_EVENT, () => {
+    setTimeout(() => {
+      if (viewer.isToolbarExpanded) toggleToolbarExpanded(viewer);
+    }, 0);
+  });
+
+  viewer.editorToolbarButtons = {};
+  viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
+  viewer.shadingMode = viewer.shadingMode || "standard";
+
+  const secondaryTray = document.createElement("div");
+  secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
+  viewer.editorToolbarSecondaryTray = secondaryTray;
+
+  tools.forEach((tool) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "viewer-editor-tool";
+    if (!tool.primary) {
+      button.classList.add("viewer-editor-tool-not-primary");
+    }
+    button.dataset.tool = tool.key;
+    if (tool.group) button.dataset.group = tool.group;
+    button.dataset.pressed = tool.pressed ? "true" : "false";
+    button.dataset.primary = tool.primary ? "true" : "false";
+    if (tool.key === "materials") {
+      const label = t$1("gui.materials", "Materials");
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    }
+    if (tool.key === "shading") {
+      const label = t$1("gui.shading", "Shading");
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    }
+    button.innerHTML = `
+      <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(tool.icon)}</span>
+      <span class="viewer-editor-tool_sr"></span>
+    `;
+    if (tool.key === "moveToolbar") {
+      initializeEditorToolbarDrag(button, viewer, toolbar, getEditorToolbarHost());
+    }
+    else if (tool.key === "clippingPlanes") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      const submenuItems = [
+        { key: "displayHelperX", icon: "displayHelperX", label: t$1("gui.displayHelperX", "Show X helper"), onClick: () => viewer.toggleClippingPlaneHelper("x") },
+        { key: "displayHelperY", icon: "displayHelperY", label: t$1("gui.displayHelperY", "Show Y helper"), onClick: () => viewer.toggleClippingPlaneHelper("y") },
+        { key: "displayHelperZ", icon: "displayHelperZ", label: t$1("gui.displayHelperZ", "Show Z helper"), onClick: () => viewer.toggleClippingPlaneHelper("z") },
+        { key: "visible", icon: "visible", label: t$1("gui.visible", "Visible"), onClick: () => viewer.toggleClippingPlaneVisible() },
+      ];
+      viewer.clippingPlaneSubmenuButtons = {};
+      submenuItems.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = item.key;
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          item.onClick();
+        });
+        submenu.appendChild(subButton);
+        viewer.clippingPlaneSubmenuButtons[item.key] = subButton;
+      });
+      button.appendChild(submenu);
+    } else if (tool.key === "ruler") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      const submenuItems = [
+        { key: "distance", icon: "measureDistance", onClick: () => viewer.setMeasurementMode("distance") },
+        { key: "angle", icon: "measureAngle", onClick: () => viewer.setMeasurementMode("angle") },
+        { key: "area", icon: "measureArea", onClick: () => viewer.setMeasurementMode("area") },
+        { key: "dimensions", icon: "measureDimensions", onClick: () => viewer.toggleModelDimensions() },
+        { key: "clear", icon: "measureClear", onClick: () => { viewer.clearMeasurements(); viewer.updateEditorToolbarState(); } },
+      ];
+      viewer.measurementSubmenuButtons = {};
+      submenuItems.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = `measure-${item.key}`;
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          viewer.stopHandMode();
+          item.onClick();
+        });
+        submenu.appendChild(subButton);
+        viewer.measurementSubmenuButtons[item.key] = subButton;
+      });
+
+      // Model unit: the button shows the unit in use; its menu picks another
+      // (remembered for this model) or goes back to the automatic one.
+      const unitsButton = document.createElement("button");
+      unitsButton.type = "button";
+      unitsButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button has-submenu viewer-editor-tool_unit";
+      unitsButton.dataset.tool = "measure-units";
+      unitsButton.innerHTML = '<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">m</span>';
+      const unitsMenu = document.createElement("div");
+      unitsMenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-units";
+      viewer.measurementUnitButtons = {};
+      ["auto", ...Object.keys(MODEL_UNITS)].forEach((unit) => {
+        const choice = document.createElement("button");
+        choice.type = "button";
+        choice.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_unit-choice";
+        choice.dataset.unit = unit;
+        choice.innerHTML = `<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">${unit === "auto" ? "A" : unit}</span>`;
+        viewer.bindEventListener(choice, "click", (event) => {
+          event.stopPropagation();
+          viewer.setModelUnit(unit);
+        });
+        unitsMenu.appendChild(choice);
+        viewer.measurementUnitButtons[unit] = choice;
+      });
+      unitsButton.appendChild(unitsMenu);
+      viewer.bindEventListener(unitsButton, "click", (event) => event.stopPropagation());
+      submenu.appendChild(unitsButton);
+      viewer.measurementSubmenuButtons.units = unitsButton;
+
+      button.appendChild(submenu);
+    } else if (tool.key === "annotate") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      const submenuItems = [
+        { key: "annotateAdd", icon: "annotateAdd", label: t$1("gui.annotateAdd", "Add Annotation"), onClick: () => viewer.openAnnotationDialogWithAutoPicking() },
+        { key: "annotateTour", icon: "annotateTour", label: t$1("tour.start", "Start guided tour"), onClick: () => viewer.toggleTour() },
+        { key: "annotateImport", icon: "annotateImport", label: t$1("gui.annotateImport", "Import Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
+        { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
+        { key: "IIIFimport", icon: "IIIFimport", label: t$1("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
+        { key: "IIIFexport", icon: "IIIFexport", label: t$1("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.export3IFManifest() },
+      ];
+      viewer.annotateSubmenuButtons = {};
+      submenuItems.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = item.key;
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          item.onClick();
+        });
+        submenu.appendChild(subButton);
+        viewer.annotateSubmenuButtons[item.key] = subButton;
+      });
+      button.appendChild(submenu);
+    } else if (tool.key === "materials") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
+      viewer.materialsSubmenu = submenu;
+      viewer.refreshMaterialsToolbarMenu();
+      button.appendChild(submenu);
+    } else if (tool.key === "hierarchy") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
+      viewer.hierarchySubmenu = submenu;
+      const hierarchyList = document.createElement("div");
+      hierarchyList.className = "viewer-editor-hierarchy-submenu-list";
+      viewer.hierarchySubmenuList = hierarchyList;
+      const clearButton = document.createElement("button");
+      clearButton.type = "button";
+      clearButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-clear";
+      viewer.bindEventListener(clearButton, "click", (event) => {
+        event.stopPropagation();
+        viewer.clearHierarchySelection();
+      });
+      viewer.hierarchyClearButton = clearButton;
+      viewer.hierarchySubmenuButtons = {};
+      submenu.appendChild(hierarchyList);
+      submenu.appendChild(clearButton);
+      button.appendChild(submenu);
+    } else if (tool.key === "save") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-save-submenu";
+      viewer.bindEventListener(submenu, "click", (event) => {
+        event.stopPropagation();
+      });
+      const submenuItems = [
+        { key: "Position", label: t$1("gui.position", "Position") },
+        { key: "Rotation", label: t$1("gui.rotation", "Rotation") },
+        { key: "Scale", label: t$1("gui.scale", "Scale") },
+        { key: "Camera", label: t$1("gui.camera", "Camera") },
+        { key: "DirectionalLight", label: t$1("gui.directionalLight", "Directional Light") },
+        { key: "AmbientLight", label: t$1("gui.ambientLight", "Ambient Light") },
+        /*{ key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },*/
+        { key: "BackgroundColor", label: t$1("gui.backgroundColor", "Background Color") },
+      ];
+      viewer.saveSubmenuCheckboxes = {};
+      submenuItems.forEach((item) => {
+        const row = document.createElement("label");
+        row.className = "viewer-editor-save-option";
+        row.setAttribute("title", item.label);
+        row.setAttribute("aria-label", item.label);
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = Boolean(viewer.saveProperties[item.key]);
+        checkbox.dataset.property = item.key;
+        viewer.bindEventListener(checkbox, "click", (event) => {
+          event.stopPropagation();
+        });
+        viewer.bindEventListener(checkbox, "change", (event) => {
+          event.stopPropagation();
+          viewer.saveProperties[item.key] = event.target.checked;
+        });
+
+        const text = document.createElement("span");
+        text.className = "viewer-editor-save-option_label";
+        text.textContent = item.label;
+
+        row.appendChild(checkbox);
+        row.appendChild(text);
+        submenu.appendChild(row);
+        viewer.saveSubmenuCheckboxes[item.key] = { row, checkbox, text };
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "viewer-editor-save-actions";
+
+      const saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.className = "viewer-editor-save-apply";
+      saveButton.textContent = t$1("gui.saveSettings", "Save settings");
+      viewer.bindEventListener(saveButton, "click", (event) => {
+        event.stopPropagation();
+        viewer.saveEditorMetadata();
+      });
+      viewer.saveSubmenuActionButton = saveButton;
+
+      actions.appendChild(saveButton);
+      submenu.appendChild(actions);
+      button.appendChild(submenu);
+    } else if (tool.key === "statistics") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.statisticsSubmenuButtons = {};
+
+      const appendStatisticsSubmenuItems = (items, container) => {
+        items.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+          subButton.setAttribute("aria-pressed", item.pressed);
+
+          const iconSpan = document.createElement("span");
+          iconSpan.className = "viewer-editor-tool_icon";
+          iconSpan.setAttribute("aria-hidden", "true");
+          iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
+          subButton.appendChild(iconSpan);
+
+          const srSpan = document.createElement("span");
+          srSpan.className = "viewer-editor-tool_sr";
+          srSpan.textContent = item.label;
+          subButton.appendChild(srSpan);
+
+          if (item.onClick) {
+            viewer.bindEventListener(subButton, "click", (event) => {
+              event.stopPropagation();
+              item.onClick();
+            });
+          }
+
+          if (item.children) {
+            subButton.classList.add("has-submenu");
+            const nested = document.createElement("div");
+            nested.className = "viewer-editor-tool_submenu";
+            appendStatisticsSubmenuItems(item.children, nested);
+            subButton.appendChild(nested);
+          }
+
+          viewer.statisticsSubmenuButtons[item.key] = subButton;
+          container.appendChild(subButton);
+        });
+      };
+
+      appendStatisticsSubmenuItems([
+        {
+          key: "toggleStats",
+          icon: "statistics",
+          label: t$1("gui.statistics", "Statistics"),
+          pressed: false,
+          onClick: () => viewer.toggleStatsVisibility(),
+        },
+        {
+          key: "performance",
+          icon: "performance",
+          label: t$1("gui.performance", "Performance"),
+          children: [
+            {
+              key: "performanceDefault",
+              icon: "statistics",
+              label: t$1("gui.default", "Default"),
+              onClick: () => viewer.setPerformanceMode("default"),
+              pressed: true,
+            },
+            {
+              key: "performanceHigh",
+              icon: "performanceHigh",
+              label: t$1("gui.highPerformance", "High-performance"),
+              onClick: () => viewer.setPerformanceMode("high-performance"),
+              pressed: true,
+            },
+            {
+              key: "performanceLow",
+              icon: "performanceLow",
+              label: t$1("gui.lowPower", "Low-power"),
+              onClick: () => viewer.setPerformanceMode("low-power"),
+              pressed: true,
+            },
+          ],
+        },
+      ], submenu);
+
+      button.appendChild(submenu);
+    } else if (tool.key === "lights") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.lightsSubmenuButtons = {};
+
+      const normalizeColorValue = (value) => {
+        if (typeof value !== "string") return "#ffffff";
+        if (value.startsWith("0x")) {
+          return `#${value.slice(2).padStart(6, "0")}`;
+        }
+        return value.startsWith("#") ? value : `#${value}`;
+      };
+
+      const appendSubmenuItems = (items, container) => {
+        items.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button ";
+          subButton.dataset.tool = item.key;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+
+          const iconSpan = document.createElement("span");
+          iconSpan.className = "viewer-editor-tool_icon";
+          iconSpan.setAttribute("aria-hidden", "true");
+          iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
+          subButton.appendChild(iconSpan);
+
+          if (item.type === "color") {
+            subButton.classList.add("viewer-editor-tool_submenu-control");
+            if (item.compactPicker === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
+            }
+
+            const colorInput = document.createElement("input");
+            colorInput.type = "color";
+            colorInput.value = normalizeColorValue(item.value());
+            colorInput.className = "viewer-editor-tool_submenu-input";
+            colorInput.addEventListener("click", (event) => event.stopPropagation());
+            colorInput.addEventListener("input", (event) => {
+              const value = event.target.value;
+              item.onChange(value);
+              colorInput.value = normalizeColorValue(value);
+            });
+            subButton.appendChild(colorInput);
+          } else if (item.type === "slider") {
+            subButton.classList.add("viewer-editor-tool_submenu-control");
+
+            const slider = document.createElement("input");
+            slider.type = "range";
+            slider.min = item.min ?? 0;
+            slider.max = item.max ?? 10;
+            slider.step = item.step ?? 0.01;
+            slider.value = String(item.value());
+            slider.className = "viewer-editor-tool_submenu-input";
+            slider.addEventListener("click", (event) => event.stopPropagation());
+            slider.addEventListener("input", (event) => {
+              const value = parseFloat(event.target.value);
+              item.onChange(value);
+              valueLabel.textContent = value.toFixed(2);
+            });
+
+            const valueLabel = document.createElement("span");
+            valueLabel.className = "viewer-editor-tool_submenu-value";
+            valueLabel.textContent = Number(item.value()).toFixed(2);
+            valueLabel.setAttribute("aria-hidden", "true");
+
+            subButton.appendChild(slider);
+            subButton.appendChild(valueLabel);
+          } else if (item.type === "toggle") {
+            subButton.classList.add("viewer-editor-tool_submenu-control", "viewer-editor-tool_submenu-toggle");
+            subButton.setAttribute("type", "button");
+
+            const toggleState = document.createElement("span");
+            toggleState.className = "viewer-editor-tool_submenu-toggle-state";
+            const setToggleState = () => {
+              const enabled = Boolean(item.value());
+              toggleState.textContent = enabled ? t$1("gui.on", "ON") : t$1("gui.off", "OFF");
+              subButton.setAttribute("aria-pressed", enabled ? "true" : "false");
+              subButton.classList.toggle("is-active", enabled);
+            };
+            setToggleState();
+
+            viewer.bindEventListener(subButton, "click", async (event) => {
+              event.stopPropagation();
+              const nextValue = !Boolean(item.value());
+              if (item.onChange) {
+                await item.onChange(nextValue);
+              }
+              setToggleState();
+            });
+
+            subButton.appendChild(toggleState);
+          } else if (item.onClick) {
+            viewer.bindEventListener(subButton, "click", (event) => {
+              event.stopPropagation();
+              item.onClick();
+            });
+          }
+
+          if (item.children) {
+            subButton.classList.add("has-submenu");
+            const nested = document.createElement("div");
+            nested.className = "viewer-editor-tool_submenu";
+            appendSubmenuItems(item.children, nested);
+            subButton.appendChild(nested);
+          }
+
+          if (
+            item.key === "lightTargetTransformMove" ||
+            item.key === "lightTargetTransformTarget" ||
+            item.key.startsWith("environmentMap") ||
+            item.key.startsWith("rendering")
+          ) {
+            viewer.lightsSubmenuButtons[item.key] = subButton;
+          }
+          container.appendChild(subButton);
+        });
+      };
+
+      appendSubmenuItems([
+        {
+          key: "environmentMap",
+          icon: "environmentMap",
+          label: t$1("gui.environmentMap", "Environment map"),
+          children: [
+            {
+              key: "environmentMapToggle",
+              icon: "environmentMap",
+              label: t$1("gui.environmentMapToggle", "Environment map"),
+              type: "toggle",
+              value: () => (core.scene?.environmentIntensity ?? 0) > 0,
+              onChange: async (value) => {
+                await viewer.setEnvironmentMapEnabled(value);
+                if (!core.scene) return;
+                viewer.updateEditorToolbarState();
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapIntensity",
+              icon: "intensity",
+              label: t$1("gui.intensity", "Intensity"),
+              type: "slider",
+              min: 0,
+              max: 1,
+              step: 0.01,
+              value: () => core.environmentMapIntensity ?? 0.5,
+              onChange: (value) => {
+                if (!core.scene) return;
+                core.scene.environmentIntensity = value;
+                core.scene.traverse((child) => {
+                  const materials = child?.material
+                    ? Array.isArray(child.material)
+                      ? child.material
+                      : [child.material]
+                    : [];
+                  materials.forEach((material) => {
+                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
+                      material.needsUpdate = true;
+                    }
+                  });
+                });
+              },
+            },
+            {
+              key: "environmentMapStyleNeutral",
+              iconHtml: "🌥",
+              label: t$1("gui.environmentMapNeutral", "Neutral"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("neutral");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleSunny",
+              iconHtml: "☀️",
+              label: t$1("gui.environmentMapSunny", "Sunny"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("sunny");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleStudio",
+              iconHtml: "📸",
+              label: t$1("gui.environmentMapStudio", "Studio"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("studio");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "environmentMapStyleGoldenHour",
+              iconHtml: "🌅",
+              label: t$1("gui.environmentMapGoldenHour", "Golden Hour"),
+              onClick: async () => {
+                await viewer.setEnvironmentMapPreset("goldenHour");
+                viewer.updateLightsSubmenuState();
+              },
+            },
+          ],
+        },
+        {
+          key: "rendering",
+          icon: "rendering",
+          label: t$1("gui.rendering", "Rendering"),
+          children: [
+            {
+              key: "renderingToneMapping",
+              icon: "toneMapping",
+              label: t$1("gui.toneMapping", "Tone mapping"),
+              children: Object.entries(RENDERING_TONE_MAPPING_KEYS).map(([key, toneMapping]) => ({
+                key,
+                icon: "toneMapping",
+                label: getRenderingMenuLabels()[key],
+                onClick: () => {
+                  applyRenderingSettings({ toneMapping });
+                  viewer.updateLightsSubmenuState();
+                },
+              })),
+            },
+            {
+              key: "renderingExposure",
+              icon: "intensity",
+              label: t$1("gui.exposure", "Exposure"),
+              type: "slider",
+              min: 0,
+              max: 3,
+              step: 0.01,
+              value: () => getRenderingSettings().exposure,
+              onChange: (value) => applyRenderingSettings({ exposure: value }),
+            },
+            {
+              key: "renderingPostprocessing",
+              icon: "rendering",
+              label: t$1("gui.postprocessing", "Post-processing"),
+              type: "toggle",
+              value: () => getRenderingSettings().postprocessing.enabled,
+              onChange: (enabled) => {
+                applyRenderingSettings({ postprocessing: { enabled } });
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "renderingAntialias",
+              icon: "antialias",
+              label: t$1("gui.antialiasing", "Anti-aliasing"),
+              children: Object.entries(RENDERING_ANTIALIAS_KEYS).map(([key, antialias]) => ({
+                key,
+                icon: "antialias",
+                label: getRenderingMenuLabels()[key],
+                onClick: () => {
+                  applyRenderingSettings({ postprocessing: { antialias } });
+                  viewer.updateLightsSubmenuState();
+                },
+              })),
+            },
+          ],
+        },
+        {
+          key: "lightTarget",
+          icon: "lightTarget",
+          label: t$1("gui.target", "Target"),
+          children: [
+            {
+              key: "lightTargetColor",
+              icon: "color",
+              label: t$1("gui.color", "Color"),
+              type: "color",
+              value: () => viewer.colors.DirectionalLight,
+              onChange: (value) => {
+                viewer.colors.DirectionalLight = value;
+                core.lightObjects[0].color = new THREE.Color(value);
+              },
+            },
+            {
+              key: "lightTargetIntensity",
+              icon: "intensity",
+              label: t$1("gui.intensity", "Intensity"),
+              type: "slider",
+              min: 0,
+              max: 10,
+              step: 0.01,
+              value: () => viewer.intensity.startIntensityDir,
+              onChange: (value) => {
+                viewer.intensity.startIntensityDir = value;
+                core.lightObjects[0].intensity = value;
+              },
+            },
+            {
+              key: "lightTargetTransform",
+              icon: "move",
+              label: t$1("gui.transform", "Transform"),
+              children: [
+                { key: "lightTargetTransformMove", icon: "move", label: t$1("gui.move", "Move"), onClick: () => viewer.toggleLightTransformMode("translate") },
+                { key: "lightTargetTransformTarget", icon: "lightTarget", label: t$1("gui.target", "Target"), onClick: () => viewer.toggleLightTransformMode("rotate") },
+              ],
+            },
+          ],
+        },
+        {
+          key: "lightAmbient",
+          icon: "ambientLight",
+          label: t$1("gui.ambient", "Ambient"),
+          children: [
+            {
+              key: "lightAmbientColor",
+              icon: "color",
+              label: t$1("gui.color", "Color"),
+              type: "color",
+              value: () => viewer.colors.AmbientLight,
+              onChange: (value) => {
+                viewer.colors.AmbientLight = value;
+                viewer.ambientLight.color = new THREE.Color(value);
+              },
+            },
+            {
+              key: "lightAmbientIntensity",
+              icon: "intensity",
+              label: t$1("gui.intensity", "Intensity"),
+              type: "slider",
+              min: 0,
+              max: 10,
+              step: 0.01,
+              value: () => viewer.intensity.startIntensityAmbient,
+              onChange: (value) => {
+                viewer.intensity.startIntensityAmbient = value;
+                viewer.ambientLight.intensity = value;
+              },
+            },
+          ],
+        },
+        /*{
+          key: "lightCamera",
+          icon: "cameraLight",
+          label: t("gui.camera", "Camera"),
+          children: [
+            {
+              key: "lightCameraColor",
+              icon: "color",
+              label: t("gui.color", "Color"),
+              type: "color",
+              value: () => viewer.colors.CameraLight,
+              onChange: (value) => {
+                viewer.colors.CameraLight = value;
+                viewer.cameraLight.color = new THREE.Color(value);
+              },
+            },
+            {
+              key: "lightCameraIntensity",
+              icon: "intensity",
+              label: t("gui.intensity", "Intensity"),
+              type: "slider",
+              min: 0,
+              max: 10,
+              step: 0.01,
+              value: () => viewer.intensity.startIntensityCamera,
+              onChange: (value) => {
+                viewer.intensity.startIntensityCamera = value;
+                viewer.cameraLight.intensity = value;
+              },
+            },
+          ],
+        },*/
+      ], submenu);
+      button.appendChild(submenu);
+    } else if (tool.key === "background") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.backgroundSubmenuButtons = {};
+
+      const normalizeColorValue = (value) => {
+        if (typeof value !== "string") return "#ffffff";
+        if (value.startsWith("0x")) {
+          return `#${value.slice(2).padStart(6, "0")}`;
+        }
+        return value.startsWith("#") ? value : `#${value}`;
+      };
+
+      const appendSubmenuItems = (items, container) => {
+        items.forEach((item) => {
+          const subButton = document.createElement("button");
+          subButton.type = "button";
+          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+          subButton.dataset.tool = item.key;
+          subButton.setAttribute("title", item.label);
+          subButton.setAttribute("aria-label", item.label);
+
+          if (item.hideIcon !== true) {
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "viewer-editor-tool_icon";
+            iconSpan.setAttribute("aria-hidden", "true");
+            iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
+            subButton.appendChild(iconSpan);
+          }
+
+          if (item.type === "color") {
+            subButton.classList.add("viewer-editor-tool_submenu-control");
+            if (item.compactPicker === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
+            }
+            if (item.hideIcon === true) {
+              subButton.classList.add("viewer-editor-tool_submenu-control-no-icon");
+            }
+
+            const colorInput = document.createElement("input");
+            colorInput.type = "color";
+            colorInput.value = normalizeColorValue(item.value());
+            colorInput.className = "viewer-editor-tool_submenu-input";
+            colorInput.addEventListener("click", (event) => event.stopPropagation());
+            colorInput.addEventListener("input", (event) => {
+              const value = event.target.value;
+              item.onChange(value);
+              colorInput.value = normalizeColorValue(value);
+            });
+            subButton.appendChild(colorInput);
+            subButton._colorInput = colorInput;
+          } else if (item.onClick) {
+            viewer.bindEventListener(subButton, "click", (event) => {
+              event.stopPropagation();
+              item.onClick();
+            });
+          }
+
+          viewer.backgroundSubmenuButtons[item.key] = subButton;
+          container.appendChild(subButton);
+        });
+      };
+
+      appendSubmenuItems([
+        {
+          key: "backgroundTypeLinear",
+          icon: "backgroundLinear",
+          label: t$1("gui.linear", "Linear"),
+          onClick: () => {
+            viewer.backgroundType["Background Type"] = "linear";
+            changeBackground(
+              "linear",
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+            viewer.updateEditorToolbarState();
+          },
+        },
+        {
+          key: "backgroundTypeGradient",
+          icon: "backgroundGradient",
+          label: t$1("gui.gradient", "Gradient"),
+          onClick: () => {
+            viewer.backgroundType["Background Type"] = "gradient";
+            changeBackground(
+              "gradient",
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+            viewer.updateEditorToolbarState();
+          },
+        },
+        {
+          key: "backgroundColor",
+          icon: "backgroundInner",
+          label: t$1("gui.backgroundColor", "Background Color"),
+          type: "color",
+          compactPicker: true,
+          value: () => viewer.colors.BackgroundColor,
+          onChange: (value) => {
+            viewer.colors.BackgroundColor = value;
+            changeBackground(
+              viewer.backgroundType["Background Type"],
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+          },
+        },
+        {
+          key: "backgroundColorOuter",
+          icon: "backgroundOuter",
+          label: t$1("gui.backgroundColorOuter", "Background Color Outer"),
+          type: "color",
+          compactPicker: true,
+          value: () => viewer.colors.BackgroundColorOuter,
+          onChange: (value) => {
+            viewer.colors.BackgroundColorOuter = value;
+            changeBackground(
+              viewer.backgroundType["Background Type"],
+              viewer.colors.BackgroundColor,
+              viewer.colors.BackgroundColorOuter
+            );
+          },
+        },
+      ], submenu);
+
+      button.appendChild(submenu);
+    } else if (tool.key === "materials") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
+      const submenuItems = [
+        { key: "materialColor", icon: "color", label: t$1("gui.color", "Color"), onClick: () => viewer.openMaterialsFolder() },
+        { key: "materialIntensity", icon: "intensity", label: t$1("gui.intensity", "Intensity"), onClick: () => viewer.openMaterialsFolder() },
+      ];
+      submenuItems.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = item.key;
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          item.onClick();
+        });
+        submenu.appendChild(subButton);
+      });
+      button.appendChild(submenu);
+    } else if (tool.key === "shading") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      viewer.shadingSubmenuButtons = {};
+
+      const shadingModes = [
+        { key: "standard", icon: "shadingStandard", label: t$1("gui.shadingStandard", "Standard (PBR)") },
+        { key: "phong", icon: "shadingPhong", label: t$1("gui.shadingPhong", "Phong") },
+        { key: "lambert", icon: "shadingLambert", label: t$1("gui.shadingLambert", "Lambert") },
+        { key: "toon", icon: "shadingToon", label: t$1("gui.shadingToon", "Toon / Flat") },
+      ];
+
+      shadingModes.forEach((item) => {
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = `shading-${item.key}`;
+        subButton.setAttribute("title", item.label);
+        subButton.setAttribute("aria-label", item.label);
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
+        `;
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          viewer.setShadingMode(item.key);
+        });
+        viewer.shadingSubmenuButtons[item.key] = subButton;
+        submenu.appendChild(subButton);
+      });
+
+      const customButton = document.createElement("button");
+      customButton.type = "button";
+      customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+      customButton.dataset.tool = "shading-custom";
+      const customLabel = t$1("gui.shadingCustom", "Custom shader");
+      customButton.setAttribute("title", customLabel);
+      customButton.setAttribute("aria-label", customLabel);
+      customButton.innerHTML = `
+        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
+      `;
+      viewer.bindEventListener(customButton, "click", (event) => {
+        event.stopPropagation();
+        viewer.openCustomShaderDialog();
+      });
+      viewer.shadingSubmenuButtons.custom = customButton;
+      submenu.appendChild(customButton);
+
+      button.appendChild(submenu);
+    } else if (tool.key === "download") {
+      if (!core.isLightweight || core.isLocalPreview) {
+        button.href = core.downloadModelElement;
+        button.target = "_blank";
+        button.rel = "noopener noreferrer";
+        button.download = core.fileObject.filename;
+      }
+    }
+    viewer.bindEventListener(button, "click", () => {
+      viewer.stopHandMode();
+      if (tool.onClick) {
+        tool.onClick();
+      }
+    });
+    if (tool.primary) toolbar.appendChild(button);
+    else secondaryTray.appendChild(button);
+    viewer.editorToolbarButtons[tool.key] = button;
+    if (!tool.primary) viewer.editorSecondaryKeys.push(button);
+  });
+
+  const actionMenuToolKeys = ["statistics", "background", "preview", "save", "loadingLogs"];
+  if (viewer.actionMenuPanel) {
+    actionMenuToolKeys.forEach((key) => {
+      const button = viewer.editorToolbarButtons[key];
+      if (!button) return;
+
+      button.classList.add("viewer-action-menu_editor-tool");
+      const label = document.createElement("span");
+      label.className = "viewer-action-menu_editor-tool-label";
+      label.textContent = button.getAttribute("aria-label") || key;
+      button.appendChild(label);
+      viewer.actionMenuPanel.appendChild(button);
+    });
+  }
+
+  toolbar.appendChild(secondaryTray);
+  bindTouchSubmenus(viewer, toolbar, secondaryTray);
+  bindSubmenuFitting(viewer, toolbar);
+
+  const expandButton = document.createElement("button");
+  expandButton.type = "button";
+  expandButton.className = "viewer-editor-tool viewer-editor-expand";
+  expandButton.innerHTML = `<span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("expand")}</span>`;
+  expandButton.dataset.primary = "true";
+  expandButton.setAttribute("aria-expanded", "false");
+  expandButton.setAttribute("title", t$1("gui.expand", "Expand toolbar"));
+  expandButton.setAttribute("aria-label", t$1("gui.expand", "Expand toolbar"));
+  viewer.bindEventListener(expandButton, "click", () => toggleToolbarExpanded(viewer));
+  toolbar.appendChild(expandButton);
+  viewer.editorToolbarButtons.expand = expandButton;
+
+  if (viewer.actionMenu) {
+    viewer.actionMenu.classList.add("viewer-action-menu_in-toolbar");
+    toolbar.appendChild(viewer.actionMenu);
+  }
+
+  getEditorToolbarHost()?.appendChild(toolbar);
+  core.editorToolbar = toolbar;
+  core.editorToolbar.classList.add("editorToolbar-hidden");
+  core.editorToolbar.classList.add("collapsed");
+  syncToolbarExpandAnchorMode(viewer, core.editorToolbar);
+  syncToolbarExpandOffset(viewer, core.editorToolbar);
+
+  if (!hasConfiguredToolbarPosition(viewer)) {
+    requestAnimationFrame(() => {
+      if (!core.editorToolbar) return;
+      const host = getEditorToolbarHost();
+      if (!host) return;
+
+      const hostRect = host.getBoundingClientRect();
+      const baseLeft = getToolbarBaseLeft(core.editorToolbar);
+      const centeredX = Math.max((hostRect.width - core.editorToolbar.offsetWidth) / 2 - baseLeft, 0);
+      core.editorToolbar.__setViewerToolbarPosition?.(
+        centeredX,
+        viewer.editorToolbarPosition?.y ?? 0,
+        { explicit: false }
+      );
+    });
+  }
+
+  viewer.updateFullscreenButtonIcon();
+  viewer.updateEditorToolbarLabels();
+  viewer.updateEditorToolbarState();
+  syncEditorToolbarSecondaryTrayWidth(viewer);
+  viewer.bindEventListener(window, "resize", () => {
+    syncEditorToolbarSecondaryTrayWidth(viewer);
+    // The phone tray may wrap into different rows.
+    updateToolbarGroups();
+  });
+}
+
+function updateHierarchySubmenuState(viewer) {
+  if (!viewer.hierarchySubmenuButtons) return;
+
+  const selectedIds = new Set(
+    (core.selectedObjects || [])
+      .filter((item) => item?.selected === true)
+      .map((item) => String(item.id))
+  );
+
+  Object.entries(viewer.hierarchySubmenuButtons).forEach(([key, button]) => {
+    const isActive = selectedIds.has(String(key));
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+
+  viewer.hierarchyClearButton?.toggleAttribute("disabled", selectedIds.size === 0);
+}
+
+function updateStatisticsSubmenuState(viewer) {
+  if (!viewer.statisticsSubmenuButtons) return;
+  const isVisible = typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden";
+  viewer.statisticsSubmenuButtons.toggleStats?.classList.toggle("is-active", isVisible);
+  viewer.statisticsSubmenuButtons.toggleStats?.setAttribute("aria-pressed", isVisible ? "true" : "false");
+
+  const currentMode = core.renderer?.powerPreference || core.CONFIG.viewer?.performanceMode || "default";
+  const performanceMap = {
+    performanceHigh: "high-performance",
+    performanceLow: "low-power",
+    performanceDefault: "default",
+  };
+  Object.entries(performanceMap).forEach(([key, value]) => {
+    const isActive = currentMode === value;
+    viewer.statisticsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
+    viewer.statisticsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function updateClippingPlanesSubmenuState(viewer) {
+  if (!viewer.clippingPlaneSubmenuButtons) return;
+  const clippingMode = core.planeParams?.clippingMode || {};
+
+  viewer.clippingPlaneSubmenuButtons.displayHelperX?.classList.toggle(
+    "is-active",
+    Boolean(clippingMode.x)
+  );
+  viewer.clippingPlaneSubmenuButtons.displayHelperY?.classList.toggle(
+    "is-active",
+    Boolean(clippingMode.y)
+  );
+  viewer.clippingPlaneSubmenuButtons.displayHelperZ?.classList.toggle(
+    "is-active",
+    Boolean(clippingMode.z)
+  );
+  viewer.clippingPlaneSubmenuButtons.visible?.classList.toggle(
+    "is-active",
+    Boolean(core.planeParams?.outline?.visible)
+  );
+}
+
+function updateMeasurementSubmenuState(viewer) {
+  if (!viewer.measurementSubmenuButtons) return;
+  // The unit in use on the units button; the chosen one marked in its menu
+  // ("auto" unless the user picked one).
+  const unit = viewer.resolveModelUnit?.();
+  const unitsLabel = viewer.measurementSubmenuButtons.units?.querySelector(":scope > .viewer-editor-tool_unit-label");
+  if (unit && unitsLabel) unitsLabel.textContent = unit.key || "?";
+  const chosen = unit?.source === "user" ? unit.key : "auto";
+  Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, choice]) => {
+    choice.classList.toggle("is-active", key === chosen);
+    choice.setAttribute("aria-pressed", key === chosen ? "true" : "false");
+  });
+  ["distance", "angle", "area"].forEach((mode) => {
+    const active = viewer.RULER_MODE === true && viewer.measurementMode === mode;
+    viewer.measurementSubmenuButtons[mode]?.classList.toggle("is-active", active);
+    viewer.measurementSubmenuButtons[mode]?.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  const dimensionsShown = Boolean(viewer.measurementDimensions);
+  viewer.measurementSubmenuButtons.dimensions?.classList.toggle("is-active", dimensionsShown);
+  viewer.measurementSubmenuButtons.dimensions?.setAttribute("aria-pressed", dimensionsShown ? "true" : "false");
+}
+
+function updateShadingSubmenuState(viewer) {
+  if (!viewer.shadingSubmenuButtons) return;
+  const activeMode = viewer.shadingMode || "standard";
+  Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
+    button?.classList.toggle("is-active", key === activeMode);
+  });
+}
+
+function updateLightsSubmenuState(viewer) {
+  if (!viewer.lightsSubmenuButtons) return;
+  const activeMode = viewer.transformText["Transform Light"];
+  viewer.lightsSubmenuButtons.environmentMap?.classList.toggle(
+    "is-active",
+    viewer.environmentMapEnabled !== false
+  );
+  viewer.lightsSubmenuButtons.environmentMap?.setAttribute(
+    "aria-pressed",
+    viewer.environmentMapEnabled !== false ? "true" : "false"
+  );
+
+  const environmentMapToggle = viewer.lightsSubmenuButtons.environmentMapToggle;
+  if (environmentMapToggle) {
+    const toggleLabel = environmentMapToggle.querySelector('.viewer-editor-tool_submenu-toggle-state');
+    const isEnabled = (core.scene?.environmentIntensity ?? 0) > 0;
+    if (toggleLabel) toggleLabel.textContent = isEnabled ? t$1("gui.on", "ON") : t$1("gui.off", "OFF");
+    environmentMapToggle.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+    environmentMapToggle.classList.toggle("is-active", isEnabled);
+  }
+
+  viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
+    "is-active",
+    activeMode === "translate"
+  );
+  viewer.lightsSubmenuButtons.lightTargetTransformTarget?.classList.toggle(
+    "is-active",
+    activeMode === "rotate"
+  );
+
+  const rendering = getRenderingSettings();
+  const setPressed = (button, isActive) => {
+    button?.classList.toggle("is-active", isActive);
+    button?.setAttribute("aria-pressed", isActive ? "true" : "false");
+  };
+  Object.entries(RENDERING_TONE_MAPPING_KEYS).forEach(([key, toneMapping]) => {
+    setPressed(viewer.lightsSubmenuButtons[key], rendering.toneMapping === toneMapping);
+  });
+  Object.entries(RENDERING_ANTIALIAS_KEYS).forEach(([key, antialias]) => {
+    setPressed(viewer.lightsSubmenuButtons[key], rendering.postprocessing.antialias === antialias);
+  });
+  // Anti-aliasing belongs to the post-processing chain.
+  viewer.lightsSubmenuButtons.renderingAntialias?.classList.toggle("is-disabled", !rendering.postprocessing.enabled);
+
+  const postprocessingToggle = viewer.lightsSubmenuButtons.renderingPostprocessing;
+  if (postprocessingToggle) {
+    const toggleLabel = postprocessingToggle.querySelector(".viewer-editor-tool_submenu-toggle-state");
+    const isEnabled = rendering.postprocessing.enabled;
+    if (toggleLabel) toggleLabel.textContent = isEnabled ? t$1("gui.on", "ON") : t$1("gui.off", "OFF");
+    setPressed(postprocessingToggle, isEnabled);
+  }
+
+  // A manifest import may change the exposure after the slider was built.
+  const exposureButton = viewer.lightsSubmenuButtons.renderingExposure;
+  const exposureSlider = exposureButton?.querySelector('input[type="range"]');
+  if (exposureSlider && Number(exposureSlider.value) !== rendering.exposure) {
+    exposureSlider.value = String(rendering.exposure);
+    const valueLabel = exposureButton.querySelector(".viewer-editor-tool_submenu-value");
+    if (valueLabel) valueLabel.textContent = rendering.exposure.toFixed(2);
+  }
+
+  const environmentMapPreset = viewer.environmentMapPreset || "neutral";
+  const environmentMapPresetStates = {
+    environmentMapStyleNeutral: "neutral",
+    environmentMapStyleSunny: "sunny",
+    environmentMapStyleStudio: "studio",
+    environmentMapStyleGoldenHour: "goldenHour",
+  };
+
+  Object.entries(environmentMapPresetStates).forEach(([key, value]) => {
+    const isActive = environmentMapPreset === value;
+    viewer.lightsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
+    viewer.lightsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function updateBackgroundSubmenuState(viewer) {
+  if (!viewer.backgroundSubmenuButtons) return;
+
+  const backgroundType = viewer.backgroundType?.["Background Type"] === "linear"
+    ? "linear"
+    : "gradient";
+  const isLinear = backgroundType === "linear";
+
+  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.classList.toggle(
+    "is-active",
+    isLinear
+  );
+  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.setAttribute(
+    "aria-pressed",
+    isLinear ? "true" : "false"
+  );
+
+  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.classList.toggle(
+    "is-active",
+    !isLinear
+  );
+  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.setAttribute(
+    "aria-pressed",
+    !isLinear ? "true" : "false"
+  );
+
+  const backgroundColorInput = viewer.backgroundSubmenuButtons.backgroundColor?._colorInput;
+  const backgroundColorOuterInput = viewer.backgroundSubmenuButtons.backgroundColorOuter?._colorInput;
+
+  if (backgroundColorInput) {
+    backgroundColorInput.value = String(viewer.colors?.BackgroundColor || "#ffffff");
+  }
+  if (backgroundColorOuterInput) {
+    backgroundColorOuterInput.value = String(viewer.colors?.BackgroundColorOuter || "#999999");
+    backgroundColorOuterInput.disabled = isLinear;
+  }
+
+  viewer.backgroundSubmenuButtons.backgroundColorOuter?.classList.toggle(
+    "is-disabled",
+    isLinear
+  );
+}
+
+function updateEditorToolbarLabels(viewer) {
+  if (!viewer.editorToolbarButtons) return;
+
+  const labels = {
+    moveToolbar: t$1("gui.moveToolbar", "Move toolbar"),
+    orbit: t$1("gui.orbit", "Navigation mode"),
+    move: t$1("gui.move", "Move"),
+    rotate: t$1("gui.rotate", "Rotate"),
+    scale: t$1("gui.scale", "Scale"),
+    lights: t$1("gui.lights", "Lights"),
+    picking: viewer.pickingMode
+      ? t$1("controls.disablePickingMode", "Disable picking mode")
+      : t$1("controls.enablePickingMode", "Enable picking mode"),
+    annotate: t$1("gui.addAnnotations", "Add annotations"),
+    ruler: viewer.RULER_MODE
+      ? t$1("controls.disableDistanceMeasurement", "Disable distance measurement")
+      : t$1("controls.enableDistanceMeasurement", "Enable distance measurement"),
+    resetCamera: t$1("gui.resetCameraPosition", "Reset camera position"),
+    resetSettings: t$1("gui.resetSettings", "Reset settings"),
+    preview: t$1("gui.renderPreview", "Render preview"),
+    save: t$1("gui.saveSettings", "Save settings"),
+    advancedEditor: viewer.isEditorAdvancedPanelVisible()
+      ? t$1("gui.hideAdvancedEditor", "Hide advanced editor")
+      : t$1("gui.showAdvancedEditor", "Show advanced editor"),
+    fullScreen: viewer.FULLSCREEN
+      ? t$1("fullscreen.exit", "Exit fullscreen")
+      : t$1("fullscreen.enter", "Enter fullscreen"),
+    clippingPlanes: viewer.clippingMode
+      ? t$1("gui.disableClippingPlanesMode", "Disable clipping planes mode")
+      : t$1("gui.enableClippingPlanesMode", "Enable clipping planes mode"),
+    projection: core.camera && core.camera.isPerspectiveCamera
+      ? t$1("gui.orthographicProjection", "Switch to orthographic projection")
+      : t$1("gui.perspectiveProjection", "Switch to perspective projection"),
+    wireframe: viewer.wireframeMode
+      ? t$1("gui.disableWireframeMode", "Disable wireframe mode")
+      : t$1("gui.enableWireframeMode", "Enable wireframe mode"),
+    loadingLogs: viewer.showLoadingLogs
+      ? t$1("gui.hideLoadingLogs", "Hide loading logs")
+      : t$1("gui.showLoadingLogs", "Show loading logs"),
+    hierarchy: t$1("gui.hierarchy", "Hierarchy"),
+    materials: t$1("gui.materials", "Materials"),
+    shading: t$1("gui.shading", "Shading"),
+    background: t$1("gui.backgroundColor", "Background Color"),
+    statistics: t$1("gui.statistics", "Statistics"),
+    expand: viewer.isToolbarExpanded
+      ? t$1("gui.collapse", "Collapse toolbar")
+      : t$1("gui.expand", "Expand toolbar"),
+    download: t$1("gui.download", "Download model"),
+    pointCloud: t$1("pointCloud.toggle", "Point cloud settings"),
+    help: t$1("shortcuts.helpButtonAria", "Show usage hints"),
+    reportBug: t$1("bugReport.button", "Report a bug"),
+  };
+
+  Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
+    const label = labels[key] || key;
+    button.setAttribute("title", label);
+    button.setAttribute("aria-label", label);
+    const sr = button.querySelector(".viewer-editor-tool_sr");
+    if (sr) sr.textContent = label;
+    const actionMenuLabel = button.querySelector(".viewer-action-menu_editor-tool-label");
+    if (actionMenuLabel) actionMenuLabel.textContent = label;
+  });
+
+  if (viewer.clippingPlaneSubmenuButtons) {
+    const clippingPlaneSubmenuLabels = {
+      displayHelperX: t$1("gui.displayHelperX", "Show X helper"),
+      displayHelperY: t$1("gui.displayHelperY", "Show Y helper"),
+      displayHelperZ: t$1("gui.displayHelperZ", "Show Z helper"),
+      visible: t$1("gui.visible", "Visible"),
+    };
+    Object.entries(viewer.clippingPlaneSubmenuButtons).forEach(([key, button]) => {
+      const label = clippingPlaneSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.measurementSubmenuButtons) {
+    const measurementSubmenuLabels = {
+      distance: t$1("measurement.distance", "Distance"),
+      angle: t$1("measurement.angle", "Angle"),
+      area: t$1("measurement.area", "Area"),
+      dimensions: t$1("measurement.dimensions", "Model dimensions"),
+      clear: t$1("measurement.clearAll", "Clear measurements"),
+      units: t$1("measurement.modelUnit", "Model unit"),
+    };
+    Object.entries(viewer.measurementSubmenuButtons).forEach(([key, button]) => {
+      const label = measurementSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+    Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, button]) => {
+      const label = t$1(`measurement.unitNames.${key}`, key);
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.annotateSubmenuButtons) {
+    const annotateSubmenuLabels = {
+      annotateAdd: t$1("gui.addAnnotations", "Add Annotation"),
+      annotateTour: viewer.isTourActive?.()
+        ? t$1("tour.stop", "Stop guided tour")
+        : t$1("tour.start", "Start guided tour"),
+      annotateImport: t$1("gui.importAnnotationsXml", "Import Annotations"),
+      annotateExport: t$1("gui.exportAnnotationsXml", "Export Annotations"),
+      IIIFimport: t$1("gui.IIIFimport", "Import 3IF"),
+      IIIFexport: t$1("gui.IIIFexport", "Export to IIIF"),
+    };
+    Object.entries(viewer.annotateSubmenuButtons).forEach(([key, button]) => {
+      const label = annotateSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.statisticsSubmenuButtons) {
+    const statisticsSubmenuLabels = {
+      toggleStats: t$1("gui.statistics", "Statistics"),
+      performance: t$1("gui.performance", "Performance"),
+      performanceDefault: t$1("gui.default", "Default"),
+      performanceHigh: t$1("gui.highPerformance", "High-performance"),
+      performanceLow: t$1("gui.lowPower", "Low-power"),
+    };
+    Object.entries(viewer.statisticsSubmenuButtons).forEach(([key, button]) => {
+      const label = statisticsSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.lightsSubmenuButtons) {
+    const lightsSubmenuLabels = {
+      environmentMap: t$1("gui.environmentMap", "Environment map"),
+      lightTargetTransformMove: t$1("gui.move", "Move"),
+      lightTargetTransformTarget: t$1("gui.target", "Target"),
+      environmentMapToggle: t$1("gui.environmentMapToggle", "Environment map"),
+      environmentMapIntensity: t$1("gui.intensity", "Intensity"),
+      environmentMapStyleNeutral: t$1("gui.environmentMapNeutral", "Neutral"),
+      environmentMapStyleSunny: t$1("gui.environmentMapSunny", "Sunny"),
+      environmentMapStyleStudio: t$1("gui.environmentMapStudio", "Studio"),
+      environmentMapStyleGoldenHour: t$1("gui.environmentMapGoldenHour", "Golden Hour"),
+      ...getRenderingMenuLabels(),
+    };
+    Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {
+      const label = lightsSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.backgroundSubmenuButtons) {
+    const backgroundSubmenuLabels = {
+      backgroundTypeLinear: t$1("gui.linear", "Linear"),
+      backgroundTypeGradient: t$1("gui.gradient", "Gradient"),
+      backgroundColor: t$1("gui.backgroundColor", "Background Color"),
+      backgroundColorOuter: t$1("gui.backgroundColorOuter", "Background Color Outer"),
+    };
+    Object.entries(viewer.backgroundSubmenuButtons).forEach(([key, button]) => {
+      const label = backgroundSubmenuLabels[key] || key;
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
+    });
+  }
+
+  if (viewer.hierarchyClearButton) {
+    const label = t$1("gui.clearSelectedHierarchy", "Clear selected objects");
+    viewer.hierarchyClearButton.setAttribute("title", label);
+    viewer.hierarchyClearButton.setAttribute("aria-label", label);
+    viewer.hierarchyClearButton.textContent = label;
+  }
+
+  if (viewer.saveSubmenuCheckboxes) {
+    const saveSubmenuLabels = {
+      Position: t$1("gui.position", "Position"),
+      Rotation: t$1("gui.rotation", "Rotation"),
+      Scale: t$1("gui.scale", "Scale"),
+      Camera: t$1("gui.camera", "Camera"),
+      DirectionalLight: t$1("gui.directionalLight", "Directional Light"),
+      AmbientLight: t$1("gui.ambientLight", "Ambient Light"),
+      /*CameraLight: t("gui.cameraLight", "Camera Light"),*/
+      BackgroundColor: t$1("gui.backgroundColor", "Background Color"),
+    };
+    Object.entries(viewer.saveSubmenuCheckboxes).forEach(([key, elements]) => {
+      const label = saveSubmenuLabels[key] || key;
+      elements.row.setAttribute("title", label);
+      elements.row.setAttribute("aria-label", label);
+      elements.text.textContent = label;
+      elements.checkbox.checked = Boolean(viewer.saveProperties[key]);
+    });
+  }
+
+  if (viewer.saveSubmenuActionButton) {
+    viewer.saveSubmenuActionButton.textContent = t$1("gui.saveSettings", "Save settings");
+  }
+
+  core.editorToolbar?.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
+  viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
+}
+
+function updateTourSubmenuState(viewer) {
+  const button = viewer.annotateSubmenuButtons?.annotateTour;
+  if (!button) return;
+  const active = viewer.isTourActive?.() === true;
+  const label = active ? t$1("tour.stop", "Stop guided tour") : t$1("tour.start", "Start guided tour");
+  button.classList.toggle("is-active", active);
+  button.setAttribute("aria-pressed", active ? "true" : "false");
+  button.setAttribute("title", label);
+  button.setAttribute("aria-label", label);
+}
+
+// Groups of tools (data-group) share a faint background: every shown tool
+// of a group draws its piece of it (.in-group), and the first and last one
+// in a row round it off (.group-first/.group-last). Tools can be hidden
+// (point cloud, app build, moved to the action menu), the tray folds away
+// and on phones wraps into rows - hence worked out from what is on screen.
+function updateToolbarGroups() {
+  const toolbar = core.editorToolbar;
+  if (!toolbar) return;
+  const expanded = toolbar.classList.contains("expanded");
+  const tools = [];
+  for (const child of toolbar.children) {
+    if (child.classList.contains("viewer-editor-toolbar_secondary-tray")) {
+      if (expanded) tools.push(...child.children);
+    } else {
+      tools.push(child);
+    }
+  }
+  toolbar
+    .querySelectorAll(".in-group")
+    .forEach((tool) => tool.classList.remove("in-group", "group-first", "group-last"));
+
+  const shown = tools
+    .map((tool) => ({ tool, rect: tool.getBoundingClientRect() }))
+    .filter(({ tool, rect }) => !tool.hidden && rect.width > 0);
+  const sameRun = (a, b) =>
+    a && b && a.tool.dataset.group && a.tool.dataset.group === b.tool.dataset.group &&
+    Math.abs(a.rect.top - b.rect.top) < a.rect.height / 2;
+  shown.forEach((entry, index) => {
+    if (!entry.tool.dataset.group) return;
+    entry.tool.classList.add("in-group");
+    entry.tool.classList.toggle("group-first", !sameRun(shown[index - 1], entry));
+    entry.tool.classList.toggle("group-last", !sameRun(entry, shown[index + 1]));
+  });
+}
+
+function updateEditorToolbarState(viewer) {
+  if (!viewer.editorToolbarButtons) return;
+
+  const activeMap = {
+    moveToolbar: viewer.transformText["Transform 3D Object"] === "translate" || viewer.transformText["Transform 3D Object"] === "rotate" || viewer.transformText["Transform 3D Object"] === "scale",
+    orbit: viewer.transformText["Transform 3D Object"] === "",
+    move: viewer.transformText["Transform 3D Object"] === "translate",
+    rotate: viewer.transformText["Transform 3D Object"] === "rotate",
+    scale: viewer.transformText["Transform 3D Object"] === "scale",
+    picking: viewer.pickingMode === true,
+    ruler: viewer.RULER_MODE === true,
+    clippingPlanes: viewer.clippingMode === true,
+    advancedEditor: viewer.isEditorAdvancedPanelVisible(),
+    fullScreen: viewer.FULLSCREEN === true,
+    loadingLogs: viewer.showLoadingLogs === true,
+    wireframe: viewer.wireframeMode === true,
+    download: false,
+    pointCloud: viewer.isPointCloudPanelVisible?.() === true,
+    help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
+  };
+
+  Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
+    const isActive = activeMap[key] === true;
+    button.classList.toggle("is-active", isActive);
+    if (button.dataset.pressed === "true") {
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    } else {
+      button.removeAttribute("aria-pressed");
+    }
+  });
+
+  const pointCloudButton = viewer.editorToolbarButtons.pointCloud;
+  if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
+
+  updateHierarchySubmenuState(viewer);
+  updateClippingPlanesSubmenuState(viewer);
+  updateMeasurementSubmenuState(viewer);
+  updateTourSubmenuState(viewer);
+  updateLightsSubmenuState(viewer);
+  updateBackgroundSubmenuState(viewer);
+  updateStatisticsSubmenuState(viewer);
+  updateShadingSubmenuState(viewer);
+  updateToolbarGroups();
+}
+
+// Free plan ads (AdMob, @capacitor-community/admob): a banner along the bottom
+// and a full-screen ad after every Nth model loaded, at most once per
+// interval, never for the model the app opens with. The page gives the
+// banner its height (--app-ad-banner-height on body, see main.css), so the
+// toolbar sits above it instead of under it.
+//
+// Consent first (Google UMP): in the EEA and UK the form is shown before any
+// ad is requested, and no ads are requested without it. Its privacy options
+// stay reachable from the plans panel (showAdPrivacyOptions).
+
+let admob = null;
+let started = false;
+let bannerShown = false;
+let consentInfo = null;
+let modelsLoaded = 0;
+let lastInterstitialAt = 0;
+let interstitialReady = false;
+
+function adsSettings() {
+  return monetizationSettings()?.admob || {};
+}
+
+function wantsAds() {
+  return isPlansEnabled() && !hasFeature("noAds") && window.Capacitor?.isNativePlatform?.() === true;
+}
+
+function setBannerHeight(px) {
+  document.body?.style.setProperty("--app-ad-banner-height", `${Math.max(0, Math.round(px || 0))}px`);
+  // The toolbar moves with it; toasts sit above the toolbar.
+  requestAnimationFrame(() => syncNoticeAboveToolbar());
+}
+
+async function loadPlugin() {
+  if (admob) return admob;
+  const module = await import('./index-BXues7RB.js');
+  admob = module;
+  return admob;
+}
+
+async function requestConsent() {
+  const { AdMob, AdmobConsentStatus } = admob;
+  consentInfo = await AdMob.requestConsentInfo();
+  if (consentInfo.isConsentFormAvailable && consentInfo.status === AdmobConsentStatus.REQUIRED) {
+    consentInfo = await AdMob.showConsentForm();
+  }
+  return consentInfo.canRequestAds !== false;
+}
+
+async function showBanner() {
+  if (bannerShown || !wantsAds()) return;
+  const { AdMob, BannerAdPosition, BannerAdSize, BannerAdPluginEvents } = admob;
+  await AdMob.addListener(BannerAdPluginEvents.SizeChanged, (size) => setBannerHeight(size?.height));
+  await AdMob.showBanner({
+    adId: adsSettings().bannerId,
+    adSize: BannerAdSize.ADAPTIVE_BANNER,
+    position: BannerAdPosition.BOTTOM_CENTER,
+    isTesting: monetizationSettings()?.testing === true,
+  });
+  bannerShown = true;
+}
+
+async function removeBanner() {
+  if (!bannerShown || !admob) return;
+  bannerShown = false;
+  setBannerHeight(0);
+  await admob.AdMob.removeBanner().catch(() => {});
+}
+
+async function prepareInterstitial() {
+  if (interstitialReady || !wantsAds() || !adsSettings().interstitialId) return;
+  try {
+    await admob.AdMob.prepareInterstitial({
+      adId: adsSettings().interstitialId,
+      isTesting: monetizationSettings()?.testing === true,
+    });
+    interstitialReady = true;
+  } catch {
+    // No fill or no network: tried again after the next model.
+  }
+}
+
+async function start() {
+  if (started || !wantsAds()) return;
+  started = true;
+  try {
+    // Not over the launch splash: the banner is a native view on top.
+    await appSplashDone;
+    await loadPlugin();
+    await admob.AdMob.initialize({ initializeForTesting: monetizationSettings()?.testing === true });
+    if (!(await requestConsent())) return;
+    await showBanner();
+    prepareInterstitial();
+  } catch (error) {
+    // Ads never stop the viewer.
+    console.warn("Ads unavailable", error);
+    started = false;
+  }
+}
+
+function initAds() {
+  if (!isPlansEnabled()) return;
+  onTierChange(() => {
+    if (wantsAds()) {
+      if (started) showBanner().catch(() => {});
+      else if (modelsLoaded > 0) start();
+    } else {
+      removeBanner();
+    }
+  });
+}
+
+// Called after each model finishes loading (loaders.js). The first one
+// starts the ads - after the splash, over a viewer that shows something.
+function onModelLoadedForAds() {
+  if (!wantsAds()) return;
+  modelsLoaded += 1;
+  if (!started) {
+    start();
+    return;
+  }
+  const every = Math.max(1, Number(adsSettings().interstitialEvery) || 3);
+  const minIntervalMs = Math.max(0, Number(adsSettings().interstitialMinIntervalSec) || 0) * 1000;
+  const due = modelsLoaded > 1 && (modelsLoaded - 1) % every === 0;
+  if (!due || !interstitialReady || Date.now() - lastInterstitialAt < minIntervalMs) {
+    prepareInterstitial();
+    return;
+  }
+  interstitialReady = false;
+  lastInterstitialAt = Date.now();
+  admob.AdMob.showInterstitial()
+    .catch(() => {})
+    .finally(() => prepareInterstitial());
+}
+
+// The "privacy options" entry the consent rules require (plans panel).
+function canShowAdPrivacyOptions() {
+  return Boolean(admob && consentInfo && consentInfo.privacyOptionsRequirementStatus === "REQUIRED" && currentTier() === "free");
+}
+
+async function showAdPrivacyOptions() {
+  if (!admob) return;
+  await admob.AdMob.showPrivacyOptionsForm().catch(() => {});
+}
+
+// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
+// for same-origin requests, so no credentials option is needed.
+async function authRequest(path, body) {
+  const response = await fetch(apiUrl(`/api/auth/${path}`), {
+    method: body ? "POST" : "GET",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (_error) {
+    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
+  }
+  if (!response.ok) {
+    const error = new Error(data.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+// Opens outside the viewer (in the app: the system browser).
+function createDeleteAccountLink() {
+  const link = document.createElement("a");
+  link.className = "delete-account-link";
+  link.href = deleteAccountUrl();
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = t$1("plans.accountDelete", "Delete account and data");
+  return link;
+}
+
+// The mobile app plan of an account (worker/entitlements.py), next to its name.
+function createPlanBadge(tier) {
+  const badge = document.createElement("span");
+  badge.className = "plan-badge";
+  badge.dataset.tier = tier;
+  badge.textContent = t$1(`plans.${tier}`, tier);
+  badge.title = t$1("loginPanel.planTitle", "Plan in the mobile app");
+  return badge;
+}
+
+function attachLoginPanel(Viewer) {
+  Object.assign(Viewer, {
+    // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
+    // AIM3DViewer.viewer.auth only tunes the UI: enabled:false hides it,
+    // allowRegistration:false hides the register button.
+    async refreshAuthState() {
+      const uiConfig = core.CONFIG?.viewer?.auth || {};
+      const state = { required: false, registration: false, user: null, role: null, plan: null, maxUploadBytes: 0 };
+      // The upload limit is reported by the same endpoint, so query it even
+      // when the manifest hides the login UI. The app build with no
+      // repository configured has no worker to ask: accounts off.
+      if (hasRemote()) {
+        try {
+          const serverConfig = await authRequest("config");
+          state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
+          if (uiConfig.enabled !== false) {
+            state.required = serverConfig.mode === "required";
+            state.registration =
+              serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+            if (state.required) {
+              const me = await authRequest("me");
+              state.user = me.user || null;
+              state.role = me.role || null;
+              // The mobile app plan linked to the account (worker POST /api/app/link).
+              state.plan = me.plan || null;
+            }
+          }
+        } catch (_error) {
+          // Older worker without /api/auth/*: behaves as accounts off.
+        }
+      }
+      this.authState = state;
+      this.renderUploadHint?.();
+      this.renderUploadAuthNotice?.();
+      // Limits and usage depend on who is logged in.
+      if (this.isUploadPanelOpen?.()) this.refreshUploadLimits?.();
+      this.renderLoginPanel();
+      this.updateLoginMenuEntryState();
+      this.updateAdminMenuEntryState?.();
+      return state;
+    },
+
+    updateLoginMenuEntryState() {
+      if (!this.loginButton) return;
+      this.loginButton.hidden = !this.authState?.required;
+      const signedIn = Boolean(this.authState?.user);
+      this.loginButton.dataset.signedIn = signedIn ? "true" : "false";
+      this.loginButton.innerHTML = `<span class="login-icon" aria-hidden="true"></span>`;
+      const plan = this.authState?.plan?.tier;
+      const user = plan ? `${this.authState.user} (${t$1(`plans.${plan}`, plan)})` : this.authState?.user;
+      const a11yLabel = signedIn
+        ? t$1("loginPanel.openSignedIn", { user }, "Signed in as {user}")
+        : t$1("menu.openLoginPanel", "Log in or register");
+      this.loginButton.setAttribute("aria-label", a11yLabel);
+      this.loginButton.setAttribute("title", a11yLabel);
+    },
+
+    isLoginPanelOpen() {
+      return this.loginPanel?.hidden === false;
+    },
+
+    openLoginPanel(event) {
+      this.createLoginPanel();
+      this.toggleLoginPanel(event);
+    },
+
+    toggleLoginPanel(event) {
+      event?.preventDefault?.();
+      this.closeActionMenu?.();
+      if (!this.loginPanel) return;
+      const willShow = this.loginPanel.hidden === true;
+      this.loginPanel.hidden = !willShow;
+      if (willShow) {
+        this.setLoginStatusText("");
+        this.refreshAuthState();
+      }
+    },
+
+    closeLoginPanel() {
+      if (this.loginPanel) this.loginPanel.hidden = true;
+    },
+
+    setLoginStatusText(message, tone = "info") {
+      if (!this.loginInputs?.status) return;
+      this.loginInputs.status.textContent = message;
+      this.loginInputs.status.dataset.tone = tone;
+    },
+
+    createLoginPanel() {
+      if (!core.container || this.loginPanel) return;
+
+      const panel = document.createElement("div");
+      panel.id = "loginPanel";
+      panel.hidden = true;
+      panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span>${t$1("loginPanel.title", "Account")}</span>
+          <button id="loginPanelClose" type="button" aria-label="${t$1("loginPanel.closeAria", "Close account panel")}">X</button>
+        </div>
+        <div id="loginPanelAuth" class="upload-panel-auth"></div>
+        <p id="loginPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+      `;
+
+      core.container.appendChild(panel);
+      this.loginPanel = panel;
+      this.loginInputs = {
+        auth: panel.querySelector("#loginPanelAuth"),
+        status: panel.querySelector("#loginPanelStatus"),
+      };
+      this.bindEventListener(panel.querySelector("#loginPanelClose"), "click", () => this.closeLoginPanel());
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      this.renderLoginPanel();
+    },
+
+    renderLoginPanel() {
+      const section = this.loginInputs?.auth;
+      if (!section) return;
+      const state = this.authState || { required: false };
+      section.textContent = "";
+
+      if (!state.required) {
+        const note = document.createElement("p");
+        note.className = "upload-panel-hint";
+        note.textContent = t$1("loginPanel.notRequired", "Accounts are not enabled on this server.");
+        section.appendChild(note);
+        return;
+      }
+
+      if (state.user) {
+        const label = document.createElement("span");
+        label.textContent = t$1("uploadPanel.signedInAs", { user: state.user }, "Signed in as {user}");
+        if (state.plan) label.appendChild(createPlanBadge(state.plan.tier));
+        const logout = document.createElement("button");
+        logout.type = "button";
+        logout.textContent = t$1("uploadPanel.logout", "Log out");
+        this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
+        section.append(label, logout, createDeleteAccountLink());
+        return;
+      }
+
+      const username = document.createElement("input");
+      username.type = "text";
+      username.autocomplete = "username";
+      username.placeholder = t$1("uploadPanel.username", "Username");
+      username.setAttribute("aria-label", username.placeholder);
+      const password = document.createElement("input");
+      password.type = "password";
+      password.autocomplete = "current-password";
+      password.placeholder = t$1("uploadPanel.password", "Password");
+      password.setAttribute("aria-label", password.placeholder);
+      const login = document.createElement("button");
+      login.type = "button";
+      login.textContent = t$1("uploadPanel.login", "Log in");
+      this.bindEventListener(login, "click", () =>
+        this.handleAuthAction("login", { username: username.value.trim(), password: password.value })
+      );
+      this.bindEventListener(password, "keydown", (event) => {
+        if (event.key === "Enter") login.click();
+      });
+      section.append(username, password, login);
+      if (state.registration) {
+        // Only needed to register (AUTH.register() rejects a missing/invalid
+        // address server-side); login doesn't use it, so it stays out of the
+        // shared username/password row above.
+        const email = document.createElement("input");
+        email.type = "email";
+        email.autocomplete = "email";
+        email.placeholder = t$1("uploadPanel.email", "Email");
+        email.setAttribute("aria-label", email.placeholder);
+        const register = document.createElement("button");
+        register.type = "button";
+        register.textContent = t$1("uploadPanel.register", "Register");
+        this.bindEventListener(register, "click", () =>
+          this.handleAuthAction("register", {
+            username: username.value.trim(),
+            password: password.value,
+            email: email.value.trim(),
+          })
+        );
+        section.append(email, register);
+      }
+    },
+
+    async handleAuthAction(action, credentials) {
+      try {
+        if (action === "register") {
+          const result = await authRequest("register", credentials);
+          this.setLoginStatusText(
+            result.status === "pending"
+              ? t$1("uploadPanel.registeredPending", "Account created. It must be approved before you can upload.")
+              : t$1("uploadPanel.registeredActive", "Account created. You can log in now."),
+            "success"
+          );
+          return;
+        }
+        await authRequest(action, credentials || {});
+        this.setLoginStatusText("");
+        await this.refreshAuthState();
+        // Delete permissions in the models panel depend on who's logged in;
+        // refresh it too if it's already open.
+        this.loadModelsList?.();
+      } catch (error) {
+        this.setLoginStatusText(error.message, "error");
+      }
+    },
+  });
+}
+
+// A lock like the one on toolbar tools the plan does not include (the same
+// icon, see .plan-lock-icon in main.css).
+function createPlanLockIcon() {
+  const icon = document.createElement("span");
+  icon.className = "plan-lock-icon";
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
+// "viewer.thedworak.com": the repository the app was built with.
+function builtInRepositoryHost() {
+  try {
+    return new URL(core.CONFIG?.mobile?.remoteUrl || "").host;
+  } catch {
+    return "";
+  }
+}
+
+// The plans' feature lists. `feature` (monetization/plan.js FEATURES) marks
+// an entry with a lock when the current plan - or, on the Free card, Free
+// itself - does not include it.
+const PLAN_CARDS = [
+  {
+    tier: "free",
+    features: [
+      { key: "plans.freeFeature1" },
+      { key: "plans.proFeature1", feature: "noAds" },
+      { key: "plans.businessFeature5", feature: "remoteModels" },
+      { key: "plans.businessFeature4", feature: "annotations" },
+      { key: "plans.businessFeature3", feature: "customRepository" },
+    ],
+  },
+  {
+    tier: "pro",
+    features: [{ key: "plans.proFeature1", feature: "noAds" }, { key: "plans.proFeature2" }],
+    priceSuffix: ["plans.oneTime", "one-time"],
+  },
+  {
+    tier: "business",
+    features: [
+      { key: "plans.businessFeature1", feature: "noAds" },
+      { key: "plans.businessFeature5", feature: "remoteModels" },
+      { key: "plans.businessFeature2", feature: "serverBusinessLimits" },
+      { key: "plans.businessFeature3", feature: "customRepository" },
+      { key: "plans.businessFeature4", feature: "annotations" },
+    ],
+    priceSuffix: ["plans.perMonth", "per month"],
+  },
+];
+
+// The app's plans panel (monetization/plan.js): the three plans with store
+// prices, buying, restoring purchases, linking the purchase to an account on
+// the repository and the ads' privacy options. Opened from the header's plan
+// button and from tools the plan does not include.
+function attachPlansPanel(Viewer) {
+  Object.assign(Viewer, {
+    initPlansUi() {
+      if (!isPlansEnabled()) return;
+      this.createPlanButton();
+      this.applyPlanLocks();
+      onTierChange(() => {
+        this.applyPlanLocks();
+        this.updateRepositoryFormVisibility?.();
+        this.applyModelsSourceLocks?.();
+        if (this.plansPanel?.hidden === false) this.renderPlansPanel();
+        // A purchase, restore or lapsed subscription: tell the linked account.
+        syncAccountLink().then(() => this.plansPanel?.hidden === false && this.renderPlansPanel());
+      });
+      syncAccountLink();
+
+      // Locked tools: the tap opens the plans panel instead. Capture phase,
+      // so it runs before the tool's own handler (and its submenu).
+      this.bindEventListener(document, "click", (event) => {
+        const button = event.target.closest?.("#viewerEditorToolbar [data-tool]");
+        if (!button) return;
+        const locked = Object.entries(LOCKED_TOOLS).find(([tool, feature]) =>
+          !hasFeature(feature) && button.closest(`[data-tool="${tool}"]`));
+        if (!locked) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+        this.openPlansPanel("business");
+      }, { capture: true });
+    },
+
+    // Called on plan changes and once the toolbar exists (after a model
+    // has loaded) - it is built after this runs.
+    applyPlanLocks() {
+      if (!isPlansEnabled()) return;
+      Object.entries(LOCKED_TOOLS).forEach(([tool, feature]) => {
+        const button = this.editorToolbarButtons?.[tool];
+        button?.classList.toggle("plan-locked", !hasFeature(feature));
+      });
+    },
+
+    createPlanButton() {
+      const anchor = document.getElementById("openLocalFileButton");
+      if (!anchor || document.getElementById("planButton")) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = "planButton";
+      button.innerHTML = '<span class="plan-button-icon" aria-hidden="true"></span>';
+      const label = t$1("plans.open", "Plans");
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      anchor.after(button);
+      this.bindEventListener(button, "click", () => this.openPlansPanel());
+    },
+
+    openPlansPanel(highlight = "") {
+      this.createPlansPanel();
+      if (!this.plansPanel) return;
+      this.closeLibraryPanel?.();
+      this.closeModelsPanel?.();
+      this.plansHighlight = highlight;
+      this.plansPanel.hidden = false;
+      this.renderPlansPanel();
+    },
+
+    closePlansPanel() {
+      if (this.plansPanel) this.plansPanel.hidden = true;
+    },
+
+    createPlansPanel() {
+      if (!core.container || this.plansPanel) return;
+      const panel = document.createElement("div");
+      panel.id = "plansPanel";
+      panel.hidden = true;
+      panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span>${t$1("plans.title", "Plans")}</span>
+          <button id="plansPanelClose" type="button" aria-label="${t$1("plans.closeAria", "Close")}">X</button>
+        </div>
+        <div class="plans-panel-body"></div>
+      `;
+      core.container.appendChild(panel);
+      this.plansPanel = panel;
+      this.bindEventListener(panel.querySelector("#plansPanelClose"), "click", () => this.closePlansPanel());
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+    },
+
+    // The purchase linked to an account on the repository: the admin panel
+    // and the account's name then show the plan (worker/entitlements.py).
+    renderPlansAccount() {
+      const section = document.createElement("div");
+      section.className = "plans-account";
+      const title = document.createElement("strong");
+      title.textContent = t$1("plans.accountTitle", "Account");
+      section.appendChild(title);
+
+      const account = linkedAccount();
+      if (account) {
+        const row = document.createElement("div");
+        row.className = "plans-account-row";
+        const label = document.createElement("span");
+        label.className = "plans-account-user";
+        label.textContent = t$1("plans.accountLinked", { user: account }, "Linked to {user}");
+        const badge = document.createElement("span");
+        badge.className = "plan-badge";
+        badge.dataset.tier = currentTier();
+        badge.textContent = t$1(`plans.${currentTier()}`, currentTier());
+        label.appendChild(badge);
+        const unlink = document.createElement("button");
+        unlink.type = "button";
+        unlink.textContent = t$1("plans.accountUnlink", "Unlink");
+        this.bindEventListener(unlink, "click", async () => {
+          unlink.disabled = true;
+          try {
+            await unlinkAccount();
+            this.renderPlansPanel();
+          } catch (error) {
+            toastHelper("planLinkError", "info", { message: error.message });
+            unlink.disabled = false;
+          }
+        });
+        row.append(label, unlink);
+        section.append(row, createDeleteAccountLink());
+        return section;
+      }
+
+      const hint = document.createElement("p");
+      hint.className = "plans-panel-note";
+      if (!canLinkAccount()) {
+        hint.textContent = t$1("plans.accountUnavailable", "Connect a repository to link your plan to an account.");
+        section.appendChild(hint);
+        return section;
+      }
+      hint.textContent = t$1("plans.accountHint", "Log in to link your plan to your account on the repository.");
+      const form = document.createElement("form");
+      form.className = "plans-account-form";
+      const username = document.createElement("input");
+      username.type = "text";
+      username.autocomplete = "username";
+      username.autocapitalize = "off";
+      username.placeholder = t$1("uploadPanel.username", "Username");
+      username.setAttribute("aria-label", username.placeholder);
+      const password = document.createElement("input");
+      password.type = "password";
+      password.autocomplete = "current-password";
+      password.placeholder = t$1("uploadPanel.password", "Password");
+      password.setAttribute("aria-label", password.placeholder);
+      const submit = document.createElement("button");
+      submit.type = "submit";
+      submit.textContent = t$1("plans.accountLink", "Link");
+      form.append(username, password, submit);
+      this.bindEventListener(form, "submit", async (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        try {
+          await linkAccount(username.value.trim(), password.value);
+          toastHelper("planLinked", "success");
+          this.renderPlansPanel();
+        } catch (error) {
+          toastHelper("planLinkError", "info", { message: error.message });
+          submit.disabled = false;
+        }
+      });
+      section.append(hint, form, createDeleteAccountLink());
+      return section;
+    },
+
+    async renderPlansPanel() {
+      const body = this.plansPanel?.querySelector(".plans-panel-body");
+      if (!body) return;
+      const renderId = (this.plansRenderId ?? 0) + 1;
+      this.plansRenderId = renderId;
+
+      let offers = [];
+      try {
+        offers = await getPlanOffers();
+      } catch (error) {
+        console.warn("Plans: offers unavailable", error);
+      }
+      if (renderId !== this.plansRenderId) return;
+
+      const tier = currentTier();
+      body.textContent = "";
+
+      PLAN_CARDS.forEach((plan) => {
+        const offer = offers.find((entry) => entry.tier === plan.tier);
+        const card = document.createElement("section");
+        card.className = "plans-card";
+        card.dataset.tier = plan.tier;
+        if (plan.tier === tier) card.dataset.current = "true";
+        if (plan.tier === this.plansHighlight) card.dataset.highlight = "true";
+
+        const head = document.createElement("div");
+        head.className = "plans-card-head";
+        const name = document.createElement("strong");
+        name.textContent = t$1(`plans.${plan.tier}`, plan.tier);
+        if (plan.tier === "free") name.appendChild(createPlanLockIcon());
+        head.appendChild(name);
+        const price = document.createElement("span");
+        price.className = "plans-card-price";
+        if (plan.tier === "free") {
+          price.textContent = t$1("plans.freePrice", "Free");
+        } else {
+          // The store's price is the one charged (localized); ours until it answers.
+          const amount = offer?.priceString || defaultPrice(plan.tier);
+          const suffix = t$1(plan.priceSuffix[0], plan.priceSuffix[1]);
+          price.textContent = amount ? `${amount} · ${suffix}` : suffix;
+        }
+        head.appendChild(price);
+        card.appendChild(head);
+
+        const list = document.createElement("ul");
+        plan.features.forEach(({ key, feature }) => {
+          const item = document.createElement("li");
+          item.textContent = t$1(key, { host: builtInRepositoryHost() });
+          const locked = feature && (plan.tier === "free" ? !tierHasFeature("free", feature) : !hasFeature(feature));
+          if (locked) {
+            item.classList.add("plans-feature-locked");
+            item.prepend(createPlanLockIcon());
+          }
+          list.appendChild(item);
+        });
+        card.appendChild(list);
+
+        if (plan.tier === tier) {
+          const badge = document.createElement("span");
+          badge.className = "plans-card-current";
+          badge.textContent = t$1("plans.current", "Your plan");
+          card.appendChild(badge);
+        } else if (plan.tier !== "free" && TIERS.indexOf(plan.tier) > TIERS.indexOf(tier)) {
+          const buy = document.createElement("button");
+          buy.type = "button";
+          buy.className = "plans-card-buy";
+          buy.textContent = plan.tier === "business" ? t$1("plans.subscribe", "Subscribe") : t$1("plans.buy", "Buy");
+          buy.disabled = !offer;
+          this.bindEventListener(buy, "click", async () => {
+            buy.disabled = true;
+            try {
+              if (await buyPlan(offer)) toastHelper("planPurchased", "success");
+            } catch (error) {
+              console.warn("Plans: purchase failed", error);
+              toastHelper("planPurchaseError", "info");
+            } finally {
+              buy.disabled = false;
+            }
+          });
+          card.appendChild(buy);
+        }
+        body.appendChild(card);
+      });
+
+      if (!isStoreReady()) {
+        const note = document.createElement("p");
+        note.className = "plans-panel-note";
+        note.textContent = t$1("plans.storeUnavailable", "The store is not available right now - buying is disabled.");
+        body.appendChild(note);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "plans-panel-actions";
+      const restore = document.createElement("button");
+      restore.type = "button";
+      restore.textContent = t$1("plans.restore", "Restore purchases");
+      restore.disabled = !isStoreReady();
+      this.bindEventListener(restore, "click", async () => {
+        restore.disabled = true;
+        try {
+          const restored = await restorePlans();
+          toastHelper(restored === "free" ? "planRestoreNone" : "planRestored", "info");
+        } catch {
+          toastHelper("planPurchaseError", "info");
+        } finally {
+          restore.disabled = false;
+        }
+      });
+      actions.appendChild(restore);
+
+      body.appendChild(this.renderPlansAccount());
+
+      if (canShowAdPrivacyOptions()) {
+        const privacy = document.createElement("button");
+        privacy.type = "button";
+        privacy.textContent = t$1("plans.adPrivacy", "Ad privacy options");
+        this.bindEventListener(privacy, "click", () => showAdPrivacyOptions());
+        actions.appendChild(privacy);
+      }
+      body.appendChild(actions);
+
+      // Testing builds (mobile.monetization.testing): try each plan without
+      // buying it.
+      if (isTestingBuild()) {
+        const test = document.createElement("label");
+        test.className = "plans-panel-test";
+        test.textContent = t$1("plans.testOverride", "Test: force plan");
+        const select = document.createElement("select");
+        [["", t$1("plans.testStore", "from the store")], ...TIERS.map((value) => [value, t$1(`plans.${value}`, value)])]
+          .forEach(([value, label]) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = label;
+            select.appendChild(option);
+          });
+        select.value = getTierOverride() || "";
+        this.bindEventListener(select, "change", () => setTierOverride(select.value || null));
+        test.appendChild(select);
+        body.appendChild(test);
+      }
+    },
+  });
+}
+
+// IFC metadata (psets, quantities, spatial tree) does not fit into glTF, so
+// scripts/ifc_metadata.py exports it to <name>_ifc.json next to the *_viewer.json.
+// Node names in the GLB are IFC GlobalIds (IfcConvert --use-element-guids), which
+// are the keys of `elements` in that JSON.
+
+let ifcData = null;
+// Directly loaded .ifc: properties are read on demand from the web-ifc model (IFCModel).
+let liveModel = null;
+let liveRequest = 0;
+let panel = null;
+let highlights = [];
+// Elements hidden through the panel's eye toggle; they stay hidden until toggled back / "Show all".
+const hiddenNodes = new Set();
+let selectedNode = null;
+let highlightMaterial = null;
+// Properties handed over with a model opened from a File (blob: URL, which has no
+// metadata/ sibling to fetch) - the app downloads repository models before opening
+// them. Taken by the next loadIfcProperties().
+let pendingData = null;
+
+const esc = (v) =>
+  String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+function hasIfcProperties() {
+  return ifcData !== null || liveModel !== null;
+}
+
+function clearIfcProperties() {
+  showAllHidden();
+  ifcData = null;
+  liveModel = null;
+  liveRequest++;
+  closeIfcPanel();
+}
+
+function setPendingIfcProperties(data) {
+  pendingData = data?.elements ? data : null;
+}
+
+async function loadIfcProperties(url) {
+  const pending = pendingData;
+  pendingData = null;
+  clearIfcProperties();
+  if (pending) {
+    ifcData = pending;
+    return;
+  }
+  if (!url) return;
+  try {
+    const response = await fetch(url, { cache: "no-cache" });
+    if (!response.ok) return; // not an IFC-derived model: silently skip
+    const data = await response.json();
+    if (data && data.elements) ifcData = data;
+  } catch (error) {
+    console.warn("[ifc-properties] could not load", url, error);
+  }
+}
+
+/** Serves properties straight from a model loaded by IFCLoader (no converted GLB + JSON needed). */
+function setIfcModel(model) {
+  clearIfcProperties();
+  if (model?.ifcManager && model.geometry?.attributes?.expressID) liveModel = model;
+}
+
+const unwrap = (v) => {
+  if (Array.isArray(v)) return v.map(unwrap);
+  if (v && typeof v === "object" && "value" in v) return unwrap(v.value);
+  if (v === ".T.") return true;
+  if (v === ".F.") return false;
+  return v ?? null;
+};
+
+const VALUE_KEYS = [
+  "NominalValue", "LengthValue", "AreaValue", "VolumeValue", "CountValue", "WeightValue", "TimeValue",
+  "EnumerationValues", "ListValues",
+];
+
+// IfcPropertySet / IfcElementQuantity (recursive web-ifc lines) -> { setName: { propName: value } }
+function convertPsets(lines) {
+  const psets = {};
+  for (const line of lines || []) {
+    const items = line.HasProperties || line.Quantities;
+    if (!items) continue;
+    const props = {};
+    for (const item of items) {
+      const name = unwrap(item.Name);
+      if (!name) continue;
+      const key = VALUE_KEYS.find((k) => item[k] != null);
+      props[name] = key ? unwrap(item[key]) : null;
+    }
+    psets[unwrap(line.Name) || "Pset"] = props;
+  }
+  return psets;
+}
+
+async function readLiveEntry(model, id) {
+  const [item, psets, types] = await Promise.all([
+    model.getItemProperties(id, false),
+    model.getPropertySets(id, true),
+    model.getTypeProperties(id, false),
+  ]);
+  return {
+    guid: unwrap(item?.GlobalId),
+    entry: {
+      type: model.getIfcType(id),
+      name: unwrap(item?.Name),
+      description: unwrap(item?.Description),
+      objectType: unwrap(item?.ObjectType),
+      predefinedType: unwrap(item?.PredefinedType),
+      tag: unwrap(item?.Tag),
+      typeRef: types?.[0] ? { name: unwrap(types[0].Name) } : null,
+      psets: convertPsets(psets),
+    },
+  };
+}
+
+// Sub-geometry with only the triangles of one element, sharing the model's vertex buffers.
+function elementGeometry(geometry, id) {
+  const index = geometry.index.array;
+  const ids = geometry.attributes.expressID;
+  const out = [];
+  for (let i = 0; i < index.length; i += 3) {
+    if (ids.getX(index[i]) === id) out.push(index[i], index[i + 1], index[i + 2]);
+  }
+  if (!out.length) return null;
+  const sub = new THREE.BufferGeometry();
+  sub.setAttribute("position", geometry.attributes.position);
+  sub.setIndex(out);
+  return sub;
+}
+
+function findElement(object) {
+  for (let node = object; node; node = node.parent) {
+    if (node.name && ifcData.elements[node.name]) return { node, guid: node.name, entry: ifcData.elements[node.name] };
+  }
+  return null;
+}
+
+function renderValue(value) {
+  if (value && typeof value === "object") return esc(value.name || value.guid || JSON.stringify(value));
+  return esc(value);
+}
+
+function renderPsets(psets) {
+  return Object.entries(psets)
+    .map(([name, props]) => {
+      const rows = Object.entries(props)
+        .filter(([key]) => key !== "id")
+        .map(([key, value]) => `<tr><th>${esc(key)}</th><td>${renderValue(value)}</td></tr>`)
+        .join("");
+      return `<details class="ifc-props-set" open><summary>${esc(name)}</summary><table class="ifc-props-table">${rows}</table></details>`;
+    })
+    .join("");
+}
+
+// Position/size the user chose; kept for the session so the panel reopens where it was left.
+let panelBox = null;
+
+function clampToContainer(left, top, width, height) {
+  const host = core.container;
+  const maxLeft = Math.max(0, host.clientWidth - Math.min(width, 48));
+  const maxTop = Math.max(0, host.clientHeight - 32);
+  return [Math.min(Math.max(-width + 48, left), maxLeft), Math.min(Math.max(0, top), maxTop)];
+}
+
+function applyPanelBox(el) {
+  if (!panelBox) return;
+  el.style.left = `${panelBox.left}px`;
+  el.style.top = `${panelBox.top}px`;
+  el.style.right = "auto";
+  if (panelBox.width) el.style.width = `${panelBox.width}px`;
+  if (panelBox.height) {
+    el.style.height = `${panelBox.height}px`;
+    el.classList.add("ifc-props-sized");
+  }
+}
+
+function rememberPanelBox(el, extra = {}) {
+  panelBox = {
+    ...(panelBox || {}),
+    left: el.offsetLeft,
+    top: el.offsetTop,
+    ...extra,
+  };
+}
+
+/** Header drag + native CSS resize (bottom-right grip); both persist in panelBox. */
+function bindPanelInteractions(el) {
+  let drag = null;
+  let sizeBefore = null;
+
+  el.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    sizeBefore = { w: el.offsetWidth, h: el.offsetHeight };
+    const header = e.target.closest(".ifc-props-header");
+    if (!header || e.target.closest("button") || e.button !== 0) return;
+    drag = { x: e.clientX, y: e.clientY, left: el.offsetLeft, top: el.offsetTop };
+    header.setPointerCapture?.(e.pointerId);
+    el.classList.add("ifc-props-dragging");
+    e.preventDefault();
+  });
+
+  el.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const [left, top] = clampToContainer(
+      drag.left + e.clientX - drag.x,
+      drag.top + e.clientY - drag.y,
+      el.offsetWidth);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.right = "auto";
+  });
+
+  const finish = () => {
+    if (drag) {
+      drag = null;
+      el.classList.remove("ifc-props-dragging");
+      rememberPanelBox(el);
+    }
+    if (sizeBefore && (el.offsetWidth !== sizeBefore.w || el.offsetHeight !== sizeBefore.h)) {
+      rememberPanelBox(el, { width: el.offsetWidth, height: el.offsetHeight });
+      el.classList.add("ifc-props-sized");
+    }
+    sizeBefore = null;
+    updateNoticeAvoidance();
+  };
+  el.addEventListener("pointerup", finish);
+  el.addEventListener("pointercancel", finish);
+}
+
+// Keeps the "controls" shortcuts notice (docked at the right edge, vertically
+// centred - see #viewerNoticeContainer--shortcuts) from covering this panel:
+//   open          -> notice moves to the left edge
+//   open-left     -> panel was dragged to the left half, notice stays on the right
+//   crowded       -> viewer too narrow for both, notice is hidden while the panel is open
+const NOTICE_WIDTH = 380 + 32;
+
+function noticeContainer() {
+  return document.getElementById("viewerNoticeContainer");
+}
+
+function updateNoticeAvoidance() {
+  const notice = noticeContainer();
+  if (!notice) return;
+  if (!panel) {
+    notice.removeAttribute("data-ifc-panel");
+    return;
+  }
+  const hostWidth = core.container.clientWidth;
+  const panelCenter = panel.offsetLeft + panel.offsetWidth / 2;
+  let state = panelCenter < hostWidth / 2 ? "open-left" : "open";
+  if (hostWidth < panel.offsetWidth + NOTICE_WIDTH + 24) state = "crowded";
+  notice.setAttribute("data-ifc-panel", state);
+}
+
+function ensurePanel() {
+  if (panel) return panel;
+  panel = document.createElement("div");
+  panel.id = "ifc-properties-panel";
+  bindPanelInteractions(panel);
+  applyPanelBox(panel);
+  core.container.appendChild(panel);
+  window.addEventListener("resize", updateNoticeAvoidance);
+  return panel;
+}
+
+/** Removes the overlay meshes added by highlightElement(). Geometry is shared, so only the material is kept/disposed. */
+function clearIfcHighlight() {
+  highlights.forEach((overlay) => {
+    overlay.parent?.remove(overlay);
+    if (overlay.userData.ownGeometry) overlay.geometry.dispose();
+  });
+  highlights = [];
+  highlightMaterial?.dispose();
+  highlightMaterial = null;
+}
+
+/**
+ * Highlights every mesh below `node` with a translucent overlay that shares the
+ * original geometry and is a child of the mesh, so it follows its transform.
+ * Overlays are excluded from raycasting so they never get picked themselves.
+ */
+function createHighlightMaterial() {
+  clearIfcHighlight();
+  highlightMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00e5ff,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+}
+
+function addOverlay(mesh, geometry) {
+  const overlay = new THREE.Mesh(geometry, highlightMaterial);
+  overlay.raycast = () => {};
+  overlay.renderOrder = 999;
+  overlay.userData.ifcHighlight = true;
+  mesh.add(overlay);
+  highlights.push(overlay);
+  return overlay;
+}
+
+function highlightElement(node) {
+  createHighlightMaterial();
+  const meshes = [];
+  node.traverse((child) => {
+    if (child.isMesh && !child.userData.ifcHighlight) meshes.push(child);
+  });
+  meshes.forEach((mesh) => addOverlay(mesh, mesh.geometry));
+}
+
+const EYE_ICON =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_ICON =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7c2 0 3.8.7 5.3 1.6M22 12s-3.6 7-10 7c-2 0-3.8-.7-5.3-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
+
+function showAllHidden() {
+  hiddenNodes.forEach((node) => (node.visible = true));
+  hiddenNodes.clear();
+}
+
+function toggleSelectedVisibility() {
+  if (!selectedNode) return;
+  selectedNode.visible = !selectedNode.visible;
+  if (selectedNode.visible) hiddenNodes.delete(selectedNode);
+  else hiddenNodes.add(selectedNode);
+  refreshVisibilityControls();
+}
+
+function refreshVisibilityControls() {
+  if (!panel) return;
+  const visible = selectedNode ? selectedNode.visible !== false : true;
+  const toggle = panel.querySelector(".ifc-props-visibility");
+  if (toggle) {
+    toggle.style.display = selectedNode ? "" : "none"; // per-element hiding needs a node (not for merged IFC mesh)
+    toggle.innerHTML = visible ? EYE_ICON : EYE_OFF_ICON;
+    toggle.setAttribute("aria-pressed", String(!visible));
+    const label = visible ? "Hide element" : "Show element";
+    toggle.title = label;
+    toggle.setAttribute("aria-label", label);
+  }
+  const bar = panel.querySelector(".ifc-props-hidden-bar");
+  if (bar) {
+    bar.hidden = hiddenNodes.size === 0;
+    bar.querySelector(".ifc-props-hidden-count").textContent = `Hidden elements: ${hiddenNodes.size}`;
+  }
+}
+
+function closeIfcPanel() {
+  liveRequest++; // drop any in-flight property read
+  selectedNode = null;
+  clearIfcHighlight();
+  panel?.remove();
+  panel = null;
+  window.removeEventListener("resize", updateNoticeAvoidance);
+  updateNoticeAvoidance();
+}
+
+function showIfcProperties(object, hit = null) {
+  if (liveModel) return showLiveProperties(object, hit);
+  if (!ifcData || !object) return false;
+  const found = findElement(object);
+  if (!found) return false;
+  const { node, guid, entry } = found;
+  highlightElement(node);
+  selectedNode = node;
+  renderPanel(entry, guid);
+  return true;
+}
+
+function showLiveProperties(object, hit) {
+  if (object !== liveModel || hit?.faceIndex == null) return false;
+  const id = liveModel.getExpressId(object.geometry, hit.faceIndex);
+  const request = ++liveRequest;
+  selectedNode = null;
+  const sub = elementGeometry(object.geometry, id);
+  createHighlightMaterial();
+  if (sub) addOverlay(object, sub).userData.ownGeometry = true;
+  readLiveEntry(liveModel, id)
+    .then(({ guid, entry }) => {
+      if (request === liveRequest) renderPanel(entry, guid);
+    })
+    .catch((error) => console.warn("[ifc-properties] could not read element", id, error));
+  return true;
+}
+
+function renderPanel(entry, guid) {
+  const head = [
+    ["Type", entry.type],
+    ["Name", entry.name],
+    ["Description", entry.description],
+    ["Object type", entry.objectType],
+    ["Predefined type", entry.predefinedType],
+    ["Tag", entry.tag],
+    ["Material", entry.material],
+    ["IFC type", entry.typeRef?.name],
+    ["GlobalId", guid],
+  ]
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`)
+    .join("");
+
+  const el = ensurePanel();
+  el.innerHTML =
+    `<div class="ifc-props-header"><span class="ifc-props-title">${esc(entry.name || entry.type)}</span>` +
+    `<button type="button" class="ifc-props-btn ifc-props-visibility"></button>` +
+    `<button type="button" class="ifc-props-btn ifc-props-close" aria-label="Close">×</button></div>` +
+    `<div class="ifc-props-hidden-bar" hidden><span class="ifc-props-hidden-count"></span>` +
+    `<button type="button" class="ifc-props-show-all">Show all</button></div>` +
+    `<div class="ifc-props-body"><table class="ifc-props-table">${head}</table>${entry.psets ? renderPsets(entry.psets) : ""}</div>`;
+  el.querySelector(".ifc-props-close").addEventListener("click", closeIfcPanel);
+  el.querySelector(".ifc-props-visibility").addEventListener("click", toggleSelectedVisibility);
+  el.querySelector(".ifc-props-show-all").addEventListener("click", () => {
+    showAllHidden();
+    refreshVisibilityControls();
+  });
+  refreshVisibilityControls();
+  updateNoticeAvoidance();
+}
+
+/**
+ * <dir>/gltf/<name>.glb -> <dir>/metadata/<name>_ifc.json (the layout produced by
+ * scripts/convert.sh), independent of the Drupal metadataUrl setting so it also
+ * works for the standalone worker and local previews.
+ */
+function ifcPropertiesUrlForModel(modelPath) {
+  if (!modelPath || modelPath.startsWith("blob:")) return null;
+  const match = modelPath.match(/^(.*)\/gltf\/([^/?#]+)\.(?:glb|gltf)(?:[?#].*)?$/i);
+  return match ? `${match[1]}/metadata/${match[2]}_ifc.json` : null;
+}
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated
@@ -4851,6 +9464,12 @@ function attachModelsPanel(Viewer) {
           this.refreshAuthState?.();
           this.loadModelsList();
         });
+        // Locked (no Business plan): a tap on the field opens the plans.
+        this.bindEventListener(repositoryForm.querySelector(".models-panel-repository-row"), "click", () => {
+          if (repositoryForm.dataset.locked !== "true") return;
+          toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+          this.openPlansPanel?.("business");
+        });
       }
 
       this.updateRepositoryFormVisibility();
@@ -4860,15 +9479,21 @@ function attachModelsPanel(Viewer) {
       makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
     },
 
-    // The address field is a Business feature in the app (monetization/plan.js).
+    // The address field is a Business feature in the app (monetization/plan.js):
+    // the other plans see it locked, with the address the app was built with.
     updateRepositoryFormVisibility() {
       const form = this.modelsPanel?.querySelector("#modelsPanelRepository");
       if (!form) return;
       const allowed = hasFeature("customRepository");
-      const wasHidden = form.hidden;
-      form.hidden = !allowed;
+      const wasLocked = form.dataset.locked === "true";
+      const locked = isPlansEnabled() && !allowed;
+      form.dataset.locked = locked ? "true" : "false";
+      form.querySelectorAll("input, button").forEach((control) => { control.disabled = locked; });
+      const label = form.querySelector("label");
+      label.querySelector(".plan-lock-icon")?.remove();
+      if (locked) label.appendChild(createPlanLockIcon());
       form.querySelector("input").value = remoteBase();
-      if (wasHidden !== form.hidden && this.modelsPanel?.hidden === false) this.loadModelsList();
+      if (wasLocked !== locked && this.modelsPanel?.hidden === false) this.loadModelsList();
     },
 
     async loadModelsList() {
@@ -4877,6 +9502,16 @@ function attachModelsPanel(Viewer) {
       if (!this.modelsList || this.modelsPanel?.hidden) return;
       const list = this.modelsList;
       list.textContent = "";
+
+      // Not in this plan (models-source.js keeps the panel closed; this is
+      // the fallback if it gets here anyway).
+      if (!hasFeature("remoteModels")) {
+        const lockedItem = document.createElement("li");
+        lockedItem.className = "models-panel-empty";
+        lockedItem.append(createPlanLockIcon(), t$1("toasts.planLocked", "Available in the Business plan."));
+        list.appendChild(lockedItem);
+        return;
+      }
 
       if (!hasRemote()) {
         const emptyItem = document.createElement("li");
@@ -4942,6 +9577,22 @@ function attachModelsPanel(Viewer) {
         (core.SUPPORTED_EXTENSIONS.includes(extension) || this.SUPPORTED_ARCHIVES?.includes(extension));
     },
 
+    // A model converted from IFC has its properties in metadata/<name>_ifc.json.
+    // The app opens repository models from a downloaded File (blob: URL), so it
+    // fetches that file here instead of the loader. Null when there is none.
+    async fetchIfcProperties(job) {
+      const url = ifcPropertiesUrlForModel(remoteAssetUrl(job.modelUrl));
+      if (!url) return null;
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data?.elements ? data : null;
+      } catch {
+        return null;
+      }
+    },
+
     async saveModelOffline(job, button) {
       button.disabled = true;
       button.dataset.state = "saving";
@@ -4955,6 +9606,7 @@ function attachModelsPanel(Viewer) {
             .then((r) => (r.ok ? r.blob() : null))
             .catch(() => null);
         }
+        const ifcProperties = await this.fetchIfcProperties(job);
         const fileName = decodeURIComponent(String(job.modelUrl).split(/[?#]/)[0].split("/").pop());
         await saveToLibrary({
           id: repositoryEntryId(job.id),
@@ -4964,6 +9616,7 @@ function attachModelsPanel(Viewer) {
           remoteId: job.id,
           file,
           thumbnail,
+          ifcProperties,
         });
         button.dataset.state = "saved";
         const savedAria = t$1("modelsPanel.savedOffline", { name: job.name || fileName }, "{name} is on this device");
@@ -5154,9 +9807,11 @@ function attachModelsPanel(Viewer) {
         // unreachable the app keeps what is on screen, and says so quietly.
         this.remoteModelPending = true;
         let file = null;
+        let ifcProperties = null;
         let reachable = false;
         try {
           file = this.canSaveOffline(job) ? await this.downloadRemoteModel(job) : null;
+          if (file) ifcProperties = await this.fetchIfcProperties(job);
           reachable = file !== null || (!this.canSaveOffline(job) &&
             await this.isRemoteModelReachable(remoteAssetUrl(job.modelUrl)));
         } finally {
@@ -5168,7 +9823,10 @@ function attachModelsPanel(Viewer) {
         }
         this.closeModelsPanel();
         if (file) {
-          if (!(await this.openLocalFile(file))) return;
+          setPendingIfcProperties(ifcProperties);
+          const opened = await this.openLocalFile(file);
+          setPendingIfcProperties(null);
+          if (!opened) return;
         } else {
           core.autoPath = remoteAssetUrl(job.modelUrl);
           this.resetLoadedModelState();
@@ -5329,9 +9987,12 @@ function attachLibraryPanel(Viewer) {
       text.appendChild(caption);
       button.appendChild(text);
 
-      this.bindEventListener(button, "click", () => {
+      this.bindEventListener(button, "click", async () => {
         this.closeLibraryPanel();
-        this.openLocalFile(libraryEntryFile(entry));
+        // Saved from the repository with its IFC properties (models-panel.js).
+        setPendingIfcProperties(entry.ifcProperties);
+        await this.openLocalFile(libraryEntryFile(entry));
+        setPendingIfcProperties(null);
       });
       item.appendChild(button);
 
@@ -5365,6 +10026,8 @@ function attachLibraryPanel(Viewer) {
 // The app has one "Models" button instead of two: it opens the models on the
 // device (library-panel.js) or those in the repository (models-panel.js),
 // whichever was used last, and both panels carry a toggle between the two.
+// The repository's models are a Business feature (monetization/plan.js): on
+// the other plans "Remote" carries a lock and opens the plans panel.
 const SOURCE_KEY = "dfg3dviewer-models-source";
 
 function storedSource() {
@@ -5387,10 +10050,16 @@ function attachModelsSource(Viewer) {
         this.closeModelsPanel?.();
         return;
       }
-      this.showModelsSource(storedSource());
+      const source = storedSource();
+      this.showModelsSource(source === "remote" && !hasFeature("remoteModels") ? "local" : source);
     },
 
     showModelsSource(source) {
+      if (source === "remote" && !hasFeature("remoteModels")) {
+        toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+        this.openPlansPanel?.("business");
+        return;
+      }
       try {
         window.localStorage.setItem(SOURCE_KEY, source);
       } catch {
@@ -5426,378 +10095,31 @@ function attachModelsSource(Viewer) {
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = label;
+        button.dataset.source = source;
         button.setAttribute("aria-pressed", source === active ? "true" : "false");
         if (source !== active) {
           this.bindEventListener(button, "click", () => this.showModelsSource(source));
         }
         toggle.appendChild(button);
       });
+      this.updateModelsSourceLock(toggle);
       return toggle;
     },
-  });
-}
 
-// Free plan ads (AdMob, @capacitor-community/admob): a banner along the bottom
-// and a full-screen ad after every Nth model loaded, at most once per
-// interval, never for the model the app opens with. The page gives the
-// banner its height (--app-ad-banner-height on body, see main.css), so the
-// toolbar sits above it instead of under it.
-//
-// Consent first (Google UMP): in the EEA and UK the form is shown before any
-// ad is requested, and no ads are requested without it. Its privacy options
-// stay reachable from the plans panel (showAdPrivacyOptions).
-
-let admob = null;
-let started = false;
-let bannerShown = false;
-let consentInfo = null;
-let modelsLoaded = 0;
-let lastInterstitialAt = 0;
-let interstitialReady = false;
-
-function adsSettings() {
-  return monetizationSettings()?.admob || {};
-}
-
-function wantsAds() {
-  return isPlansEnabled() && !hasFeature("noAds") && window.Capacitor?.isNativePlatform?.() === true;
-}
-
-function setBannerHeight(px) {
-  document.body?.style.setProperty("--app-ad-banner-height", `${Math.max(0, Math.round(px || 0))}px`);
-}
-
-async function loadPlugin() {
-  if (admob) return admob;
-  const module = await import('./index-BXues7RB.js');
-  admob = module;
-  return admob;
-}
-
-async function requestConsent() {
-  const { AdMob, AdmobConsentStatus } = admob;
-  consentInfo = await AdMob.requestConsentInfo();
-  if (consentInfo.isConsentFormAvailable && consentInfo.status === AdmobConsentStatus.REQUIRED) {
-    consentInfo = await AdMob.showConsentForm();
-  }
-  return consentInfo.canRequestAds !== false;
-}
-
-async function showBanner() {
-  if (bannerShown || !wantsAds()) return;
-  const { AdMob, BannerAdPosition, BannerAdSize, BannerAdPluginEvents } = admob;
-  await AdMob.addListener(BannerAdPluginEvents.SizeChanged, (size) => setBannerHeight(size?.height));
-  await AdMob.showBanner({
-    adId: adsSettings().bannerId,
-    adSize: BannerAdSize.ADAPTIVE_BANNER,
-    position: BannerAdPosition.BOTTOM_CENTER,
-    isTesting: monetizationSettings()?.testing === true,
-  });
-  bannerShown = true;
-}
-
-async function removeBanner() {
-  if (!bannerShown || !admob) return;
-  bannerShown = false;
-  setBannerHeight(0);
-  await admob.AdMob.removeBanner().catch(() => {});
-}
-
-async function prepareInterstitial() {
-  if (interstitialReady || !wantsAds() || !adsSettings().interstitialId) return;
-  try {
-    await admob.AdMob.prepareInterstitial({
-      adId: adsSettings().interstitialId,
-      isTesting: monetizationSettings()?.testing === true,
-    });
-    interstitialReady = true;
-  } catch {
-    // No fill or no network: tried again after the next model.
-  }
-}
-
-async function start() {
-  if (started || !wantsAds()) return;
-  started = true;
-  try {
-    await loadPlugin();
-    await admob.AdMob.initialize({ initializeForTesting: monetizationSettings()?.testing === true });
-    if (!(await requestConsent())) return;
-    await showBanner();
-    prepareInterstitial();
-  } catch (error) {
-    // Ads never stop the viewer.
-    console.warn("Ads unavailable", error);
-    started = false;
-  }
-}
-
-function initAds() {
-  if (!isPlansEnabled()) return;
-  onTierChange(() => {
-    if (wantsAds()) {
-      if (started) showBanner().catch(() => {});
-      else if (modelsLoaded > 0) start();
-    } else {
-      removeBanner();
-    }
-  });
-}
-
-// Called after each model finishes loading (loaders.js). The first one
-// starts the ads - after the splash, over a viewer that shows something.
-function onModelLoadedForAds() {
-  if (!wantsAds()) return;
-  modelsLoaded += 1;
-  if (!started) {
-    start();
-    return;
-  }
-  const every = Math.max(1, Number(adsSettings().interstitialEvery) || 3);
-  const minIntervalMs = Math.max(0, Number(adsSettings().interstitialMinIntervalSec) || 0) * 1000;
-  const due = modelsLoaded > 1 && (modelsLoaded - 1) % every === 0;
-  if (!due || !interstitialReady || Date.now() - lastInterstitialAt < minIntervalMs) {
-    prepareInterstitial();
-    return;
-  }
-  interstitialReady = false;
-  lastInterstitialAt = Date.now();
-  admob.AdMob.showInterstitial()
-    .catch(() => {})
-    .finally(() => prepareInterstitial());
-}
-
-// The "privacy options" entry the consent rules require (plans panel).
-function canShowAdPrivacyOptions() {
-  return Boolean(admob && consentInfo && consentInfo.privacyOptionsRequirementStatus === "REQUIRED" && currentTier() === "free");
-}
-
-async function showAdPrivacyOptions() {
-  if (!admob) return;
-  await admob.AdMob.showPrivacyOptionsForm().catch(() => {});
-}
-
-// The app's plans panel (monetization/plan.js): the three plans with store
-// prices, buying, restoring purchases and the ads' privacy options. Opened
-// from the header's plan button and from tools the plan does not include.
-function attachPlansPanel(Viewer) {
-  Object.assign(Viewer, {
-    initPlansUi() {
-      if (!isPlansEnabled()) return;
-      this.createPlanButton();
-      this.applyPlanLocks();
-      onTierChange(() => {
-        this.applyPlanLocks();
-        this.updateRepositoryFormVisibility?.();
-        if (this.plansPanel?.hidden === false) this.renderPlansPanel();
-      });
-
-      // Locked tools: the tap opens the plans panel instead. Capture phase,
-      // so it runs before the tool's own handler (and its submenu).
-      this.bindEventListener(document, "click", (event) => {
-        const button = event.target.closest?.("#viewerEditorToolbar [data-tool]");
-        if (!button) return;
-        const locked = Object.entries(LOCKED_TOOLS).find(([tool, feature]) =>
-          !hasFeature(feature) && button.closest(`[data-tool="${tool}"]`));
-        if (!locked) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
-        this.openPlansPanel("business");
-      }, { capture: true });
+    // The lock on "Remote"; called for every toggle when the plan changes.
+    updateModelsSourceLock(toggle) {
+      const button = toggle.querySelector('[data-source="remote"]');
+      if (!button) return;
+      const locked = !hasFeature("remoteModels");
+      button.classList.toggle("plan-locked", locked);
+      button.querySelector(".plan-lock-icon")?.remove();
+      if (locked) button.appendChild(createPlanLockIcon());
     },
 
-    // Called on plan changes and once the toolbar exists (after a model
-    // has loaded) - it is built after this runs.
-    applyPlanLocks() {
-      if (!isPlansEnabled()) return;
-      Object.entries(LOCKED_TOOLS).forEach(([tool, feature]) => {
-        const button = this.editorToolbarButtons?.[tool];
-        button?.classList.toggle("plan-locked", !hasFeature(feature));
-      });
-    },
-
-    createPlanButton() {
-      const anchor = document.getElementById("openLocalFileButton");
-      if (!anchor || document.getElementById("planButton")) return;
-      const button = document.createElement("button");
-      button.type = "button";
-      button.id = "planButton";
-      button.innerHTML = '<span class="plan-button-icon" aria-hidden="true"></span>';
-      const label = t$1("plans.open", "Plans");
-      button.setAttribute("aria-label", label);
-      button.title = label;
-      anchor.after(button);
-      this.bindEventListener(button, "click", () => this.openPlansPanel());
-    },
-
-    openPlansPanel(highlight = "") {
-      this.createPlansPanel();
-      if (!this.plansPanel) return;
-      this.closeLibraryPanel?.();
-      this.closeModelsPanel?.();
-      this.plansHighlight = highlight;
-      this.plansPanel.hidden = false;
-      this.renderPlansPanel();
-    },
-
-    closePlansPanel() {
-      if (this.plansPanel) this.plansPanel.hidden = true;
-    },
-
-    createPlansPanel() {
-      if (!core.container || this.plansPanel) return;
-      const panel = document.createElement("div");
-      panel.id = "plansPanel";
-      panel.hidden = true;
-      panel.innerHTML = `
-        <div class="upload-panel-header">
-          <span>${t$1("plans.title", "Plans")}</span>
-          <button id="plansPanelClose" type="button" aria-label="${t$1("plans.closeAria", "Close")}">X</button>
-        </div>
-        <div class="plans-panel-body"></div>
-      `;
-      core.container.appendChild(panel);
-      this.plansPanel = panel;
-      this.bindEventListener(panel.querySelector("#plansPanelClose"), "click", () => this.closePlansPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
-    },
-
-    async renderPlansPanel() {
-      const body = this.plansPanel?.querySelector(".plans-panel-body");
-      if (!body) return;
-      const renderId = (this.plansRenderId ?? 0) + 1;
-      this.plansRenderId = renderId;
-
-      let offers = [];
-      try {
-        offers = await getPlanOffers();
-      } catch (error) {
-        console.warn("Plans: offers unavailable", error);
-      }
-      if (renderId !== this.plansRenderId) return;
-
-      const tier = currentTier();
-      body.textContent = "";
-
-      const plans = [
-        { tier: "free", features: ["plans.freeFeature1"], price: t$1("plans.freePrice", "Free") },
-        { tier: "pro", features: ["plans.proFeature1", "plans.proFeature2"], priceSuffix: t$1("plans.oneTime", "one-time") },
-        {
-          tier: "business",
-          features: ["plans.businessFeature1", "plans.businessFeature2", "plans.businessFeature3", "plans.businessFeature4"],
-          priceSuffix: t$1("plans.perMonth", "per month"),
-        },
-      ];
-
-      plans.forEach((plan) => {
-        const offer = offers.find((entry) => entry.tier === plan.tier);
-        const card = document.createElement("section");
-        card.className = "plans-card";
-        card.dataset.tier = plan.tier;
-        if (plan.tier === tier) card.dataset.current = "true";
-        if (plan.tier === this.plansHighlight) card.dataset.highlight = "true";
-
-        const head = document.createElement("div");
-        head.className = "plans-card-head";
-        const name = document.createElement("strong");
-        name.textContent = t$1(`plans.${plan.tier}`, plan.tier);
-        head.appendChild(name);
-        const price = document.createElement("span");
-        price.className = "plans-card-price";
-        price.textContent = plan.price || (offer?.priceString ? `${offer.priceString} · ${plan.priceSuffix}` : plan.priceSuffix);
-        head.appendChild(price);
-        card.appendChild(head);
-
-        const list = document.createElement("ul");
-        plan.features.forEach((key) => {
-          const item = document.createElement("li");
-          item.textContent = t$1(key);
-          list.appendChild(item);
-        });
-        card.appendChild(list);
-
-        if (plan.tier === tier) {
-          const badge = document.createElement("span");
-          badge.className = "plans-card-current";
-          badge.textContent = t$1("plans.current", "Your plan");
-          card.appendChild(badge);
-        } else if (plan.tier !== "free" && TIERS.indexOf(plan.tier) > TIERS.indexOf(tier)) {
-          const buy = document.createElement("button");
-          buy.type = "button";
-          buy.className = "plans-card-buy";
-          buy.textContent = plan.tier === "business" ? t$1("plans.subscribe", "Subscribe") : t$1("plans.buy", "Buy");
-          buy.disabled = !offer;
-          this.bindEventListener(buy, "click", async () => {
-            buy.disabled = true;
-            try {
-              if (await buyPlan(offer)) toastHelper("planPurchased", "success");
-            } catch (error) {
-              console.warn("Plans: purchase failed", error);
-              toastHelper("planPurchaseError", "info");
-            } finally {
-              buy.disabled = false;
-            }
-          });
-          card.appendChild(buy);
-        }
-        body.appendChild(card);
-      });
-
-      if (!isStoreReady()) {
-        const note = document.createElement("p");
-        note.className = "plans-panel-note";
-        note.textContent = t$1("plans.storeUnavailable", "The store is not available right now - buying is disabled.");
-        body.appendChild(note);
-      }
-
-      const actions = document.createElement("div");
-      actions.className = "plans-panel-actions";
-      const restore = document.createElement("button");
-      restore.type = "button";
-      restore.textContent = t$1("plans.restore", "Restore purchases");
-      restore.disabled = !isStoreReady();
-      this.bindEventListener(restore, "click", async () => {
-        restore.disabled = true;
-        try {
-          const restored = await restorePlans();
-          toastHelper(restored === "free" ? "planRestoreNone" : "planRestored", "info");
-        } catch {
-          toastHelper("planPurchaseError", "info");
-        } finally {
-          restore.disabled = false;
-        }
-      });
-      actions.appendChild(restore);
-
-      if (canShowAdPrivacyOptions()) {
-        const privacy = document.createElement("button");
-        privacy.type = "button";
-        privacy.textContent = t$1("plans.adPrivacy", "Ad privacy options");
-        this.bindEventListener(privacy, "click", () => showAdPrivacyOptions());
-        actions.appendChild(privacy);
-      }
-      body.appendChild(actions);
-
-      // Testing builds (mobile.monetization.testing): try each plan without
-      // buying it.
-      if (isTestingBuild()) {
-        const test = document.createElement("label");
-        test.className = "plans-panel-test";
-        test.textContent = t$1("plans.testOverride", "Test: force plan");
-        const select = document.createElement("select");
-        [["", t$1("plans.testStore", "from the store")], ...TIERS.map((value) => [value, t$1(`plans.${value}`, value)])]
-          .forEach(([value, label]) => {
-            const option = document.createElement("option");
-            option.value = value;
-            option.textContent = label;
-            select.appendChild(option);
-          });
-        select.value = getTierOverride() || "";
-        this.bindEventListener(select, "change", () => setTierOverride(select.value || null));
-        test.appendChild(select);
-        body.appendChild(test);
-      }
+    applyModelsSourceLocks() {
+      document.querySelectorAll(".models-source-toggle").forEach((toggle) => this.updateModelsSourceLock(toggle));
+      // The plan no longer includes it: back to the models on the device.
+      if (!hasFeature("remoteModels") && this.modelsPanel?.hidden === false) this.showModelsSource("local");
     },
   });
 }
@@ -5853,6 +10175,51 @@ const LIMIT_FIELDS = [
   { key: "maxModels", label: ["adminPanel.limitMaxModels", "Max models"] },
   { key: "concurrentJobs", label: ["adminPanel.limitConcurrentJobs", "Concurrent conversions"] },
 ];
+
+// The app plan (worker/entitlements.py) as a small icon, coloured like the
+// .plan-badge elsewhere: an outlined star (Free), a star (Pro), a gem
+// (Business). The name stays in its tooltip and accessible label.
+const PLAN_ICONS = {
+  free: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  pro: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/>',
+  business:
+    '<defs><linearGradient id="adminPlanBusiness" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#db2777"/></linearGradient></defs>' +
+    '<path d="M7 4h10l4 5-9 11L3 9z" fill="url(#adminPlanBusiness)"/>' +
+    '<path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1" stroke-linejoin="round"/>',
+};
+
+function createPlanIcon(tier) {
+  const icon = document.createElement("span");
+  icon.className = "admin-plan-icon";
+  icon.dataset.tier = tier;
+  icon.setAttribute("role", "img");
+  icon.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">${PLAN_ICONS[tier] || PLAN_ICONS.free}</svg>`;
+  return icon;
+}
+
+const PLAN_RANK = { business: 3, pro: 2, free: 1 };
+
+const lastUploadOf = (models) => models.reduce((latest, job) => Math.max(latest, job.createdAt || 0), 0);
+
+// Sort keys for the user list. `desc`: the first click sorts high to low
+// (biggest, newest, best plan first); names go A-Z.
+const USER_SORTS = {
+  plan: { label: ["adminPanel.sortPlan", "Plan"], desc: true, value: (u) => PLAN_RANK[u.user.plan?.tier] || 0 },
+  name: { label: ["adminPanel.sortName", "Name"], desc: false, value: (u) => u.user.username.toLocaleLowerCase() },
+  models: { label: ["adminPanel.sortModels", "Uploaded models"], desc: true, value: (u) => u.models.length },
+  storage: { label: ["adminPanel.sortStorage", "Storage used"], desc: true, value: (u) => u.user.usage?.storageBytes || 0 },
+  lastUpload: { label: ["adminPanel.sortLastUpload", "Last upload"], desc: true, value: (u) => lastUploadOf(u.models) },
+};
+
+function compareUsers(a, b, key, desc) {
+  const va = USER_SORTS[key].value(a);
+  const vb = USER_SORTS[key].value(b);
+  const order = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+  // Ties (e.g. everyone on Free) fall back to the name, always A-Z.
+  if (order === 0) return a.user.username.localeCompare(b.user.username);
+  return desc ? -order : order;
+}
 
 function formatLimit(value) {
   return value ? String(value) : "∞";
@@ -5921,6 +10288,11 @@ function attachAdminPanel(Viewer) {
           <button id="adminPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
         </div>
         <p id="adminPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
+        <div class="admin-users-sort" hidden>
+          <label for="adminUsersSort">${t$1("adminPanel.sortBy", "Sort by")}</label>
+          <select id="adminUsersSort"></select>
+          <button type="button" class="admin-users-sort-direction"></button>
+        </div>
         <ul id="adminUsersList" class="admin-users-list"></ul>
       `;
 
@@ -5929,7 +10301,25 @@ function attachAdminPanel(Viewer) {
       this.adminInputs = {
         status: panel.querySelector("#adminPanelStatus"),
         list: panel.querySelector("#adminUsersList"),
+        sortBar: panel.querySelector(".admin-users-sort"),
+        sort: panel.querySelector("#adminUsersSort"),
+        sortDirection: panel.querySelector(".admin-users-sort-direction"),
       };
+
+      this.adminSort = { key: "plan", desc: USER_SORTS.plan.desc };
+      Object.entries(USER_SORTS).forEach(([key, sort]) => {
+        this.adminInputs.sort.appendChild(new Option(t$1(...sort.label), key));
+      });
+      this.adminInputs.sort.value = this.adminSort.key;
+      this.bindEventListener(this.adminInputs.sort, "change", () => {
+        const key = this.adminInputs.sort.value;
+        this.adminSort = { key, desc: USER_SORTS[key].desc };
+        this.renderAdminUsers();
+      });
+      this.bindEventListener(this.adminInputs.sortDirection, "click", () => {
+        this.adminSort.desc = !this.adminSort.desc;
+        this.renderAdminUsers();
+      });
 
       const closeButton = panel.querySelector("#adminPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeAdminPanel());
@@ -5940,6 +10330,7 @@ function attachAdminPanel(Viewer) {
       if (!this.adminInputs?.list) return;
       const list = this.adminInputs.list;
       list.textContent = "";
+      this.adminInputs.sortBar.hidden = true;
       this.setAdminStatusText("");
 
       let users = [];
@@ -5947,6 +10338,7 @@ function attachAdminPanel(Viewer) {
         const data = await adminRequest("");
         users = data.users || [];
         this.adminDefaultLimits = data.defaultLimits || null;
+        this.adminBusinessLimits = data.businessLimits || null;
       } catch (error) {
         this.reportError(error, { context: "Failed to load users list" });
         this.setAdminStatusText(t$1("adminPanel.loadError", "Could not load the user list."), "error");
@@ -5970,9 +10362,24 @@ function attachAdminPanel(Viewer) {
         this.reportError(error, { context: "Failed to load user upload stats" });
       }
 
-      users.forEach((user) =>
-        list.appendChild(this.renderUserRow(user, jobsByOwner.get(user.username) || []))
-      );
+      this.adminUsers = users.map((user) => ({ user, models: jobsByOwner.get(user.username) || [] }));
+      this.adminInputs.sortBar.hidden = false;
+      this.renderAdminUsers();
+    },
+
+    renderAdminUsers() {
+      const { list, sortDirection } = this.adminInputs;
+      const { key, desc } = this.adminSort;
+      const label = desc
+        ? t$1("adminPanel.sortDescending", "Descending")
+        : t$1("adminPanel.sortAscending", "Ascending");
+      sortDirection.textContent = desc ? "↓" : "↑";
+      sortDirection.title = label;
+      sortDirection.setAttribute("aria-label", label);
+      list.textContent = "";
+      [...(this.adminUsers || [])]
+        .sort((a, b) => compareUsers(a, b, key, desc))
+        .forEach(({ user, models }) => list.appendChild(this.renderUserRow(user, models)));
     },
 
     renderUserRow(user, models = []) {
@@ -5987,11 +10394,29 @@ function attachAdminPanel(Viewer) {
       const name = document.createElement("span");
       name.className = "admin-users-name";
       name.textContent = user.username;
+      // The mobile app plan linked to the account (worker/entitlements.py).
+      if (user.plan) {
+        const badge = createPlanIcon(user.plan.tier);
+        const details = [t$1(`plans.${user.plan.tier}`, user.plan.tier), t$1("loginPanel.planTitle", "Plan in the mobile app")];
+        if (user.plan.expiresAt) {
+          details.push(t$1("adminPanel.planRenews", { date: new Date(user.plan.expiresAt * 1000).toLocaleDateString() }, "renews/ends {date}"));
+        }
+        if (user.plan.updatedAt) {
+          details.push(t$1("adminPanel.planChecked", { date: new Date(user.plan.updatedAt * 1000).toLocaleString() }, "checked {date}"));
+        }
+        badge.title = details.join(" · ");
+        badge.setAttribute("aria-label", badge.title);
+        name.appendChild(badge);
+      }
       const meta = document.createElement("span");
       meta.className = "admin-users-meta";
       const created = user.createdAt ? new Date(user.createdAt * 1000).toLocaleDateString() : "";
       const modelsCount = t$1("adminPanel.modelsCount", { count: models.length }, "{count} models");
-      meta.textContent = [user.email, `${user.role} · ${user.status}`, modelsCount, created]
+      const lastUpload = lastUploadOf(models);
+      const lastUploadText = lastUpload
+        ? t$1("adminPanel.lastUpload", { date: new Date(lastUpload * 1000).toLocaleDateString() }, "last upload {date}")
+        : "";
+      meta.textContent = [user.email, `${user.role} · ${user.status}`, modelsCount, lastUploadText, created]
         .filter(Boolean)
         .join(" · ");
       info.append(name, meta);
@@ -6074,7 +10499,15 @@ function attachAdminPanel(Viewer) {
       }
 
       const overrides = user.limits || {};
-      const defaults = this.adminDefaultLimits || {};
+      // Accounts with the app's Business plan start from its limits.
+      const isBusiness = user.plan?.tier === "business" && this.adminBusinessLimits;
+      const defaults = (isBusiness ? this.adminBusinessLimits : this.adminDefaultLimits) || {};
+      if (isBusiness && user.role !== "admin") {
+        const note = document.createElement("p");
+        note.className = "admin-users-limits-note";
+        note.textContent = t$1("adminPanel.limitsBusiness", "Business plan: its limits are the defaults here.");
+        form.appendChild(note);
+      }
       const inputs = {};
       LIMIT_FIELDS.forEach(({ key, label }) => {
         const field = document.createElement("label");
@@ -6242,6 +10675,9 @@ function attachAdminPanel(Viewer) {
           throw new Error(`Delete failed (HTTP ${response.status})`);
         }
         item.remove();
+        // Keep the sorted list's data in step (a re-sort re-renders from it).
+        const entry = this.adminUsers?.find((u) => u.user.username === username);
+        if (entry) entry.models = entry.models.filter((m) => m.id !== job.id);
         if (modelsList.children.length === 0) {
           this.renderUserModelsList(modelsList, username, []);
         }
@@ -6297,231 +10733,6 @@ function attachAdminPanel(Viewer) {
   });
 }
 
-// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
-// for same-origin requests, so no credentials option is needed.
-async function authRequest(path, body) {
-  const response = await fetch(apiUrl(`/api/auth/${path}`), {
-    method: body ? "POST" : "GET",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  let data = {};
-  try {
-    data = await response.json();
-  } catch (_error) {
-    // Non-JSON error page (e.g. from a proxy) - fall through with the status.
-  }
-  if (!response.ok) {
-    const error = new Error(data.error || `HTTP ${response.status}`);
-    error.status = response.status;
-    throw error;
-  }
-  return data;
-}
-
-function attachLoginPanel(Viewer) {
-  Object.assign(Viewer, {
-    // Accounts are enforced by the worker (WORKER_AUTH_MODE); the manifest's
-    // AIM3DViewer.viewer.auth only tunes the UI: enabled:false hides it,
-    // allowRegistration:false hides the register button.
-    async refreshAuthState() {
-      const uiConfig = core.CONFIG?.viewer?.auth || {};
-      const state = { required: false, registration: false, user: null, role: null, maxUploadBytes: 0 };
-      // The upload limit is reported by the same endpoint, so query it even
-      // when the manifest hides the login UI. The app build with no
-      // repository configured has no worker to ask: accounts off.
-      if (hasRemote()) {
-        try {
-          const serverConfig = await authRequest("config");
-          state.maxUploadBytes = Number(serverConfig.maxUploadBytes) || 0;
-          if (uiConfig.enabled !== false) {
-            state.required = serverConfig.mode === "required";
-            state.registration =
-              serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
-            if (state.required) {
-              const me = await authRequest("me");
-              state.user = me.user || null;
-              state.role = me.role || null;
-            }
-          }
-        } catch (_error) {
-          // Older worker without /api/auth/*: behaves as accounts off.
-        }
-      }
-      this.authState = state;
-      this.renderUploadHint?.();
-      this.renderUploadAuthNotice?.();
-      // Limits and usage depend on who is logged in.
-      if (this.isUploadPanelOpen?.()) this.refreshUploadLimits?.();
-      this.renderLoginPanel();
-      this.updateLoginMenuEntryState();
-      this.updateAdminMenuEntryState?.();
-      return state;
-    },
-
-    updateLoginMenuEntryState() {
-      if (!this.loginButton) return;
-      this.loginButton.hidden = !this.authState?.required;
-      const signedIn = Boolean(this.authState?.user);
-      this.loginButton.dataset.signedIn = signedIn ? "true" : "false";
-      this.loginButton.innerHTML = `<span class="login-icon" aria-hidden="true"></span>`;
-      const a11yLabel = signedIn
-        ? t$1("loginPanel.openSignedIn", { user: this.authState.user }, "Signed in as {user}")
-        : t$1("menu.openLoginPanel", "Log in or register");
-      this.loginButton.setAttribute("aria-label", a11yLabel);
-      this.loginButton.setAttribute("title", a11yLabel);
-    },
-
-    isLoginPanelOpen() {
-      return this.loginPanel?.hidden === false;
-    },
-
-    openLoginPanel(event) {
-      this.createLoginPanel();
-      this.toggleLoginPanel(event);
-    },
-
-    toggleLoginPanel(event) {
-      event?.preventDefault?.();
-      this.closeActionMenu?.();
-      if (!this.loginPanel) return;
-      const willShow = this.loginPanel.hidden === true;
-      this.loginPanel.hidden = !willShow;
-      if (willShow) {
-        this.setLoginStatusText("");
-        this.refreshAuthState();
-      }
-    },
-
-    closeLoginPanel() {
-      if (this.loginPanel) this.loginPanel.hidden = true;
-    },
-
-    setLoginStatusText(message, tone = "info") {
-      if (!this.loginInputs?.status) return;
-      this.loginInputs.status.textContent = message;
-      this.loginInputs.status.dataset.tone = tone;
-    },
-
-    createLoginPanel() {
-      if (!core.container || this.loginPanel) return;
-
-      const panel = document.createElement("div");
-      panel.id = "loginPanel";
-      panel.hidden = true;
-      panel.innerHTML = `
-        <div class="upload-panel-header">
-          <span>${t$1("loginPanel.title", "Account")}</span>
-          <button id="loginPanelClose" type="button" aria-label="${t$1("loginPanel.closeAria", "Close account panel")}">X</button>
-        </div>
-        <div id="loginPanelAuth" class="upload-panel-auth"></div>
-        <p id="loginPanelStatus" class="upload-panel-status" role="status" aria-live="polite"></p>
-      `;
-
-      core.container.appendChild(panel);
-      this.loginPanel = panel;
-      this.loginInputs = {
-        auth: panel.querySelector("#loginPanelAuth"),
-        status: panel.querySelector("#loginPanelStatus"),
-      };
-      this.bindEventListener(panel.querySelector("#loginPanelClose"), "click", () => this.closeLoginPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
-      this.renderLoginPanel();
-    },
-
-    renderLoginPanel() {
-      const section = this.loginInputs?.auth;
-      if (!section) return;
-      const state = this.authState || { required: false };
-      section.textContent = "";
-
-      if (!state.required) {
-        const note = document.createElement("p");
-        note.className = "upload-panel-hint";
-        note.textContent = t$1("loginPanel.notRequired", "Accounts are not enabled on this server.");
-        section.appendChild(note);
-        return;
-      }
-
-      if (state.user) {
-        const label = document.createElement("span");
-        label.textContent = t$1("uploadPanel.signedInAs", { user: state.user }, "Signed in as {user}");
-        const logout = document.createElement("button");
-        logout.type = "button";
-        logout.textContent = t$1("uploadPanel.logout", "Log out");
-        this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
-        section.append(label, logout);
-        return;
-      }
-
-      const username = document.createElement("input");
-      username.type = "text";
-      username.autocomplete = "username";
-      username.placeholder = t$1("uploadPanel.username", "Username");
-      username.setAttribute("aria-label", username.placeholder);
-      const password = document.createElement("input");
-      password.type = "password";
-      password.autocomplete = "current-password";
-      password.placeholder = t$1("uploadPanel.password", "Password");
-      password.setAttribute("aria-label", password.placeholder);
-      const login = document.createElement("button");
-      login.type = "button";
-      login.textContent = t$1("uploadPanel.login", "Log in");
-      this.bindEventListener(login, "click", () =>
-        this.handleAuthAction("login", { username: username.value.trim(), password: password.value })
-      );
-      this.bindEventListener(password, "keydown", (event) => {
-        if (event.key === "Enter") login.click();
-      });
-      section.append(username, password, login);
-      if (state.registration) {
-        // Only needed to register (AUTH.register() rejects a missing/invalid
-        // address server-side); login doesn't use it, so it stays out of the
-        // shared username/password row above.
-        const email = document.createElement("input");
-        email.type = "email";
-        email.autocomplete = "email";
-        email.placeholder = t$1("uploadPanel.email", "Email");
-        email.setAttribute("aria-label", email.placeholder);
-        const register = document.createElement("button");
-        register.type = "button";
-        register.textContent = t$1("uploadPanel.register", "Register");
-        this.bindEventListener(register, "click", () =>
-          this.handleAuthAction("register", {
-            username: username.value.trim(),
-            password: password.value,
-            email: email.value.trim(),
-          })
-        );
-        section.append(email, register);
-      }
-    },
-
-    async handleAuthAction(action, credentials) {
-      try {
-        if (action === "register") {
-          const result = await authRequest("register", credentials);
-          this.setLoginStatusText(
-            result.status === "pending"
-              ? t$1("uploadPanel.registeredPending", "Account created. It must be approved before you can upload.")
-              : t$1("uploadPanel.registeredActive", "Account created. You can log in now."),
-            "success"
-          );
-          return;
-        }
-        await authRequest(action, credentials || {});
-        this.setLoginStatusText("");
-        await this.refreshAuthState();
-        // Delete permissions in the models panel depend on who's logged in;
-        // refresh it too if it's already open.
-        this.loadModelsList?.();
-      } catch (error) {
-        this.setLoginStatusText(error.message, "error");
-      }
-    },
-  });
-}
-
 function getGalleryConfig() {
   return core.CONFIG?.viewer?.gallery || {};
 }
@@ -6537,7 +10748,8 @@ function getGalleryHost(Viewer, mainElement) {
 }
 
 function removeExistingGalleryDom() {
-  document.getElementById("image-list")?.remove();
+  const imageList = document.getElementById("image-list");
+  (imageList?.closest(".image-list-scroller") || imageList)?.remove();
   document.getElementById("modalGallery")?.remove();
 }
 
@@ -6718,6 +10930,58 @@ function normalizeGalleryUrl(rawUrl) {
     }
     return url;
   }
+}
+
+const SCROLL_HINT_ICONS = {
+  prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>',
+  next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>',
+};
+
+// On a phone the thumbnails are one row that scrolls sideways (main.css),
+// which nothing on screen gave away. The wrapper fades the edge that has
+// more thumbnails behind it and shows a small chevron there (tapping it
+// scrolls); both only when the row overflows that way, and CSS keeps them
+// to the phone layout.
+function wrapWithScrollHints(Viewer, imageList) {
+  const scroller = document.createElement("div");
+  scroller.className = "image-list-scroller";
+  scroller.appendChild(imageList);
+
+  const [prevButton, nextButton] = ["prev", "next"].map((direction) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `image-list-hint image-list-hint--${direction}`;
+    button.tabIndex = -1; // the thumbnails themselves are reachable by keyboard
+    // Shown by update() only when the row scrolls that way - not left to the
+    // stylesheet alone, so a missing or older one never shows empty buttons.
+    button.hidden = true;
+    button.setAttribute("aria-hidden", "true");
+    button.innerHTML = SCROLL_HINT_ICONS[direction];
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const step = Math.max(64, imageList.clientWidth * 0.8);
+      imageList.scrollBy({ left: direction === "next" ? step : -step, behavior: "smooth" });
+    });
+    scroller.appendChild(button);
+    return button;
+  });
+
+  const update = () => {
+    const max = imageList.scrollWidth - imageList.clientWidth;
+    const canPrev = imageList.scrollLeft > 2;
+    const canNext = imageList.scrollLeft < max - 2;
+    scroller.classList.toggle("can-scroll-prev", canPrev);
+    scroller.classList.toggle("can-scroll-next", canNext);
+    prevButton.hidden = !canPrev;
+    nextButton.hidden = !canNext;
+  };
+  imageList.addEventListener("scroll", update, { passive: true });
+  if (typeof ResizeObserver === "function") new ResizeObserver(update).observe(imageList);
+  Viewer.bindEventListener(window, "resize", update);
+  // Thumbnails can change the row's width as they load.
+  imageList.addEventListener("load", update, true);
+  requestAnimationFrame(update);
+  return scroller;
 }
 
 // Swaps the thumbnail shimmer placeholder for the real image once it has
@@ -6920,7 +11184,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   ) {
     const galleryHost = getGalleryHost(Viewer, mainElement);
     galleryHost.insertAdjacentElement("beforebegin", modalGallery);
-    galleryHost.insertAdjacentElement("beforebegin", imageList);
+    galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
   }
 }
 
@@ -7356,2196 +11620,6 @@ function attachLocalizationTheme(viewer) {
       this.applyLanguage();
     },
   });
-}
-
-// The size of one scene unit, in meters, for measurements. Taken from, in
-// this order:
-//   user      the unit picked in the measurement menu, remembered per model
-//   manifest  IIIF Presentation 4 Scene.spatialScale, or AIM3DViewer units
-//   file      the model file's own unit (FBX UnitScaleFactor, 3MF / AMF unit,
-//             USD metersPerUnit, COLLADA <unit>)
-//   config    viewer.measurement.modelUnitInMeters (viewer-settings.json)
-//   default   meters (glTF, IFC and point clouds are meters by definition;
-//             OBJ, STL, PLY have no unit)
-// Files are wrong sometimes (a model made in centimeters, exported to glTF
-// as if in meters): a model of implausible size gets a hint in the
-// measurement panel, with the units that would make it plausible.
-
-const MODEL_UNITS = {
-  m: 1,
-  cm: 0.01,
-  mm: 0.001,
-  in: 0.0254,
-  ft: 0.3048,
-};
-
-// Unit names as manifests and files write them.
-const UNIT_ALIASES = {
-  m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
-  cm: 0.01, centimeter: 0.01, centimeters: 0.01, centimetre: 0.01, centimetres: 0.01,
-  mm: 0.001, millimeter: 0.001, millimeters: 0.001, millimetre: 0.001, millimetres: 0.001,
-  um: 1e-6, micron: 1e-6, micrometer: 1e-6, micrometre: 1e-6,
-  km: 1000, kilometer: 1000, kilometre: 1000,
-  in: 0.0254, inch: 0.0254, inches: 0.0254,
-  ft: 0.3048, foot: 0.3048, feet: 0.3048,
-  yd: 0.9144, yard: 0.9144,
-};
-
-// A model whose largest side lies outside this range (in meters) is
-// probably in another unit than the one assumed.
-const PLAUSIBLE_SIZE = { min: 0.005, max: 500 };
-// ...and the units suggested are those giving it a size in this range.
-const SUGGESTED_SIZE = { min: 0.05, max: 300 };
-
-const STORAGE_PREFIX = "dfg3dviewer-model-unit:";
-const DISPLAY_STORAGE_KEY = "dfg3dviewer-measure-display";
-
-function unitNameToMeters(name) {
-  const meters = UNIT_ALIASES[String(name || "").trim().toLowerCase()];
-  return Number.isFinite(meters) ? meters : null;
-}
-
-// The unit key of a size in meters (0.01 -> "cm"), or null for another one.
-function unitKeyOf(meters) {
-  return Object.keys(MODEL_UNITS).find((key) => Math.abs(MODEL_UNITS[key] - meters) <= MODEL_UNITS[key] * 1e-6) || null;
-}
-
-function readStorage(key) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch (_error) {
-    return null;
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
-  } catch (_error) {
-    // Storage blocked: the choice lasts for this page only.
-  }
-}
-
-// The 3MF model part's unit attribute (default millimeter), read from the
-// archive without parsing its geometry again.
-async function read3MFUnit(url) {
-  const response = await fetch(url);
-  if (!response.ok) return null;
-  const files = unzipSync$1(new Uint8Array(await response.arrayBuffer()), {
-    filter: (file) => /\.model$/i.test(file.name),
-  });
-  const model = Object.values(files)[0];
-  if (!model) return null;
-  const head = new TextDecoder().decode(model.subarray(0, 4096));
-  const unit = head.match(/<model\b[^>]*\bunit\s*=\s*["']([^"']+)["']/i)?.[1] || "millimeter";
-  return unitNameToMeters(unit);
-}
-
-// The unit of a loaded model file, in meters per unit of its geometry - or
-// null when the file has none. Call before the loader's root transform is
-// reset (loaders.js): COLLADA and USD put their unit in the root's scale.
-async function detectFileUnit(object, extension, url) {
-  const ext = String(extension || "").toLowerCase();
-  const root = Array.isArray(object) ? object[0] : object;
-  if (!root) return null;
-  try {
-    if (ext === "fbx") {
-      // Centimeters per unit.
-      const factor = Number(root.userData?.unitScaleFactor);
-      return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
-    }
-    if (ext === "amf") {
-      // AMFLoader scales the geometry to millimeters.
-      return 0.001;
-    }
-    if (ext === "3mf") {
-      return url ? await read3MFUnit(url) : 0.001;
-    }
-    if (ext === "dae" || ext === "usd" || ext === "usda" || ext === "usdc" || ext === "usdz") {
-      // <unit meter="..."> / metersPerUnit, as the root's (uniform) scale.
-      const { x, y, z } = root.scale;
-      const uniform = Math.abs(x - y) < 1e-9 && Math.abs(x - z) < 1e-9;
-      return uniform && x > 0 && Math.abs(x - 1) > 1e-9 ? x : null;
-    }
-  } catch (error) {
-    console.warn("Could not read the model file's unit", error);
-  }
-  return null;
-}
-
-function trim(value, digits) {
-  return Number(value.toFixed(digits)).toString();
-}
-
-function attachModelUnits(Viewer) {
-  Object.assign(Viewer, {
-    // Set per load: the manifest's unit and the file's (meters per unit).
-    manifestUnitMeters: null,
-    detectedModelUnitMeters: null,
-
-    resetModelUnits() {
-      Viewer.manifestUnitMeters = null;
-      Viewer.detectedModelUnitMeters = null;
-    },
-
-    // The model the user's unit choice is remembered for.
-    getModelUnitStorageKey() {
-      const id = core.fileObject?.originalPath || "";
-      return id ? `${STORAGE_PREFIX}${id}` : null;
-    },
-
-    getModelUnitOverride() {
-      const key = Viewer.getModelUnitStorageKey();
-      const stored = key ? readStorage(key) : null;
-      return stored && MODEL_UNITS[stored] ? stored : null;
-    },
-
-    // { meters, source, key } for one scene unit.
-    resolveModelUnit() {
-      const pick = (meters, source) => ({ meters, source, key: unitKeyOf(meters) });
-      const override = Viewer.getModelUnitOverride();
-      if (override) return pick(MODEL_UNITS[override], "user");
-      if (Number(Viewer.manifestUnitMeters) > 0) return pick(Number(Viewer.manifestUnitMeters), "manifest");
-      if (Number(Viewer.detectedModelUnitMeters) > 0) return pick(Number(Viewer.detectedModelUnitMeters), "file");
-      const configured = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
-      if (Number.isFinite(configured) && configured > 0 && configured !== 1) return pick(configured, "config");
-      return pick(1, "default");
-    },
-
-    // "auto" (or null) forgets the user's choice for this model.
-    setModelUnit(unit) {
-      const key = Viewer.getModelUnitStorageKey();
-      if (key) writeStorage(key, unit && unit !== "auto" && MODEL_UNITS[unit] ? unit : null);
-      Viewer.refreshMeasurementUnits?.();
-      Viewer.updateEditorToolbarState?.();
-    },
-
-    getMeasureDisplaySystem() {
-      return readStorage(DISPLAY_STORAGE_KEY) === "imperial" ? "imperial" : "metric";
-    },
-
-    setMeasureDisplaySystem(system) {
-      writeStorage(DISPLAY_STORAGE_KEY, system === "imperial" ? "imperial" : null);
-      Viewer.refreshMeasurementUnits?.();
-      Viewer.updateEditorToolbarState?.();
-    },
-
-    // ---- formatting, from scene units -------------------------------------
-
-    formatLength(sceneUnits) {
-      const meters = sceneUnits * Viewer.resolveModelUnit().meters;
-      if (!Number.isFinite(meters)) return { text: "0", meters: 0 };
-      if (Viewer.getMeasureDisplaySystem() === "imperial") {
-        const feet = meters / 0.3048;
-        if (feet >= 5280) return { text: `${trim(feet / 5280, 2)} mi`, meters };
-        if (feet >= 1) return { text: `${feet.toFixed(2)} ft`, meters };
-        return { text: `${(feet * 12).toFixed(feet * 12 >= 1 ? 1 : 2)} in`, meters };
-      }
-      if (meters >= 1000) return { text: `${trim(meters / 1000, 2)} km`, meters };
-      if (meters >= 1) return { text: `${meters.toFixed(2)} m`, meters };
-      if (meters >= 0.01) return { text: `${(meters * 100).toFixed(1)} cm`, meters };
-      return { text: `${(meters * 1000).toFixed(meters * 1000 >= 1 ? 0 : 2)} mm`, meters };
-    },
-
-    formatArea(sceneUnits2) {
-      const scale = Viewer.resolveModelUnit().meters;
-      const m2 = sceneUnits2 * scale * scale;
-      if (!Number.isFinite(m2)) return "0";
-      if (Viewer.getMeasureDisplaySystem() === "imperial") {
-        const ft2 = m2 / (0.3048 * 0.3048);
-        if (ft2 >= 1) return `${ft2.toFixed(2)} ft²`;
-        return `${(ft2 * 144).toFixed(1)} in²`;
-      }
-      if (m2 >= 1e6) return `${trim(m2 / 1e6, 3)} km²`;
-      if (m2 >= 0.01) return `${m2.toFixed(m2 >= 1 ? 2 : 3)} m²`;
-      if (m2 >= 1e-4) return `${(m2 * 1e4).toFixed(1)} cm²`;
-      return `${(m2 * 1e6).toFixed(0)} mm²`;
-    },
-
-    formatVolume(sceneUnits3) {
-      const scale = Viewer.resolveModelUnit().meters;
-      const m3 = sceneUnits3 * scale * scale * scale;
-      if (!Number.isFinite(m3)) return "0";
-      if (Viewer.getMeasureDisplaySystem() === "imperial") {
-        const ft3 = m3 / (0.3048 ** 3);
-        if (ft3 >= 1000) return `${Math.round(ft3).toLocaleString("en-US")} ft³`;
-        if (ft3 >= 1) return `${ft3.toFixed(2)} ft³`;
-        return `${(ft3 * 1728).toFixed(1)} in³`;
-      }
-      if (m3 >= 1e9) return `${trim(m3 / 1e9, 2)} km³`;
-      if (m3 >= 1000) return `${Math.round(m3).toLocaleString("en-US")} m³`;
-      if (m3 >= 0.001) return `${m3.toFixed(3)} m³`;
-      if (m3 >= 1e-6) return `${(m3 * 1e6).toFixed(1)} cm³`;
-      return `${(m3 * 1e9).toFixed(0)} mm³`;
-    },
-
-    // ---- plausibility -----------------------------------------------------
-
-    // The models' largest side, in scene units (0 when nothing is loaded).
-    getModelLargestSide() {
-      const box = new THREE.Box3();
-      (core.mainObject || []).flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
-        .filter((root) => root?.isObject3D)
-        .forEach((root) => box.expandByObject(root));
-      if (box.isEmpty()) return 0;
-      const size = box.getSize(new THREE.Vector3());
-      return Math.max(size.x, size.y, size.z);
-    },
-
-    // null, or { meters: the largest side as measured now, suggestions: unit
-    // keys that would make it plausible } - unless the user chose the unit.
-    getModelUnitWarning() {
-      const unit = Viewer.resolveModelUnit();
-      if (unit.source === "user") return null;
-      const side = Viewer.getModelLargestSide();
-      if (!(side > 0)) return null;
-      const meters = side * unit.meters;
-      if (meters >= PLAUSIBLE_SIZE.min && meters <= PLAUSIBLE_SIZE.max) return null;
-      const suggestions = Object.keys(MODEL_UNITS)
-        .filter((key) => key !== unit.key)
-        .filter((key) => {
-          const size = side * MODEL_UNITS[key];
-          return size >= SUGGESTED_SIZE.min && size <= SUGGESTED_SIZE.max;
-        })
-        // Metric first, then the closest to the unit assumed now.
-        .sort((a, b) => {
-          const imperial = (key) => (key === "in" || key === "ft" ? 1 : 0);
-          const distance = (key) => Math.abs(Math.log(MODEL_UNITS[key] / unit.meters));
-          return imperial(a) - imperial(b) || distance(a) - distance(b);
-        });
-      return { meters, suggestions: suggestions.slice(0, 3) };
-    },
-
-    describeModelUnitSource(source) {
-      return t$1(`measurement.unitSource.${source}`, source);
-    },
-  });
-}
-
-function getEditorToolbarIcon(icon) {
-  const icons = {
-    moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="1.4" fill="currentColor"/><circle cx="16" cy="7" r="1.4" fill="currentColor"/><circle cx="8" cy="12" r="1.4" fill="currentColor"/><circle cx="16" cy="12" r="1.4" fill="currentColor"/><circle cx="8" cy="17" r="1.4" fill="currentColor"/><circle cx="16" cy="17" r="1.4" fill="currentColor"/></svg>',
-    orbit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 2.75 21 3.5l-.75 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.25" fill="currentColor"/></svg>',
-    move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-    lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
-    materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    shading: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    shadingStandard: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.15"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2" fill="currentColor" opacity="0.6"/></svg>',
-    shadingPhong: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2.2" fill="currentColor"/></svg>',
-    shadingLambert: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.25"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    shadingToon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9a6.5 6.5 0 0 1 9-3M6.5 15a6.5 6.5 0 0 0 8 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
-    color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
-    intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-    resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> </svg>',
-    resetSettings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5A8 8 0 1 1 4 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    displayHelperX: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8 8 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    displayHelperY: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 12 13 17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 13v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    displayHelperZ: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 17h10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    visible: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    clippingPlanes: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M7 6h5v12H7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2.5" stroke-linejoin="round"/></svg>',
-    ruler: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M7 9v2.5 M9.5 9v1.6 M12 9v2.5 M14.5 9v1.6 M17 9v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    measureDistance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17 12 9l7 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="17" r="2" fill="currentColor"/><circle cx="12" cy="9" r="2" fill="currentColor"/><circle cx="19" cy="14" r="2" fill="currentColor"/></svg>',
-    measureAngle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 19H5L15 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 19a5.5 5.5 0 0 0-2.4-4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
-    measureArea: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7 14 4l6 9-8 7-7-5z" fill="currentColor" fill-opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
-    measureDimensions: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 7.5 12 12l8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    measureClear: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>',
-    annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
-    annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    annotateTour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 7.2v5.6l4.6-2.8z" fill="currentColor"/></svg>',
-    annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
-    IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
-    hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
-    statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
-    performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
-    performanceLow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#2ECC40"/></svg>',
-    expand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    collapse: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    projection: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8l5-3h7v14h-7l-5-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5v14" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    wireframe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4M5 17l7-4 7 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    screenshot: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5H5a2 2 0 0 0-2 2v2M17 5h2a2 2 0 0 1 2 2v2M17 19h2a2 2 0 0 0 2-2v-2M7 19H5a2 2 0 0 1-2-2v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
-    download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M5 12l7 7 7-7M4 19h16a1 1 0 0 1 1 1v2H3v-2a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    background: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>',
-    backgroundLinear: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>',
-    backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
-    backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
-    backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
-    help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
-  };
-
-  return icons[icon] || icons.advancedEditor;
-}
-
-function syncEditorToolbarSecondaryTrayWidth(viewer) {
-  if (!viewer.editorToolbarSecondaryTray) return;
-
-  const tray = viewer.editorToolbarSecondaryTray;
-  const trayStyle = getComputedStyle(tray);
-  const gapValue = Number.parseFloat(trayStyle.columnGap || trayStyle.gap || "0");
-  const gap = Number.isFinite(gapValue) ? gapValue : 0;
-  const childCount = tray.children.length;
-  const buttonsWidth = Array.from(tray.children).reduce(
-    (sum, el) => sum + (el?.offsetWidth || 0),
-    0
-  );
-  const width = Math.max(0, buttonsWidth + Math.max(childCount - 1, 0) * gap);
-
-  const widthValue = `${Math.ceil(width)}px`;
-  viewer.editorToolbarSecondaryTray.style.setProperty(
-    "--viewer-toolbar-secondary-width",
-    widthValue
-  );
-
-  (core.editorToolbar || null)?.style.setProperty(
-    "--viewer-toolbar-secondary-width",
-    widthValue
-  );
-}
-
-// Phones - the same media query as the phone toolbar rules in
-// editor-toolbar.css: the secondary tools open as a card above the toolbar.
-const PHONE_TOOLBAR_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
-
-// Toasts sit at the bottom of the viewer; on phones the toolbar (and its
-// expanded card, whose height depends on how many rows it wraps into, and an
-// open submenu above that) covers that spot, so lift them above whatever of
-// it is on screen.
-function syncNoticeAboveToolbar() {
-  const notice = core.noticeContainer;
-  const toolbar = core.editorToolbar;
-  if (!notice) return;
-  const parent = notice.offsetParent;
-  if (!toolbar || !parent || !window.matchMedia(PHONE_TOOLBAR_QUERY).matches) {
-    notice.style.removeProperty("--viewer-notice-safe-bottom");
-    return;
-  }
-  let top = toolbar.getBoundingClientRect().top;
-  const tray = toolbar.querySelector(":scope > .viewer-editor-toolbar_secondary-tray");
-  if (tray && toolbar.classList.contains("expanded")) {
-    top = Math.min(top, tray.getBoundingClientRect().top);
-    // An open submenu (tapped on touch screens) sits above the card.
-    tray.querySelectorAll(":scope > .submenu-open > .viewer-editor-tool_submenu").forEach((submenu) => {
-      top = Math.min(top, submenu.getBoundingClientRect().top);
-    });
-  }
-  const offset = Math.max(8, Math.round(parent.getBoundingClientRect().bottom - top + 10));
-  notice.style.setProperty("--viewer-notice-safe-bottom", `${offset}px`);
-}
-
-// Touch screens have no hover: a tap leaves a tool "hovered" and focused, so
-// its CSS-opened submenu could not be closed by tapping the tool again. In the
-// secondary tray a tap toggles .submenu-open instead (see editor-toolbar.css);
-// opening one closes the others, and a tap outside the toolbar closes all.
-function bindTouchSubmenus(viewer, toolbar, tray) {
-  const closeOpenSubmenus = (keep = null) => {
-    tray.querySelectorAll(".has-submenu.submenu-open").forEach((item) => {
-      if (!keep || !item.contains(keep)) item.classList.remove("submenu-open");
-    });
-  };
-
-  viewer.bindEventListener(tray, "click", (event) => {
-    if (!window.matchMedia("(hover: none)").matches) return;
-    const item = event.target.closest(".has-submenu");
-    if (!item || !tray.contains(item)) return;
-    const submenu = item.querySelector(":scope > .viewer-editor-tool_submenu");
-    if (!submenu || submenu.contains(event.target)) return;
-    const open = !item.classList.contains("submenu-open");
-    closeOpenSubmenus(item);
-    item.classList.toggle("submenu-open", open);
-    syncNoticeAboveToolbar();
-  });
-
-  viewer.bindEventListener(document, "click", (event) => {
-    if (toolbar.contains(event.target) || !tray.querySelector(".submenu-open")) return;
-    closeOpenSubmenus();
-    syncNoticeAboveToolbar();
-  });
-}
-
-function getEditorToolbarHost(viewer) {
-  if (core.container?.classList.contains("viewer-window-controls-enabled")) {
-    return core.container;
-  }
-  return core.viewerWrapper || core.container || null;
-}
-
-function getEditorToolbarConfig(viewer) {
-  return core.CONFIG?.viewer?.editorToolbar || viewer?.CONFIG?.viewer?.editorToolbar || {};
-}
-
-function isEditorToolbarEnabled(viewer) {
-  const enabled = getEditorToolbarConfig(viewer).enabled;
-  const parsedEnabled = viewer.parseBooleanParam?.(enabled);
-
-  if (parsedEnabled != null) {
-    return parsedEnabled;
-  }
-
-  return enabled !== false;
-}
-
-function getToolbarBaseLeft(toolbar) {
-  if (!toolbar) return 0;
-  const computedLeft = Number.parseFloat(getComputedStyle(toolbar).left);
-  return Number.isFinite(computedLeft) ? computedLeft : 0;
-}
-
-function hasConfiguredToolbarPosition(viewer) {
-  if (viewer?.editorToolbarPositionExplicit === true) return true;
-  const position = getEditorToolbarConfig(viewer).position || {};
-  const parsedX = viewer.parseFloatParam?.(position.x);
-  const parsedY = viewer.parseFloatParam?.(position.y);
-  if (parsedX == null && parsedY == null) return false;
-  return Boolean((parsedX ?? 0) !== 0 || (parsedY ?? 0) !== 0);
-}
-
-function getInitialToolbarPosition(viewer, toolbar = null, host = null) {
-  const position = getEditorToolbarConfig(viewer).position || {};
-  const parsedX = viewer.parseFloatParam?.(position.x);
-  const parsedY = viewer.parseFloatParam?.(position.y);
-
-  if (parsedX != null || parsedY != null) {
-    return {
-      x: parsedX ?? 0,
-      y: parsedY ?? 0,
-    };
-  }
-
-  if (toolbar && host) {
-    const hostRect = host.getBoundingClientRect();
-    const baseLeft = getToolbarBaseLeft(toolbar);
-    const centeredX = Math.max((hostRect.width - toolbar.offsetWidth) / 2 - baseLeft, 0);
-
-    return {
-      x: centeredX,
-      y: 0,
-    };
-  }
-
-  return {
-    x: 0,
-    y: 0,
-  };
-}
-
-function syncToolbarExpandAnchorMode(viewer, toolbar = core.editorToolbar) {
-  if (!toolbar) return;
-  const isExplicit = viewer?.editorToolbarPositionExplicit === true;
-  toolbar.classList.toggle("viewer-editor-toolbar_anchor-left", isExplicit);
-  toolbar.classList.toggle("viewer-editor-toolbar_anchor-center", !isExplicit);
-}
-
-function syncToolbarExpandOffset(viewer, toolbar = core.editorToolbar) {
-  if (!toolbar) return;
-  const isExplicit = viewer?.editorToolbarPositionExplicit === true;
-  const isExpanded = viewer?.isToolbarExpanded === true;
-  const shift = !isExplicit && isExpanded
-    ? "calc(var(--viewer-toolbar-secondary-width, 0px) / -2)"
-    : "0px";
-  toolbar.style.setProperty("--viewer-toolbar-expand-shift", shift);
-}
-
-function setStoredToolbarPosition(viewer, x, y, options = {}) {
-  const {
-    explicit = true,
-    toolbarElement = null,
-  } = options;
-  const nextPosition = {
-    x: Number.isFinite(x) ? x : 0,
-    y: Number.isFinite(y) ? y : 0,
-  };
-
-  viewer.editorToolbarPosition = nextPosition;
-  viewer.editorToolbarPositionExplicit = explicit === true;
-
-  core.CONFIG ??= {};
-  core.CONFIG.viewer ??= {};
-  core.CONFIG.viewer.editorToolbar ??= {};
-  core.CONFIG.viewer.editorToolbar.position = nextPosition;
-
-  const toolbar = toolbarElement || core.editorToolbar;
-  syncToolbarExpandAnchorMode(viewer, toolbar);
-  syncToolbarExpandOffset(viewer, toolbar);
-}
-
-function initializeEditorToolbarDrag(handle, viewer, toolbar, host) {
-  let dragState = null;
-  let positionIsExplicit = hasConfiguredToolbarPosition(viewer);
-
-  // persistent toolbar position
-  const initialPosition = getInitialToolbarPosition(viewer, toolbar, host);
-  let currentX = initialPosition.x;
-  let currentY = initialPosition.y;
-  setStoredToolbarPosition(viewer, currentX, currentY, { explicit: positionIsExplicit });
-
-  const getScale = () => {
-    const style = getComputedStyle(toolbar);
-    const scale = parseFloat(
-      style.getPropertyValue("--viewer-toolbar-scale")
-    );
-
-    return Number.isFinite(scale) ? scale : 1;
-  };
-
-  const clampPosition = (x, y) => {
-    const hostRect = host.getBoundingClientRect();
-
-    return {
-      x: Math.min(
-        Math.max(x, -hostRect.width),
-        hostRect.width
-      ),
-
-      y: Math.min(
-        Math.max(y, -hostRect.height),
-        hostRect.height
-      ),
-    };
-  };
-
-  const applyPosition = () => {
-    toolbar.style.setProperty("--drag-x", `${currentX}px`);
-    toolbar.style.setProperty("--drag-y", `${currentY}px`);
-    setStoredToolbarPosition(viewer, currentX, currentY, {
-      explicit: positionIsExplicit,
-      toolbarElement: toolbar,
-    });
-  };
-
-  toolbar.__setViewerToolbarPosition = (x, y, options = {}) => {
-    if (Number.isFinite(x)) currentX = x;
-    if (Number.isFinite(y)) currentY = y;
-    if (typeof options.explicit === "boolean") {
-      positionIsExplicit = options.explicit;
-    }
-    applyPosition();
-  };
-
-  const updateToolbarPosition = (event) => {
-    if (!dragState) return;
-
-    const scale = getScale();
-
-    const dx = (event.clientX - dragState.startX) / scale;
-    const dy = (event.clientY - dragState.startY) / scale;
-
-    const pos = clampPosition(
-      dragState.originX + dx,
-      dragState.originY + dy
-    );
-
-    currentX = pos.x;
-    currentY = pos.y;
-
-    applyPosition();
-  };
-
-  const stopToolbarDrag = () => {
-    if (!dragState) return;
-
-    dragState = null;
-
-    toolbar.classList.remove("viewer-editor-toolbar_dragging");
-
-    document.removeEventListener(
-      "pointermove",
-      updateToolbarPosition
-    );
-
-    document.removeEventListener(
-      "pointerup",
-      stopToolbarDrag
-    );
-
-    document.removeEventListener(
-      "pointercancel",
-      stopToolbarDrag
-    );
-
-    requestAnimationFrame(() => {
-      toolbar.style.removeProperty("transition");
-    });
-  };
-
-  const startToolbarDrag = (event) => {
-    if (event.button !== 0) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (!positionIsExplicit && viewer.isToolbarExpanded === true) {
-      const secondaryWidth = Number.parseFloat(
-        getComputedStyle(toolbar).getPropertyValue("--viewer-toolbar-secondary-width")
-      );
-      if (Number.isFinite(secondaryWidth) && secondaryWidth > 0) {
-        // Keep the current visual position when switching from center mode
-        // (negative expand shift) to explicit left-anchor mode.
-        currentX -= secondaryWidth / 2;
-      }
-    }
-
-    positionIsExplicit = true;
-    applyPosition();
-
-    dragState = {
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: currentX,
-      originY: currentY,
-    };
-
-    toolbar.classList.add("viewer-editor-toolbar_dragging");
-
-    toolbar.style.transition = "none";
-
-    document.addEventListener(
-      "pointermove",
-      updateToolbarPosition,
-      {passive: true}
-    );
-
-    document.addEventListener(
-      "pointerup",
-      stopToolbarDrag
-    );
-
-    document.addEventListener(
-      "pointercancel",
-      stopToolbarDrag
-    );
-  };
-
-  viewer.bindEventListener(
-    handle,
-    "pointerdown",
-    startToolbarDrag
-  );
-
-  viewer.bindEventListener(handle, "click", (event) => {
-    event.stopPropagation();
-  });
-
-  // keep position valid after resize
-  const resizeObserver = new ResizeObserver(() => {
-    const hostRect = host.getBoundingClientRect();
-    const nextX = positionIsExplicit
-      ? currentX
-      : Math.max((hostRect.width - toolbar.offsetWidth) / 2 - getToolbarBaseLeft(toolbar), 0);
-    const pos = clampPosition(nextX, currentY);
-
-    currentX = pos.x;
-    currentY = pos.y;
-
-    applyPosition();
-  });
-
-  resizeObserver.observe(host);
-
-  applyPosition();
-}
-
-function attachEditorToolbar(viewer) {
-  if (!core.editorToolbar || !core.container) return;
-  if (getComputedStyle(core.container).position === 'static') {
-    core.container.style.position = 'relative';
-  }
-  const host = core.container.classList.contains("viewer-window-controls-enabled")
-    ? core.container
-    : getEditorToolbarHost();
-  if (!host || core.editorToolbar.parentElement === host) return;
-  host.appendChild(core.editorToolbar);
-}
-
-function toggleToolbarExpanded(viewer) {
-  if (!core.editorToolbar) return;
-
-  const host = getEditorToolbarHost();
-  const previousRect = core.editorToolbar.getBoundingClientRect();
-  const previousLeft = previousRect.left;
-
-  syncEditorToolbarSecondaryTrayWidth(viewer);
-  viewer.isToolbarExpanded = !viewer.isToolbarExpanded;
-  if (!viewer.isToolbarExpanded) {
-    viewer.editorToolbarSecondaryTray
-      ?.querySelectorAll(".has-submenu.submenu-open")
-      .forEach((item) => item.classList.remove("submenu-open"));
-  }
-  // After the tray's open/close transition (0.2s on phones).
-  setTimeout(syncNoticeAboveToolbar, 250);
-  core.editorToolbar.classList.toggle("expanded", viewer.isToolbarExpanded);
-  core.editorToolbar.classList.toggle("collapsed", !viewer.isToolbarExpanded);
-  syncToolbarExpandOffset(viewer, core.editorToolbar);
-  viewer.editorToolbarButtons.expand.classList.toggle("expanded-icon", viewer.isToolbarExpanded);
-  viewer.editorToolbarButtons.expand.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
-  const icon = viewer.editorToolbarButtons.expand.querySelector(".viewer-editor-tool_icon");
-  if (icon) {
-    icon.innerHTML = getEditorToolbarIcon(viewer.isToolbarExpanded ? "collapse" : "expand");
-  }
-
-  requestAnimationFrame(() => {
-    if (!core.editorToolbar || !host) return;
-
-    const isExplicitAnchor = viewer.editorToolbarPositionExplicit === true;
-    if (!isExplicitAnchor) {
-      return;
-    }
-
-    const nextRect = core.editorToolbar.getBoundingClientRect();
-    const scale = (() => {
-      const style = getComputedStyle(core.editorToolbar);
-      const value = Number.parseFloat(style.getPropertyValue("--viewer-toolbar-scale"));
-      return Number.isFinite(value) && value > 0 ? value : 1;
-    })();
-
-    const currentPosition = viewer.editorToolbarPosition || getInitialToolbarPosition(viewer);
-    const offsetDelta = nextRect.left - previousLeft;
-
-    if (Math.abs(offsetDelta) > 0.5) {
-      const nextX = currentPosition.x - (offsetDelta / scale);
-      setStoredToolbarPosition(viewer, nextX, currentPosition.y, {
-        explicit: isExplicitAnchor,
-      });
-      core.editorToolbar.style.setProperty("--drag-x", `${nextX}px`);
-    }
-  });
-
-  viewer.updateEditorToolbarLabels();
-}
-
-async function downloadFile(fileName = "model.glb") {
-  if (!core.downloadModel) return;
-
-  const handle = await window.showSaveFilePicker({
-    suggestedName: fileName,
-  });
-
-  const writable = await handle.createWritable();
-
-  const response = await fetch(core.downloadModelElement.href);
-  const blob = await response.blob();
-  if (!blob) {
-    toastHelper("downloadError", "error");
-    return;
-  }
-
-  await writable.write(blob);
-  await writable.close();
-
-  toastHelper("downloadSuccess", "success");
-}
-
-function createEditorToolbar(viewer) {
-  if (!core.EDITOR || viewer.urlOptions.hideUi || core.editorToolbar || !core.container || !isEditorToolbarEnabled(viewer)) return;
-
-  const toolbar = document.createElement("div");
-  toolbar.id = "viewerEditorToolbar";
-  toolbar.setAttribute("role", "toolbar");
-  toolbar.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
-
-  const tools = [
-    { key: "moveToolbar", icon: "moveToolbar", onClick: () => {}, pressed:true, primary: true },
-    { key: "orbit", icon: "orbit", onClick: () => viewer.setObjectTransformMode(""), primary: true },
-    { key: "move", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
-    { key: "rotate", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
-    { key: "scale", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
-    { key: "lights", icon: "lights", onClick: () => {}, pressed: false, primary: false },    
-    { key: "materials", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
-    { key: "shading", icon: "shading", onClick: () => {}, pressed: false, primary: false },
-    { key: "picking", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
-    { key: "hierarchy", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
-    { key: "annotate", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
-    { key: "ruler", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
-    { key: "fullScreen", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
-    { key: "clippingPlanes", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
-    { key: "resetCamera", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
-    { key: "resetSettings", icon: "resetSettings", onClick: () => viewer.resetModelSettings(), primary: false },
-    { key: "projection", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
-    { key: "wireframe", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },    
-    { key: "statistics", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
-    { key: "background", icon: "background", onClick: () => {}, pressed: false, primary: false },
-    { key: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
-
-  ];
-
-  // Not in the app (remote.js): the WebView ignores download links, and the
-  // preview and save buttons send to the server.
-  if ((!core.isLightweight || core.isLocalPreview) && !isAppBuild()) {
-    tools.splice(tools.length - 1, 0,
-      { key: "loadingLogs", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
-      { key: "download", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
-      { key: "preview", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
-      { key: "save", icon: "save", onClick: () => {}, primary: false }
-    );
-  }
-
-  viewer.editorToolbarButtons = {};
-  viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
-  viewer.shadingMode = viewer.shadingMode || "standard";
-
-  const secondaryTray = document.createElement("div");
-  secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
-  viewer.editorToolbarSecondaryTray = secondaryTray;
-
-  tools.forEach((tool) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "viewer-editor-tool";
-    if (!tool.primary) {
-      button.classList.add("viewer-editor-tool-not-primary");
-    }
-    button.dataset.tool = tool.key;
-    button.dataset.pressed = tool.pressed ? "true" : "false";
-    button.dataset.primary = tool.primary ? "true" : "false";
-    if (tool.key === "materials") {
-      const label = t$1("gui.materials", "Materials");
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    }
-    if (tool.key === "shading") {
-      const label = t$1("gui.shading", "Shading");
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    }
-    button.innerHTML = `
-      <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(tool.icon)}</span>
-      <span class="viewer-editor-tool_sr"></span>
-    `;
-    if (tool.key === "moveToolbar") {
-      initializeEditorToolbarDrag(button, viewer, toolbar, getEditorToolbarHost());
-    }
-    else if (tool.key === "clippingPlanes") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
-      const submenuItems = [
-        { key: "displayHelperX", icon: "displayHelperX", label: t$1("gui.displayHelperX", "Show X helper"), onClick: () => viewer.toggleClippingPlaneHelper("x") },
-        { key: "displayHelperY", icon: "displayHelperY", label: t$1("gui.displayHelperY", "Show Y helper"), onClick: () => viewer.toggleClippingPlaneHelper("y") },
-        { key: "displayHelperZ", icon: "displayHelperZ", label: t$1("gui.displayHelperZ", "Show Z helper"), onClick: () => viewer.toggleClippingPlaneHelper("z") },
-        { key: "visible", icon: "visible", label: t$1("gui.visible", "Visible"), onClick: () => viewer.toggleClippingPlaneVisible() },
-      ];
-      viewer.clippingPlaneSubmenuButtons = {};
-      submenuItems.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = item.key;
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        subButton.setAttribute("title", item.label);
-        subButton.setAttribute("aria-label", item.label);
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          item.onClick();
-        });
-        submenu.appendChild(subButton);
-        viewer.clippingPlaneSubmenuButtons[item.key] = subButton;
-      });
-      button.appendChild(submenu);
-    } else if (tool.key === "ruler") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
-      const submenuItems = [
-        { key: "distance", icon: "measureDistance", onClick: () => viewer.setMeasurementMode("distance") },
-        { key: "angle", icon: "measureAngle", onClick: () => viewer.setMeasurementMode("angle") },
-        { key: "area", icon: "measureArea", onClick: () => viewer.setMeasurementMode("area") },
-        { key: "dimensions", icon: "measureDimensions", onClick: () => viewer.toggleModelDimensions() },
-        { key: "clear", icon: "measureClear", onClick: () => { viewer.clearMeasurements(); viewer.updateEditorToolbarState(); } },
-      ];
-      viewer.measurementSubmenuButtons = {};
-      submenuItems.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = `measure-${item.key}`;
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          viewer.stopHandMode();
-          item.onClick();
-        });
-        submenu.appendChild(subButton);
-        viewer.measurementSubmenuButtons[item.key] = subButton;
-      });
-
-      // Model unit: the button shows the unit in use; its menu picks another
-      // (remembered for this model) or goes back to the automatic one.
-      const unitsButton = document.createElement("button");
-      unitsButton.type = "button";
-      unitsButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button has-submenu viewer-editor-tool_unit";
-      unitsButton.dataset.tool = "measure-units";
-      unitsButton.innerHTML = '<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">m</span>';
-      const unitsMenu = document.createElement("div");
-      unitsMenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-units";
-      viewer.measurementUnitButtons = {};
-      ["auto", ...Object.keys(MODEL_UNITS)].forEach((unit) => {
-        const choice = document.createElement("button");
-        choice.type = "button";
-        choice.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-tool_unit-choice";
-        choice.dataset.unit = unit;
-        choice.innerHTML = `<span class="viewer-editor-tool_icon viewer-editor-tool_unit-label" aria-hidden="true">${unit === "auto" ? "A" : unit}</span>`;
-        viewer.bindEventListener(choice, "click", (event) => {
-          event.stopPropagation();
-          viewer.setModelUnit(unit);
-        });
-        unitsMenu.appendChild(choice);
-        viewer.measurementUnitButtons[unit] = choice;
-      });
-      unitsButton.appendChild(unitsMenu);
-      viewer.bindEventListener(unitsButton, "click", (event) => event.stopPropagation());
-      submenu.appendChild(unitsButton);
-      viewer.measurementSubmenuButtons.units = unitsButton;
-
-      button.appendChild(submenu);
-    } else if (tool.key === "annotate") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
-      const submenuItems = [
-        { key: "annotateAdd", icon: "annotateAdd", label: t$1("gui.annotateAdd", "Add Annotation"), onClick: () => viewer.openAnnotationDialogWithAutoPicking() },
-        { key: "annotateTour", icon: "annotateTour", label: t$1("tour.start", "Start guided tour"), onClick: () => viewer.toggleTour() },
-        { key: "annotateImport", icon: "annotateImport", label: t$1("gui.annotateImport", "Import Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
-        { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
-        { key: "IIIFimport", icon: "IIIFimport", label: t$1("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
-        { key: "IIIFexport", icon: "IIIFexport", label: t$1("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.export3IFManifest() },
-      ];
-      viewer.annotateSubmenuButtons = {};
-      submenuItems.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = item.key;
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        subButton.setAttribute("title", item.label);
-        subButton.setAttribute("aria-label", item.label);
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          item.onClick();
-        });
-        submenu.appendChild(subButton);
-        viewer.annotateSubmenuButtons[item.key] = subButton;
-      });
-      button.appendChild(submenu);
-    } else if (tool.key === "materials") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
-      viewer.materialsSubmenu = submenu;
-      viewer.refreshMaterialsToolbarMenu();
-      button.appendChild(submenu);
-    } else if (tool.key === "hierarchy") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-hierarchy-submenu";
-      viewer.hierarchySubmenu = submenu;
-      const hierarchyList = document.createElement("div");
-      hierarchyList.className = "viewer-editor-hierarchy-submenu-list";
-      viewer.hierarchySubmenuList = hierarchyList;
-      const clearButton = document.createElement("button");
-      clearButton.type = "button";
-      clearButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button viewer-editor-hierarchy-clear";
-      viewer.bindEventListener(clearButton, "click", (event) => {
-        event.stopPropagation();
-        viewer.clearHierarchySelection();
-      });
-      viewer.hierarchyClearButton = clearButton;
-      viewer.hierarchySubmenuButtons = {};
-      submenu.appendChild(hierarchyList);
-      submenu.appendChild(clearButton);
-      button.appendChild(submenu);
-    } else if (tool.key === "save") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-save-submenu";
-      viewer.bindEventListener(submenu, "click", (event) => {
-        event.stopPropagation();
-      });
-      const submenuItems = [
-        { key: "Position", label: t$1("gui.position", "Position") },
-        { key: "Rotation", label: t$1("gui.rotation", "Rotation") },
-        { key: "Scale", label: t$1("gui.scale", "Scale") },
-        { key: "Camera", label: t$1("gui.camera", "Camera") },
-        { key: "DirectionalLight", label: t$1("gui.directionalLight", "Directional Light") },
-        { key: "AmbientLight", label: t$1("gui.ambientLight", "Ambient Light") },
-        /*{ key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },*/
-        { key: "BackgroundColor", label: t$1("gui.backgroundColor", "Background Color") },
-      ];
-      viewer.saveSubmenuCheckboxes = {};
-      submenuItems.forEach((item) => {
-        const row = document.createElement("label");
-        row.className = "viewer-editor-save-option";
-        row.setAttribute("title", item.label);
-        row.setAttribute("aria-label", item.label);
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = Boolean(viewer.saveProperties[item.key]);
-        checkbox.dataset.property = item.key;
-        viewer.bindEventListener(checkbox, "click", (event) => {
-          event.stopPropagation();
-        });
-        viewer.bindEventListener(checkbox, "change", (event) => {
-          event.stopPropagation();
-          viewer.saveProperties[item.key] = event.target.checked;
-        });
-
-        const text = document.createElement("span");
-        text.className = "viewer-editor-save-option_label";
-        text.textContent = item.label;
-
-        row.appendChild(checkbox);
-        row.appendChild(text);
-        submenu.appendChild(row);
-        viewer.saveSubmenuCheckboxes[item.key] = { row, checkbox, text };
-      });
-
-      const actions = document.createElement("div");
-      actions.className = "viewer-editor-save-actions";
-
-      const saveButton = document.createElement("button");
-      saveButton.type = "button";
-      saveButton.className = "viewer-editor-save-apply";
-      saveButton.textContent = t$1("gui.saveSettings", "Save settings");
-      viewer.bindEventListener(saveButton, "click", (event) => {
-        event.stopPropagation();
-        viewer.saveEditorMetadata();
-      });
-      viewer.saveSubmenuActionButton = saveButton;
-
-      actions.appendChild(saveButton);
-      submenu.appendChild(actions);
-      button.appendChild(submenu);
-    } else if (tool.key === "statistics") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
-      viewer.statisticsSubmenuButtons = {};
-
-      const appendStatisticsSubmenuItems = (items, container) => {
-        items.forEach((item) => {
-          const subButton = document.createElement("button");
-          subButton.type = "button";
-          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-          subButton.dataset.tool = item.key;
-          subButton.setAttribute("title", item.label);
-          subButton.setAttribute("aria-label", item.label);
-          subButton.setAttribute("aria-pressed", item.pressed);
-
-          const iconSpan = document.createElement("span");
-          iconSpan.className = "viewer-editor-tool_icon";
-          iconSpan.setAttribute("aria-hidden", "true");
-          iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
-          subButton.appendChild(iconSpan);
-
-          const srSpan = document.createElement("span");
-          srSpan.className = "viewer-editor-tool_sr";
-          srSpan.textContent = item.label;
-          subButton.appendChild(srSpan);
-
-          if (item.onClick) {
-            viewer.bindEventListener(subButton, "click", (event) => {
-              event.stopPropagation();
-              item.onClick();
-            });
-          }
-
-          if (item.children) {
-            subButton.classList.add("has-submenu");
-            const nested = document.createElement("div");
-            nested.className = "viewer-editor-tool_submenu";
-            appendStatisticsSubmenuItems(item.children, nested);
-            subButton.appendChild(nested);
-          }
-
-          viewer.statisticsSubmenuButtons[item.key] = subButton;
-          container.appendChild(subButton);
-        });
-      };
-
-      appendStatisticsSubmenuItems([
-        {
-          key: "toggleStats",
-          icon: "statistics",
-          label: t$1("gui.statistics", "Statistics"),
-          pressed: false,
-          onClick: () => viewer.toggleStatsVisibility(),
-        },
-        {
-          key: "performance",
-          icon: "performance",
-          label: t$1("gui.performance", "Performance"),
-          children: [
-            {
-              key: "performanceDefault",
-              icon: "statistics",
-              label: t$1("gui.default", "Default"),
-              onClick: () => viewer.setPerformanceMode("default"),
-              pressed: true,
-            },
-            {
-              key: "performanceHigh",
-              icon: "performanceHigh",
-              label: t$1("gui.highPerformance", "High-performance"),
-              onClick: () => viewer.setPerformanceMode("high-performance"),
-              pressed: true,
-            },
-            {
-              key: "performanceLow",
-              icon: "performanceLow",
-              label: t$1("gui.lowPower", "Low-power"),
-              onClick: () => viewer.setPerformanceMode("low-power"),
-              pressed: true,
-            },
-          ],
-        },
-      ], submenu);
-
-      button.appendChild(submenu);
-    } else if (tool.key === "lights") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
-      viewer.lightsSubmenuButtons = {};
-
-      const normalizeColorValue = (value) => {
-        if (typeof value !== "string") return "#ffffff";
-        if (value.startsWith("0x")) {
-          return `#${value.slice(2).padStart(6, "0")}`;
-        }
-        return value.startsWith("#") ? value : `#${value}`;
-      };
-
-      const appendSubmenuItems = (items, container) => {
-        items.forEach((item) => {
-          const subButton = document.createElement("button");
-          subButton.type = "button";
-          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button ";
-          subButton.dataset.tool = item.key;
-          subButton.setAttribute("title", item.label);
-          subButton.setAttribute("aria-label", item.label);
-
-          const iconSpan = document.createElement("span");
-          iconSpan.className = "viewer-editor-tool_icon";
-          iconSpan.setAttribute("aria-hidden", "true");
-          iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
-          subButton.appendChild(iconSpan);
-
-          if (item.type === "color") {
-            subButton.classList.add("viewer-editor-tool_submenu-control");
-            if (item.compactPicker === true) {
-              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
-            }
-
-            const colorInput = document.createElement("input");
-            colorInput.type = "color";
-            colorInput.value = normalizeColorValue(item.value());
-            colorInput.className = "viewer-editor-tool_submenu-input";
-            colorInput.addEventListener("click", (event) => event.stopPropagation());
-            colorInput.addEventListener("input", (event) => {
-              const value = event.target.value;
-              item.onChange(value);
-              colorInput.value = normalizeColorValue(value);
-            });
-            subButton.appendChild(colorInput);
-          } else if (item.type === "slider") {
-            subButton.classList.add("viewer-editor-tool_submenu-control");
-
-            const slider = document.createElement("input");
-            slider.type = "range";
-            slider.min = item.min ?? 0;
-            slider.max = item.max ?? 10;
-            slider.step = item.step ?? 0.01;
-            slider.value = String(item.value());
-            slider.className = "viewer-editor-tool_submenu-input";
-            slider.addEventListener("click", (event) => event.stopPropagation());
-            slider.addEventListener("input", (event) => {
-              const value = parseFloat(event.target.value);
-              item.onChange(value);
-              valueLabel.textContent = value.toFixed(2);
-            });
-
-            const valueLabel = document.createElement("span");
-            valueLabel.className = "viewer-editor-tool_submenu-value";
-            valueLabel.textContent = Number(item.value()).toFixed(2);
-            valueLabel.setAttribute("aria-hidden", "true");
-
-            subButton.appendChild(slider);
-            subButton.appendChild(valueLabel);
-          } else if (item.type === "toggle") {
-            subButton.classList.add("viewer-editor-tool_submenu-control", "viewer-editor-tool_submenu-toggle");
-            subButton.setAttribute("type", "button");
-
-            const toggleState = document.createElement("span");
-            toggleState.className = "viewer-editor-tool_submenu-toggle-state";
-            const setToggleState = () => {
-              const enabled = Boolean(item.value());
-              toggleState.textContent = enabled ? t$1("gui.on", "ON") : t$1("gui.off", "OFF");
-              subButton.setAttribute("aria-pressed", enabled ? "true" : "false");
-              subButton.classList.toggle("is-active", enabled);
-            };
-            setToggleState();
-
-            viewer.bindEventListener(subButton, "click", async (event) => {
-              event.stopPropagation();
-              const nextValue = !Boolean(item.value());
-              if (item.onChange) {
-                await item.onChange(nextValue);
-              }
-              setToggleState();
-            });
-
-            subButton.appendChild(toggleState);
-          } else if (item.onClick) {
-            viewer.bindEventListener(subButton, "click", (event) => {
-              event.stopPropagation();
-              item.onClick();
-            });
-          }
-
-          if (item.children) {
-            subButton.classList.add("has-submenu");
-            const nested = document.createElement("div");
-            nested.className = "viewer-editor-tool_submenu";
-            appendSubmenuItems(item.children, nested);
-            subButton.appendChild(nested);
-          }
-
-          if (
-            item.key === "lightTargetTransformMove" ||
-            item.key === "lightTargetTransformTarget" ||
-            item.key.startsWith("environmentMap")
-          ) {
-            viewer.lightsSubmenuButtons[item.key] = subButton;
-          }
-          container.appendChild(subButton);
-        });
-      };
-
-      appendSubmenuItems([
-        {
-          key: "environmentMap",
-          icon: "environmentMap",
-          label: t$1("gui.environmentMap", "Environment map"),
-          children: [
-            {
-              key: "environmentMapToggle",
-              icon: "environmentMap",
-              label: t$1("gui.environmentMapToggle", "Environment map"),
-              type: "toggle",
-              value: () => (core.scene?.environmentIntensity ?? 0) > 0,
-              onChange: async (value) => {
-                await viewer.setEnvironmentMapEnabled(value);
-                if (!core.scene) return;
-                viewer.updateEditorToolbarState();
-                viewer.updateLightsSubmenuState();
-              },
-            },
-            {
-              key: "environmentMapIntensity",
-              icon: "intensity",
-              label: t$1("gui.intensity", "Intensity"),
-              type: "slider",
-              min: 0,
-              max: 1,
-              step: 0.01,
-              value: () => core.environmentMapIntensity ?? 0.5,
-              onChange: (value) => {
-                if (!core.scene) return;
-                core.scene.environmentIntensity = value;
-                core.scene.traverse((child) => {
-                  const materials = child?.material
-                    ? Array.isArray(child.material)
-                      ? child.material
-                      : [child.material]
-                    : [];
-                  materials.forEach((material) => {
-                    if (material?.isMeshStandardMaterial || material?.isMeshPhysicalMaterial) {
-                      material.needsUpdate = true;
-                    }
-                  });
-                });
-              },
-            },
-            {
-              key: "environmentMapStyleNeutral",
-              iconHtml: "🌥",
-              label: t$1("gui.environmentMapNeutral", "Neutral"),
-              onClick: async () => {
-                await viewer.setEnvironmentMapPreset("neutral");
-                viewer.updateLightsSubmenuState();
-              },
-            },
-            {
-              key: "environmentMapStyleSunny",
-              iconHtml: "☀️",
-              label: t$1("gui.environmentMapSunny", "Sunny"),
-              onClick: async () => {
-                await viewer.setEnvironmentMapPreset("sunny");
-                viewer.updateLightsSubmenuState();
-              },
-            },
-            {
-              key: "environmentMapStyleStudio",
-              iconHtml: "📸",
-              label: t$1("gui.environmentMapStudio", "Studio"),
-              onClick: async () => {
-                await viewer.setEnvironmentMapPreset("studio");
-                viewer.updateLightsSubmenuState();
-              },
-            },
-            {
-              key: "environmentMapStyleGoldenHour",
-              iconHtml: "🌅",
-              label: t$1("gui.environmentMapGoldenHour", "Golden Hour"),
-              onClick: async () => {
-                await viewer.setEnvironmentMapPreset("goldenHour");
-                viewer.updateLightsSubmenuState();
-              },
-            },
-          ],
-        },
-        {
-          key: "lightTarget",
-          icon: "lightTarget",
-          label: t$1("gui.target", "Target"),
-          children: [
-            {
-              key: "lightTargetColor",
-              icon: "color",
-              label: t$1("gui.color", "Color"),
-              type: "color",
-              value: () => viewer.colors.DirectionalLight,
-              onChange: (value) => {
-                viewer.colors.DirectionalLight = value;
-                core.lightObjects[0].color = new THREE.Color(value);
-              },
-            },
-            {
-              key: "lightTargetIntensity",
-              icon: "intensity",
-              label: t$1("gui.intensity", "Intensity"),
-              type: "slider",
-              min: 0,
-              max: 10,
-              step: 0.01,
-              value: () => viewer.intensity.startIntensityDir,
-              onChange: (value) => {
-                viewer.intensity.startIntensityDir = value;
-                core.lightObjects[0].intensity = value;
-              },
-            },
-            {
-              key: "lightTargetTransform",
-              icon: "move",
-              label: t$1("gui.transform", "Transform"),
-              children: [
-                { key: "lightTargetTransformMove", icon: "move", label: t$1("gui.move", "Move"), onClick: () => viewer.toggleLightTransformMode("translate") },
-                { key: "lightTargetTransformTarget", icon: "lightTarget", label: t$1("gui.target", "Target"), onClick: () => viewer.toggleLightTransformMode("rotate") },
-              ],
-            },
-          ],
-        },
-        {
-          key: "lightAmbient",
-          icon: "ambientLight",
-          label: t$1("gui.ambient", "Ambient"),
-          children: [
-            {
-              key: "lightAmbientColor",
-              icon: "color",
-              label: t$1("gui.color", "Color"),
-              type: "color",
-              value: () => viewer.colors.AmbientLight,
-              onChange: (value) => {
-                viewer.colors.AmbientLight = value;
-                viewer.ambientLight.color = new THREE.Color(value);
-              },
-            },
-            {
-              key: "lightAmbientIntensity",
-              icon: "intensity",
-              label: t$1("gui.intensity", "Intensity"),
-              type: "slider",
-              min: 0,
-              max: 10,
-              step: 0.01,
-              value: () => viewer.intensity.startIntensityAmbient,
-              onChange: (value) => {
-                viewer.intensity.startIntensityAmbient = value;
-                viewer.ambientLight.intensity = value;
-              },
-            },
-          ],
-        },
-        /*{
-          key: "lightCamera",
-          icon: "cameraLight",
-          label: t("gui.camera", "Camera"),
-          children: [
-            {
-              key: "lightCameraColor",
-              icon: "color",
-              label: t("gui.color", "Color"),
-              type: "color",
-              value: () => viewer.colors.CameraLight,
-              onChange: (value) => {
-                viewer.colors.CameraLight = value;
-                viewer.cameraLight.color = new THREE.Color(value);
-              },
-            },
-            {
-              key: "lightCameraIntensity",
-              icon: "intensity",
-              label: t("gui.intensity", "Intensity"),
-              type: "slider",
-              min: 0,
-              max: 10,
-              step: 0.01,
-              value: () => viewer.intensity.startIntensityCamera,
-              onChange: (value) => {
-                viewer.intensity.startIntensityCamera = value;
-                viewer.cameraLight.intensity = value;
-              },
-            },
-          ],
-        },*/
-      ], submenu);
-      button.appendChild(submenu);
-    } else if (tool.key === "background") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
-      viewer.backgroundSubmenuButtons = {};
-
-      const normalizeColorValue = (value) => {
-        if (typeof value !== "string") return "#ffffff";
-        if (value.startsWith("0x")) {
-          return `#${value.slice(2).padStart(6, "0")}`;
-        }
-        return value.startsWith("#") ? value : `#${value}`;
-      };
-
-      const appendSubmenuItems = (items, container) => {
-        items.forEach((item) => {
-          const subButton = document.createElement("button");
-          subButton.type = "button";
-          subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-          subButton.dataset.tool = item.key;
-          subButton.setAttribute("title", item.label);
-          subButton.setAttribute("aria-label", item.label);
-
-          if (item.hideIcon !== true) {
-            const iconSpan = document.createElement("span");
-            iconSpan.className = "viewer-editor-tool_icon";
-            iconSpan.setAttribute("aria-hidden", "true");
-            iconSpan.innerHTML = getEditorToolbarIcon(item.icon);
-            subButton.appendChild(iconSpan);
-          }
-
-          if (item.type === "color") {
-            subButton.classList.add("viewer-editor-tool_submenu-control");
-            if (item.compactPicker === true) {
-              subButton.classList.add("viewer-editor-tool_submenu-control-picker-compact");
-            }
-            if (item.hideIcon === true) {
-              subButton.classList.add("viewer-editor-tool_submenu-control-no-icon");
-            }
-
-            const colorInput = document.createElement("input");
-            colorInput.type = "color";
-            colorInput.value = normalizeColorValue(item.value());
-            colorInput.className = "viewer-editor-tool_submenu-input";
-            colorInput.addEventListener("click", (event) => event.stopPropagation());
-            colorInput.addEventListener("input", (event) => {
-              const value = event.target.value;
-              item.onChange(value);
-              colorInput.value = normalizeColorValue(value);
-            });
-            subButton.appendChild(colorInput);
-            subButton._colorInput = colorInput;
-          } else if (item.onClick) {
-            viewer.bindEventListener(subButton, "click", (event) => {
-              event.stopPropagation();
-              item.onClick();
-            });
-          }
-
-          viewer.backgroundSubmenuButtons[item.key] = subButton;
-          container.appendChild(subButton);
-        });
-      };
-
-      appendSubmenuItems([
-        {
-          key: "backgroundTypeLinear",
-          icon: "backgroundLinear",
-          label: t$1("gui.linear", "Linear"),
-          onClick: () => {
-            viewer.backgroundType["Background Type"] = "linear";
-            changeBackground(
-              "linear",
-              viewer.colors.BackgroundColor,
-              viewer.colors.BackgroundColorOuter
-            );
-            viewer.updateEditorToolbarState();
-          },
-        },
-        {
-          key: "backgroundTypeGradient",
-          icon: "backgroundGradient",
-          label: t$1("gui.gradient", "Gradient"),
-          onClick: () => {
-            viewer.backgroundType["Background Type"] = "gradient";
-            changeBackground(
-              "gradient",
-              viewer.colors.BackgroundColor,
-              viewer.colors.BackgroundColorOuter
-            );
-            viewer.updateEditorToolbarState();
-          },
-        },
-        {
-          key: "backgroundColor",
-          icon: "backgroundInner",
-          label: t$1("gui.backgroundColor", "Background Color"),
-          type: "color",
-          compactPicker: true,
-          value: () => viewer.colors.BackgroundColor,
-          onChange: (value) => {
-            viewer.colors.BackgroundColor = value;
-            changeBackground(
-              viewer.backgroundType["Background Type"],
-              viewer.colors.BackgroundColor,
-              viewer.colors.BackgroundColorOuter
-            );
-          },
-        },
-        {
-          key: "backgroundColorOuter",
-          icon: "backgroundOuter",
-          label: t$1("gui.backgroundColorOuter", "Background Color Outer"),
-          type: "color",
-          compactPicker: true,
-          value: () => viewer.colors.BackgroundColorOuter,
-          onChange: (value) => {
-            viewer.colors.BackgroundColorOuter = value;
-            changeBackground(
-              viewer.backgroundType["Background Type"],
-              viewer.colors.BackgroundColor,
-              viewer.colors.BackgroundColorOuter
-            );
-          },
-        },
-      ], submenu);
-
-      button.appendChild(submenu);
-    } else if (tool.key === "materials") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
-      const submenuItems = [
-        { key: "materialColor", icon: "color", label: t$1("gui.color", "Color"), onClick: () => viewer.openMaterialsFolder() },
-        { key: "materialIntensity", icon: "intensity", label: t$1("gui.intensity", "Intensity"), onClick: () => viewer.openMaterialsFolder() },
-      ];
-      submenuItems.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = item.key;
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        subButton.setAttribute("title", item.label);
-        subButton.setAttribute("aria-label", item.label);
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          item.onClick();
-        });
-        submenu.appendChild(subButton);
-      });
-      button.appendChild(submenu);
-    } else if (tool.key === "shading") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
-      viewer.shadingSubmenuButtons = {};
-
-      const shadingModes = [
-        { key: "standard", icon: "shadingStandard", label: t$1("gui.shadingStandard", "Standard (PBR)") },
-        { key: "phong", icon: "shadingPhong", label: t$1("gui.shadingPhong", "Phong") },
-        { key: "lambert", icon: "shadingLambert", label: t$1("gui.shadingLambert", "Lambert") },
-        { key: "toon", icon: "shadingToon", label: t$1("gui.shadingToon", "Toon / Flat") },
-      ];
-
-      shadingModes.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = `shading-${item.key}`;
-        subButton.setAttribute("title", item.label);
-        subButton.setAttribute("aria-label", item.label);
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          viewer.setShadingMode(item.key);
-        });
-        viewer.shadingSubmenuButtons[item.key] = subButton;
-        submenu.appendChild(subButton);
-      });
-
-      const customButton = document.createElement("button");
-      customButton.type = "button";
-      customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-      customButton.dataset.tool = "shading-custom";
-      const customLabel = t$1("gui.shadingCustom", "Custom shader");
-      customButton.setAttribute("title", customLabel);
-      customButton.setAttribute("aria-label", customLabel);
-      customButton.innerHTML = `
-        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
-      `;
-      viewer.bindEventListener(customButton, "click", (event) => {
-        event.stopPropagation();
-        viewer.openCustomShaderDialog();
-      });
-      viewer.shadingSubmenuButtons.custom = customButton;
-      submenu.appendChild(customButton);
-
-      button.appendChild(submenu);
-    } else if (tool.key === "download") {
-      if (!core.isLightweight || core.isLocalPreview) {
-        button.href = core.downloadModelElement;
-        button.target = "_blank";
-        button.rel = "noopener noreferrer";
-        button.download = core.fileObject.filename;
-      }
-    }
-    viewer.bindEventListener(button, "click", () => {
-      viewer.stopHandMode();
-      if (tool.onClick) {
-        tool.onClick();
-      }
-    });
-    if (tool.primary) toolbar.appendChild(button);
-    else secondaryTray.appendChild(button);
-    viewer.editorToolbarButtons[tool.key] = button;
-    if (!tool.primary) viewer.editorSecondaryKeys.push(button);
-  });
-
-  const actionMenuToolKeys = ["statistics", "background", "preview", "save", "loadingLogs"];
-  if (viewer.actionMenuPanel) {
-    actionMenuToolKeys.forEach((key) => {
-      const button = viewer.editorToolbarButtons[key];
-      if (!button) return;
-
-      button.classList.add("viewer-action-menu_editor-tool");
-      const label = document.createElement("span");
-      label.className = "viewer-action-menu_editor-tool-label";
-      label.textContent = button.getAttribute("aria-label") || key;
-      button.appendChild(label);
-      viewer.actionMenuPanel.appendChild(button);
-    });
-  }
-
-  toolbar.appendChild(secondaryTray);
-  bindTouchSubmenus(viewer, toolbar, secondaryTray);
-
-  const expandButton = document.createElement("button");
-  expandButton.type = "button";
-  expandButton.className = "viewer-editor-tool viewer-editor-expand";
-  expandButton.innerHTML = `<span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("expand")}</span>`;
-  expandButton.dataset.primary = "true";
-  expandButton.setAttribute("aria-expanded", "false");
-  expandButton.setAttribute("title", t$1("gui.expand", "Expand toolbar"));
-  expandButton.setAttribute("aria-label", t$1("gui.expand", "Expand toolbar"));
-  viewer.bindEventListener(expandButton, "click", () => toggleToolbarExpanded(viewer));
-  toolbar.appendChild(expandButton);
-  viewer.editorToolbarButtons.expand = expandButton;
-
-  if (viewer.actionMenu) {
-    viewer.actionMenu.classList.add("viewer-action-menu_in-toolbar");
-    toolbar.appendChild(viewer.actionMenu);
-  }
-
-  getEditorToolbarHost()?.appendChild(toolbar);
-  core.editorToolbar = toolbar;
-  core.editorToolbar.classList.add("editorToolbar-hidden");
-  core.editorToolbar.classList.add("collapsed");
-  syncToolbarExpandAnchorMode(viewer, core.editorToolbar);
-  syncToolbarExpandOffset(viewer, core.editorToolbar);
-
-  if (!hasConfiguredToolbarPosition(viewer)) {
-    requestAnimationFrame(() => {
-      if (!core.editorToolbar) return;
-      const host = getEditorToolbarHost();
-      if (!host) return;
-
-      const hostRect = host.getBoundingClientRect();
-      const baseLeft = getToolbarBaseLeft(core.editorToolbar);
-      const centeredX = Math.max((hostRect.width - core.editorToolbar.offsetWidth) / 2 - baseLeft, 0);
-      core.editorToolbar.__setViewerToolbarPosition?.(
-        centeredX,
-        viewer.editorToolbarPosition?.y ?? 0,
-        { explicit: false }
-      );
-    });
-  }
-
-  viewer.updateFullscreenButtonIcon();
-  viewer.updateEditorToolbarLabels();
-  viewer.updateEditorToolbarState();
-  syncEditorToolbarSecondaryTrayWidth(viewer);
-  viewer.bindEventListener(window, "resize", () => syncEditorToolbarSecondaryTrayWidth(viewer));
-}
-
-function updateHierarchySubmenuState(viewer) {
-  if (!viewer.hierarchySubmenuButtons) return;
-
-  const selectedIds = new Set(
-    (core.selectedObjects || [])
-      .filter((item) => item?.selected === true)
-      .map((item) => String(item.id))
-  );
-
-  Object.entries(viewer.hierarchySubmenuButtons).forEach(([key, button]) => {
-    const isActive = selectedIds.has(String(key));
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
-
-  viewer.hierarchyClearButton?.toggleAttribute("disabled", selectedIds.size === 0);
-}
-
-function updateStatisticsSubmenuState(viewer) {
-  if (!viewer.statisticsSubmenuButtons) return;
-  const isVisible = typeof core.stats !== "undefined" && core.stats?.dom?.style?.visibility !== "hidden";
-  viewer.statisticsSubmenuButtons.toggleStats?.classList.toggle("is-active", isVisible);
-  viewer.statisticsSubmenuButtons.toggleStats?.setAttribute("aria-pressed", isVisible ? "true" : "false");
-
-  const currentMode = core.renderer?.powerPreference || core.CONFIG.viewer?.performanceMode || "default";
-  const performanceMap = {
-    performanceHigh: "high-performance",
-    performanceLow: "low-power",
-    performanceDefault: "default",
-  };
-  Object.entries(performanceMap).forEach(([key, value]) => {
-    const isActive = currentMode === value;
-    viewer.statisticsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
-    viewer.statisticsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
-}
-
-function updateClippingPlanesSubmenuState(viewer) {
-  if (!viewer.clippingPlaneSubmenuButtons) return;
-  const clippingMode = core.planeParams?.clippingMode || {};
-
-  viewer.clippingPlaneSubmenuButtons.displayHelperX?.classList.toggle(
-    "is-active",
-    Boolean(clippingMode.x)
-  );
-  viewer.clippingPlaneSubmenuButtons.displayHelperY?.classList.toggle(
-    "is-active",
-    Boolean(clippingMode.y)
-  );
-  viewer.clippingPlaneSubmenuButtons.displayHelperZ?.classList.toggle(
-    "is-active",
-    Boolean(clippingMode.z)
-  );
-  viewer.clippingPlaneSubmenuButtons.visible?.classList.toggle(
-    "is-active",
-    Boolean(core.planeParams?.outline?.visible)
-  );
-}
-
-function updateMeasurementSubmenuState(viewer) {
-  if (!viewer.measurementSubmenuButtons) return;
-  // The unit in use on the units button; the chosen one marked in its menu
-  // ("auto" unless the user picked one).
-  const unit = viewer.resolveModelUnit?.();
-  const unitsLabel = viewer.measurementSubmenuButtons.units?.querySelector(":scope > .viewer-editor-tool_unit-label");
-  if (unit && unitsLabel) unitsLabel.textContent = unit.key || "?";
-  const chosen = unit?.source === "user" ? unit.key : "auto";
-  Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, choice]) => {
-    choice.classList.toggle("is-active", key === chosen);
-    choice.setAttribute("aria-pressed", key === chosen ? "true" : "false");
-  });
-  ["distance", "angle", "area"].forEach((mode) => {
-    const active = viewer.RULER_MODE === true && viewer.measurementMode === mode;
-    viewer.measurementSubmenuButtons[mode]?.classList.toggle("is-active", active);
-    viewer.measurementSubmenuButtons[mode]?.setAttribute("aria-pressed", active ? "true" : "false");
-  });
-  const dimensionsShown = Boolean(viewer.measurementDimensions);
-  viewer.measurementSubmenuButtons.dimensions?.classList.toggle("is-active", dimensionsShown);
-  viewer.measurementSubmenuButtons.dimensions?.setAttribute("aria-pressed", dimensionsShown ? "true" : "false");
-}
-
-function updateShadingSubmenuState(viewer) {
-  if (!viewer.shadingSubmenuButtons) return;
-  const activeMode = viewer.shadingMode || "standard";
-  Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
-    button?.classList.toggle("is-active", key === activeMode);
-  });
-}
-
-function updateLightsSubmenuState(viewer) {
-  if (!viewer.lightsSubmenuButtons) return;
-  const activeMode = viewer.transformText["Transform Light"];
-  viewer.lightsSubmenuButtons.environmentMap?.classList.toggle(
-    "is-active",
-    viewer.environmentMapEnabled !== false
-  );
-  viewer.lightsSubmenuButtons.environmentMap?.setAttribute(
-    "aria-pressed",
-    viewer.environmentMapEnabled !== false ? "true" : "false"
-  );
-
-  const environmentMapToggle = viewer.lightsSubmenuButtons.environmentMapToggle;
-  if (environmentMapToggle) {
-    const toggleLabel = environmentMapToggle.querySelector('.viewer-editor-tool_submenu-toggle-state');
-    const isEnabled = (core.scene?.environmentIntensity ?? 0) > 0;
-    if (toggleLabel) toggleLabel.textContent = isEnabled ? t$1("gui.on", "ON") : t$1("gui.off", "OFF");
-    environmentMapToggle.setAttribute("aria-pressed", isEnabled ? "true" : "false");
-    environmentMapToggle.classList.toggle("is-active", isEnabled);
-  }
-
-  viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
-    "is-active",
-    activeMode === "translate"
-  );
-  viewer.lightsSubmenuButtons.lightTargetTransformTarget?.classList.toggle(
-    "is-active",
-    activeMode === "rotate"
-  );
-
-  const environmentMapPreset = viewer.environmentMapPreset || "neutral";
-  const environmentMapPresetStates = {
-    environmentMapStyleNeutral: "neutral",
-    environmentMapStyleSunny: "sunny",
-    environmentMapStyleStudio: "studio",
-    environmentMapStyleGoldenHour: "goldenHour",
-  };
-
-  Object.entries(environmentMapPresetStates).forEach(([key, value]) => {
-    const isActive = environmentMapPreset === value;
-    viewer.lightsSubmenuButtons[key]?.classList.toggle("is-active", isActive);
-    viewer.lightsSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
-}
-
-function updateBackgroundSubmenuState(viewer) {
-  if (!viewer.backgroundSubmenuButtons) return;
-
-  const backgroundType = viewer.backgroundType?.["Background Type"] === "linear"
-    ? "linear"
-    : "gradient";
-  const isLinear = backgroundType === "linear";
-
-  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.classList.toggle(
-    "is-active",
-    isLinear
-  );
-  viewer.backgroundSubmenuButtons.backgroundTypeLinear?.setAttribute(
-    "aria-pressed",
-    isLinear ? "true" : "false"
-  );
-
-  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.classList.toggle(
-    "is-active",
-    !isLinear
-  );
-  viewer.backgroundSubmenuButtons.backgroundTypeGradient?.setAttribute(
-    "aria-pressed",
-    !isLinear ? "true" : "false"
-  );
-
-  const backgroundColorInput = viewer.backgroundSubmenuButtons.backgroundColor?._colorInput;
-  const backgroundColorOuterInput = viewer.backgroundSubmenuButtons.backgroundColorOuter?._colorInput;
-
-  if (backgroundColorInput) {
-    backgroundColorInput.value = String(viewer.colors?.BackgroundColor || "#ffffff");
-  }
-  if (backgroundColorOuterInput) {
-    backgroundColorOuterInput.value = String(viewer.colors?.BackgroundColorOuter || "#999999");
-    backgroundColorOuterInput.disabled = isLinear;
-  }
-
-  viewer.backgroundSubmenuButtons.backgroundColorOuter?.classList.toggle(
-    "is-disabled",
-    isLinear
-  );
-}
-
-function updateEditorToolbarLabels(viewer) {
-  if (!viewer.editorToolbarButtons) return;
-
-  const labels = {
-    moveToolbar: t$1("gui.moveToolbar", "Move toolbar"),
-    orbit: t$1("gui.orbit", "Navigation mode"),
-    move: t$1("gui.move", "Move"),
-    rotate: t$1("gui.rotate", "Rotate"),
-    scale: t$1("gui.scale", "Scale"),
-    lights: t$1("gui.lights", "Lights"),
-    picking: viewer.pickingMode
-      ? t$1("controls.disablePickingMode", "Disable picking mode")
-      : t$1("controls.enablePickingMode", "Enable picking mode"),
-    annotate: t$1("gui.addAnnotations", "Add annotations"),
-    ruler: viewer.RULER_MODE
-      ? t$1("controls.disableDistanceMeasurement", "Disable distance measurement")
-      : t$1("controls.enableDistanceMeasurement", "Enable distance measurement"),
-    resetCamera: t$1("gui.resetCameraPosition", "Reset camera position"),
-    resetSettings: t$1("gui.resetSettings", "Reset settings"),
-    preview: t$1("gui.renderPreview", "Render preview"),
-    save: t$1("gui.saveSettings", "Save settings"),
-    advancedEditor: viewer.isEditorAdvancedPanelVisible()
-      ? t$1("gui.hideAdvancedEditor", "Hide advanced editor")
-      : t$1("gui.showAdvancedEditor", "Show advanced editor"),
-    fullScreen: viewer.FULLSCREEN
-      ? t$1("fullscreen.exit", "Exit fullscreen")
-      : t$1("fullscreen.enter", "Enter fullscreen"),
-    clippingPlanes: viewer.clippingMode
-      ? t$1("gui.disableClippingPlanesMode", "Disable clipping planes mode")
-      : t$1("gui.enableClippingPlanesMode", "Enable clipping planes mode"),
-    projection: core.camera && core.camera.isPerspectiveCamera
-      ? t$1("gui.orthographicProjection", "Switch to orthographic projection")
-      : t$1("gui.perspectiveProjection", "Switch to perspective projection"),
-    wireframe: viewer.wireframeMode
-      ? t$1("gui.disableWireframeMode", "Disable wireframe mode")
-      : t$1("gui.enableWireframeMode", "Enable wireframe mode"),
-    loadingLogs: viewer.showLoadingLogs
-      ? t$1("gui.hideLoadingLogs", "Hide loading logs")
-      : t$1("gui.showLoadingLogs", "Show loading logs"),
-    hierarchy: t$1("gui.hierarchy", "Hierarchy"),
-    materials: t$1("gui.materials", "Materials"),
-    shading: t$1("gui.shading", "Shading"),
-    background: t$1("gui.backgroundColor", "Background Color"),
-    statistics: t$1("gui.statistics", "Statistics"),
-    expand: viewer.isToolbarExpanded
-      ? t$1("gui.collapse", "Collapse toolbar")
-      : t$1("gui.expand", "Expand toolbar"),
-    download: t$1("gui.download", "Download model"),
-    help: t$1("shortcuts.helpButtonAria", "Show usage hints"),
-  };
-
-  Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
-    const label = labels[key] || key;
-    button.setAttribute("title", label);
-    button.setAttribute("aria-label", label);
-    const sr = button.querySelector(".viewer-editor-tool_sr");
-    if (sr) sr.textContent = label;
-    const actionMenuLabel = button.querySelector(".viewer-action-menu_editor-tool-label");
-    if (actionMenuLabel) actionMenuLabel.textContent = label;
-  });
-
-  if (viewer.clippingPlaneSubmenuButtons) {
-    const clippingPlaneSubmenuLabels = {
-      displayHelperX: t$1("gui.displayHelperX", "Show X helper"),
-      displayHelperY: t$1("gui.displayHelperY", "Show Y helper"),
-      displayHelperZ: t$1("gui.displayHelperZ", "Show Z helper"),
-      visible: t$1("gui.visible", "Visible"),
-    };
-    Object.entries(viewer.clippingPlaneSubmenuButtons).forEach(([key, button]) => {
-      const label = clippingPlaneSubmenuLabels[key] || key;
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    });
-  }
-
-  if (viewer.measurementSubmenuButtons) {
-    const measurementSubmenuLabels = {
-      distance: t$1("measurement.distance", "Distance"),
-      angle: t$1("measurement.angle", "Angle"),
-      area: t$1("measurement.area", "Area"),
-      dimensions: t$1("measurement.dimensions", "Model dimensions"),
-      clear: t$1("measurement.clearAll", "Clear measurements"),
-      units: t$1("measurement.modelUnit", "Model unit"),
-    };
-    Object.entries(viewer.measurementSubmenuButtons).forEach(([key, button]) => {
-      const label = measurementSubmenuLabels[key] || key;
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    });
-    Object.entries(viewer.measurementUnitButtons || {}).forEach(([key, button]) => {
-      const label = t$1(`measurement.unitNames.${key}`, key);
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    });
-  }
-
-  if (viewer.annotateSubmenuButtons) {
-    const annotateSubmenuLabels = {
-      annotateAdd: t$1("gui.addAnnotations", "Add Annotation"),
-      annotateTour: viewer.isTourActive?.()
-        ? t$1("tour.stop", "Stop guided tour")
-        : t$1("tour.start", "Start guided tour"),
-      annotateImport: t$1("gui.importAnnotationsXml", "Import Annotations"),
-      annotateExport: t$1("gui.exportAnnotationsXml", "Export Annotations"),
-      IIIFimport: t$1("gui.IIIFimport", "Import 3IF"),
-      IIIFexport: t$1("gui.IIIFexport", "Export to IIIF"),
-    };
-    Object.entries(viewer.annotateSubmenuButtons).forEach(([key, button]) => {
-      const label = annotateSubmenuLabels[key] || key;
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    });
-  }
-
-  if (viewer.statisticsSubmenuButtons) {
-    const statisticsSubmenuLabels = {
-      toggleStats: t$1("gui.statistics", "Statistics"),
-      performance: t$1("gui.performance", "Performance"),
-      performanceDefault: t$1("gui.default", "Default"),
-      performanceHigh: t$1("gui.highPerformance", "High-performance"),
-      performanceLow: t$1("gui.lowPower", "Low-power"),
-    };
-    Object.entries(viewer.statisticsSubmenuButtons).forEach(([key, button]) => {
-      const label = statisticsSubmenuLabels[key] || key;
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    });
-  }
-
-  if (viewer.lightsSubmenuButtons) {
-    const lightsSubmenuLabels = {
-      environmentMap: t$1("gui.environmentMap", "Environment map"),
-      lightTargetTransformMove: t$1("gui.move", "Move"),
-      lightTargetTransformTarget: t$1("gui.target", "Target"),
-      environmentMapToggle: t$1("gui.environmentMapToggle", "Environment map"),
-      environmentMapIntensity: t$1("gui.intensity", "Intensity"),
-      environmentMapStyleNeutral: t$1("gui.environmentMapNeutral", "Neutral"),
-      environmentMapStyleSunny: t$1("gui.environmentMapSunny", "Sunny"),
-      environmentMapStyleStudio: t$1("gui.environmentMapStudio", "Studio"),
-      environmentMapStyleGoldenHour: t$1("gui.environmentMapGoldenHour", "Golden Hour"),
-    };
-    Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {
-      const label = lightsSubmenuLabels[key] || key;
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    });
-  }
-
-  if (viewer.backgroundSubmenuButtons) {
-    const backgroundSubmenuLabels = {
-      backgroundTypeLinear: t$1("gui.linear", "Linear"),
-      backgroundTypeGradient: t$1("gui.gradient", "Gradient"),
-      backgroundColor: t$1("gui.backgroundColor", "Background Color"),
-      backgroundColorOuter: t$1("gui.backgroundColorOuter", "Background Color Outer"),
-    };
-    Object.entries(viewer.backgroundSubmenuButtons).forEach(([key, button]) => {
-      const label = backgroundSubmenuLabels[key] || key;
-      button.setAttribute("title", label);
-      button.setAttribute("aria-label", label);
-    });
-  }
-
-  if (viewer.hierarchyClearButton) {
-    const label = t$1("gui.clearSelectedHierarchy", "Clear selected objects");
-    viewer.hierarchyClearButton.setAttribute("title", label);
-    viewer.hierarchyClearButton.setAttribute("aria-label", label);
-    viewer.hierarchyClearButton.textContent = label;
-  }
-
-  if (viewer.saveSubmenuCheckboxes) {
-    const saveSubmenuLabels = {
-      Position: t$1("gui.position", "Position"),
-      Rotation: t$1("gui.rotation", "Rotation"),
-      Scale: t$1("gui.scale", "Scale"),
-      Camera: t$1("gui.camera", "Camera"),
-      DirectionalLight: t$1("gui.directionalLight", "Directional Light"),
-      AmbientLight: t$1("gui.ambientLight", "Ambient Light"),
-      /*CameraLight: t("gui.cameraLight", "Camera Light"),*/
-      BackgroundColor: t$1("gui.backgroundColor", "Background Color"),
-    };
-    Object.entries(viewer.saveSubmenuCheckboxes).forEach(([key, elements]) => {
-      const label = saveSubmenuLabels[key] || key;
-      elements.row.setAttribute("title", label);
-      elements.row.setAttribute("aria-label", label);
-      elements.text.textContent = label;
-      elements.checkbox.checked = Boolean(viewer.saveProperties[key]);
-    });
-  }
-
-  if (viewer.saveSubmenuActionButton) {
-    viewer.saveSubmenuActionButton.textContent = t$1("gui.saveSettings", "Save settings");
-  }
-
-  core.editorToolbar?.setAttribute("aria-label", t$1("toolbar.editor", "Editor tools"));
-  viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
-}
-
-function updateTourSubmenuState(viewer) {
-  const button = viewer.annotateSubmenuButtons?.annotateTour;
-  if (!button) return;
-  const active = viewer.isTourActive?.() === true;
-  const label = active ? t$1("tour.stop", "Stop guided tour") : t$1("tour.start", "Start guided tour");
-  button.classList.toggle("is-active", active);
-  button.setAttribute("aria-pressed", active ? "true" : "false");
-  button.setAttribute("title", label);
-  button.setAttribute("aria-label", label);
-}
-
-function updateEditorToolbarState(viewer) {
-  if (!viewer.editorToolbarButtons) return;
-
-  const activeMap = {
-    moveToolbar: viewer.transformText["Transform 3D Object"] === "translate" || viewer.transformText["Transform 3D Object"] === "rotate" || viewer.transformText["Transform 3D Object"] === "scale",
-    orbit: viewer.transformText["Transform 3D Object"] === "",
-    move: viewer.transformText["Transform 3D Object"] === "translate",
-    rotate: viewer.transformText["Transform 3D Object"] === "rotate",
-    scale: viewer.transformText["Transform 3D Object"] === "scale",
-    picking: viewer.pickingMode === true,
-    ruler: viewer.RULER_MODE === true,
-    clippingPlanes: viewer.clippingMode === true,
-    advancedEditor: viewer.isEditorAdvancedPanelVisible(),
-    fullScreen: viewer.FULLSCREEN === true,
-    loadingLogs: viewer.showLoadingLogs === true,
-    wireframe: viewer.wireframeMode === true,
-    download: false,
-    help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
-  };
-
-  Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
-    const isActive = activeMap[key] === true;
-    button.classList.toggle("is-active", isActive);
-    if (button.dataset.pressed === "true") {
-      button.setAttribute("aria-pressed", isActive ? "true" : "false");
-    } else {
-      button.removeAttribute("aria-pressed");
-    }
-  });
-
-  updateHierarchySubmenuState(viewer);
-  updateClippingPlanesSubmenuState(viewer);
-  updateMeasurementSubmenuState(viewer);
-  updateTourSubmenuState(viewer);
-  updateLightsSubmenuState(viewer);
-  updateBackgroundSubmenuState(viewer);
-  updateStatisticsSubmenuState(viewer);
-  updateShadingSubmenuState(viewer);
 }
 
 function attachLoadingStatus(viewer) {
@@ -10555,6 +12629,11 @@ function attachMaterialsEditor(Viewer) {
       this.materialsDialogSelect = dialog.querySelector("#materialsDialogSelect");
       const panel = dialog.querySelector(".materials-dialog__panel");
       const header = dialog.querySelector(".materials-dialog__header");
+      attachToolPanelChrome(panel, header, {
+        before: header.querySelector(".materials-dialog__close"),
+        movable: false,
+        visibilityRoot: dialog,
+      });
       this.materialsDialogInputs = {
         color: dialog.querySelector("#materialsDialogColor"),
         emissiveColor: dialog.querySelector("#materialsDialogEmissiveColor"),
@@ -10689,9 +12768,10 @@ function attachMaterialsEditor(Viewer) {
       const panelHeight = panel?.offsetHeight || Math.min(520, height - 24);
 
       if (!this.materialsDialogPosition) {
+        // The top right corner, like the other tool panels (side stack).
         this.materialsDialogPosition = {
-          left: Math.max(left + 12, left + width - panelWidth - 16),
-          top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
+          left: Math.max(left + 12, left + width - panelWidth - 12),
+          top: top + 12,
         };
       } else {
         const minLeft = left + 12;
@@ -10941,6 +13021,11 @@ function attachShadingEditor(Viewer) {
       this.shadingDialogPosition = null;
       const panel = dialog.querySelector(".materials-dialog__panel");
       const header = dialog.querySelector(".materials-dialog__header");
+      attachToolPanelChrome(panel, header, {
+        before: header.querySelector(".materials-dialog__close"),
+        movable: false,
+        visibilityRoot: dialog,
+      });
       this.shadingDialogInputs = {
         vertex: dialog.querySelector("#shadingDialogVertex"),
         fragment: dialog.querySelector("#shadingDialogFragment"),
@@ -11041,9 +13126,10 @@ function attachShadingEditor(Viewer) {
       const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
 
       if (!this.shadingDialogPosition) {
+        // The top right corner, like the other tool panels (side stack).
         this.shadingDialogPosition = {
-          left: Math.max(left + 12, left + width - panelWidth - 16),
-          top: Math.max(top + 16, top + Math.min(40, Math.max(16, height * 0.08))),
+          left: Math.max(left + 12, left + width - panelWidth - 12),
+          top: top + 12,
         };
       } else {
         const minLeft = left + 12;
@@ -11258,6 +13344,11 @@ async function saveEditorMetadata(viewer) {
     toastHelper("settingsSaveError", "error");
   }
 }
+
+// Keep in sync with TONE_MAPPING_MODES / ANTIALIAS_MODES in viewer/rendering.js
+// (not imported: this module also runs in Node without three.js).
+const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
+const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
 
 function isPlainObject$2(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
@@ -11475,6 +13566,27 @@ function validateViewer(viewer, path, errors) {
       if (viewer.environmentMap.intensity !== undefined) validateNumber(viewer.environmentMap.intensity, `${path}.environmentMap.intensity`, errors);
       if (viewer.environmentMap.preset !== undefined) validateString(viewer.environmentMap.preset, `${path}.environmentMap.preset`, errors);
       if (viewer.environmentMap.enabled !== undefined) validateBoolean(viewer.environmentMap.enabled, `${path}.environmentMap.enabled`, errors);
+    }
+  }
+  if (viewer.rendering !== undefined) {
+    const rendering = viewer.rendering;
+    if (!isPlainObject$2(rendering)) {
+      pushError(errors, `${path}.rendering`, "must be an object");
+    } else {
+      if (rendering.toneMapping !== undefined) validateEnum(rendering.toneMapping, RENDERING_TONE_MAPPINGS, `${path}.rendering.toneMapping`, errors);
+      if (rendering.exposure !== undefined) {
+        validateNumber(rendering.exposure, `${path}.rendering.exposure`, errors);
+        if (Number.isFinite(rendering.exposure) && rendering.exposure < 0) pushError(errors, `${path}.rendering.exposure`, "must be >= 0");
+      }
+      if (rendering.postprocessing !== undefined) {
+        const postprocessing = rendering.postprocessing;
+        if (!isPlainObject$2(postprocessing)) {
+          pushError(errors, `${path}.rendering.postprocessing`, "must be an object");
+        } else {
+          if (postprocessing.enabled !== undefined) validateBoolean(postprocessing.enabled, `${path}.rendering.postprocessing.enabled`, errors);
+          if (postprocessing.antialias !== undefined) validateEnum(postprocessing.antialias, RENDERING_ANTIALIAS_MODES, `${path}.rendering.postprocessing.antialias`, errors);
+        }
+      }
     }
   }
   [
@@ -13888,6 +16000,7 @@ function attachAnnotations(Viewer) {
               preset: core.environmentMapPreset || "neutral",
               enabled: core.environmentMapEnabled || true
             },
+            rendering: getRenderingSettings(),
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
             autorotate: core.controls?.autoRotate === true,
@@ -14263,6 +16376,11 @@ function attachAnnotations(Viewer) {
         if (typeof this.setEnvironmentMapEnabled === "function" && typeof environmentMap.enabled === "boolean") {
           this.setEnvironmentMapEnabled(environmentMap.enabled).catch((error) => console.error(error));
         }
+      }
+
+      if (viewerConfig.rendering && typeof viewerConfig.rendering === "object") {
+        applyRenderingSettings(viewerConfig.rendering);
+        this.updateLightsSubmenuState?.();
       }
 
       const backgroundColor = String(viewerConfig.backgroundColor || "").trim();
@@ -15630,6 +17748,7 @@ function attachMeasurement(Viewer) {
         }
       });
       header.appendChild(close);
+      attachToolPanelChrome(panel, header, { before: close });
       panel.appendChild(header);
 
       const list = document.createElement("ul");
@@ -16426,6 +18545,7 @@ function attachTour(Viewer) {
       closeButton.className = "viewer-tour-panel_close";
       closeButton.textContent = "×";
       header.append(counter, closeButton);
+      attachToolPanelChrome(panel, header, { before: closeButton });
 
       const body = document.createElement("div");
       body.className = "viewer-tour-panel_body";
@@ -16593,8 +18713,8 @@ function attachTour(Viewer) {
 // but its meshes come and go with the level of detail, so face-based
 // features (annotations, area selection) are not available for it.
 
-const loadTilesModule = () => import('./index.three-Dy5UvPK8.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BMhLq1nv.js');
+const loadTilesModule = () => import('./index.three-qMfO_on0.js').then(function (n) { return n.i; });
+const loadTilesPlugins = () => import('./index.three-plugins-CYQgIQhZ.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -16899,6 +19019,9 @@ const OVERSHOOT = 0.05;
 const QUAD_MARGIN = 1.15;
 const QUAD_OPACITY = { idle: 0.1, hover: 0.22, drag: 0.28 };
 const SLIDER_STEPS = 1000;
+// A new or reset cut stands just past the model's far end, which keeps the
+// whole model (planes keep the side below the cut, until flipped): 0% cut.
+const DEFAULT_FRACTION = 1 + OVERSHOOT;
 
 function createAxisVisual(axis) {
   const group = new THREE.Group();
@@ -16944,7 +19067,7 @@ function attachClipping(Viewer) {
     clippingState: {
       bounds: null,
       root: null,
-      fraction: { x: 0.5, y: 0.5, z: 0.5 },
+      fraction: { x: DEFAULT_FRACTION, y: DEFAULT_FRACTION, z: DEFAULT_FRACTION },
       remembered: null,
       visuals: null,
       hoverAxis: null,
@@ -16983,6 +19106,22 @@ function attachClipping(Viewer) {
       const max = bounds.max[axis];
       const pad = Math.max(max - min, 1e-6) * OVERSHOOT;
       return { min, max, low: min - pad, high: max + pad, size: Math.max(max - min, 1e-6) };
+    },
+
+    // The panel's sliders run from nothing cut (0, the plane just past the
+    // kept side's far end) to everything cut (1), whichever side is kept.
+    clippingCutToPosition(axis, cut) {
+      const range = Viewer.getClippingAxisRange(axis);
+      if (!range) return 0;
+      const span = range.high - range.low;
+      return Viewer.isClippingAxisNegated(axis) ? range.low + cut * span : range.high - cut * span;
+    },
+
+    clippingPositionToCut(axis, position) {
+      const range = Viewer.getClippingAxisRange(axis);
+      if (!range) return 0;
+      const span = range.high - range.low;
+      return Viewer.isClippingAxisNegated(axis) ? (position - range.low) / span : (range.high - position) / span;
     },
 
     setClippingAxisPosition(axis, position, { clamp = true } = {}) {
@@ -17051,7 +19190,9 @@ function attachClipping(Viewer) {
         CLIPPING_AXES.forEach((axis) => {
           core.planeParams.clippingMode[axis] = restore[axis] === true;
         });
-        toastHelper("clippingEnabled", { duration: 2600 });
+        // Touch devices: only briefly - the panel that opens now stays and
+        // replaces the drag hint (main.js, isClippingPanelReplacingHint).
+        toastHelper("clippingEnabled", { duration: Viewer.isClippingPanelReplacingHint?.() ? 1500 : 2600 });
       } else {
         state.remembered = { ...core.planeParams.clippingMode };
         CLIPPING_AXES.forEach((axis) => {
@@ -17065,7 +19206,7 @@ function attachClipping(Viewer) {
     resetClippingPlanes() {
       CLIPPING_AXES.forEach((axis) => {
         core.planeParams[PARAM_KEYS[axis].group].negated = false;
-        Viewer.clippingState.fraction[axis] = 0.5;
+        Viewer.clippingState.fraction[axis] = DEFAULT_FRACTION;
       });
       Viewer.positionClippingPlanesFromFractions();
     },
@@ -17391,9 +19532,12 @@ function attachClipping(Viewer) {
         root.addEventListener(type, (event) => event.stopPropagation());
       });
 
+      const header = document.createElement("div");
+      header.className = "viewer-clipping-panel_header";
       const title = document.createElement("strong");
       title.className = "viewer-clipping-panel_title";
-      root.appendChild(title);
+      header.appendChild(title);
+      root.appendChild(header);
 
       const rows = {};
       CLIPPING_AXES.forEach((axis) => {
@@ -17416,8 +19560,7 @@ function attachClipping(Viewer) {
           const range = Viewer.getClippingAxisRange(axis);
           if (!range) return;
           if (!Viewer.isClippingAxisEnabled(axis)) Viewer.setClippingAxisEnabled(axis, true, { silent: true });
-          const fraction = Number(slider.value) / SLIDER_STEPS;
-          Viewer.setClippingAxisPosition(axis, range.low + fraction * (range.high - range.low));
+          Viewer.setClippingAxisPosition(axis, Viewer.clippingCutToPosition(axis, Number(slider.value) / SLIDER_STEPS));
         });
 
         const value = document.createElement("span");
@@ -17459,9 +19602,12 @@ function attachClipping(Viewer) {
       const panel = Viewer.ensureClippingPanel();
       if (!panel) return;
       panel.root.hidden = !Viewer.clippingMode || Viewer.urlOptions?.hideUi === true;
+      // The drag hint gives way to the panel on touch devices (main.js).
+      Viewer.updateClippingHintVisibility?.();
       if (panel.root.hidden) return;
 
       panel.title.textContent = t$1("clipping.title", "Section planes");
+      attachToolPanelChrome(panel.root, panel.title.parentNode);
       CLIPPING_AXES.forEach((axis) => {
         const { row, toggle, slider, value, flip } = panel.rows[axis];
         const enabled = Viewer.isClippingAxisEnabled(axis);
@@ -17479,10 +19625,12 @@ function attachClipping(Viewer) {
         const range = Viewer.getClippingAxisRange(axis);
         if (!range) return;
         const position = Viewer.getClippingAxisPosition(axis);
-        const fraction = (position - range.low) / (range.high - range.low);
-        if (document.activeElement !== slider) slider.value = String(Math.round(fraction * SLIDER_STEPS));
-        const percent = Math.round(THREE.MathUtils.clamp((position - range.min) / range.size, 0, 1) * 100);
-        value.textContent = `${percent}%`;
+        if (document.activeElement !== slider) {
+          slider.value = String(Math.round(Viewer.clippingPositionToCut(axis, position) * SLIDER_STEPS));
+        }
+        // How much of the model the cut removes.
+        const cut = negated ? (position - range.min) / range.size : (range.max - position) / range.size;
+        value.textContent = `${Math.round(THREE.MathUtils.clamp(cut, 0, 1) * 100)}%`;
       });
       panel.fillInput.checked = core.planeParams?.outline?.visible === true;
       panel.fillInput.disabled = Boolean(Viewer.animationState);
@@ -17527,426 +19675,6 @@ function attachClipping(Viewer) {
       return Object.fromEntries(CLIPPING_AXES.map((axis) => [axis, Viewer.isClippingAxisNegated(axis)]));
     },
   });
-}
-
-// IFC metadata (psets, quantities, spatial tree) does not fit into glTF, so
-// scripts/ifc_metadata.py exports it to <name>_ifc.json next to the *_viewer.json.
-// Node names in the GLB are IFC GlobalIds (IfcConvert --use-element-guids), which
-// are the keys of `elements` in that JSON.
-
-let ifcData = null;
-// Directly loaded .ifc: properties are read on demand from the web-ifc model (IFCModel).
-let liveModel = null;
-let liveRequest = 0;
-let panel = null;
-let highlights = [];
-// Elements hidden through the panel's eye toggle; they stay hidden until toggled back / "Show all".
-const hiddenNodes = new Set();
-let selectedNode = null;
-let highlightMaterial = null;
-
-const esc = (v) =>
-  String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-function hasIfcProperties() {
-  return ifcData !== null || liveModel !== null;
-}
-
-function clearIfcProperties() {
-  showAllHidden();
-  ifcData = null;
-  liveModel = null;
-  liveRequest++;
-  closeIfcPanel();
-}
-
-async function loadIfcProperties(url) {
-  clearIfcProperties();
-  if (!url) return;
-  try {
-    const response = await fetch(url, { cache: "no-cache" });
-    if (!response.ok) return; // not an IFC-derived model: silently skip
-    const data = await response.json();
-    if (data && data.elements) ifcData = data;
-  } catch (error) {
-    console.warn("[ifc-properties] could not load", url, error);
-  }
-}
-
-/** Serves properties straight from a model loaded by IFCLoader (no converted GLB + JSON needed). */
-function setIfcModel(model) {
-  clearIfcProperties();
-  if (model?.ifcManager && model.geometry?.attributes?.expressID) liveModel = model;
-}
-
-const unwrap = (v) => {
-  if (Array.isArray(v)) return v.map(unwrap);
-  if (v && typeof v === "object" && "value" in v) return unwrap(v.value);
-  if (v === ".T.") return true;
-  if (v === ".F.") return false;
-  return v ?? null;
-};
-
-const VALUE_KEYS = [
-  "NominalValue", "LengthValue", "AreaValue", "VolumeValue", "CountValue", "WeightValue", "TimeValue",
-  "EnumerationValues", "ListValues",
-];
-
-// IfcPropertySet / IfcElementQuantity (recursive web-ifc lines) -> { setName: { propName: value } }
-function convertPsets(lines) {
-  const psets = {};
-  for (const line of lines || []) {
-    const items = line.HasProperties || line.Quantities;
-    if (!items) continue;
-    const props = {};
-    for (const item of items) {
-      const name = unwrap(item.Name);
-      if (!name) continue;
-      const key = VALUE_KEYS.find((k) => item[k] != null);
-      props[name] = key ? unwrap(item[key]) : null;
-    }
-    psets[unwrap(line.Name) || "Pset"] = props;
-  }
-  return psets;
-}
-
-async function readLiveEntry(model, id) {
-  const [item, psets, types] = await Promise.all([
-    model.getItemProperties(id, false),
-    model.getPropertySets(id, true),
-    model.getTypeProperties(id, false),
-  ]);
-  return {
-    guid: unwrap(item?.GlobalId),
-    entry: {
-      type: model.getIfcType(id),
-      name: unwrap(item?.Name),
-      description: unwrap(item?.Description),
-      objectType: unwrap(item?.ObjectType),
-      predefinedType: unwrap(item?.PredefinedType),
-      tag: unwrap(item?.Tag),
-      typeRef: types?.[0] ? { name: unwrap(types[0].Name) } : null,
-      psets: convertPsets(psets),
-    },
-  };
-}
-
-// Sub-geometry with only the triangles of one element, sharing the model's vertex buffers.
-function elementGeometry(geometry, id) {
-  const index = geometry.index.array;
-  const ids = geometry.attributes.expressID;
-  const out = [];
-  for (let i = 0; i < index.length; i += 3) {
-    if (ids.getX(index[i]) === id) out.push(index[i], index[i + 1], index[i + 2]);
-  }
-  if (!out.length) return null;
-  const sub = new THREE.BufferGeometry();
-  sub.setAttribute("position", geometry.attributes.position);
-  sub.setIndex(out);
-  return sub;
-}
-
-function findElement(object) {
-  for (let node = object; node; node = node.parent) {
-    if (node.name && ifcData.elements[node.name]) return { node, guid: node.name, entry: ifcData.elements[node.name] };
-  }
-  return null;
-}
-
-function renderValue(value) {
-  if (value && typeof value === "object") return esc(value.name || value.guid || JSON.stringify(value));
-  return esc(value);
-}
-
-function renderPsets(psets) {
-  return Object.entries(psets)
-    .map(([name, props]) => {
-      const rows = Object.entries(props)
-        .filter(([key]) => key !== "id")
-        .map(([key, value]) => `<tr><th>${esc(key)}</th><td>${renderValue(value)}</td></tr>`)
-        .join("");
-      return `<details class="ifc-props-set" open><summary>${esc(name)}</summary><table class="ifc-props-table">${rows}</table></details>`;
-    })
-    .join("");
-}
-
-// Position/size the user chose; kept for the session so the panel reopens where it was left.
-let panelBox = null;
-
-function clampToContainer(left, top, width, height) {
-  const host = core.container;
-  const maxLeft = Math.max(0, host.clientWidth - Math.min(width, 48));
-  const maxTop = Math.max(0, host.clientHeight - 32);
-  return [Math.min(Math.max(-width + 48, left), maxLeft), Math.min(Math.max(0, top), maxTop)];
-}
-
-function applyPanelBox(el) {
-  if (!panelBox) return;
-  el.style.left = `${panelBox.left}px`;
-  el.style.top = `${panelBox.top}px`;
-  el.style.right = "auto";
-  if (panelBox.width) el.style.width = `${panelBox.width}px`;
-  if (panelBox.height) {
-    el.style.height = `${panelBox.height}px`;
-    el.classList.add("ifc-props-sized");
-  }
-}
-
-function rememberPanelBox(el, extra = {}) {
-  panelBox = {
-    ...(panelBox || {}),
-    left: el.offsetLeft,
-    top: el.offsetTop,
-    ...extra,
-  };
-}
-
-/** Header drag + native CSS resize (bottom-right grip); both persist in panelBox. */
-function bindPanelInteractions(el) {
-  let drag = null;
-  let sizeBefore = null;
-
-  el.addEventListener("pointerdown", (e) => {
-    e.stopPropagation();
-    sizeBefore = { w: el.offsetWidth, h: el.offsetHeight };
-    const header = e.target.closest(".ifc-props-header");
-    if (!header || e.target.closest("button") || e.button !== 0) return;
-    drag = { x: e.clientX, y: e.clientY, left: el.offsetLeft, top: el.offsetTop };
-    header.setPointerCapture?.(e.pointerId);
-    el.classList.add("ifc-props-dragging");
-    e.preventDefault();
-  });
-
-  el.addEventListener("pointermove", (e) => {
-    if (!drag) return;
-    const [left, top] = clampToContainer(
-      drag.left + e.clientX - drag.x,
-      drag.top + e.clientY - drag.y,
-      el.offsetWidth);
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
-    el.style.right = "auto";
-  });
-
-  const finish = () => {
-    if (drag) {
-      drag = null;
-      el.classList.remove("ifc-props-dragging");
-      rememberPanelBox(el);
-    }
-    if (sizeBefore && (el.offsetWidth !== sizeBefore.w || el.offsetHeight !== sizeBefore.h)) {
-      rememberPanelBox(el, { width: el.offsetWidth, height: el.offsetHeight });
-      el.classList.add("ifc-props-sized");
-    }
-    sizeBefore = null;
-    updateNoticeAvoidance();
-  };
-  el.addEventListener("pointerup", finish);
-  el.addEventListener("pointercancel", finish);
-}
-
-// Keeps the "controls" shortcuts notice (docked at the right edge, vertically
-// centred - see #viewerNoticeContainer--shortcuts) from covering this panel:
-//   open          -> notice moves to the left edge
-//   open-left     -> panel was dragged to the left half, notice stays on the right
-//   crowded       -> viewer too narrow for both, notice is hidden while the panel is open
-const NOTICE_WIDTH = 380 + 32;
-
-function noticeContainer() {
-  return document.getElementById("viewerNoticeContainer");
-}
-
-function updateNoticeAvoidance() {
-  const notice = noticeContainer();
-  if (!notice) return;
-  if (!panel) {
-    notice.removeAttribute("data-ifc-panel");
-    return;
-  }
-  const hostWidth = core.container.clientWidth;
-  const panelCenter = panel.offsetLeft + panel.offsetWidth / 2;
-  let state = panelCenter < hostWidth / 2 ? "open-left" : "open";
-  if (hostWidth < panel.offsetWidth + NOTICE_WIDTH + 24) state = "crowded";
-  notice.setAttribute("data-ifc-panel", state);
-}
-
-function ensurePanel() {
-  if (panel) return panel;
-  panel = document.createElement("div");
-  panel.id = "ifc-properties-panel";
-  bindPanelInteractions(panel);
-  applyPanelBox(panel);
-  core.container.appendChild(panel);
-  window.addEventListener("resize", updateNoticeAvoidance);
-  return panel;
-}
-
-/** Removes the overlay meshes added by highlightElement(). Geometry is shared, so only the material is kept/disposed. */
-function clearIfcHighlight() {
-  highlights.forEach((overlay) => {
-    overlay.parent?.remove(overlay);
-    if (overlay.userData.ownGeometry) overlay.geometry.dispose();
-  });
-  highlights = [];
-  highlightMaterial?.dispose();
-  highlightMaterial = null;
-}
-
-/**
- * Highlights every mesh below `node` with a translucent overlay that shares the
- * original geometry and is a child of the mesh, so it follows its transform.
- * Overlays are excluded from raycasting so they never get picked themselves.
- */
-function createHighlightMaterial() {
-  clearIfcHighlight();
-  highlightMaterial = new THREE.MeshBasicMaterial({
-    color: 0x00e5ff,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2,
-  });
-}
-
-function addOverlay(mesh, geometry) {
-  const overlay = new THREE.Mesh(geometry, highlightMaterial);
-  overlay.raycast = () => {};
-  overlay.renderOrder = 999;
-  overlay.userData.ifcHighlight = true;
-  mesh.add(overlay);
-  highlights.push(overlay);
-  return overlay;
-}
-
-function highlightElement(node) {
-  createHighlightMaterial();
-  const meshes = [];
-  node.traverse((child) => {
-    if (child.isMesh && !child.userData.ifcHighlight) meshes.push(child);
-  });
-  meshes.forEach((mesh) => addOverlay(mesh, mesh.geometry));
-}
-
-const EYE_ICON =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-const EYE_OFF_ICON =
-  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7c2 0 3.8.7 5.3 1.6M22 12s-3.6 7-10 7c-2 0-3.8-.7-5.3-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
-
-function showAllHidden() {
-  hiddenNodes.forEach((node) => (node.visible = true));
-  hiddenNodes.clear();
-}
-
-function toggleSelectedVisibility() {
-  if (!selectedNode) return;
-  selectedNode.visible = !selectedNode.visible;
-  if (selectedNode.visible) hiddenNodes.delete(selectedNode);
-  else hiddenNodes.add(selectedNode);
-  refreshVisibilityControls();
-}
-
-function refreshVisibilityControls() {
-  if (!panel) return;
-  const visible = selectedNode ? selectedNode.visible !== false : true;
-  const toggle = panel.querySelector(".ifc-props-visibility");
-  if (toggle) {
-    toggle.style.display = selectedNode ? "" : "none"; // per-element hiding needs a node (not for merged IFC mesh)
-    toggle.innerHTML = visible ? EYE_ICON : EYE_OFF_ICON;
-    toggle.setAttribute("aria-pressed", String(!visible));
-    const label = visible ? "Hide element" : "Show element";
-    toggle.title = label;
-    toggle.setAttribute("aria-label", label);
-  }
-  const bar = panel.querySelector(".ifc-props-hidden-bar");
-  if (bar) {
-    bar.hidden = hiddenNodes.size === 0;
-    bar.querySelector(".ifc-props-hidden-count").textContent = `Hidden elements: ${hiddenNodes.size}`;
-  }
-}
-
-function closeIfcPanel() {
-  liveRequest++; // drop any in-flight property read
-  selectedNode = null;
-  clearIfcHighlight();
-  panel?.remove();
-  panel = null;
-  window.removeEventListener("resize", updateNoticeAvoidance);
-  updateNoticeAvoidance();
-}
-
-function showIfcProperties(object, hit = null) {
-  if (liveModel) return showLiveProperties(object, hit);
-  if (!ifcData || !object) return false;
-  const found = findElement(object);
-  if (!found) return false;
-  const { node, guid, entry } = found;
-  highlightElement(node);
-  selectedNode = node;
-  renderPanel(entry, guid);
-  return true;
-}
-
-function showLiveProperties(object, hit) {
-  if (object !== liveModel || hit?.faceIndex == null) return false;
-  const id = liveModel.getExpressId(object.geometry, hit.faceIndex);
-  const request = ++liveRequest;
-  selectedNode = null;
-  const sub = elementGeometry(object.geometry, id);
-  createHighlightMaterial();
-  if (sub) addOverlay(object, sub).userData.ownGeometry = true;
-  readLiveEntry(liveModel, id)
-    .then(({ guid, entry }) => {
-      if (request === liveRequest) renderPanel(entry, guid);
-    })
-    .catch((error) => console.warn("[ifc-properties] could not read element", id, error));
-  return true;
-}
-
-function renderPanel(entry, guid) {
-  const head = [
-    ["Type", entry.type],
-    ["Name", entry.name],
-    ["Description", entry.description],
-    ["Object type", entry.objectType],
-    ["Predefined type", entry.predefinedType],
-    ["Tag", entry.tag],
-    ["Material", entry.material],
-    ["IFC type", entry.typeRef?.name],
-    ["GlobalId", guid],
-  ]
-    .filter(([, v]) => v)
-    .map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`)
-    .join("");
-
-  const el = ensurePanel();
-  el.innerHTML =
-    `<div class="ifc-props-header"><span class="ifc-props-title">${esc(entry.name || entry.type)}</span>` +
-    `<button type="button" class="ifc-props-btn ifc-props-visibility"></button>` +
-    `<button type="button" class="ifc-props-btn ifc-props-close" aria-label="Close">×</button></div>` +
-    `<div class="ifc-props-hidden-bar" hidden><span class="ifc-props-hidden-count"></span>` +
-    `<button type="button" class="ifc-props-show-all">Show all</button></div>` +
-    `<div class="ifc-props-body"><table class="ifc-props-table">${head}</table>${entry.psets ? renderPsets(entry.psets) : ""}</div>`;
-  el.querySelector(".ifc-props-close").addEventListener("click", closeIfcPanel);
-  el.querySelector(".ifc-props-visibility").addEventListener("click", toggleSelectedVisibility);
-  el.querySelector(".ifc-props-show-all").addEventListener("click", () => {
-    showAllHidden();
-    refreshVisibilityControls();
-  });
-  refreshVisibilityControls();
-  updateNoticeAvoidance();
-}
-
-/**
- * <dir>/gltf/<name>.glb -> <dir>/metadata/<name>_ifc.json (the layout produced by
- * scripts/convert.sh), independent of the Drupal metadataUrl setting so it also
- * works for the standalone worker and local previews.
- */
-function ifcPropertiesUrlForModel(modelPath) {
-  if (!modelPath || modelPath.startsWith("blob:")) return null;
-  const match = modelPath.match(/^(.*)\/gltf\/([^/?#]+)\.(?:glb|gltf)(?:[?#].*)?$/i);
-  return match ? `${match[1]}/metadata/${match[2]}_ifc.json` : null;
 }
 
 function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
@@ -18955,6 +20683,10 @@ function attachFaceAreaSelection(Viewer) {
 //
 // Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape)
 // and viewer.tiles (edlStrength, pointShape).
+//
+// The window opens by itself except on phones, where it would cover the
+// model; there (and everywhere) the toolbar's point cloud button, shown while
+// a point cloud is loaded, opens and closes it.
 
 const SIZE_MIN = 0.25;
 const SIZE_MAX = 4;
@@ -19025,6 +20757,7 @@ function attachPointCloudPanel(Viewer) {
         colorMode: modes.includes(preferred) ? preferred : modes[0],
         edl: plugin ? plugin.edlStrength : 0,
         collapsed: false,
+        hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
         ui: null,
       };
       if (!isTiled && !["square", "round"].includes(state.shape)) state.shape = "square";
@@ -19038,16 +20771,34 @@ function attachPointCloudPanel(Viewer) {
         Viewer.setPointCloudColorMode(state.colorMode);
       }
       Viewer.createPointCloudPanel();
+      Viewer.updateEditorToolbarState?.();
       return true;
     },
 
     disposePointCloudControls() {
+      const hadState = Boolean(Viewer.pointCloudState);
       Viewer.pointCloudState?.ui?.root.remove();
       Viewer.pointCloudState = null;
+      if (hadState) Viewer.updateEditorToolbarState?.();
     },
 
     isPointCloudActive() {
-      return Boolean(Viewer.pointCloudState);
+      return Boolean(Viewer.pointCloudState?.ui);
+    },
+
+    isPointCloudPanelVisible() {
+      const state = Viewer.pointCloudState;
+      return Boolean(state?.ui && !state.hidden);
+    },
+
+    // The toolbar button: shows the window (with its settings open) or hides it.
+    togglePointCloudPanel() {
+      const state = Viewer.pointCloudState;
+      if (!state?.ui) return;
+      state.hidden = !state.hidden;
+      if (!state.hidden) state.collapsed = false;
+      Viewer.syncPointCloudPanel();
+      Viewer.updateEditorToolbarState?.();
     },
 
     // Colour modes a direct cloud can offer, from the attributes it carries.
@@ -19232,6 +20983,8 @@ function attachPointCloudPanel(Viewer) {
         Viewer.syncPointCloudPanel();
       });
       header.append(title, collapse);
+      // The panel's own collapse button already minimizes it: only the grip.
+      attachToolPanelChrome(root, header, { minimizable: false });
 
       const body = document.createElement("div");
       body.className = "viewer-pointcloud-panel_body";
@@ -19293,6 +21046,7 @@ function attachPointCloudPanel(Viewer) {
       if (!ui) return;
       ui.root.setAttribute("aria-label", t$1("pointCloud.title", "Point cloud"));
       ui.title.textContent = t$1("pointCloud.title", "Point cloud");
+      ui.root.hidden = state.hidden;
       ui.body.hidden = state.collapsed;
       ui.collapse.textContent = state.collapsed ? "+" : "–";
       const collapseLabel = state.collapsed ? t$1("pointCloud.expand", "Show settings") : t$1("pointCloud.collapse", "Hide settings");
@@ -19336,7 +21090,8 @@ function captureAndUploadThumbnail(viewer) {
   core.camera.aspect = 1;
   core.camera.updateProjectionMatrix();
   core.renderer.setSize(1024, 1024);
-  core.renderer.render(core.scene, core.camera);
+  // Through the post-processing chain when it is on, like the live canvas.
+  renderFrame();
 
   viewer.mainCanvas.toBlob((imgBlob) => {
     if (!imgBlob) {
@@ -19642,6 +21397,7 @@ function refreshModelHierarchyAndStats(object) {
   Viewer.clearHierarchySubmenu();
   const root = Array.isArray(object) ? object[0] : object;
   root?.traverse?.((child) => {
+    if (child.isPoints) stats.vertices += fetchMetadata(child, "vertices");
     if (!child.isMesh) return;
     stats.vertices += fetchMetadata(child, "vertices");
     stats.faces += fetchMetadata(child, "faces");
@@ -20216,6 +21972,7 @@ function fetchMetadata(_object, _type) {
     case "vertices":
       return positionCount;
     case "faces":
+      if (_object.isPoints || _object.isLine) return 0;
       return (indexedCount ?? positionCount) / 3;
     default:
       return 0;
@@ -20236,6 +21993,8 @@ async function handleMetadataResponse(
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, data);
     object.traverse(function (child) {
+      // Point clouds (e.g. LAS/LAZ, wrapped in a Group) have points but no faces.
+      if (child.isPoints) metadata["vertices"] += fetchMetadata(child, "vertices");
       if (child.isMesh) {
         metadata["vertices"] += fetchMetadata(child, "vertices");
         metadata["faces"] += fetchMetadata(child, "faces");
@@ -20816,33 +22575,33 @@ function maybeShowFirstRunHints() {
   }, START_DELAY_MS);
 }
 
-const loadDDSLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aw; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.ax; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.ay; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.az; })).FBXLoader;
-const loadPLYLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aA; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aB; })).ColladaLoader;
-const loadSTLLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aC; })).STLLoader;
-const loadXYZLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aD; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aE; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aF; })).PCDLoader;
-const loadGLTFLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.av; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aG; })).DRACOLoader;
-const loadKTX2Loader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aH; })).KTX2Loader;
-const loadMeshoptDecoder = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aI; })).MeshoptDecoder;
-const loadUSDLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aJ; })).USDLoader;
-const loadThreeMFLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aK; })).ThreeMFLoader;
-const loadAMFLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aL; })).AMFLoader;
-const loadVRMLLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aM; })).VRMLLoader;
-const loadKMZLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aN; })).KMZLoader;
-const loadVOXLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aO; })).VOXLoader;
-const loadVOXBuildMesh = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aO; })).buildMesh;
-const loadLWOLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aP; })).LWOLoader;
-const loadIFCLoader = async () => (await import('./IFCLoader-BmWxBAlM.js')).IFCLoader;
-const loadRoomEnvironment = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aQ; })).RoomEnvironment;
+const loadDDSLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aB; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aC; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aD; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aE; })).FBXLoader;
+const loadPLYLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aF; })).PLYLoader;
+const loadColladaLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aG; })).ColladaLoader;
+const loadSTLLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aH; })).STLLoader;
+const loadXYZLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aI; })).XYZLoader;
+const loadTDSLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aJ; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aK; })).PCDLoader;
+const loadGLTFLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aA; })).GLTFLoader;
+const loadDRACOLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aL; })).DRACOLoader;
+const loadKTX2Loader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aM; })).KTX2Loader;
+const loadMeshoptDecoder = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aN; })).MeshoptDecoder;
+const loadUSDLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aO; })).USDLoader;
+const loadThreeMFLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aP; })).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aQ; })).AMFLoader;
+const loadVRMLLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aR; })).VRMLLoader;
+const loadKMZLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aS; })).KMZLoader;
+const loadVOXLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aT; })).VOXLoader;
+const loadVOXBuildMesh = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aT; })).buildMesh;
+const loadLWOLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aU; })).LWOLoader;
+const loadIFCLoader = async () => (await import('./IFCLoader-B2e1WOmM.js')).IFCLoader;
+const loadRoomEnvironment = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BK1fjd68.js')).buildLasPointCloud;
-const loadHDRLoader = async () => (await import('./three-DwEzltWR.js').then(function (n) { return n.aR; })).HDRLoader;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-Bkchk1z6.js')).buildLasPointCloud;
+const loadHDRLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aW; })).HDRLoader;
 
 var outlineClipping;
 let environmentTextureCache = {};
@@ -28379,6 +30138,7 @@ function setModelPaths(viewer) {
 
 function disableInteractionHint(viewer) {
   if (core.PRESENTATION_MODE) return;
+  markViewerUsed();
   core.handHint.hidden = true;
   viewer.stopGesture();
 
@@ -29219,7 +30979,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "6c9219f" ;
+const BUILD_ID = "48b5b21" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -29491,6 +31251,18 @@ const Viewer$1 = {
         get scene() {
           return core.scene;
         },
+
+        get renderer() {
+          return core.renderer;
+        },
+
+        get rendering() {
+          return getRenderingSettings();
+        },
+
+        get postProcessing() {
+          return isPostProcessingActive();
+        },
       };
     } else {
       window.viewer.errors ??= [];
@@ -29530,6 +31302,7 @@ const Viewer$1 = {
   },
 
   stopHandMode() {
+    markViewerUsed();
     const g = core.GESTURE;
     if (g) {
       g.rotate = false;
@@ -29937,8 +31710,14 @@ const Viewer$1 = {
   refreshClippingHintVisibility() {
     const clippingMode = core.planeParams?.clippingMode || {};
     if (this.clippingHint) {
-      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z);
+      this.clippingHint.hidden = !(clippingMode.x || clippingMode.y || clippingMode.z) || this.isClippingPanelReplacingHint();
     }
+  },
+
+  // On touch devices the section planes panel (with its sliders) is shown
+  // with the planes, and the drag hint over the model only takes up room.
+  isClippingPanelReplacingHint() {
+    return this.clippingMode === true && isToolPanelChromeEnabled();
   },
 
   updateClippingPlanesSubmenuState() {
@@ -30144,7 +31923,7 @@ const Viewer$1 = {
     const clippingMode = this.planeParams?.clippingMode || {};
     const hasActiveClipping = Boolean(clippingMode.x || clippingMode.y || clippingMode.z);
     const pickingHintVisible = Boolean(this.pickingHint && this.pickingHint.hidden === false);
-    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible;
+    this.clippingHint.hidden = !hasActiveClipping || pickingHintVisible || this.isClippingPanelReplacingHint();
   },
 
   updatePickingControlsVisibility() {
@@ -30798,6 +32577,7 @@ const Viewer$1 = {
 
     core.CONFIG = await this.loadRequiredJson(new URL(settingsPath, moduleUrl));
     console.log("Loaded viewer-settings.json", core.CONFIG.viewer);
+    initErrorTracking();
 
     if (Object.keys(core.CONFIG).length === 0) {
       core.CONFIG = {
@@ -31445,6 +33225,8 @@ const Viewer$1 = {
         Viewer$1.updateSize();
         Viewer$1.updateEditorToolbarLabels();
         Viewer$1.updateEditorToolbarState();
+        // The toolbar moves (in the app, above the ad banner): so do toasts.
+        syncNoticeAboveToolbar();
       });
     });
 
@@ -31477,6 +33259,13 @@ const Viewer$1 = {
     if (!g.active || !g.baseAngle || !g.target) return;
 
     const t = (time - g.startTime) / 1000;
+    // Returning users (showInteractionHint): done after maxCycles sweeps,
+    // back where it started.
+    if (g.maxCycles && t >= g.maxCycles * g.period) {
+      Viewer$1.stopGesture();
+      core.handHint?.classList.remove("hand-drag-animate");
+      return;
+    }
     const s = Math.sin((t / core.GESTURE.period) * Math.PI * 2);
 
     // EASE-IN (smoothstep)
@@ -31606,8 +33395,7 @@ const Viewer$1 = {
       Viewer$1.updateAnimationTimeline();
     }
 
-    core.renderer?.clear();
-    core.renderer?.render(core.scene, core.camera);
+    renderFrame();
     Viewer$1.renderViewHelper(delta);
     core.stats?.update();
   },
@@ -32699,18 +34487,7 @@ const Viewer$1 = {
           sortObjects: true,
           preserveDrawingBuffer: true,
           powerPreference: "high-performance",
-          alpha: true,
-          shadowMap: {
-            enabled: true,
-            type: THREE.PCFSoftShadowMap
-          },
-          localClippingEnabled: true,
-          physicallyCorrectLights: true,
-          autoClear: false,
-          setClearColor: (0.0),
-          outputColorSpace: THREE.SRGBColorSpace,
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 0.65
+          alpha: true
         });
       } catch (err) {
         console.warn("WebGL context could not be created:", err);
@@ -32721,6 +34498,8 @@ const Viewer$1 = {
       core.renderer.localClippingEnabled = true;
 
       setCore('renderer', core.renderer);
+      // Tone mapping, exposure and the optional post-processing chain.
+      initRendering(core.renderer, core.CONFIG.viewer?.rendering);
 
       core.renderer.domElement.id = "MainCanvas";
       Viewer$1.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
@@ -32774,10 +34553,7 @@ const Viewer$1 = {
       if (isE2E) {
         console.info('E2E MODE ENABLED');
         core.renderer.setPixelRatio(1);
-        core.renderer.toneMappingExposure = 1;
-        if (typeof disablePostProcessing === 'function') {
-          disablePostProcessing();
-        }
+        applyRenderingSettings({ exposure: 1, postprocessing: { enabled: false } });
         this.ensureE2EState();
       } else {
             core.renderer.setPixelRatio(devicePixelRatio);
@@ -33143,6 +34919,10 @@ const Viewer$1 = {
           if (!selectedModel) {
             selectedModel = localStorage.getItem('dfg3dviewer-example-model');
           }
+          // The app's first model (mobile.defaultModel, rollup.config.js).
+          if (!selectedModel) {
+            selectedModel = core.CONFIG?.mobile?.defaultModel || null;
+          }
           if (!selectedModel) {
             selectedModel = viewerElement.getAttribute('3d');
           }
@@ -33382,4 +35162,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-CXyDH9CQ.js.map
+//# sourceMappingURL=main-BzzSFRhL.js.map
