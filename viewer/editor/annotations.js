@@ -78,6 +78,7 @@ export function attachAnnotations(Viewer) {
 
     setAnnotationLeaderLines(enabled) {
       this.annotationLeaderLines = enabled === true;
+      if (this.annotationLeaderLines && this.annotationSpread) this.setAnnotationSpread?.(false);
       this.refreshAnnotationPOIs();
       this.syncTourLeaderToggle?.();
     },

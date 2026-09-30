@@ -1855,7 +1855,13 @@ canvas {
   display: none !important;
 }
 
+/* Appended to <body>, outside .viewer-wrapper and its theme variables:
+   it carries its own, following the theme set on <body>. */
 #annotationPOITooltip {
+  --annotation-poi-tooltip-bg: rgba(17, 24, 39, 0.92);
+  --annotation-poi-tooltip-border: rgba(255, 255, 255, 0.12);
+  --annotation-poi-tooltip-text: rgba(255, 255, 255, 0.94);
+  --annotation-poi-tooltip-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
   position: fixed;
   left: 0;
   top: 0;
@@ -1864,15 +1870,23 @@ canvas {
   pointer-events: none;
 }
 
+body[data-viewer-theme="light"] #annotationPOITooltip {
+  --annotation-poi-tooltip-bg: rgba(252, 250, 246, 0.96);
+  --annotation-poi-tooltip-border: rgba(164, 151, 132, 0.28);
+  --annotation-poi-tooltip-text: rgba(37, 33, 28, 0.92);
+  --annotation-poi-tooltip-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
+}
+
 .annotation-poi-tooltip__panel {
   position: relative;
   min-width: 120px;
   max-width: min(320px, calc(100vw - 32px));
-  border: 1px solid var(--viewer-panel-border);
+  border: 1px solid var(--annotation-poi-tooltip-border);
   border-radius: 8px;
-  background: var(--viewer-panel-embed-bg);
-  color: var(--viewer-panel-text);
-  box-shadow: var(--viewer-panel-shadow);
+  background: var(--annotation-poi-tooltip-bg);
+  color: var(--annotation-poi-tooltip-text);
+  box-shadow: var(--annotation-poi-tooltip-shadow);
+  font-family: system-ui, sans-serif;
   padding: 7px 10px;
   box-sizing: border-box;
   overflow-wrap: break-word;

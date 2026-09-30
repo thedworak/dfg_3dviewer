@@ -62,6 +62,7 @@ import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
 import { attachAnimations } from "./animations.js";
 import { attachTour } from "./editor/tour.js";
+import { attachAnnotationSpread } from "./editor/annotation-spread.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
@@ -1316,6 +1317,8 @@ export const Viewer = {
   resetLoadedModelState() {
     Viewer.disposeAnimations();
     Viewer.stopTour();
+    // Rebuilt for the new model's annotations while still switched on.
+    Viewer.disposeAnnotationSpread();
     Viewer.disposePointCloudControls();
     disposeTiles();
     removeImportedLights();
@@ -2344,6 +2347,7 @@ export const Viewer = {
     // =========================
     
     Viewer.updateTour(time);
+    Viewer.updateAnnotationSpread();
     updateTiles();
 
     if (Viewer.mixer) {
@@ -4085,6 +4089,7 @@ attachModelUnits(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);
 attachTour(Viewer);
+attachAnnotationSpread(Viewer);
 attachViewHelper(Viewer);
 attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);

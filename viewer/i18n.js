@@ -584,6 +584,9 @@ export const VIEWER_I18N = {
       dismiss: "Hide guided tour",
       showLeaderLines: "Show annotation leader lines",
       hideLeaderLines: "Hide annotation leader lines",
+      showSpread: "Open all annotations around the model",
+      hideSpread: "Close annotations around the model",
+      spreadLayer: "Annotations",
     },
     animation: {
       player: "Animation player",
@@ -1244,6 +1247,9 @@ export const VIEWER_I18N = {
       dismiss: "Ukryj wycieczkę z przewodnikiem",
       showLeaderLines: "Pokaż linie odniesienia adnotacji",
       hideLeaderLines: "Ukryj linie odniesienia adnotacji",
+      showSpread: "Rozłóż wszystkie adnotacje wokół modelu",
+      hideSpread: "Zwiń adnotacje rozłożone wokół modelu",
+      spreadLayer: "Adnotacje",
     },
     animation: {
       player: "Odtwarzacz animacji",
@@ -1903,6 +1909,9 @@ export const VIEWER_I18N = {
       dismiss: "Führung ausblenden",
       showLeaderLines: "Hinweislinien der Annotationen einblenden",
       hideLeaderLines: "Hinweislinien der Annotationen ausblenden",
+      showSpread: "Alle Annotationen rund um das Modell öffnen",
+      hideSpread: "Annotationen rund um das Modell schließen",
+      spreadLayer: "Annotationen",
     },
     animation: {
       player: "Animationsplayer",
