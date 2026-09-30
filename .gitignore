@@ -46,3 +46,6 @@ viewer-settings.json
 # Python bytecode
 __pycache__/
 *.py[cod]
+
+# large generated test data (scripts/generate-pointcloud-lod.py) - not shipped
+/viewer/test-data/
