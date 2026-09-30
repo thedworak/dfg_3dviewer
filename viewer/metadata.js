@@ -4,6 +4,7 @@ import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 import { parseFloatParam } from "./viewer-param-utils.js";
 import { clearIfcProperties } from "./ifc-properties.js";
+import { attachManifestTreeEditor } from "./manifesto/manifest-tree-editor.js";
 
 // Below this distance (px) from its default glued corner, drag movement is
 // absorbed rather than moved - the panel only actually detaches from the
@@ -983,6 +984,13 @@ export function createAIM3IFDropdown(url) {
     { url: "./manifests/box-aim3d-local.json", name: t("aim3if.optionBoxLocal", "Box (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
+    // Same model under different lighting, tone mapping and shading, for comparison.
+    { url: "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json", name: t("aim3if.optionWolpaGoldenHour", "Wolpa Synagogue - golden hour, ACES (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", name: t("aim3if.optionWolpaStudio", "Wolpa Synagogue - studio, AgX (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", name: t("aim3if.optionWolpaNight", "Wolpa Synagogue - night spotlights, Reinhard (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", name: t("aim3if.optionWolpaNightTour", "Wolpa Synagogue - night, annotations and guided tour (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", name: t("aim3if.optionWolpaToon", "Wolpa Synagogue - toon shading (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", name: t("aim3if.optionWolpaOvercast", "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
@@ -1186,6 +1194,15 @@ export function createManifestUI(type = "iiif") {
     </div>
 
     <div class="form-manifesto-group column">
+      <div class="manifesto-view-toolbar">
+        <div class="manifesto-view-toggle" role="group">
+          <button type="button" id="manifesto-view-tree" aria-pressed="false">${escapeHtml(t("manifesto.treeView", "Tree"))}</button>
+          <button type="button" id="manifesto-view-json" aria-pressed="true">${escapeHtml(t("manifesto.jsonView", "JSON"))}</button>
+        </div>
+        <button type="button" id="manifesto-tree-expand" class="manifesto-tree-tool" hidden>${escapeHtml(t("manifesto.expandAll", "Expand all"))}</button>
+        <button type="button" id="manifesto-tree-collapse" class="manifesto-tree-tool" hidden>${escapeHtml(t("manifesto.collapseAll", "Collapse all"))}</button>
+      </div>
+      <div id="manifesto-manifest-tree" class="manifesto-manifest-tree" hidden></div>
       <textarea id="manifesto-manifest-text" rows="8" placeholder="${escapeHtml(t(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
       <div class="actions">
         <button class="secondary" id="load-manifesto-from-text">${escapeHtml(t(`${titleKey}.loadFromText`, `Load from Text`))}</button>
@@ -1204,4 +1221,13 @@ export function createManifestUI(type = "iiif") {
   (core.viewerWrapper || core.container || document.body).appendChild(formContainer);
 
   initializeManifestoFormDrag(formContainer, header);
+  showManifestInForm = attachManifestTreeEditor();
+}
+
+// Shows a manifest in the form's tree/JSON views; replaced by
+// createManifestUI() with one bound to the current form.
+let showManifestInForm = () => {};
+
+export function displayManifestInForm(manifestJson) {
+  showManifestInForm(manifestJson);
 }

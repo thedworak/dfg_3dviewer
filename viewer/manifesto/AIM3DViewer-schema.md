@@ -70,6 +70,13 @@ Stores runtime viewer options.
       "antialias": "msaa"
     }
   },
+  "tour": {
+    "autostart": false,
+    "autoplay": false,
+    "stepDuration": 6,
+    "transitionDuration": 1.5,
+    "loop": true
+  },
   "presentationMode": false,
   "sandbox": false,
   "autorotate": false,
@@ -122,6 +129,13 @@ Notes:
   - `postprocessing.enabled`: renders through a post-processing chain (default `false`); tone mapping looks the same either way
   - `postprocessing.antialias`: anti-aliasing used by that chain - `msaa` (4x multisampling, default), `smaa`, `fxaa` (cheapest) or `none`
 - `showNotifications` controls toast/status notices
+- `tour`: guided tour through the manifest's annotations, same keys as `viewer-settings.json` `viewer.tour` (each optional, the settings file stays the fallback):
+  - `autostart`: start the tour once the model and annotations have loaded (default `false`); a manifest that sets `tour` may autostart it again even if an earlier manifest already did
+  - `autoplay`: advance the steps automatically (default `false`)
+  - `stepDuration`: seconds on each step while autoplaying, `> 0` (default `6`)
+  - `transitionDuration`: camera flight time in seconds, `>= 0` (default `1.5`)
+  - `loop`: wrap around after the last step while autoplaying (default `true`)
+  - The steps are the annotations in marker order; each one's `AIM3DViewer.view` (`{ position, target, fov }`) is the camera pose shown for it.
 - `window` stores the movable viewer host geometry in viewport pixels
 - `editorToolbar` is the canonical editor toolbar runtime state used by the current viewer
 - `viewer.clipping` is the canonical location for clipping state

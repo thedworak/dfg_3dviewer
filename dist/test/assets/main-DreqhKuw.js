@@ -809,6 +809,15 @@ const VIEWER_I18N = {
       sceneNumber: "Scene {number}",
       camera: "Camera",
       cameraNumber: "Camera {number}",
+      treeView: "Tree",
+      jsonView: "JSON",
+      expandAll: "Expand all",
+      collapseAll: "Collapse all",
+      treeItems: "{count} items",
+      treeItem: "{count} item",
+      treeKey: "{count} key",
+      treeKeys: "{count} keys",
+      treeEditHint: "Click to edit, Enter to confirm, Esc to cancel",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -1113,6 +1122,7 @@ const VIEWER_I18N = {
 
       annotationsSaved: "Annotations saved for {count} face{plural}.",
       annotationsImported: "Imported {count} annotation{plural}.",
+      annotationsImportedFromManifest: "Imported {count} annotation{plural} from the manifest.",
       annotationsExported: "Annotations XML exported.",
       tourNoAnnotations: "Add annotations to the model to start a guided tour.",
       noAnnotationsToExport: "No annotations to export.",
@@ -1184,6 +1194,11 @@ const VIEWER_I18N = {
       untitled: "Untitled annotation",
       saveView: "Save current camera view for the tour",
       replaceView: "Replace the saved tour view with the current camera view",
+      annotationCount: "Annotations: {count}",
+      idleHint: "Play the guided tour through the saved annotations, or step through them with ‹ ›.",
+      dismiss: "Hide guided tour",
+      showLeaderLines: "Show annotation leader lines",
+      hideLeaderLines: "Hide annotation leader lines",
     },
     animation: {
       player: "Animation player",
@@ -1437,6 +1452,15 @@ const VIEWER_I18N = {
       sceneNumber: "Scena {number}",
       camera: "Kamera",
       cameraNumber: "Kamera {number}",
+      treeView: "Drzewo",
+      jsonView: "JSON",
+      expandAll: "Rozwiń wszystko",
+      collapseAll: "Zwiń wszystko",
+      treeItems: "elementy: {count}",
+      treeItem: "elementy: {count}",
+      treeKey: "klucze: {count}",
+      treeKeys: "klucze: {count}",
+      treeEditHint: "Kliknij, aby edytować; Enter zatwierdza, Esc anuluje",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -1757,7 +1781,8 @@ const VIEWER_I18N = {
       facesInactive: "Wybrane ściany nie są już aktywne.",
 
       annotationsSaved: "Zapisano adnotacje dla {count} ścian{plural}.",
-      annotationsImported: "Zaimportowano {count} adnotacj{plural}.",
+      annotationsImported: "Zaimportowano adnotacje: {count}.",
+      annotationsImportedFromManifest: "Zaimportowano adnotacje z manifestu: {count}.",
       annotationsExported: "Wyeksportowano XML adnotacji.",
       tourNoAnnotations: "Dodaj adnotacje do modelu, aby rozpocząć wycieczkę.",
       noAnnotationsToExport: "Brak adnotacji do eksportu.",
@@ -1829,6 +1854,11 @@ const VIEWER_I18N = {
       untitled: "Adnotacja bez tytułu",
       saveView: "Zapisz bieżący widok kamery dla wycieczki",
       replaceView: "Zastąp zapisany widok wycieczki bieżącym widokiem kamery",
+      annotationCount: "Adnotacje: {count}",
+      idleHint: "Uruchom wycieczkę po zapisanych adnotacjach albo przechodź między nimi przyciskami ‹ ›.",
+      dismiss: "Ukryj wycieczkę z przewodnikiem",
+      showLeaderLines: "Pokaż linie odniesienia adnotacji",
+      hideLeaderLines: "Ukryj linie odniesienia adnotacji",
     },
     animation: {
       player: "Odtwarzacz animacji",
@@ -2081,6 +2111,15 @@ const VIEWER_I18N = {
       sceneNumber: "Szene {number}",
       camera: "Kamera",
       cameraNumber: "Kamera {number}",
+      treeView: "Baum",
+      jsonView: "JSON",
+      expandAll: "Alle aufklappen",
+      collapseAll: "Alle zuklappen",
+      treeItems: "{count} Elemente",
+      treeItem: "{count} Element",
+      treeKey: "{count} Schlüssel",
+      treeKeys: "{count} Schlüssel",
+      treeEditHint: "Zum Bearbeiten klicken, Enter bestätigt, Esc bricht ab",
     },
     iiif: {
       loader: "IIIF-Loader",
@@ -2401,7 +2440,8 @@ const VIEWER_I18N = {
       facesInactive: "Ausgewählte Flächen sind nicht mehr aktiv.",
 
       annotationsSaved: "Annotationen für {count} Fläche{plural} gespeichert.",
-      annotationsImported: "{count} Annotation{plural} importiert.",
+      annotationsImported: "Importierte Annotationen: {count}.",
+      annotationsImportedFromManifest: "Aus dem Manifest importierte Annotationen: {count}.",
       annotationsExported: "Annotations-XML exportiert.",
       tourNoAnnotations: "Fügen Sie dem Modell Anmerkungen hinzu, um eine geführte Tour zu starten.",
       noAnnotationsToExport: "Keine Annotationen zum Exportieren.",
@@ -2473,6 +2513,11 @@ const VIEWER_I18N = {
       untitled: "Anmerkung ohne Titel",
       saveView: "Aktuelle Kameraansicht für die Tour speichern",
       replaceView: "Gespeicherte Tour-Ansicht durch die aktuelle Kameraansicht ersetzen",
+      annotationCount: "Annotationen: {count}",
+      idleHint: "Starten Sie die Führung durch die gespeicherten Annotationen oder blättern Sie mit ‹ › durch sie.",
+      dismiss: "Führung ausblenden",
+      showLeaderLines: "Hinweislinien der Annotationen einblenden",
+      hideLeaderLines: "Hinweislinien der Annotationen ausblenden",
     },
     animation: {
       player: "Animationsplayer",
@@ -5580,7 +5625,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "48b5b21" ;
+const BUILD_ID$2 = "0cf9b5b" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -5631,7 +5676,7 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "48b5b21" ;
+const BUILD_ID$1 = "0cf9b5b" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -13645,6 +13690,23 @@ function validateViewer(viewer, path, errors) {
     }
   }
   if (viewer.clipping !== undefined) validateClipping(viewer.clipping, `${path}.clipping`, errors);
+  if (viewer.tour !== undefined) {
+    if (!isPlainObject$2(viewer.tour)) {
+      pushError(errors, `${path}.tour`, "must be an object");
+    } else {
+      ["autostart", "autoplay", "loop"].forEach((key) => {
+        if (viewer.tour[key] !== undefined) validateBoolean(viewer.tour[key], `${path}.tour.${key}`, errors);
+      });
+      if (viewer.tour.stepDuration !== undefined) {
+        validateNumber(viewer.tour.stepDuration, `${path}.tour.stepDuration`, errors);
+        if (Number.isFinite(viewer.tour.stepDuration) && viewer.tour.stepDuration <= 0) pushError(errors, `${path}.tour.stepDuration`, "must be > 0");
+      }
+      if (viewer.tour.transitionDuration !== undefined) {
+        validateNumber(viewer.tour.transitionDuration, `${path}.tour.transitionDuration`, errors);
+        if (Number.isFinite(viewer.tour.transitionDuration) && viewer.tour.transitionDuration < 0) pushError(errors, `${path}.tour.transitionDuration`, "must be >= 0");
+      }
+    }
+  }
 }
 
 function validateModelTransform(modelTransform, path, errors) {
@@ -13772,7 +13834,7 @@ let importedLights = null;
 let defaultLightState = null;
 
 const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
-const typeOf = (value) => value?.type || value?.["@type"] || null;
+const typeOf$1 = (value) => value?.type || value?.["@type"] || null;
 
 // ---- comment text -----------------------------------------------------------
 
@@ -13811,8 +13873,8 @@ function bodyText(body) {
 // language map, and the TextualBody - or a Choice of them, one per language.
 function readCommentText(annotation) {
   const bodies = asArray(annotation?.body)
-    .flatMap((body) => (typeOf(body) === "Choice" ? asArray(body.items) : [body]))
-    .filter((body) => typeof body === "string" || typeOf(body) === "TextualBody" || typeof body?.value === "string");
+    .flatMap((body) => (typeOf$1(body) === "Choice" ? asArray(body.items) : [body]))
+    .filter((body) => typeof body === "string" || typeOf$1(body) === "TextualBody" || typeof body?.value === "string");
   const descriptions = {};
   bodies.forEach((body) => {
     const text = bodyText(body);
@@ -13893,13 +13955,13 @@ function centroidOf(points) {
 
 // The points of a WktSelector among the selectors, if any.
 function polygonFromSelector(selector) {
-  const wkt = asArray(selector).find((item) => typeOf(item) === "WktSelector");
+  const wkt = asArray(selector).find((item) => typeOf$1(item) === "WktSelector");
   return wkt ? parseWkt(wkt.value)?.points || null : null;
 }
 
 // A PointSelector's point - or the centre of a WktSelector's geometry.
 function pointFromSelector(selector) {
-  const point = asArray(selector).find((item) => typeOf(item) === "PointSelector");
+  const point = asArray(selector).find((item) => typeOf$1(item) === "PointSelector");
   if (!point) return centroidOf(polygonFromSelector(selector));
   const values = [point.x, point.y, point.z].map(Number);
   return values.every(Number.isFinite) ? new THREE.Vector3(...values) : null;
@@ -13908,7 +13970,7 @@ function pointFromSelector(selector) {
 // The body itself, or the source of a SpecificResource wrapping it.
 function resolveBody(body) {
   const first = asArray(body)[0];
-  if (typeOf(first) === "SpecificResource" && first.source && typeof first.source === "object") {
+  if (typeOf$1(first) === "SpecificResource" && first.source && typeof first.source === "object") {
     return { resource: first.source, wrapper: first };
   }
   return { resource: first, wrapper: null };
@@ -13918,7 +13980,7 @@ function resolveBody(body) {
 // default), each possibly wrapped in a SpecificResource.
 function bodyResources(body) {
   return asArray(body).flatMap((item) => (
-    typeOf(item) === "Choice"
+    typeOf$1(item) === "Choice"
       ? asArray(item.items).map((choiceItem) => ({ ...resolveBody(choiceItem), choice: item.id || true }))
       : [{ ...resolveBody(item), choice: null }]
   ));
@@ -13937,14 +13999,14 @@ function targetPoint(annotation) {
 }
 
 function scenesOf(manifest) {
-  return asArray(manifest?.items).filter((item) => typeOf(item) === "Scene");
+  return asArray(manifest?.items).filter((item) => typeOf$1(item) === "Scene");
 }
 
 function annotationsOfPages(pages) {
   return asArray(pages)
-    .filter((page) => typeOf(page) === "AnnotationPage")
+    .filter((page) => typeOf$1(page) === "AnnotationPage")
     .flatMap((page) => asArray(page.items))
-    .filter((annotation) => typeOf(annotation) === "Annotation");
+    .filter((annotation) => typeOf$1(annotation) === "Annotation");
 }
 
 function motivationsOf(annotation) {
@@ -13955,10 +14017,10 @@ function motivationsOf(annotation) {
 // annotation in the scene (its target point). Missing: the scene origin.
 function resolveLookAt(lookAt, sceneAnnotations) {
   if (!lookAt) return new THREE.Vector3();
-  if (typeOf(lookAt) === "PointSelector" || typeOf(lookAt) === "WktSelector") {
+  if (typeOf$1(lookAt) === "PointSelector" || typeOf$1(lookAt) === "WktSelector") {
     return pointFromSelector(lookAt) || new THREE.Vector3();
   }
-  if (typeOf(lookAt) === "SpecificResource") return pointFromSelector(lookAt.selector) || new THREE.Vector3();
+  if (typeOf$1(lookAt) === "SpecificResource") return pointFromSelector(lookAt.selector) || new THREE.Vector3();
   const id = typeof lookAt === "string" ? lookAt : lookAt.id;
   const referenced = sceneAnnotations.find((annotation) => annotation.id === id);
   return (referenced && targetPoint(referenced)) || new THREE.Vector3();
@@ -13977,7 +14039,7 @@ function transformMatrix(transforms) {
     const x = Number(transform?.x);
     const y = Number(transform?.y);
     const z = Number(transform?.z);
-    const type = typeOf(transform);
+    const type = typeOf$1(transform);
     if (type === "ScaleTransform") {
       step.makeScale(Number.isFinite(x) ? x : 1, Number.isFinite(y) ? y : 1, Number.isFinite(z) ? z : 1);
     } else if (type === "RotateTransform") {
@@ -14056,7 +14118,7 @@ function nestedSceneIds(manifest) {
   scenesOf(manifest).forEach((scene) => {
     annotationsOfPages(scene.items).forEach((annotation) => {
       const { resource } = resolveBody(annotation.body);
-      if (typeOf(resource) === "Scene" && idOf(resource) && idOf(resource) !== scene.id) ids.add(idOf(resource));
+      if (typeOf$1(resource) === "Scene" && idOf(resource) && idOf(resource) !== scene.id) ids.add(idOf(resource));
     });
   });
   return ids;
@@ -14088,7 +14150,7 @@ function scenePlacements(manifest, sceneIndex) {
     annotationsOfPages(container.items).forEach((annotation) => {
       if (!motivationsOf(annotation).includes("painting") || isHidden(annotation)) return;
       const { resource, wrapper } = resolveBody(annotation.body);
-      const type = typeOf(resource);
+      const type = typeOf$1(resource);
       if (CAMERA_TYPES.has(type) || LIGHT_TYPES.has(type)) return;
       const point = targetPoint(annotation) || new THREE.Vector3();
       const matrix = parentMatrix.clone()
@@ -14164,7 +14226,7 @@ function readSceneContent(manifest, sceneIndex = 0) {
     if (!motivationsOf(annotation).includes("painting")) return;
     const hidden = isHidden(annotation);
     bodyResources(annotation.body).forEach(({ resource, wrapper, choice }, choiceIndex) => {
-      const type = typeOf(resource);
+      const type = typeOf$1(resource);
       const isCamera = CAMERA_TYPES.has(type);
       if (!isCamera && !LIGHT_TYPES.has(type)) return;
       const oriented = applyBodyTransforms(
@@ -14220,7 +14282,7 @@ function readSceneContent(manifest, sceneIndex = 0) {
     .filter((annotation) => motivationsOf(annotation).includes("activating"))
     .forEach((annotation) => {
       const camera = asArray(annotation.body)
-        .map((body) => idOf(typeOf(body) === "SpecificResource" ? body.source : body))
+        .map((body) => idOf(typeOf$1(body) === "SpecificResource" ? body.source : body))
         .map((id) => camerasById.get(id))
         .find(Boolean);
       if (!camera) return;
@@ -14278,7 +14340,7 @@ function readScopeCamera(scope, sceneAnnotations) {
   const annotations = annotationsOfPages(scopeTarget?.items);
   for (const annotation of annotations) {
     const { resource, wrapper } = resolveBody(annotation.body);
-    if (!CAMERA_TYPES.has(typeOf(resource))) continue;
+    if (!CAMERA_TYPES.has(typeOf$1(resource))) continue;
     const point = targetPoint(annotation);
     if (!point) continue;
     const { position, direction } = applyBodyTransforms(wrapper, new THREE.Vector3(0, 0, -1), point);
@@ -14382,7 +14444,7 @@ function canvasRegion(target, width, height) {
   const first = asArray(target)[0];
   const fragment = typeof first === "string"
     ? first.split("#")[1]
-    : asArray(first?.selector).find((selector) => typeOf(selector) === "FragmentSelector")?.value
+    : asArray(first?.selector).find((selector) => typeOf$1(selector) === "FragmentSelector")?.value
       || String(first?.id || "").split("#")[1];
   const match = String(fragment || "").match(/xywh=(?:pixel:)?([\d.]+),([\d.]+),([\d.]+),([\d.]+)/);
   if (!match) return { x: 0, y: 0, width, height };
@@ -14438,7 +14500,7 @@ function applyCanvases(canvasPlacements) {
       .filter((annotation) => motivationsOf(annotation).includes("painting"))
       .forEach((annotation, index) => {
         const { resource } = bodyResources(annotation.body)[0] || {};
-        if (typeOf(resource) !== "Image") return;
+        if (typeOf$1(resource) !== "Image") return;
         const url = canvasImageUrl(resource);
         if (!url) return;
         const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true });
@@ -14807,10 +14869,10 @@ const NON_MODEL_TYPES = new Set(["Scene", "Canvas", "Image", "Video", "Sound", "
 
 function isModelBody(body) {
   const { resource } = resolveBody(body);
-  const type = String(typeOf(resource) || "").toLowerCase();
-  return type === "model" || (!CAMERA_TYPES.has(typeOf(resource)) && !LIGHT_TYPES.has(typeOf(resource))
-    && !NON_MODEL_TYPES.has(typeOf(resource))
-    && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
+  const type = String(typeOf$1(resource) || "").toLowerCase();
+  return type === "model" || (!CAMERA_TYPES.has(typeOf$1(resource)) && !LIGHT_TYPES.has(typeOf$1(resource))
+    && !NON_MODEL_TYPES.has(typeOf$1(resource))
+    && typeOf$1(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
 }
 
 // Media type of a model file, from its extension (null when unknown).
@@ -14868,33 +14930,144 @@ function attachAnnotations(Viewer) {
       return group;
     },
 
+    // Leader lines (off by default): each annotation's number is lifted
+    // above the model's bounding box on a vertical line from its point.
+    annotationLeaderLines: false,
+
+    setAnnotationLeaderLines(enabled) {
+      this.annotationLeaderLines = enabled === true;
+      this.refreshAnnotationPOIs();
+      this.syncTourLeaderToggle?.();
+    },
+
+    toggleAnnotationLeaderLines() {
+      this.setAnnotationLeaderLines(!this.annotationLeaderLines);
+    },
+
+    // Height the numbers are lifted to (just above the models' bounding box)
+    // and the step between staggered rows, so neighbouring numbers overlap less.
+    getAnnotationLeaderLayout() {
+      const roots = (Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject])
+        .flat()
+        .filter((item) => item?.isObject3D);
+      const box = new THREE.Box3();
+      roots.forEach((root) => box.expandByObject(root));
+      if (box.isEmpty()) return null;
+      const height = Math.max(box.max.y - box.min.y, 1e-3);
+      return { top: box.max.y + height * 0.12, stagger: height * 0.06 };
+    },
+
+    // One per dot: removing markers disposes their textures.
+    createAnnotationLeaderDotTexture() {
+      const size = 64;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgba(17, 24, 39, 0.9)";
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    },
+
+    // The line from the annotated point up to the underside of its number,
+    // and a small dot marking the point itself. Drawn over the model (no
+    // depth test), like the numbers.
+    addAnnotationLeaderLine(group, entry, anchor, marker) {
+      const end = marker.position.clone();
+      end.y -= marker.scale.y * 0.42;
+      if (end.y <= anchor.y) return;
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([anchor, end]),
+        new THREE.LineBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.85,
+          depthTest: false,
+          toneMapped: false,
+        })
+      );
+      line.name = "annotation-leader";
+      line.renderOrder = 998;
+      line.userData.annotationId = entry.id;
+      group.add(line);
+
+      const dot = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: this.createAnnotationLeaderDotTexture(),
+        transparent: true,
+        depthTest: false,
+        toneMapped: false,
+        sizeAttenuation: false,
+      }));
+      dot.scale.set(0.012, 0.012, 1);
+      dot.position.copy(anchor);
+      dot.name = "annotation-leader-dot";
+      dot.renderOrder = 998;
+      dot.userData.annotationId = entry.id;
+      group.add(dot);
+    },
+
+    // A numbered badge: dark fill, blue ring (keeps it apart from dark
+    // backgrounds) and a soft shadow (keeps it apart from light ones).
     createNumberTexture(text) {
-      const size = 128;
+      const size = 256;
+      const center = size / 2;
+      const radius = size * 0.4;
+      const ringWidth = size * 0.05;
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
 
       const ctx = canvas.getContext("2d");
 
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+      ctx.shadowBlur = size * 0.08;
+      ctx.shadowOffsetY = size * 0.015;
+      ctx.fillStyle = "rgba(17, 24, 39, 0.88)";
       ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
+      ctx.lineWidth = ringWidth;
+      ctx.strokeStyle = "#0062fd";
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Shrink longer numbers to stay inside the ring.
+      let fontSize = size * 0.46;
+      ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
+      const maxTextWidth = radius * 1.35;
+      const textWidth = ctx.measureText(text).width;
+      if (textWidth > maxTextWidth) {
+        fontSize *= maxTextWidth / textWidth;
+        ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
+      }
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 64px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(text, size / 2, size / 2);
+      ctx.fillText(text, center, center + fontSize * 0.04);
 
       const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
       texture.needsUpdate = true;
 
       return texture;
     },
 
     createAnnotationPOIMarker(entry, position, index = 1) {
-      const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005);
+      // The badge fills ~85% of its texture (the rest is ring and shadow),
+      // so the sprite is scaled up to keep the badge its former size.
+      const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005) * 1.15;
 
       const texture = Viewer.createNumberTexture(index.toString());
 
@@ -14902,6 +15075,8 @@ function attachAnnotations(Viewer) {
         map: texture,
         transparent: true,
         depthTest: false,
+        // Same look under every tone mapping / exposure preset.
+        toneMapped: false,
       });
 
       const sprite = new THREE.Sprite(spriteMaterial);
@@ -15118,13 +15293,20 @@ function attachAnnotations(Viewer) {
       }
 
       const group = this.ensureAnnotationPOIGroup();
+      const leaderLayout = this.annotationLeaderLines ? this.getAnnotationLeaderLayout() : null;
       let added = 0;
       entries.forEach((entry, index) => {
         const center = this.getAnnotationEntryCenter(entry);
         if (!center) return;
-        const marker = this.createAnnotationPOIMarker(entry, center, index + 1);
+        // With leader lines on, the number sits above the model on a
+        // vertical line rising from the annotated point.
+        const markerPosition = leaderLayout
+          ? new THREE.Vector3(center.x, leaderLayout.top + (index % 3) * leaderLayout.stagger, center.z)
+          : center;
+        const marker = this.createAnnotationPOIMarker(entry, markerPosition, index + 1);
         group.add(marker);
         this.annotationPOIMarkers.push(marker);
+        if (leaderLayout) this.addAnnotationLeaderLine(group, entry, center, marker);
         added += 1;
         // A comment on a region (IIIF WktSelector): its outline too.
         const polygon = this.getAnnotationEntryPolygonWorld(entry);
@@ -18295,6 +18477,7 @@ function attachTour(Viewer) {
       if (restoreAutoRotate && core.controls) core.controls.autoRotate = state.savedAutoRotate;
       Viewer.tourState = null;
       Viewer.updateEditorToolbarState?.();
+      Viewer.syncTourIdlePanel();
       return true;
     },
 
@@ -18529,8 +18712,19 @@ function attachTour(Viewer) {
 
     createTourPanel() {
       const state = Viewer.tourState;
+      if (!state) return;
+      Viewer.removeTourIdlePanel();
+      const ui = Viewer.buildTourPanel();
+      if (!ui) return;
+      state.ui = ui;
+      Viewer.updateTourLabels();
+    },
+
+    // The panel's elements. Its buttons act on the running tour, or - while
+    // it is the idle panel shown before a tour - start one.
+    buildTourPanel() {
       const stack = getViewerSideStack();
-      if (!state || !stack) return;
+      if (!stack) return null;
 
       const panel = document.createElement("section");
       panel.id = "viewerTourPanel";
@@ -18544,7 +18738,16 @@ function attachTour(Viewer) {
       closeButton.type = "button";
       closeButton.className = "viewer-tour-panel_close";
       closeButton.textContent = "×";
-      header.append(counter, closeButton);
+      // Leader lines on/off (Viewer.setAnnotationLeaderLines).
+      const leadersButton = document.createElement("button");
+      leadersButton.type = "button";
+      leadersButton.className = "viewer-tour-panel_leaders";
+      leadersButton.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <circle cx="8" cy="4" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="8" y1="7" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="8" cy="14" r="1.3" fill="currentColor"/>
+      </svg>`;
+      header.append(counter, leadersButton, closeButton);
       attachToolPanelChrome(panel, header, { before: closeButton });
 
       const body = document.createElement("div");
@@ -18586,20 +18789,110 @@ function attachTour(Viewer) {
         if (handled) event.preventDefault();
       });
 
-      closeButton.addEventListener("click", () => Viewer.stopTour());
+      leadersButton.addEventListener("click", () => Viewer.toggleAnnotationLeaderLines?.());
+      closeButton.addEventListener("click", () => {
+        if (Viewer.isTourActive()) Viewer.stopTour();
+        else Viewer.dismissTourIdlePanel();
+      });
       prevButton.addEventListener("click", () => {
+        if (!Viewer.isTourActive()) {
+          Viewer.startTour({ autoplay: false, startStep: Viewer.getTourSteps().length - 1 });
+          return;
+        }
         Viewer.pauseTour();
         Viewer.previousTourStep();
       });
       nextButton.addEventListener("click", () => {
+        if (!Viewer.isTourActive()) {
+          Viewer.startTour({ autoplay: false, startStep: 0 });
+          return;
+        }
         Viewer.pauseTour();
         Viewer.nextTourStep();
       });
-      playButton.addEventListener("click", () => Viewer.toggleTourPlayback());
+      playButton.addEventListener("click", () => {
+        if (!Viewer.isTourActive()) Viewer.startTour({ autoplay: true });
+        else Viewer.toggleTourPlayback();
+      });
 
       stack.prepend(panel);
-      state.ui = { panel, counter, closeButton, title, description, prevButton, playButton, nextButton };
-      Viewer.updateTourLabels();
+      const ui = { panel, counter, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
+      Viewer.syncTourLeaderToggle(ui);
+      return ui;
+    },
+
+    // The leader-lines button of the tour panel(s), in sync with the setting.
+    syncTourLeaderToggle(ui) {
+      const targets = ui ? [ui] : [Viewer.tourState?.ui, Viewer.tourIdleUi];
+      const enabled = Viewer.annotationLeaderLines === true;
+      const label = enabled
+        ? t$1("tour.hideLeaderLines", "Hide annotation leader lines")
+        : t$1("tour.showLeaderLines", "Show annotation leader lines");
+      targets.forEach((item) => {
+        const button = item?.leadersButton;
+        if (!button) return;
+        button.setAttribute("aria-pressed", enabled ? "true" : "false");
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      });
+    },
+
+    // Idle panel: shown whenever the model has annotations to tour and no
+    // tour is running, so the tour can be started without the editor
+    // toolbar. Closing it hides it until the set of annotations changes.
+    tourIdleUi: null,
+    tourIdleDismissedFor: null,
+
+    getTourStepsSignature(steps) {
+      return steps.map(({ entry }) => entry.id).join("|");
+    },
+
+    removeTourIdlePanel() {
+      Viewer.tourIdleUi?.panel.remove();
+      Viewer.tourIdleUi = null;
+    },
+
+    dismissTourIdlePanel() {
+      Viewer.tourIdleDismissedFor = Viewer.getTourStepsSignature(Viewer.getTourSteps());
+      Viewer.removeTourIdlePanel();
+    },
+
+    syncTourIdlePanel() {
+      if (Viewer.isTourActive()) {
+        Viewer.removeTourIdlePanel();
+        return;
+      }
+      const steps = Viewer.getTourSteps();
+      const signature = Viewer.getTourStepsSignature(steps);
+      if (!steps.length || signature === Viewer.tourIdleDismissedFor) {
+        Viewer.removeTourIdlePanel();
+        return;
+      }
+      Viewer.tourIdleDismissedFor = null;
+      if (!Viewer.tourIdleUi) Viewer.tourIdleUi = Viewer.buildTourPanel();
+      const ui = Viewer.tourIdleUi;
+      if (!ui) return;
+      ui.panel.classList.add("viewer-tour-panel--idle");
+      ui.panel.setAttribute("aria-label", t$1("tour.panel", "Guided tour"));
+      ui.counter.textContent = t$1("tour.annotationCount", { count: steps.length }, "Annotations: {count}");
+      ui.title.textContent = t$1("tour.panel", "Guided tour");
+      ui.description.textContent = t$1("tour.idleHint", "Play the guided tour through the saved annotations, or step through them with ‹ ›.");
+      ui.description.hidden = false;
+      const dismissLabel = t$1("tour.dismiss", "Hide guided tour");
+      ui.closeButton.setAttribute("aria-label", dismissLabel);
+      ui.closeButton.title = dismissLabel;
+      const startLabel = t$1("tour.start", "Start guided tour");
+      ui.playButton.textContent = "▶";
+      ui.playButton.setAttribute("aria-label", startLabel);
+      ui.playButton.setAttribute("aria-pressed", "false");
+      ui.playButton.title = startLabel;
+      ui.prevButton.setAttribute("aria-label", t$1("tour.previous", "Previous step (P)"));
+      ui.prevButton.title = t$1("tour.previous", "Previous step (P)");
+      ui.nextButton.setAttribute("aria-label", t$1("tour.next", "Next step (N)"));
+      ui.nextButton.title = t$1("tour.next", "Next step (N)");
+      ui.prevButton.disabled = false;
+      ui.nextButton.disabled = false;
+      ui.playButton.disabled = false;
     },
 
     // Shared by the panel and the canvas key handler. Returns true when the
@@ -18630,6 +18923,8 @@ function attachTour(Viewer) {
     },
 
     updateTourLabels() {
+      Viewer.syncTourIdlePanel();
+      Viewer.syncTourLeaderToggle();
       const ui = Viewer.tourState?.ui;
       if (!ui) return;
       ui.panel.setAttribute("aria-label", t$1("tour.panel", "Guided tour"));
@@ -18687,7 +18982,7 @@ function attachTour(Viewer) {
         Viewer.syncTourPanel();
         return;
       }
-      Viewer.maybeAutostartTour();
+      if (!Viewer.maybeAutostartTour()) Viewer.syncTourIdlePanel();
     },
 
     maybeAutostartTour() {
@@ -18714,7 +19009,7 @@ function attachTour(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-qMfO_on0.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-CYQgIQhZ.js');
+const loadTilesPlugins = () => import('./index.three-plugins-Bcn4KmiE.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -21347,6 +21642,367 @@ function reserveFlowSpace(container) {
   container.before(placeholder);
 }
 
+// A collapsible, editable tree view of a manifest's JSON, shown in the
+// manifest form (#form-manifesto) next to its raw-JSON textarea. The textarea
+// stays the source of truth for "Load from Text": every edit made in the tree
+// is written back to it as pretty-printed JSON. Object/array nodes start
+// collapsed and their children are only built when first opened, so large
+// manifests render instantly.
+
+
+const COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+const URL_RE = /^(?:https?:)?\/\/|^\.{0,2}\//i;
+// Keys whose value summarises an object well enough to show on its
+// collapsed line (IIIF/AIM3D use these for most nodes).
+const PREVIEW_KEYS = ["label", "name", "type", "id", "@id", "@type"];
+
+function isContainer(value) {
+  return value !== null && typeof value === "object";
+}
+
+function typeOf(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function previewText(value) {
+  if (Array.isArray(value)) return "";
+  for (const key of PREVIEW_KEYS) {
+    const candidate = value[key];
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      return String(candidate);
+    }
+    // IIIF language maps: { "en": ["Label"] }
+    if (key === "label" && isContainer(candidate)) {
+      const first = Object.values(candidate)[0];
+      const text = Array.isArray(first) ? first[0] : first;
+      if (typeof text === "string") return text;
+    }
+  }
+  return "";
+}
+
+function countLabel(value) {
+  const count = Array.isArray(value) ? value.length : Object.keys(value).length;
+  if (Array.isArray(value)) {
+    return count === 1
+      ? t$1("manifesto.treeItem", { count }, "{count} item")
+      : t$1("manifesto.treeItems", { count }, "{count} items");
+  }
+  return count === 1
+    ? t$1("manifesto.treeKey", { count }, "{count} key")
+    : t$1("manifesto.treeKeys", { count }, "{count} keys");
+}
+
+function createKeyElement(key) {
+  const keyEl = document.createElement("span");
+  keyEl.className = typeof key === "number" ? "mt-key mt-index" : "mt-key";
+  keyEl.textContent = typeof key === "number" ? String(key) : `"${key}"`;
+  return keyEl;
+}
+
+// Parses what the user typed back into the type the value had. Returns
+// `undefined` when the text can't be read as that type.
+function parseEdited(text, originalType) {
+  if (originalType === "string") return text;
+  if (originalType === "number") {
+    const trimmed = text.trim();
+    const number = Number(trimmed);
+    return trimmed !== "" && Number.isFinite(number) ? number : undefined;
+  }
+  // null: accept any JSON literal, otherwise keep what was typed as a string.
+  const trimmed = text.trim();
+  if (trimmed === "" || trimmed === "null") return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+class ManifestTreeEditor {
+  constructor(container, { onChange } = {}) {
+    this.container = container;
+    this.onChange = onChange;
+    this.data = undefined;
+  }
+
+  render(data) {
+    this.data = data;
+    this.container.replaceChildren();
+    if (data === undefined) return;
+    const root = document.createElement("div");
+    root.className = "mt-root";
+    root.appendChild(this.createNode(null, data, (next) => {
+      this.data = next;
+    }, { open: true }));
+    this.container.appendChild(root);
+  }
+
+  // Opens (true) or closes (false) every node; opening builds the whole tree.
+  setAllOpen(open) {
+    const detailsList = () => this.container.querySelectorAll("details.mt-node");
+    if (!open) {
+      detailsList().forEach((details, index) => {
+        details.open = index === 0; // keep the root's direct children visible
+      });
+      return;
+    }
+    // Children are built lazily on open, so keep opening until nothing new
+    // shows up.
+    let pending = [...detailsList()].filter(details => !details.open);
+    while (pending.length) {
+      pending.forEach(details => { details.open = true; this.ensureChildren(details); });
+      pending = [...detailsList()].filter(details => !details.open);
+    }
+  }
+
+  notifyChange() {
+    this.onChange?.(this.data);
+  }
+
+  ensureChildren(details) {
+    if (details._mtBuilt) return;
+    details._mtBuilt = true;
+    details._mtBuild?.();
+  }
+
+  createNode(key, value, setValue, { open = false } = {}) {
+    return isContainer(value)
+      ? this.createContainerNode(key, value, { open })
+      : this.createLeafNode(key, value, setValue);
+  }
+
+  createContainerNode(key, value, { open }) {
+    const isArray = Array.isArray(value);
+    const details = document.createElement("details");
+    details.className = `mt-node mt-${isArray ? "array" : "object"}`;
+
+    const summary = document.createElement("summary");
+    if (key !== null) {
+      summary.appendChild(createKeyElement(key));
+      summary.append(document.createTextNode(":"));
+    }
+    const bracket = document.createElement("span");
+    bracket.className = "mt-bracket";
+    bracket.textContent = isArray ? "[ ]" : "{ }";
+    summary.appendChild(bracket);
+
+    const count = document.createElement("span");
+    count.className = "mt-count";
+    count.textContent = countLabel(value);
+    summary.appendChild(count);
+
+    const preview = previewText(value);
+    if (preview) {
+      const previewEl = document.createElement("span");
+      previewEl.className = "mt-preview";
+      previewEl.textContent = preview;
+      previewEl.title = preview;
+      summary.appendChild(previewEl);
+    }
+    details.appendChild(summary);
+
+    const children = document.createElement("div");
+    children.className = "mt-children";
+    details.appendChild(children);
+
+    details._mtBuild = () => {
+      const entries = isArray ? value.map((item, index) => [index, item]) : Object.entries(value);
+      if (!entries.length) {
+        const empty = document.createElement("div");
+        empty.className = "mt-empty";
+        empty.textContent = isArray ? "[]" : "{}";
+        children.appendChild(empty);
+        return;
+      }
+      entries.forEach(([childKey, childValue]) => {
+        const row = document.createElement("div");
+        row.className = "mt-row";
+        row.appendChild(this.createNode(childKey, childValue, (next) => {
+          value[childKey] = next;
+        }));
+        children.appendChild(row);
+      });
+    };
+    details.addEventListener("toggle", () => {
+      if (details.open) this.ensureChildren(details);
+    });
+    if (open) {
+      details.open = true;
+      this.ensureChildren(details);
+    }
+    return details;
+  }
+
+  createLeafNode(key, value, setValue) {
+    const leaf = document.createElement("div");
+    leaf.className = "mt-leaf";
+    if (key !== null) {
+      leaf.appendChild(createKeyElement(key));
+      leaf.append(document.createTextNode(":"));
+    }
+
+    const valueType = typeOf(value);
+    if (valueType === "boolean") {
+      leaf.appendChild(this.createBooleanEditor(value, setValue));
+      return leaf;
+    }
+
+    const valueEl = document.createElement("span");
+    valueEl.className = `mt-value mt-${valueType}`;
+    if (valueType === "string" && URL_RE.test(value)) valueEl.classList.add("mt-url");
+    valueEl.textContent = valueType === "null" ? "null" : String(value);
+    valueEl.contentEditable = "true";
+    valueEl.spellcheck = false;
+    valueEl.tabIndex = 0;
+    valueEl.title = t$1("manifesto.treeEditHint", "Click to edit, Enter to confirm, Esc to cancel");
+
+    let current = value;
+    let swatch = null;
+    const commit = () => {
+      const next = parseEdited(valueEl.textContent, typeOf(current));
+      if (next === undefined) {
+        valueEl.classList.add("mt-invalid");
+        setTimeout(() => valueEl.classList.remove("mt-invalid"), 900);
+        valueEl.textContent = String(current);
+        return;
+      }
+      if (next === current) return;
+      current = next;
+      setValue(next);
+      valueEl.className = `mt-value mt-${typeOf(next)}`;
+      if (typeof next === "string" && URL_RE.test(next)) valueEl.classList.add("mt-url");
+      valueEl.textContent = next === null ? "null" : isContainer(next) ? JSON.stringify(next) : String(next);
+      if (swatch && typeof next === "string" && COLOR_RE.test(next)) swatch.value = expandHex(next);
+      this.notifyChange();
+    };
+
+    valueEl.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && !ev.shiftKey) {
+        ev.preventDefault();
+        valueEl.blur();
+      } else if (ev.key === "Escape") {
+        ev.preventDefault();
+        valueEl.textContent = current === null ? "null" : String(current);
+        valueEl.blur();
+      }
+      ev.stopPropagation(); // keep viewer keyboard shortcuts out of the editor
+    });
+    // Paste as plain text only (contenteditable would keep markup).
+    valueEl.addEventListener("paste", (ev) => {
+      ev.preventDefault();
+      const text = ev.clipboardData?.getData("text/plain") ?? "";
+      document.execCommand("insertText", false, text.replace(/\r?\n/g, " "));
+    });
+    valueEl.addEventListener("blur", commit);
+
+    if (valueType === "string" && COLOR_RE.test(value)) {
+      swatch = document.createElement("input");
+      swatch.type = "color";
+      swatch.className = "mt-color";
+      swatch.value = expandHex(value);
+      swatch.addEventListener("input", () => {
+        valueEl.textContent = swatch.value;
+        commit();
+      });
+      leaf.appendChild(swatch);
+    }
+    leaf.appendChild(valueEl);
+    return leaf;
+  }
+
+  createBooleanEditor(value, setValue) {
+    const label = document.createElement("label");
+    label.className = "mt-value mt-boolean";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = value;
+    const text = document.createElement("span");
+    text.textContent = String(value);
+    checkbox.addEventListener("change", () => {
+      text.textContent = String(checkbox.checked);
+      setValue(checkbox.checked);
+      this.notifyChange();
+    });
+    label.append(checkbox, text);
+    return label;
+  }
+}
+
+function expandHex(hex) {
+  return hex.length === 4
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`.toLowerCase()
+    : hex.toLowerCase();
+}
+
+// Wires the tree/JSON toggle of the manifest form and returns a function
+// that shows a manifest in it (both views). Safe to call when the form
+// isn't on the page - it then does nothing.
+function attachManifestTreeEditor() {
+  const textarea = document.getElementById("manifesto-manifest-text");
+  const treeHost = document.getElementById("manifesto-manifest-tree");
+  if (!textarea || !treeHost) return () => {};
+
+  const treeButton = document.getElementById("manifesto-view-tree");
+  const jsonButton = document.getElementById("manifesto-view-json");
+  const expandButton = document.getElementById("manifesto-tree-expand");
+  const collapseButton = document.getElementById("manifesto-tree-collapse");
+
+  const editor = new ManifestTreeEditor(treeHost, {
+    onChange: (data) => {
+      textarea.value = JSON.stringify(data, null, 2);
+      textarea.style.border = "";
+    },
+  });
+
+  const setMode = (mode) => {
+    if (mode === "tree") {
+      // Pick up anything typed into the textarea since the last render.
+      const text = textarea.value.trim();
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          if (JSON.stringify(parsed) !== JSON.stringify(editor.data)) editor.render(parsed);
+        } catch {
+          textarea.style.border = "2px solid red";
+          return;
+        }
+      } else {
+        editor.render(undefined);
+      }
+    }
+    const tree = mode === "tree";
+    treeHost.hidden = !tree;
+    textarea.hidden = tree;
+    expandButton.hidden = !tree;
+    collapseButton.hidden = !tree;
+    treeButton.classList.toggle("active", tree);
+    jsonButton.classList.toggle("active", !tree);
+    treeButton.setAttribute("aria-pressed", String(tree));
+    jsonButton.setAttribute("aria-pressed", String(!tree));
+  };
+
+  treeButton?.addEventListener("click", () => setMode("tree"));
+  jsonButton?.addEventListener("click", () => setMode("json"));
+  expandButton?.addEventListener("click", () => editor.setAllOpen(true));
+  collapseButton?.addEventListener("click", () => editor.setAllOpen(false));
+  // Keep viewer keyboard shortcuts from firing while typing JSON.
+  textarea.addEventListener("keydown", ev => ev.stopPropagation());
+
+  setMode("json");
+
+  return (manifestJson) => {
+    const text = JSON.stringify(manifestJson, null, 2);
+    if (text === textarea.value && editor.data !== undefined) return;
+    textarea.value = text;
+    textarea.style.border = "";
+    editor.render(JSON.parse(text));
+    setMode("tree");
+  };
+}
+
 // Below this distance (px) from its default glued corner, drag movement is
 // absorbed rather than moved - the panel only actually detaches from the
 // viewer frame's edge past a deliberate drag, instead of on the first pixel.
@@ -22307,6 +22963,13 @@ function createAIM3IFDropdown(url) {
     { url: "./manifests/box-aim3d-local.json", name: t$1("aim3if.optionBoxLocal", "Box (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t$1("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
     { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t$1("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
+    // Same model under different lighting, tone mapping and shading, for comparison.
+    { url: "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json", name: t$1("aim3if.optionWolpaGoldenHour", "Wolpa Synagogue - golden hour, ACES (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", name: t$1("aim3if.optionWolpaStudio", "Wolpa Synagogue - studio, AgX (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", name: t$1("aim3if.optionWolpaNight", "Wolpa Synagogue - night spotlights, Reinhard (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", name: t$1("aim3if.optionWolpaNightTour", "Wolpa Synagogue - night, annotations and guided tour (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", name: t$1("aim3if.optionWolpaToon", "Wolpa Synagogue - toon shading (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", name: t$1("aim3if.optionWolpaOvercast", "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
@@ -22510,6 +23173,15 @@ function createManifestUI(type = "iiif") {
     </div>
 
     <div class="form-manifesto-group column">
+      <div class="manifesto-view-toolbar">
+        <div class="manifesto-view-toggle" role="group">
+          <button type="button" id="manifesto-view-tree" aria-pressed="false">${escapeHtml(t$1("manifesto.treeView", "Tree"))}</button>
+          <button type="button" id="manifesto-view-json" aria-pressed="true">${escapeHtml(t$1("manifesto.jsonView", "JSON"))}</button>
+        </div>
+        <button type="button" id="manifesto-tree-expand" class="manifesto-tree-tool" hidden>${escapeHtml(t$1("manifesto.expandAll", "Expand all"))}</button>
+        <button type="button" id="manifesto-tree-collapse" class="manifesto-tree-tool" hidden>${escapeHtml(t$1("manifesto.collapseAll", "Collapse all"))}</button>
+      </div>
+      <div id="manifesto-manifest-tree" class="manifesto-manifest-tree" hidden></div>
       <textarea id="manifesto-manifest-text" rows="8" placeholder="${escapeHtml(t$1(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
       <div class="actions">
         <button class="secondary" id="load-manifesto-from-text">${escapeHtml(t$1(`${titleKey}.loadFromText`, `Load from Text`))}</button>
@@ -22528,6 +23200,15 @@ function createManifestUI(type = "iiif") {
   (core.viewerWrapper || core.container || document.body).appendChild(formContainer);
 
   initializeManifestoFormDrag(formContainer, header);
+  showManifestInForm = attachManifestTreeEditor();
+}
+
+// Shows a manifest in the form's tree/JSON views; replaced by
+// createManifestUI() with one bound to the current form.
+let showManifestInForm = () => {};
+
+function displayManifestInForm(manifestJson) {
+  showManifestInForm(manifestJson);
 }
 
 // The app only: the first time it starts, the buttons worth knowing about
@@ -22600,7 +23281,7 @@ const loadLWOLoader = async () => (await import('./three-CtlVvEc8.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-B2e1WOmM.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-Bkchk1z6.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-CWRnqXJ4.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aW; })).HDRLoader;
 
 var outlineClipping;
@@ -29695,6 +30376,19 @@ function toPanelState(panel) {
   return state;
 }
 
+// Guided tour options (same keys as viewer-settings.json viewer.tour); only
+// well-formed values are kept.
+function toTourSettings(tour) {
+  if (!isPlainObject(tour)) return undefined;
+  const settings = {};
+  ["autostart", "autoplay", "loop"].forEach((key) => {
+    if (typeof tour[key] === "boolean") settings[key] = tour[key];
+  });
+  if (Number.isFinite(tour.stepDuration) && tour.stepDuration > 0) settings.stepDuration = tour.stepDuration;
+  if (Number.isFinite(tour.transitionDuration) && tour.transitionDuration >= 0) settings.transitionDuration = tour.transitionDuration;
+  return Object.keys(settings).length ? settings : undefined;
+}
+
 // Merges the deployment settings carried by an AIM3D manifest into `config`
 // (the object loaded from viewer-settings.json). viewer-settings.json stays the
 // fallback: only values the manifest actually defines are overwritten, so
@@ -29729,6 +30423,8 @@ function applyManifestSettings(manifest, config) {
   if (isPlainObject(viewer.auth)) set(config.viewer, "auth", { ...viewer.auth });
   set(config.viewer, "manifestoForm", toPanelState(viewer.manifestoForm));
   set(config.viewer, "metadataContainer", toPanelState(viewer.metadataContainer));
+  const tour = toTourSettings(viewer.tour);
+  if (tour) set(config.viewer, "tour", { ...(isPlainObject(config.viewer.tour) ? config.viewer.tour : {}), ...tour });
 
   set(config.entity, "exportViewerUrl", nonEmptyString(integration.exportViewerUrl));
   if (isPlainObject(integration.api)) {
@@ -30979,7 +31675,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "48b5b21" ;
+const BUILD_ID = "0cf9b5b" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -34036,6 +34732,9 @@ const Viewer$1 = {
   // `sceneIndex` picks one (the first by default; showManifestScene switches).
   async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex } = {}) {
     const manifestJson = await Viewer$1.getManifestJson(newUrlOrJson, type);
+    // Parsed copy in the form's tree/JSON views, for inspecting and editing
+    // (applied with "Load from Text").
+    displayManifestInForm(manifestJson);
     const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
     const isAim3ifManifest = resolvedManifestType === "aim3if";
     const shownScene = sceneIndexOf(manifestJson, sceneIndex);
@@ -34069,6 +34768,9 @@ const Viewer$1 = {
       // remains the fallback for anything the manifest doesn't define.
       applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer$1.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
+      // A manifest with its own tour settings may autostart its tour even
+      // if an earlier manifest's tour already autostarted.
+      if (loadedManifest.manifest?.AIM3DViewer?.viewer?.tour) Viewer$1.tourAutostartDone = false;
     }
     // A scene of Canvases only has no model to fall back on.
     if (loadedManifest.modelUrls.length === 0 && !loadedManifest.placements?.canvases?.length) { // no 3D model found, use example model
@@ -35162,4 +35864,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-BzzSFRhL.js.map
+//# sourceMappingURL=main-54t8Sfis.js.map

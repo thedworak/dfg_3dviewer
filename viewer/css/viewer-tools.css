@@ -172,6 +172,22 @@
   outline-offset: 2px;
 }
 
+.viewer-tour-panel_header .viewer-tour-panel_leaders {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.viewer-tour-panel_leaders[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, rgba(76, 110, 245, 0.85));
+  color: #fff;
+}
+
+.viewer-tour-panel--idle .viewer-tour-panel_description {
+  opacity: 0.8;
+}
+
 .viewer-tour-panel_play[aria-pressed="true"] {
   background: var(--viewer-gui-widget-focus-bg, rgba(76, 110, 245, 0.85));
   color: #fff;

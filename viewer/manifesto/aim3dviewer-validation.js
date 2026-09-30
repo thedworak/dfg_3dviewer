@@ -298,6 +298,23 @@ function validateViewer(viewer, path, errors) {
     }
   }
   if (viewer.clipping !== undefined) validateClipping(viewer.clipping, `${path}.clipping`, errors);
+  if (viewer.tour !== undefined) {
+    if (!isPlainObject(viewer.tour)) {
+      pushError(errors, `${path}.tour`, "must be an object");
+    } else {
+      ["autostart", "autoplay", "loop"].forEach((key) => {
+        if (viewer.tour[key] !== undefined) validateBoolean(viewer.tour[key], `${path}.tour.${key}`, errors);
+      });
+      if (viewer.tour.stepDuration !== undefined) {
+        validateNumber(viewer.tour.stepDuration, `${path}.tour.stepDuration`, errors);
+        if (Number.isFinite(viewer.tour.stepDuration) && viewer.tour.stepDuration <= 0) pushError(errors, `${path}.tour.stepDuration`, "must be > 0");
+      }
+      if (viewer.tour.transitionDuration !== undefined) {
+        validateNumber(viewer.tour.transitionDuration, `${path}.tour.transitionDuration`, errors);
+        if (Number.isFinite(viewer.tour.transitionDuration) && viewer.tour.transitionDuration < 0) pushError(errors, `${path}.tour.transitionDuration`, "must be >= 0");
+      }
+    }
+  }
 }
 
 function validateModelTransform(modelTransform, path, errors) {

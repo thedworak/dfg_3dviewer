@@ -640,3 +640,199 @@ body[data-viewer-theme="dark"] #example-model-picker {
     }
   }
 }
+
+/* Manifest tree/JSON view (see viewer/manifesto/manifest-tree-editor.js) */
+.manifesto-view-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.manifesto-view-toggle {
+  display: inline-flex;
+  border: 1px solid rgba(164, 151, 132, 0.35);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-right: auto;
+}
+
+#form-manifesto .manifesto-view-toggle button,
+#form-manifesto .manifesto-tree-tool {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #605242;
+  cursor: pointer;
+}
+
+#form-manifesto .manifesto-tree-tool {
+  border-radius: 6px;
+}
+
+#form-manifesto .manifesto-view-toggle button.active {
+  background: #4c6ef5;
+  color: #fff;
+}
+
+#form-manifesto .manifesto-view-toggle button:not(.active):hover,
+#form-manifesto .manifesto-tree-tool:hover {
+  background: rgba(96, 82, 66, .08);
+}
+
+.manifesto-manifest-tree {
+  max-height: 360px;
+  min-height: 80px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  background: rgba(255, 252, 247, 0.96);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #25211c;
+  resize: vertical;
+}
+
+.manifesto-manifest-tree[hidden],
+#form-manifesto textarea[hidden],
+#form-manifesto .manifesto-tree-tool[hidden] {
+  display: none;
+}
+
+.manifesto-manifest-tree details > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 4px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.manifesto-manifest-tree details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.manifesto-manifest-tree details > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 10px;
+  flex: 0 0 auto;
+  color: #9a8b78;
+  transition: transform .12s ease;
+}
+
+.manifesto-manifest-tree details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.manifesto-manifest-tree details > summary:hover {
+  background: rgba(76, 110, 245, .08);
+}
+
+.manifesto-manifest-tree .mt-children {
+  margin-left: 7px;
+  padding-left: 12px;
+  border-left: 1px dashed rgba(164, 151, 132, 0.4);
+}
+
+.manifesto-manifest-tree .mt-leaf {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0 4px 0 20px;
+  min-width: 0;
+}
+
+.manifesto-manifest-tree .mt-key { color: #8b3fa8; }
+.manifesto-manifest-tree .mt-index { color: #9a8b78; }
+.manifesto-manifest-tree .mt-bracket { color: #9a8b78; }
+.manifesto-manifest-tree .mt-count {
+  font-size: 11px;
+  color: #9a8b78;
+}
+.manifesto-manifest-tree .mt-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #7a6d5d;
+  font-style: italic;
+  min-width: 0;
+}
+.manifesto-manifest-tree .mt-empty {
+  padding-left: 20px;
+  color: #9a8b78;
+}
+
+.manifesto-manifest-tree .mt-value {
+  padding: 0 3px;
+  border-radius: 3px;
+  outline: none;
+  word-break: break-all;
+  cursor: text;
+}
+
+.manifesto-manifest-tree .mt-value:hover { background: rgba(76, 110, 245, .08); }
+.manifesto-manifest-tree .mt-value:focus {
+  background: #fff;
+  box-shadow: 0 0 0 1px #4c6ef5;
+}
+.manifesto-manifest-tree .mt-string { color: #2f7d32; }
+.manifesto-manifest-tree .mt-string::before,
+.manifesto-manifest-tree .mt-string::after { content: '"'; opacity: .55; }
+.manifesto-manifest-tree .mt-string:focus::before,
+.manifesto-manifest-tree .mt-string:focus::after { content: none; }
+.manifesto-manifest-tree .mt-url { color: #1f6fb2; }
+.manifesto-manifest-tree .mt-number { color: #c2410c; }
+.manifesto-manifest-tree .mt-null { color: #9a8b78; font-style: italic; }
+.manifesto-manifest-tree .mt-boolean {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+#form-manifesto .manifesto-manifest-tree .mt-boolean input {
+  margin: 0;
+  padding: 0;
+}
+.manifesto-manifest-tree .mt-invalid {
+  box-shadow: 0 0 0 1px #dc2626;
+  background: rgba(220, 38, 38, .1);
+}
+#form-manifesto .manifesto-manifest-tree .mt-color {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, .2);
+  border-radius: 3px;
+  align-self: center;
+  cursor: pointer;
+}
+
+/* dark theme */
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree {
+  background: #1e2024;
+  border-color: #444;
+  color: #eee;
+}
+#form-manifesto[data-viewer-theme="dark"] .manifesto-view-toggle { border-color: #444; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-view-toggle button:not(.active),
+#form-manifesto[data-viewer-theme="dark"] .manifesto-tree-tool { color: #cfd3d9; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-view-toggle button:not(.active):hover,
+#form-manifesto[data-viewer-theme="dark"] .manifesto-tree-tool:hover { background: rgba(255, 255, 255, .08); }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-children { border-left-color: #444; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-key { color: #d19af0; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-string { color: #8bd49c; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-url { color: #7cb7f0; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-number { color: #f5a36c; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-boolean { color: #93b4ff; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-preview { color: #a9adb4; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-value:focus { background: #2a2d33; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree details > summary:hover,
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-value:hover { background: rgba(147, 180, 255, .1); }

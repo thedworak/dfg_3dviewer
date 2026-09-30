@@ -63,6 +63,11 @@
         "preset": "neutral",
         "enabled": true
       },
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": { "enabled": false, "antialias": "msaa" }
+      },
       "performance": "high-performance"
     },
     "lights": [
@@ -73,7 +78,8 @@
       "position": [0, 0, 0],
       "rotation": { "x": 0, "y": 0, "z": 0, "order": "XYZ" },
       "scale": [1, 1, 1],
-      "wireframe": false
+      "wireframe": false,
+      "shadingMode": "standard"
     }
   },
   "modified": "2026-09-11T00:00:00.000Z"

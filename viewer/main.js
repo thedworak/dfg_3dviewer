@@ -73,7 +73,7 @@ import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
-import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, displayManifestInForm, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
 import { initRendering, applyRenderingSettings, getRenderingSettings, isPostProcessingActive, renderFrame } from "./rendering.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
@@ -2992,6 +2992,9 @@ export const Viewer = {
   // `sceneIndex` picks one (the first by default; showManifestScene switches).
   async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex } = {}) {
     const manifestJson = await Viewer.getManifestJson(newUrlOrJson, type);
+    // Parsed copy in the form's tree/JSON views, for inspecting and editing
+    // (applied with "Load from Text").
+    displayManifestInForm(manifestJson);
     const resolvedManifestType = isAIM3DManifest(manifestJson) ? "aim3if" : "iiif";
     const isAim3ifManifest = resolvedManifestType === "aim3if";
     const shownScene = sceneIndexOf(manifestJson, sceneIndex);
@@ -3025,6 +3028,9 @@ export const Viewer = {
       // remains the fallback for anything the manifest doesn't define.
       applyManifestSettings(loadedManifest.manifest, core.CONFIG);
       Viewer.applyWindowState?.(getManifestWindowState(loadedManifest.manifest));
+      // A manifest with its own tour settings may autostart its tour even
+      // if an earlier manifest's tour already autostarted.
+      if (loadedManifest.manifest?.AIM3DViewer?.viewer?.tour) Viewer.tourAutostartDone = false;
     }
     // A scene of Canvases only has no model to fall back on.
     if (loadedManifest.modelUrls.length === 0 && !loadedManifest.placements?.canvases?.length) { // no 3D model found, use example model
