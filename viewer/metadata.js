@@ -55,6 +55,7 @@ export function refreshModelHierarchyAndStats(object) {
   Viewer.clearHierarchySubmenu();
   const root = Array.isArray(object) ? object[0] : object;
   root?.traverse?.((child) => {
+    if (child.isPoints) stats.vertices += fetchMetadata(child, "vertices");
     if (!child.isMesh) return;
     stats.vertices += fetchMetadata(child, "vertices");
     stats.faces += fetchMetadata(child, "faces");
@@ -629,6 +630,7 @@ export function fetchMetadata(_object, _type) {
     case "vertices":
       return positionCount;
     case "faces":
+      if (_object.isPoints || _object.isLine) return 0;
       return (indexedCount ?? positionCount) / 3;
     default:
       return 0;
@@ -650,6 +652,8 @@ export async function handleMetadataResponse(
   } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
     setupObject(object, data);
     object.traverse(function (child) {
+      // Point clouds (e.g. LAS/LAZ, wrapped in a Group) have points but no faces.
+      if (child.isPoints) metadata["vertices"] += fetchMetadata(child, "vertices");
       if (child.isMesh) {
         metadata["vertices"] += fetchMetadata(child, "vertices");
         metadata["faces"] += fetchMetadata(child, "faces");
