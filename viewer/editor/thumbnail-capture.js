@@ -1,4 +1,5 @@
 import { core } from "../core.js";
+import { renderFrame } from "../rendering.js";
 
 const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
 
@@ -6,7 +7,8 @@ export function captureAndUploadThumbnail(viewer) {
   core.camera.aspect = 1;
   core.camera.updateProjectionMatrix();
   core.renderer.setSize(1024, 1024);
-  core.renderer.render(core.scene, core.camera);
+  // Through the post-processing chain when it is on, like the live canvas.
+  renderFrame();
 
   viewer.mainCanvas.toBlob((imgBlob) => {
     if (!imgBlob) {

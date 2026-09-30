@@ -427,6 +427,11 @@
   letter-spacing: 0.03em;
 }
 
+/* A setting that only takes effect once another one is on (still selectable). */
+.viewer-editor-tool_submenu-button.is-disabled {
+  opacity: 0.5;
+}
+
 .viewer-editor-tool_label {
   margin-left: 8px;
   font-size: 0.8rem;

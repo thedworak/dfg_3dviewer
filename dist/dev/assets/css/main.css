@@ -1,6 +1,11 @@
 @import "./editor-toolbar.css";
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
+@import "./models-panel.css";
+@import "./admin-panel.css";
+@import "./login-panel.css";
+@import "./ifc-properties.css";
+@import "./viewer-tools.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;
@@ -174,6 +179,25 @@ canvas {
   bottom: auto;
   max-width: min(520px, calc(100% - 32px));
   transform: translate(-50%, -50%);
+}
+
+#viewerNoticeContainer.viewer-notice-container--shortcuts {
+  left: auto;
+  right: 16px;
+  bottom: auto;
+  top: 50%;
+  max-width: min(380px, calc(100% - 32px));
+  transform: translateY(-50%);
+}
+
+/* Keep the shortcuts notice off the IFC properties panel (see viewer/ifc-properties.js). */
+#viewerNoticeContainer.viewer-notice-container--shortcuts[data-ifc-panel="open"] {
+  right: auto;
+  left: 16px;
+}
+
+#viewerNoticeContainer.viewer-notice-container--shortcuts[data-ifc-panel="crowded"] {
+  display: none;
 }
 
 .viewer-notice {
@@ -604,23 +628,6 @@ canvas {
   }
 }
 
-@media (max-width: 520px) {
-  #spinnerContainer {
-    top: 16px;
-  }
-
-  .model-loader {
-    gap: 12px;
-    min-height: 86px;
-    padding: 12px;
-  }
-
-  .model-loader__ring {
-    width: 56px;
-    height: 56px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .model-loader,
   .model-loader__bar {
@@ -663,6 +670,55 @@ canvas {
 .model-loader__phase-item[data-near="true"] {
   opacity: 0.5;
   transform: scale(0.97);
+}
+
+/* Phones: a compact card near the top of the viewer, clear of the notch,
+   so the model and the toolbar stay visible while it loads. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  #spinnerContainer {
+    top: max(12px, env(safe-area-inset-top));
+    width: min(280px, calc(100% - 24px));
+  }
+
+  .model-loader {
+    gap: 10px;
+    min-height: 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .model-loader__ring {
+    width: 40px;
+    height: 40px;
+  }
+
+  .model-loader__ring::before {
+    inset: 4px;
+  }
+
+  .model-loader__percent {
+    min-width: 0;
+    font-size: 11px;
+  }
+
+  .model-loader__phase-viewport {
+    height: 18px;
+    margin-bottom: 6px;
+  }
+
+  .model-loader__phase-item {
+    height: 18px;
+    line-height: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .model-loader__track {
+    height: 4px;
+  }
 }
 
 #loading-log {
@@ -1030,7 +1086,12 @@ canvas {
 #metadata-container {
   width: auto;
   min-width: 0;
-  max-width: 320px;
+  /* No max-width here: it's just a full-size, pointer-events:none
+     positioning shell for #metadata-card (see main.js's resize handler,
+     which keeps this at 100%x100% of the viewer) - #metadata-card's own
+     max-width) below) governs its default width. Capping this container
+     itself would put a hard ceiling under #metadata-card's own resize
+     handle, defeating manual resizing past the old 320px default. */
   position: absolute;
   left: 0px;
 
@@ -1050,24 +1111,37 @@ canvas {
   bottom: 0;
 }
 
+/* Model details: the file and a one-line summary; open, the counts as tiles
+   and the entity's metadata as a flat list. */
 #metadata-card {
   position: relative;
-  padding: 6px 8px 8px;
-  border-radius: 8px;
-  width: min(192px, 18vw);
+  padding: 12px 14px;
+  border-radius: 6px;
+  width: min(260px, 26vw);
   max-width: 100%;
-  background: var(--metadata-card-bg);
+  min-width: 180px;
+  min-height: 46px;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--metadata-card-bg) 84%, transparent);
   border: 1px solid var(--metadata-border);
   box-shadow: var(--metadata-shadow);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transform: translateY(0);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  /* Draggable via .metadata-drag-handle and resizable via the native
+     bottom-right handle below (see initializeMetadataDrag()/
+     observeMetadataResize() in metadata.js) - both mirror the mechanisms
+     already used for #viewerEditorToolbar and #form-manifesto. */
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  resize: none;
+  overflow: hidden;
   transition:
     width 700ms cubic-bezier(0.23, 1, 0.32, 1),
     background 760ms ease,
     border-color 760ms ease,
-    box-shadow 760ms ease,
-    transform 700ms ease;
+    box-shadow 760ms ease;
 }
 
 #metadata-card:hover {
@@ -1077,10 +1151,60 @@ canvas {
 }
 
 #metadata-card.metadata-open {
-  width: min(320px, 30vw);
+  width: min(320px, 32vw);
   background: var(--metadata-card-bg-open);
   border-color: var(--metadata-row-border-strong);
   box-shadow: var(--metadata-shadow);
+  resize: both;
+  overflow: auto;
+}
+
+#metadata-card.metadata-card-resized #metadata-content.expanded {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.metadata-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  border-radius: 6px 6px 0 0;
+  z-index: 1;
+}
+
+/* Shown only while the card is hovered. */
+.metadata-drag-handle::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--metadata-label-color);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#metadata-card:hover .metadata-drag-handle::before {
+  opacity: 0.45;
+}
+
+.metadata-drag-handle:hover::before,
+#metadata-card:hover .metadata-drag-handle:hover::before {
+  opacity: 0.8;
+}
+
+#metadata-card.metadata-dragging,
+#metadata-card.metadata-dragging .metadata-drag-handle {
+  cursor: grabbing;
 }
 
 #metadata-content {
@@ -1105,7 +1229,9 @@ canvas {
   overflow: hidden;
   opacity: 1;
   visibility: visible;
-  padding: 2px 0 2px;
+  margin-top: 10px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--metadata-border);
   transform: translateY(0);
   transition:
     max-height 1400ms cubic-bezier(0.23, 1, 0.32, 1),
@@ -1115,51 +1241,62 @@ canvas {
     padding 1400ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+.metadata-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.metadata-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--metadata-value-color) 7%, transparent);
+}
+
+.metadata-stat-value {
+  color: var(--metadata-value-color);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-stat-label {
+  color: var(--metadata-label-color);
+  font-size: 11px;
+}
+
 .metadata-row {
   pointer-events: auto !important;
   display: grid;
-  grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
+  grid-template-columns: minmax(80px, 36%) minmax(0, 1fr);
+  column-gap: 10px;
   font-size: 12px;
-  line-height: 1.2;
-  margin-bottom: 4px;
+  line-height: 1.35;
   align-items: baseline;
   position: relative;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: var(--metadata-row-bg);
-  border: 1px solid var(--metadata-row-border);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
-  transition: background 0.2s ease, border-color .2s ease, transform 1.2s ease, box-shadow .2s ease;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--metadata-border);
+  transition: background 0.2s ease;
 }
 
-.metadata-row:hover {
-  background: var(--metadata-row-bg-hover);
-  border-color: var(--metadata-row-border-strong);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
-}
-
-.metadata-row:first-child {
-  background: var(--metadata-row-bg-first);
-  border-color: var(--metadata-row-border-strong);
-}
-
-.metadata-row:first-child .metadata-label {
-  color: var(--metadata-accent);
-}
-
-.metadata-row:first-child .metadata-value {
-  font-size: 12px;
-  font-weight: 700;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+.metadata-row:last-child {
+  border-bottom: 0;
 }
 
 .metadata-label {
   color: var(--metadata-label-color);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 400;
   display: inline;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -1187,6 +1324,10 @@ canvas {
   cursor: pointer;
 }
 
+.metadata-row.metadata-row-expandable:hover .metadata-value {
+  color: color-mix(in srgb, var(--metadata-value-color) 80%, var(--metadata-label-color));
+}
+
 .metadata-row.metadata-row-pinned .metadata-value {
   display: block;
   -webkit-line-clamp: unset;
@@ -1196,10 +1337,6 @@ canvas {
 
 .metadata-row.metadata-row-pinned {
   z-index: 2;
-  transform: none;
-  background: var(--metadata-row-bg-pinned);
-  border-color: var(--metadata-row-border-pinned);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
 }
 
 .metadataSeparator {
@@ -1220,10 +1357,10 @@ canvas {
 #metadata-collapse {
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 2px 2px 8px;
+  gap: 10px;
+  padding: 0;
   color: var(--viewer-panel-text);
   cursor: pointer;
   user-select: none;
@@ -1235,64 +1372,37 @@ canvas {
 }
 
 #metadata-collapse:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.32);
-  outline-offset: 2px;
-}
-
-.metadata-toggle-icon {
-  position: relative;
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: none;
-  flex: 0 0 auto;
-}
-
-.metadata-toggle-icon::before,
-.metadata-toggle-icon::after {
-  content: "";
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.metadata-toggle-icon::before {
-  top: 7px;
-  height: 2px;
-  box-shadow: 0 5px 0 rgba(255, 255, 255, 0.78);
-}
-
-.metadata-toggle-icon::after {
-  top: 17px;
-  width: 5px;
-  right: auto;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.48);
+  outline: 2px solid color-mix(in srgb, var(--metadata-value-color) 40%, transparent);
+  outline-offset: 4px;
+  border-radius: 6px;
 }
 
 .metadata-toggle-copy {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
-}
-
-.metadata-toggle-eyebrow {
-  color: var(--metadata-label-color);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
 }
 
 .metadata-toggle-title {
   color: var(--metadata-value-color);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-toggle-summary {
+  color: var(--metadata-label-color);
+  font-size: 11px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metadata-toggle-chevron {
@@ -1316,16 +1426,6 @@ canvas {
   border-bottom: 1.5px solid rgba(255, 255, 255, 0.78);
   transform: rotate(45deg);
   transition: transform .18s ease;
-}
-
-.viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-icon {
-  background: rgba(236, 230, 220, 0.92);
-  border-color: rgba(164, 151, 132, 0.24);
-}
-
-.viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-icon::before,
-.viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-icon::after {
-  background: rgba(66, 56, 45, 0.74);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .metadata-toggle-chevron::before {
@@ -1435,7 +1535,7 @@ canvas {
 
 .galleryCounter {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -1523,10 +1623,12 @@ canvas {
   right: 28px;
 }
 
+/* The lightbox covers the whole screen, which in the app (edge to edge)
+   includes the status bar and the notch: its controls keep clear of them. */
 .closeGallery {
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: calc(24px + env(safe-area-inset-top));
+  right: calc(24px + env(safe-area-inset-right));
 
   width: 44px;
   height: 44px;
@@ -1572,11 +1674,11 @@ canvas {
   }
 
   .galleryNavPrev {
-    left: 12px;
+    left: calc(12px + env(safe-area-inset-left));
   }
 
   .galleryNavNext {
-    right: 12px;
+    right: calc(12px + env(safe-area-inset-right));
   }
 }
 
@@ -1709,10 +1811,44 @@ canvas {
   min-height: 120px;
 }
 
+.annotation-dialog__form .annotation-dialog__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.annotation-dialog__form .annotation-dialog__checkbox input {
+  width: auto;
+  margin: 0;
+}
+
 .annotation-dialog__actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* Bug report form (bug-report.js); the panel and form reuse the annotation
+   dialog's styles. */
+#bugReportDialog[hidden] {
+  display: none !important;
+}
+
+#bugReportDialog {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+}
+
+#bugReportDialog .annotation-dialog__panel {
+  width: min(480px, calc(100% - 28px));
+}
+
+.bug-report-dialog__privacy {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
 }
 
 #annotationPOITooltip[hidden] {
@@ -1754,9 +1890,8 @@ canvas {
 
 @media (max-width: 640px) {
   #metadata-card {
-    width: min(180px, calc(100vw - 32px));
-    border-radius: 14px;
-    padding: 6px;
+    width: min(220px, calc(100vw - 32px));
+    padding: 10px 12px;
   }
 
   #metadata-card.metadata-open {
@@ -1765,18 +1900,11 @@ canvas {
 
   .metadata-row {
     grid-template-columns: 1fr;
-    gap: 4px;
-    padding: 6px 8px;
-  }
-
-  .metadata-toggle-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
+    row-gap: 2px;
   }
 
   .metadata-toggle-title {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .metadata-toggle-chevron {
@@ -1789,6 +1917,15 @@ canvas {
     padding: 6px 9px;
     font-size: 11px;
   }
+
+  /* Hints (picking, clipping) are a sentence long: on one line they ran off
+     the screen. */
+  .viewer-notice-hint {
+    white-space: normal;
+    text-align: center;
+    text-wrap: balance;
+    border-radius: 14px;
+  }
 }
 
 #image-list {
@@ -1796,6 +1933,17 @@ canvas {
   flex-wrap: nowrap;
   gap: 10px;
   width: 100%;
+}
+
+/* Wraps #image-list for the scroll hints (thumbnail-gallery.js); they only
+   show in the phone layout below, where the row scrolls sideways. */
+.image-list-scroller {
+  position: relative;
+  width: 100%;
+}
+
+.image-list-hint {
+  display: none;
 }
 
 #image-list .field__item {
@@ -1937,4 +2085,524 @@ body.presentation-mode {
 html.presentation-mode,
 body.presentation-mode {
     background: transparent !important;
+}
+
+/* ==========================================================================
+   Phones and touch screens
+   ========================================================================== */
+
+/* The standalone viewer page (index.html) on a phone: the picker and the
+   gallery take one compact row each and the viewer fills the rest of the
+   screen - its toolbar is always on screen, with no empty band below. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  body.viewer-standalone-page {
+    margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding:
+      env(safe-area-inset-top)
+      env(safe-area-inset-right)
+      env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+    box-sizing: border-box;
+  }
+
+  /* Sized by the page, not by its canvas (main.js follows its size). */
+  body.viewer-standalone-page > #DFG_3DViewer {
+    flex: 1 1 0;
+    height: auto !important;
+    min-height: 280px;
+    overflow: hidden;
+  }
+
+  /* Picker and account area share one row. */
+  body.viewer-standalone-page > #viewer-page-header {
+    margin: 8px;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  #viewer-page-header > #example-model-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  #viewer-page-header > #viewer-account-bar {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 6px 8px;
+  }
+
+  #example-model-picker label {
+    /* The select says what it is; the label cost three lines. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* (Beats external-sources.css's min-width: 220px, loaded after this.) */
+  #viewer-page-header #example-model-picker select,
+  #example-model-picker select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Gallery: one row that scrolls sideways. */
+  #image-list {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    /* Snap to the padding, not the edge (the row started 8px scrolled). */
+    scroll-padding-inline: 8px;
+    scrollbar-width: none;
+  }
+
+  #image-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  #image-list .field__item {
+    flex: 0 0 64px;
+    min-width: 64px;
+    scroll-snap-align: start;
+  }
+
+  /* More thumbnails off screen: that edge fades out and a small chevron
+     sits on it (tapping it scrolls). */
+  .image-list-scroller.can-scroll-next #image-list {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-scroller.can-scroll-prev #image-list {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-scroller.can-scroll-prev.can-scroll-next #image-list {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-hint {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(17, 24, 39, 0.55);
+    color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: opacity 0.2s ease;
+  }
+
+  .image-list-hint svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  .image-list-hint--prev {
+    left: 4px;
+  }
+
+  .image-list-hint--next {
+    right: 4px;
+  }
+
+  .image-list-scroller.can-scroll-prev .image-list-hint--prev,
+  .image-list-scroller.can-scroll-next .image-list-hint--next {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Until the row is first moved, the right chevron nudges once. */
+  .image-list-scroller.can-scroll-next:not(.can-scroll-prev) .image-list-hint--next {
+    animation: imageListHintNudge 1.2s ease-in-out 0.6s 2;
+  }
+
+  /* Notices: one short line above the toolbar, not a block over the model.
+     Edge to edge (centred inside): with left: 50% the notice could only use
+     half of the viewer's width, and wrapped. */
+  #viewerNoticeContainer:not(.viewer-notice-container--sandbox):not(.viewer-notice-container--shortcuts) {
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    transform: none;
+  }
+
+  .viewer-notice-status:not([data-variant]) {
+    min-width: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+}
+
+@keyframes imageListHintNudge {
+  0%, 100% { transform: translate(0, -50%); }
+  50% { transform: translate(4px, -50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-list-hint {
+    animation: none !important;
+  }
+}
+
+/* A phone held sideways: the gallery gives its height to the viewer. */
+@media (max-height: 520px) and (pointer: coarse) {
+  #image-list,
+  .image-list-scroller {
+    display: none !important;
+  }
+
+  body.viewer-standalone-page > #viewer-page-header {
+    margin: 4px 8px;
+  }
+
+  #viewer-page-header > #example-model-picker,
+  #viewer-page-header > #viewer-account-bar {
+    padding: 4px 8px;
+  }
+}
+
+/* Model details on a phone: open, a sheet along the bottom of the viewer,
+   above the toolbar - the model stays visible above it. */
+@media (max-width: 640px) {
+  #metadata-card.metadata-open {
+    position: absolute;
+    top: auto;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(var(--viewer-toolbar-height, 58px) + 26px + env(safe-area-inset-bottom));
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: 55%;
+    transform: none;
+    resize: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 6px;
+  }
+
+  #metadata-card.metadata-open #metadata-content.expanded {
+    max-height: none;
+    overflow: visible;
+  }
+
+  #metadata-card.metadata-open .metadata-drag-handle {
+    display: none;
+  }
+}
+
+/* Model details on a phone, closed: a small round "i" in the corner instead
+   of the file name card, so it keeps off the model. The name stays in the
+   button's aria-label; a tap opens the sheet above. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  #metadata-card:not(.metadata-open) {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 0;
+    min-height: 0;
+    margin: 8px 0 0 max(8px, env(safe-area-inset-left));
+    padding: 0;
+    border-radius: 999px;
+    transform: none;
+    transition: none;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-drag-handle,
+  #metadata-card:not(.metadata-open) .metadata-toggle-copy {
+    display: none;
+  }
+
+  #metadata-card:not(.metadata-open) #metadata-collapse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 0;
+    gap: 0;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-toggle-chevron {
+    width: 20px;
+    height: 20px;
+    border-radius: 0;
+    background-color: var(--metadata-value-color);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-toggle-chevron::before {
+    display: none;
+  }
+}
+
+/* Touch: targets of about 40px and more, no resize handles to hit by
+   accident, and the viewer's overlays clear of notches and the home bar. */
+@media (pointer: coarse) {
+  .viewer-window-controls {
+    display: none;
+  }
+
+  #example-model-picker select {
+    min-height: 40px;
+  }
+
+  #example-model-picker #uploadModel,
+  #example-model-picker #browseModelsButton,
+  #example-model-picker #openLocalFileButton,
+  #example-model-picker #planButton,
+  #example-model-picker #example-theme-toggle,
+  #viewer-account-bar #loginButton,
+  #viewer-account-bar #manageUsersButton {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+  }
+
+  #metadata-collapse {
+    min-height: 40px;
+  }
+
+  /* Above the (unscaled, see editor-toolbar.css) touch toolbar. */
+  .mainContainer:has(#viewerEditorToolbar) #viewerNoticeContainer,
+  .viewer-embed-page .mainContainer:has(#viewerEditorToolbar) #viewerNoticeContainer {
+    --viewer-notice-safe-bottom: calc(14px + var(--viewer-toolbar-height) + 10px + env(safe-area-inset-bottom));
+  }
+
+  /* Only a fullscreen viewer reaches the notch/status bar; elsewhere the page
+     keeps clear of it (body.viewer-standalone-page padding), and the inset
+     would push the card down from the canvas corner. */
+  .mainContainer:fullscreen #metadata-container,
+  .mainContainer.fullscreen #metadata-container {
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    box-sizing: border-box;
+  }
+
+  /* Same for the toolbar on the standalone page: the page padding already
+     keeps it off the home bar. */
+  body.viewer-standalone-page .mainContainer:not(:fullscreen):not(.fullscreen) #viewerEditorToolbar,
+  body.viewer-standalone-page > #viewerEditorToolbar {
+    margin-left: 0;
+    margin-bottom: 0;
+  }
+}
+
+/* No network (viewer/connectivity.js) or no repository configured in the app
+   (viewer/remote.js): hide controls that need the server. The model browser
+   stays in the app without a repository - its address is entered there.
+   Sign-in needs a same-site session cookie, which the app (another origin)
+   never gets. */
+body.viewer-offline #uploadModel,
+body.viewer-offline #browseModelsButton,
+body.viewer-offline #loginButton,
+body.viewer-offline #manageUsersButton,
+body.viewer-no-remote #uploadModel,
+body.viewer-app #loginButton,
+body.viewer-app #manageUsersButton,
+body.viewer-app #browseModelsButton,
+/* ...and the bar that holds only those two, or its empty frame stays in the
+   header's corner. */
+body.viewer-offline #viewer-account-bar,
+body.viewer-app #viewer-account-bar {
+  display: none !important;
+}
+
+/* App, first run (ui/first-run-hints.js): the button to try next pulses.
+   Inside its own box - the toolbar clips what sticks out of it. */
+.first-run-pulse {
+  animation: first-run-pulse-glow 1.2s ease-in-out infinite;
+}
+
+.first-run-pulse > span {
+  display: inline-block;
+  animation: first-run-pulse-icon 1.2s ease-in-out infinite;
+}
+
+@keyframes first-run-pulse-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.35);
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px rgba(125, 211, 252, 0.95), inset 0 0 14px rgba(56, 189, 248, 0.55);
+  }
+}
+
+@keyframes first-run-pulse-icon {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-run-pulse,
+  .first-run-pulse > span {
+    animation: none;
+  }
+
+  .first-run-pulse {
+    box-shadow: inset 0 0 0 2px rgba(125, 211, 252, 0.95);
+  }
+}
+
+/* App, free plan (monetization/ads.js): the ad banner covers the bottom of
+   the screen; the page leaves it that much room, so the viewer and its
+   toolbar end above it. 0 without a banner. */
+body.viewer-app.viewer-standalone-page {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--app-ad-banner-height, 0px));
+  box-sizing: border-box;
+}
+
+/* App on any screen, tablets too (the phone layout above stops at 640px):
+   the viewer fills what the header leaves, instead of index.html's 50vh
+   with an empty band below it. */
+body.viewer-app.viewer-standalone-page {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+body.viewer-app.viewer-standalone-page > #DFG_3DViewer {
+  flex: 1 1 0;
+  height: auto !important;
+  min-height: 280px;
+  overflow: hidden;
+}
+
+/* Fullscreen covers that page padding (and the fullscreen element cannot be
+   made shorter), so the toolbar keeps clear of the banner by itself. The
+   model may run on under the banner. */
+body.viewer-app .mainContainer:fullscreen #viewerEditorToolbar,
+body.viewer-app .mainContainer.fullscreen #viewerEditorToolbar {
+  margin-bottom: calc(env(safe-area-inset-bottom) + var(--app-ad-banner-height, 0px));
+}
+
+/* Tools and features the plan does not include (ui/plans-panel.js): a small
+   lock - the same icon on the toolbar, in the plans panel and on the
+   repository address field. */
+:root {
+  --plan-lock-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z'/%3E%3C/svg%3E");
+  --plan-lock-color: #fbbf24;
+}
+
+#viewerEditorToolbar .plan-locked {
+  position: relative;
+}
+
+#viewerEditorToolbar .plan-locked > .viewer-editor-tool_icon {
+  opacity: 0.55;
+}
+
+#viewerEditorToolbar .plan-locked::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--plan-lock-color);
+  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
+  mask: var(--plan-lock-mask) center / contain no-repeat;
+  pointer-events: none;
+}
+
+.plan-lock-icon {
+  display: inline-block;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin: 0 4px;
+  vertical-align: -1px;
+  background-color: var(--plan-lock-color);
+  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
+  mask: var(--plan-lock-mask) center / contain no-repeat;
+}
+
+/* App launch splash (viewer/app-splash.js): the artwork, full screen, over
+   everything until the first model is on screen. */
+#appSplash {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0b0e14;
+  opacity: 1;
+  transition: opacity 400ms ease;
+}
+
+#appSplash[data-theme="light"] {
+  background: #f0f4f8;
+}
+
+/* Whole artwork (it is square; the screen is not) over a blurred copy of
+   itself that fills the screen. */
+#appSplash img {
+  position: relative;
+  width: min(100vw, 100vh);
+  height: min(100vw, 100vh);
+  object-fit: contain;
+  /* Soft edges into the blurred fill. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  mask-composite: intersect;
+}
+
+#appSplash img.app-splash-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-mask-image: none;
+  mask-image: none;
+  object-fit: cover;
+  filter: blur(28px) saturate(1.1);
+  transform: scale(1.15);
+  opacity: 0.85;
+}
+
+#appSplash.app-splash--hiding {
+  opacity: 0;
+  pointer-events: none;
 }

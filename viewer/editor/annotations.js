@@ -3,6 +3,7 @@ import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
 import { unitNameToMeters } from "./model-units.js";
+import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
 import {
   formatAIM3DManifestValidationErrors,
@@ -1203,6 +1204,7 @@ export function attachAnnotations(Viewer) {
               preset: core.environmentMapPreset || "neutral",
               enabled: core.environmentMapEnabled || true
             },
+            rendering: getRenderingSettings(),
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
             autorotate: core.controls?.autoRotate === true,
@@ -1578,6 +1580,11 @@ export function attachAnnotations(Viewer) {
         if (typeof this.setEnvironmentMapEnabled === "function" && typeof environmentMap.enabled === "boolean") {
           this.setEnvironmentMapEnabled(environmentMap.enabled).catch((error) => console.error(error));
         }
+      }
+
+      if (viewerConfig.rendering && typeof viewerConfig.rendering === "object") {
+        applyRenderingSettings(viewerConfig.rendering);
+        this.updateLightsSubmenuState?.();
       }
 
       const backgroundColor = String(viewerConfig.backgroundColor || "").trim();

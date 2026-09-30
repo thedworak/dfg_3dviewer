@@ -1,9 +1,17 @@
 #form-manifesto {
-  position: fixed;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(640px, 95vw);
+  /* Normal document flow, appended into the viewer's own wrapper (see
+     createManifestUI() in metadata.js) instead of position: fixed on
+     document.body - it needs to render as its own block below the viewer,
+     not as a viewport-anchored overlay on top of the model. */
+  display: block;
+  width: min(640px, 100%);
+  min-width: 280px;
+  min-height: 120px;
+  box-sizing: border-box;
+  margin: 10px auto 0;
+  /* Draggable via .form-manifesto-header (see initializeManifestoFormDrag()
+     in metadata.js), so moving it is instant instead of animated. */
+  transition: none;
 
   background: rgba(250, 247, 242, 0.94);
   backdrop-filter: blur(8px);
@@ -14,7 +22,17 @@
 
   padding: 14px;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
-  z-index: 11;
+
+  /* Native resize handle (bottom-right corner) - resize requires overflow
+     other than visible; a ResizeObserver in metadata.js persists the
+     result into core.CONFIG.viewer.manifestoForm.size. */
+  overflow: auto;
+  resize: both;
+}
+
+#form-manifesto.form-manifesto-dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 #form-manifesto * {
@@ -199,17 +217,31 @@
 .form-manifesto-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
+  /* Drag handle - see initializeManifestoFormDrag() in metadata.js. The
+     collapse button inside keeps its own "cursor: pointer" (see the
+     ".form-manifesto-header button" rule below) since it's excluded from
+     the drag itself in metadata.js. */
+  cursor: grab;
+  touch-action: none;
+}
+
+.form-manifesto-drag-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: rgba(37, 33, 28, 0.45);
 }
 
 .form-manifesto-header .title {
+  flex: 1 1 auto;
   font-size: 13px;
   font-weight: 600;
   color: #25211c;
 }
 
 .form-manifesto-header .tools {
+  margin-left: auto;
   display: flex;
   gap: 6px;
 }
@@ -242,6 +274,10 @@
 
 #form-manifesto[data-viewer-theme="dark"] .form-manifesto-header .title {
   color: #eee;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-drag-icon {
+  color: rgba(238, 238, 238, 0.45);
 }
 
 #form-manifesto[data-viewer-theme="dark"] .form-manifesto-label {
@@ -326,6 +362,43 @@
     border-color 0.2s ease,
     box-shadow 0.2s ease,
     color 0.2s ease;
+}
+
+/* The row above the viewer: the example picker on the left, the account
+   area (sign-in, user management) on the right. */
+#viewer-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+#viewer-account-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 5px auto;
+  padding: 4px 10px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 10px;
+  background: rgba(250, 247, 242, 0.94);
+  box-shadow: 0 12px 24px rgba(129, 116, 96, 0.12);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Nothing to show (no sign-in required): no empty box. */
+#viewer-account-bar:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+body[data-viewer-theme="dark"] #viewer-account-bar {
+  border-color: #444;
+  background: rgba(30, 32, 36, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
 #example-model-picker label {
@@ -426,4 +499,144 @@ body[data-viewer-theme="dark"] #uploadModel {
   border-color: #444;
   background: #1e2024;
   color: #eee;
+}
+
+/* Example model list: a customizable select (Chromium 135+), so that its
+   open list - and its scrollbar - match the viewer's panels. Other browsers
+   keep the native list; the colours below still reach its scrollbar where
+   they can (scrollbar-color). */
+#example-model-picker {
+  --example-picker-bg: rgba(255, 252, 247, 0.98);
+  --example-picker-text: #25211c;
+  --example-picker-border: rgba(164, 151, 132, 0.28);
+  --example-picker-hover: rgba(164, 151, 132, 0.16);
+  --example-picker-selected: rgba(164, 151, 132, 0.28);
+  --example-picker-thumb: rgba(66, 56, 45, 0.38);
+  --example-picker-thumb-hover: rgba(66, 56, 45, 0.58);
+  --example-picker-shadow: 0 12px 24px rgba(129, 116, 96, 0.18);
+}
+
+body[data-viewer-theme="dark"] #example-model-picker {
+  --example-picker-bg: rgba(30, 32, 36, 0.98);
+  --example-picker-text: #eee;
+  --example-picker-border: #444;
+  --example-picker-hover: rgba(255, 255, 255, 0.08);
+  --example-picker-selected: rgba(255, 255, 255, 0.14);
+  --example-picker-thumb: rgba(238, 238, 238, 0.32);
+  --example-picker-thumb-hover: rgba(238, 238, 238, 0.52);
+  --example-picker-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+#example-model-picker select {
+  scrollbar-width: thin;
+  scrollbar-color: var(--example-picker-thumb) transparent;
+}
+
+@supports (appearance: base-select) {
+  #example-model-picker select,
+  #example-model-picker select::picker(select) {
+    appearance: base-select;
+  }
+
+  #example-model-picker select {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  #example-model-picker select::picker-icon {
+    color: var(--example-picker-text);
+    opacity: 0.6;
+    transition: rotate 0.2s ease;
+  }
+
+  #example-model-picker select:open::picker-icon {
+    rotate: 180deg;
+  }
+
+  #example-model-picker select::picker(select) {
+    max-height: min(320px, 60vh);
+    margin-top: 4px;
+    padding: 4px;
+    border: 1px solid var(--example-picker-border);
+    border-radius: 10px;
+    background: var(--example-picker-bg);
+    color: var(--example-picker-text);
+    box-shadow: var(--example-picker-shadow);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--example-picker-thumb) transparent;
+  }
+
+  #example-model-picker select::picker(select):hover {
+    scrollbar-color: var(--example-picker-thumb-hover) transparent;
+  }
+
+  #example-model-picker option {
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--example-picker-text);
+    cursor: pointer;
+  }
+
+  #example-model-picker option:hover,
+  #example-model-picker option:focus-visible {
+    background: var(--example-picker-hover);
+    outline: none;
+  }
+
+  #example-model-picker option:checked {
+    background: var(--example-picker-selected);
+    font-weight: 600;
+  }
+
+  #example-model-picker option::checkmark {
+    display: none;
+  }
+}
+
+/* Touch screens (Android) draw an overlay scrollbar that only shows while
+   the list moves, and no CSS keeps it on screen - so nothing said the list
+   scrolls. The picker draws its own slim thumb instead: a background layer
+   the scroll position moves (scroll-driven animation). With nothing to
+   scroll the timeline is inactive and the thumb stays transparent. */
+@property --example-picker-scroll {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --example-picker-scroll-thumb {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+@keyframes example-picker-scroll {
+  from {
+    --example-picker-scroll: 0%;
+    --example-picker-scroll-thumb: var(--example-picker-thumb-hover);
+  }
+  to {
+    --example-picker-scroll: 100%;
+    --example-picker-scroll-thumb: var(--example-picker-thumb-hover);
+  }
+}
+
+@supports (appearance: base-select) and (animation-timeline: scroll()) {
+  @media (pointer: coarse) {
+    #example-model-picker select::picker(select) {
+      scrollbar-width: none;
+      background:
+        linear-gradient(var(--example-picker-scroll-thumb), var(--example-picker-scroll-thumb))
+          right 2px top var(--example-picker-scroll) / 4px 48px no-repeat
+          border-box,
+        var(--example-picker-bg);
+      animation: example-picker-scroll linear both;
+      animation-timeline: scroll(self);
+    }
+  }
 }

@@ -1619,3 +1619,58 @@ test('reports a corrupted model file instead of hanging', async ({ page }) => {
   expect(state.modelLoaded).toBe(false);
   expect(state.errors.length).toBeGreaterThan(0);
 });
+
+test('tone mapping defaults to Neutral and post-processing is switched from the Lights menu', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  const state = () => page.evaluate(() => ({
+    toneMapping: window.viewer.renderer.toneMapping,
+    exposure: window.viewer.renderer.toneMappingExposure,
+    rendering: window.viewer.rendering,
+    postProcessing: window.viewer.postProcessing,
+  }));
+  const constants = await page.evaluate(() => ({
+    neutral: window.THREE.NeutralToneMapping,
+    agx: window.THREE.AgXToneMapping,
+  }));
+  // The submenus open on hover; the buttons' own handlers are what matters here.
+  const clickTool = (key) => page.evaluate((tool) => {
+    document.querySelector(`button[data-tool="${tool}"]`).click();
+  }, key);
+  // The model sits in the middle of the transparent canvas.
+  const centerAlpha = () => page.evaluate(() => {
+    const source = document.getElementById('MainCanvas');
+    const copy = document.createElement('canvas');
+    copy.width = source.width;
+    copy.height = source.height;
+    const context = copy.getContext('2d');
+    context.drawImage(source, 0, 0);
+    return context.getImageData(copy.width >> 1, copy.height >> 1, 1, 1).data[3];
+  });
+
+  expect(await state()).toMatchObject({
+    toneMapping: constants.neutral,
+    exposure: 1,
+    rendering: { toneMapping: 'neutral', exposure: 1, postprocessing: { enabled: false, antialias: 'msaa' } },
+    postProcessing: false,
+  });
+
+  await clickTool('renderingPostprocessing');
+  await expect.poll(async () => (await state()).postProcessing).toBe(true);
+  await expect(page.locator('button[data-tool="renderingPostprocessing"] .viewer-editor-tool_submenu-toggle-state')).toHaveText('ON');
+  await expect.poll(centerAlpha).toBeGreaterThan(0);
+
+  await clickTool('renderingAntialiasSmaa');
+  await clickTool('renderingToneMappingAgx');
+  expect(await state()).toMatchObject({
+    toneMapping: constants.agx,
+    rendering: { toneMapping: 'agx', postprocessing: { enabled: true, antialias: 'smaa' } },
+    postProcessing: true,
+  });
+  await expect.poll(centerAlpha).toBeGreaterThan(0);
+
+  await clickTool('renderingPostprocessing');
+  await expect.poll(async () => (await state()).postProcessing).toBe(false);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});

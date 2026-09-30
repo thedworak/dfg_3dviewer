@@ -201,7 +201,7 @@
 
 .viewer-embed-page #metadata-card {
   max-width: min(320px, 42vw);
-  width: min(188px, 24vw);
+  width: min(240px, 30vw);
 }
 
 .viewer-embed-page #metadata-card.metadata-open {

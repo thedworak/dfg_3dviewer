@@ -74,6 +74,7 @@ import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
 import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
+import { initRendering, applyRenderingSettings, getRenderingSettings, isPostProcessingActive, renderFrame } from "./rendering.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -195,6 +196,18 @@ export const Viewer = {
 
         get scene() {
           return core.scene;
+        },
+
+        get renderer() {
+          return core.renderer;
+        },
+
+        get rendering() {
+          return getRenderingSettings();
+        },
+
+        get postProcessing() {
+          return isPostProcessingActive();
         },
       };
     } else {
@@ -2338,8 +2351,7 @@ export const Viewer = {
       Viewer.updateAnimationTimeline();
     }
 
-    core.renderer?.clear();
-    core.renderer?.render(core.scene, core.camera);
+    renderFrame();
     Viewer.renderViewHelper(delta);
     core.stats?.update();
   },
@@ -3434,18 +3446,7 @@ export const Viewer = {
           sortObjects: true,
           preserveDrawingBuffer: true,
           powerPreference: "high-performance",
-          alpha: true,
-          shadowMap: {
-            enabled: true,
-            type: THREE.PCFSoftShadowMap
-          },
-          localClippingEnabled: true,
-          physicallyCorrectLights: true,
-          autoClear: false,
-          setClearColor: (0x000000, 0.0),
-          outputColorSpace: THREE.SRGBColorSpace,
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 0.65
+          alpha: true
         });
       } catch (err) {
         console.warn("WebGL context could not be created:", err);
@@ -3456,6 +3457,8 @@ export const Viewer = {
       core.renderer.localClippingEnabled = true;
 
       setCore('renderer', core.renderer);
+      // Tone mapping, exposure and the optional post-processing chain.
+      initRendering(core.renderer, core.CONFIG.viewer?.rendering);
 
       core.renderer.domElement.id = "MainCanvas";
       Viewer.mainCanvas = document.getElementById("MainCanvas") || core.renderer.domElement;
@@ -3509,10 +3512,7 @@ export const Viewer = {
       if (isE2E) {
         console.info('E2E MODE ENABLED');
         core.renderer.setPixelRatio(1);
-        core.renderer.toneMappingExposure = 1;
-        if (typeof disablePostProcessing === 'function') {
-          disablePostProcessing();
-        }
+        applyRenderingSettings({ exposure: 1, postprocessing: { enabled: false } });
         this.ensureE2EState();
       } else {
             core.renderer.setPixelRatio(devicePixelRatio);

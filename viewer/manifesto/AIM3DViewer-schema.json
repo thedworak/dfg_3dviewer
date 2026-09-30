@@ -79,6 +79,22 @@
               },
               "additionalProperties": true
             },
+            "rendering": {
+              "type": "object",
+              "properties": {
+                "toneMapping": { "enum": ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"] },
+                "exposure": { "type": "number", "minimum": 0 },
+                "postprocessing": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": { "type": "boolean" },
+                    "antialias": { "enum": ["msaa", "smaa", "fxaa", "none"] }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
             "lightweight": { "type": "boolean" },
             "editor": { "type": "boolean" },
             "presentationMode": { "type": "boolean" },

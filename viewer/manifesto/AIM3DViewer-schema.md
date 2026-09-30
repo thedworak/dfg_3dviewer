@@ -62,6 +62,14 @@ Stores runtime viewer options.
     "preset": "neutral",
     "enabled": true
   },
+  "rendering": {
+    "toneMapping": "neutral",
+    "exposure": 1,
+    "postprocessing": {
+      "enabled": false,
+      "antialias": "msaa"
+    }
+  },
   "presentationMode": false,
   "sandbox": false,
   "autorotate": false,
@@ -108,6 +116,11 @@ Notes:
 - `disableInteraction` disables rotate, pan, and zoom input
 - `hideUi` hides the action menu and editor toolbar
 - `hideMetadata` hides the metadata panel
+- `rendering` controls how the canvas image is produced (all fields optional; `viewer-settings.json` `viewer.rendering` is the fallback, then the defaults shown above):
+  - `toneMapping`: `none`, `linear`, `reinhard`, `cineon`, `aces`, `agx` or `neutral` (default, Khronos PBR Neutral - closest to the material colours)
+  - `exposure`: tone mapping exposure, a number `>= 0` (default `1`)
+  - `postprocessing.enabled`: renders through a post-processing chain (default `false`); tone mapping looks the same either way
+  - `postprocessing.antialias`: anti-aliasing used by that chain - `msaa` (4x multisampling, default), `smaa`, `fxaa` (cheapest) or `none`
 - `showNotifications` controls toast/status notices
 - `window` stores the movable viewer host geometry in viewport pixels
 - `editorToolbar` is the canonical editor toolbar runtime state used by the current viewer
