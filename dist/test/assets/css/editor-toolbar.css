@@ -565,6 +565,37 @@
   min-width: 200px;
 }
 
+/* Rendering > Tone mapping: a preview of the view in each mode, captioned. */
+.viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-preview {
+  flex-direction: column;
+  gap: 3px;
+  width: auto;
+  height: auto;
+  padding: 4px;
+}
+
+.viewer-editor-tool_preview-canvas {
+  /* Undoes main.css's rule for the viewer's full-size canvases. */
+  position: static;
+  display: block;
+  min-width: 0;
+  width: 64px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--viewer-panel-bg-hover);
+}
+
+.viewer-editor-tool_submenu-preview.is-active .viewer-editor-tool_preview-canvas {
+  outline: 2px solid rgba(92, 185, 255, 0.75);
+}
+
+.viewer-editor-tool_preview-label {
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .viewer-editor-tool_submenu-button.is-active {
   background: rgba(92, 185, 255, 0.16);
   border-color: rgba(92, 185, 255, 0.4);

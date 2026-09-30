@@ -5337,6 +5337,72 @@ function initRendering(renderer, configSettings) {
   return applyRenderingSettings();
 }
 
+// Tone mapping previews (Rendering > Tone mapping menu): the current view
+// drawn once into a small linear half-float target, then tone mapped into an
+// 8-bit target by one OutputPass per mode and read back into each canvas.
+// Nothing is drawn to the main canvas.
+const PREVIEW_CSS_WIDTH = 64;
+let previewSource = null;
+let previewOutput = null;
+// Mode -> OutputPass: one each, so switching modes does not recompile.
+const previewPasses = new Map();
+
+// `canvases` maps a TONE_MAPPING_MODES key to the canvas to draw it into.
+// Returns false when there is nothing to draw yet.
+function renderToneMappingPreviews(canvases) {
+  const renderer = core.renderer;
+  if (!renderer || !core.scene || !core.camera) return false;
+  renderer.getSize(canvasSize);
+  if (!canvasSize.x || !canvasSize.y) return false;
+
+  // The canvas's aspect, so the camera's projection fits as it is.
+  const width = Math.round(PREVIEW_CSS_WIDTH * Math.min(window.devicePixelRatio || 1, 2));
+  const height = Math.max(1, Math.round((width * canvasSize.y) / canvasSize.x));
+  if (!previewSource) {
+    previewSource = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: MSAA_SAMPLES });
+    previewOutput = new THREE.WebGLRenderTarget(width, height);
+  }
+  previewSource.setSize(width, height);
+  previewOutput.setSize(width, height);
+
+  const previousTarget = renderer.getRenderTarget();
+  const previousToneMapping = renderer.toneMapping;
+  const pixels = new Uint8Array(width * height * 4);
+  try {
+    // Into a render target the renderer neither tone maps nor encodes sRGB.
+    renderer.setRenderTarget(previewSource);
+    renderer.render(core.scene, core.camera);
+
+    Object.entries(canvases).forEach(([mode, canvas]) => {
+      if (!(mode in TONE_MAPPING_MODES) || !canvas) return;
+      let pass = previewPasses.get(mode);
+      if (!pass) {
+        pass = new OutputPass();
+        previewPasses.set(mode, pass);
+      }
+      // OutputPass takes its tone mapping and exposure from the renderer.
+      renderer.toneMapping = TONE_MAPPING_MODES[mode];
+      pass.render(renderer, previewOutput, previewSource);
+      renderer.readRenderTargetPixels(previewOutput, 0, 0, width, height, pixels);
+
+      // WebGL rows run bottom-up.
+      const image = new ImageData(width, height);
+      const rowLength = width * 4;
+      for (let row = 0; row < height; row++) {
+        const from = (height - 1 - row) * rowLength;
+        image.data.set(pixels.subarray(from, from + rowLength), row * rowLength);
+      }
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").putImageData(image, 0, 0);
+    });
+  } finally {
+    renderer.toneMapping = previousToneMapping;
+    renderer.setRenderTarget(previousTarget);
+  }
+  return true;
+}
+
 // Draws one frame of the main scene to the canvas.
 function renderFrame(renderer = core.renderer) {
   if (!renderer || !core.scene || !core.camera) return;
@@ -5625,7 +5691,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "a5c5464" ;
+const BUILD_ID$2 = "382dde9" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -5676,7 +5742,7 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "a5c5464" ;
+const BUILD_ID$1 = "382dde9" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -6699,11 +6765,30 @@ function appendLightsSubmenuItems(viewer, items, container) {
     subButton.setAttribute("title", item.label);
     subButton.setAttribute("aria-label", item.label);
 
-    const iconSpan = document.createElement("span");
-    iconSpan.className = "viewer-editor-tool_icon";
-    iconSpan.setAttribute("aria-hidden", "true");
-    iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
-    subButton.appendChild(iconSpan);
+    if (item.previewToneMapping) {
+      // The view in this tone mapping (refreshToneMappingPreviews), captioned.
+      subButton.classList.add("viewer-editor-tool_submenu-preview");
+      const canvas = document.createElement("canvas");
+      canvas.className = "viewer-editor-tool_preview-canvas";
+      canvas.setAttribute("aria-hidden", "true");
+      const caption = document.createElement("span");
+      caption.className = "viewer-editor-tool_preview-label";
+      caption.setAttribute("aria-hidden", "true");
+      caption.textContent = item.label;
+      subButton.append(canvas, caption);
+      viewer.toneMappingPreviewCanvases[item.previewToneMapping] = canvas;
+    } else {
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "viewer-editor-tool_icon";
+      iconSpan.setAttribute("aria-hidden", "true");
+      iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
+      subButton.appendChild(iconSpan);
+    }
+
+    if (item.onOpen) {
+      // Hover or focus opens the submenu on desktop, a tap on touch screens.
+      ["pointerenter", "focusin", "click"].forEach((type) => viewer.bindEventListener(subButton, type, item.onOpen));
+    }
 
     if (item.type === "color") {
       subButton.classList.add("viewer-editor-tool_submenu-control");
@@ -6797,6 +6882,22 @@ function appendLightsSubmenuItems(viewer, items, container) {
   });
 }
 
+// Redraws the tone mapping previews from the current view, at most once a frame.
+function refreshToneMappingPreviews(viewer) {
+  if (viewer.toneMappingPreviewPending) return;
+  viewer.toneMappingPreviewPending = true;
+  requestAnimationFrame(() => {
+    viewer.toneMappingPreviewPending = false;
+    const canvases = viewer.toneMappingPreviewCanvases;
+    if (!renderToneMappingPreviews(canvases)) return;
+    // Behind the transparent canvas, as in the viewer itself.
+    const background = core.mainCanvas?.style.background || "";
+    Object.values(canvases).forEach((canvas) => {
+      canvas.style.background = background;
+    });
+  });
+}
+
 // Submenu contents of the Lights, Environment map and Rendering tools.
 const LIGHTS_SUBMENU_ITEMS = {
   environmentMap: (viewer) => [
@@ -6881,9 +6982,10 @@ const LIGHTS_SUBMENU_ITEMS = {
       key: "renderingToneMapping",
       icon: "toneMapping",
       label: t$1("gui.toneMapping", "Tone mapping"),
+      onOpen: () => refreshToneMappingPreviews(viewer),
       children: Object.entries(RENDERING_TONE_MAPPING_KEYS).map(([key, toneMapping]) => ({
         key,
-        icon: "toneMapping",
+        previewToneMapping: toneMapping,
         label: getRenderingMenuLabels()[key],
         onClick: () => {
           applyRenderingSettings({ toneMapping });
@@ -7111,6 +7213,7 @@ function createEditorToolbar(viewer) {
   viewer.editorToolbarButtons = {};
   // Shared by the Lights, Environment map and Rendering submenus.
   viewer.lightsSubmenuButtons = {};
+  viewer.toneMappingPreviewCanvases = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
   viewer.shadingMode = viewer.shadingMode || "standard";
 
@@ -8086,6 +8189,8 @@ function updateEditorToolbarLabels(viewer) {
       const label = lightsSubmenuLabels[key] || key;
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
+      const caption = button.querySelector(":scope > .viewer-editor-tool_preview-label");
+      if (caption) caption.textContent = label;
     });
   }
 
@@ -19003,7 +19108,7 @@ function attachTour(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-qMfO_on0.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-CMQt5KwD.js');
+const loadTilesPlugins = () => import('./index.three-plugins-Dkgt8NUB.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -23275,7 +23380,7 @@ const loadLWOLoader = async () => (await import('./three-CtlVvEc8.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-B2e1WOmM.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BefvpuG5.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DmzP1B6S.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aW; })).HDRLoader;
 
 var outlineClipping;
@@ -31669,7 +31774,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "a5c5464" ;
+const BUILD_ID = "382dde9" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -35858,4 +35963,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-BBQ7D0yT.js.map
+//# sourceMappingURL=main-B2m4bITq.js.map

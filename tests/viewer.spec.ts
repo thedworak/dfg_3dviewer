@@ -1661,6 +1661,20 @@ test('tone mapping defaults to Neutral and post-processing is switched from the 
     postProcessing: false,
   });
 
+  // Opening the tone mapping menu draws the view into each mode's preview,
+  // and the tone mapping of the view itself stays as it was.
+  await page.evaluate(() => {
+    document.querySelector('button[data-tool="renderingToneMapping"]').dispatchEvent(new Event('pointerenter'));
+  });
+  const previews = () => page.evaluate(() =>
+    [...document.querySelectorAll('button[data-tool^="renderingToneMapping"] canvas')].map((canvas) => {
+      if (!canvas.width) return 0;
+      const { data } = canvas.getContext('2d').getImageData(canvas.width >> 1, canvas.height >> 1, 1, 1);
+      return data[3];
+    }));
+  await expect.poll(previews).toEqual(Array(7).fill(255));
+  expect((await state()).toneMapping).toBe(constants.neutral);
+
   await clickTool('renderingPostprocessing');
   await expect.poll(async () => (await state()).postProcessing).toBe(true);
   await expect(page.locator('button[data-tool="renderingPostprocessing"] .viewer-editor-tool_submenu-toggle-state')).toHaveText('ON');

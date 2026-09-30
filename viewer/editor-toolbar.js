@@ -3,7 +3,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { isAppBuild } from "./remote.js";
 import { t } from "./i18n-utils.js";
-import { applyRenderingSettings, getRenderingSettings } from "./rendering.js";
+import { applyRenderingSettings, getRenderingSettings, renderToneMappingPreviews } from "./rendering.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
@@ -721,11 +721,30 @@ function appendLightsSubmenuItems(viewer, items, container) {
     subButton.setAttribute("title", item.label);
     subButton.setAttribute("aria-label", item.label);
 
-    const iconSpan = document.createElement("span");
-    iconSpan.className = "viewer-editor-tool_icon";
-    iconSpan.setAttribute("aria-hidden", "true");
-    iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
-    subButton.appendChild(iconSpan);
+    if (item.previewToneMapping) {
+      // The view in this tone mapping (refreshToneMappingPreviews), captioned.
+      subButton.classList.add("viewer-editor-tool_submenu-preview");
+      const canvas = document.createElement("canvas");
+      canvas.className = "viewer-editor-tool_preview-canvas";
+      canvas.setAttribute("aria-hidden", "true");
+      const caption = document.createElement("span");
+      caption.className = "viewer-editor-tool_preview-label";
+      caption.setAttribute("aria-hidden", "true");
+      caption.textContent = item.label;
+      subButton.append(canvas, caption);
+      viewer.toneMappingPreviewCanvases[item.previewToneMapping] = canvas;
+    } else {
+      const iconSpan = document.createElement("span");
+      iconSpan.className = "viewer-editor-tool_icon";
+      iconSpan.setAttribute("aria-hidden", "true");
+      iconSpan.innerHTML = item.iconHtml || getEditorToolbarIcon(item.icon);
+      subButton.appendChild(iconSpan);
+    }
+
+    if (item.onOpen) {
+      // Hover or focus opens the submenu on desktop, a tap on touch screens.
+      ["pointerenter", "focusin", "click"].forEach((type) => viewer.bindEventListener(subButton, type, item.onOpen));
+    }
 
     if (item.type === "color") {
       subButton.classList.add("viewer-editor-tool_submenu-control");
@@ -819,6 +838,22 @@ function appendLightsSubmenuItems(viewer, items, container) {
   });
 }
 
+// Redraws the tone mapping previews from the current view, at most once a frame.
+function refreshToneMappingPreviews(viewer) {
+  if (viewer.toneMappingPreviewPending) return;
+  viewer.toneMappingPreviewPending = true;
+  requestAnimationFrame(() => {
+    viewer.toneMappingPreviewPending = false;
+    const canvases = viewer.toneMappingPreviewCanvases;
+    if (!renderToneMappingPreviews(canvases)) return;
+    // Behind the transparent canvas, as in the viewer itself.
+    const background = core.mainCanvas?.style.background || "";
+    Object.values(canvases).forEach((canvas) => {
+      canvas.style.background = background;
+    });
+  });
+}
+
 // Submenu contents of the Lights, Environment map and Rendering tools.
 const LIGHTS_SUBMENU_ITEMS = {
   environmentMap: (viewer) => [
@@ -903,9 +938,10 @@ const LIGHTS_SUBMENU_ITEMS = {
       key: "renderingToneMapping",
       icon: "toneMapping",
       label: t("gui.toneMapping", "Tone mapping"),
+      onOpen: () => refreshToneMappingPreviews(viewer),
       children: Object.entries(RENDERING_TONE_MAPPING_KEYS).map(([key, toneMapping]) => ({
         key,
-        icon: "toneMapping",
+        previewToneMapping: toneMapping,
         label: getRenderingMenuLabels()[key],
         onClick: () => {
           applyRenderingSettings({ toneMapping });
@@ -1133,6 +1169,7 @@ export function createEditorToolbar(viewer) {
   viewer.editorToolbarButtons = {};
   // Shared by the Lights, Environment map and Rendering submenus.
   viewer.lightsSubmenuButtons = {};
+  viewer.toneMappingPreviewCanvases = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
   viewer.shadingMode = viewer.shadingMode || "standard";
 
@@ -2108,6 +2145,8 @@ export function updateEditorToolbarLabels(viewer) {
       const label = lightsSubmenuLabels[key] || key;
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
+      const caption = button.querySelector(":scope > .viewer-editor-tool_preview-label");
+      if (caption) caption.textContent = label;
     });
   }
 
