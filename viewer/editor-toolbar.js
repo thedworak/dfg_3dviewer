@@ -3,6 +3,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { isAppBuild } from "./remote.js";
 import { t } from "./i18n-utils.js";
+import { applyRenderingSettings, getRenderingSettings } from "./rendering.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
@@ -28,6 +29,9 @@ export function getEditorToolbarIcon(icon) {
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
+    rendering: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5 15.5 12M20.5 12l-8.5 3.5M12 20.5 8.5 12M3.5 12l8.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    toneMapping: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20c5 0 6-11 16-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    antialias: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4v-4h4v-4h4V8h4V4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" opacity="0.45"/><path d="M4 20 20 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     color: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5c0 2.8 5 9 5 9s5-6.2 5-9a5 5 0 0 0-5-5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 14.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z" fill="currentColor"/></svg>',
     intensity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     picking: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 3 8 8-4 1 2 5-2.5 1-2-5-3 3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
@@ -146,6 +150,44 @@ export function syncNoticeAboveToolbar() {
 // one wider than a phone (the lights' environment map) - they ran off
 // screen. Shifts the submenu back inside with a margin (its transform is
 // left to the CSS); in the toolbar's own units, as the toolbar is scaled.
+// Lights > Rendering submenu buttons -> the setting value they select.
+const RENDERING_TONE_MAPPING_KEYS = {
+  renderingToneMappingNeutral: "neutral",
+  renderingToneMappingAgx: "agx",
+  renderingToneMappingAces: "aces",
+  renderingToneMappingReinhard: "reinhard",
+  renderingToneMappingCineon: "cineon",
+  renderingToneMappingLinear: "linear",
+  renderingToneMappingNone: "none",
+};
+const RENDERING_ANTIALIAS_KEYS = {
+  renderingAntialiasMsaa: "msaa",
+  renderingAntialiasSmaa: "smaa",
+  renderingAntialiasFxaa: "fxaa",
+  renderingAntialiasNone: "none",
+};
+
+function getRenderingMenuLabels() {
+  return {
+    rendering: t("gui.rendering", "Rendering"),
+    renderingToneMapping: t("gui.toneMapping", "Tone mapping"),
+    renderingToneMappingNeutral: t("gui.toneMappingNeutral", "Neutral"),
+    renderingToneMappingAgx: "AgX",
+    renderingToneMappingAces: "ACES Filmic",
+    renderingToneMappingReinhard: "Reinhard",
+    renderingToneMappingCineon: "Cineon",
+    renderingToneMappingLinear: t("gui.toneMappingLinear", "Linear"),
+    renderingToneMappingNone: t("gui.toneMappingNone", "None"),
+    renderingExposure: t("gui.exposure", "Exposure"),
+    renderingPostprocessing: t("gui.postprocessing", "Post-processing"),
+    renderingAntialias: t("gui.antialiasing", "Anti-aliasing"),
+    renderingAntialiasMsaa: "MSAA",
+    renderingAntialiasSmaa: "SMAA",
+    renderingAntialiasFxaa: "FXAA",
+    renderingAntialiasNone: t("gui.antialiasingNone", "None"),
+  };
+}
+
 const SUBMENU_EDGE = 8;
 
 function fitSubmenuToViewport(submenu) {
@@ -1168,7 +1210,8 @@ export function createEditorToolbar(viewer) {
           if (
             item.key === "lightTargetTransformMove" ||
             item.key === "lightTargetTransformTarget" ||
-            item.key.startsWith("environmentMap")
+            item.key.startsWith("environmentMap") ||
+            item.key.startsWith("rendering")
           ) {
             viewer.lightsSubmenuButtons[item.key] = subButton;
           }
@@ -1256,6 +1299,63 @@ export function createEditorToolbar(viewer) {
                 await viewer.setEnvironmentMapPreset("goldenHour");
                 viewer.updateLightsSubmenuState();
               },
+            },
+          ],
+        },
+        {
+          key: "rendering",
+          icon: "rendering",
+          label: t("gui.rendering", "Rendering"),
+          children: [
+            {
+              key: "renderingToneMapping",
+              icon: "toneMapping",
+              label: t("gui.toneMapping", "Tone mapping"),
+              children: Object.entries(RENDERING_TONE_MAPPING_KEYS).map(([key, toneMapping]) => ({
+                key,
+                icon: "toneMapping",
+                label: getRenderingMenuLabels()[key],
+                onClick: () => {
+                  applyRenderingSettings({ toneMapping });
+                  viewer.updateLightsSubmenuState();
+                },
+              })),
+            },
+            {
+              key: "renderingExposure",
+              icon: "intensity",
+              label: t("gui.exposure", "Exposure"),
+              type: "slider",
+              min: 0,
+              max: 3,
+              step: 0.01,
+              value: () => getRenderingSettings().exposure,
+              onChange: (value) => applyRenderingSettings({ exposure: value }),
+            },
+            {
+              key: "renderingPostprocessing",
+              icon: "rendering",
+              label: t("gui.postprocessing", "Post-processing"),
+              type: "toggle",
+              value: () => getRenderingSettings().postprocessing.enabled,
+              onChange: (enabled) => {
+                applyRenderingSettings({ postprocessing: { enabled } });
+                viewer.updateLightsSubmenuState();
+              },
+            },
+            {
+              key: "renderingAntialias",
+              icon: "antialias",
+              label: t("gui.antialiasing", "Anti-aliasing"),
+              children: Object.entries(RENDERING_ANTIALIAS_KEYS).map(([key, antialias]) => ({
+                key,
+                icon: "antialias",
+                label: getRenderingMenuLabels()[key],
+                onClick: () => {
+                  applyRenderingSettings({ postprocessing: { antialias } });
+                  viewer.updateLightsSubmenuState();
+                },
+              })),
             },
           ],
         },
@@ -1778,6 +1878,37 @@ export function updateLightsSubmenuState(viewer) {
     activeMode === "rotate"
   );
 
+  const rendering = getRenderingSettings();
+  const setPressed = (button, isActive) => {
+    button?.classList.toggle("is-active", isActive);
+    button?.setAttribute("aria-pressed", isActive ? "true" : "false");
+  };
+  Object.entries(RENDERING_TONE_MAPPING_KEYS).forEach(([key, toneMapping]) => {
+    setPressed(viewer.lightsSubmenuButtons[key], rendering.toneMapping === toneMapping);
+  });
+  Object.entries(RENDERING_ANTIALIAS_KEYS).forEach(([key, antialias]) => {
+    setPressed(viewer.lightsSubmenuButtons[key], rendering.postprocessing.antialias === antialias);
+  });
+  // Anti-aliasing belongs to the post-processing chain.
+  viewer.lightsSubmenuButtons.renderingAntialias?.classList.toggle("is-disabled", !rendering.postprocessing.enabled);
+
+  const postprocessingToggle = viewer.lightsSubmenuButtons.renderingPostprocessing;
+  if (postprocessingToggle) {
+    const toggleLabel = postprocessingToggle.querySelector(".viewer-editor-tool_submenu-toggle-state");
+    const isEnabled = rendering.postprocessing.enabled;
+    if (toggleLabel) toggleLabel.textContent = isEnabled ? t("gui.on", "ON") : t("gui.off", "OFF");
+    setPressed(postprocessingToggle, isEnabled);
+  }
+
+  // A manifest import may change the exposure after the slider was built.
+  const exposureButton = viewer.lightsSubmenuButtons.renderingExposure;
+  const exposureSlider = exposureButton?.querySelector('input[type="range"]');
+  if (exposureSlider && Number(exposureSlider.value) !== rendering.exposure) {
+    exposureSlider.value = String(rendering.exposure);
+    const valueLabel = exposureButton.querySelector(".viewer-editor-tool_submenu-value");
+    if (valueLabel) valueLabel.textContent = rendering.exposure.toFixed(2);
+  }
+
   const environmentMapPreset = viewer.environmentMapPreset || "neutral";
   const environmentMapPresetStates = {
     environmentMapStyleNeutral: "neutral",
@@ -1978,6 +2109,7 @@ export function updateEditorToolbarLabels(viewer) {
       environmentMapStyleSunny: t("gui.environmentMapSunny", "Sunny"),
       environmentMapStyleStudio: t("gui.environmentMapStudio", "Studio"),
       environmentMapStyleGoldenHour: t("gui.environmentMapGoldenHour", "Golden Hour"),
+      ...getRenderingMenuLabels(),
     };
     Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {
       const label = lightsSubmenuLabels[key] || key;

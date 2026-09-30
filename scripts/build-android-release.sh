@@ -2,7 +2,8 @@
 # Release build of the Android app (docs/publishing.md, "2. Android app"):
 # loads the MOBILE_* build variables from an env file, refuses test values,
 # builds and syncs the web bundle (pnpm run cap:sync), checks the result and
-# builds the signed app bundle (./gradlew bundleRelease).
+# raises versionCode in android/app/version.properties and builds the signed
+# app bundle (./gradlew bundleRelease).
 #
 #   scripts/build-android-release.sh [--env FILE] [--sync-only]
 #
@@ -90,7 +91,14 @@ if ! $SYNC_ONLY; then
   done
 fi
 
-VERSION_CODE="$(sed -n 's/^[[:space:]]*versionCode[[:space:]]\{1,\}\([0-9]\{1,\}\).*/\1/p' "$ROOT/android/app/build.gradle" | head -n1)"
+VERSION_FILE="$ROOT/android/app/version.properties"
+VERSION_CODE="$(sed -n 's/^[[:space:]]*VERSION_CODE[[:space:]]*=[[:space:]]*\([0-9]\{1,\}\).*/\1/p' "$VERSION_FILE" 2>/dev/null | head -n1)"
+[[ -n "$VERSION_CODE" ]] || fail "no VERSION_CODE in $VERSION_FILE"
+if ! $SYNC_ONLY; then
+  # Every uploaded bundle needs a new versionCode; a skipped number is harmless.
+  VERSION_CODE=$((VERSION_CODE + 1))
+  sed -i "s/^\([[:space:]]*VERSION_CODE[[:space:]]*=[[:space:]]*\)[0-9]\{1,\}/\1$VERSION_CODE/" "$VERSION_FILE"
+fi
 VERSION_NAME="$(sed -n 's/^[[:space:]]*versionName[[:space:]]\{1,\}"\([^"]*\)".*/\1/p' "$ROOT/android/app/build.gradle" | head -n1)"
 echo "Building version $VERSION_NAME (versionCode $VERSION_CODE) - Play rejects a versionCode it has seen."
 
@@ -129,5 +137,6 @@ cd "$ROOT/android"
 BUNDLE="$ROOT/android/app/build/outputs/bundle/release/app-release.aab"
 [[ -f "$BUNDLE" ]] || fail "gradle finished but $BUNDLE is missing"
 echo
-echo "Release bundle: $BUNDLE"
+echo "Release bundle: $BUNDLE (versionCode $VERSION_CODE)"
+echo "Commit android/app/version.properties so the next build starts from $VERSION_CODE."
 echo "Check the signing key with: (cd android && ./gradlew :app:signingReport)  - release should show Config: upload"

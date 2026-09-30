@@ -115,6 +115,7 @@ export function attachTour(Viewer) {
       if (restoreAutoRotate && core.controls) core.controls.autoRotate = state.savedAutoRotate;
       Viewer.tourState = null;
       Viewer.updateEditorToolbarState?.();
+      Viewer.syncTourIdlePanel();
       return true;
     },
 
@@ -349,8 +350,19 @@ export function attachTour(Viewer) {
 
     createTourPanel() {
       const state = Viewer.tourState;
+      if (!state) return;
+      Viewer.removeTourIdlePanel();
+      const ui = Viewer.buildTourPanel();
+      if (!ui) return;
+      state.ui = ui;
+      Viewer.updateTourLabels();
+    },
+
+    // The panel's elements. Its buttons act on the running tour, or - while
+    // it is the idle panel shown before a tour - start one.
+    buildTourPanel() {
       const stack = getViewerSideStack();
-      if (!state || !stack) return;
+      if (!stack) return null;
 
       const panel = document.createElement("section");
       panel.id = "viewerTourPanel";
@@ -364,7 +376,16 @@ export function attachTour(Viewer) {
       closeButton.type = "button";
       closeButton.className = "viewer-tour-panel_close";
       closeButton.textContent = "×";
-      header.append(counter, closeButton);
+      // Leader lines on/off (Viewer.setAnnotationLeaderLines).
+      const leadersButton = document.createElement("button");
+      leadersButton.type = "button";
+      leadersButton.className = "viewer-tour-panel_leaders";
+      leadersButton.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <circle cx="8" cy="4" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="8" y1="7" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="8" cy="14" r="1.3" fill="currentColor"/>
+      </svg>`;
+      header.append(counter, leadersButton, closeButton);
       attachToolPanelChrome(panel, header, { before: closeButton });
 
       const body = document.createElement("div");
@@ -406,20 +427,110 @@ export function attachTour(Viewer) {
         if (handled) event.preventDefault();
       });
 
-      closeButton.addEventListener("click", () => Viewer.stopTour());
+      leadersButton.addEventListener("click", () => Viewer.toggleAnnotationLeaderLines?.());
+      closeButton.addEventListener("click", () => {
+        if (Viewer.isTourActive()) Viewer.stopTour();
+        else Viewer.dismissTourIdlePanel();
+      });
       prevButton.addEventListener("click", () => {
+        if (!Viewer.isTourActive()) {
+          Viewer.startTour({ autoplay: false, startStep: Viewer.getTourSteps().length - 1 });
+          return;
+        }
         Viewer.pauseTour();
         Viewer.previousTourStep();
       });
       nextButton.addEventListener("click", () => {
+        if (!Viewer.isTourActive()) {
+          Viewer.startTour({ autoplay: false, startStep: 0 });
+          return;
+        }
         Viewer.pauseTour();
         Viewer.nextTourStep();
       });
-      playButton.addEventListener("click", () => Viewer.toggleTourPlayback());
+      playButton.addEventListener("click", () => {
+        if (!Viewer.isTourActive()) Viewer.startTour({ autoplay: true });
+        else Viewer.toggleTourPlayback();
+      });
 
       stack.prepend(panel);
-      state.ui = { panel, counter, closeButton, title, description, prevButton, playButton, nextButton };
-      Viewer.updateTourLabels();
+      const ui = { panel, counter, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
+      Viewer.syncTourLeaderToggle(ui);
+      return ui;
+    },
+
+    // The leader-lines button of the tour panel(s), in sync with the setting.
+    syncTourLeaderToggle(ui) {
+      const targets = ui ? [ui] : [Viewer.tourState?.ui, Viewer.tourIdleUi];
+      const enabled = Viewer.annotationLeaderLines === true;
+      const label = enabled
+        ? t("tour.hideLeaderLines", "Hide annotation leader lines")
+        : t("tour.showLeaderLines", "Show annotation leader lines");
+      targets.forEach((item) => {
+        const button = item?.leadersButton;
+        if (!button) return;
+        button.setAttribute("aria-pressed", enabled ? "true" : "false");
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      });
+    },
+
+    // Idle panel: shown whenever the model has annotations to tour and no
+    // tour is running, so the tour can be started without the editor
+    // toolbar. Closing it hides it until the set of annotations changes.
+    tourIdleUi: null,
+    tourIdleDismissedFor: null,
+
+    getTourStepsSignature(steps) {
+      return steps.map(({ entry }) => entry.id).join("|");
+    },
+
+    removeTourIdlePanel() {
+      Viewer.tourIdleUi?.panel.remove();
+      Viewer.tourIdleUi = null;
+    },
+
+    dismissTourIdlePanel() {
+      Viewer.tourIdleDismissedFor = Viewer.getTourStepsSignature(Viewer.getTourSteps());
+      Viewer.removeTourIdlePanel();
+    },
+
+    syncTourIdlePanel() {
+      if (Viewer.isTourActive()) {
+        Viewer.removeTourIdlePanel();
+        return;
+      }
+      const steps = Viewer.getTourSteps();
+      const signature = Viewer.getTourStepsSignature(steps);
+      if (!steps.length || signature === Viewer.tourIdleDismissedFor) {
+        Viewer.removeTourIdlePanel();
+        return;
+      }
+      Viewer.tourIdleDismissedFor = null;
+      if (!Viewer.tourIdleUi) Viewer.tourIdleUi = Viewer.buildTourPanel();
+      const ui = Viewer.tourIdleUi;
+      if (!ui) return;
+      ui.panel.classList.add("viewer-tour-panel--idle");
+      ui.panel.setAttribute("aria-label", t("tour.panel", "Guided tour"));
+      ui.counter.textContent = t("tour.annotationCount", { count: steps.length }, "Annotations: {count}");
+      ui.title.textContent = t("tour.panel", "Guided tour");
+      ui.description.textContent = t("tour.idleHint", "Play the guided tour through the saved annotations, or step through them with ‹ ›.");
+      ui.description.hidden = false;
+      const dismissLabel = t("tour.dismiss", "Hide guided tour");
+      ui.closeButton.setAttribute("aria-label", dismissLabel);
+      ui.closeButton.title = dismissLabel;
+      const startLabel = t("tour.start", "Start guided tour");
+      ui.playButton.textContent = "▶";
+      ui.playButton.setAttribute("aria-label", startLabel);
+      ui.playButton.setAttribute("aria-pressed", "false");
+      ui.playButton.title = startLabel;
+      ui.prevButton.setAttribute("aria-label", t("tour.previous", "Previous step (P)"));
+      ui.prevButton.title = t("tour.previous", "Previous step (P)");
+      ui.nextButton.setAttribute("aria-label", t("tour.next", "Next step (N)"));
+      ui.nextButton.title = t("tour.next", "Next step (N)");
+      ui.prevButton.disabled = false;
+      ui.nextButton.disabled = false;
+      ui.playButton.disabled = false;
     },
 
     // Shared by the panel and the canvas key handler. Returns true when the
@@ -450,6 +561,8 @@ export function attachTour(Viewer) {
     },
 
     updateTourLabels() {
+      Viewer.syncTourIdlePanel();
+      Viewer.syncTourLeaderToggle();
       const ui = Viewer.tourState?.ui;
       if (!ui) return;
       ui.panel.setAttribute("aria-label", t("tour.panel", "Guided tour"));
@@ -507,7 +620,7 @@ export function attachTour(Viewer) {
         Viewer.syncTourPanel();
         return;
       }
-      Viewer.maybeAutostartTour();
+      if (!Viewer.maybeAutostartTour()) Viewer.syncTourIdlePanel();
     },
 
     maybeAutostartTour() {

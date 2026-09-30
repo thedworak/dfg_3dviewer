@@ -43,6 +43,14 @@
       "testImages": []
     },
     "background": "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+    "rendering": {
+      "toneMapping": "neutral",
+      "exposure": 1,
+      "postprocessing": {
+        "enabled": false,
+        "antialias": "msaa"
+      }
+    },
     "performanceMode": {
       "Performance": "high-performance"
     },

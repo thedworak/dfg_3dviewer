@@ -62,6 +62,21 @@ Stores runtime viewer options.
     "preset": "neutral",
     "enabled": true
   },
+  "rendering": {
+    "toneMapping": "neutral",
+    "exposure": 1,
+    "postprocessing": {
+      "enabled": false,
+      "antialias": "msaa"
+    }
+  },
+  "tour": {
+    "autostart": false,
+    "autoplay": false,
+    "stepDuration": 6,
+    "transitionDuration": 1.5,
+    "loop": true
+  },
   "presentationMode": false,
   "sandbox": false,
   "autorotate": false,
@@ -108,7 +123,19 @@ Notes:
 - `disableInteraction` disables rotate, pan, and zoom input
 - `hideUi` hides the action menu and editor toolbar
 - `hideMetadata` hides the metadata panel
+- `rendering` controls how the canvas image is produced (all fields optional; `viewer-settings.json` `viewer.rendering` is the fallback, then the defaults shown above):
+  - `toneMapping`: `none`, `linear`, `reinhard`, `cineon`, `aces`, `agx` or `neutral` (default, Khronos PBR Neutral - closest to the material colours)
+  - `exposure`: tone mapping exposure, a number `>= 0` (default `1`)
+  - `postprocessing.enabled`: renders through a post-processing chain (default `false`); tone mapping looks the same either way
+  - `postprocessing.antialias`: anti-aliasing used by that chain - `msaa` (4x multisampling, default), `smaa`, `fxaa` (cheapest) or `none`
 - `showNotifications` controls toast/status notices
+- `tour`: guided tour through the manifest's annotations, same keys as `viewer-settings.json` `viewer.tour` (each optional, the settings file stays the fallback):
+  - `autostart`: start the tour once the model and annotations have loaded (default `false`); a manifest that sets `tour` may autostart it again even if an earlier manifest already did
+  - `autoplay`: advance the steps automatically (default `false`)
+  - `stepDuration`: seconds on each step while autoplaying, `> 0` (default `6`)
+  - `transitionDuration`: camera flight time in seconds, `>= 0` (default `1.5`)
+  - `loop`: wrap around after the last step while autoplaying (default `true`)
+  - The steps are the annotations in marker order; each one's `AIM3DViewer.view` (`{ position, target, fov }`) is the camera pose shown for it.
 - `window` stores the movable viewer host geometry in viewport pixels
 - `editorToolbar` is the canonical editor toolbar runtime state used by the current viewer
 - `viewer.clipping` is the canonical location for clipping state

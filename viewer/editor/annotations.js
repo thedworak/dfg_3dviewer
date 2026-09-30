@@ -3,6 +3,7 @@ import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
 import { unitNameToMeters } from "./model-units.js";
+import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
 import {
   formatAIM3DManifestValidationErrors,
@@ -71,33 +72,144 @@ export function attachAnnotations(Viewer) {
       return group;
     },
 
+    // Leader lines (off by default): each annotation's number is lifted
+    // above the model's bounding box on a vertical line from its point.
+    annotationLeaderLines: false,
+
+    setAnnotationLeaderLines(enabled) {
+      this.annotationLeaderLines = enabled === true;
+      this.refreshAnnotationPOIs();
+      this.syncTourLeaderToggle?.();
+    },
+
+    toggleAnnotationLeaderLines() {
+      this.setAnnotationLeaderLines(!this.annotationLeaderLines);
+    },
+
+    // Height the numbers are lifted to (just above the models' bounding box)
+    // and the step between staggered rows, so neighbouring numbers overlap less.
+    getAnnotationLeaderLayout() {
+      const roots = (Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject])
+        .flat()
+        .filter((item) => item?.isObject3D);
+      const box = new THREE.Box3();
+      roots.forEach((root) => box.expandByObject(root));
+      if (box.isEmpty()) return null;
+      const height = Math.max(box.max.y - box.min.y, 1e-3);
+      return { top: box.max.y + height * 0.12, stagger: height * 0.06 };
+    },
+
+    // One per dot: removing markers disposes their textures.
+    createAnnotationLeaderDotTexture() {
+      const size = 64;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgba(17, 24, 39, 0.9)";
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    },
+
+    // The line from the annotated point up to the underside of its number,
+    // and a small dot marking the point itself. Drawn over the model (no
+    // depth test), like the numbers.
+    addAnnotationLeaderLine(group, entry, anchor, marker) {
+      const end = marker.position.clone();
+      end.y -= marker.scale.y * 0.42;
+      if (end.y <= anchor.y) return;
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([anchor, end]),
+        new THREE.LineBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.85,
+          depthTest: false,
+          toneMapped: false,
+        })
+      );
+      line.name = "annotation-leader";
+      line.renderOrder = 998;
+      line.userData.annotationId = entry.id;
+      group.add(line);
+
+      const dot = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: this.createAnnotationLeaderDotTexture(),
+        transparent: true,
+        depthTest: false,
+        toneMapped: false,
+        sizeAttenuation: false,
+      }));
+      dot.scale.set(0.012, 0.012, 1);
+      dot.position.copy(anchor);
+      dot.name = "annotation-leader-dot";
+      dot.renderOrder = 998;
+      dot.userData.annotationId = entry.id;
+      group.add(dot);
+    },
+
+    // A numbered badge: dark fill, blue ring (keeps it apart from dark
+    // backgrounds) and a soft shadow (keeps it apart from light ones).
     createNumberTexture(text) {
-      const size = 128;
+      const size = 256;
+      const center = size / 2;
+      const radius = size * 0.4;
+      const ringWidth = size * 0.05;
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
 
       const ctx = canvas.getContext("2d");
 
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+      ctx.shadowBlur = size * 0.08;
+      ctx.shadowOffsetY = size * 0.015;
+      ctx.fillStyle = "rgba(17, 24, 39, 0.88)";
       ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
+      ctx.lineWidth = ringWidth;
+      ctx.strokeStyle = "#0062fd";
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Shrink longer numbers to stay inside the ring.
+      let fontSize = size * 0.46;
+      ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
+      const maxTextWidth = radius * 1.35;
+      const textWidth = ctx.measureText(text).width;
+      if (textWidth > maxTextWidth) {
+        fontSize *= maxTextWidth / textWidth;
+        ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
+      }
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 64px Arial";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(text, size / 2, size / 2);
+      ctx.fillText(text, center, center + fontSize * 0.04);
 
       const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
       texture.needsUpdate = true;
 
       return texture;
     },
 
     createAnnotationPOIMarker(entry, position, index = 1) {
-      const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005);
+      // The badge fills ~85% of its texture (the rest is ring and shadow),
+      // so the sprite is scaled up to keep the badge its former size.
+      const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005) * 1.15;
 
       const texture = Viewer.createNumberTexture(index.toString());
 
@@ -105,6 +217,8 @@ export function attachAnnotations(Viewer) {
         map: texture,
         transparent: true,
         depthTest: false,
+        // Same look under every tone mapping / exposure preset.
+        toneMapped: false,
       });
 
       const sprite = new THREE.Sprite(spriteMaterial);
@@ -321,13 +435,20 @@ export function attachAnnotations(Viewer) {
       }
 
       const group = this.ensureAnnotationPOIGroup();
+      const leaderLayout = this.annotationLeaderLines ? this.getAnnotationLeaderLayout() : null;
       let added = 0;
       entries.forEach((entry, index) => {
         const center = this.getAnnotationEntryCenter(entry);
         if (!center) return;
-        const marker = this.createAnnotationPOIMarker(entry, center, index + 1);
+        // With leader lines on, the number sits above the model on a
+        // vertical line rising from the annotated point.
+        const markerPosition = leaderLayout
+          ? new THREE.Vector3(center.x, leaderLayout.top + (index % 3) * leaderLayout.stagger, center.z)
+          : center;
+        const marker = this.createAnnotationPOIMarker(entry, markerPosition, index + 1);
         group.add(marker);
         this.annotationPOIMarkers.push(marker);
+        if (leaderLayout) this.addAnnotationLeaderLine(group, entry, center, marker);
         added += 1;
         // A comment on a region (IIIF WktSelector): its outline too.
         const polygon = this.getAnnotationEntryPolygonWorld(entry);
@@ -1203,6 +1324,7 @@ export function attachAnnotations(Viewer) {
               preset: core.environmentMapPreset || "neutral",
               enabled: core.environmentMapEnabled || true
             },
+            rendering: getRenderingSettings(),
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
             autorotate: core.controls?.autoRotate === true,
@@ -1578,6 +1700,11 @@ export function attachAnnotations(Viewer) {
         if (typeof this.setEnvironmentMapEnabled === "function" && typeof environmentMap.enabled === "boolean") {
           this.setEnvironmentMapEnabled(environmentMap.enabled).catch((error) => console.error(error));
         }
+      }
+
+      if (viewerConfig.rendering && typeof viewerConfig.rendering === "object") {
+        applyRenderingSettings(viewerConfig.rendering);
+        this.updateLightsSubmenuState?.();
       }
 
       const backgroundColor = String(viewerConfig.backgroundColor || "").trim();

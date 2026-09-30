@@ -1,3 +1,8 @@
+// Keep in sync with TONE_MAPPING_MODES / ANTIALIAS_MODES in viewer/rendering.js
+// (not imported: this module also runs in Node without three.js).
+const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
+const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
+
 function isPlainObject(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
 }
@@ -216,6 +221,27 @@ function validateViewer(viewer, path, errors) {
       if (viewer.environmentMap.enabled !== undefined) validateBoolean(viewer.environmentMap.enabled, `${path}.environmentMap.enabled`, errors);
     }
   }
+  if (viewer.rendering !== undefined) {
+    const rendering = viewer.rendering;
+    if (!isPlainObject(rendering)) {
+      pushError(errors, `${path}.rendering`, "must be an object");
+    } else {
+      if (rendering.toneMapping !== undefined) validateEnum(rendering.toneMapping, RENDERING_TONE_MAPPINGS, `${path}.rendering.toneMapping`, errors);
+      if (rendering.exposure !== undefined) {
+        validateNumber(rendering.exposure, `${path}.rendering.exposure`, errors);
+        if (Number.isFinite(rendering.exposure) && rendering.exposure < 0) pushError(errors, `${path}.rendering.exposure`, "must be >= 0");
+      }
+      if (rendering.postprocessing !== undefined) {
+        const postprocessing = rendering.postprocessing;
+        if (!isPlainObject(postprocessing)) {
+          pushError(errors, `${path}.rendering.postprocessing`, "must be an object");
+        } else {
+          if (postprocessing.enabled !== undefined) validateBoolean(postprocessing.enabled, `${path}.rendering.postprocessing.enabled`, errors);
+          if (postprocessing.antialias !== undefined) validateEnum(postprocessing.antialias, RENDERING_ANTIALIAS_MODES, `${path}.rendering.postprocessing.antialias`, errors);
+        }
+      }
+    }
+  }
   [
     "presentationMode",
     "sandbox",
@@ -272,6 +298,23 @@ function validateViewer(viewer, path, errors) {
     }
   }
   if (viewer.clipping !== undefined) validateClipping(viewer.clipping, `${path}.clipping`, errors);
+  if (viewer.tour !== undefined) {
+    if (!isPlainObject(viewer.tour)) {
+      pushError(errors, `${path}.tour`, "must be an object");
+    } else {
+      ["autostart", "autoplay", "loop"].forEach((key) => {
+        if (viewer.tour[key] !== undefined) validateBoolean(viewer.tour[key], `${path}.tour.${key}`, errors);
+      });
+      if (viewer.tour.stepDuration !== undefined) {
+        validateNumber(viewer.tour.stepDuration, `${path}.tour.stepDuration`, errors);
+        if (Number.isFinite(viewer.tour.stepDuration) && viewer.tour.stepDuration <= 0) pushError(errors, `${path}.tour.stepDuration`, "must be > 0");
+      }
+      if (viewer.tour.transitionDuration !== undefined) {
+        validateNumber(viewer.tour.transitionDuration, `${path}.tour.transitionDuration`, errors);
+        if (Number.isFinite(viewer.tour.transitionDuration) && viewer.tour.transitionDuration < 0) pushError(errors, `${path}.tour.transitionDuration`, "must be >= 0");
+      }
+    }
+  }
 }
 
 function validateModelTransform(modelTransform, path, errors) {

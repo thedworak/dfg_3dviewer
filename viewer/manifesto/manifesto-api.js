@@ -94,6 +94,19 @@ function toPanelState(panel) {
   return state;
 }
 
+// Guided tour options (same keys as viewer-settings.json viewer.tour); only
+// well-formed values are kept.
+function toTourSettings(tour) {
+  if (!isPlainObject(tour)) return undefined;
+  const settings = {};
+  ["autostart", "autoplay", "loop"].forEach((key) => {
+    if (typeof tour[key] === "boolean") settings[key] = tour[key];
+  });
+  if (Number.isFinite(tour.stepDuration) && tour.stepDuration > 0) settings.stepDuration = tour.stepDuration;
+  if (Number.isFinite(tour.transitionDuration) && tour.transitionDuration >= 0) settings.transitionDuration = tour.transitionDuration;
+  return Object.keys(settings).length ? settings : undefined;
+}
+
 // Merges the deployment settings carried by an AIM3D manifest into `config`
 // (the object loaded from viewer-settings.json). viewer-settings.json stays the
 // fallback: only values the manifest actually defines are overwritten, so
@@ -128,6 +141,8 @@ export function applyManifestSettings(manifest, config) {
   if (isPlainObject(viewer.auth)) set(config.viewer, "auth", { ...viewer.auth });
   set(config.viewer, "manifestoForm", toPanelState(viewer.manifestoForm));
   set(config.viewer, "metadataContainer", toPanelState(viewer.metadataContainer));
+  const tour = toTourSettings(viewer.tour);
+  if (tour) set(config.viewer, "tour", { ...(isPlainObject(config.viewer.tour) ? config.viewer.tour : {}), ...tour });
 
   set(config.entity, "exportViewerUrl", nonEmptyString(integration.exportViewerUrl));
   if (isPlainObject(integration.api)) {

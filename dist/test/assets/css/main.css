@@ -1535,7 +1535,7 @@ canvas {
 
 .galleryCounter {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -1623,10 +1623,12 @@ canvas {
   right: 28px;
 }
 
+/* The lightbox covers the whole screen, which in the app (edge to edge)
+   includes the status bar and the notch: its controls keep clear of them. */
 .closeGallery {
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: calc(24px + env(safe-area-inset-top));
+  right: calc(24px + env(safe-area-inset-right));
 
   width: 44px;
   height: 44px;
@@ -1672,11 +1674,11 @@ canvas {
   }
 
   .galleryNavPrev {
-    left: 12px;
+    left: calc(12px + env(safe-area-inset-left));
   }
 
   .galleryNavNext {
-    right: 12px;
+    right: calc(12px + env(safe-area-inset-right));
   }
 }
 
@@ -1827,6 +1829,28 @@ canvas {
   justify-content: flex-end;
 }
 
+/* Bug report form (bug-report.js); the panel and form reuse the annotation
+   dialog's styles. */
+#bugReportDialog[hidden] {
+  display: none !important;
+}
+
+#bugReportDialog {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+}
+
+#bugReportDialog .annotation-dialog__panel {
+  width: min(480px, calc(100% - 28px));
+}
+
+.bug-report-dialog__privacy {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
 #annotationPOITooltip[hidden] {
   display: none !important;
 }
@@ -1909,6 +1933,17 @@ canvas {
   flex-wrap: nowrap;
   gap: 10px;
   width: 100%;
+}
+
+/* Wraps #image-list for the scroll hints (thumbnail-gallery.js); they only
+   show in the phone layout below, where the row scrolls sideways. */
+.image-list-scroller {
+  position: relative;
+  width: 100%;
+}
+
+.image-list-hint {
+  display: none;
 }
 
 #image-list .field__item {
@@ -2129,6 +2164,8 @@ body.presentation-mode {
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scroll-snap-type: x proximity;
+    /* Snap to the padding, not the edge (the row started 8px scrolled). */
+    scroll-padding-inline: 8px;
     scrollbar-width: none;
   }
 
@@ -2140,6 +2177,70 @@ body.presentation-mode {
     flex: 0 0 64px;
     min-width: 64px;
     scroll-snap-align: start;
+  }
+
+  /* More thumbnails off screen: that edge fades out and a small chevron
+     sits on it (tapping it scrolls). */
+  .image-list-scroller.can-scroll-next #image-list {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-scroller.can-scroll-prev #image-list {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-scroller.can-scroll-prev.can-scroll-next #image-list {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+  }
+
+  .image-list-hint {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(17, 24, 39, 0.55);
+    color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: opacity 0.2s ease;
+  }
+
+  .image-list-hint svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  .image-list-hint--prev {
+    left: 4px;
+  }
+
+  .image-list-hint--next {
+    right: 4px;
+  }
+
+  .image-list-scroller.can-scroll-prev .image-list-hint--prev,
+  .image-list-scroller.can-scroll-next .image-list-hint--next {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Until the row is first moved, the right chevron nudges once. */
+  .image-list-scroller.can-scroll-next:not(.can-scroll-prev) .image-list-hint--next {
+    animation: imageListHintNudge 1.2s ease-in-out 0.6s 2;
   }
 
   /* Notices: one short line above the toolbar, not a block over the model.
@@ -2160,9 +2261,21 @@ body.presentation-mode {
   }
 }
 
+@keyframes imageListHintNudge {
+  0%, 100% { transform: translate(0, -50%); }
+  50% { transform: translate(4px, -50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-list-hint {
+    animation: none !important;
+  }
+}
+
 /* A phone held sideways: the gallery gives its height to the viewer. */
 @media (max-height: 520px) and (pointer: coarse) {
-  #image-list {
+  #image-list,
+  .image-list-scroller {
     display: none !important;
   }
 
@@ -2202,6 +2315,50 @@ body.presentation-mode {
   }
 
   #metadata-card.metadata-open .metadata-drag-handle {
+    display: none;
+  }
+}
+
+/* Model details on a phone, closed: a small round "i" in the corner instead
+   of the file name card, so it keeps off the model. The name stays in the
+   button's aria-label; a tap opens the sheet above. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  #metadata-card:not(.metadata-open) {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 0;
+    min-height: 0;
+    margin: 8px 0 0 max(8px, env(safe-area-inset-left));
+    padding: 0;
+    border-radius: 999px;
+    transform: none;
+    transition: none;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-drag-handle,
+  #metadata-card:not(.metadata-open) .metadata-toggle-copy {
+    display: none;
+  }
+
+  #metadata-card:not(.metadata-open) #metadata-collapse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 0;
+    gap: 0;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-toggle-chevron {
+    width: 20px;
+    height: 20px;
+    border-radius: 0;
+    background-color: var(--metadata-value-color);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  #metadata-card:not(.metadata-open) .metadata-toggle-chevron::before {
     display: none;
   }
 }
@@ -2270,7 +2427,11 @@ body.viewer-offline #manageUsersButton,
 body.viewer-no-remote #uploadModel,
 body.viewer-app #loginButton,
 body.viewer-app #manageUsersButton,
-body.viewer-app #browseModelsButton {
+body.viewer-app #browseModelsButton,
+/* ...and the bar that holds only those two, or its empty frame stays in the
+   header's corner. */
+body.viewer-offline #viewer-account-bar,
+body.viewer-app #viewer-account-bar {
   display: none !important;
 }
 
@@ -2324,7 +2485,42 @@ body.viewer-app.viewer-standalone-page {
   box-sizing: border-box;
 }
 
-/* Tools the plan does not include (ui/plans-panel.js): a small lock. */
+/* App on any screen, tablets too (the phone layout above stops at 640px):
+   the viewer fills what the header leaves, instead of index.html's 50vh
+   with an empty band below it. */
+body.viewer-app.viewer-standalone-page {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+body.viewer-app.viewer-standalone-page > #DFG_3DViewer {
+  flex: 1 1 0;
+  height: auto !important;
+  min-height: 280px;
+  overflow: hidden;
+}
+
+/* Fullscreen covers that page padding (and the fullscreen element cannot be
+   made shorter), so the toolbar keeps clear of the banner by itself. The
+   model may run on under the banner. */
+body.viewer-app .mainContainer:fullscreen #viewerEditorToolbar,
+body.viewer-app .mainContainer.fullscreen #viewerEditorToolbar {
+  margin-bottom: calc(env(safe-area-inset-bottom) + var(--app-ad-banner-height, 0px));
+}
+
+/* Tools and features the plan does not include (ui/plans-panel.js): a small
+   lock - the same icon on the toolbar, in the plans panel and on the
+   repository address field. */
+:root {
+  --plan-lock-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z'/%3E%3C/svg%3E");
+  --plan-lock-color: #fbbf24;
+}
+
 #viewerEditorToolbar .plan-locked {
   position: relative;
 }
@@ -2340,8 +2536,73 @@ body.viewer-app.viewer-standalone-page {
   bottom: 3px;
   width: 10px;
   height: 10px;
-  background-color: #fbbf24;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h1Zm2 0h6V7a3 3 0 0 0-6 0v3Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  background-color: var(--plan-lock-color);
+  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
+  mask: var(--plan-lock-mask) center / contain no-repeat;
+  pointer-events: none;
+}
+
+.plan-lock-icon {
+  display: inline-block;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin: 0 4px;
+  vertical-align: -1px;
+  background-color: var(--plan-lock-color);
+  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
+  mask: var(--plan-lock-mask) center / contain no-repeat;
+}
+
+/* App launch splash (viewer/app-splash.js): the artwork, full screen, over
+   everything until the first model is on screen. */
+#appSplash {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0b0e14;
+  opacity: 1;
+  transition: opacity 400ms ease;
+}
+
+#appSplash[data-theme="light"] {
+  background: #f0f4f8;
+}
+
+/* Whole artwork (it is square; the screen is not) over a blurred copy of
+   itself that fills the screen. */
+#appSplash img {
+  position: relative;
+  width: min(100vw, 100vh);
+  height: min(100vw, 100vh);
+  object-fit: contain;
+  /* Soft edges into the blurred fill. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  mask-composite: intersect;
+}
+
+#appSplash img.app-splash-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-mask-image: none;
+  mask-image: none;
+  object-fit: cover;
+  filter: blur(28px) saturate(1.1);
+  transform: scale(1.15);
+  opacity: 0.85;
+}
+
+#appSplash.app-splash--hiding {
+  opacity: 0;
   pointer-events: none;
 }

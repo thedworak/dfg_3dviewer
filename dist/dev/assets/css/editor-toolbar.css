@@ -210,6 +210,18 @@
   transform-origin: center bottom;
 }
 
+/* Touch: the toolbar is not scaled below ~90% (36px targets and more), and
+   keeps clear of the home bar and a landscape notch. */
+@media (pointer: coarse) {
+  #viewerEditorToolbar,
+  .viewer-embed-page #viewerEditorToolbar {
+    --viewer-toolbar-scale: clamp(0.9, calc((100vw - 32px) / 360px), 1);
+    max-width: calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    margin-left: env(safe-area-inset-left);
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 .viewer-embed-page #viewerEditorToolbar.viewer-editor-toolbar_anchor-left {
   transform-origin: left bottom;
 }
@@ -253,6 +265,52 @@
   color: var(--viewer-panel-text);
   cursor: pointer;
   transition: width 0.55s ease, height 0.55s ease, opacity 0.55s ease, transform 0.55s ease, background 0.5s ease, border-color 0.5s ease, color 0.5s ease;
+}
+
+/* Tool groups (updateToolbarGroups): a faint shared background. Each tool
+   draws its piece, reaching half the gap to each side so the pieces join,
+   and the ends of a run are rounded - the spacing stays as it is. Hung on
+   the icon, not the button: tools with a submenu are position: static in
+   the phone tray, so the card anchors their submenu. Painted below the
+   buttons (z-index -1 in the toolbar's stacking context). */
+#viewerEditorToolbar .viewer-editor-tool.in-group > .viewer-editor-tool_icon {
+  position: relative;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.in-group > .viewer-editor-tool_icon::before {
+  --viewer-group-reach: calc(var(--viewer-toolbar-gap) / 2);
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: calc(50% - var(--viewer-tool-width, 40px) / 2 - var(--viewer-group-reach));
+  width: calc(var(--viewer-tool-width, 40px) + 2 * var(--viewer-group-reach));
+  height: 40px;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--viewer-panel-text) 6%, transparent);
+  pointer-events: none;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.group-first > .viewer-editor-tool_icon::before {
+  left: calc(50% - var(--viewer-tool-width, 40px) / 2);
+  width: calc(var(--viewer-tool-width, 40px) + var(--viewer-group-reach));
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.group-last > .viewer-editor-tool_icon::before {
+  width: calc(var(--viewer-tool-width, 40px) + var(--viewer-group-reach));
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.group-first.group-last > .viewer-editor-tool_icon::before {
+  width: var(--viewer-tool-width, 40px);
+}
+
+/* The hover lift (below) moves the button; its piece stays in line. */
+#viewerEditorToolbar .viewer-editor-tool.in-group:hover > .viewer-editor-tool_icon::before {
+  margin-top: 1px;
 }
 
 .viewer-editor-tool:hover {
@@ -369,6 +427,11 @@
   letter-spacing: 0.03em;
 }
 
+/* A setting that only takes effect once another one is on (still selectable). */
+.viewer-editor-tool_submenu-button.is-disabled {
+  opacity: 0.5;
+}
+
 .viewer-editor-tool_label {
   margin-left: 8px;
   font-size: 0.8rem;
@@ -435,6 +498,31 @@
 
 .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control {
   align-items: center;
+}
+
+/* Lights: the colour and intensity controls sized to their content - the
+   general 160px minimum left a swatch alone in a wide box. */
+[data-tool="lights"] .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control:not(.viewer-editor-tool_submenu-toggle) {
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+[data-tool="lights"] .viewer-editor-tool_submenu-button input[type="color"] {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+}
+
+[data-tool="lights"] .viewer-editor-tool_submenu-button input[type="range"] {
+  margin-left: 0;
+}
+
+[data-tool="lights"] .viewer-editor-tool_submenu-button .viewer-editor-tool_submenu-value {
+  margin-left: 0;
+  min-width: 28px;
 }
 
 .viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials {
@@ -1206,6 +1294,8 @@
   border-bottom: 1px solid color-mix(in srgb, var(--viewer-panel-border) 82%, transparent);
   cursor: grab;
   user-select: none;
+  /* Touch drags move the dialog instead of scrolling the page. */
+  touch-action: none;
 }
 
 .materials-dialog__header h3 {
@@ -1238,6 +1328,12 @@
 
 .materials-dialog__close:hover {
   background: var(--viewer-panel-bg-hover);
+}
+
+/* Minimized to its header (ui/tool-panel-chrome.js). */
+.materials-dialog__panel.is-minimized .materials-dialog__header {
+  padding-bottom: 4px;
+  border-bottom: none;
 }
 
 .materials-dialog__body {
@@ -1294,6 +1390,100 @@
 
 .materials-dialog__empty[hidden] {
   display: none !important;
+}
+
+#shadingDialog[hidden] {
+  display: none !important;
+}
+
+#shadingDialog {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 999999;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__panel {
+  width: min(640px, calc(100% - 24px));
+  max-height: min(88%, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#shadingDialog .materials-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.shading-dialog__textarea {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 140px;
+  box-sizing: border-box;
+  resize: none;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  padding: 8px;
+}
+
+.shading-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.shading-dialog__button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  width: auto;
+  height: auto;
+  white-space: nowrap;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.shading-dialog__button:hover {
+  background: var(--viewer-panel-bg-hover);
+}
+
+.shading-dialog__button-primary {
+  background: var(--viewer-gui-widget-focus-bg);
+  border-color: var(--viewer-gui-widget-focus-bg);
+  color: #fff;
+}
+
+.shading-dialog__button-primary:hover {
+  filter: brightness(1.08);
+  background: var(--viewer-gui-widget-focus-bg);
 }
 
 .embed-icon {
@@ -1377,13 +1567,6 @@
     font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
   }
 
-  #viewerEditorToolbar {
-    overflow-x: auto;
-  }
-
-  #viewerEditorToolbar.expanded {
-    overflow-x: auto;
-  }
 
   .viewer-action-menu_toggle {
     width: 52px;
@@ -1403,4 +1586,139 @@
 .download-icon {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.75'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 3v10m0 0 4-4m-4 4-4-4M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.75'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 3v10m0 0 4-4m-4 4-4-4M5 17v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1'/%3E%3C/svg%3E");
+}
+
+/* Phones: expanding must not widen the toolbar - there is no room beside it,
+   and the centring shift (--viewer-toolbar-expand-shift, set by
+   editor-toolbar.js) pushed it off the left edge. The toolbar keeps its size
+   and place; the secondary tools open as a card above it, wrapped in rows. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  #viewerEditorToolbar,
+  .viewer-embed-page #viewerEditorToolbar {
+    --viewer-toolbar-expand-shift: 0px !important;
+    overflow: visible;
+  }
+
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 8px);
+    max-width: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    --viewer-toolbar-gap: 4px;
+    gap: var(--viewer-toolbar-gap);
+    margin: 0;
+    padding: 8px;
+    border-radius: 18px;
+    border: 1px solid var(--viewer-panel-border);
+    background: color-mix(in srgb, var(--viewer-panel-bg) 92%, transparent);
+    box-shadow: var(--viewer-panel-shadow);
+    backdrop-filter: blur(14px);
+    box-sizing: border-box;
+    transform: translateY(8px);
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+
+  #viewerEditorToolbar.expanded .viewer-editor-toolbar_secondary-tray {
+    max-width: none;
+    margin: 0;
+    transform: none;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      visibility 0s linear 0s;
+  }
+
+  /* A tool's submenu opens above the whole card, centred on it - above its
+     own button it would cover the row above. The tool is static (and never
+     transformed, which would make it the anchor again) so the card is the
+     submenu's containing block. */
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .viewer-editor-tool.has-submenu,
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .viewer-editor-tool.has-submenu:hover {
+    position: static;
+    transform: none;
+  }
+
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .viewer-editor-tool.in-group.has-submenu:hover > .viewer-editor-tool_icon::before {
+    margin-top: 0;
+  }
+
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray > .has-submenu > .viewer-editor-tool_submenu {
+    left: 50%;
+    bottom: calc(100% + 8px);
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid var(--viewer-panel-border);
+    backdrop-filter: blur(14px);
+  }
+
+  /* Submenus inside a submenu (the lights' environment map, directional and
+     ambient light) are wider than a phone: they wrap too, and open above the
+     parent submenu - anchored at the bottom, so a second row grows upwards
+     instead of over it. One transform for every state (hover, focus, tap).
+     Kept on screen horizontally by fitSubmenuToViewport() (editor-toolbar.js). */
+  #viewerEditorToolbar .viewer-editor-tool_submenu .has-submenu > .viewer-editor-tool_submenu {
+    left: 50%;
+    top: auto;
+    bottom: calc(100% + 12px);
+    transform: translateX(-50%);
+    width: max-content;
+    min-width: 0;
+    max-width: calc(100vw - 16px);
+    flex-wrap: wrap;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  /* So the environment map (toggle, intensity, four styles) fits one row
+     on a usual phone. */
+  #viewerEditorToolbar [data-tool="lights"] .viewer-editor-tool_submenu {
+    gap: 4px;
+  }
+
+  #viewerEditorToolbar [data-tool="lights"] .viewer-editor-tool_submenu-button input[type="range"] {
+    width: 64px;
+  }
+}
+
+/* Touch: submenus in the secondary tray open on tap (.submenu-open, toggled
+   in editor-toolbar.js), not on the hover/focus a tap leaves behind. */
+@media (hover: none) {
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu:hover > .viewer-editor-tool_submenu,
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu:focus-within > .viewer-editor-tool_submenu,
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu > .viewer-editor-tool_submenu:hover {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  #viewerEditorToolbar .viewer-editor-toolbar_secondary-tray .has-submenu.submenu-open > .viewer-editor-tool_submenu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
+
+/* Tools shown only when they apply (e.g. point cloud settings while a point
+   cloud is loaded, see updateEditorToolbarState()). */
+#viewerEditorToolbar .viewer-editor-tool[hidden] {
+  display: none !important;
+}
+
+/* Narrow phones: the point cloud button makes the row one tool longer than
+   fits, so the tools get a little narrower while it is there (still 40px
+   tall). */
+@media (max-width: 420px) {
+  #viewerEditorToolbar:has(> [data-tool="pointCloud"]:not([hidden])) > .viewer-editor-tool,
+  #viewerEditorToolbar:has(> [data-tool="pointCloud"]:not([hidden])) #viewerActionMenu.viewer-action-menu_in-toolbar .viewer-action-menu_toggle {
+    --viewer-tool-width: 34px;
+    width: var(--viewer-tool-width);
+  }
 }
