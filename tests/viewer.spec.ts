@@ -446,6 +446,11 @@ test('guided tour steps through annotations and keeps saved views', async ({ pag
   });
   expect(reimportedView).toEqual([savedView, null]);
 
+  // Closing the tour falls back to the idle panel (annotations remain);
+  // closing that one dismisses it.
+  await panel.locator('.viewer-tour-panel_close').click();
+  await expect(panel).toHaveClass(/viewer-tour-panel--idle/);
+  await expect.poll(() => page.evaluate(() => window.Viewer.isTourActive())).toBe(false);
   await panel.locator('.viewer-tour-panel_close').click();
   await expect(panel).toHaveCount(0);
 });
@@ -1620,7 +1625,7 @@ test('reports a corrupted model file instead of hanging', async ({ page }) => {
   expect(state.errors.length).toBeGreaterThan(0);
 });
 
-test('tone mapping defaults to Neutral and post-processing is switched from the Lights menu', async ({ page }) => {
+test('tone mapping defaults to Neutral and post-processing is switched from the Rendering menu', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
 

@@ -500,9 +500,10 @@
   align-items: center;
 }
 
-/* Lights: the colour and intensity controls sized to their content - the
-   general 160px minimum left a swatch alone in a wide box. */
-[data-tool="lights"] .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control:not(.viewer-editor-tool_submenu-toggle) {
+/* Lights, environment map, rendering: the colour and intensity controls
+   sized to their content - the general 160px minimum left a swatch alone
+   in a wide box. */
+:is([data-tool="lights"], [data-tool="environmentMap"], [data-tool="rendering"]) .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control:not(.viewer-editor-tool_submenu-toggle) {
   gap: 6px;
   min-width: 0;
   min-height: 34px;
@@ -510,17 +511,17 @@
   border-radius: 10px;
 }
 
-[data-tool="lights"] .viewer-editor-tool_submenu-button input[type="color"] {
+:is([data-tool="lights"], [data-tool="environmentMap"], [data-tool="rendering"]) .viewer-editor-tool_submenu-button input[type="color"] {
   width: 26px;
   height: 26px;
   min-width: 26px;
 }
 
-[data-tool="lights"] .viewer-editor-tool_submenu-button input[type="range"] {
+:is([data-tool="lights"], [data-tool="environmentMap"], [data-tool="rendering"]) .viewer-editor-tool_submenu-button input[type="range"] {
   margin-left: 0;
 }
 
-[data-tool="lights"] .viewer-editor-tool_submenu-button .viewer-editor-tool_submenu-value {
+:is([data-tool="lights"], [data-tool="environmentMap"], [data-tool="rendering"]) .viewer-editor-tool_submenu-button .viewer-editor-tool_submenu-value {
   margin-left: 0;
   min-width: 28px;
 }
@@ -1679,11 +1680,11 @@
 
   /* So the environment map (toggle, intensity, four styles) fits one row
      on a usual phone. */
-  #viewerEditorToolbar [data-tool="lights"] .viewer-editor-tool_submenu {
+  #viewerEditorToolbar :is([data-tool="lights"], [data-tool="environmentMap"], [data-tool="rendering"]) .viewer-editor-tool_submenu {
     gap: 4px;
   }
 
-  #viewerEditorToolbar [data-tool="lights"] .viewer-editor-tool_submenu-button input[type="range"] {
+  #viewerEditorToolbar :is([data-tool="lights"], [data-tool="environmentMap"], [data-tool="rendering"]) .viewer-editor-tool_submenu-button input[type="range"] {
     width: 64px;
   }
 }
