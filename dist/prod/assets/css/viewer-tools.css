@@ -19,6 +19,20 @@
   flex-shrink: 0;
 }
 
+/* Phones: the column spans the width (panels still keep to its right edge)
+   and sits above the metadata card (z-index 999), so an expanded card does
+   not hide an open panel. It starts in the corner like elsewhere; the
+   collapsed card is only a button on the left. */
+@media (max-width: 640px) {
+  .viewer-side-stack {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    z-index: 1000;
+  }
+}
+
 .viewer-animation-player {
   display: flex;
   align-items: center;
@@ -158,6 +172,22 @@
   outline-offset: 2px;
 }
 
+.viewer-tour-panel_header .viewer-tour-panel_leaders {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.viewer-tour-panel_leaders[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, rgba(76, 110, 245, 0.85));
+  color: #fff;
+}
+
+.viewer-tour-panel--idle .viewer-tour-panel_description {
+  opacity: 0.8;
+}
+
 .viewer-tour-panel_play[aria-pressed="true"] {
   background: var(--viewer-gui-widget-focus-bg, rgba(76, 110, 245, 0.85));
   color: #fff;
@@ -226,6 +256,42 @@
 
 .viewer-measure-readout[hidden] {
   display: none;
+}
+
+.viewer-measure-readout_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.viewer-measure-readout_close {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.viewer-measure-readout_close:hover,
+.viewer-measure-readout_close:focus-visible {
+  opacity: 1;
+  border-color: var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+@media (pointer: coarse) {
+  .viewer-measure-readout_close {
+    width: 36px;
+    height: 36px;
+    margin: -6px -6px -6px 0;
+  }
 }
 
 .viewer-measure-readout_list {
@@ -371,9 +437,15 @@
   display: none;
 }
 
-.viewer-clipping-panel_title {
-  display: block;
+.viewer-clipping-panel_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 6px;
+}
+
+.viewer-clipping-panel_title {
+  flex: 1;
 }
 
 .viewer-clipping-panel_row {
@@ -456,6 +528,81 @@
   cursor: pointer;
 }
 
+/* Grip and minimize button in floating tool panel headers, on touch devices
+   and in the app (ui/tool-panel-chrome.js). */
+.tool-panel-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-panel-chrome_grip + * {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* .has-tool-chrome: outweighs the panels' own `button` rules. */
+.has-tool-chrome .tool-panel-chrome_grip,
+.has-tool-chrome .tool-panel-chrome_minimize {
+  flex: none;
+  width: 32px;
+  min-width: 0;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent !important;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: 16px/1 system-ui, sans-serif;
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.has-tool-chrome .tool-panel-chrome_minimize {
+  margin-left: auto;
+}
+
+.has-tool-chrome .tool-panel-chrome_grip {
+  margin-left: -6px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.tool-panel-chrome_grip:active {
+  cursor: grabbing;
+}
+
+.tool-panel-chrome_grip:focus-visible,
+.tool-panel-chrome_minimize:focus-visible {
+  opacity: 1;
+  border-color: var(--viewer-panel-border, rgba(255, 255, 255, 0.12)) !important;
+}
+
+/* Undocked: dragged out of the side stack, positioned inside it. */
+.has-tool-chrome.is-undocked {
+  position: absolute;
+  z-index: 1;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+/* Minimized: a flat bar with the header alone. */
+.has-tool-chrome.is-minimized {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.has-tool-chrome.is-minimized > :not(.tool-panel-chrome) {
+  display: none !important;
+}
+
+.has-tool-chrome.is-minimized > .tool-panel-chrome {
+  margin: 0;
+}
+
 /* Shift + drag face area selection (editor/face-area-selection.js). */
 .viewer-face-area-box {
   position: fixed;
@@ -489,6 +636,10 @@
 }
 
 /* Point cloud controls (editor/point-cloud-panel.js). */
+.viewer-pointcloud-panel[hidden] {
+  display: none;
+}
+
 .viewer-pointcloud-panel {
   width: 260px;
   max-width: 100%;

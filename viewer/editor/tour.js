@@ -16,8 +16,10 @@ import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 //   stepDuration (seconds, default 6) - pause on each step while autoplaying
 //   transitionDuration (seconds, default 1.5) - camera flight time
 //   loop (bool, default true) - wrap around at the last step while autoplaying
+//   spread (bool, default false) - open all annotations around the model
+//     (editor/annotation-spread.js) once they load
 // URL overrides: ?tour=1, ?tourAutoplay=0|1, ?tourStep=<1-based index>,
-// ?tourInterval=<seconds>.
+// ?tourInterval=<seconds>, ?tourSpread=0|1.
 
 const HIGHLIGHT_SCALE = 1.6;
 
@@ -33,12 +35,14 @@ export function attachTour(Viewer) {
   Object.assign(Viewer, {
     tourState: null,
     tourAutostartDone: false,
+    tourSpreadAutostartDone: false,
 
     getTourOptions() {
       const config = core.CONFIG?.viewer?.tour || {};
       const params = new URLSearchParams(window.location.search);
       const autostartParam = Viewer.parseBooleanParam?.(params.get("tour"));
       const autoplayParam = Viewer.parseBooleanParam?.(params.get("tourAutoplay"));
+      const spreadParam = Viewer.parseBooleanParam?.(params.get("tourSpread"));
       const intervalParam = Viewer.parseFloatParam?.(params.get("tourInterval"));
       const stepParam = Number.parseInt(params.get("tourStep") || "", 10);
       const stepDuration = Number.isFinite(intervalParam) ? intervalParam : Number(config.stepDuration);
@@ -52,6 +56,7 @@ export function attachTour(Viewer) {
           ? 0
           : (Number.isFinite(transitionDuration) && transitionDuration >= 0 ? transitionDuration : 1.5) * 1000,
         loop: config.loop !== false,
+        spread: typeof spreadParam === "boolean" ? spreadParam : config.spread === true,
       };
     },
 
@@ -385,7 +390,19 @@ export function attachTour(Viewer) {
         <line x1="8" y1="7" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
         <circle cx="8" cy="14" r="1.3" fill="currentColor"/>
       </svg>`;
-      header.append(counter, leadersButton, closeButton);
+      // All annotations opened around the model (Viewer.setAnnotationSpread).
+      const spreadButton = document.createElement("button");
+      spreadButton.type = "button";
+      spreadButton.className = "viewer-tour-panel_spread";
+      spreadButton.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <rect x="6" y="6" width="4" height="4" rx="1" fill="currentColor"/>
+        <rect x="0.75" y="0.75" width="4.5" height="3" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="10.75" y="0.75" width="4.5" height="3" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="0.75" y="12.25" width="4.5" height="3" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="10.75" y="12.25" width="4.5" height="3" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M5.3 3.8 7 6M10.7 3.8 9 6M5.3 12.2 7 10M10.7 12.2 9 10" stroke="currentColor" stroke-width="1.1"/>
+      </svg>`;
+      header.append(counter, spreadButton, leadersButton, closeButton);
       attachToolPanelChrome(panel, header, { before: closeButton });
 
       const body = document.createElement("div");
@@ -428,6 +445,7 @@ export function attachTour(Viewer) {
       });
 
       leadersButton.addEventListener("click", () => Viewer.toggleAnnotationLeaderLines?.());
+      spreadButton.addEventListener("click", () => Viewer.toggleAnnotationSpread?.());
       closeButton.addEventListener("click", () => {
         if (Viewer.isTourActive()) Viewer.stopTour();
         else Viewer.dismissTourIdlePanel();
@@ -454,9 +472,26 @@ export function attachTour(Viewer) {
       });
 
       stack.prepend(panel);
-      const ui = { panel, counter, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
+      const ui = { panel, counter, spreadButton, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
       Viewer.syncTourLeaderToggle(ui);
+      Viewer.syncTourSpreadToggle(ui);
       return ui;
+    },
+
+    // The spread button of the tour panel(s), in sync with the setting.
+    syncTourSpreadToggle(ui) {
+      const targets = ui ? [ui] : [Viewer.tourState?.ui, Viewer.tourIdleUi];
+      const enabled = Viewer.annotationSpread === true;
+      const label = enabled
+        ? t("tour.hideSpread", "Close annotations around the model")
+        : t("tour.showSpread", "Open all annotations around the model");
+      targets.forEach((item) => {
+        const button = item?.spreadButton;
+        if (!button) return;
+        button.setAttribute("aria-pressed", enabled ? "true" : "false");
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      });
     },
 
     // The leader-lines button of the tour panel(s), in sync with the setting.
@@ -493,6 +528,8 @@ export function attachTour(Viewer) {
     dismissTourIdlePanel() {
       Viewer.tourIdleDismissedFor = Viewer.getTourStepsSignature(Viewer.getTourSteps());
       Viewer.removeTourIdlePanel();
+      // Its button is gone with the panel.
+      Viewer.setAnnotationSpread?.(false);
     },
 
     syncTourIdlePanel() {
@@ -563,6 +600,8 @@ export function attachTour(Viewer) {
     updateTourLabels() {
       Viewer.syncTourIdlePanel();
       Viewer.syncTourLeaderToggle();
+      Viewer.syncTourSpreadToggle();
+      Viewer.rebuildAnnotationSpread?.();
       const ui = Viewer.tourState?.ui;
       if (!ui) return;
       ui.panel.setAttribute("aria-label", t("tour.panel", "Guided tour"));
@@ -603,6 +642,7 @@ export function attachTour(Viewer) {
     // Annotations were added, removed or re-imported: keep a running tour in
     // sync and start a pending autostart once there is something to show.
     onAnnotationsChangedForTour() {
+      if (!Viewer.maybeAutostartAnnotationSpread()) Viewer.rebuildAnnotationSpread?.();
       const state = Viewer.tourState;
       if (state?.active) {
         const currentId = state.steps[state.index]?.entry?.id;
@@ -621,6 +661,13 @@ export function attachTour(Viewer) {
         return;
       }
       if (!Viewer.maybeAutostartTour()) Viewer.syncTourIdlePanel();
+    },
+
+    maybeAutostartAnnotationSpread() {
+      if (Viewer.tourSpreadAutostartDone || Viewer.annotationSpread) return false;
+      if (!Viewer.getTourOptions().spread || !Viewer.getTourSteps().length) return false;
+      Viewer.tourSpreadAutostartDone = true;
+      return Viewer.setAnnotationSpread?.(true) === true;
     },
 
     maybeAutostartTour() {

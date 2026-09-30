@@ -156,6 +156,72 @@ export function initRendering(renderer, configSettings) {
   return applyRenderingSettings();
 }
 
+// Tone mapping previews (Rendering > Tone mapping menu): the current view
+// drawn once into a small linear half-float target, then tone mapped into an
+// 8-bit target by one OutputPass per mode and read back into each canvas.
+// Nothing is drawn to the main canvas.
+const PREVIEW_CSS_WIDTH = 64;
+let previewSource = null;
+let previewOutput = null;
+// Mode -> OutputPass: one each, so switching modes does not recompile.
+const previewPasses = new Map();
+
+// `canvases` maps a TONE_MAPPING_MODES key to the canvas to draw it into.
+// Returns false when there is nothing to draw yet.
+export function renderToneMappingPreviews(canvases) {
+  const renderer = core.renderer;
+  if (!renderer || !core.scene || !core.camera) return false;
+  renderer.getSize(canvasSize);
+  if (!canvasSize.x || !canvasSize.y) return false;
+
+  // The canvas's aspect, so the camera's projection fits as it is.
+  const width = Math.round(PREVIEW_CSS_WIDTH * Math.min(window.devicePixelRatio || 1, 2));
+  const height = Math.max(1, Math.round((width * canvasSize.y) / canvasSize.x));
+  if (!previewSource) {
+    previewSource = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: MSAA_SAMPLES });
+    previewOutput = new THREE.WebGLRenderTarget(width, height);
+  }
+  previewSource.setSize(width, height);
+  previewOutput.setSize(width, height);
+
+  const previousTarget = renderer.getRenderTarget();
+  const previousToneMapping = renderer.toneMapping;
+  const pixels = new Uint8Array(width * height * 4);
+  try {
+    // Into a render target the renderer neither tone maps nor encodes sRGB.
+    renderer.setRenderTarget(previewSource);
+    renderer.render(core.scene, core.camera);
+
+    Object.entries(canvases).forEach(([mode, canvas]) => {
+      if (!(mode in TONE_MAPPING_MODES) || !canvas) return;
+      let pass = previewPasses.get(mode);
+      if (!pass) {
+        pass = new OutputPass();
+        previewPasses.set(mode, pass);
+      }
+      // OutputPass takes its tone mapping and exposure from the renderer.
+      renderer.toneMapping = TONE_MAPPING_MODES[mode];
+      pass.render(renderer, previewOutput, previewSource);
+      renderer.readRenderTargetPixels(previewOutput, 0, 0, width, height, pixels);
+
+      // WebGL rows run bottom-up.
+      const image = new ImageData(width, height);
+      const rowLength = width * 4;
+      for (let row = 0; row < height; row++) {
+        const from = (height - 1 - row) * rowLength;
+        image.data.set(pixels.subarray(from, from + rowLength), row * rowLength);
+      }
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").putImageData(image, 0, 0);
+    });
+  } finally {
+    renderer.toneMapping = previousToneMapping;
+    renderer.setRenderTarget(previousTarget);
+  }
+  return true;
+}
+
 // Draws one frame of the main scene to the canvas.
 export function renderFrame(renderer = core.renderer) {
   if (!renderer || !core.scene || !core.camera) return;

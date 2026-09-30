@@ -455,6 +455,70 @@ test('guided tour steps through annotations and keeps saved views', async ({ pag
   await expect(panel).toHaveCount(0);
 });
 
+test('guided tour spreads all annotations around the model', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const root = viewer.resolveObjectByTargetId('m0:root');
+    let mesh = null;
+    root?.traverse?.((child) => {
+      if (!mesh && child.isMesh) mesh = child;
+    });
+    const targetId = viewer.resolveFaceTargetId(mesh);
+    viewer.hydrateAnnotationsFromMetadataPayload({
+      annotationEntries: [
+        { id: 's1', targetId, faceNumbers: [0], title: 'First', description: 'First description' },
+        { id: 's2', targetId, faceNumbers: [4], title: 'Second', description: 'Second description' },
+        { id: 's3', targetId, faceNumbers: [8], title: 'Third' },
+      ],
+    });
+  });
+
+  const panel = page.locator('#viewerTourPanel');
+  await panel.locator('.viewer-tour-panel_spread').click();
+  await expect(panel.locator('.viewer-tour-panel_spread')).toHaveAttribute('aria-pressed', 'true');
+
+  const cards = page.locator('.annotation-spread-card');
+  await expect(cards).toHaveCount(3);
+  await expect(cards.nth(0)).toContainText('First description');
+  await expect(page.locator('.annotation-spread-line')).toHaveCount(3);
+
+  // Cards do not overlap and each line starts at the edge of its point's
+  // number badge (no dot over the number).
+  const layout = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const state = viewer.annotationSpreadState;
+    const rects = state.items.filter((item) => !item.card.hidden)
+      .map((item) => item.card.getBoundingClientRect());
+    const overlaps = rects.some((a, i) => rects.some((b, j) => i < j
+      && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
+    const lineStarts = state.items.map((item) => item.line.getAttribute('points').split(' ')[0].split(',').map(Number));
+    const anchors = state.items.map((item) => [item.screen.x, item.screen.y]);
+    const dotsShown = state.items.filter((item) => item.dot.style.display !== 'none').length;
+    return { shown: rects.length, overlaps, lineStarts, anchors, dotsShown };
+  });
+  expect(layout.shown).toBeGreaterThan(0);
+  expect(layout.overlaps).toBe(false);
+  expect(layout.dotsShown).toBe(0);
+  layout.lineStarts.forEach((start, index) => {
+    const distance = Math.hypot(start[0] - layout.anchors[index][0], start[1] - layout.anchors[index][1]);
+    expect(distance).toBeGreaterThan(1);
+    expect(distance).toBeLessThan(40);
+  });
+
+  // A card starts the tour at its step and is marked as current.
+  await cards.nth(1).click();
+  await expect(panel.locator('.viewer-tour-panel_title')).toHaveText('2. Second');
+  await expect(cards.nth(1)).toHaveClass(/is-current/);
+
+  // Leader lines and the spread are exclusive.
+  await panel.locator('.viewer-tour-panel_leaders').click();
+  await expect(cards).toHaveCount(0);
+  await expect(panel.locator('.viewer-tour-panel_spread')).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('embed configurator uses the current camera for preview url', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
@@ -1660,6 +1724,20 @@ test('tone mapping defaults to Neutral and post-processing is switched from the 
     rendering: { toneMapping: 'neutral', exposure: 1, postprocessing: { enabled: false, antialias: 'msaa' } },
     postProcessing: false,
   });
+
+  // Opening the tone mapping menu draws the view into each mode's preview,
+  // and the tone mapping of the view itself stays as it was.
+  await page.evaluate(() => {
+    document.querySelector('button[data-tool="renderingToneMapping"]').dispatchEvent(new Event('pointerenter'));
+  });
+  const previews = () => page.evaluate(() =>
+    [...document.querySelectorAll('button[data-tool^="renderingToneMapping"] canvas')].map((canvas) => {
+      if (!canvas.width) return 0;
+      const { data } = canvas.getContext('2d').getImageData(canvas.width >> 1, canvas.height >> 1, 1, 1);
+      return data[3];
+    }));
+  await expect.poll(previews).toEqual(Array(7).fill(255));
+  expect((await state()).toneMapping).toBe(constants.neutral);
 
   await clickTool('renderingPostprocessing');
   await expect.poll(async () => (await state()).postProcessing).toBe(true);
