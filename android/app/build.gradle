@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// versionCode lives in version.properties, raised by scripts/build-android-release.sh.
+def versionProps = new Properties()
+def versionFile = file('version.properties')
+if (versionFile.exists()) {
+    versionFile.withInputStream { versionProps.load(it) }
+}
+
 android {
     namespace = "com.thedworak.explora4d"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,7 +14,7 @@ android {
         applicationId "com.thedworak.explora4d"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode((versionProps['VERSION_CODE'] ?: '1') as Integer)
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // AdMob app id (AndroidManifest.xml). Google's test app by default;

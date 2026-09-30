@@ -109,7 +109,8 @@ and check `dist/mobile/viewer-settings.json` before uploading: `"testing": false
 
 ### Version
 
-- Raise `versionCode` (every upload) and `versionName` in `android/app/build.gradle`. Play rejects a `versionCode` it has seen.
+- `versionCode` is in `android/app/version.properties`. `scripts/build-android-release.sh` raises it by one before every bundle (not with `--sync-only`); commit the file after uploading. Play rejects a `versionCode` it has seen, so a manual `./gradlew bundleRelease` needs the number raised by hand.
+- Raise `versionName` in `android/app/build.gradle` for user-visible releases.
 - `appId` (`com.thedworak.explora4d`) must never change after the first upload.
 
 ### Signing
