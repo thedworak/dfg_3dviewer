@@ -192,6 +192,13 @@ needing the tag.
   `status` values follow the same vocabulary `viewer/status-poller.js`
   already knows how to render: `queued` (waiting for a free conversion
   slot), `preparing`, `processing`, `rendering`, `ready`, `failed`.
+- `POST /api/model/create-from-url` - JSON `{"url": "https://.../model.glb"}`:
+  the worker downloads the file (`remote_fetch.py`) and converts it like an
+  upload (same formats, `WORKER_MAX_UPLOAD_BYTES`, limits and login). Only
+  http(s) links to public addresses (private, loopback and link-local ones
+  are refused, also after redirects, and the connection is pinned to the
+  checked address); at most 5 redirects and 80 s, so proxies in front need a
+  read timeout above that (`docker/nginx.conf` sets 120 s for this path).
 - `POST /api/model/thumbnail` - the viewer's "Render preview" (the old
   `/api/editor/upload-thumbnail`, the Drupal module's route, still works): a
   multipart form with `path` (the model's folder, `/files/<id>/...`),
