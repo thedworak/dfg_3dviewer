@@ -63,7 +63,11 @@
         "preset": "neutral",
         "enabled": true
       },
-      "performance": "high-performance"
+      "performance": "high-performance",
+      "background": "radial-gradient(circle, #ffffff 0%, #999999 100%)"
+    },
+    "integration": {
+      "api": { "thumbnailUploadEndpoint": "/api/editor/upload-thumbnail" }
     },
     "lights": [
       { "type": "AmbientLight", "position": [0, 0, 0], "color": "#404040", "intensity": 1 },

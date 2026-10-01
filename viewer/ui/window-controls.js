@@ -36,17 +36,22 @@ export function attachWindowControls(Viewer) {
       const nextY = clampWindowValue(y, 0, Math.max(0, window.innerHeight - nextHeight));
 
       reserveFlowSpace(container);
-      container.style.position = 'fixed';
-      container.style.left = `${nextX}px`;
-      container.style.top = `${nextY}px`;
+      placeWindow(container, nextX, nextY);
       container.style.width = `${nextWidth}px`;
       container.style.height = `${nextHeight}px`;
       container.style.right = 'auto';
       container.style.bottom = 'auto';
       container.classList.add('viewer-window-controls-enabled');
       this.manuallyResized = true;
+      syncFlowSpace(container);
       this.updateSize?.();
       return true;
+    },
+
+    // Keeps what follows the detached viewer window in the page (credits, the
+    // manifest form) right below it, wherever it was moved or resized to.
+    syncWindowFlowSpace() {
+      syncFlowSpace(this.container);
     },
 
     setupWindowControls(container) {
@@ -78,9 +83,7 @@ export function attachWindowControls(Viewer) {
       const makeFixed = () => {
         const rect = container.getBoundingClientRect();
         reserveFlowSpace(container);
-        container.style.position = 'fixed';
-        container.style.left = `${rect.left}px`;
-        container.style.top = `${rect.top}px`;
+        placeWindow(container, rect.left, rect.top);
         container.style.width = `${rect.width}px`;
         container.style.height = `${rect.height}px`;
         container.style.right = 'auto';
@@ -116,10 +119,10 @@ export function attachWindowControls(Viewer) {
 
         left = clamp(left, 0, Math.max(0, window.innerWidth - width));
         top = clamp(top, 0, Math.max(0, window.innerHeight - height));
-        container.style.left = `${left}px`;
-        container.style.top = `${top}px`;
+        placeWindow(container, left, top);
         container.style.width = `${width}px`;
         container.style.height = `${height}px`;
+        syncFlowSpace(container);
       };
 
       const startInteraction = (event, mode, direction = '') => {
@@ -177,15 +180,46 @@ export function attachWindowControls(Viewer) {
 function clampWindowValue(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
-// A fixed window leaves the document flow, which would pull siblings that follow it
+// Positions the detached window at viewport coordinates (left, top). It is
+// absolutely positioned, not fixed, so it scrolls with the page together with
+// the content below it (credits, the manifest form) instead of staying put.
+function placeWindow(container, left, top) {
+  container.style.position = 'absolute';
+  const parent = container.offsetParent;
+  const isPageRelative = !parent
+    || (parent === document.body && getComputedStyle(parent).position === 'static');
+  let originLeft = -window.scrollX;
+  let originTop = -window.scrollY;
+  if (!isPageRelative) {
+    const parentRect = parent.getBoundingClientRect();
+    originLeft = parentRect.left + parent.clientLeft - parent.scrollLeft;
+    originTop = parentRect.top + parent.clientTop - parent.scrollTop;
+  }
+  container.style.left = `${Math.round(left - originLeft)}px`;
+  container.style.top = `${Math.round(top - originTop)}px`;
+}
+
+// A detached window leaves the document flow, which would pull siblings that follow it
 // (e.g. the credits bar) up underneath the window, covering its controls. A placeholder
 // with the window's former height keeps them where they were.
 function reserveFlowSpace(container) {
-  if (container.style.position === 'fixed' || !container.parentElement) return;
+  if (container.style.position === 'absolute' || !container.parentElement) return;
   if (container.previousElementSibling?.classList.contains('viewer-window-placeholder')) return;
   const placeholder = document.createElement('div');
   placeholder.className = 'viewer-window-placeholder';
   placeholder.setAttribute('aria-hidden', 'true');
   placeholder.style.height = `${container.getBoundingClientRect().height}px`;
   container.before(placeholder);
+}
+
+// Grows or shrinks the placeholder so the content after it starts at the
+// window's bottom edge - otherwise a window resized taller (or moved down)
+// would cover the credits bar and the manifest form below it.
+function syncFlowSpace(container) {
+  if (!container || container.style.position !== 'absolute') return;
+  const placeholder = container.previousElementSibling;
+  if (!placeholder?.classList.contains('viewer-window-placeholder')) return;
+  const placeholderTop = placeholder.getBoundingClientRect().top;
+  const containerBottom = container.getBoundingClientRect().bottom;
+  placeholder.style.height = `${Math.max(0, Math.round(containerBottom - placeholderTop))}px`;
 }

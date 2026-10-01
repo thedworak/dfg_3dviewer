@@ -3,10 +3,15 @@
      createManifestUI() in metadata.js) instead of position: fixed on
      document.body - it needs to render as its own block below the viewer,
      not as a viewport-anchored overlay on top of the model. */
-  display: block;
-  width: min(640px, 100%);
+  /* A column, so a form resized taller hands the extra height to the
+     tree/JSON view (see .form-manifesto-group.column below). */
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
   min-width: 280px;
   min-height: 120px;
+  /* max-width/max-height follow the browser window (set in
+     initializeManifestoFormDrag() in metadata.js). */
   box-sizing: border-box;
   margin: 10px auto 0;
   /* Draggable via .form-manifesto-header (see initializeManifestoFormDrag()
@@ -28,6 +33,62 @@
      result into core.CONFIG.viewer.manifestoForm.size. */
   overflow: auto;
   resize: both;
+
+  --manifesto-scroll-thumb: rgba(96, 82, 66, 0.38);
+  --manifesto-scroll-thumb-hover: rgba(96, 82, 66, 0.6);
+  scrollbar-width: thin;
+  scrollbar-color: var(--manifesto-scroll-thumb) transparent;
+}
+
+#form-manifesto[data-viewer-theme="dark"] {
+  --manifesto-scroll-thumb: rgba(238, 238, 238, 0.32);
+  --manifesto-scroll-thumb-hover: rgba(238, 238, 238, 0.52);
+}
+
+/* Custom scrollbars for the form and its scrolling parts. */
+#form-manifesto textarea,
+#form-manifesto .manifesto-manifest-tree {
+  scrollbar-width: thin;
+  scrollbar-color: var(--manifesto-scroll-thumb) transparent;
+}
+
+#form-manifesto::-webkit-scrollbar,
+#form-manifesto textarea::-webkit-scrollbar,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#form-manifesto::-webkit-scrollbar-track,
+#form-manifesto textarea::-webkit-scrollbar-track,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-track,
+#form-manifesto::-webkit-scrollbar-corner,
+#form-manifesto textarea::-webkit-scrollbar-corner,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+#form-manifesto::-webkit-scrollbar-thumb,
+#form-manifesto textarea::-webkit-scrollbar-thumb,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-thumb {
+  background: var(--manifesto-scroll-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+#form-manifesto::-webkit-scrollbar-thumb:hover,
+#form-manifesto textarea::-webkit-scrollbar-thumb:hover,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--manifesto-scroll-thumb-hover);
+  background-clip: padding-box;
+}
+
+.form-manifesto-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 #form-manifesto.form-manifesto-dragging {
@@ -48,6 +109,8 @@
 
 .form-manifesto-group.column {
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .manifesto-source-group {
@@ -124,7 +187,10 @@
 }
 
 #form-manifesto textarea {
-  resize: vertical;
+  /* Sized with the whole form (its own resize handle) instead. */
+  flex: 1 1 auto;
+  min-height: 140px;
+  resize: none;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
@@ -265,6 +331,9 @@
 
 #form-manifesto.collapsed {
   padding-bottom: 8px;
+  /* A manually set height would leave an empty box when collapsed. */
+  height: auto !important;
+  min-height: 0;
 }
 
 #form-manifesto[data-viewer-theme="dark"] {
@@ -683,8 +752,9 @@ body[data-viewer-theme="dark"] #example-model-picker {
 }
 
 .manifesto-manifest-tree {
-  max-height: 360px;
-  min-height: 80px;
+  /* 360px by default, taking the extra height of a form resized taller. */
+  flex: 1 1 360px;
+  min-height: 140px;
   overflow: auto;
   padding: 8px 10px;
   border-radius: 6px;
@@ -694,7 +764,6 @@ body[data-viewer-theme="dark"] #example-model-picker {
   font-size: 12.5px;
   line-height: 1.55;
   color: #25211c;
-  resize: vertical;
 }
 
 .manifesto-manifest-tree[hidden],

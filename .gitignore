@@ -19,6 +19,10 @@ node_modules/
 
 # build
 /.parcel-cache
+# `parcel dev.html` (dev:* scripts) writes its output straight into dist/ -
+# only the build folders (dist/<build>/) belong in the repository.
+/dist/*
+!/dist/*/
 !/dist/.gitkeep
 # Capacitor app bundle - rebuilt by `pnpm run cap:sync`
 /dist/mobile/

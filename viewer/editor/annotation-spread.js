@@ -10,7 +10,8 @@ import { t } from "../i18n-utils.js";
 // frame, so the layout follows the camera. Lines start at the edge of the
 // POI's number badge, so they run out from under it. Cards whose point faces away from
 // the camera are dimmed; the current tour step is highlighted. Clicking a
-// card goes to its tour step. Leader lines and spread cards are exclusive.
+// card goes to its tour step. Leader lines and spread cards are exclusive,
+// as are spread cards and the card deck (editor/annotation-stack.js).
 
 const MARGIN = 12; // from the canvas edges
 const GAP = 8; // between stacked cards
@@ -29,6 +30,7 @@ export function attachAnnotationSpread(Viewer) {
       if (next && !Viewer.getTourSteps?.().length) return false;
       Viewer.annotationSpread = next;
       if (next && Viewer.annotationLeaderLines) Viewer.setAnnotationLeaderLines(false);
+      if (next && Viewer.annotationStack) Viewer.setAnnotationStack?.(false);
       if (next) {
         Viewer.closeAnnotationPOITooltip?.();
         Viewer.rebuildAnnotationSpread();

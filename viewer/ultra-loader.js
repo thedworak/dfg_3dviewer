@@ -7,7 +7,11 @@ export const UltraLoader = {
   panel:null,
   header:null,
   stepsContainer:null,
+  // i18n keys (or plain text) of the steps, translated on every render so a
+  // language change also applies to a run already in progress.
   steps:[],
+  activeStep:0,
+  hasError:false,
   isFinished:false,
   hideTimer:null,
   resetTimer:null,
@@ -53,6 +57,8 @@ export const UltraLoader = {
     }
 
     this.steps=steps;
+    this.hasError=false;
+    this.panel.querySelector("#ultra-loader-error")?.remove();
     this.updateHeader();
     this.progress=5;
     this.isFinished=false;
@@ -109,7 +115,14 @@ export const UltraLoader = {
     }
   },
 
+  // Re-applies the current language to the header and steps.
+  relocalize() {
+    if (this.hasError) this.renderErrorSteps();
+    else this.renderSteps(this.activeStep);
+  },
+
   renderSteps(active) {
+    this.activeStep=active;
     this.updateHeader();
     if (!this.stepsContainer) return;
     this.stepsContainer.replaceChildren();
@@ -118,15 +131,15 @@ export const UltraLoader = {
       row.className="ultra-step";
       if(i<active) {
         row.classList.add("done");
-        row.textContent="✓ "+s;
+        row.textContent="✓ "+t(s);
       }
       else if(i===active) {
         row.classList.add("active");
-        row.textContent="⏳ "+s;
+        row.textContent="⏳ "+t(s);
       }
       else {
         row.classList.add("pending");
-        row.textContent="□ "+s;
+        row.textContent="□ "+t(s);
       }
       this.stepsContainer.appendChild(row);
     });
@@ -134,6 +147,7 @@ export const UltraLoader = {
 
   error(message="Processing error") {
     this.isFinished = true;
+    this.hasError = true;
     this.renderErrorSteps();
     const error=document.createElement("div");
     error.id="ultra-loader-error";
@@ -149,7 +163,7 @@ export const UltraLoader = {
     this.steps.forEach((s)=>{
       const row=document.createElement("div");
       row.className="ultra-step error";
-      row.textContent="✖ "+s;
+      row.textContent="✖ "+t(s);
       this.stepsContainer.appendChild(row);
     });
   }

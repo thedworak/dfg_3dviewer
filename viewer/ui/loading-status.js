@@ -51,7 +51,8 @@ export function attachLoadingStatus(viewer) {
 
       phaseViewport.appendChild(phaseList);
 
-      const messages = this.getLoadingLogMessages();
+      let messages = this.getLoadingLogMessages();
+      let activeIndex = 0;
       const stageKeyToIndex = new Map(
         this.loadingLogMessageKeys.map((key, index) => [key, index])
       );
@@ -76,6 +77,7 @@ export function attachLoadingStatus(viewer) {
       };
 
       const updatePhase = (index) => {
+        activeIndex = index;
         const itemHeight = phaseList.firstElementChild?.offsetHeight || 24;
         phaseList.style.transform = `translateY(-${index * itemHeight}px)`;
         phase.textContent = messages[index] || messages[loadingModelKeyIndex] || phase.textContent;
@@ -153,6 +155,14 @@ export function attachLoadingStatus(viewer) {
             shell.hidden = true;
           }, delayMs);
         },
+        // Re-translates the phase messages after a language change.
+        relocalize: () => {
+          messages = this.getLoadingLogMessages();
+          Array.from(phaseList.children).forEach((item, itemIndex) => {
+            item.textContent = messages[itemIndex] ?? item.textContent;
+          });
+          phase.textContent = messages[activeIndex] || messages[loadingModelKeyIndex] || phase.textContent;
+        },
         set,
         reset: (maxValue = 100) => {
           clearHideTimer();
@@ -221,7 +231,8 @@ export function attachLoadingStatus(viewer) {
       let hideTimer = null;
       let progressUpdated = false;
       const minVisibleMs = 900;
-      const loadingMessages = this.getLoadingLogMessages();
+      let loadingMessages = this.getLoadingLogMessages();
+      let messagesDone = false;
       const loadingStageKeyToIndex = new Map(
         this.loadingLogMessageKeys.map((key, index) => [key, index])
       );
@@ -254,6 +265,7 @@ export function attachLoadingStatus(viewer) {
       });
 
       const renderMessages = (allDone = false) => {
+        messagesDone = allDone;
         const messages = loadingMessages
           .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
         list.replaceChildren(...messages.map((message, index) => {
@@ -373,6 +385,14 @@ export function attachLoadingStatus(viewer) {
             setExpanded(false);
             hideTimer = null;
           }, 2000);
+        },
+        // Re-translates the title and messages after a language change.
+        relocalize: () => {
+          loadingMessages = this.getLoadingLogMessages();
+          headerTitle.textContent = t("loadingLog.title", "Loading process log");
+          collapsedToggle.setAttribute("aria-label", t("loadingLog.title", "Loading process log"));
+          renderMessages(messagesDone);
+          updateSummary();
         },
         get: () => shell,
       };

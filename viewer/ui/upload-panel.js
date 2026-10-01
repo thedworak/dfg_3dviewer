@@ -354,7 +354,7 @@ export function attachUploadPanel(Viewer) {
         this.refreshUploadLimits();
         toastHelper("uploadStarted", "info");
 
-        UltraLoader.start(this.getProcessingLoadingSteps());
+        UltraLoader.start([...this.processingLoadingStepKeys]);
         const poller = new StatusPoller(jobId, {
           forcePoll: true,
           onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData),

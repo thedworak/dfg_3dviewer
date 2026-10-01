@@ -2620,3 +2620,39 @@ body.viewer-app .mainContainer.fullscreen #viewerEditorToolbar {
   opacity: 0;
   pointer-events: none;
 }
+
+/* Page scrollbar, following the viewer theme (applyTheme() in
+   ui/localization-theme.js sets data-viewer-theme on <html>). */
+html[data-viewer-theme] {
+  --page-scroll-thumb: rgba(96, 82, 66, 0.4);
+  --page-scroll-thumb-hover: rgba(96, 82, 66, 0.62);
+  scrollbar-width: thin;
+  scrollbar-color: var(--page-scroll-thumb) transparent;
+}
+
+html[data-viewer-theme="dark"] {
+  --page-scroll-thumb: rgba(238, 238, 238, 0.3);
+  --page-scroll-thumb-hover: rgba(238, 238, 238, 0.5);
+}
+
+html[data-viewer-theme]::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html[data-viewer-theme]::-webkit-scrollbar-track,
+html[data-viewer-theme]::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html[data-viewer-theme]::-webkit-scrollbar-thumb {
+  background: var(--page-scroll-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html[data-viewer-theme]::-webkit-scrollbar-thumb:hover {
+  background: var(--page-scroll-thumb-hover);
+  background-clip: padding-box;
+}

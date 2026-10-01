@@ -115,6 +115,16 @@ export class ManifestTreeEditor {
     }
   }
 
+  // Re-applies the current language to the counts and edit hints already
+  // rendered (each node keeps the value its count describes).
+  relocalize() {
+    this.container.querySelectorAll(".mt-count").forEach((count) => {
+      if (count._mtValue !== undefined) count.textContent = countLabel(count._mtValue);
+    });
+    const hint = t("manifesto.treeEditHint", "Click to edit, Enter to confirm, Esc to cancel");
+    this.container.querySelectorAll(".mt-value").forEach((valueEl) => { valueEl.title = hint; });
+  }
+
   notifyChange() {
     this.onChange?.(this.data);
   }
@@ -149,6 +159,7 @@ export class ManifestTreeEditor {
     const count = document.createElement("span");
     count.className = "mt-count";
     count.textContent = countLabel(value);
+    count._mtValue = value;
     summary.appendChild(count);
 
     const preview = previewText(value);
@@ -297,6 +308,13 @@ function expandHex(hex) {
 // Wires the tree/JSON toggle of the manifest form and returns a function
 // that shows a manifest in it (both views). Safe to call when the form
 // isn't on the page - it then does nothing.
+// The editor of the manifest form currently on the page.
+let activeEditor = null;
+
+export function relocalizeManifestTree() {
+  activeEditor?.relocalize();
+}
+
 export function attachManifestTreeEditor() {
   const textarea = document.getElementById("manifesto-manifest-text");
   const treeHost = document.getElementById("manifesto-manifest-tree");
@@ -313,6 +331,8 @@ export function attachManifestTreeEditor() {
       textarea.style.border = "";
     },
   });
+
+  activeEditor = editor;
 
   const setMode = (mode) => {
     if (mode === "tree") {
