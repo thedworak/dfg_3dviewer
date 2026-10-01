@@ -63,6 +63,7 @@ import { attachMeasurement } from "./editor/measurement.js";
 import { attachAnimations } from "./animations.js";
 import { attachTour } from "./editor/tour.js";
 import { attachAnnotationSpread } from "./editor/annotation-spread.js";
+import { attachAnnotationStack } from "./editor/annotation-stack.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
@@ -1319,6 +1320,7 @@ export const Viewer = {
     Viewer.stopTour();
     // Rebuilt for the new model's annotations while still switched on.
     Viewer.disposeAnnotationSpread();
+    Viewer.disposeAnnotationStack();
     Viewer.disposePointCloudControls();
     disposeTiles();
     removeImportedLights();
@@ -1979,6 +1981,7 @@ export const Viewer = {
     let heightCSS;
 
     const hasWindowControls = core.container.classList.contains("viewer-window-controls-enabled");
+    if (hasWindowControls && !isFullscreen) Viewer.syncWindowFlowSpace?.();
     const isManuallyResized = !!Viewer.manuallyResized;
     let scale = { x: 1, y: 1 };
 
@@ -2348,6 +2351,7 @@ export const Viewer = {
     
     Viewer.updateTour(time);
     Viewer.updateAnnotationSpread();
+    Viewer.updateAnnotationStack();
     updateTiles();
 
     if (Viewer.mixer) {
@@ -2980,7 +2984,7 @@ export const Viewer = {
 
     localStorage.setItem("processing_model_id", _id);
 
-    let loadingMap = this.getProcessingLoadingSteps();
+    let loadingMap = [...this.processingLoadingStepKeys];
 
     loadingMap = core.isLocalPreview ? loadingMap.slice(-2) : loadingMap;
 
@@ -3283,9 +3287,8 @@ export const Viewer = {
     Viewer.bindEventListener(collapseBtn, "click", () => {
       form.classList.toggle("collapsed");
       collapseBtn.textContent = form.classList.contains("collapsed") ? "▸" : "▾";
-      collapseBtn.title = form.classList.contains("collapsed")
-        ? t("${titleKey}.expand", "Expand")
-        : t("${titleKey}.collapse", "Collapse");
+      collapseBtn.dataset.i18nTitle = `${titleKey}.${form.classList.contains("collapsed") ? "expand" : "collapse"}`;
+      collapseBtn.title = t(collapseBtn.dataset.i18nTitle, form.classList.contains("collapsed") ? "Expand" : "Collapse");
     });
     // create a small dropdown to switch iiif manifests at runtime
     Viewer.bindEventListener(document.getElementById("manifesto-manifest-select"), "change", async (ev) => {
@@ -3296,7 +3299,7 @@ export const Viewer = {
         }
       } catch (err) {
         Viewer.reportError(err, {
-          context: "Error loading ${className} manifest",
+          context: `Error loading ${className} manifest`,
         });
       }
       });
@@ -3311,12 +3314,12 @@ export const Viewer = {
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
-          console.log("Loading ${className} manifest from URL: " + inputElement.value);
+          console.log(`Loading ${className} manifest from URL: ` + inputElement.value);
           await Viewer.setupManifesto(inputElement.value, "url", type);
         }
       } catch (err) {
         Viewer.reportError(err, {
-          context: "Error loading ${className} manifest",
+          context: `Error loading ${className} manifest`,
         });
       }
       });
@@ -3331,7 +3334,7 @@ export const Viewer = {
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
-          console.log("Loading ${className} manifest from privided text");
+          console.log(`Loading ${className} manifest from provided text`);
           if (type === "iiif") {
             await Viewer.setupManifesto(inputElement.value, "text", type);
           } else {
@@ -3340,7 +3343,7 @@ export const Viewer = {
         }
       } catch (err) {
         Viewer.reportError(err, {
-          context: "Error loading ${className} manifest",
+          context: `Error loading ${className} manifest`,
         });
       }
     });
@@ -4090,6 +4093,7 @@ attachMeasurement(Viewer);
 attachAnimations(Viewer);
 attachTour(Viewer);
 attachAnnotationSpread(Viewer);
+attachAnnotationStack(Viewer);
 attachViewHelper(Viewer);
 attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);

@@ -910,14 +910,14 @@ export function createIIIFDropdown(iiifConfigURL) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
     { url: iiifConfigURL.url, name: iiifConfigURL.name },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", name: t("iiif.optionModelPositionScale", "Model Position and Scale") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", name: t("iiif.optionModelOrigin", "Model Origin") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", name: t("iiif.optionModelOriginBg", "Model Origin with background color") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", name: t("iiif.optionModelPosition", "Model Position") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", i18n: "iiif.optionModelPositionScale", name: t("iiif.optionModelPositionScale", "Model Position and Scale") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", i18n: "iiif.optionModelOrigin", name: t("iiif.optionModelOrigin", "Model Origin") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", i18n: "iiif.optionModelOriginBg", name: t("iiif.optionModelOriginBg", "Model Origin with background color") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", i18n: "iiif.optionModelPosition", name: t("iiif.optionModelPosition", "Model Position") },
     { url: "./manifests/box-iiif-p4.json", name: t("iiif.optionP4Local", "Camera, lights and comments (localhost)") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", name: t("iiif.optionCamera", "Positioned camera") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", name: t("iiif.optionLights", "Lights with colours and intensities") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", name: t("iiif.optionComments", "Comments with their own views") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", i18n: "iiif.optionCamera", name: t("iiif.optionCamera", "Positioned camera") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", i18n: "iiif.optionLights", name: t("iiif.optionLights", "Lights with colours and intensities") },
+    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", i18n: "iiif.optionComments", name: t("iiif.optionComments", "Comments with their own views") },
   ].filter(Boolean);
 
   const group = document.createElement("div");
@@ -925,6 +925,7 @@ export function createIIIFDropdown(iiifConfigURL) {
 
   const label = document.createElement("label");
   label.textContent = t("iiif.manifest", "IIIF manifest");
+  label.dataset.i18n = "iiif.manifest";
   label.className = "form-manifesto-label";
 
   const select = document.createElement("select");
@@ -935,6 +936,7 @@ export function createIIIFDropdown(iiifConfigURL) {
     const opt = document.createElement("option");
     opt.value = item.url;
     opt.textContent = item.name;
+    if (item.i18n) opt.dataset.i18n = item.i18n;
     select.appendChild(opt);
   });
 
@@ -953,6 +955,7 @@ export function createManifestSourceSwitch(activeType = "iiif") {
   const label = document.createElement("label");
   label.className = "form-manifesto-label";
   label.textContent = t("manifesto.source", "Manifest type");
+  label.dataset.i18n = "manifesto.source";
 
   const switchLabel = document.createElement("label");
   switchLabel.className = "manifesto-source-switch";
@@ -963,6 +966,7 @@ export function createManifestSourceSwitch(activeType = "iiif") {
       id="manifesto-source-switch"
       type="checkbox"
       role="switch"
+      data-i18n-aria-label="manifesto.source"
       aria-label="${escapeHtml(t("manifesto.source", "Manifest type"))}"
       ${activeType === "aim3if" ? "checked" : ""}
     >
@@ -979,23 +983,24 @@ export function createAIM3IFDropdown(url) {
   group.className = "form-manifesto-group";
 
   const aim3ifList = [
-    { url: url, name: t("aim3if.optionDefault", "Default configuration") },
-    { url: "https://viewer.thedworak.com/manifests/box.json", name: t("aim3if.optionBox", "Box configuration") },
-    { url: "./manifests/box-aim3d-local.json", name: t("aim3if.optionBoxLocal", "Box (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local.json", name: t("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", name: t("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
+    { url: url, i18n: "aim3if.optionDefault", name: t("aim3if.optionDefault", "Default configuration") },
+    { url: "https://viewer.thedworak.com/manifests/box.json", i18n: "aim3if.optionBox", name: t("aim3if.optionBox", "Box configuration") },
+    { url: "./manifests/box-aim3d-local.json", i18n: "aim3if.optionBoxLocal", name: t("aim3if.optionBoxLocal", "Box (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local.json", i18n: "aim3if.optionWolpaLocal", name: t("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", i18n: "aim3if.optionWolpaLocalCeiling", name: t("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
     // Same model under different lighting, tone mapping and shading, for comparison.
-    { url: "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json", name: t("aim3if.optionWolpaGoldenHour", "Wolpa Synagogue - golden hour, ACES (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", name: t("aim3if.optionWolpaStudio", "Wolpa Synagogue - studio, AgX (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", name: t("aim3if.optionWolpaNight", "Wolpa Synagogue - night spotlights, Reinhard (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", name: t("aim3if.optionWolpaNightTour", "Wolpa Synagogue - night, annotations and guided tour (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", name: t("aim3if.optionWolpaToon", "Wolpa Synagogue - toon shading (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", name: t("aim3if.optionWolpaOvercast", "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json", i18n: "aim3if.optionWolpaGoldenHour", name: t("aim3if.optionWolpaGoldenHour", "Wolpa Synagogue - golden hour, ACES (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", i18n: "aim3if.optionWolpaStudio", name: t("aim3if.optionWolpaStudio", "Wolpa Synagogue - studio, AgX (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", i18n: "aim3if.optionWolpaNight", name: t("aim3if.optionWolpaNight", "Wolpa Synagogue - night spotlights, Reinhard (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", i18n: "aim3if.optionWolpaNightTour", name: t("aim3if.optionWolpaNightTour", "Wolpa Synagogue - night, annotations and guided tour (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", i18n: "aim3if.optionWolpaToon", name: t("aim3if.optionWolpaToon", "Wolpa Synagogue - toon shading (localhost)") },
+    { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", i18n: "aim3if.optionWolpaOvercast", name: t("aim3if.optionWolpaOvercast", "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)") },
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 
   const label = document.createElement("label");
   label.textContent = t("aim3if.modelConfig", "Model configuration");
+  label.dataset.i18n = "aim3if.modelConfig";
   label.className = "form-manifesto-label";
 
   const select = document.createElement("select");
@@ -1006,6 +1011,7 @@ export function createAIM3IFDropdown(url) {
     const opt = document.createElement("option");
     opt.value = item.url;
     opt.textContent = item.name;
+    if (item.i18n) opt.dataset.i18n = item.i18n;
     select.appendChild(opt);
   });
   group.appendChild(label);
@@ -1047,13 +1053,20 @@ function setStoredManifestoSize(width, height) {
   };
 }
 
+// Space kept between the form and the browser window's edges.
+const MANIFESTO_VIEWPORT_GUTTER = 16;
+// Window listeners of the current form - createManifestUI() rebuilds it.
+let manifestoFormListeners = null;
+
 // Makes #form-manifesto draggable (via its header) and resizable, and keeps
 // both in sync with core.CONFIG.viewer.manifestoForm - mirrors the pattern
 // core.editorToolbar already uses for its own position (see
 // initializeEditorToolbarDrag() in editor-toolbar.js), adapted for a
 // normal-flow panel instead of an absolutely-positioned one.
 function initializeManifestoFormDrag(formContainer, handle) {
-  const host = core.viewerWrapper || core.container || formContainer.parentElement;
+  manifestoFormListeners?.abort();
+  manifestoFormListeners = new AbortController();
+  const { signal } = manifestoFormListeners;
 
   const initialPosition = getInitialManifestoPosition();
   let currentX = initialPosition.x;
@@ -1065,21 +1078,28 @@ function initializeManifestoFormDrag(formContainer, handle) {
       : "";
     setStoredManifestoPosition(currentX, currentY);
   };
-  applyPosition();
+
+  // Resizing (native, "resize: both") may make the form wider than the
+  // viewer, but never wider or taller than the browser window - it would
+  // otherwise stretch the page itself.
+  const applySizeLimits = () => {
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    formContainer.style.maxWidth = `${Math.max(viewportWidth - 2 * MANIFESTO_VIEWPORT_GUTTER, 280)}px`;
+    formContainer.style.maxHeight = `${Math.max(window.innerHeight - 2 * MANIFESTO_VIEWPORT_GUTTER, 120)}px`;
+  };
 
   const clampPosition = (x, y) => {
-    const hostRect = host?.getBoundingClientRect();
-    // The panel starts horizontally centered (CSS "margin: auto"), so x=0
-    // is that centered rest position - moving left needs a *negative* x,
-    // not just a small positive one. maxX is the slack on either side
-    // (half of the leftover host width) before an edge of the panel would
-    // reach the corresponding edge of the host.
-    const maxX = hostRect
-      ? Math.max((hostRect.width - formContainer.offsetWidth) / 2, 0)
-      : Infinity;
+    // x=0 is the in-flow rest position (centered by "margin: auto", or
+    // starting at the host's left edge once wider than it); keep both edges
+    // inside the browser window.
+    const rect = formContainer.getBoundingClientRect();
+    const restLeft = rect.left - currentX;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const minX = MANIFESTO_VIEWPORT_GUTTER - restLeft;
+    const maxX = viewportWidth - MANIFESTO_VIEWPORT_GUTTER - rect.width - restLeft;
 
     return {
-      x: Math.min(Math.max(x, -maxX), maxX),
+      x: maxX < minX ? minX : Math.min(Math.max(x, minX), maxX),
       // Never move above its natural in-flow position (y < 0) - it already
       // sits directly below the viewer (see the appendChild call below),
       // so this alone guarantees dragging can never put it back over the
@@ -1087,6 +1107,18 @@ function initializeManifestoFormDrag(formContainer, handle) {
       y: Math.max(y, 0),
     };
   };
+
+  const reclamp = () => {
+    applySizeLimits();
+    const next = clampPosition(currentX, currentY);
+    if (next.x === currentX && next.y === currentY) return;
+    currentX = next.x;
+    currentY = next.y;
+    applyPosition();
+  };
+
+  applySizeLimits();
+  applyPosition();
 
   let dragState = null;
 
@@ -1145,8 +1177,21 @@ function initializeManifestoFormDrag(formContainer, handle) {
       Math.round(entry.contentRect.width),
       Math.round(entry.contentRect.height)
     );
+    // Growing from the right edge must not push it out of the window.
+    reclamp();
   });
   resizeObserver.observe(formContainer);
+  signal.addEventListener("abort", () => resizeObserver.disconnect());
+
+  // The browser window or the viewer (moved/resized) changing size moves the
+  // form's rest position - keep it on screen.
+  window.addEventListener("resize", reclamp, { signal });
+  const host = core.viewerWrapper || core.container || formContainer.parentElement;
+  if (host) {
+    const hostObserver = new ResizeObserver(() => reclamp());
+    hostObserver.observe(host);
+    signal.addEventListener("abort", () => hostObserver.disconnect());
+  }
 }
 
 export function createManifestUI(type = "iiif") {
@@ -1175,9 +1220,9 @@ export function createManifestUI(type = "iiif") {
         <circle cx="15" cy="18" r="1.6" fill="currentColor"/>
       </svg>
     </span>
-    <span class="title">${escapeHtml(t(`${titleKey}.loader`, `${className} Loader`))}</span>
+    <span class="title" data-i18n="${titleKey}.loader">${escapeHtml(t(`${titleKey}.loader`, `${className} Loader`))}</span>
     <div class="tools">
-      <button type="button" id="manifesto-toggle-collapse" title="${escapeHtml(t(`${titleKey}.collapse`, `Collapse`))}">▾</button>
+      <button type="button" id="manifesto-toggle-collapse" data-i18n-title="${titleKey}.collapse" title="${escapeHtml(t(`${titleKey}.collapse`, `Collapse`))}">▾</button>
     </div>
   `;
 
@@ -1189,23 +1234,23 @@ export function createManifestUI(type = "iiif") {
   content.id = `form-manifesto-content`;
   content.innerHTML = `
     <div class="form-manifesto-group">
-      <input type="text" id="manifesto-manifest-url" placeholder="${escapeHtml(t(`${titleKey}.manifestUrlPlaceholder`, `https://example.org/manifesto/manifest.json`))}">
-      <button class="primary" id="load-manifesto-from-url">${escapeHtml(t(`${titleKey}.loadFromUrl`, `Load from URL`))}</button>
+      <input type="text" id="manifesto-manifest-url" data-i18n-placeholder="${titleKey}.manifestUrlPlaceholder" placeholder="${escapeHtml(t(`${titleKey}.manifestUrlPlaceholder`, `https://example.org/manifesto/manifest.json`))}">
+      <button class="primary" id="load-manifesto-from-url" data-i18n="${titleKey}.loadFromUrl">${escapeHtml(t(`${titleKey}.loadFromUrl`, `Load from URL`))}</button>
     </div>
 
     <div class="form-manifesto-group column">
       <div class="manifesto-view-toolbar">
         <div class="manifesto-view-toggle" role="group">
-          <button type="button" id="manifesto-view-tree" aria-pressed="false">${escapeHtml(t("manifesto.treeView", "Tree"))}</button>
-          <button type="button" id="manifesto-view-json" aria-pressed="true">${escapeHtml(t("manifesto.jsonView", "JSON"))}</button>
+          <button type="button" id="manifesto-view-tree" aria-pressed="false" data-i18n="manifesto.treeView">${escapeHtml(t("manifesto.treeView", "Tree"))}</button>
+          <button type="button" id="manifesto-view-json" aria-pressed="true" data-i18n="manifesto.jsonView">${escapeHtml(t("manifesto.jsonView", "JSON"))}</button>
         </div>
-        <button type="button" id="manifesto-tree-expand" class="manifesto-tree-tool" hidden>${escapeHtml(t("manifesto.expandAll", "Expand all"))}</button>
-        <button type="button" id="manifesto-tree-collapse" class="manifesto-tree-tool" hidden>${escapeHtml(t("manifesto.collapseAll", "Collapse all"))}</button>
+        <button type="button" id="manifesto-tree-expand" class="manifesto-tree-tool" data-i18n="manifesto.expandAll" hidden>${escapeHtml(t("manifesto.expandAll", "Expand all"))}</button>
+        <button type="button" id="manifesto-tree-collapse" class="manifesto-tree-tool" data-i18n="manifesto.collapseAll" hidden>${escapeHtml(t("manifesto.collapseAll", "Collapse all"))}</button>
       </div>
       <div id="manifesto-manifest-tree" class="manifesto-manifest-tree" hidden></div>
-      <textarea id="manifesto-manifest-text" rows="8" placeholder="${escapeHtml(t(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
+      <textarea id="manifesto-manifest-text" rows="8" data-i18n-placeholder="${titleKey}.manifestTextPlaceholder" placeholder="${escapeHtml(t(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
       <div class="actions">
-        <button class="secondary" id="load-manifesto-from-text">${escapeHtml(t(`${titleKey}.loadFromText`, `Load from Text`))}</button>
+        <button class="secondary" id="load-manifesto-from-text" data-i18n="${titleKey}.loadFromText">${escapeHtml(t(`${titleKey}.loadFromText`, `Load from Text`))}</button>
       </div>
     </div>
   `;

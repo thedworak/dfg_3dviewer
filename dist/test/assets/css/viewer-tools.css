@@ -173,6 +173,7 @@
 }
 
 .viewer-tour-panel_header .viewer-tour-panel_spread,
+.viewer-tour-panel_header .viewer-tour-panel_stack,
 .viewer-tour-panel_header .viewer-tour-panel_leaders {
   display: inline-flex;
   align-items: center;
@@ -184,6 +185,7 @@
 }
 
 .viewer-tour-panel_spread[aria-pressed="true"],
+.viewer-tour-panel_stack[aria-pressed="true"],
 .viewer-tour-panel_leaders[aria-pressed="true"] {
   background: var(--viewer-gui-widget-focus-bg, rgba(76, 110, 245, 0.85));
   color: #fff;
@@ -373,6 +375,148 @@
   .annotation-spread-card_description {
     -webkit-line-clamp: 2;
     line-clamp: 2;
+  }
+}
+
+/* Annotations as a deck of cards (editor/annotation-stack.js): sticky cards,
+   each a title strip (--annotation-stack-step) lower than the one before,
+   slide over each other as the deck scrolls. */
+.annotation-stack {
+  --annotation-stack-step: 32px;
+  --annotation-stack-solid: #111827;
+  position: relative;
+  width: 280px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 2px 0;
+  border-radius: 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.annotation-stack::-webkit-scrollbar {
+  display: none;
+}
+
+.viewer-wrapper[data-viewer-theme="light"] .annotation-stack {
+  --annotation-stack-solid: #f6f3ee;
+}
+
+.annotation-stack-card {
+  position: sticky;
+  top: calc(var(--annotation-stack-index) * var(--annotation-stack-step));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  /* margin-bottom is set by layoutAnnotationStack(): negative for a
+     folded card, so the next one overlaps it. */
+  margin: 0 0 8px;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  /* Opaque, so a card covers the one under it: the panel colour over a
+     solid base. */
+  background:
+    linear-gradient(var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)), var(--viewer-panel-bg, rgba(17, 24, 39, 0.82))),
+    var(--annotation-stack-solid);
+  box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.22);
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 12.5px/1.4 system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.annotation-stack-card:hover,
+.annotation-stack-card:focus-visible {
+  border-color: rgba(96, 165, 250, 0.9);
+}
+
+.annotation-stack-card:focus-visible {
+  outline: 2px solid var(--viewer-gui-slider-fill, rgba(96, 165, 250, 0.9));
+  outline-offset: -2px;
+}
+
+.annotation-stack-card.is-current {
+  border-color: #0062fd;
+  box-shadow: inset 0 0 0 1px #0062fd, 0 -4px 14px rgba(15, 23, 42, 0.22);
+}
+
+.annotation-stack-card.is-covered .annotation-stack-card_title {
+  opacity: 0.8;
+}
+
+.annotation-stack-card_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.annotation-stack-card_number {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border: 2px solid #0062fd;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.88);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.annotation-stack-card_title {
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Folded (the default): number and title only. */
+.annotation-stack-card:not(.is-open) .annotation-stack-card_description {
+  display: none;
+}
+
+.annotation-stack-card_description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  opacity: 0.88;
+}
+
+.annotation-stack_spacer {
+  flex: none;
+}
+
+/* Phones: the deck spans the side column (see .viewer-side-stack). */
+@media (max-width: 640px) {
+  .annotation-stack {
+    width: 100%;
+  }
+
+  .annotation-stack-card {
+    padding: 10px 12px 12px;
+    font-size: 13px;
+  }
+
+  .annotation-stack-card_description {
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
   }
 }
 

@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { UltraLoader } from "../ultra-loader.js";
+import { relocalizeManifestTree } from "../manifesto/manifest-tree-editor.js";
 import { normalizeLanguage } from "../viewer-param-utils.js";
 
 export function attachLocalizationTheme(viewer) {
@@ -62,7 +63,7 @@ export function attachLocalizationTheme(viewer) {
       this.actionMenu?.setAttribute("data-viewer-theme", normalizedTheme);
       this.metadataContainer?.setAttribute("data-viewer-theme", normalizedTheme);
       core.guiContainer?.setAttribute("data-viewer-theme", normalizedTheme);
-      document.getElementById("form-IIIF")?.setAttribute("data-viewer-theme", normalizedTheme);
+      document.getElementById("form-manifesto")?.setAttribute("data-viewer-theme", normalizedTheme);
       UltraLoader.panel?.setAttribute("data-viewer-theme", normalizedTheme);
 
       if (persist) {
@@ -146,7 +147,9 @@ export function attachLocalizationTheme(viewer) {
       this.updateMetadataPanelLabels();
       this.updateMaterialsDialogLabels();
       this.refreshStatusNoticeLanguage();
-      UltraLoader.updateHeader?.();
+      UltraLoader.relocalize?.();
+      this.circle?.relocalize?.();
+      this.loadingLog?.relocalize?.();
       this.updatePickingHintVisibility?.();
       if (this.clippingHint) this.clippingHint.textContent = t("hints.clipping", "Drag active clipping plane helper to adjust cut");
     },
@@ -159,40 +162,23 @@ export function attachLocalizationTheme(viewer) {
     },
 
     updateIIIFFormLabels() {
-      const form = document.getElementById("form-IIIF");
+      const form = document.getElementById("form-manifesto");
       if (!form) return;
-      const title = form.querySelector(".form-IIIF-header .title");
-      if (title) title.textContent = t("iiif.loader", "IIIF Loader");
-      const collapseBtn = document.getElementById("iiif-toggle-collapse");
-      if (collapseBtn) {
-        const isCollapsed = form.classList.contains("collapsed");
-        collapseBtn.title = isCollapsed
-          ? t("iiif.expand", "Expand")
-          : t("iiif.collapse", "Collapse");
-      }
-      const label = form.querySelector(".form-IIIF-label");
-      if (label) label.textContent = t("iiif.manifest", "IIIF manifest");
-      const select = document.getElementById("iiif-manifest-select");
-      if (select) {
-        const optionLabelByUrl = {
-          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json": t("iiif.optionModelPositionScale", "Model Position and Scale"),
-          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json": t("iiif.optionModelOrigin", "Model Origin"),
-          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json": t("iiif.optionModelOriginBg", "Model Origin with background color"),
-          "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json": t("iiif.optionModelPosition", "Model Position"),
-        };
-        Array.from(select.options).forEach((option) => {
-          const labelFromMap = optionLabelByUrl[option.value];
-          if (labelFromMap) option.textContent = labelFromMap;
-        });
-      }
-      const manifestUrl = document.getElementById("manifest-url");
-      if (manifestUrl) manifestUrl.placeholder = t("iiif.manifestUrlPlaceholder", "https://example.org/iiif/manifest.json");
-      const manifestText = document.getElementById("manifest-text");
-      if (manifestText) manifestText.placeholder = t("iiif.manifestTextPlaceholder", "Paste IIIF manifest JSON here...");
-      const loadFromUrlButton = document.getElementById("load-manifest-from-url");
-      if (loadFromUrlButton) loadFromUrlButton.textContent = t("iiif.loadFromUrl", "Load from URL");
-      const loadFromTextButton = document.getElementById("load-manifest-from-text");
-      if (loadFromTextButton) loadFromTextButton.textContent = t("iiif.loadFromText", "Load from Text");
+      // Elements of the manifest form carry their i18n keys (see
+      // createManifestUI() in metadata.js); the current text is the fallback.
+      form.querySelectorAll("[data-i18n]").forEach((node) => {
+        node.textContent = t(node.dataset.i18n, node.textContent);
+      });
+      form.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+        node.placeholder = t(node.dataset.i18nPlaceholder, node.placeholder);
+      });
+      form.querySelectorAll("[data-i18n-title]").forEach((node) => {
+        node.title = t(node.dataset.i18nTitle, node.title);
+      });
+      form.querySelectorAll("[data-i18n-aria-label]").forEach((node) => {
+        node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel, node.getAttribute("aria-label") || ""));
+      });
+      relocalizeManifestTree();
     },
 
     updateMetadataPanelLabels() {

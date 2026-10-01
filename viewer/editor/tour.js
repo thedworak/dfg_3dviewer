@@ -402,7 +402,16 @@ export function attachTour(Viewer) {
         <rect x="10.75" y="12.25" width="4.5" height="3" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.2"/>
         <path d="M5.3 3.8 7 6M10.7 3.8 9 6M5.3 12.2 7 10M10.7 12.2 9 10" stroke="currentColor" stroke-width="1.1"/>
       </svg>`;
-      header.append(counter, spreadButton, leadersButton, closeButton);
+      // All annotations as a deck of cards (Viewer.setAnnotationStack).
+      const stackButton = document.createElement("button");
+      stackButton.type = "button";
+      stackButton.className = "viewer-tour-panel_stack";
+      stackButton.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <rect x="3.5" y="0.75" width="9" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="2" y="3.75" width="12" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="0.75" y="6.75" width="14.5" height="8.5" rx="1.3" fill="currentColor"/>
+      </svg>`;
+      header.append(counter, spreadButton, stackButton, leadersButton, closeButton);
       attachToolPanelChrome(panel, header, { before: closeButton });
 
       const body = document.createElement("div");
@@ -446,6 +455,7 @@ export function attachTour(Viewer) {
 
       leadersButton.addEventListener("click", () => Viewer.toggleAnnotationLeaderLines?.());
       spreadButton.addEventListener("click", () => Viewer.toggleAnnotationSpread?.());
+      stackButton.addEventListener("click", () => Viewer.toggleAnnotationStack?.());
       closeButton.addEventListener("click", () => {
         if (Viewer.isTourActive()) Viewer.stopTour();
         else Viewer.dismissTourIdlePanel();
@@ -472,9 +482,10 @@ export function attachTour(Viewer) {
       });
 
       stack.prepend(panel);
-      const ui = { panel, counter, spreadButton, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
+      const ui = { panel, counter, spreadButton, stackButton, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
       Viewer.syncTourLeaderToggle(ui);
       Viewer.syncTourSpreadToggle(ui);
+      Viewer.syncTourStackToggle(ui);
       return ui;
     },
 
@@ -487,6 +498,22 @@ export function attachTour(Viewer) {
         : t("tour.showSpread", "Open all annotations around the model");
       targets.forEach((item) => {
         const button = item?.spreadButton;
+        if (!button) return;
+        button.setAttribute("aria-pressed", enabled ? "true" : "false");
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      });
+    },
+
+    // The card-deck button of the tour panel(s), in sync with the setting.
+    syncTourStackToggle(ui) {
+      const targets = ui ? [ui] : [Viewer.tourState?.ui, Viewer.tourIdleUi];
+      const enabled = Viewer.annotationStack === true;
+      const label = enabled
+        ? t("tour.hideStack", "Hide annotation cards")
+        : t("tour.showStack", "Show annotations as cards");
+      targets.forEach((item) => {
+        const button = item?.stackButton;
         if (!button) return;
         button.setAttribute("aria-pressed", enabled ? "true" : "false");
         button.setAttribute("aria-label", label);
@@ -528,8 +555,9 @@ export function attachTour(Viewer) {
     dismissTourIdlePanel() {
       Viewer.tourIdleDismissedFor = Viewer.getTourStepsSignature(Viewer.getTourSteps());
       Viewer.removeTourIdlePanel();
-      // Its button is gone with the panel.
+      // Their buttons are gone with the panel.
       Viewer.setAnnotationSpread?.(false);
+      Viewer.setAnnotationStack?.(false);
     },
 
     syncTourIdlePanel() {
@@ -601,7 +629,9 @@ export function attachTour(Viewer) {
       Viewer.syncTourIdlePanel();
       Viewer.syncTourLeaderToggle();
       Viewer.syncTourSpreadToggle();
+      Viewer.syncTourStackToggle();
       Viewer.rebuildAnnotationSpread?.();
+      Viewer.rebuildAnnotationStack?.();
       const ui = Viewer.tourState?.ui;
       if (!ui) return;
       ui.panel.setAttribute("aria-label", t("tour.panel", "Guided tour"));
@@ -643,6 +673,7 @@ export function attachTour(Viewer) {
     // sync and start a pending autostart once there is something to show.
     onAnnotationsChangedForTour() {
       if (!Viewer.maybeAutostartAnnotationSpread()) Viewer.rebuildAnnotationSpread?.();
+      Viewer.rebuildAnnotationStack?.();
       const state = Viewer.tourState;
       if (state?.active) {
         const currentId = state.steps[state.index]?.entry?.id;
