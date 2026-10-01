@@ -20,6 +20,37 @@ const SUPPORTED_EXTENSIONS = [
   "zip",
 ];
 
+// A link to import (POST /api/model/create-from-url): http(s), and the file
+// name in its path must end in one of SUPPORTED_EXTENSIONS. Returns
+// { url } or { error } (an i18n key and its fallback, plus vars).
+function validateModelUrl(raw) {
+  const value = String(raw || "").trim();
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return { error: ["uploadPanel.urlInvalid", "Enter a full link starting with https:// or http://."] };
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return { error: ["uploadPanel.urlInvalid", "Enter a full link starting with https:// or http://."] };
+  }
+  let name = "";
+  try {
+    name = decodeURIComponent(url.pathname.split("/").pop() || "");
+  } catch {
+    name = url.pathname.split("/").pop() || "";
+  }
+  const dot = name.lastIndexOf(".");
+  const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+  if (!extension) {
+    return { error: ["uploadPanel.urlNoFile", "The link must point to a model file, e.g. …/model.glb."] };
+  }
+  if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+    return { error: ["uploadPanel.unsupportedFormat", "Unsupported file format: .{ext}", { ext: extension }] };
+  }
+  return { url: url.href };
+}
+
 // GET /api/limits and the `code` of a limit error (see worker/limits.py).
 // Worker-less builds (Drupal, static hosting) have no such endpoint - the
 // usage line then just stays hidden.
@@ -172,9 +203,25 @@ export function attachUploadPanel(Viewer) {
     resetUploadPanelState() {
       if (!this.uploadInputs) return;
       this.uploadInputs.file.value = "";
+      this.uploadInputs.url.value = "";
+      this.markUploadUrl(null);
       const state = this.authState;
       this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
       this.setUploadStatusText("");
+    },
+
+    // Shows the link check as it is typed; null clears it.
+    markUploadUrl(result) {
+      const input = this.uploadInputs?.url;
+      if (!input) return;
+      if (result?.error) {
+        const [key, fallback, vars] = result.error;
+        input.setAttribute("aria-invalid", "true");
+        this.setUploadStatusText(vars ? t(key, vars, fallback) : t(key, fallback), "error");
+      } else {
+        input.removeAttribute("aria-invalid");
+        if (this.uploadInputs.status?.dataset.tone === "error") this.setUploadStatusText("");
+      }
     },
 
     setUploadStatusText(message, tone = "info") {
@@ -190,6 +237,8 @@ export function attachUploadPanel(Viewer) {
         title: t("uploadPanel.title", "Upload & convert model"),
         closeAria: t("uploadPanel.closeAria", "Close upload panel"),
         fileLabel: t("uploadPanel.fileLabel", "3D model file"),
+        urlLabel: t("uploadPanel.urlLabel", "…or a link to the file"),
+        urlPlaceholder: t("uploadPanel.urlPlaceholder", "https://example.org/model.glb"),
         formatsHint: t(
           "uploadPanel.formatsHint",
           "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
@@ -208,7 +257,10 @@ export function attachUploadPanel(Viewer) {
         <form id="uploadPanelForm" class="upload-panel-body">
           <div id="uploadPanelAuth" class="upload-panel-auth" hidden></div>
           <label class="upload-panel-field">${panelText.fileLabel}
-            <input id="uploadPanelFileInput" type="file" accept="${SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`).join(",")}" required />
+            <input id="uploadPanelFileInput" type="file" accept="${SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`).join(",")}" />
+          </label>
+          <label class="upload-panel-field">${panelText.urlLabel}
+            <input id="uploadPanelUrlInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="${panelText.urlPlaceholder}" />
           </label>
           <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
           <p id="uploadPanelLimits" class="upload-panel-hint upload-panel-limits" hidden></p>
@@ -223,6 +275,7 @@ export function attachUploadPanel(Viewer) {
       this.uploadPanel = panel;
       this.uploadInputs = {
         file: panel.querySelector("#uploadPanelFileInput"),
+        url: panel.querySelector("#uploadPanelUrlInput"),
         submit: panel.querySelector("#uploadPanelSubmit"),
         status: panel.querySelector("#uploadPanelStatus"),
         auth: panel.querySelector("#uploadPanelAuth"),
@@ -234,6 +287,18 @@ export function attachUploadPanel(Viewer) {
       const closeButton = panel.querySelector("#uploadPanelClose");
 
       this.bindEventListener(form, "submit", (event) => this.handleUploadSubmit(event));
+      // A file or a link, not both: choosing one clears the other.
+      const { file, url } = this.uploadInputs;
+      this.bindEventListener(file, "change", () => {
+        if (file.files?.length && url.value) {
+          url.value = "";
+          this.markUploadUrl(null);
+        }
+      });
+      this.bindEventListener(url, "input", () => {
+        if (url.value.trim() && file.value) file.value = "";
+        this.markUploadUrl(url.value.trim() ? validateModelUrl(url.value) : null);
+      });
       this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
       makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
     },
@@ -287,11 +352,28 @@ export function attachUploadPanel(Viewer) {
     async handleUploadSubmit(event) {
       event.preventDefault();
       const file = this.uploadInputs?.file?.files?.[0];
-      if (!file) return;
+      const link = this.uploadInputs?.url?.value.trim();
+      if (!file && !link) {
+        this.setUploadStatusText(t("uploadPanel.chooseFileOrUrl", "Choose a file or paste a link to one."), "error");
+        return;
+      }
 
       if (this.authState?.required && !this.authState?.user) {
         this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");
         toastHelper("uploadLoginRequired", "warning");
+        return;
+      }
+
+      if (!file) {
+        const result = validateModelUrl(link);
+        this.markUploadUrl(result);
+        if (result.error) return;
+        // The worker downloads it (browsers would mostly be blocked by CORS).
+        await this.sendUploadRequest({
+          method: "POST",
+          body: JSON.stringify({ url: result.url }),
+          headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
+        }, "/api/model/create-from-url");
         return;
       }
 
@@ -315,12 +397,20 @@ export function attachUploadPanel(Viewer) {
 
       const formData = new FormData();
       formData.append("file", file);
+      await this.sendUploadRequest({ method: "POST", body: formData, headers: appRequestHeaders() }, "/api/model/create");
+    },
 
+    // Starts a conversion (an uploaded file or a link) and follows it.
+    async sendUploadRequest(request, endpoint) {
+      const fromUrl = endpoint.endsWith("-from-url");
       this.uploadInputs.submit.disabled = true;
-      this.setUploadStatusText(t("uploadPanel.uploading", "Uploading..."), "info");
+      this.setUploadStatusText(
+        fromUrl ? t("uploadPanel.downloading", "Downloading the file...") : t("uploadPanel.uploading", "Uploading..."),
+        "info"
+      );
 
       try {
-        const response = await fetch(apiUrl("/api/model/create"), { method: "POST", body: formData, headers: appRequestHeaders() });
+        const response = await fetch(apiUrl(endpoint), request);
         if (response.status === 401) {
           await this.refreshAuthState();
           this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");
@@ -339,6 +429,25 @@ export function attachUploadPanel(Viewer) {
         }
         if (response.status === 413) {
           this.setUploadStatusText(t("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+          return;
+        }
+        // The worker's reason a link cannot be imported (remote_fetch.py).
+        if (fromUrl && !response.ok && response.status !== 401) {
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (_error) {
+            // Proxy error page - the generic message below.
+          }
+          if (response.status === 404 && !data.error) {
+            // An older worker without the endpoint.
+            this.setUploadStatusText(t("uploadPanel.urlUnsupported", "This repository cannot import from links."), "error");
+            return;
+          }
+          this.setUploadStatusText(
+            t("uploadPanel.urlFetchError", { reason: data.error || `HTTP ${response.status}` }, "Could not import the link: {reason}"),
+            "error"
+          );
           return;
         }
         if (!response.ok) {

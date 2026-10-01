@@ -50,6 +50,7 @@ from urllib.parse import unquote, urlparse
 
 import mailer
 import optimize
+import remote_fetch
 import pointcloud
 from auth import APP_TIERS, AuthError, AuthStore
 from entitlements import Entitlements, business_limits
@@ -900,6 +901,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/model/create":
             self._handle_create()
             return
+        if path == "/api/model/create-from-url":
+            self._handle_create_from_url()
+            return
         # The viewer's "Render preview". /api/editor/upload-thumbnail is the
         # Drupal module's route; still accepted here for older viewers.
         if path in ("/api/model/thumbnail", "/api/editor/upload-thumbnail"):
@@ -983,7 +987,42 @@ class Handler(BaseHTTPRequestHandler):
         if ext not in SUPPORTED_FORMATS | ARCHIVE_FORMATS:
             self._send_json(400, {"error": f"Unsupported file type: .{ext}"})
             return
+        self._start_job(user, key, username, limits, filename, content)
 
+    def _handle_create_from_url(self) -> None:
+        """POST /api/model/create-from-url {"url": ...}: the worker downloads
+        the model (remote_fetch.py: public http(s) only, the upload size cap
+        and formats) and converts it like an uploaded file."""
+        user = self._require_user()
+        if user is None:
+            return
+        try:
+            url = str(self._read_json_body().get("url", "")).strip()
+            remote_fetch.check_url(url)
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        except remote_fetch.FetchError as exc:
+            self._send_json(exc.status, {"error": str(exc)})
+            return
+        # The size is unknown until downloaded: check everything else first,
+        # reserve() below re-checks with the real size.
+        key, username, limits = self._limit_context(user)
+        try:
+            LIMITS.check(key, username, limits, 0, active_jobs_for(key))
+        except LimitError as exc:
+            self._send_limit_error(exc)
+            return
+        try:
+            filename, content = remote_fetch.fetch(url, MAX_UPLOAD_BYTES, SUPPORTED_FORMATS | ARCHIVE_FORMATS)
+        except remote_fetch.FetchError as exc:
+            self._send_json(exc.status, {"error": str(exc)})
+            return
+        filename = re.sub(r"[^A-Za-z0-9_.-]", "_", Path(filename).name).lstrip(".") or "model"
+        self._start_job(user, key, username, limits, filename, content)
+
+    def _start_job(self, user, key, username, limits, filename: str, content: bytes) -> None:
+        ext = Path(filename).suffix.lower().lstrip(".")
         try:
             job_id = LIMITS.reserve(
                 key, username, limits, len(content),
