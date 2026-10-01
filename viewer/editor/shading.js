@@ -120,6 +120,11 @@ export function attachShadingEditor(Viewer) {
       const roots = this.getShadingRootObjects();
       if (!roots.length) return;
 
+      // The Level of Certainty view paints over the meshes' materials: shade
+      // their own ones, then paint again.
+      const certaintyView = this.certaintyView === true;
+      if (certaintyView) this.restoreCertaintyMaterials?.();
+
       const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
       const customShader = mode === "custom"
         ? { vertexShader: this.customVertexShader, fragmentShader: this.customFragmentShader }
@@ -147,6 +152,7 @@ export function attachShadingEditor(Viewer) {
           child.material = Array.isArray(child.material) ? nextMaterials : nextMaterials[0];
         });
       });
+      if (certaintyView) this.applyCertaintyView?.();
     },
 
     setShadingMode(mode, options = {}) {

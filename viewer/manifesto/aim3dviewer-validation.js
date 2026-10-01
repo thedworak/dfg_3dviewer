@@ -1,3 +1,9 @@
+import {
+  certaintyAssessmentErrors,
+  certaintyScaleErrors,
+  normalizeCertaintyScale,
+} from "./certainty-scale.js";
+
 // Keep in sync with TONE_MAPPING_MODES / ANTIALIAS_MODES in viewer/rendering.js
 // (not imported: this module also runs in Node without three.js).
 const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
@@ -371,6 +377,33 @@ function validateAIM3DViewerBlock(block, path, errors) {
   }
   if (block.modelTransform !== undefined) validateModelTransform(block.modelTransform, `${path}.modelTransform`, errors);
   if (block.clipping !== undefined) validateClipping(block.clipping, `${path}.clipping`, errors);
+  if (block.certainty !== undefined) {
+    certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
+  }
+}
+
+// Level of Certainty assessments on the annotations of every Scene and of
+// the manifest itself, checked against the manifest's scale (or the default).
+function validateCertaintyAssessments(manifest, errors) {
+  const scale = normalizeCertaintyScale(manifest.AIM3DViewer?.certainty);
+  const pages = [
+    ...(Array.isArray(manifest.items) ? manifest.items : []).flatMap((item, itemIndex) => (
+      Array.isArray(item?.annotations)
+        ? item.annotations.map((page, pageIndex) => [page, `$.items[${itemIndex}].annotations[${pageIndex}]`])
+        : []
+    )),
+    ...(Array.isArray(manifest.annotations)
+      ? manifest.annotations.map((page, pageIndex) => [page, `$.annotations[${pageIndex}]`])
+      : []),
+  ];
+  pages.forEach(([page, pagePath]) => {
+    (Array.isArray(page?.items) ? page.items : []).forEach((annotation, index) => {
+      const certainty = annotation?.AIM3DViewer?.certainty;
+      if (certainty === undefined) return;
+      certaintyAssessmentErrors(certainty, `${pagePath}.items[${index}].AIM3DViewer.certainty`, scale)
+        .forEach(([errorPath, message]) => pushError(errors, errorPath, message));
+    });
+  });
 }
 
 export function validateAIM3DManifest(manifest, options = {}) {
@@ -396,6 +429,7 @@ export function validateAIM3DManifest(manifest, options = {}) {
   if (manifest.AIM3DViewer !== undefined) {
     validateAIM3DViewerBlock(manifest.AIM3DViewer, "$.AIM3DViewer", errors);
   }
+  validateCertaintyAssessments(manifest, errors);
 
   return {
     valid: errors.length === 0,

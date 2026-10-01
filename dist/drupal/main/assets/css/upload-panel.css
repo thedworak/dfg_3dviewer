@@ -83,7 +83,8 @@
   font-weight: 600;
 }
 
-.upload-panel-field input[type="file"] {
+.upload-panel-field input[type="file"],
+.upload-panel-field input[type="url"] {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--viewer-panel-border);
@@ -93,6 +94,10 @@
   font: inherit;
   font-size: 12px;
   padding: 6px 8px;
+}
+
+.upload-panel-field input[type="url"][aria-invalid="true"] {
+  border-color: #d54646;
 }
 
 .upload-panel-hint {

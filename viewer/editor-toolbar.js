@@ -56,6 +56,7 @@ export function getEditorToolbarIcon(icon) {
     measureArea: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7 14 4l6 9-8 7-7-5z" fill="currentColor" fill-opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     measureDimensions: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 7.5 12 12l8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
     measureClear: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    certainty: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 10.5h12M4 15h8M4 19.5h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M17.5 16.5l1.5 1.5 3-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>',
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -1137,6 +1138,7 @@ export function createEditorToolbar(viewer) {
     { key: "hierarchy", group: "inspect", icon: "hierarchy", onClick: () => {}, pressed: true, primary: false },
     { key: "ruler", group: "inspect", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
     { key: "annotate", group: "inspect", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
+    { key: "certainty", group: "inspect", icon: "certainty", onClick: () => viewer.toggleCertaintyView(), pressed: true, primary: false },
     { key: "statistics", group: "inspect", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     // Help.
     { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
@@ -2020,6 +2022,9 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("controls.disablePickingMode", "Disable picking mode")
       : t("controls.enablePickingMode", "Enable picking mode"),
     annotate: t("gui.addAnnotations", "Add annotations"),
+    certainty: viewer.certaintyView
+      ? t("certainty.hideView", "Hide Level of Certainty")
+      : t("certainty.showView", "Show Level of Certainty"),
     ruler: viewer.RULER_MODE
       ? t("controls.disableDistanceMeasurement", "Disable distance measurement")
       : t("controls.enableDistanceMeasurement", "Enable distance measurement"),
@@ -2265,6 +2270,7 @@ export function updateEditorToolbarState(viewer) {
     scale: viewer.transformText["Transform 3D Object"] === "scale",
     picking: viewer.pickingMode === true,
     ruler: viewer.RULER_MODE === true,
+    certainty: viewer.certaintyView === true,
     clippingPlanes: viewer.clippingMode === true,
     advancedEditor: viewer.isEditorAdvancedPanelVisible(),
     fullScreen: viewer.FULLSCREEN === true,

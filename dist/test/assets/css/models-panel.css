@@ -58,12 +58,14 @@ body[data-viewer-theme="dark"] #planButton {
 
 #modelsPanel[hidden],
 #libraryPanel[hidden],
+#examplesPanel[hidden],
 #plansPanel[hidden] {
   display: none !important;
 }
 
 #modelsPanel,
 #libraryPanel,
+#examplesPanel,
 #plansPanel {
   position: absolute;
   left: 50%;
@@ -90,6 +92,7 @@ body[data-viewer-theme="dark"] #planButton {
 @media (max-width: 640px) {
   #modelsPanel,
   #libraryPanel,
+  #examplesPanel,
   #plansPanel {
     width: calc(100vw - 36px);
   }
@@ -137,8 +140,9 @@ body[data-viewer-theme="dark"] #planButton {
   opacity: 0.8;
 }
 
-/* Placeholder (a cube) under the image: visible when there is no thumbnail
-   or it failed to load (ui/models-panel.js removes the broken <img>). */
+/* Placeholder (a cube) under the image. A model without thumbnails gets a
+   generic image (fillModelThumbnail, ui/thumbnail-gallery.js); the cube shows
+   only if that is missing too. */
 .models-panel-item-thumb {
   position: relative;
   width: 28px;
@@ -563,4 +567,23 @@ body[data-viewer-theme="dark"] #planButton {
 
 .models-panel-repository[data-locked="true"] .models-panel-repository-row > * {
   pointer-events: none;
+}
+
+/* App: example manifests (ui/examples-panel.js), grouped AIM3D / IIIF. */
+.examples-panel-heading {
+  margin: 10px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.examples-panel-heading:first-child {
+  margin-top: 0;
+}
+
+.examples-panel-list .models-panel-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

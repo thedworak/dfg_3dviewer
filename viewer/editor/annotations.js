@@ -212,7 +212,11 @@ export function attachAnnotations(Viewer) {
       // so the sprite is scaled up to keep the badge its former size.
       const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005) * 1.15;
 
-      const texture = Viewer.createNumberTexture(index.toString());
+      // In the Level of Certainty view: the level's code and symbol.
+      const certaintyLevel = this.certaintyView ? this.getCertaintyLevelForEntry?.(entry) : null;
+      const texture = certaintyLevel
+        ? Viewer.createCertaintyBadgeTexture(certaintyLevel)
+        : Viewer.createNumberTexture(index.toString());
 
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
@@ -235,6 +239,7 @@ export function attachAnnotations(Viewer) {
       sprite.userData.targetId = entry.targetId;
       sprite.userData.faceIndex = entry.faceIndex;
       sprite.userData.title = entry.title || "";
+      sprite.userData.certainty = entry.certainty ? entry.certainty.value : null;
 
       return sprite;
     },
@@ -269,6 +274,8 @@ export function attachAnnotations(Viewer) {
       const titleText = String(marker.userData?.title || "").trim();
       if (this.annotationPOITooltipTitle) {
         this.annotationPOITooltipTitle.textContent = titleText || "Annotation";
+        const level = this.getCertaintyLevel?.(marker.userData?.certainty);
+        if (level) this.annotationPOITooltipTitle.textContent += ` · ${t("certainty.short", "LoC")} ${this.formatCertaintyLevel(level)}`;
       }
 
       tooltip.hidden = false;
@@ -382,6 +389,7 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogDescriptionInput.value =
         uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
       this.syncAnnotationDialogSaveView(entries);
+      this.syncAnnotationDialogCertainty(entries, { point: Boolean(this.annotationEditingPointId) });
 
       this.updateAnnotationDialogBounds();
       this.annotationDialog.hidden = false;
@@ -429,6 +437,7 @@ export function attachAnnotations(Viewer) {
 
     refreshAnnotationPOIs() {
       this.clearAnnotationPOIs();
+      this.applyCertaintyView?.();
       const entries = this.getAnnotationEntriesForPersistence();
       if (!entries.length) {
         this.onAnnotationsChangedForTour?.();
@@ -594,6 +603,19 @@ export function attachAnnotations(Viewer) {
               <span>Description</span>
               <textarea id="annotationDescriptionInput" name="description" rows="5" maxlength="4000"></textarea>
             </label>
+            <div class="annotation-dialog__certainty" id="annotationCertaintyFields">
+              <label>
+                <span id="annotationCertaintyLabel">Level of Certainty (LoC)</span>
+                <select id="annotationCertaintyInput" name="certainty"></select>
+              </label>
+              <label>
+                <span id="annotationCertaintyScopeLabel">Applies to</span>
+                <select id="annotationCertaintyScopeInput" name="certaintyScope">
+                  <option value="object">Object</option>
+                  <option value="group">Group</option>
+                </select>
+              </label>
+            </div>
             <label class="annotation-dialog__checkbox">
               <input id="annotationSaveViewInput" name="saveView" type="checkbox" />
               <span id="annotationSaveViewLabel">Save current camera view for the tour</span>
@@ -613,6 +635,10 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogDescriptionInput = dialog.querySelector("#annotationDescriptionInput");
       this.annotationDialogSaveViewInput = dialog.querySelector("#annotationSaveViewInput");
       this.annotationDialogSaveViewLabel = dialog.querySelector("#annotationSaveViewLabel");
+      this.annotationDialogCertaintyFields = dialog.querySelector("#annotationCertaintyFields");
+      this.annotationDialogCertaintyInput = dialog.querySelector("#annotationCertaintyInput");
+      this.annotationDialogCertaintyScopeInput = dialog.querySelector("#annotationCertaintyScopeInput");
+      this.populateCertaintyDialogOptions();
       const form = dialog.querySelector("#annotationDialogForm");
 
       this.bindEventListener(dialog, "click", (event) => {
@@ -637,6 +663,64 @@ export function attachAnnotations(Viewer) {
       this.bindEventListener(window, "resize", () => this.updateAnnotationDialogBounds());
       this.bindEventListener(window, "scroll", () => this.updateAnnotationDialogBounds(), true);
       this.bindEventListener(document, "fullscreenchange", () => this.updateAnnotationDialogBounds());
+    },
+
+    // The scale's levels (code, symbol, name) in the dialog's LoC field.
+    populateCertaintyDialogOptions() {
+      const select = this.annotationDialogCertaintyInput;
+      if (!select) return;
+      const current = select.value;
+      select.replaceChildren(
+        new Option(t("certainty.none", "— not assessed —"), ""),
+        ...(this.certaintyScale?.levels || []).map((level) => (
+          new Option(`${this.formatCertaintyLevel(level)} (${level.value})`, String(level.value))
+        ))
+      );
+      select.value = current;
+      const labels = {
+        annotationCertaintyLabel: t("certainty.field", "Level of Certainty (LoC)"),
+        annotationCertaintyScopeLabel: t("certainty.scope", "Applies to"),
+      };
+      Object.entries(labels).forEach(([id, text]) => {
+        const node = this.annotationDialog?.querySelector(`#${id}`);
+        if (node) node.textContent = text;
+      });
+      const scopeOptions = this.annotationDialogCertaintyScopeInput?.options;
+      if (scopeOptions) {
+        scopeOptions[0].textContent = t("certainty.scopeObject", "Object");
+        scopeOptions[1].textContent = t("certainty.scopeGroup", "Group (parent object)");
+      }
+    },
+
+    // Shows the LoC of the entries being edited when they share one; point
+    // annotations have no object to assess.
+    syncAnnotationDialogCertainty(entries, { point = false } = {}) {
+      this.populateCertaintyDialogOptions();
+      if (this.annotationDialogCertaintyFields) this.annotationDialogCertaintyFields.hidden = point;
+      if (!this.annotationDialogCertaintyInput) return;
+      const values = Array.from(new Set((entries || []).map((entry) => (
+        entry?.certainty ? String(this.getCertaintyLevel(entry.certainty.value)?.value ?? "") : ""
+      ))));
+      this.annotationDialogCertaintyInput.value = values.length === 1 ? values[0] : "";
+      const scopes = Array.from(new Set((entries || []).map((entry) => entry?.certainty?.scope || "object")));
+      this.annotationDialogCertaintyScopeInput.value = scopes.length === 1 ? scopes[0] : "object";
+    },
+
+    // The dialog's assessment for an annotation of `targetId`, or null. An
+    // unchanged level keeps the exact value it had (e.g. 9 on level B, 8-9).
+    readAnnotationDialogCertainty(targetId, previous = null) {
+      const raw = this.annotationDialogCertaintyInput?.value;
+      if (!raw || this.annotationDialogCertaintyFields?.hidden) return null;
+      const level = this.getCertaintyLevel(Number(raw));
+      if (!level) return null;
+      const scope = this.annotationDialogCertaintyScopeInput?.value === "group" ? "group" : "object";
+      const previousLevel = previous ? this.getCertaintyLevel(previous.value) : null;
+      return {
+        value: previousLevel === level ? previous.value : level.value,
+        code: level.code,
+        scope,
+        targetId: this.resolveCertaintyTargetId(targetId, scope),
+      };
     },
 
     updateAnnotationDialogBounds() {
@@ -711,6 +795,7 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogDescriptionInput.value =
         uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
       this.syncAnnotationDialogSaveView(existingEntries);
+      this.syncAnnotationDialogCertainty(existingEntries);
       this.updateAnnotationDialogBounds();
       this.annotationDialog.hidden = false;
       this.closeAnnotationPOITooltip();
@@ -818,6 +903,7 @@ export function attachAnnotations(Viewer) {
       const view = this.annotationDialogSaveViewInput?.checked
         ? this.captureCurrentAnnotationView()
         : this.normalizeAnnotationView(previousEntry?.view);
+      const certainty = this.readAnnotationDialogCertainty(targetId, previousEntry?.certainty);
 
       const annotationPayload = {
         id: annotationId,
@@ -833,6 +919,7 @@ export function attachAnnotations(Viewer) {
         },
 
         ...this.setAnnotationEntryText({ localized: previousEntry?.localized }, title, description),
+        ...(certainty ? { certainty } : {}),
         ...(view ? { view } : {}),
         updatedAt: nowIso,
         createdAt: previousEntry?.createdAt || nowIso
@@ -998,6 +1085,7 @@ export function attachAnnotations(Viewer) {
             title: String(entry.title || "").trim(),
             description: String(entry.description || "").trim(),
             ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
+            ...(this.normalizeCertainty?.(entry.certainty) ? { certainty: this.normalizeCertainty(entry.certainty) } : {}),
             ...(view ? { view } : {}),
             createdAt: entry.createdAt ? String(entry.createdAt) : "",
             updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
@@ -1060,6 +1148,15 @@ export function attachAnnotations(Viewer) {
           targetNode.setAttribute("faces", entry.faceNumbers.join(","));
         }
         annotation.appendChild(targetNode);
+
+        if (entry.certainty) {
+          const certaintyNode = doc.createElement("iiif:certainty");
+          certaintyNode.setAttribute("value", String(entry.certainty.value));
+          if (entry.certainty.code) certaintyNode.setAttribute("code", entry.certainty.code);
+          certaintyNode.setAttribute("scope", entry.certainty.scope);
+          if (entry.certainty.targetId) certaintyNode.setAttribute("target", entry.certainty.targetId);
+          annotation.appendChild(certaintyNode);
+        }
 
         if (entry.view) {
           const viewNode = doc.createElement("iiif:view");
@@ -1175,7 +1272,9 @@ export function attachAnnotations(Viewer) {
           id: annotationId,
           type: "Annotation",
 
-          motivation: ["commenting"],
+          // An assessed one also states its Level of Certainty (W3C Web
+          // Annotation "assessing"; the level is in AIM3DViewer.certainty).
+          motivation: entry.certainty ? ["commenting", "assessing"] : ["commenting"],
 
           // Every language of the title; the body a Choice of one
           // TextualBody per language when the description has several.
@@ -1219,7 +1318,8 @@ export function attachAnnotations(Viewer) {
             ...(entry.point
               ? { point: entry.point }
               : { faceIndex: entry.faceIndex, faceNumbers: entry.faceNumbers || [] }),
-            view: entry.view || undefined
+            view: entry.view || undefined,
+            certainty: entry.certainty || undefined
           }
         };
       });
@@ -1445,6 +1545,9 @@ export function attachAnnotations(Viewer) {
                 ? { angle: light.angle, penumbra: light.penumbra }
                 : {}),
             })),
+
+          // The Level of Certainty scale, when used.
+          certainty: this.getCertaintyScaleForExport?.(),
 
           modelTransform: {
             position:
@@ -2013,6 +2116,9 @@ export function attachAnnotations(Viewer) {
 
       const aim3dConfig = manifestJson.AIM3DViewer;
       let appliedAIM3DConfig = false;
+      // The manifest's Level of Certainty scale (the default one without),
+      // before its annotations are read against it.
+      this.setCertaintyScale?.(aim3dConfig?.certainty ?? null);
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
         const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
@@ -2119,6 +2225,8 @@ export function attachAnnotations(Viewer) {
         const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view)
           || this.normalizeAnnotationView(comment?.view);
 
+        const certainty = this.normalizeCertainty?.(custom.certainty);
+
         return {
           id: String(annotation.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
           groupId: String(annotation.AIM3DViewer?.groupId || ""),
@@ -2132,6 +2240,7 @@ export function attachAnnotations(Viewer) {
             faces: normalizedFaceNumbers.length > 0 ? normalizedFaceNumbers : [faceIndex],
           },
           ...commentText,
+          ...(certainty ? { certainty } : {}),
           ...(view ? { view } : {}),
           createdAt: annotation?.created ? String(annotation.created) : "",
           updatedAt: annotation?.modified ? String(annotation.modified) : "",
@@ -2149,7 +2258,12 @@ export function attachAnnotations(Viewer) {
       }
 
       this.annotationEntries = importedEntries;
-      this.refreshAnnotationPOIs();
+      // A manifest may open in the Level of Certainty view.
+      if (this.certaintyScale?.visible && importedEntries.some((entry) => entry.certainty)) {
+        this.setCertaintyView(true);
+      } else {
+        this.refreshAnnotationPOIs();
+      }
       toastHelper("annotationsImportedFromManifest", "success", {
         count: importedEntries.length,
         plural: importedEntries.length === 1 ? "" : "s"
@@ -2294,6 +2408,18 @@ export function attachAnnotations(Viewer) {
             })
           : null;
 
+        const certaintyNode =
+          node.querySelector("certainty, iiif\\:certainty") ||
+          node.getElementsByTagName("iiif:certainty")[0];
+        const certainty = certaintyNode
+          ? this.normalizeCertainty?.({
+              value: certaintyNode.getAttribute("value"),
+              code: certaintyNode.getAttribute("code") || undefined,
+              scope: certaintyNode.getAttribute("scope") || undefined,
+              targetId: certaintyNode.getAttribute("target") || undefined,
+            })
+          : null;
+
         if (point) {
           importedEntries.push({
             id: rawId || `anno-point-${index + 1}`,
@@ -2321,6 +2447,7 @@ export function attachAnnotations(Viewer) {
           },
           title: String(titleNode?.textContent || "").trim(),
           description: String(descriptionNode?.textContent || "").trim(),
+          ...(certainty ? { certainty } : {}),
           ...(view ? { view } : {}),
         });
       });
@@ -2389,6 +2516,7 @@ export function attachAnnotations(Viewer) {
               },
               title: String(entry?.title || "").trim(),
               description: String(entry?.description || "").trim(),
+              ...(this.normalizeCertainty?.(entry?.certainty) ? { certainty: this.normalizeCertainty(entry.certainty) } : {}),
               ...(view ? { view } : {}),
               createdAt: entry?.createdAt ? String(entry.createdAt) : "",
               updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",

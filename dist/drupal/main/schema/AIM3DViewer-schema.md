@@ -224,6 +224,72 @@ Stores model transform and rendering flags.
 }
 ```
 
+## `AIM3DViewer.certainty`
+
+The Level of Certainty (LoC) scale of a reconstruction. Annotations assess the
+object (or group) they target against it; the viewer's LoC view (editor
+toolbar, *Show Level of Certainty*) paints every assessed object in its
+level's colour, the rest in `unassessedColor`, and shows a legend.
+
+Levels are told apart by three things, so the view also reads without colour
+vision and in greyscale prints: a distinct `color`, a short `code` (a letter)
+and a `symbol`. Annotation badges in the view show the code and symbol
+instead of their number.
+
+```json
+{
+  "min": 0,
+  "max": 10,
+  "unassessedColor": "#9ca3af",
+  "visible": false,
+  "levels": [
+    { "value": 10, "code": "A", "symbol": "✓", "color": "#1a9850", "label": { "en": ["Preserved / surveyed"], "pl": ["Stan zachowany / pomiar"] } },
+    { "value": 8,  "code": "B", "symbol": "■", "color": "#2166ac", "label": { "en": ["Direct documentation"], "pl": ["Dokumentacja bezpośrednia"] } },
+    { "value": 6,  "code": "C", "symbol": "▲", "color": "#ffd400", "label": { "en": ["Indirect sources"], "pl": ["Źródła pośrednie"] } },
+    { "value": 4,  "code": "D", "symbol": "≈", "color": "#f46d00", "label": { "en": ["Analogy"], "pl": ["Analogia"] } },
+    { "value": 0,  "code": "E", "symbol": "?", "color": "#c51b7d", "label": { "en": ["Hypothesis"], "pl": ["Hipoteza"] } }
+  ]
+}
+```
+
+- `levels`: required. A level's `value` is its lower bound: an assessment
+  belongs to the highest level whose value is not above it (on the scale
+  above, 7 is level C). `value`, `code` and `color` must be unique.
+- `label`, `description`: IIIF language maps (or plain strings).
+- `min`, `max`: the range assessments must fall in (default: the lowest and
+  highest level).
+- `visible`: open the manifest in the LoC view.
+- Without this block the viewer uses the scale above. It is exported when a
+  manifest gave it or an annotation is assessed.
+
+### Assessments on annotations
+
+An assessed annotation adds the W3C Web Annotation motivation `assessing` and
+carries the assessment in its own `AIM3DViewer` block; its body is the
+justification (sources, reasoning).
+
+```json
+{
+  "type": "Annotation",
+  "motivation": ["commenting", "assessing"],
+  "label": { "en": ["Roof"] },
+  "body": { "type": "TextualBody", "value": "Reconstructed from a 1920 photograph.", "format": "text/plain" },
+  "AIM3DViewer": {
+    "targetId": "m0:0.12",
+    "faceNumbers": [0],
+    "certainty": { "value": 6, "code": "C", "scope": "object", "targetId": "m0:0.12" }
+  }
+}
+```
+
+- `value` (or `code` alone, resolved against the scale): the level.
+- `scope`: `object` paints the annotated object, `group` its parent object
+  (e.g. every part of a building element).
+- `targetId`: the object painted, resolved when the annotation was saved.
+
+The XML export for Drupal (`iiif:annotations`) carries the same as
+`<iiif:certainty value="6" code="C" scope="object" target="m0:0.12"/>`.
+
 ## Compatibility
 
 - `AIM3DViewer.viewer.clipping` is the preferred schema.
