@@ -166,6 +166,75 @@
     visibility 0s;
 }
 
+/* Model loading (loading-status.js sets data-loading and the progress): a
+   thin ring around the toolbar filling clockwise from the top, and the
+   percentage just above it. An integer, so the counter can print it and the
+   ring still moves smoothly between updates. */
+@property --toolbar-load-progress {
+  syntax: "<integer>";
+  inherits: true;
+  initial-value: 0;
+}
+
+#viewerEditorToolbar[data-loading] {
+  counter-reset: toolbar-load var(--toolbar-load-progress);
+  transition:
+    opacity 1.25s ease,
+    transform 1.25s ease,
+    visibility 0s,
+    padding 1.28s ease,
+    box-shadow 1.28s ease,
+    background 1.28s ease,
+    --toolbar-load-progress 300ms ease;
+}
+
+#viewerEditorToolbar[data-loading]::before,
+#viewerEditorToolbar[data-loading]::after {
+  position: absolute;
+  pointer-events: none;
+  transition: opacity 900ms ease 500ms;
+}
+
+#viewerEditorToolbar[data-loading]::before {
+  content: "";
+  inset: -1px;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(
+    var(--viewer-loader-accent, #7dd3fc) calc(var(--toolbar-load-progress) * 1%),
+    color-mix(in srgb, var(--viewer-panel-text) 8%, transparent) 0
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+
+#viewerEditorToolbar[data-loading]::after {
+  content: counter(toolbar-load) "%";
+  right: 16px;
+  bottom: calc(100% + 6px);
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--viewer-panel-text) 72%, transparent);
+  background: color-mix(in srgb, var(--viewer-panel-bg) 70%, transparent);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+#viewerEditorToolbar[data-loading="complete"]::before,
+#viewerEditorToolbar[data-loading="complete"]::after {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #viewerEditorToolbar[data-loading] {
+    transition: opacity 1.25s ease, transform 1.25s ease, visibility 0s;
+  }
+}
+
 .viewer-editor-tool[data-tool="moveToolbar"] {
   cursor: grab;
   -webkit-user-drag: none;

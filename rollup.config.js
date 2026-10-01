@@ -63,6 +63,45 @@ async function copyDirectory(source, target, filter) {
   });
 }
 
+// fs.cp filter for copying only the named files from the top of root
+// (subdirectories are skipped).
+function keepFiles(root, names) {
+  const keep = new Set(names);
+  const rootPath = path.resolve(root);
+  return (source) => {
+    const sourcePath = path.resolve(source);
+    return sourcePath === rootPath
+      || (path.dirname(sourcePath) === rootPath && keep.has(path.basename(sourcePath)));
+  };
+}
+
+// The favicon source is the 1254 px app icon; a browser tab needs 64 px.
+async function shrinkFavicon(file) {
+  const { default: sharp } = await import('sharp');
+  const resized = await sharp(file).resize(64, 64).png().toBuffer();
+  await fs.writeFile(file, resized);
+}
+
+// The gallery renders (scripts/render.py, 512 px PNG) as WebP: about a
+// twentieth of the size, transparency kept. thumbnail-gallery.js asks for
+// .webp in these builds (GALLERY_IMAGE_EXT).
+async function convertGalleryToWebp(dir) {
+  const { default: sharp } = await import('sharp');
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true, recursive: true });
+  } catch {
+    return;
+  }
+  await Promise.all(entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.png'))
+    .map(async (entry) => {
+      const source = path.join(entry.parentPath, entry.name);
+      await sharp(source).webp({ quality: 80 }).toFile(source.replace(/\.png$/, '.webp'));
+      await fs.rm(source);
+    }));
+}
+
 // The app ships only the progressive Wolpa Synagogue (6.7 MB, Meshopt +
 // KTX2): the full-resolution one (40 MB) and its gallery stay out of the
 // mobile bundle, and everything that names it opens the progressive one.
@@ -190,9 +229,15 @@ function copyBuildAssets() {
     async writeBundle() {
       await fs.mkdir(outDistDir, { recursive: true });
       await Promise.all([
+        // Only what is loaded at run time (the rest of these packages is
+        // ~25 MB of sources, typings and Node builds): the glTF Draco decoder
+        // (loaders.js sets draco/gltf/), web-ifc's wasm (its API is bundled
+        // into the IFCLoader chunk; -mt when the page is cross-origin
+        // isolated), and the one font the measurement labels use
+        // (viewer-helpers.js). Licenses go along.
         copyDirectory(
-          'node_modules/three/examples/jsm/libs/draco',
-          path.join(outDistDir, 'assets/draco')
+          'node_modules/three/examples/jsm/libs/draco/gltf',
+          path.join(outDistDir, 'assets/draco/gltf')
         ),
         // KTX2/Basis Universal transcoder for KHR_texture_basisu textures.
         copyDirectory(
@@ -201,13 +246,20 @@ function copyBuildAssets() {
         ),
         copyDirectory(
           'node_modules/web-ifc',
-          path.join(outDistDir, 'assets/ifc')
+          path.join(outDistDir, 'assets/ifc'),
+          keepFiles('node_modules/web-ifc', ['web-ifc.wasm', 'web-ifc-mt.wasm', 'LICENSE.md'])
         ),
         copyDirectory('viewer/css', path.join(outDistDir, 'assets/css')),
-        copyDirectory('viewer/img', path.join(outDistDir, 'assets/img')),
-        copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
+        copyDirectory('viewer/img', path.join(outDistDir, 'assets/img'))
+          .then(() => shrinkFavicon(path.join(outDistDir, 'assets/img/icon.png'))),
+        copyDirectory(
+          'viewer/fonts',
+          path.join(outDistDir, 'assets/fonts'),
+          keepFiles('viewer/fonts', ['helvetiker_regular.typeface.json', 'LICENSE', 'README.md'])
+        ),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
-        copyDirectory('viewer/examples', path.join(outDistDir, 'examples'), mobile ? keepInMobileExamples : undefined),
+        copyDirectory('viewer/examples', path.join(outDistDir, 'examples'), mobile ? keepInMobileExamples : undefined)
+          .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),
         copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests'))
           .then(() => mobile && retargetMobileManifests(path.join(outDistDir, 'manifests'))),
         // Manifest schema, served at the URL in its $id: <site>/schema/AIM3DViewer-schema.json.

@@ -101,15 +101,36 @@ export function attachLoadingStatus(viewer) {
 
       shell.replaceChildren(ring, content);
 
-      const set = (value = 0, maxValue = 100) => {
-        const safeMax = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 100;
-        const normalized = Number.isFinite(value) ? Math.min(Math.max(value / safeMax, 0), 1) : 0;
-        const progress = Math.round(normalized * 100);
+      // With the editor toolbar on screen the progress is drawn around it
+      // (data-loading, --toolbar-load-progress; editor-toolbar.css) and this
+      // card is kept for screen readers only (data-on-toolbar, main.css).
+      let currentProgress = 0;
+      const syncToolbar = (state) => {
+        const toolbar = core.editorToolbar;
+        const onToolbar = Boolean(toolbar?.isConnected && toolbar.style.display !== "none");
+        shell.toggleAttribute("data-on-toolbar", onToolbar);
+        if (!toolbar) return;
+        if (state === "hidden" || !onToolbar) {
+          delete toolbar.dataset.loading;
+          return;
+        }
+        toolbar.style.setProperty("--toolbar-load-progress", String(currentProgress));
+        toolbar.dataset.loading = state;
+      };
 
+      const applyProgress = (progress) => {
+        currentProgress = progress;
         shell.style.setProperty("--model-loader-progress", String(progress));
         percent.textContent = `${progress}%`;
         bar.style.width = `${progress}%`;
         track.setAttribute("aria-valuenow", String(progress));
+        if (!shell.hidden && !shell.dataset.complete) syncToolbar("active");
+      };
+
+      const set = (value = 0, maxValue = 100) => {
+        const safeMax = Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 100;
+        const normalized = Number.isFinite(value) ? Math.min(Math.max(value / safeMax, 0), 1) : 0;
+        applyProgress(Math.round(normalized * 100));
         updatePhase(loadingModelKeyIndex);
       };
 
@@ -122,11 +143,13 @@ export function attachLoadingStatus(viewer) {
           shell.hidden = false;
           delete shell.dataset.complete;
           updatePhase(loadingModelKeyIndex);
+          syncToolbar("active");
         },
         hide: () => {
           clearHideTimer();
           shell.hidden = true;
           delete shell.dataset.complete;
+          syncToolbar("hidden");
         },
         setStage: (stageKey, progressValue = null) => {
           const index = stageKeyToIndex.get(stageKey);
@@ -134,25 +157,20 @@ export function attachLoadingStatus(viewer) {
             updatePhase(index);
           }
           if (Number.isFinite(progressValue)) {
-            const normalizedProgress = Math.max(0, Math.min(Math.round(progressValue), 100));
-            shell.style.setProperty("--model-loader-progress", String(normalizedProgress));
-            percent.textContent = `${normalizedProgress}%`;
-            bar.style.width = `${normalizedProgress}%`;
-            track.setAttribute("aria-valuenow", String(normalizedProgress));
+            applyProgress(Math.max(0, Math.min(Math.round(progressValue), 100)));
           }
         },
         complete: (delayMs = 2400) => {
           clearHideTimer();
           updatePhase(stageKeyToIndex.get("loadingLog.modelLoaded") ?? messages.length - 1);
-          shell.style.setProperty("--model-loader-progress", "100");
-          percent.textContent = "100%";
-          bar.style.width = "100%";
-          track.setAttribute("aria-valuenow", "100");
+          applyProgress(100);
           shell.dataset.complete = "true";
+          syncToolbar("complete");
           hideTimer = window.setTimeout(() => {
             hideTimer = null;
             delete shell.dataset.complete;
             shell.hidden = true;
+            syncToolbar("hidden");
           }, delayMs);
         },
         // Re-translates the phase messages after a language change.

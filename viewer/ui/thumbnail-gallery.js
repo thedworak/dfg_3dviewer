@@ -27,11 +27,16 @@ function removeExistingGalleryDom() {
 // sits in <build>/assets/, the examples next to it in <build>/examples/.
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
+// Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
+// convertGalleryToWebp); the dev server (Parcel, no __BUILD__) serves the
+// PNGs straight from viewer/examples.
+const GALLERY_IMAGE_EXT = typeof __BUILD__ !== "undefined" ? "webp" : "png";
+
 function getGenericGalleryImageUrl(index) {
   const moduleUrl = new URL(import.meta.url);
   const examplesPath = moduleUrl.pathname.includes("/assets/") ? "../examples/" : "./examples/";
   const number = String((index % GENERIC_GALLERY_IMAGE_COUNT) + 1).padStart(2, "0");
-  return new URL(`${examplesPath}gallery/generic/explora4d-placeholder-${number}.png`, moduleUrl).href;
+  return new URL(`${examplesPath}gallery/generic/explora4d-placeholder-${number}.${GALLERY_IMAGE_EXT}`, moduleUrl).href;
 }
 
 // Swaps a thumbnail that fails to load for the generic image with the same
@@ -81,7 +86,8 @@ function createDefaultTestImages() {
 const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315"];
 
 // scripts/render.py writes a 9-shot turntable per source file into
-// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png),
+// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png;
+// .webp in the builds),
 // named after that same file's own filename/basename - see core.fileObject,
 // set from the currently loaded model's path in main.js. Deriving the path
 // this way means a freshly rendered example picks up its own thumbnails
@@ -92,11 +98,11 @@ function getPerModelGalleryImages() {
   if (!filename || !basename) return [];
 
   const images = GALLERY_RENDER_ANGLES.map((angle) => ({
-    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.png`),
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.${GALLERY_IMAGE_EXT}`),
     alt: `${basename} - ${angle}°`,
   }));
   images.push({
-    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.png`),
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.${GALLERY_IMAGE_EXT}`),
     alt: `${basename} - top`,
   });
   return images.filter((img) => img.src);
