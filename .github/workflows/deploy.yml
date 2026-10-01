@@ -14,16 +14,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # pnpm, the version pinned in package.json ("packageManager") - the
+      # lockfile is pnpm-lock.yaml, with the overrides in pnpm-workspace.yaml.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: pnpm
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npm run build:prod
+        run: pnpm run build:prod
 
       # Build every image before touching the server, so a broken Dockerfile
       # (or profile manifest) fails here instead of mid-deploy on the host.

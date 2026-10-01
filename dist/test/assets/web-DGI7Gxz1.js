@@ -1,7 +1,6 @@
 import { W as WebPlugin } from './index-oR55cej4.js';
-import { VERIFICATION_RESULT, WebPurchaseRedemptionResultType, REFUND_REQUEST_STATUS } from './index-C1gYYO5N.js';
+import { VERIFICATION_RESULT, WebPurchaseRedemptionResultType, REFUND_REQUEST_STATUS } from './index-W36Vd8-a.js';
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
 class PurchasesWeb extends WebPlugin {
     constructor() {
         super(...arguments);
@@ -353,4 +352,4 @@ class PurchasesWeb extends WebPlugin {
 }
 
 export { PurchasesWeb };
-//# sourceMappingURL=web-BhXJAikQ.js.map
+//# sourceMappingURL=web-DMXYRxJx.js.map

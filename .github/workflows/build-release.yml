@@ -16,19 +16,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # pnpm, the version pinned in package.json ("packageManager") - the
+      # lockfile is pnpm-lock.yaml, with the overrides in pnpm-workspace.yaml.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: pnpm
 
       - name: Install deps
-        run: npm ci
-
-      - name: Build
-        run: npm run build
+        run: pnpm install --frozen-lockfile
 
       - name: Build dist
-        run: npm run build:dist ""
+        run: pnpm run build:all
 
       - name: Pack dist
         run: node ./scripts/pack-dist.js

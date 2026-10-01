@@ -1,8 +1,7 @@
 {
   "name": "dfg_3dviewer",
   "version": "1.0.2",
-  "lockfileVersion": 3,
-  "requires": true,
+  "packageManager": "pnpm@12.8.1",
   "description": "Three.js based DFG 3D Viewer",
   "keywords": [
     "typescript",

@@ -1,9 +1,9 @@
 # Minimal local setup
 
-1. Install Node dependencies:
+1. Install Node dependencies with pnpm (the version in `package.json`, `"packageManager"`; `corepack enable` provides it). The lockfile is `pnpm-lock.yaml` and the dependency overrides are in `pnpm-workspace.yaml` - `npm install` would ignore both:
 
 ```bash
-npm install
+pnpm install
 ```
 
 2. Create the runtime settings file:
