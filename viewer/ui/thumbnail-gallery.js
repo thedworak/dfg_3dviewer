@@ -21,30 +21,33 @@ function removeExistingGalleryDom() {
   document.getElementById("modalGallery")?.remove();
 }
 
-function createPlaceholderSvgDataUrl(index, label = "") {
-  const palette = [
-    ["#1f3c88", "#6da3ff"],
-    ["#0f766e", "#6ee7b7"],
-    ["#9a3412", "#fdba74"],
-    ["#5b21b6", "#c4b5fd"],
-  ];
-  const [start, end] = palette[index % palette.length];
-  const title = label || `Preview ${index + 1}`;
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="${start}"/>
-          <stop offset="100%" stop-color="${end}"/>
-        </linearGradient>
-      </defs>
-      <rect width="480" height="320" fill="url(#g)"/>
-      <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.25)"/>
-      <path d="M48 248l94-98 72 66 66-86 152 118H48z" fill="rgba(255,255,255,0.22)"/>
-      <text x="240" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">${title}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+// Renders of the Explora 4D logo (viewer/examples/gallery/generic/
+// explora4d-placeholder-01..09.png), shown wherever a gallery image is
+// missing. Resolved against this module like viewer-settings.json: the chunk
+// sits in <build>/assets/, the examples next to it in <build>/examples/.
+const GENERIC_GALLERY_IMAGE_COUNT = 9;
+
+// Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
+// convertGalleryToWebp); the dev server (Parcel, no __BUILD__) serves the
+// PNGs straight from viewer/examples.
+const GALLERY_IMAGE_EXT = typeof __BUILD__ !== "undefined" ? "webp" : "png";
+
+function getGenericGalleryImageUrl(index) {
+  const moduleUrl = new URL(import.meta.url);
+  const examplesPath = moduleUrl.pathname.includes("/assets/") ? "../examples/" : "./examples/";
+  const number = String((index % GENERIC_GALLERY_IMAGE_COUNT) + 1).padStart(2, "0");
+  return new URL(`${examplesPath}gallery/generic/explora4d-placeholder-${number}.${GALLERY_IMAGE_EXT}`, moduleUrl).href;
+}
+
+// Swaps a thumbnail that fails to load for the generic image with the same
+// position (once - a missing generic image is left broken).
+function useGenericImageOnError(img, index, onReplaced) {
+  img.addEventListener("error", () => {
+    if (img.dataset.genericFallback) return;
+    img.dataset.genericFallback = "1";
+    img.src = getGenericGalleryImageUrl(index);
+    onReplaced?.(img.src);
+  }, { once: true });
 }
 
 function getConfiguredTestImages() {
@@ -74,8 +77,8 @@ function getConfiguredTestImages() {
 }
 
 function createDefaultTestImages() {
-  return Array.from({ length: 9 }, (_unused, index) => ({
-    src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
+  return Array.from({ length: GENERIC_GALLERY_IMAGE_COUNT }, (_unused, index) => ({
+    src: getGenericGalleryImageUrl(index),
     alt: `Preview ${index + 1}`,
   }));
 }
@@ -83,7 +86,8 @@ function createDefaultTestImages() {
 const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315"];
 
 // scripts/render.py writes a 9-shot turntable per source file into
-// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png),
+// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png;
+// .webp in the builds),
 // named after that same file's own filename/basename - see core.fileObject,
 // set from the currently loaded model's path in main.js. Deriving the path
 // this way means a freshly rendered example picks up its own thumbnails
@@ -94,11 +98,11 @@ function getPerModelGalleryImages() {
   if (!filename || !basename) return [];
 
   const images = GALLERY_RENDER_ANGLES.map((angle) => ({
-    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.png`),
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_side${angle}.${GALLERY_IMAGE_EXT}`),
     alt: `${basename} - ${angle}°`,
   }));
   images.push({
-    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.png`),
+    src: normalizeGalleryUrl(`examples/gallery/${filename}/${basename}_top.${GALLERY_IMAGE_EXT}`),
     alt: `${basename} - top`,
   });
   return images.filter((img) => img.src);
@@ -437,6 +441,9 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         imgList[j].onclick = function () {
           openModalGalleryAtIndex(nextIndex);
         };
+        useGenericImageOnError(imgList[j], nextIndex, (src) => {
+          galleryImageSources[nextIndex] = src;
+        });
         markThumbnailLoaded(imgList[j], thumbContainer);
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {

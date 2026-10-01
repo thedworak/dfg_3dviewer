@@ -54,12 +54,83 @@ const drupalModulePrefix = modulesPath ? `/modules/${modulesPath}/dfg_3dviewer` 
 console.log('[rollup] modulesPath:', modulesPath);
 console.log('[rollup] output subdirectory:', envSubdir);
 
-async function copyDirectory(source, target) {
+async function copyDirectory(source, target, filter) {
   await fs.rm(target, { recursive: true, force: true });
   await fs.cp(source, target, {
     recursive: true,
     dereference: true,
+    filter,
   });
+}
+
+// fs.cp filter for copying only the named files from the top of root
+// (subdirectories are skipped).
+function keepFiles(root, names) {
+  const keep = new Set(names);
+  const rootPath = path.resolve(root);
+  return (source) => {
+    const sourcePath = path.resolve(source);
+    return sourcePath === rootPath
+      || (path.dirname(sourcePath) === rootPath && keep.has(path.basename(sourcePath)));
+  };
+}
+
+// The favicon source is the 1254 px app icon; a browser tab needs 64 px.
+async function shrinkFavicon(file) {
+  const { default: sharp } = await import('sharp');
+  const resized = await sharp(file).resize(64, 64).png().toBuffer();
+  await fs.writeFile(file, resized);
+}
+
+// The gallery renders (scripts/render.py, 512 px PNG) as WebP: about a
+// twentieth of the size, transparency kept. thumbnail-gallery.js asks for
+// .webp in these builds (GALLERY_IMAGE_EXT).
+async function convertGalleryToWebp(dir) {
+  const { default: sharp } = await import('sharp');
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true, recursive: true });
+  } catch {
+    return;
+  }
+  await Promise.all(entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.png'))
+    .map(async (entry) => {
+      const source = path.join(entry.parentPath, entry.name);
+      await sharp(source).webp({ quality: 80 }).toFile(source.replace(/\.png$/, '.webp'));
+      await fs.rm(source);
+    }));
+}
+
+// The app ships only the progressive Wolpa Synagogue (6.7 MB, Meshopt +
+// KTX2): the full-resolution one (40 MB) and its gallery stay out of the
+// mobile bundle, and everything that names it opens the progressive one.
+const MOBILE_EXCLUDED_MODEL = 'WolpaSynagogue.glb';
+const MOBILE_EXCLUDED_MODEL_URL = `./examples/${MOBILE_EXCLUDED_MODEL}`;
+const MOBILE_REPLACEMENT_MODEL_URL = './examples/WolpaSynagogue-progressive.glb';
+
+function keepInMobileExamples(source) {
+  return path.basename(source) !== MOBILE_EXCLUDED_MODEL;
+}
+
+// Drops the full model's option from the example picker (index.html).
+function removeExcludedModelOption(html) {
+  return html.replace(
+    new RegExp(`^[ \\t]*<option value="${MOBILE_EXCLUDED_MODEL_URL.replace(/\./g, '\\.')}">.*</option>\\r?\\n`, 'm'),
+    ''
+  );
+}
+
+// Points the bundled manifests' model at the progressive one (only the exact
+// model URL - "./examples/WolpaSynagogue.glb/scene" etc. are just ids).
+async function retargetMobileManifests(dir) {
+  const files = (await fs.readdir(dir)).filter((file) => file.endsWith('.json'));
+  await Promise.all(files.map(async (file) => {
+    const target = path.join(dir, file);
+    const json = await fs.readFile(target, 'utf8');
+    const retargeted = json.split(`"${MOBILE_EXCLUDED_MODEL_URL}"`).join(`"${MOBILE_REPLACEMENT_MODEL_URL}"`);
+    if (retargeted !== json) await fs.writeFile(target, retargeted);
+  }));
 }
 
 async function writeDrupalLibrariesFile() {
@@ -124,7 +195,8 @@ async function stampCssImports(file) {
 }
 
 async function copyHtmlWithEntryVersion(source, target) {
-  await fs.writeFile(target, stampEntryVersion(await fs.readFile(source, 'utf8')));
+  const html = stampEntryVersion(await fs.readFile(source, 'utf8'));
+  await fs.writeFile(target, mobile ? removeExcludedModelOption(html) : html);
 }
 
 // Chunks are named by their content hash (see output.chunkFileNames): files
@@ -157,9 +229,15 @@ function copyBuildAssets() {
     async writeBundle() {
       await fs.mkdir(outDistDir, { recursive: true });
       await Promise.all([
+        // Only what is loaded at run time (the rest of these packages is
+        // ~25 MB of sources, typings and Node builds): the glTF Draco decoder
+        // (loaders.js sets draco/gltf/), web-ifc's wasm (its API is bundled
+        // into the IFCLoader chunk; -mt when the page is cross-origin
+        // isolated), and the one font the measurement labels use
+        // (viewer-helpers.js). Licenses go along.
         copyDirectory(
-          'node_modules/three/examples/jsm/libs/draco',
-          path.join(outDistDir, 'assets/draco')
+          'node_modules/three/examples/jsm/libs/draco/gltf',
+          path.join(outDistDir, 'assets/draco/gltf')
         ),
         // KTX2/Basis Universal transcoder for KHR_texture_basisu textures.
         copyDirectory(
@@ -168,14 +246,22 @@ function copyBuildAssets() {
         ),
         copyDirectory(
           'node_modules/web-ifc',
-          path.join(outDistDir, 'assets/ifc')
+          path.join(outDistDir, 'assets/ifc'),
+          keepFiles('node_modules/web-ifc', ['web-ifc.wasm', 'web-ifc-mt.wasm', 'LICENSE.md'])
         ),
         copyDirectory('viewer/css', path.join(outDistDir, 'assets/css')),
-        copyDirectory('viewer/img', path.join(outDistDir, 'assets/img')),
-        copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
+        copyDirectory('viewer/img', path.join(outDistDir, 'assets/img'))
+          .then(() => shrinkFavicon(path.join(outDistDir, 'assets/img/icon.png'))),
+        copyDirectory(
+          'viewer/fonts',
+          path.join(outDistDir, 'assets/fonts'),
+          keepFiles('viewer/fonts', ['helvetiker_regular.typeface.json', 'LICENSE', 'README.md'])
+        ),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
-        copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
-        copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
+        copyDirectory('viewer/examples', path.join(outDistDir, 'examples'), mobile ? keepInMobileExamples : undefined)
+          .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),
+        copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests'))
+          .then(() => mobile && retargetMobileManifests(path.join(outDistDir, 'manifests'))),
         // Manifest schema, served at the URL in its $id: <site>/schema/AIM3DViewer-schema.json.
         fs.mkdir(path.join(outDistDir, 'schema'), { recursive: true }).then(() => Promise.all(
           ['AIM3DViewer-schema.json', 'AIM3DViewer-schema.md'].map((file) =>
@@ -280,16 +366,29 @@ function copyBuildAssets() {
         // Defaults are Google's AdMob test units and no RevenueCat key (the
         // store stays off); release builds pass their own through the env.
         // testing: test ads, and the plans panel can force a plan.
+        // One bundle serves both apps (cap sync copies dist/mobile into
+        // android/ and ios/), so the ad units and the RevenueCat key are kept
+        // per platform and picked at run time (Capacitor.getPlatform()).
+        // MOBILE_* without a platform are Android's, MOBILE_IOS_* iOS's.
         viewerSettings.mobile.monetization = {
           testing: process.env.MOBILE_MONETIZATION_TESTING !== 'false',
           admob: {
-            bannerId: process.env.MOBILE_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/9214589741',
-            interstitialId: process.env.MOBILE_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712',
+            android: {
+              bannerId: process.env.MOBILE_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/9214589741',
+              interstitialId: process.env.MOBILE_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712',
+            },
+            ios: {
+              bannerId: process.env.MOBILE_IOS_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/2934735716',
+              interstitialId: process.env.MOBILE_IOS_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/4411468910',
+            },
             interstitialEvery: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_EVERY || 3),
             interstitialMinIntervalSec: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_MIN_INTERVAL_SEC || 180),
           },
           revenuecat: {
-            apiKey: process.env.MOBILE_REVENUECAT_API_KEY || '',
+            apiKeys: {
+              android: process.env.MOBILE_REVENUECAT_API_KEY || '',
+              ios: process.env.MOBILE_IOS_REVENUECAT_API_KEY || '',
+            },
             offering: process.env.MOBILE_REVENUECAT_OFFERING || 'default',
             entitlements: { pro: 'pro', business: 'business' },
             products: {

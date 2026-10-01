@@ -1,9 +1,9 @@
 # Minimal local setup
 
-1. Install Node dependencies:
+1. Install Node dependencies with pnpm (the version in `package.json`, `"packageManager"`; `corepack enable` provides it). The lockfile is `pnpm-lock.yaml` and the dependency overrides are in `pnpm-workspace.yaml` - `npm install` would ignore both:
 
 ```bash
-npm install
+pnpm install
 ```
 
 2. Create the runtime settings file:
@@ -97,7 +97,7 @@ The viewer is packaged as a mobile app with [Capacitor](https://capacitorjs.com)
 - `npm run cap:sync` — build and copy the bundle into the native project (`android/`)
 - `npm run cap:android` — sync and open the project in Android Studio
 
-Building the APK needs Android Studio (or the Android SDK plus JDK 21). iOS needs macOS with Xcode (`npx cap add ios`).
+Building the APK needs Android Studio (or the Android SDK plus JDK 21). iOS needs macOS with Xcode (`npx cap add ios`, then `pnpm run cap:ios`; see `docs/mobile-monetization.md`, "iOS").
 
 The app runs online and offline:
 

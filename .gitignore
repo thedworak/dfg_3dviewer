@@ -16,6 +16,8 @@ docker-compose.override.yml
 
 # node
 node_modules/
+# pnpm only (pnpm-lock.yaml) - an npm lockfile drifts out of sync and breaks CI
+package-lock.json
 
 # build
 /.parcel-cache

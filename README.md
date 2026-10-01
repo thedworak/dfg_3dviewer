@@ -22,7 +22,7 @@ This is a fully working setup, including the full conversion pipeline (conversio
 
 ```bash
 git clone <repo-url> && cd dfg_3dviewer
-npm install
+pnpm install   # pnpm, not npm: the lockfile is pnpm-lock.yaml
 cp viewer/viewer-settings-example.json viewer/viewer-settings.json
 npm run dev:test
 ```

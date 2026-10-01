@@ -74,6 +74,12 @@ export function monetizationSettings() {
   return core.CONFIG?.mobile?.monetization || null;
 }
 
+// "android" or "ios" in the app ("web" in a browser): the store key and the
+// ad units are per platform (mobile.monetization, rollup.config.js).
+export function appPlatform() {
+  return window.Capacitor?.getPlatform?.() || "web";
+}
+
 export function isPlansEnabled() {
   return Boolean(core.CONFIG?.mobile && monetizationSettings());
 }
@@ -151,7 +157,7 @@ async function loadPlan() {
   if (TIERS.includes(override)) tier = override;
   document.body?.setAttribute("data-app-plan", tier);
 
-  const apiKey = monetizationSettings()?.revenuecat?.apiKey;
+  const apiKey = monetizationSettings()?.revenuecat?.apiKeys?.[appPlatform()];
   if (!apiKey || window.Capacitor?.isNativePlatform?.() !== true) return;
   try {
     const { Purchases } = await import("@revenuecat/purchases-capacitor");

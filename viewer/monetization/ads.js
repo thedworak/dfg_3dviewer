@@ -1,4 +1,4 @@
-import { currentTier, hasFeature, isPlansEnabled, monetizationSettings, onTierChange } from "./plan.js";
+import { appPlatform, currentTier, hasFeature, isPlansEnabled, monetizationSettings, onTierChange } from "./plan.js";
 import { appSplashDone } from "../app-splash.js";
 import { syncNoticeAboveToolbar } from "../editor-toolbar.js";
 
@@ -24,6 +24,11 @@ function adsSettings() {
   return monetizationSettings()?.admob || {};
 }
 
+// This platform's ad units ({ bannerId, interstitialId }).
+function adUnits() {
+  return adsSettings()[appPlatform()] || {};
+}
+
 function wantsAds() {
   return isPlansEnabled() && !hasFeature("noAds") && window.Capacitor?.isNativePlatform?.() === true;
 }
@@ -47,7 +52,13 @@ async function requestConsent() {
   if (consentInfo.isConsentFormAvailable && consentInfo.status === AdmobConsentStatus.REQUIRED) {
     consentInfo = await AdMob.showConsentForm();
   }
-  return consentInfo.canRequestAds !== false;
+  if (consentInfo.canRequestAds === false) return false;
+  // iOS: App Tracking Transparency, after Google's consent form (Google's
+  // order). A "no" still allows ads, just not personalized ones; Android
+  // and earlier iOS resolve without asking.
+  const { status } = await AdMob.trackingAuthorizationStatus();
+  if (status === "notDetermined") await AdMob.requestTrackingAuthorization();
+  return true;
 }
 
 async function showBanner() {
@@ -55,7 +66,7 @@ async function showBanner() {
   const { AdMob, BannerAdPosition, BannerAdSize, BannerAdPluginEvents } = admob;
   await AdMob.addListener(BannerAdPluginEvents.SizeChanged, (size) => setBannerHeight(size?.height));
   await AdMob.showBanner({
-    adId: adsSettings().bannerId,
+    adId: adUnits().bannerId,
     adSize: BannerAdSize.ADAPTIVE_BANNER,
     position: BannerAdPosition.BOTTOM_CENTER,
     isTesting: monetizationSettings()?.testing === true,
@@ -71,10 +82,10 @@ async function removeBanner() {
 }
 
 async function prepareInterstitial() {
-  if (interstitialReady || !wantsAds() || !adsSettings().interstitialId) return;
+  if (interstitialReady || !wantsAds() || !adUnits().interstitialId) return;
   try {
     await admob.AdMob.prepareInterstitial({
-      adId: adsSettings().interstitialId,
+      adId: adUnits().interstitialId,
       isTesting: monetizationSettings()?.testing === true,
     });
     interstitialReady = true;

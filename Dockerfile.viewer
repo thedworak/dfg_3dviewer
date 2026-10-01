@@ -27,13 +27,11 @@ ARG VIEWER_PROFILE
 ARG BUILD_ID=
 ENV BUILD_ID=${BUILD_ID}
 WORKDIR /app
-# package.json has no "packageManager" field, so Corepack has nothing to pin
-# and errors out in a non-interactive build instead of guessing a version -
-# install pnpm directly instead. Pinned to 12.3.4 (newer than the "^11.26.0"
-# in package.json's own dependencies, which is just a version hint, not a
-# pnpm-enforced constraint) - verified against this repo's lockfile locally.
-# Requires Node >= 22.13, hence the unpinned "node:alpine" base below.
-RUN npm install -g pnpm@12.3.4
+# The pnpm version pinned in package.json ("packageManager"), the same as CI
+# (.github/workflows) and local installs - keep the two in step. Installed
+# directly rather than through Corepack. Requires Node >= 22.13, hence the
+# unpinned "node:alpine" base below.
+RUN npm install -g pnpm@12.8.1
 # pnpm-workspace.yaml records this repo's build-script approval decisions
 # (allowBuilds) - without it pnpm can't tell those are already decided and
 # refuses to install non-interactively.

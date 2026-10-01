@@ -49,8 +49,14 @@ android {
             if (uploadStoreFile) {
                 signingConfig signingConfigs.upload
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8: shrinks, optimizes and obfuscates the code (Play Console,
+            // "DEX optimization"), and drops resources nothing references.
+            // The plugins bring their own keep rules (Capacitor's keeps every
+            // plugin class and @PluginMethod); the mapping file goes into the
+            // bundle, so Play de-obfuscates crash and ANR reports by itself.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
