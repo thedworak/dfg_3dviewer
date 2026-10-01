@@ -930,6 +930,7 @@ export const EXAMPLE_AIM3D_MANIFESTS = [
   { url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", i18n: "aim3if.optionWolpaStudio", fallback: "Wolpa Synagogue - studio, AgX (localhost)" },
   { url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", i18n: "aim3if.optionWolpaNight", fallback: "Wolpa Synagogue - night spotlights, Reinhard (localhost)" },
   { url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", i18n: "aim3if.optionWolpaNightTour", fallback: "Wolpa Synagogue - night, annotations and guided tour (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-certainty.json", i18n: "aim3if.optionWolpaCertainty", fallback: "Wolpa Synagogue - Level of Certainty (localhost)" },
   { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", i18n: "aim3if.optionWolpaToon", fallback: "Wolpa Synagogue - toon shading (localhost)" },
   { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", i18n: "aim3if.optionWolpaOvercast", fallback: "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)" },
 ];

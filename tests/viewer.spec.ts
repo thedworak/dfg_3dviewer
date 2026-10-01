@@ -928,6 +928,119 @@ test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments 
   expect((await sceneState()).lights).toEqual(imported.lights);
 });
 
+test('Level of Certainty: objects and groups get see-through colour overlays by level, with a legend, and round-trip', async ({ page }) => {
+  // The same 33 parts (m0:0.0 - m0:0.32, group m0:0) as the Wolpa synagogue.
+  await openViewer(page, '/examples/compressed.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  const state = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    // The colour of a part's overlay, or null without one.
+    const overlayOf = (targetId) => viewer.resolveObjectByTargetId(targetId).children
+      .find((child) => child.userData.isCertaintyOverlay);
+    const colorOf = (targetId) => {
+      const overlay = overlayOf(targetId);
+      return overlay ? `#${overlay.material.color.getHexString()}` : null;
+    };
+    return {
+      view: viewer.certaintyView,
+      walls: colorOf('m0:0.4'),
+      roof: colorOf('m0:0.3'),
+      door: colorOf('m0:0.14'),
+      legend: Array.from(document.querySelectorAll('.certainty-legend__row')).map((row) => (
+        `${row.querySelector('.certainty-legend__swatch').textContent}${row.querySelector('.certainty-legend__code').textContent}:${row.querySelector('.certainty-legend__count')?.textContent ?? '-'}`
+      )),
+      markers: viewer.annotationPOIMarkers.length,
+      opacity: overlayOf('m0:0.4')?.material.opacity ?? null,
+      slider: document.querySelector('.certainty-legend__opacity output')?.textContent ?? null,
+      certainties: viewer.getAnnotationEntriesForPersistence().map((entry) => entry.certainty || null),
+    };
+  });
+
+  const ownMaterial = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.__ownWallMaterial = viewer.resolveObjectByTargetId('m0:0.4').material;
+    viewer.annotationEntries = [
+      // The walls, on their own: level B (8-9).
+      { id: 'loc-walls', targetId: 'm0:0.4', object: 'm0:0.4', faceIndex: 0, faceNumbers: [0], title: 'Walls', description: '', certainty: { value: 9, scope: 'object' } },
+      // The roof's group (the whole building): level E, under the walls' own level.
+      { id: 'loc-roof', targetId: 'm0:0.3', object: 'm0:0.3', faceIndex: 0, faceNumbers: [0], title: 'Roof', description: '', certainty: { value: 2, scope: 'group' } },
+    ];
+    viewer.setCertaintyView(true);
+    return true;
+  });
+  expect(ownMaterial).toBe(true);
+
+  const painted = await state();
+  expect(painted.view).toBe(true);
+  expect(painted.walls).toBe('#2166ac');
+  expect(painted.roof).toBe('#c51b7d');
+  // Not annotated itself, but in the assessed group.
+  expect(painted.door).toBe('#c51b7d');
+  // Each level by symbol and code, with how many objects are assessed at it.
+  expect(painted.legend).toEqual(['✓A:0', '■B:1', '▲C:0', '≈D:0', '?E:1', '–:-']);
+  expect(painted.markers).toBe(2);
+  // The model shows through the overlays: 40% opaque by default.
+  expect(painted.opacity).toBeCloseTo(0.4);
+  expect(painted.slider).toBe('40%');
+  // The legend's slider sets every overlay's opacity.
+  await page.locator('.certainty-legend__opacity input').fill('70');
+  expect((await state()).opacity).toBeCloseTo(0.7);
+  expect((await state()).slider).toBe('70%');
+  expect(await page.locator('[data-tool="certainty"]').getAttribute('aria-pressed')).toBe('true');
+
+  // Export: the scale, an "assessing" motivation and the assessment.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.certainty.levels.map((level) => level.code)).toEqual(['A', 'B', 'C', 'D', 'E']);
+  expect(manifest.AIM3DViewer.certainty.visible).toBe(true);
+  expect(manifest.AIM3DViewer.certainty.opacity).toBeCloseTo(0.7);
+  const [walls, roof] = manifest.items[0].annotations[0].items;
+  expect(walls.motivation).toEqual(['commenting', 'assessing']);
+  expect(walls.AIM3DViewer.certainty).toEqual({ value: 9, scope: 'object' });
+  expect(roof.AIM3DViewer.certainty).toEqual({ value: 2, scope: 'group' });
+
+  // The meshes keep their own materials; switching the view off removes
+  // the overlays.
+  const restored = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const keptWhileOn = viewer.resolveObjectByTargetId('m0:0.4').material === viewer.__ownWallMaterial;
+    viewer.setCertaintyView(false);
+    let overlays = 0;
+    viewer.resolveObjectByTargetId('m0:root').traverse((child) => {
+      if (child.userData.isCertaintyOverlay) overlays += 1;
+    });
+    return {
+      keptWhileOn,
+      same: viewer.resolveObjectByTargetId('m0:0.4').material === viewer.__ownWallMaterial,
+      overlays,
+      legend: document.querySelectorAll('.certainty-legend').length,
+    };
+  });
+  expect(restored).toEqual({ keptWhileOn: true, same: true, overlays: 0, legend: 0 });
+
+  // Import: the manifest opens in the view (visible), assessments kept.
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  const reimported = await state();
+  expect(reimported.view).toBe(true);
+  expect(reimported.walls).toBe('#2166ac');
+  // The exported opacity comes back with the scale.
+  expect(reimported.opacity).toBeCloseTo(0.7);
+  expect(reimported.certainties).toEqual([{ value: 9, scope: 'object' }, { value: 2, scope: 'group' }]);
+
+  // The XML saved to Drupal keeps them too.
+  const fromXml = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.importAnnotationsFromIIIFXml(viewer.exportAnnotationsToIIIFXml());
+    return viewer.getAnnotationEntriesForPersistence().map((entry) => entry.certainty);
+  });
+  expect(fromXml).toEqual(reimported.certainties);
+
+  // A value outside the scale is refused on import.
+  const invalid = structuredClone(manifest);
+  invalid.items[0].annotations[0].items[0].AIM3DViewer.certainty.value = 12;
+  expect(await page.evaluate((json) => window.Viewer.import3IFManifest(json), invalid)).toBe(false);
+});
+
 test('IIIF Presentation 4 transforms apply in order, and manifest lights replace the default ones', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);

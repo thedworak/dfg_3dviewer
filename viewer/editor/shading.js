@@ -120,6 +120,11 @@ export function attachShadingEditor(Viewer) {
       const roots = this.getShadingRootObjects();
       if (!roots.length) return;
 
+      // The Level of Certainty overlays are meshes too: shade the model
+      // without them, then lay them again.
+      const certaintyView = this.certaintyView === true;
+      if (certaintyView) this.removeCertaintyOverlays?.();
+
       const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
       const customShader = mode === "custom"
         ? { vertexShader: this.customVertexShader, fragmentShader: this.customFragmentShader }
@@ -147,6 +152,7 @@ export function attachShadingEditor(Viewer) {
           child.material = Array.isArray(child.material) ? nextMaterials : nextMaterials[0];
         });
       });
+      if (certaintyView) this.applyCertaintyView?.();
     },
 
     setShadingMode(mode, options = {}) {

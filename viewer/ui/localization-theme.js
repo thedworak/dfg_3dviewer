@@ -200,6 +200,8 @@ export function attachLocalizationTheme(viewer) {
       this.updateLocalizedUI();
       // Annotations written in several languages follow the viewer's.
       this.applyAnnotationLanguage?.();
+      // The Level of Certainty legend and dialog field name their levels.
+      this.applyCertaintyLanguage?.();
     },
 
     toggleLanguage() {

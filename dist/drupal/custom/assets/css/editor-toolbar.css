@@ -192,18 +192,19 @@
 #viewerEditorToolbar[data-loading]::after {
   position: absolute;
   pointer-events: none;
-  transition: opacity 900ms ease 500ms;
+  transition: opacity 1200ms ease 600ms;
 }
 
 #viewerEditorToolbar[data-loading]::before {
   content: "";
-  inset: -1px;
-  padding: 1.5px;
+  inset: -2px;
+  padding: 2.5px;
   border-radius: inherit;
   background: conic-gradient(
     var(--viewer-loader-accent, #7dd3fc) calc(var(--toolbar-load-progress) * 1%),
-    color-mix(in srgb, var(--viewer-panel-text) 8%, transparent) 0
+    color-mix(in srgb, var(--viewer-panel-text) 18%, transparent) 0
   );
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 55%, transparent));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -212,21 +213,30 @@
 #viewerEditorToolbar[data-loading]::after {
   content: counter(toolbar-load) "%";
   right: 16px;
-  bottom: calc(100% + 6px);
-  padding: 2px 6px;
+  bottom: calc(100% + 8px);
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 45%, transparent);
   border-radius: 999px;
-  color: color-mix(in srgb, var(--viewer-panel-text) 72%, transparent);
-  background: color-mix(in srgb, var(--viewer-panel-bg) 70%, transparent);
-  font-size: 10px;
-  font-weight: 500;
+  color: var(--viewer-panel-text);
+  background: color-mix(in srgb, var(--viewer-panel-bg) 92%, transparent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }
 
+/* Complete: hold the full ring and "100%" for a moment, then fade out
+   (the delay below plus the fade end before complete() drops data-loading). */
 #viewerEditorToolbar[data-loading="complete"]::before,
 #viewerEditorToolbar[data-loading="complete"]::after {
   opacity: 0;
+  transition-delay: 3000ms;
+}
+
+#viewerEditorToolbar[data-loading="complete"]::after {
+  color: var(--viewer-loader-accent, #7dd3fc);
 }
 
 @media (prefers-reduced-motion: reduce) {

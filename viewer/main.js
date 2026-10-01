@@ -65,6 +65,7 @@ import { attachAnimations } from "./animations.js";
 import { attachTour } from "./editor/tour.js";
 import { attachAnnotationSpread } from "./editor/annotation-spread.js";
 import { attachAnnotationStack } from "./editor/annotation-stack.js";
+import { attachCertainty } from "./editor/certainty.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
@@ -1322,6 +1323,7 @@ export const Viewer = {
     // Rebuilt for the new model's annotations while still switched on.
     Viewer.disposeAnnotationSpread();
     Viewer.disposeAnnotationStack();
+    Viewer.disposeCertaintyView();
     Viewer.disposePointCloudControls();
     disposeTiles();
     removeImportedLights();
@@ -4118,6 +4120,7 @@ attachAnimations(Viewer);
 attachTour(Viewer);
 attachAnnotationSpread(Viewer);
 attachAnnotationStack(Viewer);
+attachCertainty(Viewer);
 attachViewHelper(Viewer);
 attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);

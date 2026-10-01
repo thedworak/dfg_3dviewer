@@ -257,7 +257,8 @@ export function attachMaterialsEditor(Viewer) {
         gatherMaterials(object);
       }
       object.traverse((child) => {
-        if (child.isMesh) {
+        // Not the Level of Certainty colour overlays.
+        if (child.isMesh && !child.userData?.isCertaintyOverlay) {
           gatherMaterials(child);
         }
       });
