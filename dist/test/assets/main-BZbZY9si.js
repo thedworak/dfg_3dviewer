@@ -5786,7 +5786,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "89d3ad8" ;
+const BUILD_ID$2 = "3be29ae" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -5837,7 +5837,7 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "89d3ad8" ;
+const BUILD_ID$1 = "3be29ae" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -10992,30 +10992,28 @@ function removeExistingGalleryDom() {
   document.getElementById("modalGallery")?.remove();
 }
 
-function createPlaceholderSvgDataUrl(index, label = "") {
-  const palette = [
-    ["#1f3c88", "#6da3ff"],
-    ["#0f766e", "#6ee7b7"],
-    ["#9a3412", "#fdba74"],
-    ["#5b21b6", "#c4b5fd"],
-  ];
-  const [start, end] = palette[index % palette.length];
-  const title = label || `Preview ${index + 1}`;
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="${start}"/>
-          <stop offset="100%" stop-color="${end}"/>
-        </linearGradient>
-      </defs>
-      <rect width="480" height="320" fill="url(#g)"/>
-      <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.25)"/>
-      <path d="M48 248l94-98 72 66 66-86 152 118H48z" fill="rgba(255,255,255,0.22)"/>
-      <text x="240" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#ffffff">${title}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+// Renders of the Explora 4D logo (viewer/examples/gallery/generic/
+// explora4d-placeholder-01..09.png), shown wherever a gallery image is
+// missing. Resolved against this module like viewer-settings.json: the chunk
+// sits in <build>/assets/, the examples next to it in <build>/examples/.
+const GENERIC_GALLERY_IMAGE_COUNT = 9;
+
+function getGenericGalleryImageUrl(index) {
+  const moduleUrl = new URL(import.meta.url);
+  const examplesPath = moduleUrl.pathname.includes("/assets/") ? "../examples/" : "./examples/";
+  const number = String((index % GENERIC_GALLERY_IMAGE_COUNT) + 1).padStart(2, "0");
+  return new URL(`${examplesPath}gallery/generic/explora4d-placeholder-${number}.png`, moduleUrl).href;
+}
+
+// Swaps a thumbnail that fails to load for the generic image with the same
+// position (once - a missing generic image is left broken).
+function useGenericImageOnError(img, index, onReplaced) {
+  img.addEventListener("error", () => {
+    if (img.dataset.genericFallback) return;
+    img.dataset.genericFallback = "1";
+    img.src = getGenericGalleryImageUrl(index);
+    onReplaced?.(img.src);
+  }, { once: true });
 }
 
 function getConfiguredTestImages() {
@@ -11045,8 +11043,8 @@ function getConfiguredTestImages() {
 }
 
 function createDefaultTestImages() {
-  return Array.from({ length: 9 }, (_unused, index) => ({
-    src: createPlaceholderSvgDataUrl(index, `Preview ${index + 1}`),
+  return Array.from({ length: GENERIC_GALLERY_IMAGE_COUNT }, (_unused, index) => ({
+    src: getGenericGalleryImageUrl(index),
     alt: `Preview ${index + 1}`,
   }));
 }
@@ -11408,6 +11406,9 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         imgList[j].onclick = function () {
           openModalGalleryAtIndex(nextIndex);
         };
+        useGenericImageOnError(imgList[j], nextIndex, (src) => {
+          galleryImageSources[nextIndex] = src;
+        });
         markThumbnailLoaded(imgList[j], thumbContainer);
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {
@@ -20386,7 +20387,7 @@ function attachAnnotationStack(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-qMfO_on0.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BMUamj4A.js');
+const loadTilesPlugins = () => import('./index.three-plugins-B7BTvdgF.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -24376,7 +24377,7 @@ const loadLWOLoader = async () => (await import('./three-CtlVvEc8.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-B2e1WOmM.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DrivKjQW.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-NrDIhI8A.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aW; })).HDRLoader;
 
 var outlineClipping;
@@ -32770,7 +32771,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "89d3ad8" ;
+const BUILD_ID = "3be29ae" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -34731,12 +34732,16 @@ const Viewer$1 = {
       ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
       ["./examples/broken.glb", "Broken GLB"],
       ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
-    ].forEach(([value, text]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = text;
-      select.appendChild(option);
-    });
+      ["./examples/WolpaSynagogue-progressive.glb", "Wolpa Synagogue (progressive, Meshopt + KTX2)"],
+    ]
+      // The app bundle has only the progressive one (rollup.config.js).
+      .filter(([value]) => true)
+      .forEach(([value, text]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        select.appendChild(option);
+      });
     picker.appendChild(select);
 
     const themeToggle = document.createElement("button");
@@ -36969,4 +36974,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-Bclg2d9F.js.map
+//# sourceMappingURL=main-BG-SocOu.js.map

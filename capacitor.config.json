@@ -5,6 +5,10 @@
   "android": {
     "allowMixedContent": false
   },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0b0e14"
+  },
   "plugins": {
     "SplashScreen": {
       "launchAutoHide": false,

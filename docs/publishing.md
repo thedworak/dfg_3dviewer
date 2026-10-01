@@ -105,7 +105,7 @@ pnpm run cap:sync
 cd android && ./gradlew bundleRelease -PadmobAppId=ca-app-pub-xxx~nnn
 ```
 
-and check `dist/mobile/viewer-settings.json` before uploading: `"testing": false`, a non-empty `revenuecat.apiKey` and no `3940256099942544` (Google's test publisher id) in the AdMob ids.
+and check `dist/mobile/viewer-settings.json` before uploading: `"testing": false`, a non-empty `revenuecat.apiKeys.android` and no `3940256099942544` (Google's test publisher id) in `admob.android`.
 
 ### Version
 

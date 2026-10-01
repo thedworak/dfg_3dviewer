@@ -1898,12 +1898,16 @@ export const Viewer = {
       ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
       ["./examples/broken.glb", "Broken GLB"],
       ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
-    ].forEach(([value, text]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = text;
-      select.appendChild(option);
-    });
+      ["./examples/WolpaSynagogue-progressive.glb", "Wolpa Synagogue (progressive, Meshopt + KTX2)"],
+    ]
+      // The app bundle has only the progressive one (rollup.config.js).
+      .filter(([value]) => !(BUILD === "mobile" && value === "./examples/WolpaSynagogue.glb"))
+      .forEach(([value, text]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        select.appendChild(option);
+      });
     picker.appendChild(select);
 
     const themeToggle = document.createElement("button");
@@ -3890,6 +3894,11 @@ export const Viewer = {
           let selectedModel = localurl.searchParams.get('model');
           if (!selectedModel) {
             selectedModel = localStorage.getItem('dfg3dviewer-example-model');
+          }
+          // Not in the app bundle any more (rollup.config.js) - a device that
+          // last opened it gets the progressive one instead.
+          if (BUILD === 'mobile' && selectedModel === './examples/WolpaSynagogue.glb') {
+            selectedModel = './examples/WolpaSynagogue-progressive.glb';
           }
           // The app's first model (mobile.defaultModel, rollup.config.js).
           if (!selectedModel) {

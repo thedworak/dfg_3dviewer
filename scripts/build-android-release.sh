@@ -111,13 +111,15 @@ SETTINGS="$ROOT/dist/mobile/viewer-settings.json"
 node - "$SETTINGS" "$TEST_PUBLISHER" <<'NODE'
 const fs = require("fs");
 const [file, testPublisher] = process.argv.slice(2);
-const text = fs.readFileSync(file, "utf8");
-const settings = JSON.parse(text);
+const settings = JSON.parse(fs.readFileSync(file, "utf8"));
 const monetization = settings.mobile?.monetization || {};
 const problems = [];
 if (monetization.testing !== false) problems.push('"testing" is not false');
-if (!monetization.revenuecat?.apiKey) problems.push("revenuecat.apiKey is empty");
-if (text.includes(testPublisher)) problems.push(`a Google test id (${testPublisher}) is in the settings`);
+if (!monetization.revenuecat?.apiKeys?.android) problems.push("revenuecat.apiKeys.android is empty");
+// Only Android's units: the bundle also carries the iOS ones (test units
+// until the iOS release sets MOBILE_IOS_*), which this app never uses.
+if (JSON.stringify(monetization.admob?.android || {}).includes(testPublisher))
+  problems.push(`a Google test id (${testPublisher}) is in admob.android`);
 if (problems.length) {
   console.error(`ERROR: ${file}:\n  - ${problems.join("\n  - ")}`);
   process.exit(1);

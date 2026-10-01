@@ -1,6 +1,6 @@
 # Mobile app: plans and ads
 
-The Android app (Capacitor, `pnpm run build:mobile`) has three plans:
+The Android app (Capacitor, `pnpm run build:mobile`; the same bundle is prepared for iOS, see [iOS](#ios)) has three plans:
 
 | Plan | Price | What it adds |
 |---|---|---|
@@ -48,10 +48,26 @@ The full pre-release checklist (server settings, signing, Play Console listing) 
 |---|---|---|
 | `MOBILE_MONETIZATION_TESTING` | `true` | `false` for release: real ads, no plan override |
 | `MOBILE_REVENUECAT_API_KEY` | empty (store off) | RevenueCat public Google API key (`goog_...`) |
+| `MOBILE_IOS_REVENUECAT_API_KEY` | empty (store off) | RevenueCat public Apple API key (`appl_...`) |
 | `MOBILE_REVENUECAT_OFFERING` | `default` | Offering to show |
 | `MOBILE_PRODUCT_PRO` / `MOBILE_PRODUCT_BUSINESS` | `explora_pro` / `explora_business_monthly` | Product ids (packages are also matched by type: Lifetime = Pro, Monthly = Business) |
-| `MOBILE_ADMOB_BANNER_ID` / `MOBILE_ADMOB_INTERSTITIAL_ID` | Google test units | Ad unit ids |
+| `MOBILE_ADMOB_BANNER_ID` / `MOBILE_ADMOB_INTERSTITIAL_ID` | Google test units | Android ad unit ids |
+| `MOBILE_IOS_ADMOB_BANNER_ID` / `MOBILE_IOS_ADMOB_INTERSTITIAL_ID` | Google test units | iOS ad unit ids |
 | `MOBILE_ADMOB_INTERSTITIAL_EVERY` | `3` | Full-screen ad after every Nth model |
 | `MOBILE_ADMOB_INTERSTITIAL_MIN_INTERVAL_SEC` | `180` | At most one per this many seconds |
 
 Google Play also requires a privacy policy and the Data safety form to declare the advertising ID and purchase data; the manifest gets the `AD_ID` and billing permissions from the plugins.
+
+## iOS
+
+One web bundle (`dist/mobile`) serves both apps: `cap sync` copies it into `android/` and `ios/`. The settings carry the store key and the ad units per platform (`mobile.monetization.revenuecat.apiKeys.{android,ios}`, `mobile.monetization.admob.{android,ios}`), and the app picks its own at run time (`appPlatform()` in `plan.js`, `Capacitor.getPlatform()`). An iOS build needs a Mac with Xcode:
+
+1. `npx cap add ios` once (creates `ios/`, commit it), then `pnpm run cap:assets:ios` for the icon and splash, and `pnpm run cap:ios` to build the bundle, sync and open Xcode.
+2. `ios/App/App/Info.plist`:
+   - `GADApplicationIdentifier`: `MOBILE_IOS_ADMOB_APP_ID` (the iOS app's AdMob id, with `~`; without it the app crashes on start once AdMob loads),
+   - `SKAdNetworkItems`: Google's list from the AdMob iOS quick start,
+   - `NSUserTrackingUsageDescription`: the text of the App Tracking Transparency prompt. `ads.js` asks after Google's consent form; a refusal still shows ads, just not personalized ones.
+3. **App Store Connect**: the same products as on Google Play (`explora_pro` non-consumable, `explora_business_monthly` auto-renewable subscription). **RevenueCat**: add the App Store app, import them into the same entitlements (`pro`, `business`) and packages of the `default` offering, and use its public Apple key (`appl_...`) as `MOBILE_IOS_REVENUECAT_API_KEY`. The worker checks entitlements, not stores, so nothing changes on the server.
+4. **AdMob**: a separate iOS app with its own banner and interstitial units (`MOBILE_IOS_ADMOB_*`).
+
+There is no iOS release script yet: set `MOBILE_MONETIZATION_TESTING=false` and the `MOBILE_IOS_*` values in the shell, run `pnpm run cap:sync`, then archive in Xcode. As for Android, check `dist/mobile/viewer-settings.json` first: `"testing": false`, a non-empty `revenuecat.apiKeys.ios` and no `3940256099942544` in `admob.ios`.

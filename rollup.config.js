@@ -54,12 +54,44 @@ const drupalModulePrefix = modulesPath ? `/modules/${modulesPath}/dfg_3dviewer` 
 console.log('[rollup] modulesPath:', modulesPath);
 console.log('[rollup] output subdirectory:', envSubdir);
 
-async function copyDirectory(source, target) {
+async function copyDirectory(source, target, filter) {
   await fs.rm(target, { recursive: true, force: true });
   await fs.cp(source, target, {
     recursive: true,
     dereference: true,
+    filter,
   });
+}
+
+// The app ships only the progressive Wolpa Synagogue (6.7 MB, Meshopt +
+// KTX2): the full-resolution one (40 MB) and its gallery stay out of the
+// mobile bundle, and everything that names it opens the progressive one.
+const MOBILE_EXCLUDED_MODEL = 'WolpaSynagogue.glb';
+const MOBILE_EXCLUDED_MODEL_URL = `./examples/${MOBILE_EXCLUDED_MODEL}`;
+const MOBILE_REPLACEMENT_MODEL_URL = './examples/WolpaSynagogue-progressive.glb';
+
+function keepInMobileExamples(source) {
+  return path.basename(source) !== MOBILE_EXCLUDED_MODEL;
+}
+
+// Drops the full model's option from the example picker (index.html).
+function removeExcludedModelOption(html) {
+  return html.replace(
+    new RegExp(`^[ \\t]*<option value="${MOBILE_EXCLUDED_MODEL_URL.replace(/\./g, '\\.')}">.*</option>\\r?\\n`, 'm'),
+    ''
+  );
+}
+
+// Points the bundled manifests' model at the progressive one (only the exact
+// model URL - "./examples/WolpaSynagogue.glb/scene" etc. are just ids).
+async function retargetMobileManifests(dir) {
+  const files = (await fs.readdir(dir)).filter((file) => file.endsWith('.json'));
+  await Promise.all(files.map(async (file) => {
+    const target = path.join(dir, file);
+    const json = await fs.readFile(target, 'utf8');
+    const retargeted = json.split(`"${MOBILE_EXCLUDED_MODEL_URL}"`).join(`"${MOBILE_REPLACEMENT_MODEL_URL}"`);
+    if (retargeted !== json) await fs.writeFile(target, retargeted);
+  }));
 }
 
 async function writeDrupalLibrariesFile() {
@@ -124,7 +156,8 @@ async function stampCssImports(file) {
 }
 
 async function copyHtmlWithEntryVersion(source, target) {
-  await fs.writeFile(target, stampEntryVersion(await fs.readFile(source, 'utf8')));
+  const html = stampEntryVersion(await fs.readFile(source, 'utf8'));
+  await fs.writeFile(target, mobile ? removeExcludedModelOption(html) : html);
 }
 
 // Chunks are named by their content hash (see output.chunkFileNames): files
@@ -174,8 +207,9 @@ function copyBuildAssets() {
         copyDirectory('viewer/img', path.join(outDistDir, 'assets/img')),
         copyDirectory('viewer/fonts', path.join(outDistDir, 'assets/fonts')),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
-        copyDirectory('viewer/examples', path.join(outDistDir, 'examples')),
-        copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests')),
+        copyDirectory('viewer/examples', path.join(outDistDir, 'examples'), mobile ? keepInMobileExamples : undefined),
+        copyDirectory('viewer/manifesto/examples', path.join(outDistDir, 'manifests'))
+          .then(() => mobile && retargetMobileManifests(path.join(outDistDir, 'manifests'))),
         // Manifest schema, served at the URL in its $id: <site>/schema/AIM3DViewer-schema.json.
         fs.mkdir(path.join(outDistDir, 'schema'), { recursive: true }).then(() => Promise.all(
           ['AIM3DViewer-schema.json', 'AIM3DViewer-schema.md'].map((file) =>
@@ -280,16 +314,29 @@ function copyBuildAssets() {
         // Defaults are Google's AdMob test units and no RevenueCat key (the
         // store stays off); release builds pass their own through the env.
         // testing: test ads, and the plans panel can force a plan.
+        // One bundle serves both apps (cap sync copies dist/mobile into
+        // android/ and ios/), so the ad units and the RevenueCat key are kept
+        // per platform and picked at run time (Capacitor.getPlatform()).
+        // MOBILE_* without a platform are Android's, MOBILE_IOS_* iOS's.
         viewerSettings.mobile.monetization = {
           testing: process.env.MOBILE_MONETIZATION_TESTING !== 'false',
           admob: {
-            bannerId: process.env.MOBILE_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/9214589741',
-            interstitialId: process.env.MOBILE_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712',
+            android: {
+              bannerId: process.env.MOBILE_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/9214589741',
+              interstitialId: process.env.MOBILE_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712',
+            },
+            ios: {
+              bannerId: process.env.MOBILE_IOS_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/2934735716',
+              interstitialId: process.env.MOBILE_IOS_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/4411468910',
+            },
             interstitialEvery: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_EVERY || 3),
             interstitialMinIntervalSec: Number(process.env.MOBILE_ADMOB_INTERSTITIAL_MIN_INTERVAL_SEC || 180),
           },
           revenuecat: {
-            apiKey: process.env.MOBILE_REVENUECAT_API_KEY || '',
+            apiKeys: {
+              android: process.env.MOBILE_REVENUECAT_API_KEY || '',
+              ios: process.env.MOBILE_IOS_REVENUECAT_API_KEY || '',
+            },
             offering: process.env.MOBILE_REVENUECAT_OFFERING || 'default',
             entitlements: { pro: 'pro', business: 'business' },
             products: {
