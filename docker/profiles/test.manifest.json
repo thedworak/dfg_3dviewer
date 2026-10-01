@@ -61,7 +61,7 @@
     },
     "integration": {
       "api": {
-        "thumbnailUploadEndpoint": "/api/editor/upload-thumbnail"
+        "thumbnailUploadEndpoint": "/api/model/thumbnail"
       }
     }
   }

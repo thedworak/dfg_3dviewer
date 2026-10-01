@@ -7,6 +7,7 @@ import { hasFeature, isPlansEnabled } from "../monetization/plan.js";
 import { createPlanLockIcon } from "./plans-panel.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { fillModelThumbnail } from "./thumbnail-gallery.js";
 import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
@@ -265,15 +266,13 @@ export function attachModelsPanel(Viewer) {
       button.className = "models-panel-item";
       button.title = name;
 
-      if (job.imageUrls?.[0]) {
-        const thumb = document.createElement("img");
-        thumb.src = remoteAssetUrl(job.imageUrls[0]);
-        thumb.alt = "";
-        thumb.loading = "lazy";
-        // App: no broken-image icon when /files/ does not answer.
-        if (isAppBuild()) thumb.addEventListener("error", () => thumb.remove(), { once: true });
-        button.appendChild(thumb);
-      }
+      // Always a thumbnail: a generic one when the job has no image yet or it
+      // fails to load.
+      const thumbSlot = document.createElement("span");
+      thumbSlot.className = "models-panel-item-thumb";
+      thumbSlot.setAttribute("aria-hidden", "true");
+      fillModelThumbnail(thumbSlot, job.imageUrls?.[0] ? remoteAssetUrl(job.imageUrls[0]) : "", job.id);
+      button.appendChild(thumbSlot);
 
       const text = document.createElement("div");
       text.className = "models-panel-item-text";
@@ -465,13 +464,11 @@ export function attachModelsPanel(Viewer) {
 
       const galleryCfg = core.CONFIG.viewer?.gallery;
       if (
-        Array.isArray(job.imageUrls) &&
-        job.imageUrls.length > 0 &&
         (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
         !core.SANDBOX_MODE &&
         !this.isEmbedMode()
       ) {
-        this.renderModelGalleryImages(job.imageUrls.map(remoteAssetUrl));
+        this.renderModelGalleryImages((job.imageUrls || []).map(remoteAssetUrl));
       }
     },
   });

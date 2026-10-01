@@ -906,18 +906,43 @@ export async function fetchSettings(object) {
   }
 }
 
+// Example manifests: the dev build's manifest form (createIIIFDropdown,
+// createAIM3IFDropdown) and the app's examples panel (ui/examples-panel.js).
+// "./manifests/" are bundled with the viewer (rollup.config.js).
+export const EXAMPLE_IIIF_MANIFESTS = [
+  { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", i18n: "iiif.optionModelPositionScale", fallback: "Model Position and Scale" },
+  { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", i18n: "iiif.optionModelOrigin", fallback: "Model Origin" },
+  { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", i18n: "iiif.optionModelOriginBg", fallback: "Model Origin with background color" },
+  { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", i18n: "iiif.optionModelPosition", fallback: "Model Position" },
+  { url: "./manifests/box-iiif-p4.json", i18n: "iiif.optionP4Local", fallback: "Camera, lights and comments (localhost)" },
+  { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", i18n: "iiif.optionCamera", fallback: "Positioned camera" },
+  { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", i18n: "iiif.optionLights", fallback: "Lights with colours and intensities" },
+  { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", i18n: "iiif.optionComments", fallback: "Comments with their own views" },
+];
+
+export const EXAMPLE_AIM3D_MANIFESTS = [
+  { url: "https://viewer.thedworak.com/manifests/box.json", i18n: "aim3if.optionBox", fallback: "Box configuration" },
+  { url: "./manifests/box-aim3d-local.json", i18n: "aim3if.optionBoxLocal", fallback: "Box (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local.json", i18n: "aim3if.optionWolpaLocal", fallback: "Wolpa Synagogue (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", i18n: "aim3if.optionWolpaLocalCeiling", fallback: "Wolpa Synagogue - ceiling view (localhost)" },
+  // Same model under different lighting, tone mapping and shading, for comparison.
+  { url: "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json", i18n: "aim3if.optionWolpaGoldenHour", fallback: "Wolpa Synagogue - golden hour, ACES (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", i18n: "aim3if.optionWolpaStudio", fallback: "Wolpa Synagogue - studio, AgX (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", i18n: "aim3if.optionWolpaNight", fallback: "Wolpa Synagogue - night spotlights, Reinhard (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", i18n: "aim3if.optionWolpaNightTour", fallback: "Wolpa Synagogue - night, annotations and guided tour (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", i18n: "aim3if.optionWolpaToon", fallback: "Wolpa Synagogue - toon shading (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", i18n: "aim3if.optionWolpaOvercast", fallback: "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)" },
+];
+
+export function exampleManifestOption({ url, i18n, fallback }) {
+  return { url, i18n, name: t(i18n, fallback) };
+}
+
 export function createIIIFDropdown(iiifConfigURL) {
   // list of candidate IIIF config URLs (add more as needed)
   const iiifList = [
     { url: iiifConfigURL.url, name: iiifConfigURL.name },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", i18n: "iiif.optionModelPositionScale", name: t("iiif.optionModelPositionScale", "Model Position and Scale") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", i18n: "iiif.optionModelOrigin", name: t("iiif.optionModelOrigin", "Model Origin") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", i18n: "iiif.optionModelOriginBg", name: t("iiif.optionModelOriginBg", "Model Origin with background color") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", i18n: "iiif.optionModelPosition", name: t("iiif.optionModelPosition", "Model Position") },
-    { url: "./manifests/box-iiif-p4.json", name: t("iiif.optionP4Local", "Camera, lights and comments (localhost)") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", i18n: "iiif.optionCamera", name: t("iiif.optionCamera", "Positioned camera") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", i18n: "iiif.optionLights", name: t("iiif.optionLights", "Lights with colours and intensities") },
-    { url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", i18n: "iiif.optionComments", name: t("iiif.optionComments", "Comments with their own views") },
+    ...EXAMPLE_IIIF_MANIFESTS.map(exampleManifestOption),
   ].filter(Boolean);
 
   const group = document.createElement("div");
@@ -984,17 +1009,7 @@ export function createAIM3IFDropdown(url) {
 
   const aim3ifList = [
     { url: url, i18n: "aim3if.optionDefault", name: t("aim3if.optionDefault", "Default configuration") },
-    { url: "https://viewer.thedworak.com/manifests/box.json", i18n: "aim3if.optionBox", name: t("aim3if.optionBox", "Box configuration") },
-    { url: "./manifests/box-aim3d-local.json", i18n: "aim3if.optionBoxLocal", name: t("aim3if.optionBoxLocal", "Box (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local.json", i18n: "aim3if.optionWolpaLocal", name: t("aim3if.optionWolpaLocal", "Wolpa Synagogue (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", i18n: "aim3if.optionWolpaLocalCeiling", name: t("aim3if.optionWolpaLocalCeiling", "Wolpa Synagogue - ceiling view (localhost)") },
-    // Same model under different lighting, tone mapping and shading, for comparison.
-    { url: "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json", i18n: "aim3if.optionWolpaGoldenHour", name: t("aim3if.optionWolpaGoldenHour", "Wolpa Synagogue - golden hour, ACES (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", i18n: "aim3if.optionWolpaStudio", name: t("aim3if.optionWolpaStudio", "Wolpa Synagogue - studio, AgX (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", i18n: "aim3if.optionWolpaNight", name: t("aim3if.optionWolpaNight", "Wolpa Synagogue - night spotlights, Reinhard (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", i18n: "aim3if.optionWolpaNightTour", name: t("aim3if.optionWolpaNightTour", "Wolpa Synagogue - night, annotations and guided tour (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", i18n: "aim3if.optionWolpaToon", name: t("aim3if.optionWolpaToon", "Wolpa Synagogue - toon shading (localhost)") },
-    { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", i18n: "aim3if.optionWolpaOvercast", name: t("aim3if.optionWolpaOvercast", "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)") },
+    ...EXAMPLE_AIM3D_MANIFESTS.map(exampleManifestOption),
     // Add more AIM3IF configurations here as needed
   ].filter(item => item?.url);
 

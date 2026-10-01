@@ -5,15 +5,17 @@ import { hasFeature } from "../monetization/plan.js";
 import { createPlanLockIcon } from "./plans-panel.js";
 
 // The app has one "Models" button instead of two: it opens the models on the
-// device (library-panel.js) or those in the repository (models-panel.js),
-// whichever was used last, and both panels carry a toggle between the two.
+// device (library-panel.js), those in the repository (models-panel.js) or the
+// example manifests (examples-panel.js), whichever was used last, and each
+// panel carries a toggle between them.
 // The repository's models are a Business feature (monetization/plan.js): on
 // the other plans "Remote" carries a lock and opens the plans panel.
 const SOURCE_KEY = "dfg3dviewer-models-source";
 
 function storedSource() {
   try {
-    return window.localStorage.getItem(SOURCE_KEY) === "remote" ? "remote" : "local";
+    const source = window.localStorage.getItem(SOURCE_KEY);
+    return source === "remote" || source === "examples" ? source : "local";
   } catch {
     return "local";
   }
@@ -25,10 +27,12 @@ export function attachModelsSource(Viewer) {
     // opens the one used last.
     toggleModelsSource(event) {
       event?.preventDefault?.();
-      const open = this.libraryPanel?.hidden === false || this.modelsPanel?.hidden === false;
+      const open = this.libraryPanel?.hidden === false || this.modelsPanel?.hidden === false ||
+        this.examplesPanel?.hidden === false;
       if (open) {
         this.closeLibraryPanel?.();
         this.closeModelsPanel?.();
+        this.closeExamplesPanel?.();
         return;
       }
       const source = storedSource();
@@ -47,7 +51,15 @@ export function attachModelsSource(Viewer) {
         // Not remembered - the next open starts on the device again.
       }
       this.closeActionMenu?.();
-      if (source === "remote") {
+      if (source !== "examples") this.closeExamplesPanel?.();
+      if (source === "examples") {
+        this.closeLibraryPanel?.();
+        this.closeModelsPanel?.();
+        this.createExamplesPanel();
+        if (!this.examplesPanel) return;
+        this.examplesPanel.hidden = false;
+        this.loadExamplesList();
+      } else if (source === "remote") {
         this.closeLibraryPanel?.();
         this.createModelsPanel();
         if (!this.modelsPanel) return;
@@ -72,6 +84,7 @@ export function attachModelsSource(Viewer) {
       [
         ["local", t("modelsSource.local", "On this device")],
         ["remote", t("modelsSource.remote", "Remote")],
+        ["examples", t("modelsSource.examples", "Examples")],
       ].forEach(([source, label]) => {
         const button = document.createElement("button");
         button.type = "button";

@@ -3,18 +3,23 @@ import { apiUrl, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { fillModelThumbnail } from "./thumbnail-gallery.js";
 
 // Same-origin worker endpoints (see worker/auth.py's "administration" methods
 // and server.py's _require_admin/_handle_admin_*). Deliberately separate from
 // authRequest() in upload-panel.js: every call here needs an admin session,
 // while /api/auth/* is reachable by anyone.
 async function adminRequest(path, method = "GET", body = undefined) {
+  return adminFetch(`/api/admin/users${path}`, method, body);
+}
+
+async function adminFetch(endpoint, method = "GET", body = undefined) {
   const options = { method };
   if (body !== undefined) {
     options.headers = { "Content-Type": "application/json" };
     options.body = JSON.stringify(body);
   }
-  const response = await fetch(apiUrl(`/api/admin/users${path}`), options);
+  const response = await fetch(apiUrl(endpoint), options);
   let data = {};
   try {
     data = await response.json();
@@ -31,7 +36,7 @@ async function adminRequest(path, method = "GET", body = undefined) {
 
 // GET /api/jobs includes each job's `owner` username (see worker/server.py's
 // list_jobs) - reused here to compute each user's upload count/listing
-// without a dedicated endpoint.
+// without a dedicated endpoint. Jobs without an owner are keyed "".
 async function fetchJobsByOwner() {
   const response = await fetch(apiUrl("/api/jobs"));
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -39,9 +44,9 @@ async function fetchJobsByOwner() {
   const jobs = Array.isArray(data.jobs) ? data.jobs : [];
   const byOwner = new Map();
   for (const job of jobs) {
-    if (!job.owner) continue;
-    if (!byOwner.has(job.owner)) byOwner.set(job.owner, []);
-    byOwner.get(job.owner).push(job);
+    const owner = job.owner || "";
+    if (!byOwner.has(owner)) byOwner.set(owner, []);
+    byOwner.get(owner).push(job);
   }
   return byOwner;
 }
@@ -99,6 +104,19 @@ function compareUsers(a, b, key, desc) {
   // Ties (e.g. everyone on Free) fall back to the name, always A-Z.
   if (order === 0) return a.user.username.localeCompare(b.user.username);
   return desc ? -order : order;
+}
+
+// Unix seconds <-> the local "YYYY-MM-DDTHH:MM" of <input type="datetime-local">.
+function toDateTimeInputValue(seconds) {
+  if (!seconds) return "";
+  const date = new Date(seconds * 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromDateTimeInputValue(value) {
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? Math.floor(time / 1000) : null;
 }
 
 function formatLimit(value) {
@@ -243,6 +261,12 @@ export function attachAdminPanel(Viewer) {
       }
 
       this.adminUsers = users.map((user) => ({ user, models: jobsByOwner.get(user.username) || [] }));
+      // Uploads from before accounts (or anonymous ones): listed separately
+      // so an admin can assign them to someone.
+      const known = new Set(users.map((user) => user.username));
+      this.adminUnownedModels = [...jobsByOwner.entries()]
+        .filter(([owner]) => !known.has(owner))
+        .flatMap(([, models]) => models);
       this.adminInputs.sortBar.hidden = false;
       this.renderAdminUsers();
     },
@@ -260,6 +284,23 @@ export function attachAdminPanel(Viewer) {
       [...(this.adminUsers || [])]
         .sort((a, b) => compareUsers(a, b, key, desc))
         .forEach(({ user, models }) => list.appendChild(this.renderUserRow(user, models)));
+      if (this.adminUnownedModels?.length) list.appendChild(this.renderUnownedModelsRow(this.adminUnownedModels));
+    },
+
+    renderUnownedModelsRow(models) {
+      const item = document.createElement("li");
+      item.className = "admin-users-row";
+      const info = document.createElement("div");
+      info.className = "admin-users-info";
+      const name = document.createElement("span");
+      name.className = "admin-users-name";
+      name.textContent = t("adminPanel.unownedTitle", "Uploads without an owner");
+      const meta = document.createElement("span");
+      meta.className = "admin-users-meta";
+      meta.textContent = t("adminPanel.modelsCount", { count: models.length }, "{count} models");
+      info.append(name, meta);
+      item.append(info, this.renderUserModelsTab("", models));
+      return item;
     },
 
     renderUserRow(user, models = []) {
@@ -473,12 +514,17 @@ export function attachAdminPanel(Viewer) {
 
       const modelsList = document.createElement("ul");
       modelsList.className = "admin-users-models-list";
-      modelsList.hidden = true;
+      // Stays open across re-renders (sorting, editing a model).
+      this.adminExpandedModels ??= new Set();
+      modelsList.hidden = !(models.length > 0 && this.adminExpandedModels.has(username));
+      if (!modelsList.hidden) toggle.textContent = t("adminPanel.modelsHide", "Hide models");
       this.renderUserModelsList(modelsList, username, models);
 
       this.bindEventListener(toggle, "click", () => {
         const willShow = modelsList.hidden;
         modelsList.hidden = !willShow;
+        if (willShow) this.adminExpandedModels.add(username);
+        else this.adminExpandedModels.delete(username);
         toggle.textContent = willShow
           ? t("adminPanel.modelsHide", "Hide models")
           : t("adminPanel.modelsShow", "Show models");
@@ -503,22 +549,49 @@ export function attachAdminPanel(Viewer) {
     renderUserModelRow(username, job, modelsList) {
       const name = job.name || job.id;
       const item = document.createElement("li");
-      item.className = "models-panel-row";
+      item.className = "models-panel-row admin-model-row";
 
       const entry = document.createElement("span");
       entry.className = "models-panel-item";
       entry.title = name;
-      if (job.imageUrls?.[0]) {
-        const thumb = document.createElement("img");
-        thumb.src = remoteAssetUrl(job.imageUrls[0]);
-        thumb.alt = "";
-        thumb.loading = "lazy";
-        entry.appendChild(thumb);
-      }
+      // Same thumbnail slot (and placeholder) as the browse-models panel.
+      const thumbSlot = document.createElement("span");
+      thumbSlot.className = "models-panel-item-thumb";
+      thumbSlot.setAttribute("aria-hidden", "true");
+      fillModelThumbnail(thumbSlot, job.imageUrls?.[0] ? remoteAssetUrl(job.imageUrls[0]) : "", job.id);
+      entry.appendChild(thumbSlot);
+      const text = document.createElement("span");
+      text.className = "models-panel-item-text";
       const label = document.createElement("span");
+      label.className = "models-panel-item-name";
       label.textContent = name;
-      entry.appendChild(label);
+      const caption = document.createElement("span");
+      caption.className = "models-panel-item-meta";
+      caption.textContent = [
+        job.owner
+          ? t("modelsPanel.uploadedBy", { user: job.owner }, "Uploaded by {user}")
+          : t("adminPanel.modelNoOwner", "No owner"),
+        job.createdAt ? new Date(job.createdAt * 1000).toLocaleString() : "",
+      ].filter(Boolean).join(" · ");
+      text.append(label, caption);
+      entry.appendChild(text);
       item.appendChild(entry);
+
+      const editForm = this.renderModelEditForm(job);
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "models-panel-edit";
+      editButton.textContent = "✎";
+      const editAria = t("adminPanel.modelEditAria", { name }, "Edit upload details of {name}");
+      editButton.setAttribute("aria-label", editAria);
+      editButton.title = editAria;
+      editButton.setAttribute("aria-expanded", "false");
+      this.bindEventListener(editButton, "click", () => {
+        editForm.hidden = !editForm.hidden;
+        editButton.setAttribute("aria-expanded", String(!editForm.hidden));
+        if (!editForm.hidden) editForm.querySelector("select")?.focus();
+      });
+      item.appendChild(editButton);
 
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
@@ -531,8 +604,89 @@ export function attachAdminPanel(Viewer) {
         this.deleteUserModelWithConfirm(username, job, item, modelsList)
       );
       item.appendChild(deleteButton);
+      item.appendChild(editForm);
 
       return item;
+    },
+
+    // Who uploaded the model and when (POST /api/admin/jobs/<id>).
+    renderModelEditForm(job) {
+      const form = document.createElement("form");
+      form.className = "admin-model-edit";
+      form.hidden = true;
+
+      const ownerField = document.createElement("label");
+      ownerField.className = "admin-users-limits-field";
+      const ownerText = document.createElement("span");
+      ownerText.textContent = t("adminPanel.modelOwner", "Uploaded by");
+      const ownerSelect = document.createElement("select");
+      ownerSelect.appendChild(new Option(t("adminPanel.modelNoOwner", "No owner"), ""));
+      (this.adminUsers || [])
+        .map(({ user }) => user.username)
+        .sort((a, b) => a.localeCompare(b))
+        .forEach((username) => ownerSelect.appendChild(new Option(username, username)));
+      ownerSelect.value = job.owner || "";
+      ownerField.append(ownerText, ownerSelect);
+
+      const dateField = document.createElement("label");
+      dateField.className = "admin-users-limits-field";
+      const dateText = document.createElement("span");
+      dateText.textContent = t("adminPanel.modelUploadedAt", "Uploaded on");
+      const dateInput = document.createElement("input");
+      dateInput.type = "datetime-local";
+      dateInput.required = true;
+      dateInput.value = toDateTimeInputValue(job.createdAt);
+      dateField.append(dateText, dateInput);
+
+      const buttons = document.createElement("div");
+      buttons.className = "admin-users-actions";
+      const save = document.createElement("button");
+      save.type = "submit";
+      save.textContent = t("adminPanel.modelSave", "Save");
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = t("modelsPanel.deleteCancel", "Cancel");
+      buttons.append(save, cancel);
+
+      form.append(ownerField, dateField, buttons);
+
+      this.bindEventListener(cancel, "click", () => {
+        ownerSelect.value = job.owner || "";
+        dateInput.value = toDateTimeInputValue(job.createdAt);
+        form.hidden = true;
+      });
+      this.bindEventListener(form, "submit", async (event) => {
+        event.preventDefault();
+        const createdAt = fromDateTimeInputValue(dateInput.value);
+        if (!createdAt) return;
+        save.disabled = true;
+        await this.saveModelDetails(job, { owner: ownerSelect.value || null, createdAt });
+        save.disabled = false;
+      });
+      return form;
+    },
+
+    async saveModelDetails(job, payload) {
+      try {
+        const result = await adminFetch(`/api/admin/jobs/${encodeURIComponent(job.id)}`, "POST", payload);
+        const owner = result.owner || "";
+        const updated = { ...job, owner: result.owner || null, createdAt: result.createdAt || payload.createdAt };
+        // Move the model to its (new) owner's list in the panel's data.
+        const remove = (models) => models.filter((m) => m.id !== job.id);
+        (this.adminUsers || []).forEach((entry) => { entry.models = remove(entry.models); });
+        this.adminUnownedModels = remove(this.adminUnownedModels || []);
+        const target = (this.adminUsers || []).find((entry) => entry.user.username === owner);
+        const models = target ? target.models : this.adminUnownedModels;
+        models.push(updated);
+        models.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        this.adminExpandedModels?.add(target ? owner : "");
+        this.renderAdminUsers();
+        toastHelper("modelUpdated", "success");
+        this.loadModelsList?.();
+      } catch (error) {
+        this.reportError(error, { context: "Failed to update model details" });
+        this.setAdminStatusText(error.message, "error");
+      }
     },
 
     async deleteUserModelWithConfirm(username, job, item, modelsList) {
@@ -558,6 +712,7 @@ export function attachAdminPanel(Viewer) {
         // Keep the sorted list's data in step (a re-sort re-renders from it).
         const entry = this.adminUsers?.find((u) => u.user.username === username);
         if (entry) entry.models = entry.models.filter((m) => m.id !== job.id);
+        else this.adminUnownedModels = (this.adminUnownedModels || []).filter((m) => m.id !== job.id);
         if (modelsList.children.length === 0) {
           this.renderUserModelsList(modelsList, username, []);
         }

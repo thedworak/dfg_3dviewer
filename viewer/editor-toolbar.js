@@ -9,6 +9,8 @@ import { MODEL_UNITS } from "./editor/model-units.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
 
+const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
+
 export function getEditorToolbarIcon(icon) {
   const icons = {
     moveToolbar: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="1.4" fill="currentColor"/><circle cx="16" cy="7" r="1.4" fill="currentColor"/><circle cx="8" cy="12" r="1.4" fill="currentColor"/><circle cx="16" cy="12" r="1.4" fill="currentColor"/><circle cx="8" cy="17" r="1.4" fill="currentColor"/><circle cx="16" cy="17" r="1.4" fill="currentColor"/></svg>',
@@ -38,6 +40,7 @@ export function getEditorToolbarIcon(icon) {
     resetCamera: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> </svg>',
     resetSettings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.5A8 8 0 1 1 4 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 3.5v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     preview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8 14 2.5-3 2.5 2 2-3 3 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    generateThumbnails: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -1148,6 +1151,11 @@ export function createEditorToolbar(viewer) {
       { key: "loadingLogs", group: "file", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
       { key: "download", group: "file", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
       { key: "preview", group: "file", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
+      // All the views of a model uploaded to the worker (thumbnail-capture.js);
+      // Drupal keeps only the main thumbnail.
+      ...(BUILD !== "drupal"
+        ? [{ key: "generateThumbnails", group: "file", icon: "generateThumbnails", onClick: () => viewer.generateThumbnails(), primary: false }]
+        : []),
       { key: "save", group: "file", icon: "save", onClick: () => {}, primary: false }
     );
   }
@@ -1726,7 +1734,7 @@ export function createEditorToolbar(viewer) {
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
-  const actionMenuToolKeys = ["statistics", "background", "preview", "save", "loadingLogs"];
+  const actionMenuToolKeys = ["statistics", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
   if (viewer.actionMenuPanel) {
     actionMenuToolKeys.forEach((key) => {
       const button = viewer.editorToolbarButtons[key];
@@ -2017,7 +2025,8 @@ export function updateEditorToolbarLabels(viewer) {
       : t("controls.enableDistanceMeasurement", "Enable distance measurement"),
     resetCamera: t("gui.resetCameraPosition", "Reset camera position"),
     resetSettings: t("gui.resetSettings", "Reset settings"),
-    preview: t("gui.renderPreview", "Render preview"),
+    preview: t("gui.renderPreview", "Change main thumbnail"),
+    generateThumbnails: t("gui.generateThumbnails", "Generate thumbnails"),
     save: t("gui.saveSettings", "Save settings"),
     advancedEditor: viewer.isEditorAdvancedPanelVisible()
       ? t("gui.hideAdvancedEditor", "Hide advanced editor")

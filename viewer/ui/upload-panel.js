@@ -387,13 +387,11 @@ export function attachUploadPanel(Viewer) {
         // standalone deployment.
         const galleryCfg = core.CONFIG.viewer?.gallery;
         if (
-          Array.isArray(data.imageUrls) &&
-          data.imageUrls.length > 0 &&
           (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
           !core.SANDBOX_MODE &&
           !this.isEmbedMode()
         ) {
-          this.renderModelGalleryImages(data.imageUrls.map(remoteAssetUrl));
+          this.renderModelGalleryImages((data.imageUrls || []).map(remoteAssetUrl));
         }
       } else if (data.status === "failed" || data.status === "error") {
         toastHelper("uploadError", "error");

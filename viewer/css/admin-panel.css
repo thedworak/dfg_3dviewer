@@ -49,19 +49,19 @@ body[data-viewer-theme="dark"] #manageUsersButton {
 #adminUsersPanel {
   position: absolute;
   left: 50%;
-  top: 18%;
+  top: 8%;
   transform: translateX(-50%);
-  width: min(420px, calc(100vw - 36px));
-  max-height: min(65vh, 560px);
+  width: min(720px, calc(100vw - 36px));
+  max-height: min(84vh, 900px);
   overflow: auto;
-  padding: 14px 16px;
+  padding: 16px 20px;
   border-radius: 10px;
   border: 1px solid var(--viewer-panel-border);
   background: var(--viewer-panel-embed-bg);
   color: var(--viewer-panel-text);
   box-shadow: var(--viewer-panel-shadow);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 14px;
+  line-height: 1.45;
   z-index: 99999;
   font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
             "Segoe UI", Roboto, Arial, sans-serif;
@@ -80,8 +80,8 @@ body[data-viewer-theme="dark"] #manageUsersButton {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
-  font-size: 11px;
+  margin-bottom: 10px;
+  font-size: 12px;
 }
 
 .admin-users-sort[hidden] {
@@ -186,7 +186,7 @@ body[data-viewer-theme="dark"] #manageUsersButton {
 }
 
 .admin-users-meta {
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -205,9 +205,9 @@ body[data-viewer-theme="dark"] #manageUsersButton {
   background: none;
   color: var(--viewer-panel-text);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 5px 9px;
+  padding: 5px 10px;
   cursor: pointer;
   transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
@@ -238,9 +238,9 @@ body[data-viewer-theme="dark"] #manageUsersButton {
   background: none;
   color: var(--viewer-panel-text);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 5px 9px;
+  padding: 5px 10px;
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
@@ -286,7 +286,7 @@ body[data-viewer-theme="dark"] #manageUsersButton {
 .admin-users-limits-summary,
 .admin-users-limits-note {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   opacity: 0.75;
 }
 
@@ -311,11 +311,12 @@ body[data-viewer-theme="dark"] #manageUsersButton {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
-.admin-users-limits-field input {
+.admin-users-limits-field input,
+.admin-users-limits-field select {
   min-width: 0;
   padding: 4px 6px;
   border: 1px solid var(--viewer-panel-border);
@@ -324,4 +325,70 @@ body[data-viewer-theme="dark"] #manageUsersButton {
   color: var(--viewer-panel-text);
   font: inherit;
   font-weight: 400;
+}
+
+.admin-users-limits-field select option {
+  color: initial;
+}
+
+/* A model in a user's list: name, owner and date; edit and delete buttons;
+   the edit form (renderModelEditForm) wraps onto its own line below. */
+.admin-users-models-list .models-panel-item {
+  font-size: 13px;
+}
+
+.admin-users-models-list .models-panel-item-thumb {
+  width: 40px;
+  height: 40px;
+}
+
+.admin-users-models-list .models-panel-item-meta {
+  font-size: 11px;
+}
+
+.admin-model-row {
+  flex-wrap: wrap;
+}
+
+.models-panel-edit {
+  flex: none;
+  width: 30px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.models-panel-edit:hover,
+.models-panel-edit[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--viewer-panel-text) 14%, var(--viewer-panel-bg));
+}
+
+.admin-model-edit {
+  flex: 1 0 100%;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, 1fr);
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border: 1px dashed var(--viewer-panel-border);
+  border-radius: 6px;
+}
+
+.admin-model-edit[hidden] {
+  display: none;
+}
+
+.admin-model-edit > .admin-users-actions {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 520px) {
+  .admin-model-edit {
+    grid-template-columns: 1fr;
+  }
 }

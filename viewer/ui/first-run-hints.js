@@ -7,8 +7,8 @@ import { isAppBuild } from "../remote.js";
 // hints start, so an app closed half-way does not show them again.
 const FIRST_RUN_KEY = "dfg3dviewer-first-run-hints";
 const TARGETS = ["#openLocalFileButton", "#browseModelsButton", "#viewerEditorToolbar .viewer-editor-expand"];
-// After the loader card has faded out (core.circle.complete(2600)).
-const START_DELAY_MS = 2800;
+// After the loader card has faded out (core.circle.complete(), 4400 ms).
+const START_DELAY_MS = 4600;
 const PULSE_MS = 3600;
 
 function isVisible(element) {
