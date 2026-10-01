@@ -692,6 +692,9 @@ export function applyCanvases(canvasPlacements) {
     group.name = `iiif-canvas:${canvas.id || ""}`;
     group.matrixAutoUpdate = false;
     group.matrix.copy(matrix);
+    // A hand-set matrix: three.js only recomputes matrixWorld from it when
+    // told to (updateWorldMatrix checks this flag), not just on a render.
+    group.matrixWorldNeedsUpdate = true;
     if (canvas.backgroundColor) {
       group.add(panel(
         { x: 0, y: 0, width, height },

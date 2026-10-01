@@ -412,7 +412,7 @@ var WebPurchaseRedemptionResultType;
 })(WebPurchaseRedemptionResultType || (WebPurchaseRedemptionResultType = {}));
 
 const nativePlugin = registerPlugin('Purchases', {
-    web: () => import('./web-DGI7Gxz1.js').then((m) => new m.PurchasesWeb()),
+    web: () => import('./web-C1rnhGCR.js').then((m) => new m.PurchasesWeb()),
 });
 function normalizeRejection(result) {
     if (!(result instanceof Promise)) {
@@ -469,4 +469,4 @@ const Purchases = new Proxy(nativePlugin, {
 });
 
 export { BILLING_FEATURE, ENTITLEMENT_VERIFICATION_MODE, IN_APP_MESSAGE_TYPE, LOG_LEVEL, PAYWALL_RESULT, PURCHASES_ARE_COMPLETED_BY_TYPE, PURCHASES_ERROR_CODE, PURCHASE_TYPE, Purchases, REFUND_REQUEST_STATUS, STOREKIT_VERSION, VERIFICATION_RESULT, WebPurchaseRedemptionResultType, normalizePurchasesError };
-//# sourceMappingURL=index-H_ZiCEbI.js.map
+//# sourceMappingURL=index-Dres7hIx.js.map

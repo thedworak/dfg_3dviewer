@@ -226,7 +226,7 @@ async function loadPlan() {
   const apiKey = monetizationSettings()?.revenuecat?.apiKeys?.[appPlatform()];
   if (!apiKey || window.Capacitor?.isNativePlatform?.() !== true) return;
   try {
-    const { Purchases } = await import('./index-W36Vd8-a.js');
+    const { Purchases } = await import('./index-C1gYYO5N.js');
     await Purchases.configure({ apiKey });
     purchases = Purchases;
     appUserId = (await Purchases.getAppUserID()).appUserID || "";
@@ -5792,7 +5792,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "56b89aa" ;
+const BUILD_ID$2 = "435c40d" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -5843,7 +5843,7 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "56b89aa" ;
+const BUILD_ID$1 = "435c40d" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -9897,15 +9897,20 @@ function attachModelsPanel(Viewer) {
       button.className = "models-panel-item";
       button.title = name;
 
+      // Always a thumbnail slot: its placeholder (models-panel.css) shows
+      // when the job has no image yet or the image fails to load.
+      const thumbSlot = document.createElement("span");
+      thumbSlot.className = "models-panel-item-thumb";
+      thumbSlot.setAttribute("aria-hidden", "true");
       if (job.imageUrls?.[0]) {
         const thumb = document.createElement("img");
         thumb.src = remoteAssetUrl(job.imageUrls[0]);
         thumb.alt = "";
         thumb.loading = "lazy";
-        // App: no broken-image icon when /files/ does not answer.
-        if (isAppBuild()) thumb.addEventListener("error", () => thumb.remove(), { once: true });
-        button.appendChild(thumb);
+        thumb.addEventListener("error", () => thumb.remove(), { once: true });
+        thumbSlot.appendChild(thumb);
       }
+      button.appendChild(thumbSlot);
 
       const text = document.createElement("div");
       text.className = "models-panel-item-text";
@@ -12409,7 +12414,7 @@ function attachLoadingStatus(viewer) {
             applyProgress(Math.max(0, Math.min(Math.round(progressValue), 100)));
           }
         },
-        complete: (delayMs = 2400) => {
+        complete: (delayMs = 4400) => {
           clearHideTimer();
           updatePhase(stageKeyToIndex.get("loadingLog.modelLoaded") ?? messages.length - 1);
           applyProgress(100);
@@ -15111,6 +15116,9 @@ function applyCanvases(canvasPlacements) {
     group.name = `iiif-canvas:${canvas.id || ""}`;
     group.matrixAutoUpdate = false;
     group.matrix.copy(matrix);
+    // A hand-set matrix: three.js only recomputes matrixWorld from it when
+    // told to (updateWorldMatrix checks this flag), not just on a render.
+    group.matrixWorldNeedsUpdate = true;
     if (canvas.backgroundColor) {
       group.add(panel(
         { x: 0, y: 0, width, height },
@@ -20428,7 +20436,7 @@ function attachAnnotationStack(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-qMfO_on0.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-0eoI0V8q.js');
+const loadTilesPlugins = () => import('./index.three-plugins-BP5IN7lv.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -24355,8 +24363,8 @@ function displayManifestInForm(manifestJson) {
 // hints start, so an app closed half-way does not show them again.
 const FIRST_RUN_KEY = "dfg3dviewer-first-run-hints";
 const TARGETS = ["#openLocalFileButton", "#browseModelsButton", "#viewerEditorToolbar .viewer-editor-expand"];
-// After the loader card has faded out (core.circle.complete(2600)).
-const START_DELAY_MS = 2800;
+// After the loader card has faded out (core.circle.complete(), 4400 ms).
+const START_DELAY_MS = 4600;
 const PULSE_MS = 3600;
 
 function isVisible(element) {
@@ -24418,7 +24426,7 @@ const loadLWOLoader = async () => (await import('./three-CtlVvEc8.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-B2e1WOmM.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DerzqQU-.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-LUSfSiw8.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aW; })).HDRLoader;
 
 var outlineClipping;
@@ -32812,7 +32820,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "56b89aa" ;
+const BUILD_ID = "435c40d" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -37015,4 +37023,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-CwSJ0Mw7.js.map
+//# sourceMappingURL=main-C2IodG2K.js.map

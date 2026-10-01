@@ -192,7 +192,8 @@ needing the tag.
   `status` values follow the same vocabulary `viewer/status-poller.js`
   already knows how to render: `queued` (waiting for a free conversion
   slot), `preparing`, `processing`, `rendering`, `ready`, `failed`.
-- `POST /api/editor/upload-thumbnail` - the viewer's "Render preview": a
+- `POST /api/model/thumbnail` - the viewer's "Render preview" (the old
+  `/api/editor/upload-thumbnail`, the Drupal module's route, still works): a
   multipart form with `path` (the model's folder, `/files/<id>/...`),
   `filename` (the model's name without extension) and a PNG in `data`, saved
   as `views/<filename>_side45.png` next to the model - the same file the
@@ -246,6 +247,7 @@ With `WORKER_AUTH_MODE=required`, uploading and deleting need a logged-in accoun
 - Visitors register in the viewer's upload panel. With the default `approval` registration, new accounts stay *pending* until you approve them.
 - Endpoints: `GET /api/auth/config`, `GET /api/auth/me`, `POST /api/auth/register|login|logout` (JSON `{username, password}`; the session is an HttpOnly, SameSite=Lax cookie, `Secure` when the proxy sends `X-Forwarded-Proto: https`). Five failed logins lock a username for five minutes.
 - Every upload records its account, original filename and size in `<job>/owner.json`. Users can delete only their own uploads; admins can delete any. Jobs from before accounts were enabled are admin-only.
+- Admins can correct who uploaded a model and when: in the viewer's user panel ("Edit" next to a model), or `POST /api/admin/jobs/<id>` with `{"owner": "alice", "createdAt": 1767225600}` (`owner: null` = no owner; `createdAt` in Unix seconds). It rewrites `<job>/owner.json`, so storage quotas move with the owner.
 - Supervise from the command line (there is deliberately no admin HTTP API):
 
 ```bash

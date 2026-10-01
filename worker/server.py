@@ -203,6 +203,7 @@ def find_model_file(root: Path):
 
 
 JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
+THUMBNAIL_VIEWS = {f"side{angle}" for angle in range(0, 360, 45)} | {"top"}
 LIMITS = Limits(JOBS_DIR, JOB_ID_RE, MAX_CONCURRENT_CONVERSIONS)
 # Plans of the mobile app (see entitlements.py); off without a key.
 ENTITLEMENTS = Entitlements()
@@ -251,10 +252,10 @@ def scan_job(job_id: str, job_dir: Path):
     image_urls = []
     views_dirs = sorted(job_root.rglob("views"))
     if views_dirs:
-        image_urls = [
-            f"/files/{job_id}/{img.relative_to(job_root)}"
-            for img in sorted(views_dirs[0].glob("*.png"))
-        ]
+        # The main thumbnail (_side45, "Change main thumbnail" in the viewer)
+        # first: the browse panel shows the first image.
+        images = sorted(views_dirs[0].glob("*.png"), key=lambda img: (not img.stem.endswith("_side45"), img.name))
+        image_urls = [f"/files/{job_id}/{img.relative_to(job_root)}" for img in images]
 
     original_name = next(
         (p.name for p in sorted(job_root.iterdir()) if p.is_file()), None
@@ -284,6 +285,16 @@ def write_owner(job_id: str, username, filename: str, size: int) -> None:
         "size": size,
         "createdAt": int(time.time()),
     }), "utf-8")
+
+
+def update_owner(job_id: str, fields: dict) -> dict:
+    """Admin edit of who uploaded a job and when (POST /api/admin/jobs/<id>).
+    Keeps filename/size; a job without owner.json (uploaded before accounts)
+    gets one. Storage quotas (limits.py) follow the new owner."""
+    owner = read_owner(job_id) or {"user": None, "filename": "", "size": 0, "createdAt": 0}
+    owner.update(fields)
+    (JOBS_DIR / job_id / "owner.json").write_text(json.dumps(owner), "utf-8")
+    return owner
 
 
 def can_delete_job(job_id: str, user) -> bool:
@@ -319,6 +330,9 @@ def list_jobs(user=None):
             # field comes back null.
             owner = read_owner(job["id"])
             job["owner"] = owner.get("user") if owner else None
+            # The upload time (editable by admins) over the model file's mtime.
+            if owner and owner.get("createdAt"):
+                job["createdAt"] = int(owner["createdAt"])
             jobs.append(job)
     jobs.sort(key=lambda job: job["createdAt"], reverse=True)
     return jobs
@@ -760,6 +774,40 @@ class Handler(BaseHTTPRequestHandler):
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
+    def _handle_admin_update_job(self, job_id: str) -> None:
+        admin = self._require_admin()
+        if admin is None:
+            return
+        if not (JOBS_DIR / job_id).is_dir():
+            self._send_json(404, {"error": "not found"})
+            return
+        try:
+            data = self._read_json_body()
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        fields = {}
+        if "owner" in data:
+            owner = data["owner"]
+            if owner in (None, ""):
+                fields["user"] = None
+            elif not isinstance(owner, str) or owner not in {u["username"] for u in AUTH.list_users()}:
+                self._send_json(400, {"error": "Unknown user"})
+                return
+            else:
+                fields["user"] = owner
+        if "createdAt" in data:
+            created = data["createdAt"]
+            if isinstance(created, bool) or not isinstance(created, (int, float)) or not 0 < created <= time.time() + 86400:
+                self._send_json(400, {"error": "Invalid upload date"})
+                return
+            fields["createdAt"] = int(created)
+        if not fields:
+            self._send_json(400, {"error": "Nothing to update"})
+            return
+        owner = update_owner(job_id, fields)
+        self._send_json(200, {"status": "ok", "owner": owner.get("user"), "createdAt": owner.get("createdAt")})
+
     def log_message(self, fmt, *args) -> None:
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
@@ -852,7 +900,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/model/create":
             self._handle_create()
             return
-        if path == "/api/editor/upload-thumbnail":
+        # The viewer's "Render preview". /api/editor/upload-thumbnail is the
+        # Drupal module's route; still accepted here for older viewers.
+        if path in ("/api/model/thumbnail", "/api/editor/upload-thumbnail"):
             self._handle_thumbnail_upload()
             return
         match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
@@ -862,6 +912,10 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/app/(link|sync|unlink)", path)
         if match:
             self._handle_app_plan(match.group(1))
+            return
+        match = re.fullmatch(r"/api/admin/jobs/([A-Za-z0-9_-]+)", path)
+        if match:
+            self._handle_admin_update_job(match.group(1))
             return
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/limits", path)
         if match:
@@ -951,10 +1005,12 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"entity_id": job_id, "status": "started"})
 
     def _handle_thumbnail_upload(self) -> None:
-        """The viewer's "Render preview": a PNG of the current view, saved as
-        the model's <name>_side45.png in its views/ folder - the file the
-        Blender render (and Drupal's ThumbnailUploadController) writes too.
-        `path` is the model's folder URL (/files/<job>/...)."""
+        """The viewer's thumbnails: a PNG saved as the model's <name>_<view>.png
+        in its views/ folder - the files the Blender render writes too.
+        `view` is side0..side315 or top ("Generate thumbnails" sends each);
+        without it side45, the main thumbnail ("Change main thumbnail", like
+        Drupal's ThumbnailUploadController). `path` is the model's folder URL
+        (/files/<job>/...)."""
         user = self._require_user()
         if user is None:
             return
@@ -975,6 +1031,11 @@ class Handler(BaseHTTPRequestHandler):
         if not name:
             self._send_json(400, {"error": "Invalid filename"})
             return
+        # One of the views render.py writes ("Generate thumbnails" sends all).
+        view = fields.get("view", "") or "side45"
+        if view not in THUMBNAIL_VIEWS:
+            self._send_json(400, {"error": "Invalid view"})
+            return
         match = re.fullmatch(r"/files/([A-Za-z0-9_-]+)(?:/(.*))?", unquote(urlparse(fields.get("path", "")).path))
         if not match or not JOB_ID_RE.fullmatch(match.group(1)):
             self._send_json(400, {"error": "Not an uploaded model"})
@@ -991,13 +1052,14 @@ class Handler(BaseHTTPRequestHandler):
 
         views_dir = model_dir / "views"
         views_dir.mkdir(exist_ok=True)
-        target = views_dir / f"{name}_side45.png"
+        target = views_dir / f"{name}_{view}.png"
         target.write_bytes(image)
         image_url = f"/files/{job_id}/{target.relative_to(job_root)}"
         with JOBS_LOCK:
             job = JOBS.get(job_id)
             if job is not None and image_url not in job.get("image_urls", []):
-                job["image_urls"] = [*job.get("image_urls", []), image_url]
+                urls = [*job.get("image_urls", []), image_url]
+                job["image_urls"] = sorted(urls, key=lambda url: (not url.endswith("_side45.png"), url))
         self._send_json(200, {"message": f"Thumbnail saved ({len(image)} bytes)", "imageUrl": image_url})
 
     def _serve_file(self, job_id: str, rel_path: str) -> None:

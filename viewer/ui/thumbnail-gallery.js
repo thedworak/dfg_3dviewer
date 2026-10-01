@@ -39,6 +39,34 @@ function getGenericGalleryImageUrl(index) {
   return new URL(`${examplesPath}gallery/generic/explora4d-placeholder-${number}.${GALLERY_IMAGE_EXT}`, moduleUrl).href;
 }
 
+// One of the generic images for a model without thumbnails (browse and
+// admin panels), the same one for the same model every time.
+export function genericThumbnailUrl(seed = "") {
+  let hash = 0;
+  for (const char of String(seed)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return getGenericGalleryImageUrl(hash % GENERIC_GALLERY_IMAGE_COUNT);
+}
+
+// Fills a list row's thumbnail slot: the model's own image, or a generic one
+// when it has none or it fails to load (the slot's CSS placeholder is left
+// if even that is missing).
+export function fillModelThumbnail(slot, imageUrl, seed) {
+  const thumb = document.createElement("img");
+  thumb.alt = "";
+  thumb.loading = "lazy";
+  const generic = genericThumbnailUrl(seed);
+  thumb.addEventListener("error", function onError() {
+    if (thumb.src !== generic && imageUrl) {
+      thumb.src = generic;
+      return;
+    }
+    thumb.removeEventListener("error", onError);
+    thumb.remove();
+  });
+  thumb.src = imageUrl || generic;
+  slot.appendChild(thumb);
+}
+
 // Swaps a thumbnail that fails to load for the generic image with the same
 // position (once - a missing generic image is left broken).
 function useGenericImageOnError(img, index, onReplaced) {
@@ -463,30 +491,33 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   }
 }
 
+// Bumped on every gallery (re)build so a stale probeImageExists()
+// resolution from an earlier, since-superseded model switch can't overwrite
+// the gallery for whichever model is actually selected now (a fast switch
+// could otherwise let an older, slower-to-resolve probe win the race and
+// leave mismatched thumbnails on screen).
+let galleryBuildGeneration = 0;
+
 // getPerModelGalleryImages() only knows how to guess paths for the built-in
 // viewer/examples/gallery/<filename>/... fixtures - a model just converted by
 // the standalone worker (worker/server.py) lives at whatever /files/<job id>/
 // views/... URLs its status response actually returned, so that convention
 // can't find it. This renders a gallery directly from an explicit URL list
 // instead of guessing one, reusing the same thumbnail/lightbox DOM as the
-// buildFake fallback below.
+// buildFake fallback below. A model without images (none rendered yet) gets
+// the generic placeholders, so the previous model's gallery never lingers.
 export function renderModelGalleryImages(Viewer, imageUrls = []) {
+  // Supersedes a buildThumbnailGallery() probe still in flight.
+  galleryBuildGeneration++;
   const gallery = getGalleryConfig();
   const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
-  const images = imageUrls
+  let images = (Array.isArray(imageUrls) ? imageUrls : [])
     .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}` }))
     .filter((img) => img.src);
-  if (images.length === 0) return;
+  if (images.length === 0) images = createDefaultTestImages();
   const elements = createFakeGalleryElements(images);
   handleImages(Viewer, mainElement, elements, elements);
 }
-
-// Bumped on every buildThumbnailGallery() call so a stale probeImageExists()
-// resolution from an earlier, since-superseded model switch can't overwrite
-// the gallery for whichever model is actually selected now (a fast switch
-// could otherwise let an older, slower-to-resolve probe win the race and
-// leave mismatched thumbnails on screen).
-let galleryBuildGeneration = 0;
 
 export function buildThumbnailGallery(Viewer) {
   const buildGeneration = ++galleryBuildGeneration;

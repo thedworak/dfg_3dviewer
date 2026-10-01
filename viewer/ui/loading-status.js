@@ -160,7 +160,7 @@ export function attachLoadingStatus(viewer) {
             applyProgress(Math.max(0, Math.min(Math.round(progressValue), 100)));
           }
         },
-        complete: (delayMs = 2400) => {
+        complete: (delayMs = 4400) => {
           clearHideTimer();
           updatePhase(stageKeyToIndex.get("loadingLog.modelLoaded") ?? messages.length - 1);
           applyProgress(100);

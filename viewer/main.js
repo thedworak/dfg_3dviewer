@@ -47,6 +47,7 @@ import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
 import { attachLibraryPanel } from "./ui/library-panel.js";
 import { attachModelsSource } from "./ui/models-source.js";
+import { attachExamplesPanel } from "./ui/examples-panel.js";
 import { attachPlansPanel } from "./ui/plans-panel.js";
 import { initPlan } from "./monetization/plan.js";
 import { initAds } from "./monetization/ads.js";
@@ -71,7 +72,7 @@ import { attachPicking } from "./editor/picking.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachModelUnits } from "./editor/model-units.js";
-import { captureAndUploadThumbnail } from "./editor/thumbnail-capture.js";
+import { captureAndUploadThumbnail, generateAllThumbnails } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
@@ -2510,6 +2511,10 @@ export const Viewer = {
     return captureAndUploadThumbnail(this);
   },
 
+  generateThumbnails() {
+    return generateAllThumbnails(this);
+  },
+
   async mainLoadModelWrapper() {
     if (core.autoPath !== '') {
       core.autoPath = Viewer.normalizeFileUrl(core.autoPath);
@@ -2956,12 +2961,22 @@ export const Viewer = {
       );
       core.i18nGui.renderPreviewController = Viewer.editorFolder.add(
         {
-          [t("gui.renderPreview", "Render preview")]() {
+          [t("gui.renderPreview", "Change main thumbnail")]() {
             Viewer.takeScreenshot();
           },
         },
-        t("gui.renderPreview", "Render preview")
+        t("gui.renderPreview", "Change main thumbnail")
       );
+      if (BUILD !== "drupal") {
+        core.i18nGui.generateThumbnailsController = Viewer.editorFolder.add(
+          {
+            [t("gui.generateThumbnails", "Generate thumbnails")]() {
+              Viewer.generateThumbnails();
+            },
+          },
+          t("gui.generateThumbnails", "Generate thumbnails")
+        );
+      }
     }
 
     if (core.EDITOR) {
@@ -4111,6 +4126,7 @@ attachUploadPanel(Viewer);
 attachModelsPanel(Viewer);
 attachLibraryPanel(Viewer);
 attachModelsSource(Viewer);
+attachExamplesPanel(Viewer);
 attachPlansPanel(Viewer);
 attachAdminPanel(Viewer);
 attachWindowControls(Viewer);
