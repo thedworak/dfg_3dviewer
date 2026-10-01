@@ -1,6 +1,17 @@
 name: Playwright Tests
 
-on: [push, pull_request]
+# Once per change: in its pull request. deploy.yml calls this workflow itself
+# (workflow_call) for a push to main/stable-release that did not come from a
+# pull request with passing tests, before deploying.
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+# A new push to the pull request cancels the run for the previous commit.
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   e2e:

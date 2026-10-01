@@ -7,8 +7,56 @@ on:
       - stable-release
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+# One deploy per branch at a time; a newer push waits instead of racing it.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
+  # A merged pull request was already tested (playwright.yml runs on pull
+  # requests) - deploy it without testing again. A direct push, a manual run,
+  # or a pull request without a passing test run is tested first.
+  tested:
+    runs-on: ubuntu-latest
+    outputs:
+      tested: ${{ steps.check.outputs.tested }}
+    steps:
+      - name: Check for a merged pull request with passing tests
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          tested=false
+          if [ "${{ github.event_name }}" = "push" ]; then
+            head="$(gh api "repos/$REPO/commits/$SHA/pulls" \
+              --jq "[.[] | select(.merged_at != null and .merge_commit_sha == \"$SHA\")][0].head.sha // empty")"
+            if [ -n "$head" ]; then
+              passed="$(gh api "repos/$REPO/actions/runs?head_sha=$head&event=pull_request&status=success" \
+                --jq '[.workflow_runs[] | select(.name == "Playwright Tests")] | length')"
+              [ "${passed:-0}" -gt 0 ] && tested=true
+              echo "Pull request head $head: $passed passing Playwright run(s)."
+            else
+              echo "Not the merge of a pull request."
+            fi
+          fi
+          echo "tested=$tested" >> "$GITHUB_OUTPUT"
+
+  tests:
+    needs: tested
+    if: needs.tested.outputs.tested != 'true'
+    uses: ./.github/workflows/playwright.yml
+
   build:
+    needs: [tested, tests]
+    # Skipped tests (already passed in the pull request) still let it build.
+    if: always() && needs.tested.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.tests.result)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
