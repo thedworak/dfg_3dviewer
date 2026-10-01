@@ -5792,7 +5792,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "56b89aa" ;
+const BUILD_ID$2 = "4f149ee" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -5843,7 +5843,7 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "56b89aa" ;
+const BUILD_ID$1 = "4f149ee" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -15111,6 +15111,9 @@ function applyCanvases(canvasPlacements) {
     group.name = `iiif-canvas:${canvas.id || ""}`;
     group.matrixAutoUpdate = false;
     group.matrix.copy(matrix);
+    // A hand-set matrix: three.js only recomputes matrixWorld from it when
+    // told to (updateWorldMatrix checks this flag), not just on a render.
+    group.matrixWorldNeedsUpdate = true;
     if (canvas.backgroundColor) {
       group.add(panel(
         { x: 0, y: 0, width, height },
@@ -20428,7 +20431,7 @@ function attachAnnotationStack(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-qMfO_on0.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-0eoI0V8q.js');
+const loadTilesPlugins = () => import('./index.three-plugins-CyoAob7C.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -24418,7 +24421,7 @@ const loadLWOLoader = async () => (await import('./three-CtlVvEc8.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-B2e1WOmM.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DerzqQU-.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BQFaw9Oa.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aW; })).HDRLoader;
 
 var outlineClipping;
@@ -32812,7 +32815,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "56b89aa" ;
+const BUILD_ID = "4f149ee" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -37015,4 +37018,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-CwSJ0Mw7.js.map
+//# sourceMappingURL=main-D_Psc4I8.js.map
