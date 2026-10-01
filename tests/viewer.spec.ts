@@ -928,16 +928,19 @@ test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments 
   expect((await sceneState()).lights).toEqual(imported.lights);
 });
 
-test('Level of Certainty: objects and groups are painted by level, with a legend, and round-trip', async ({ page }) => {
+test('Level of Certainty: objects and groups get see-through colour overlays by level, with a legend, and round-trip', async ({ page }) => {
   // The same 33 parts (m0:0.0 - m0:0.32, group m0:0) as the Wolpa synagogue.
   await openViewer(page, '/examples/compressed.glb');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
 
   const state = () => page.evaluate(() => {
     const viewer = window.Viewer;
+    // The colour of a part's overlay, or null without one.
+    const overlayOf = (targetId) => viewer.resolveObjectByTargetId(targetId).children
+      .find((child) => child.userData.isCertaintyOverlay);
     const colorOf = (targetId) => {
-      const material = viewer.resolveObjectByTargetId(targetId).material;
-      return `#${(Array.isArray(material) ? material[0] : material).color.getHexString()}`;
+      const overlay = overlayOf(targetId);
+      return overlay ? `#${overlay.material.color.getHexString()}` : null;
     };
     return {
       view: viewer.certaintyView,
@@ -948,6 +951,8 @@ test('Level of Certainty: objects and groups are painted by level, with a legend
         `${row.querySelector('.certainty-legend__swatch').textContent}${row.querySelector('.certainty-legend__code').textContent}:${row.querySelector('.certainty-legend__count')?.textContent ?? '-'}`
       )),
       markers: viewer.annotationPOIMarkers.length,
+      opacity: overlayOf('m0:0.4')?.material.opacity ?? null,
+      slider: document.querySelector('.certainty-legend__opacity output')?.textContent ?? null,
       certainties: viewer.getAnnotationEntriesForPersistence().map((entry) => entry.certainty || null),
     };
   });
@@ -975,33 +980,51 @@ test('Level of Certainty: objects and groups are painted by level, with a legend
   // Each level by symbol and code, with how many objects are assessed at it.
   expect(painted.legend).toEqual(['✓A:0', '■B:1', '▲C:0', '≈D:0', '?E:1', '–:-']);
   expect(painted.markers).toBe(2);
+  // The model shows through the overlays: 40% opaque by default.
+  expect(painted.opacity).toBeCloseTo(0.4);
+  expect(painted.slider).toBe('40%');
+  // The legend's slider sets every overlay's opacity.
+  await page.locator('.certainty-legend__opacity input').fill('70');
+  expect((await state()).opacity).toBeCloseTo(0.7);
+  expect((await state()).slider).toBe('70%');
   expect(await page.locator('[data-tool="certainty"]').getAttribute('aria-pressed')).toBe('true');
 
   // Export: the scale, an "assessing" motivation and the assessment.
   const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
   expect(manifest.AIM3DViewer.certainty.levels.map((level) => level.code)).toEqual(['A', 'B', 'C', 'D', 'E']);
   expect(manifest.AIM3DViewer.certainty.visible).toBe(true);
+  expect(manifest.AIM3DViewer.certainty.opacity).toBeCloseTo(0.7);
   const [walls, roof] = manifest.items[0].annotations[0].items;
   expect(walls.motivation).toEqual(['commenting', 'assessing']);
   expect(walls.AIM3DViewer.certainty).toEqual({ value: 9, scope: 'object' });
   expect(roof.AIM3DViewer.certainty).toEqual({ value: 2, scope: 'group' });
 
-  // Switching the view off puts the meshes' own materials back.
+  // The meshes keep their own materials; switching the view off removes
+  // the overlays.
   const restored = await page.evaluate(() => {
     const viewer = window.Viewer;
+    const keptWhileOn = viewer.resolveObjectByTargetId('m0:0.4').material === viewer.__ownWallMaterial;
     viewer.setCertaintyView(false);
+    let overlays = 0;
+    viewer.resolveObjectByTargetId('m0:root').traverse((child) => {
+      if (child.userData.isCertaintyOverlay) overlays += 1;
+    });
     return {
+      keptWhileOn,
       same: viewer.resolveObjectByTargetId('m0:0.4').material === viewer.__ownWallMaterial,
+      overlays,
       legend: document.querySelectorAll('.certainty-legend').length,
     };
   });
-  expect(restored).toEqual({ same: true, legend: 0 });
+  expect(restored).toEqual({ keptWhileOn: true, same: true, overlays: 0, legend: 0 });
 
   // Import: the manifest opens in the view (visible), assessments kept.
   await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
   const reimported = await state();
   expect(reimported.view).toBe(true);
   expect(reimported.walls).toBe('#2166ac');
+  // The exported opacity comes back with the scale.
+  expect(reimported.opacity).toBeCloseTo(0.7);
   expect(reimported.certainties).toEqual([{ value: 9, scope: 'object' }, { value: 2, scope: 'group' }]);
 
   // The XML saved to Drupal keeps them too.

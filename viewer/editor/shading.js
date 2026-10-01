@@ -120,10 +120,10 @@ export function attachShadingEditor(Viewer) {
       const roots = this.getShadingRootObjects();
       if (!roots.length) return;
 
-      // The Level of Certainty view paints over the meshes' materials: shade
-      // their own ones, then paint again.
+      // The Level of Certainty overlays are meshes too: shade the model
+      // without them, then lay them again.
       const certaintyView = this.certaintyView === true;
-      if (certaintyView) this.restoreCertaintyMaterials?.();
+      if (certaintyView) this.removeCertaintyOverlays?.();
 
       const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
       const customShader = mode === "custom"

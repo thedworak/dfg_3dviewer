@@ -624,6 +624,7 @@
       "min": 0,
       "max": 10,
       "unassessedColor": "#9ca3af",
+      "opacity": 0.4,
       "visible": true,
       "levels": [
         {

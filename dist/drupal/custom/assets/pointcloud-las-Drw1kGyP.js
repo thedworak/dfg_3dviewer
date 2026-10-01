@@ -1,4 +1,4 @@
-import { g as getDefaultExportFromNamespaceIfNotNamed, c as core } from './main-DvqQ2sUb.js';
+import { g as getDefaultExportFromNamespaceIfNotNamed, c as core } from './main-DfQG55Ey.js';
 import { a9 as THREE } from './three-CtlVvEc8.js';
 
 // loaders.gl

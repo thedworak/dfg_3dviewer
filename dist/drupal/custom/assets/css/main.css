@@ -1802,6 +1802,27 @@ canvas {
   text-align: right;
 }
 
+.certainty-legend__opacity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 3.2em;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+.certainty-legend__opacity input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.certainty-legend__opacity output {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .certainty-legend__row--unassessed {
   grid-template-columns: 22px 16px minmax(0, 1fr);
   opacity: 0.85;

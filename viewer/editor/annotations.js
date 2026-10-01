@@ -227,6 +227,8 @@ export function attachAnnotations(Viewer) {
       });
 
       const sprite = new THREE.Sprite(spriteMaterial);
+      // Over the model and its see-through Level of Certainty overlays.
+      sprite.renderOrder = 1000;
 
       sprite.scale.set(radius, radius, 1);
 

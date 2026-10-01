@@ -1251,6 +1251,7 @@ const VIEWER_I18N = {
       scopeGroup: "Group (parent object)",
       unassessed: "Not assessed",
       assessedCount: "Assessed objects",
+      opacity: "Overlay opacity",
       showView: "Show Level of Certainty",
       hideView: "Hide Level of Certainty",
     },
@@ -1984,6 +1985,7 @@ const VIEWER_I18N = {
       scopeGroup: "Grupy (obiekt nadrzędny)",
       unassessed: "Bez oceny",
       assessedCount: "Ocenione obiekty",
+      opacity: "Krycie nakładki",
       showView: "Pokaż poziom pewności",
       hideView: "Ukryj poziom pewności",
     },
@@ -2716,6 +2718,7 @@ const VIEWER_I18N = {
       scopeGroup: "Gruppe (übergeordnetes Objekt)",
       unassessed: "Nicht bewertet",
       assessedCount: "Bewertete Objekte",
+      opacity: "Deckkraft der Überlagerung",
       showView: "Grad der Gewissheit anzeigen",
       hideView: "Grad der Gewissheit ausblenden",
     },
@@ -6037,8 +6040,8 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "77ed13e" ;
-const BUILD = "drupal" ;
+const BUILD_ID$2 = "69c0bd0" ;
+const BUILD = "test" ;
 
 let initPromise = null;
 
@@ -6088,7 +6091,7 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "77ed13e" ;
+const BUILD_ID$1 = "69c0bd0" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -7543,7 +7546,8 @@ function createEditorToolbar(viewer) {
       { key: "preview", group: "file", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
       // All the views of a model uploaded to the worker (thumbnail-capture.js);
       // Drupal keeps only the main thumbnail.
-      ...([]),
+      ...([{ key: "generateThumbnails", group: "file", icon: "generateThumbnails", onClick: () => viewer.generateThumbnails(), primary: false }]
+        ),
       { key: "save", group: "file", icon: "save", onClick: () => {}, primary: false }
     );
   }
@@ -9490,7 +9494,7 @@ function removeExistingGalleryDom() {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "drupal") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -14994,7 +14998,8 @@ function attachMaterialsEditor(Viewer) {
         gatherMaterials(object);
       }
       object.traverse((child) => {
-        if (child.isMesh) {
+        // Not the Level of Certainty colour overlays.
+        if (child.isMesh && !child.userData?.isCertaintyOverlay) {
           gatherMaterials(child);
         }
       });
@@ -15405,10 +15410,10 @@ function attachShadingEditor(Viewer) {
       const roots = this.getShadingRootObjects();
       if (!roots.length) return;
 
-      // The Level of Certainty view paints over the meshes' materials: shade
-      // their own ones, then paint again.
+      // The Level of Certainty overlays are meshes too: shade the model
+      // without them, then lay them again.
       const certaintyView = this.certaintyView === true;
-      if (certaintyView) this.restoreCertaintyMaterials?.();
+      if (certaintyView) this.removeCertaintyOverlays?.();
 
       const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
       const customShader = mode === "custom"
@@ -15848,10 +15853,14 @@ async function saveEditorMetadata(viewer) {
 
 const CERTAINTY_SCOPES = ["object", "group"];
 
+// Opacity of the colour overlays in the view: the model shows through.
+const DEFAULT_CERTAINTY_OPACITY = 0.4;
+
 const DEFAULT_CERTAINTY_SCALE = Object.freeze({
   min: 0,
   max: 10,
   unassessedColor: "#9ca3af",
+  opacity: DEFAULT_CERTAINTY_OPACITY,
   levels: [
     {
       value: 10, code: "A", symbol: "✓", color: "#1a9850",
@@ -15934,10 +15943,12 @@ function normalizeCertaintyScale(raw) {
   const unassessedColor = HEX_COLOR.test(String(source.unassessedColor || ""))
     ? source.unassessedColor.toLowerCase()
     : DEFAULT_CERTAINTY_SCALE.unassessedColor;
+  const opacity = toFiniteNumber(source.opacity);
   return {
     min,
     max,
     unassessedColor,
+    opacity: opacity !== null && opacity >= 0 && opacity <= 1 ? opacity : DEFAULT_CERTAINTY_OPACITY,
     levels,
     ...(normalizeLanguageMap(source.label) ? { label: normalizeLanguageMap(source.label) } : {}),
     visible: source.visible === true,
@@ -15982,6 +15993,9 @@ function certaintyScaleErrors(raw, path) {
     errors.push([`${path}.unassessedColor`, "must be a #rrggbb colour"]);
   }
   if (raw.visible !== undefined && typeof raw.visible !== "boolean") errors.push([`${path}.visible`, "must be a boolean"]);
+  if (raw.opacity !== undefined && (typeof raw.opacity !== "number" || !(raw.opacity >= 0 && raw.opacity <= 1))) {
+    errors.push([`${path}.opacity`, "must be a number within 0..1"]);
+  }
   if (!Array.isArray(raw.levels) || raw.levels.length === 0) {
     errors.push([`${path}.levels`, "must be a non-empty array"]);
     return errors;
@@ -17762,6 +17776,8 @@ function attachAnnotations(Viewer) {
       });
 
       const sprite = new THREE.Sprite(spriteMaterial);
+      // Over the model and its see-through Level of Certainty overlays.
+      sprite.renderOrder = 1000;
 
       sprite.scale.set(radius, radius, 1);
 
@@ -22604,8 +22620,11 @@ function attachAnnotationStack(Viewer) {
 // manifesto/certainty-scale.js); the scale comes from the manifest
 // (AIM3DViewer.certainty) or is the default one.
 //
-// The meshes' own materials are kept aside while the view is on and put back
-// when it is switched off.
+// The colours are overlays: a copy of each mesh, sharing its geometry, in a
+// see-through material (opacity from the scale, 40% by default, set from the
+// legend), so the model's own materials show through. The overlays are
+// children of their meshes, ignored by picking, and removed when the view is
+// switched off.
 
 // Black or white, whichever reads better on `hex`.
 function contrastColor(hex) {
@@ -22626,8 +22645,8 @@ function attachCertainty(Viewer) {
     // Exported only when a manifest gave it or an annotation is assessed.
     certaintyScaleFromManifest: false,
     certaintyView: false,
-    // mesh -> its own material(s), while the view is on.
-    certaintyOriginalMaterials: null,
+    // mesh -> its colour overlay, while the view is on.
+    certaintyOverlays: null,
     certaintyLegend: null,
 
     setCertaintyScale(raw) {
@@ -22642,11 +22661,12 @@ function attachCertainty(Viewer) {
     getCertaintyScaleForExport() {
       const assessed = (Viewer.annotationEntries || []).some((entry) => entry?.certainty);
       if (!Viewer.certaintyScaleFromManifest && !assessed) return undefined;
-      const { min, max, unassessedColor, levels, label } = Viewer.certaintyScale;
+      const { min, max, unassessedColor, opacity, levels, label } = Viewer.certaintyScale;
       return {
         min,
         max,
         unassessedColor,
+        opacity,
         ...(label ? { label: structuredClone(label) } : {}),
         visible: Viewer.certaintyView === true,
         levels: levels.map((level) => structuredClone(level)),
@@ -22712,25 +22732,20 @@ function attachCertainty(Viewer) {
 
     // Paints the model for the view; does nothing while it is off.
     applyCertaintyView() {
-      Viewer.restoreCertaintyMaterials();
+      Viewer.removeCertaintyOverlays();
       if (!Viewer.certaintyView) return;
 
-      const originals = new Map();
-      Viewer.certaintyOriginalMaterials = originals;
+      const overlays = new Map();
+      Viewer.certaintyOverlays = overlays;
       const paint = (mesh, color) => {
-        if (!mesh.isMesh || !mesh.material) return;
-        if (!originals.has(mesh)) originals.set(mesh, mesh.material);
-        else disposeMaterials(mesh.material);
-        const own = originals.get(mesh);
-        const build = (base) => new THREE.MeshStandardMaterial({
-          color,
-          roughness: 0.85,
-          metalness: 0,
-          side: base?.side ?? THREE.FrontSide,
-          wireframe: core.wireframeMode === true,
-          clippingPlanes: base?.clippingPlanes || null,
-        });
-        mesh.material = Array.isArray(own) ? own.map(build) : build(own);
+        if (!mesh.isMesh || !mesh.geometry || mesh.userData?.isCertaintyOverlay) return;
+        if (Viewer.isPickingOverlayObject?.(mesh)) return;
+        const overlay = overlays.get(mesh);
+        if (overlay) {
+          overlay.material.color.set(color);
+          return;
+        }
+        overlays.set(mesh, Viewer.createCertaintyOverlay(mesh, color));
       };
 
       Viewer.getCertaintyRoots().forEach((root) => {
@@ -22741,33 +22756,70 @@ function attachCertainty(Viewer) {
         node.traverse((child) => paint(child, level.color));
         counts.set(level.code, (counts.get(level.code) || 0) + 1);
       });
+      overlays.forEach((overlay, mesh) => mesh.add(overlay));
       Viewer.renderCertaintyLegend(counts);
     },
 
-    // Puts the meshes' own materials back.
-    restoreCertaintyMaterials() {
-      const originals = Viewer.certaintyOriginalMaterials;
-      if (!originals) return;
-      originals.forEach((material, mesh) => {
-        const painted = mesh.material;
-        // Clipping and wireframe may have changed while the view was on.
-        const clippingPlanes = (Array.isArray(painted) ? painted[0] : painted)?.clippingPlanes ?? null;
-        (Array.isArray(material) ? material : [material]).forEach((own) => {
-          if (!own) return;
-          own.clippingPlanes = clippingPlanes;
-          own.wireframe = core.wireframeMode === true;
-          own.needsUpdate = true;
-        });
-        disposeMaterials(painted);
-        mesh.material = material;
+    // A see-through copy of `mesh` in `color`, drawn over it (polygon offset)
+    // and never hit by a raycast.
+    createCertaintyOverlay(mesh, color) {
+      const own = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.85,
+        metalness: 0,
+        side: own?.side ?? THREE.FrontSide,
+        wireframe: core.wireframeMode === true,
+        clippingPlanes: own?.clippingPlanes || null,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
       });
-      Viewer.certaintyOriginalMaterials = null;
+      applyOverlayOpacity(material, Viewer.certaintyScale.opacity);
+      const overlay = new THREE.Mesh(mesh.geometry, material);
+      overlay.name = "certainty-overlay";
+      overlay.userData.isCertaintyOverlay = true;
+      overlay.userData.isPickingOverlay = true;
+      overlay.raycast = () => {};
+      return overlay;
+    },
+
+    // Removes the overlays (the geometry is the mesh's own: kept).
+    removeCertaintyOverlays() {
+      const overlays = Viewer.certaintyOverlays;
+      if (!overlays) return;
+      overlays.forEach((overlay) => {
+        overlay.removeFromParent();
+        overlay.material.dispose();
+      });
+      Viewer.certaintyOverlays = null;
+    },
+
+    // Opacity of the colour overlays, 0-1; kept in the scale, so it is
+    // exported with it.
+    setCertaintyOpacity(opacity) {
+      const value = Math.min(1, Math.max(0, Number(opacity)));
+      if (!Number.isFinite(value)) return Viewer.certaintyScale.opacity;
+      Viewer.certaintyScale.opacity = value;
+      Viewer.certaintyOverlays?.forEach((overlay) => applyOverlayOpacity(overlay.material, value));
+      Viewer.syncCertaintyOpacityControl();
+      return value;
+    },
+
+    syncCertaintyOpacityControl() {
+      const legend = Viewer.certaintyLegend;
+      if (!legend) return;
+      const percent = Math.round(Viewer.certaintyScale.opacity * 100);
+      const input = legend.querySelector(".certainty-legend__opacity input");
+      const output = legend.querySelector(".certainty-legend__opacity output");
+      if (input && Number(input.value) !== percent) input.value = String(percent);
+      if (output) output.textContent = `${percent}%`;
     },
 
     setCertaintyView(enabled) {
       Viewer.certaintyView = enabled === true;
       if (!Viewer.certaintyView) {
-        Viewer.restoreCertaintyMaterials();
+        Viewer.removeCertaintyOverlays();
         Viewer.removeCertaintyLegend();
       }
       // Repaints (applyCertaintyView) and redraws the badges.
@@ -22783,7 +22835,7 @@ function attachCertainty(Viewer) {
 
     // Before a new model: its meshes are gone, the view stays switched on.
     disposeCertaintyView() {
-      Viewer.certaintyOriginalMaterials = null;
+      Viewer.certaintyOverlays = null;
       Viewer.removeCertaintyLegend();
     },
 
@@ -22810,6 +22862,11 @@ function attachCertainty(Viewer) {
         legend.setAttribute("aria-live", "polite");
         legend.addEventListener("click", (event) => {
           if (event.target.closest(".certainty-legend__close")) Viewer.setCertaintyView(false);
+        });
+        legend.addEventListener("input", (event) => {
+          if (event.target.matches(".certainty-legend__opacity input")) {
+            Viewer.setCertaintyOpacity(Number(event.target.value) / 100);
+          }
         });
         stack.appendChild(legend);
         Viewer.certaintyLegend = legend;
@@ -22843,7 +22900,12 @@ function attachCertainty(Viewer) {
             <span class="certainty-legend__code"></span>
             <span class="certainty-legend__label">${escapeHtml(t$1("certainty.unassessed", "Not assessed"))}</span>
           </li>
-        </ul>`;
+        </ul>
+        <label class="certainty-legend__opacity">
+          <span>${escapeHtml(t$1("certainty.opacity", "Overlay opacity"))}</span>
+          <input type="range" min="0" max="100" step="5" value="${Math.round(scale.opacity * 100)}" />
+          <output>${Math.round(scale.opacity * 100)}%</output>
+        </label>`;
     },
 
     // An annotation badge in the view: the level's colour, its code large
@@ -22911,8 +22973,13 @@ function certaintyLevelRange(scale, index) {
   return isTop || whole ? `${lower}–${upper}` : `${lower}–<${upper}`;
 }
 
-function disposeMaterials(material) {
-  (Array.isArray(material) ? material : [material]).forEach((item) => item?.dispose?.());
+// See-through below 1; opaque overlays write depth like any surface.
+function applyOverlayOpacity(material, opacity) {
+  const transparent = opacity < 1;
+  if (material.transparent !== transparent) material.needsUpdate = true;
+  material.transparent = transparent;
+  material.opacity = opacity;
+  material.depthWrite = !transparent;
 }
 
 // Streamed, level-of-detail models through 3d-tiles-renderer (NASA-AMMOS):
@@ -22929,7 +22996,7 @@ function disposeMaterials(material) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-qMfO_on0.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BKn2hkc9.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DSN5eNt0.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -25301,10 +25368,6 @@ function attachPointCloudPanel(Viewer) {
   });
 }
 
-// Drupal: ThumbnailUploadController (dfg_3dviewer.routing.yml), which writes
-// next to any model in the site's files. Docker/standalone and the app: the
-// worker (worker/server.py), which only has the models uploaded to it.
-const DRUPAL_ENDPOINT = "/api/editor/upload-thumbnail";
 const WORKER_ENDPOINT = "/api/model/thumbnail";
 
 // The worker's job id from a model folder URL (/files/<job>/...), or null.
@@ -25318,16 +25381,6 @@ function workerJobId(path) {
 }
 
 function thumbnailUploadUrl() {
-  {
-    const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
-    const configured = String(core.CONFIG?.api?.thumbnailUploadEndpoint || DRUPAL_ENDPOINT).trim();
-    try {
-      return new URL(configured || DRUPAL_ENDPOINT, `${base}/`).toString();
-    } catch (_error) {
-      console.warn("Invalid api.thumbnailUploadEndpoint, using default", configured);
-      return `${base}${DRUPAL_ENDPOINT}`;
-    }
-  }
   // The page's own /api/ (nginx or the dev server passes it to the worker),
   // the repository in the app.
   return apiUrl(WORKER_ENDPOINT);
@@ -25391,10 +25444,6 @@ async function uploadThumbnail(blob, view = "side45") {
   fileform.append("filename", core.fileObject.basename);
   fileform.append("view", view);
   fileform.append("data", blob, "thumbnail.png");
-  {
-    console.log("Uploading thumbnail for entity ID:", core.CONFIG.entity.id);
-    fileform.append("wisski_individual", core.CONFIG.entity.id);
-  }
   const callUrl = thumbnailUploadUrl();
   console.log("Preparing call for ", callUrl);
 
@@ -25402,7 +25451,7 @@ async function uploadThumbnail(blob, view = "side45") {
     method: "POST",
     credentials: "same-origin",
     // Drupal's CSRF token; the worker does not allow the header (CORS).
-    headers: { "X-CSRF-Token": window.CSRF_TOKEN } ,
+    headers: {},
     body: fileform,
   });
   const text = await res.text();
@@ -25445,6 +25494,8 @@ async function requireWorkerJob() {
 
 // "Change main thumbnail": the current view as <model>_side45.png.
 async function captureAndUploadThumbnail(viewer) {
+  const jobId = await requireWorkerJob();
+  if (!jobId) return;
 
   let capture;
   try {
@@ -25456,6 +25507,7 @@ async function captureAndUploadThumbnail(viewer) {
     .then((blob) => uploadThumbnail(blob, "side45"))
     .then(() => {
       toastHelper("previewSaved", "success");
+      if (jobId) refreshWorkerThumbnails(viewer, jobId);
     })
     .catch((error) => {
       console.error("Thumbnail upload failed:", error);
@@ -25879,7 +25931,7 @@ const loadLWOLoader = async () => (await import('./three-CtlVvEc8.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-B2e1WOmM.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-CX8DAyDy.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BmA704hT.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CtlVvEc8.js').then(function (n) { return n.aW; })).HDRLoader;
 
 var outlineClipping;
@@ -25896,9 +25948,6 @@ async function createGLTFDecoders() {
   const dracoBase = normalizeWasmPath(`${getModuleAssetBasePath()}/draco/gltf/`);
   const DRACOLoader = await loadDRACOLoader();
   const dracoLoader = new DRACOLoader();
-  {
-    dracoLoader.setDecoderConfig({ type: 'js' });
-  }
   dracoLoader.setDecoderPath(dracoBase);
 
   if (!ktx2LoaderPromise) {
@@ -25938,7 +25987,7 @@ async function resolvePreviewModelUrl(rawModelPath) {
   const explicit = params.get('preview');
   if (explicit === '0' || explicit === 'false') return null;
   const configured = core.CONFIG?.viewer?.progressive?.enabled;
-  if (!explicit && (configured === false || (configured !== true && true))) return null;
+  if (!explicit && (configured === false || (configured !== true && false))) return null;
 
   let candidate = explicit && explicit !== '1' && explicit !== 'true'
     ? explicit
@@ -26060,9 +26109,9 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "drupal";
-const MODULES_PATH = "custom";
-const ENV_SUBDIR = "custom";
+const ENV_BUILD = "test";
+const MODULES_PATH = "";
+const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
 console.log('[loaders] MODULES_PATH:', MODULES_PATH);
 console.log('[loaders] ENV_SUBDIR:', ENV_SUBDIR);
@@ -26611,13 +26660,6 @@ async function loadModel() {
 
         let ifcWasmPath = await resolveIfcWasmPath(basePath);
 
-        if (!ifcWasmPath && ENV_BUILD === 'drupal') {
-          const fallback = basePath.includes('/drupal/main')
-            ? basePath.replace('/drupal/main', '/drupal/custom')
-            : basePath.replace('/drupal/custom', '/drupal/main');
-          ifcWasmPath = await resolveIfcWasmPath(fallback);
-        }
-
         if (!ifcWasmPath) {
           const errorMsg = `[loadModel] IFC WASM not found in ${basePath}/ifc or fallback; please verify path and permissions`;
           console.error(errorMsg);
@@ -26831,14 +26873,9 @@ async function loadModel() {
 const getModuleAssetBasePath = function() {
   let basePath = sanitizeModuleAssetBasePath(core.CONFIG?.baseModulePath);
   const scriptBasePath = core.DFG_ASSETS ? core.DFG_ASSETS.replace(/\/$/, '') : '';
-  const scriptLooksLikeDrupalAssets = (
-    scriptBasePath.includes(`/dist/${ENV_BUILD}/`) &&
-    /\/assets$/.test(scriptBasePath)
-  );
 
   if (!basePath) {
-    basePath = `/modules/${`${MODULES_PATH}/` }dfg_3dviewer/dist/${ENV_BUILD}/${ENV_SUBDIR}/assets`
-      ;
+    basePath = '/assets';
   }
 
   // Override for localhost
@@ -26862,35 +26899,7 @@ const getModuleAssetBasePath = function() {
     basePath = bundleAssetPath;
   }
 
-  // Drupal legacy configs may still point to /modules/.../viewer instead of the built dist assets.
-  if (
-    scriptBasePath &&
-    (/\/viewer$/.test(basePath) || !basePath.includes(`/dist/${ENV_BUILD}/`))
-  ) {
-    basePath = scriptBasePath;
-  }
-
-  // When the loaded Drupal bundle lives in a different module root than config
-  // (for example /modules/custom/... vs /modules/...), trust the bundle path.
-  if (
-    scriptLooksLikeDrupalAssets &&
-    basePath &&
-    basePath !== scriptBasePath &&
-    /\/modules\//.test(basePath)
-  ) {
-    console.warn('[loaders] baseModulePath differs from loaded script path; using script path instead.', {
-      configuredBasePath: basePath,
-      scriptBasePath,
-    });
-    basePath = scriptBasePath;
-  }
-
   basePath = sanitizeModuleAssetBasePath(basePath);
-
-  // Rising path mismatch: if we are in drupal custom and config path still has /drupal/main, try custom fallback.
-  if (basePath.includes('/drupal/main')) {
-    basePath = basePath.replace('/drupal/main', '/drupal/custom');
-  }
 
   console.log('[loaders] resolved ModuleAssetBasePath:', basePath);
   core.CONFIG.baseModulePath = basePath; // Cache for future use
@@ -34316,7 +34325,7 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "77ed13e" ;
+const BUILD_ID = "69c0bd0" ;
 
 function poweredByHtml() {
   const build = ` (${BUILD_ID})` ;
@@ -37346,6 +37355,16 @@ const Viewer$1 = {
         },
         t$1("gui.renderPreview", "Change main thumbnail")
       );
+      {
+        core.i18nGui.generateThumbnailsController = Viewer$1.editorFolder.add(
+          {
+            [t$1("gui.generateThumbnails", "Generate thumbnails")]() {
+              Viewer$1.generateThumbnails();
+            },
+          },
+          t$1("gui.generateThumbnails", "Generate thumbnails")
+        );
+      }
     }
 
     if (core.EDITOR) {
@@ -38526,4 +38545,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-DPT1QxAL.js.map
+//# sourceMappingURL=main-DNF0mjzx.js.map

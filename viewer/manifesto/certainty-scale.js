@@ -9,10 +9,14 @@
 
 export const CERTAINTY_SCOPES = ["object", "group"];
 
+// Opacity of the colour overlays in the view: the model shows through.
+export const DEFAULT_CERTAINTY_OPACITY = 0.4;
+
 export const DEFAULT_CERTAINTY_SCALE = Object.freeze({
   min: 0,
   max: 10,
   unassessedColor: "#9ca3af",
+  opacity: DEFAULT_CERTAINTY_OPACITY,
   levels: [
     {
       value: 10, code: "A", symbol: "✓", color: "#1a9850",
@@ -95,10 +99,12 @@ export function normalizeCertaintyScale(raw) {
   const unassessedColor = HEX_COLOR.test(String(source.unassessedColor || ""))
     ? source.unassessedColor.toLowerCase()
     : DEFAULT_CERTAINTY_SCALE.unassessedColor;
+  const opacity = toFiniteNumber(source.opacity);
   return {
     min,
     max,
     unassessedColor,
+    opacity: opacity !== null && opacity >= 0 && opacity <= 1 ? opacity : DEFAULT_CERTAINTY_OPACITY,
     levels,
     ...(normalizeLanguageMap(source.label) ? { label: normalizeLanguageMap(source.label) } : {}),
     visible: source.visible === true,
@@ -143,6 +149,9 @@ export function certaintyScaleErrors(raw, path) {
     errors.push([`${path}.unassessedColor`, "must be a #rrggbb colour"]);
   }
   if (raw.visible !== undefined && typeof raw.visible !== "boolean") errors.push([`${path}.visible`, "must be a boolean"]);
+  if (raw.opacity !== undefined && (typeof raw.opacity !== "number" || !(raw.opacity >= 0 && raw.opacity <= 1))) {
+    errors.push([`${path}.opacity`, "must be a number within 0..1"]);
+  }
   if (!Array.isArray(raw.levels) || raw.levels.length === 0) {
     errors.push([`${path}.levels`, "must be a non-empty array"]);
     return errors;

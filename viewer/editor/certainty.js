@@ -16,8 +16,11 @@ import {
 // manifesto/certainty-scale.js); the scale comes from the manifest
 // (AIM3DViewer.certainty) or is the default one.
 //
-// The meshes' own materials are kept aside while the view is on and put back
-// when it is switched off.
+// The colours are overlays: a copy of each mesh, sharing its geometry, in a
+// see-through material (opacity from the scale, 40% by default, set from the
+// legend), so the model's own materials show through. The overlays are
+// children of their meshes, ignored by picking, and removed when the view is
+// switched off.
 
 // Black or white, whichever reads better on `hex`.
 function contrastColor(hex) {
@@ -38,8 +41,8 @@ export function attachCertainty(Viewer) {
     // Exported only when a manifest gave it or an annotation is assessed.
     certaintyScaleFromManifest: false,
     certaintyView: false,
-    // mesh -> its own material(s), while the view is on.
-    certaintyOriginalMaterials: null,
+    // mesh -> its colour overlay, while the view is on.
+    certaintyOverlays: null,
     certaintyLegend: null,
 
     setCertaintyScale(raw) {
@@ -54,11 +57,12 @@ export function attachCertainty(Viewer) {
     getCertaintyScaleForExport() {
       const assessed = (Viewer.annotationEntries || []).some((entry) => entry?.certainty);
       if (!Viewer.certaintyScaleFromManifest && !assessed) return undefined;
-      const { min, max, unassessedColor, levels, label } = Viewer.certaintyScale;
+      const { min, max, unassessedColor, opacity, levels, label } = Viewer.certaintyScale;
       return {
         min,
         max,
         unassessedColor,
+        opacity,
         ...(label ? { label: structuredClone(label) } : {}),
         visible: Viewer.certaintyView === true,
         levels: levels.map((level) => structuredClone(level)),
@@ -124,25 +128,20 @@ export function attachCertainty(Viewer) {
 
     // Paints the model for the view; does nothing while it is off.
     applyCertaintyView() {
-      Viewer.restoreCertaintyMaterials();
+      Viewer.removeCertaintyOverlays();
       if (!Viewer.certaintyView) return;
 
-      const originals = new Map();
-      Viewer.certaintyOriginalMaterials = originals;
+      const overlays = new Map();
+      Viewer.certaintyOverlays = overlays;
       const paint = (mesh, color) => {
-        if (!mesh.isMesh || !mesh.material) return;
-        if (!originals.has(mesh)) originals.set(mesh, mesh.material);
-        else disposeMaterials(mesh.material);
-        const own = originals.get(mesh);
-        const build = (base) => new THREE.MeshStandardMaterial({
-          color,
-          roughness: 0.85,
-          metalness: 0,
-          side: base?.side ?? THREE.FrontSide,
-          wireframe: core.wireframeMode === true,
-          clippingPlanes: base?.clippingPlanes || null,
-        });
-        mesh.material = Array.isArray(own) ? own.map(build) : build(own);
+        if (!mesh.isMesh || !mesh.geometry || mesh.userData?.isCertaintyOverlay) return;
+        if (Viewer.isPickingOverlayObject?.(mesh)) return;
+        const overlay = overlays.get(mesh);
+        if (overlay) {
+          overlay.material.color.set(color);
+          return;
+        }
+        overlays.set(mesh, Viewer.createCertaintyOverlay(mesh, color));
       };
 
       Viewer.getCertaintyRoots().forEach((root) => {
@@ -153,33 +152,70 @@ export function attachCertainty(Viewer) {
         node.traverse((child) => paint(child, level.color));
         counts.set(level.code, (counts.get(level.code) || 0) + 1);
       });
+      overlays.forEach((overlay, mesh) => mesh.add(overlay));
       Viewer.renderCertaintyLegend(counts);
     },
 
-    // Puts the meshes' own materials back.
-    restoreCertaintyMaterials() {
-      const originals = Viewer.certaintyOriginalMaterials;
-      if (!originals) return;
-      originals.forEach((material, mesh) => {
-        const painted = mesh.material;
-        // Clipping and wireframe may have changed while the view was on.
-        const clippingPlanes = (Array.isArray(painted) ? painted[0] : painted)?.clippingPlanes ?? null;
-        (Array.isArray(material) ? material : [material]).forEach((own) => {
-          if (!own) return;
-          own.clippingPlanes = clippingPlanes;
-          own.wireframe = core.wireframeMode === true;
-          own.needsUpdate = true;
-        });
-        disposeMaterials(painted);
-        mesh.material = material;
+    // A see-through copy of `mesh` in `color`, drawn over it (polygon offset)
+    // and never hit by a raycast.
+    createCertaintyOverlay(mesh, color) {
+      const own = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.85,
+        metalness: 0,
+        side: own?.side ?? THREE.FrontSide,
+        wireframe: core.wireframeMode === true,
+        clippingPlanes: own?.clippingPlanes || null,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
       });
-      Viewer.certaintyOriginalMaterials = null;
+      applyOverlayOpacity(material, Viewer.certaintyScale.opacity);
+      const overlay = new THREE.Mesh(mesh.geometry, material);
+      overlay.name = "certainty-overlay";
+      overlay.userData.isCertaintyOverlay = true;
+      overlay.userData.isPickingOverlay = true;
+      overlay.raycast = () => {};
+      return overlay;
+    },
+
+    // Removes the overlays (the geometry is the mesh's own: kept).
+    removeCertaintyOverlays() {
+      const overlays = Viewer.certaintyOverlays;
+      if (!overlays) return;
+      overlays.forEach((overlay) => {
+        overlay.removeFromParent();
+        overlay.material.dispose();
+      });
+      Viewer.certaintyOverlays = null;
+    },
+
+    // Opacity of the colour overlays, 0-1; kept in the scale, so it is
+    // exported with it.
+    setCertaintyOpacity(opacity) {
+      const value = Math.min(1, Math.max(0, Number(opacity)));
+      if (!Number.isFinite(value)) return Viewer.certaintyScale.opacity;
+      Viewer.certaintyScale.opacity = value;
+      Viewer.certaintyOverlays?.forEach((overlay) => applyOverlayOpacity(overlay.material, value));
+      Viewer.syncCertaintyOpacityControl();
+      return value;
+    },
+
+    syncCertaintyOpacityControl() {
+      const legend = Viewer.certaintyLegend;
+      if (!legend) return;
+      const percent = Math.round(Viewer.certaintyScale.opacity * 100);
+      const input = legend.querySelector(".certainty-legend__opacity input");
+      const output = legend.querySelector(".certainty-legend__opacity output");
+      if (input && Number(input.value) !== percent) input.value = String(percent);
+      if (output) output.textContent = `${percent}%`;
     },
 
     setCertaintyView(enabled) {
       Viewer.certaintyView = enabled === true;
       if (!Viewer.certaintyView) {
-        Viewer.restoreCertaintyMaterials();
+        Viewer.removeCertaintyOverlays();
         Viewer.removeCertaintyLegend();
       }
       // Repaints (applyCertaintyView) and redraws the badges.
@@ -195,7 +231,7 @@ export function attachCertainty(Viewer) {
 
     // Before a new model: its meshes are gone, the view stays switched on.
     disposeCertaintyView() {
-      Viewer.certaintyOriginalMaterials = null;
+      Viewer.certaintyOverlays = null;
       Viewer.removeCertaintyLegend();
     },
 
@@ -222,6 +258,11 @@ export function attachCertainty(Viewer) {
         legend.setAttribute("aria-live", "polite");
         legend.addEventListener("click", (event) => {
           if (event.target.closest(".certainty-legend__close")) Viewer.setCertaintyView(false);
+        });
+        legend.addEventListener("input", (event) => {
+          if (event.target.matches(".certainty-legend__opacity input")) {
+            Viewer.setCertaintyOpacity(Number(event.target.value) / 100);
+          }
         });
         stack.appendChild(legend);
         Viewer.certaintyLegend = legend;
@@ -255,7 +296,12 @@ export function attachCertainty(Viewer) {
             <span class="certainty-legend__code"></span>
             <span class="certainty-legend__label">${escapeHtml(t("certainty.unassessed", "Not assessed"))}</span>
           </li>
-        </ul>`;
+        </ul>
+        <label class="certainty-legend__opacity">
+          <span>${escapeHtml(t("certainty.opacity", "Overlay opacity"))}</span>
+          <input type="range" min="0" max="100" step="5" value="${Math.round(scale.opacity * 100)}" />
+          <output>${Math.round(scale.opacity * 100)}%</output>
+        </label>`;
     },
 
     // An annotation badge in the view: the level's colour, its code large
@@ -323,6 +369,11 @@ function certaintyLevelRange(scale, index) {
   return isTop || whole ? `${lower}–${upper}` : `${lower}–<${upper}`;
 }
 
-function disposeMaterials(material) {
-  (Array.isArray(material) ? material : [material]).forEach((item) => item?.dispose?.());
+// See-through below 1; opaque overlays write depth like any surface.
+function applyOverlayOpacity(material, opacity) {
+  const transparent = opacity < 1;
+  if (material.transparent !== transparent) material.needsUpdate = true;
+  material.transparent = transparent;
+  material.opacity = opacity;
+  material.depthWrite = !transparent;
 }

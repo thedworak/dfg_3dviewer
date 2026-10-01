@@ -241,6 +241,7 @@ instead of their number.
   "min": 0,
   "max": 10,
   "unassessedColor": "#9ca3af",
+  "opacity": 0.4,
   "visible": false,
   "levels": [
     { "value": 10, "code": "A", "symbol": "✓", "color": "#1a9850", "label": { "en": ["Preserved / surveyed"], "pl": ["Stan zachowany / pomiar"] } },
@@ -258,6 +259,9 @@ instead of their number.
 - `label`, `description`: IIIF language maps (or plain strings).
 - `min`, `max`: the range assessments must fall in (default: the lowest and
   highest level).
+- `opacity`: opacity of the colour overlays, 0-1 (default 0.4). The colours
+  are laid over the model's own materials, which show through; 1 hides them.
+  Set in the view from the legend's slider and exported with the scale.
 - `visible`: open the manifest in the LoC view.
 - Without this block the viewer uses the scale above. It is exported when a
   manifest gave it or an annotation is assessed.
