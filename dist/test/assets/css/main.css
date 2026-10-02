@@ -1732,6 +1732,8 @@ canvas {
 }
 
 .certainty-legend__title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 13px;
   font-weight: 600;
@@ -1752,6 +1754,28 @@ canvas {
 
 .certainty-legend__close:hover {
   background: var(--viewer-panel-bg-hover);
+}
+
+.certainty-legend__select-all {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.certainty-legend__select-all:hover {
+  background: var(--viewer-panel-bg-hover);
+}
+
+.certainty-legend__select-all:focus-visible {
+  outline: 2px solid var(--viewer-panel-text);
+  outline-offset: 2px;
 }
 
 .certainty-legend__levels {
@@ -1776,9 +1800,34 @@ canvas {
   width: 22px;
   height: 22px;
   border-radius: 5px;
+  padding: 0;
+  border: 0;
+  font: inherit;
   font-size: 12px;
   font-weight: 700;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.certainty-legend__swatch:hover {
+  transform: scale(1.08);
+}
+
+.certainty-legend__swatch:focus-visible {
+  outline: 2px solid var(--viewer-panel-text);
+  outline-offset: 2px;
+}
+
+/* Picked in the filter: a ring in the panel's text colour. */
+.certainty-legend__swatch.is-active {
+  box-shadow:
+    0 0 0 2px var(--viewer-panel-bg),
+    0 0 0 4px var(--viewer-panel-text);
+}
+
+.certainty-legend__row.is-filtered-out > :not(.certainty-legend__swatch) {
+  opacity: 0.4;
 }
 
 .certainty-legend__code {
@@ -2660,4 +2709,66 @@ html[data-viewer-theme]::-webkit-scrollbar-thumb {
 html[data-viewer-theme]::-webkit-scrollbar-thumb:hover {
   background: var(--page-scroll-thumb-hover);
   background-clip: padding-box;
+}
+
+/* ExPlora4D logo (ui/brand-logo.js), top centre over the canvas - the
+   corners hold the metadata card, the panel column, the toolbar and the
+   view helper. Not interactive, so it never takes a click from the model.
+   Both versions are stacked: on a dark background (.is-on-dark) the
+   light-lettered one fades in over the other. */
+.viewer-brand-logo {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
+  display: grid;
+  width: clamp(140px, 20%, 220px);
+  opacity: 1;
+  transition: opacity 1.2s ease;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viewer-brand-logo img {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: auto;
+  transition: opacity 1.6s ease;
+}
+
+/* The version coming in fades in first, the one going out after it (the
+   delay), so the logo never turns see-through half-way. */
+.viewer-brand-logo__light {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.55));
+}
+
+.viewer-brand-logo__dark {
+  opacity: 0;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+  transition-delay: 1s;
+}
+
+.viewer-brand-logo.is-on-dark .viewer-brand-logo__light {
+  opacity: 0;
+  transition-delay: 1s;
+}
+
+.viewer-brand-logo.is-on-dark .viewer-brand-logo__dark {
+  opacity: 1;
+  transition-delay: 0s;
+}
+
+/* Fades while the pointer is over the model, back when it leaves the
+   canvas. Mice only: a tap would leave it faded on a touch screen. */
+@media (hover: hover) {
+  .mainContainer:has(#MainCanvas:hover) .viewer-brand-logo {
+    opacity: 0.35;
+  }
+}
+
+@media (max-width: 640px) {
+  .viewer-brand-logo {
+    width: 130px;
+  }
 }

@@ -13,6 +13,7 @@ import { initErrorTracking, isErrorTrackingConfigured } from "./error-tracking.j
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
 const BUILD_ID = (typeof __BUILD_ID__ !== "undefined") ? __BUILD_ID__ : "";
+const BUILD_TIME = (typeof __BUILD_TIME__ !== "undefined") ? __BUILD_TIME__ : "";
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -60,6 +61,7 @@ function getModelName() {
 export function collectBugReportDiagnostics() {
   return {
     build: BUILD_ID || "unknown",
+    buildTime: BUILD_TIME || "unknown",
     platform: isAppBuild() ? "app" : "web",
     // The app page is served from inside the package; its URL says nothing.
     page: isAppBuild() ? "" : window.location.href,

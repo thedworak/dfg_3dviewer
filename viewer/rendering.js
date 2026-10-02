@@ -5,13 +5,17 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass.js";
 import { FXAAPass } from "three/examples/jsm/postprocessing/FXAAPass.js";
 import { core, setCore } from "./core.js";
+import { ModelGTAOPass } from "./rendering-ao.js";
 
 // Tone mapping and the optional post-processing chain of the main canvas.
 //
 // Settings shape (viewer-settings.json viewer.rendering, AIM3D manifest
 // AIM3DViewer.viewer.rendering):
 //   { toneMapping: "neutral", exposure: 1,
-//     postprocessing: { enabled: false, antialias: "msaa" } }
+//     postprocessing: { enabled: false, antialias: "msaa", ao: false, aoIntensity: 1 } }
+//
+// Ambient occlusion (ao) needs the chain: switching it on runs the chain even
+// with post-processing itself off (rendering-ao.js).
 //
 // Without post-processing the renderer tone maps while drawing to the canvas.
 // With it the scene is drawn into a linear half-float target and OutputPass
@@ -37,15 +41,21 @@ export const RENDERING_DEFAULTS = Object.freeze({
   postprocessing: Object.freeze({
     enabled: false,
     antialias: "msaa",
+    ao: false,
+    aoIntensity: 1,
   }),
 });
 
 const MSAA_SAMPLES = 4;
+// Strength of the ambient occlusion, 0 (none) to AO_INTENSITY_MAX.
+export const AO_INTENSITY_MAX = 2;
 
 let composer = null;
 let renderPass = null;
-// Antialias mode the current composer was built for.
+let aoPass = null;
+// Antialias mode and ambient occlusion the current composer was built for.
 let composerAntialias = null;
+let composerAo = null;
 const canvasSize = new THREE.Vector2();
 
 function isPlainObject(value) {
@@ -74,9 +84,14 @@ export function normalizeRenderingSettings(input, base = RENDERING_DEFAULTS) {
   }
 
   if (isPlainObject(input.postprocessing)) {
-    const { enabled, antialias } = input.postprocessing;
+    const { enabled, antialias, ao, aoIntensity } = input.postprocessing;
     if (typeof enabled === "boolean") result.postprocessing.enabled = enabled;
     if (ANTIALIAS_MODES.includes(antialias)) result.postprocessing.antialias = antialias;
+    if (typeof ao === "boolean") result.postprocessing.ao = ao;
+    const intensity = Number(aoIntensity);
+    if (aoIntensity !== undefined && aoIntensity !== null && Number.isFinite(intensity)) {
+      result.postprocessing.aoIntensity = Math.min(AO_INTENSITY_MAX, Math.max(0, intensity));
+    }
   }
   return result;
 }
@@ -89,16 +104,22 @@ export function isPostProcessingActive() {
   return composer !== null;
 }
 
+export function isAmbientOcclusionActive() {
+  return aoPass !== null;
+}
+
 function disposeComposer() {
   if (!composer) return;
   composer.passes.forEach((pass) => pass.dispose?.());
   composer.dispose();
   composer = null;
   renderPass = null;
+  aoPass = null;
   composerAntialias = null;
+  composerAo = null;
 }
 
-function buildComposer(renderer, antialias) {
+function buildComposer(renderer, antialias, ao) {
   const renderTarget = new THREE.WebGLRenderTarget(1, 1, {
     type: THREE.HalfFloatType,
     samples: antialias === "msaa" ? MSAA_SAMPLES : 0,
@@ -107,12 +128,17 @@ function buildComposer(renderer, antialias) {
   composer = new EffectComposer(renderer, renderTarget);
   renderPass = new RenderPass(core.scene, core.camera);
   composer.addPass(renderPass);
+  if (ao) {
+    aoPass = new ModelGTAOPass(core.scene, core.camera);
+    composer.addPass(aoPass);
+  }
   // SMAA works on linear colors (before OutputPass), FXAA on the final
   // sRGB image (after it).
   if (antialias === "smaa") composer.addPass(new SMAAPass());
   composer.addPass(new OutputPass());
   if (antialias === "fxaa") composer.addPass(new FXAAPass());
   composerAntialias = antialias;
+  composerAo = ao;
   syncComposerSize(renderer);
 }
 
@@ -138,13 +164,14 @@ export function applyRenderingSettings(patch = {}) {
   renderer.toneMapping = TONE_MAPPING_MODES[settings.toneMapping];
   renderer.toneMappingExposure = settings.exposure;
 
-  const { enabled, antialias } = settings.postprocessing;
-  if (!enabled) {
+  const { enabled, antialias, ao, aoIntensity } = settings.postprocessing;
+  if (!enabled && !ao) {
     disposeComposer();
-  } else if (composerAntialias !== antialias) {
+  } else if (composerAntialias !== antialias || composerAo !== ao) {
     disposeComposer();
-    buildComposer(renderer, antialias);
+    buildComposer(renderer, antialias, ao);
   }
+  if (aoPass) aoPass.blendIntensity = aoIntensity;
   return settings;
 }
 
@@ -233,6 +260,7 @@ export function renderFrame(renderer = core.renderer) {
   // scene, so rebind every frame.
   renderPass.scene = core.scene;
   renderPass.camera = core.camera;
+  aoPass?.sync(core.scene, core.camera);
   // Follow the canvas size (layout changes, thumbnail capture) without
   // every resize path having to know about the composer.
   syncComposerSize(renderer);

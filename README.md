@@ -53,6 +53,7 @@ The topics below used to live in this file; they now have their own page in [`do
 - [Bug reports and error tracking](docs/error-tracking.md) — the "Report a bug" button, self-hosted GlitchTip
 - [`viewer/FUNCTIONS.md`](viewer/FUNCTIONS.md) — runtime function reference
 - [`worker/README.md`](worker/README.md) — standalone conversion worker's API contract/configuration
+- [`website/README.md`](website/README.md) — the explora4d.eu homepage (separate static site, not part of the viewer builds)
 
 ## Supported 3D formats
 

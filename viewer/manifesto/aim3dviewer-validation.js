@@ -8,6 +8,8 @@ import {
 // (not imported: this module also runs in Node without three.js).
 const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
 const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
+// Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
+const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
 
 function isPlainObject(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
@@ -122,6 +124,27 @@ function validateLight(light, path, errors) {
   if (light.target !== undefined) validateVector(light.target, `${path}.target`, errors, 3);
   if (light.color !== undefined) validateString(light.color, `${path}.color`, errors);
   if (light.intensity !== undefined) validateNumber(light.intensity, `${path}.intensity`, errors);
+}
+
+// AIM3DViewer.rakingLight (editor/raking-light.js): direction 0-360 and
+// height 1-89 degrees.
+function validateRakingLight(rakingLight, path, errors) {
+  if (!isPlainObject(rakingLight)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (rakingLight.enabled !== undefined) validateBoolean(rakingLight.enabled, `${path}.enabled`, errors);
+  if (rakingLight.sweep !== undefined) validateBoolean(rakingLight.sweep, `${path}.sweep`, errors);
+  if (rakingLight.direction !== undefined) {
+    if (!isFiniteNumber(rakingLight.direction) || rakingLight.direction < 0 || rakingLight.direction > 360) {
+      pushError(errors, `${path}.direction`, "must be a number from 0 to 360");
+    }
+  }
+  if (rakingLight.height !== undefined) {
+    if (!isFiniteNumber(rakingLight.height) || rakingLight.height < 1 || rakingLight.height > 89) {
+      pushError(errors, `${path}.height`, "must be a number from 1 to 89");
+    }
+  }
 }
 
 function validateClipping(clipping, path, errors) {
@@ -244,6 +267,12 @@ function validateViewer(viewer, path, errors) {
         } else {
           if (postprocessing.enabled !== undefined) validateBoolean(postprocessing.enabled, `${path}.rendering.postprocessing.enabled`, errors);
           if (postprocessing.antialias !== undefined) validateEnum(postprocessing.antialias, RENDERING_ANTIALIAS_MODES, `${path}.rendering.postprocessing.antialias`, errors);
+          if (postprocessing.ao !== undefined) validateBoolean(postprocessing.ao, `${path}.rendering.postprocessing.ao`, errors);
+          if (postprocessing.aoIntensity !== undefined) {
+            if (!isFiniteNumber(postprocessing.aoIntensity) || postprocessing.aoIntensity < 0 || postprocessing.aoIntensity > 2) {
+              pushError(errors, `${path}.rendering.postprocessing.aoIntensity`, "must be a number from 0 to 2");
+            }
+          }
         }
       }
     }
@@ -342,7 +371,7 @@ function validateModelTransform(modelTransform, path, errors) {
   }
   if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
   if (modelTransform.shadingMode !== undefined) {
-    validateEnum(modelTransform.shadingMode, ["standard", "phong", "lambert", "toon", "custom"], `${path}.shadingMode`, errors);
+    validateEnum(modelTransform.shadingMode, SHADING_MODES, `${path}.shadingMode`, errors);
   }
   if (modelTransform.customShader !== undefined) {
     if (!isPlainObject(modelTransform.customShader)) {
@@ -377,6 +406,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   }
   if (block.modelTransform !== undefined) validateModelTransform(block.modelTransform, `${path}.modelTransform`, errors);
   if (block.clipping !== undefined) validateClipping(block.clipping, `${path}.clipping`, errors);
+  if (block.rakingLight !== undefined) validateRakingLight(block.rakingLight, `${path}.rakingLight`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
   }

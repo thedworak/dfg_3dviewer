@@ -933,6 +933,15 @@ export const EXAMPLE_AIM3D_MANIFESTS = [
   { url: "./manifests/wolpa-synagogue-aim3d-local-certainty.json", i18n: "aim3if.optionWolpaCertainty", fallback: "Wolpa Synagogue - Level of Certainty (localhost)" },
   { url: "./manifests/wolpa-synagogue-aim3d-local-toon.json", i18n: "aim3if.optionWolpaToon", fallback: "Wolpa Synagogue - toon shading (localhost)" },
   { url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", i18n: "aim3if.optionWolpaOvercast", fallback: "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)" },
+  // Views for reading the geometry of a scan: shading modes, ambient
+  // occlusion, raking light and a custom shader.
+  { url: "./manifests/wolpa-synagogue-aim3d-local-clay-ao.json", i18n: "aim3if.optionWolpaClayAo", fallback: "Wolpa Synagogue - clay, ambient occlusion (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-raking-light.json", i18n: "aim3if.optionWolpaRaking", fallback: "Wolpa Synagogue - raking light, sweeping, clay (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-raking-light-texture.json", i18n: "aim3if.optionWolpaRakingTexture", fallback: "Wolpa Synagogue - raking light on the textures (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-matcap.json", i18n: "aim3if.optionWolpaMatcap", fallback: "Wolpa Synagogue - matcap studio clay (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-flat-faces.json", i18n: "aim3if.optionWolpaFlat", fallback: "Wolpa Synagogue - flat shading, faces shown (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-normals.json", i18n: "aim3if.optionWolpaNormals", fallback: "Wolpa Synagogue - surface normals (localhost)" },
+  { url: "./manifests/wolpa-synagogue-aim3d-local-contours.json", i18n: "aim3if.optionWolpaContours", fallback: "Wolpa Synagogue - custom shader: contour lines (localhost)" },
 ];
 
 export function exampleManifestOption({ url, i18n, fallback }) {

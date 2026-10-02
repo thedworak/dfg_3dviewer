@@ -1,0 +1,1039 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ExPlora4D</title>
+<meta name="description" content="ExPlora4D is a web viewer for cultural heritage in 3D: inspect the surface, annotate, grade the certainty of a reconstruction and publish it as an open IIIF manifest.">
+<meta property="og:title" content="ExPlora4D">
+<meta property="og:description" content="A IIIF-native web viewer for 3D cultural heritage.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://explora4d.eu/img/original.webp">
+<link rel="icon" href="img/icon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: a specimen sheet - every capability filed under the manifest key that stores it. */
+:root {
+  --bg: #f1f3f7;
+  --surface: #ffffff;
+  --ink: #0f1928;
+  --muted: #536074;
+  --rule: #d6dce5;
+  --accent: #1b55f0;
+  --accent-ink: #ffffff;
+  --code-bg: #0f1928;
+  --code-ink: #dfe7f3;
+  --code-key: #8fb4ff;
+  --code-str: #ffb4a8;
+  --code-comment: #7c8aa0;
+  --stage: #e3e7ee;
+  --band: #0f1928;
+  --band-ink: #f1f3f7;
+  --band-muted: #b4bfcf;
+  --band-rule: #3a4a63;
+  --logo-light: visible;
+  --logo-dark: hidden;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --step--1: clamp(0.8rem, 0.78rem + 0.1vw, 0.86rem);
+  --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.1rem);
+  --step-1: clamp(1.2rem, 1.1rem + 0.5vw, 1.45rem);
+  --step-2: clamp(1.5rem, 1.3rem + 1vw, 2.1rem);
+  --step-3: clamp(2.1rem, 1.6rem + 2.6vw, 3.9rem);
+  --radius: 10px;
+  --page: 1180px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a1019;
+    --surface: #111a27;
+    --ink: #e6ecf4;
+    --muted: #93a0b4;
+    --rule: #223047;
+    --accent: #6f97ff;
+    --accent-ink: #07101f;
+    --code-bg: #060b13;
+    --code-ink: #d6e0ee;
+    --code-key: #8fb4ff;
+    --code-str: #ffb4a8;
+    --code-comment: #6f7d93;
+    --stage: #18222f;
+    --band: #142035;
+    --band-ink: #e6ecf4;
+    --band-muted: #9fb0c8;
+    --band-rule: #34476a;
+    --logo-light: hidden;
+    --logo-dark: visible;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a1019;
+  --surface: #111a27;
+  --ink: #e6ecf4;
+  --muted: #93a0b4;
+  --rule: #223047;
+  --accent: #6f97ff;
+  --accent-ink: #07101f;
+  --code-bg: #060b13;
+  --code-ink: #d6e0ee;
+  --code-key: #8fb4ff;
+  --code-str: #ffb4a8;
+  --code-comment: #6f7d93;
+  --stage: #18222f;
+  --band: #142035;
+  --band-ink: #e6ecf4;
+  --band-muted: #9fb0c8;
+  --band-rule: #34476a;
+  --logo-light: hidden;
+  --logo-dark: visible;
+  color-scheme: dark;
+}
+/* The page's own switch (header button) wins over the system and the host. */
+:root.force-light {
+  --bg: #f1f3f7;
+  --surface: #ffffff;
+  --ink: #0f1928;
+  --muted: #536074;
+  --rule: #d6dce5;
+  --accent: #1b55f0;
+  --accent-ink: #ffffff;
+  --code-bg: #0f1928;
+  --code-ink: #dfe7f3;
+  --code-key: #8fb4ff;
+  --code-str: #ffb4a8;
+  --code-comment: #7c8aa0;
+  --stage: #e3e7ee;
+  --band: #0f1928;
+  --band-ink: #f1f3f7;
+  --band-muted: #b4bfcf;
+  --band-rule: #3a4a63;
+  --logo-light: visible;
+  --logo-dark: hidden;
+  color-scheme: light;
+}
+:root.force-dark {
+  --bg: #0a1019;
+  --surface: #111a27;
+  --ink: #e6ecf4;
+  --muted: #93a0b4;
+  --rule: #223047;
+  --accent: #6f97ff;
+  --accent-ink: #07101f;
+  --code-bg: #060b13;
+  --code-ink: #d6e0ee;
+  --code-key: #8fb4ff;
+  --code-str: #ffb4a8;
+  --code-comment: #6f7d93;
+  --stage: #18222f;
+  --band: #142035;
+  --band-ink: #e6ecf4;
+  --band-muted: #9fb0c8;
+  --band-rule: #34476a;
+  --logo-light: hidden;
+  --logo-dark: visible;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 var(--step-0)/1.6 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) { body { transition: none; } }
+.wrap {
+  max-width: var(--page);
+  margin-inline: auto;
+  padding-inline: clamp(16px, 4vw, 40px);
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.08; text-wrap: balance; margin: 0; }
+h2 { font-size: var(--step-2); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: var(--step-1); font-weight: 700; }
+p { margin: 0; }
+code { font-family: var(--font-mono); font-size: 0.86em; }
+.key {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+.key b { color: var(--accent); font-weight: 500; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+/* Header: brand, sections, then the reader's own settings (language, theme). */
+.top {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.top .wrap { display: flex; align-items: center; gap: 20px; padding-block: 12px; }
+.brand { display: grid; flex: none; width: 160px; }
+.brand img { grid-area: 1 / 1; width: 100%; height: auto; }
+.logo-light { visibility: var(--logo-light); }
+.logo-dark { visibility: var(--logo-dark); }
+.nav { display: flex; gap: 18px; margin-left: auto; font-family: var(--font-display); font-size: 0.95rem; }
+.nav a { color: var(--ink); text-decoration: none; white-space: nowrap; }
+.nav a:hover { color: var(--accent); }
+.prefs { display: flex; align-items: center; gap: 8px; flex: none; }
+.lang {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.lang button {
+  min-width: 34px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: 500 0.75rem/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.lang button:hover { color: var(--ink); }
+.lang button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.theme-toggle svg { width: 18px; height: 18px; }
+.theme-toggle .sun { display: none; }
+.theme-toggle.is-dark .sun { display: block; }
+.theme-toggle.is-dark .moon { display: none; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  font: 600 0.95rem/1 var(--font-display);
+  text-decoration: none;
+  border: 1px solid var(--accent);
+  white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { color: var(--accent); background: transparent; }
+.btn-ghost:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+@media (max-width: 1100px) {
+  .nav { display: none; }
+  .prefs { margin-left: auto; }
+}
+@media (max-width: 640px) {
+  .top .btn { display: none; }
+  .brand { width: 124px; }
+  .top .wrap { gap: 12px; }
+}
+
+/* Hero: the same synagogue, read six ways */
+.hero { padding-block: clamp(40px, 6vw, 80px) clamp(40px, 5vw, 64px); }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 56px); align-items: center; }
+.hero h1 { font-size: var(--step-3); font-weight: 800; letter-spacing: -0.025em; margin-top: 14px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.lede { margin-top: 20px; font-size: var(--step-1); line-height: 1.5; color: var(--muted); max-width: 36ch; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 30px 0 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: var(--step--1); color: var(--muted); }
+.facts strong { color: var(--ink); font-weight: 500; }
+
+.reader { min-width: 0; }
+.stage {
+  position: relative;
+  aspect-ratio: 760 / 450;
+  max-width: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--stage);
+  border: 1px solid var(--rule);
+}
+.stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.45s ease; }
+.stage img.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .stage img { transition: none; } }
+/* Over the render, which is light whatever the theme. */
+.stage-tag {
+  position: absolute; left: 12px; bottom: 12px;
+  padding: 5px 10px; border-radius: 6px;
+  background: rgba(10, 16, 25, 0.78); color: #e6ecf4;
+  font: 500 0.75rem/1.2 var(--font-mono);
+}
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.tab {
+  padding: 8px 12px; border-radius: 999px;
+  border: 1px solid var(--rule); background: var(--surface); color: var(--ink);
+  font: 500 0.85rem/1 var(--font-display); cursor: pointer;
+}
+.tab:hover { border-color: var(--accent); }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.reading-note { margin-top: 12px; color: var(--muted); font-size: 0.98rem; min-height: 3.2em; }
+.reading-note .key { display: block; margin-top: 4px; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .lede { max-width: 46ch; } }
+
+/* Sections */
+section.band { padding-block: clamp(48px, 7vw, 96px); border-top: 1px solid var(--rule); }
+.head { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: clamp(16px, 4vw, 56px); margin-bottom: clamp(28px, 4vw, 48px); align-items: end; }
+.head p { color: var(--muted); max-width: 60ch; }
+@media (max-width: 820px) { .head { grid-template-columns: minmax(0, 1fr); } }
+
+/* Capabilities: four tasks */
+.tasks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
+.task { padding: 22px 22px 6px 0; min-width: 0; }
+.task + .task { padding-left: 22px; border-left: 1px solid var(--rule); }
+.task > p { margin-top: 8px; color: var(--muted); font-size: 0.98rem; }
+.task ul { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 16px; }
+.task li { display: grid; gap: 2px; }
+.task li strong { font-family: var(--font-display); font-weight: 600; font-size: 1rem; }
+.task li span { font-size: 0.95rem; line-height: 1.5; }
+@media (max-width: 1020px) {
+  .tasks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .task:nth-child(3) { padding-left: 0; border-left: 0; }
+  .task:nth-child(n + 3) { border-top: 1px solid var(--rule); margin-top: 18px; }
+}
+@media (max-width: 600px) {
+  .tasks { grid-template-columns: minmax(0, 1fr); }
+  .task + .task { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); margin-top: 18px; }
+}
+
+/* Level of Certainty */
+.loc { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(24px, 4vw, 56px); align-items: start; }
+.scale { width: 100%; border-collapse: collapse; font-size: 0.98rem; }
+.scale th { text-align: left; font: 500 var(--step--1)/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0 10px 10px 0; border-bottom: 1px solid var(--rule); }
+.scale td { padding: 12px 10px 12px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.scale td.range { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.88rem; color: var(--muted); white-space: nowrap; }
+/* The level colours are the scale's own data, the same in both themes. */
+.swatch {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 7px;
+  font: 700 0.95rem/1 var(--font-display);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+.code-col { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; }
+.loc figure { margin: 0; }
+.loc figure img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--rule); display: block; }
+.loc figcaption { margin-top: 10px; color: var(--muted); font-size: 0.92rem; }
+.loc-notes { margin-top: 22px; display: grid; gap: 10px; color: var(--muted); font-size: 0.98rem; max-width: 62ch; }
+@media (max-width: 900px) { .loc { grid-template-columns: minmax(0, 1fr); } }
+
+/* Standards */
+.table-scroll { overflow-x: auto; }
+.standards { width: 100%; min-width: 640px; border-collapse: collapse; }
+.standards th { text-align: left; font: 500 var(--step--1)/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0 16px 10px 0; border-bottom: 2px solid var(--ink); }
+.standards td { padding: 14px 16px 14px 0; border-bottom: 1px solid var(--rule); vertical-align: top; font-size: 0.98rem; }
+.standards td:first-child { font-family: var(--font-display); font-weight: 600; white-space: nowrap; }
+.standards td.body { color: var(--muted); font-family: var(--font-mono); font-size: 0.82rem; white-space: nowrap; }
+
+/* Manifest */
+.manifest { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(24px, 4vw, 56px); align-items: start; }
+.manifest h2 { margin-top: 12px; }
+.manifest .intro { margin-top: 16px; color: var(--muted); }
+.manifest ol { margin: 18px 0 0; padding-left: 1.2em; display: grid; gap: 10px; color: var(--muted); }
+.manifest ol strong { color: var(--ink); font-weight: 600; }
+pre.code {
+  margin: 0; padding: 20px 22px;
+  background: var(--code-bg); color: var(--code-ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font: 400 0.82rem/1.65 var(--font-mono);
+}
+pre.code .k { color: var(--code-key); }
+pre.code .s { color: var(--code-str); }
+pre.code .c { color: var(--code-comment); }
+@media (max-width: 900px) { .manifest { grid-template-columns: minmax(0, 1fr); } }
+
+/* Technology and formats */
+.stack { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(20px, 3vw, 36px); }
+.stack h3 { font-size: 1.05rem; margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.chips li { padding: 6px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); font: 400 0.85rem/1.2 var(--font-mono); }
+.stack p { margin-top: 12px; color: var(--muted); font-size: 0.95rem; }
+@media (max-width: 900px) { .stack { grid-template-columns: minmax(0, 1fr); } }
+.formats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(20px, 3vw, 40px); margin-top: clamp(36px, 5vw, 56px); padding-top: 28px; border-top: 1px solid var(--rule); }
+.formats h3 { font-size: 1.05rem; margin-bottom: 12px; }
+.formats .chips li { font-weight: 500; }
+.formats .via { margin-top: 12px; color: var(--muted); font-size: 0.92rem; }
+@media (max-width: 700px) { .formats { grid-template-columns: minmax(0, 1fr); } }
+
+/* Deployment */
+.deploy { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.place { padding: 20px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); display: grid; gap: 8px; align-content: start; min-width: 0; }
+.place h3 { font-size: 1.05rem; }
+.place p { color: var(--muted); font-size: 0.95rem; }
+@media (max-width: 1000px) { .deploy { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .deploy { grid-template-columns: minmax(0, 1fr); } }
+
+/* Closing band */
+.cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; padding: clamp(28px, 4vw, 44px); border-radius: 14px; background: var(--band); color: var(--band-ink); border: 1px solid var(--band-rule); }
+.cta h2 { color: var(--band-ink); max-width: 22ch; }
+.cta p { color: var(--band-muted); margin-top: 10px; max-width: 52ch; }
+.cta .btn-primary { background: var(--band-ink); color: var(--band); border-color: var(--band-ink); }
+.cta .btn-ghost { color: var(--band-ink); border-color: var(--band-rule); }
+.cta .btn-ghost:hover { background: color-mix(in srgb, var(--band-ink) 10%, transparent); }
+.cta-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
+footer { padding-block: 40px 56px; color: var(--muted); font-size: 0.92rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 40px; align-items: flex-start; justify-content: space-between; }
+footer .brand { width: 150px; }
+footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.footer-brand { display: grid; gap: 10px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="ExPlora4D">
+      <img class="logo-light" src="img/logo.webp" alt="ExPlora4D" width="640" height="154">
+      <img class="logo-dark" src="img/logo-on-dark.webp" alt="" width="640" height="154">
+    </a>
+    <nav class="nav" aria-label="Sections" data-i18n-aria="nav.label">
+      <a href="#capabilities" data-i18n="nav.cap">Capabilities</a>
+      <a href="#certainty" data-i18n="nav.loc">Certainty</a>
+      <a href="#standards" data-i18n="nav.std">Standards</a>
+      <a href="#manifest" data-i18n="nav.man">Manifest</a>
+      <a href="#technology" data-i18n="nav.tech">Technology</a>
+    </nav>
+    <div class="prefs">
+      <div class="lang" role="group" aria-label="Language" data-i18n-aria="lang.label">
+        <button type="button" id="lang-en" data-lang="en" aria-pressed="true" lang="en">EN</button>
+        <button type="button" id="lang-pl" data-lang="pl" aria-pressed="false" lang="pl">PL</button>
+        <button type="button" id="lang-de" data-lang="de" aria-pressed="false" lang="de">DE</button>
+      </div>
+      <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch to dark mode">
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12H5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <a class="btn btn-primary" href="https://ExPlora4D.thedworak.com" target="_blank" rel="noopener" data-i18n="cta.open">Open the viewer</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow" data-i18n="hero.eyebrow">3D for the humanities · IIIF-native</p>
+        <h1 data-i18n="hero.title">Read a 3D model the way you read a <em>source</em>.</h1>
+        <p class="lede" data-i18n="hero.lede">ExPlora4D is a web viewer for cultural heritage in 3D. Inspect the surface, annotate what you see, say how certain each part of a reconstruction is, and publish it all as an open IIIF manifest.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://ExPlora4D.thedworak.com" target="_blank" rel="noopener" data-i18n="cta.open">Open the viewer</a>
+          <a class="btn btn-ghost" href="https://ExPlora4D.thedworak.com/schema/AIM3DViewer-schema.json" target="_blank" rel="noopener" data-i18n="hero.schema">Manifest schema</a>
+        </div>
+        <ul class="facts">
+          <li data-i18n="facts.formats"><strong>25+</strong> 3D formats</li>
+          <li><strong>IIIF</strong> Presentation 4</li>
+          <li><strong>EN · PL · DE</strong></li>
+          <li><strong>Web, Drupal, Android, iOS</strong></li>
+        </ul>
+      </div>
+
+      <div class="reader">
+        <div class="stage" id="stage">
+          <img class="on" data-reading="original" src="img/original.webp" data-i18n-alt="alt.original" alt="The wooden synagogue of Wołpa as a textured 3D model" width="1200" height="711">
+          <img data-reading="clay-ao" src="img/clay-ao.webp" data-i18n-alt="alt.clay" alt="The same model in untextured clay with ambient occlusion" width="1200" height="711" loading="lazy">
+          <img data-reading="raking" src="img/raking.webp" data-i18n-alt="alt.raking" alt="The same model under a low raking light" width="1200" height="711" loading="lazy">
+          <img data-reading="contours" src="img/contours.webp" data-i18n-alt="alt.contours" alt="The same model coloured by height with contour lines" width="1200" height="711" loading="lazy">
+          <img data-reading="normals" src="img/normals.webp" data-i18n-alt="alt.normals" alt="The same model showing its surface normals as colours" width="1200" height="711" loading="lazy">
+          <img data-reading="certainty" src="img/certainty.webp" data-i18n-alt="alt.certainty" alt="The same model coloured by level of certainty, with lettered badges" width="1200" height="711" loading="lazy">
+          <span class="stage-tag" data-i18n="stage.tag">Wołpa synagogue · reconstruction</span>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Ways of reading the model" data-i18n-aria="tabs.label">
+          <button class="tab" role="tab" id="tab-original" aria-selected="true" data-reading="original" data-i18n="tab.original">Original</button>
+          <button class="tab" role="tab" id="tab-clay-ao" aria-selected="false" data-reading="clay-ao" data-i18n="tab.clay">Clay + AO</button>
+          <button class="tab" role="tab" id="tab-raking" aria-selected="false" data-reading="raking" data-i18n="tab.raking">Raking light</button>
+          <button class="tab" role="tab" id="tab-contours" aria-selected="false" data-reading="contours" data-i18n="tab.contours">Contours</button>
+          <button class="tab" role="tab" id="tab-normals" aria-selected="false" data-reading="normals" data-i18n="tab.normals">Normals</button>
+          <button class="tab" role="tab" id="tab-certainty" aria-selected="false" data-reading="certainty" data-i18n="tab.certainty">Certainty</button>
+        </div>
+        <p class="reading-note" id="reading-note" aria-live="polite">The model as it was published: photographic textures, scene lights and environment.<span class="key">shadingMode: "original"</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="capabilities">
+    <div class="wrap">
+      <div class="head">
+        <h2 data-i18n="cap.title">Four things a researcher does with a 3D model</h2>
+        <p data-i18n="cap.lede">Each tool stores its state in the manifest, under the key shown beneath it. What you set up on screen is what the next reader opens.</p>
+      </div>
+      <div class="tasks">
+        <article class="task">
+          <h3 data-i18n="inspect.h">Inspect</h3>
+          <p data-i18n="inspect.p">See the surface, not the texture.</p>
+          <ul>
+            <li><strong data-i18n="inspect.1h">Scan views</strong><span data-i18n="inspect.1p">Original materials, clay, matcap, flat faces, normals, Phong, Lambert, toon, or your own GLSL.</span><span class="key">modelTransform.<b>shadingMode</b></span></li>
+            <li><strong data-i18n="inspect.2h">Raking light</strong><span data-i18n="inspect.2p">A grazing light that follows the view, for inscriptions and tool marks. Turn it by hand or let it sweep.</span><span class="key">AIM3DViewer.<b>rakingLight</b></span></li>
+            <li><strong data-i18n="inspect.3h">Ambient occlusion</strong><span data-i18n="inspect.3p">Crevices and corners darken so relief reads at a glance.</span><span class="key">postprocessing.<b>ao</b></span></li>
+            <li><strong data-i18n="inspect.4h">Sections and measurement</strong><span data-i18n="inspect.4p">Clipping planes on three axes; distance, angle, area, bounding box, surface and volume in real units.</span><span class="key">AIM3DViewer.<b>clipping</b></span></li>
+          </ul>
+        </article>
+        <article class="task">
+          <h3 data-i18n="interpret.h">Interpret</h3>
+          <p data-i18n="interpret.p">Say something about a part of the object.</p>
+          <ul>
+            <li><strong data-i18n="interpret.1h">Annotations on faces</strong><span data-i18n="interpret.1p">Click a face, add faces, or drag a rectangle over the visible ones; hidden and cut-away faces are skipped.</span><span class="key">W3C <b>Web Annotation</b></span></li>
+            <li><strong data-i18n="interpret.2h">Level of Certainty</strong><span data-i18n="interpret.2p">Grade each element of a reconstruction from surveyed fact to hypothesis, and colour the model by it.</span><span class="key">AIM3DViewer.<b>certainty</b></span></li>
+            <li><strong data-i18n="interpret.3h">Guided tours</strong><span data-i18n="interpret.3p">Annotations become steps with saved camera views, played in order or on their own.</span><span class="key">viewer.<b>tour</b></span></li>
+            <li><strong data-i18n="interpret.4h">Hierarchy</strong><span data-i18n="interpret.4p">Browse the model's parts by name and select whole groups.</span></li>
+          </ul>
+        </article>
+        <article class="task">
+          <h3 data-i18n="publish.h">Publish</h3>
+          <p data-i18n="publish.p">Hand the view on, intact.</p>
+          <ul>
+            <li><strong data-i18n="publish.1h">IIIF manifests</strong><span data-i18n="publish.1p">Export and import IIIF Presentation 4 with the AIM3D block: camera, lights, rendering, annotations.</span><span class="key">IIIF <b>Scene</b> + AIM3DViewer</span></li>
+            <li><strong data-i18n="publish.2h">Embed anywhere</strong><span data-i18n="publish.2p">An embed configurator writes the snippet; presentation mode hides the editor.</span><span class="key">viewer.<b>presentationMode</b></span></li>
+            <li><strong data-i18n="publish.3h">Repository integration</strong><span data-i18n="publish.3p">A Drupal module for WissKI-based repositories, with metadata shown beside the model.</span></li>
+            <li><strong data-i18n="publish.4h">Screenshots and thumbnails</strong><span data-i18n="publish.4p">Capture the view, or render gallery thumbnails from nine angles.</span></li>
+          </ul>
+        </article>
+        <article class="task">
+          <h3 data-i18n="ingest.h">Ingest</h3>
+          <p data-i18n="ingest.p">Bring in what the project already has.</p>
+          <ul>
+            <li><strong data-i18n="ingest.1h">Conversion pipeline</strong><span data-i18n="ingest.1p">Uploads are unpacked and converted to glTF: Blender for meshes, IfcConvert for BIM, OpenCASCADE for CAD.</span></li>
+            <li><strong data-i18n="ingest.2h">Compression</strong><span data-i18n="ingest.2p">gltfpack, Draco, Meshopt and KTX2 textures; a light preview appears first, then the full model.</span></li>
+            <li><strong data-i18n="ingest.3h">Point clouds</strong><span data-i18n="ingest.3p">LAS and LAZ load directly; E57 and large scans become streamed 3D Tiles with Eye-Dome Lighting.</span></li>
+            <li><strong data-i18n="ingest.4h">Archives</strong><span data-i18n="ingest.4p">ZIP, RAR and tar archives with their textures and material files.</span></li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="certainty">
+    <div class="wrap">
+      <div class="head">
+        <h2 data-i18n="loc.title">How sure are we about this roof?</h2>
+        <p data-i18n="loc.lede">A reconstruction mixes what survives with what is inferred. ExPlora4D lets every annotation carry a certainty grade, colours the model by it, and keeps the scale in the manifest so others can read it the same way.</p>
+      </div>
+      <div class="loc">
+        <div>
+          <table class="scale">
+            <thead>
+              <tr><th scope="col" data-i18n="loc.th1">Level</th><th scope="col" data-i18n="loc.th2">Code</th><th scope="col" data-i18n="loc.th3">Basis</th><th scope="col" data-i18n="loc.th4">Score</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="swatch" style="background:#1a9850;color:#fff">✓</span></td><td class="code-col">A</td><td data-i18n="loc.a">Preserved / surveyed</td><td class="range">10</td></tr>
+              <tr><td><span class="swatch" style="background:#2166ac;color:#fff">■</span></td><td class="code-col">B</td><td data-i18n="loc.b">Direct documentation</td><td class="range">8–9</td></tr>
+              <tr><td><span class="swatch" style="background:#ffd400;color:#111827">▲</span></td><td class="code-col">C</td><td data-i18n="loc.c">Indirect sources</td><td class="range">6–7</td></tr>
+              <tr><td><span class="swatch" style="background:#f46d00;color:#111827">≈</span></td><td class="code-col">D</td><td data-i18n="loc.d">Analogy</td><td class="range">4–5</td></tr>
+              <tr><td><span class="swatch" style="background:#c51b7d;color:#fff">?</span></td><td class="code-col">E</td><td data-i18n="loc.e">Hypothesis</td><td class="range">0–3</td></tr>
+            </tbody>
+          </table>
+          <div class="loc-notes">
+            <p data-i18n="loc.n1">Each level has a colour, a letter and a symbol, so the scale reads without colour vision and in black-and-white print.</p>
+            <p data-i18n="loc.n2">A grade applies to one object or to its whole group. The legend counts assessed objects per level; click a level to show only those parts.</p>
+            <p data-i18n="loc.n3">Projects can define their own scale, labels and colours in the manifest; the default above is used otherwise.</p>
+          </div>
+        </div>
+        <figure>
+          <img src="img/certainty.webp" data-i18n-alt="alt.certaintyFig" alt="The synagogue reconstruction coloured by level of certainty" width="1200" height="711" loading="lazy">
+          <figcaption data-i18n="loc.caption">Badges replace annotation numbers with the level's code and symbol while the certainty view is on.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="standards">
+    <div class="wrap">
+      <div class="head">
+        <h2 data-i18n="std.title">Built on open standards</h2>
+        <p data-i18n="std.lede">Nothing about a model or its interpretation is locked inside the viewer. The data stays in formats other tools already read.</p>
+      </div>
+      <div class="table-scroll">
+        <table class="standards">
+          <thead><tr><th scope="col" data-i18n="std.th1">Standard</th><th scope="col" data-i18n="std.th2">Maintained by</th><th scope="col" data-i18n="std.th3">Used for</th></tr></thead>
+          <tbody>
+            <tr><td>IIIF Presentation API 4</td><td class="body">IIIF Consortium</td><td data-i18n="std.1">Scenes, models, cameras, lights, transforms and comments; import and export of whole manifests.</td></tr>
+            <tr><td>Web Annotation</td><td class="body">W3C</td><td data-i18n="std.2">Comments and assessments on faces and regions, with <code>commenting</code> and <code>assessing</code> motivations, point and WKT selectors.</td></tr>
+            <tr><td>glTF 2.0</td><td class="body">Khronos Group</td><td data-i18n="std.3">The delivery format, with Draco and Meshopt geometry compression, KTX2/Basis textures and unlit materials.</td></tr>
+            <tr><td>3D Tiles</td><td class="body">OGC</td><td data-i18n="std.4">Streaming large meshes and point clouds at the level of detail the view needs.</td></tr>
+            <tr><td>IFC</td><td class="body">buildingSMART</td><td data-i18n="std.5">Building models, read in the browser or converted with their property sets kept as metadata.</td></tr>
+            <tr><td>LAS / LAZ, E57</td><td class="body">ASPRS · ASTM</td><td data-i18n="std.6">Laser-scan point clouds, loaded directly or converted to 3D Tiles.</td></tr>
+            <tr><td>JSON Schema 2020-12</td><td class="body">JSON Schema</td><td data-i18n="std.7">The AIM3D manifest block, published and validated on import.</td></tr>
+            <tr><td>WissKI</td><td class="body" data-i18n="std.wisskiBody">WissKI community</td><td data-i18n="std.8">Drupal-based, CIDOC CRM–aware repositories that host the models and their metadata.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="manifest">
+    <div class="wrap manifest">
+      <div>
+        <p class="eyebrow" data-i18n="man.eyebrow">The manifest is the view</p>
+        <h2 data-i18n="man.title">A IIIF manifest with the viewer's state on board</h2>
+        <p class="intro" data-i18n="man.p">Standard IIIF carries the scene. The <code>AIM3DViewer</code> block carries what a researcher set up on top of it. Viewers that don't know the block still show the model; ExPlora4D restores the whole reading.</p>
+        <ol>
+          <li data-i18n="man.1"><strong>Export</strong> from the toolbar after setting up the view.</li>
+          <li data-i18n="man.2"><strong>Validate</strong> against the published schema; the viewer checks it on import too.</li>
+          <li data-i18n="man.3"><strong>Share</strong> the file or its URL. Opening it restores camera, lights, shading and annotations.</li>
+        </ol>
+      </div>
+      <pre class="code" aria-label="AIM3D manifest excerpt"><span class="c">// wolpa-synagogue-aim3d-local-raking-light.json (excerpt)</span>
+{
+  <span class="k">"type"</span>: <span class="s">"Manifest"</span>,
+  <span class="k">"items"</span>: [ { <span class="k">"type"</span>: <span class="s">"Scene"</span>, … } ],
+  <span class="k">"AIM3DViewer"</span>: {
+    <span class="k">"viewer"</span>: {
+      <span class="k">"rendering"</span>: {
+        <span class="k">"toneMapping"</span>: <span class="s">"agx"</span>,
+        <span class="k">"postprocessing"</span>: { <span class="k">"enabled"</span>: true, <span class="k">"ao"</span>: false }
+      }
+    },
+    <span class="k">"rakingLight"</span>: {
+      <span class="k">"enabled"</span>: true,
+      <span class="k">"direction"</span>: 150,
+      <span class="k">"height"</span>: 10,
+      <span class="k">"sweep"</span>: true
+    },
+    <span class="k">"certainty"</span>: { <span class="k">"levels"</span>: [ … ] },
+    <span class="k">"modelTransform"</span>: { <span class="k">"shadingMode"</span>: <span class="s">"clay"</span> }
+  }
+}</pre>
+    </div>
+  </section>
+
+  <section class="band" id="technology">
+    <div class="wrap">
+      <div class="head">
+        <h2 data-i18n="tech.title">Technology</h2>
+        <p data-i18n="tech.lede">A WebGL viewer in the browser, a conversion worker on the server, and the same code packaged for repositories and phones.</p>
+      </div>
+      <div class="stack">
+        <div>
+          <h3 data-i18n="tech.h1">In the browser</h3>
+          <ul class="chips">
+            <li>three.js r186</li><li>WebGL 2</li><li>GTAO</li><li>3d-tiles-renderer</li><li>loaders.gl</li><li>laz-perf</li><li>web-ifc</li><li>Draco</li><li>Meshopt</li><li>KTX2 / Basis</li>
+          </ul>
+          <p data-i18n="tech.p1">Logarithmic depth for city-scale and coin-scale models alike; a post-processing chain with SMAA, FXAA and seven tone mappings.</p>
+        </div>
+        <div>
+          <h3 data-i18n="tech.h2">On the server</h3>
+          <ul class="chips">
+            <li>Python worker</li><li>Blender + Cycles</li><li>IfcOpenShell</li><li>OpenCASCADE</li><li>trimesh</li><li>py3dtiles</li><li>gltfpack</li><li>PHP</li><li>Docker</li>
+          </ul>
+          <p data-i18n="tech.p2">One <code>docker compose up</code> runs the viewer and the full conversion pipeline, with accounts and upload limits.</p>
+        </div>
+        <div>
+          <h3 data-i18n="tech.h3">Delivery and quality</h3>
+          <ul class="chips">
+            <li>Rollup</li><li>Drupal module</li><li>Capacitor</li><li>Android</li><li>iOS</li><li>Playwright</li><li>GlitchTip</li><li>i18n EN · PL · DE</li>
+          </ul>
+          <p data-i18n="tech.p3">End-to-end tests in a real WebGL browser cover loading, editing, export and the manifest schema.</p>
+        </div>
+      </div>
+
+      <div class="formats">
+        <div>
+          <h3 data-i18n="fmt.h1">Opened directly</h3>
+          <ul class="chips">
+            <li>glTF / GLB</li><li>OBJ</li><li>FBX</li><li>DAE</li><li>PLY</li><li>STL</li><li>IFC</li><li>USD / USDZ</li><li>3MF</li><li>3DS</li><li>AMF</li><li>WRL</li><li>KMZ</li><li>VOX</li><li>XYZ</li><li>PCD</li><li>LAS / LAZ</li><li>3D Tiles</li><li>Potree 2</li>
+          </ul>
+        </div>
+        <div>
+          <h3 data-i18n="fmt.h2">Converted on upload</h3>
+          <ul class="chips">
+            <li>BLEND</li><li>ABC</li><li>X3D</li><li>GML</li><li>STEP / STP</li><li>IGES / IGS</li><li>E57</li>
+          </ul>
+          <p class="via" data-i18n="fmt.via">The directly opened formats are optimised the same way: compressed GLB, with thumbnails rendered from nine angles.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="deploy">
+    <div class="wrap">
+      <div class="head">
+        <h2 data-i18n="dep.title">Where it runs</h2>
+        <p data-i18n="dep.lede">The same viewer, configured by one settings file or by the manifest itself.</p>
+      </div>
+      <div class="deploy">
+        <article class="place"><h3 data-i18n="dep.1h">In a repository</h3><p data-i18n="dep.1p">A Drupal module for WissKI: models on entity pages, conversion on upload, annotations saved back.</p></article>
+        <article class="place"><h3 data-i18n="dep.2h">On your server</h3><p data-i18n="dep.2p">Docker images for the viewer and worker, with profiles for test, development and drag-and-drop sandbox.</p></article>
+        <article class="place"><h3 data-i18n="dep.3h">In any page</h3><p data-i18n="dep.3p">An embed snippet with presentation mode, autorotation and a chosen camera. Settings follow the manifest.</p><span class="key">embed.html?<b>…</b></span></article>
+        <article class="place"><h3 data-i18n="dep.4h">On a phone</h3><p data-i18n="dep.4p">Android and iOS builds of the same viewer, for fieldwork and teaching.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="cta">
+        <div>
+          <h2 data-i18n="end.title">Open the Wołpa synagogue and try every reading</h2>
+          <p data-i18n="end.p">The example collection includes the scan views, raking light, contour lines and the certainty view, each as a manifest you can download and change.</p>
+        </div>
+        <div class="cta-actions">
+          <a class="btn btn-primary" href="https://ExPlora4D.thedworak.com" target="_blank" rel="noopener" data-i18n="cta.open">Open the viewer</a>
+          <a class="btn btn-ghost" href="https://ExPlora4D.thedworak.com/schema/AIM3DViewer-schema.md" target="_blank" rel="noopener" data-i18n="end.schema">Read the schema</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-brand">
+      <span class="brand">
+        <img class="logo-light" src="img/logo.webp" alt="ExPlora4D" width="640" height="154">
+        <img class="logo-dark" src="img/logo-on-dark.webp" alt="" width="640" height="154">
+      </span>
+      <p data-i18n="foot.powered">Powered by the DLF AIM3D<sup>ex</sup> Viewer.</p>
+    </div>
+    <ul>
+      <li data-i18n="foot.dev">Developed by Daniel Dworak</li>
+      <li data-i18n="foot.dfg">Supported by the Deutsche Forschungsgemeinschaft (DFG)</li>
+      <li data-i18n="foot.langs">Interface in English, Polish and German</li>
+    </ul>
+    <ul>
+      <li><a href="https://ExPlora4D.thedworak.com" target="_blank" rel="noopener" data-i18n="foot.viewer">Viewer</a></li>
+      <li><a href="https://ExPlora4D.thedworak.com/schema/AIM3DViewer-schema.json" target="_blank" rel="noopener" data-i18n="foot.schema">Manifest schema (JSON)</a></li>
+      <li><a href="https://iiif.io/api/presentation/4.0/" target="_blank" rel="noopener">IIIF Presentation 4</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch {} },
+  };
+
+  // English is the page's own text (read from it); Polish and German below.
+  const strings = {
+    pl: {
+      "nav.label": "Sekcje", "nav.cap": "Możliwości", "nav.loc": "Pewność", "nav.std": "Standardy", "nav.man": "Manifest", "nav.tech": "Technologia",
+      "lang.label": "Język",
+      "theme.toDark": "Przełącz na tryb ciemny", "theme.toLight": "Przełącz na tryb jasny",
+      "cta.open": "Otwórz przeglądarkę",
+      "hero.eyebrow": "3D dla humanistyki · natywnie w IIIF",
+      "hero.title": "Czytaj model 3D tak, jak czytasz <em>źródło</em>.",
+      "hero.lede": "ExPlora4D to internetowa przeglądarka 3D dla dziedzictwa kulturowego. Badaj powierzchnię, opisuj to, co widzisz, określaj, na ile pewna jest każda część rekonstrukcji, i publikuj wszystko jako otwarty manifest IIIF.",
+      "hero.schema": "Schemat manifestu",
+      "facts.formats": "<strong>25+</strong> formatów 3D",
+      "stage.tag": "Synagoga w Wołpie · rekonstrukcja",
+      "tabs.label": "Sposoby czytania modelu",
+      "tab.original": "Oryginał", "tab.clay": "Glina + AO", "tab.raking": "Światło skośne", "tab.contours": "Warstwice", "tab.normals": "Normalne", "tab.certainty": "Pewność",
+      "alt.original": "Drewniana synagoga w Wołpie jako teksturowany model 3D",
+      "alt.clay": "Ten sam model jako glina bez tekstury, z okluzją otoczenia",
+      "alt.raking": "Ten sam model w niskim, skośnym świetle",
+      "alt.contours": "Ten sam model pokolorowany według wysokości, z warstwicami",
+      "alt.normals": "Ten sam model z normalnymi powierzchni pokazanymi jako kolory",
+      "alt.certainty": "Ten sam model pokolorowany według poziomu pewności, ze znacznikami literowymi",
+      "alt.certaintyFig": "Rekonstrukcja synagogi pokolorowana według poziomu pewności",
+      "cap.title": "Cztery rzeczy, które badacz robi z modelem 3D",
+      "cap.lede": "Każde narzędzie zapisuje swój stan w manifeście, pod kluczem podanym poniżej. To, co ustawisz na ekranie, zobaczy kolejny czytelnik.",
+      "inspect.h": "Badaj", "inspect.p": "Zobacz powierzchnię, nie teksturę.",
+      "inspect.1h": "Widoki skanu", "inspect.1p": "Oryginalne materiały, glina, matcap, płaskie ściany, normalne, Phong, Lambert, toon albo własny GLSL.",
+      "inspect.2h": "Światło skośne", "inspect.2p": "Niskie światło ślizgające się po powierzchni i podążające za widokiem, do inskrypcji i śladów narzędzi. Obracaj je ręcznie albo włącz obrót automatyczny.",
+      "inspect.3h": "Okluzja otoczenia", "inspect.3p": "Szczeliny i narożniki ciemnieją, więc relief czyta się od razu.",
+      "inspect.4h": "Przekroje i pomiary", "inspect.4p": "Płaszczyzny przekroju w trzech osiach; odległość, kąt, pole, wymiary, powierzchnia i objętość w rzeczywistych jednostkach.",
+      "interpret.h": "Interpretuj", "interpret.p": "Powiedz coś o części obiektu.",
+      "interpret.1h": "Adnotacje na ścianach", "interpret.1p": "Kliknij ścianę, dodaj kolejne albo zaznacz prostokątem widoczne; ukryte i odcięte ściany są pomijane.",
+      "interpret.2h": "Poziom pewności", "interpret.2p": "Oceń każdy element rekonstrukcji, od pomierzonego faktu po hipotezę, i pokoloruj według tego model.",
+      "interpret.3h": "Wycieczki z przewodnikiem", "interpret.3p": "Adnotacje stają się krokami z zapisanymi widokami kamery, odtwarzanymi po kolei albo automatycznie.",
+      "interpret.4h": "Hierarchia", "interpret.4p": "Przeglądaj części modelu po nazwach i zaznaczaj całe grupy.",
+      "publish.h": "Publikuj", "publish.p": "Przekaż widok dalej, bez zmian.",
+      "publish.1h": "Manifesty IIIF", "publish.1p": "Eksport i import IIIF Presentation 4 z blokiem AIM3D: kamera, światła, renderowanie, adnotacje.",
+      "publish.2h": "Osadzaj wszędzie", "publish.2p": "Konfigurator osadzania tworzy kod; tryb prezentacji ukrywa edytor.",
+      "publish.3h": "Integracja z repozytorium", "publish.3p": "Moduł Drupala dla repozytoriów opartych na WissKI, z metadanymi obok modelu.",
+      "publish.4h": "Zrzuty ekranu i miniatury", "publish.4p": "Zapisz widok albo wyrenderuj miniatury galerii z dziewięciu ujęć.",
+      "ingest.h": "Importuj", "ingest.p": "Wczytaj to, co projekt już ma.",
+      "ingest.1h": "Konwersja", "ingest.1p": "Przesłane pliki są rozpakowywane i konwertowane do glTF: Blender dla siatek, IfcConvert dla BIM, OpenCASCADE dla CAD.",
+      "ingest.2h": "Kompresja", "ingest.2p": "gltfpack, Draco, Meshopt i tekstury KTX2; najpierw pojawia się lekki podgląd, potem pełny model.",
+      "ingest.3h": "Chmury punktów", "ingest.3p": "LAS i LAZ wczytują się bezpośrednio; E57 i duże skany stają się strumieniowanymi 3D Tiles z Eye-Dome Lighting.",
+      "ingest.4h": "Archiwa", "ingest.4p": "Archiwa ZIP, RAR i tar razem z teksturami i plikami materiałów.",
+      "loc.title": "Na ile jesteśmy pewni tego dachu?",
+      "loc.lede": "Rekonstrukcja łączy to, co przetrwało, z tym, co wywnioskowano. W ExPlora4D każda adnotacja może nieść ocenę pewności; model jest według niej kolorowany, a skala zapisana w manifeście, więc inni odczytają ją tak samo.",
+      "loc.th1": "Poziom", "loc.th2": "Kod", "loc.th3": "Podstawa", "loc.th4": "Ocena",
+      "loc.a": "Stan zachowany / pomiar", "loc.b": "Dokumentacja bezpośrednia", "loc.c": "Źródła pośrednie", "loc.d": "Analogia", "loc.e": "Hipoteza",
+      "loc.n1": "Każdy poziom ma kolor, literę i symbol, więc skalę da się odczytać bez widzenia barw i na wydruku czarno-białym.",
+      "loc.n2": "Ocena dotyczy jednego obiektu albo całej jego grupy. Legenda liczy ocenione obiekty na każdym poziomie; kliknij poziom, aby pokazać tylko te części.",
+      "loc.n3": "Projekty mogą zdefiniować w manifeście własną skalę, etykiety i kolory; w przeciwnym razie obowiązuje powyższa skala domyślna.",
+      "loc.caption": "Gdy widok pewności jest włączony, znaczniki pokazują kod i symbol poziomu zamiast numerów adnotacji.",
+      "std.title": "Zbudowane na otwartych standardach",
+      "std.lede": "Nic z modelu ani jego interpretacji nie zostaje zamknięte w przeglądarce. Dane pozostają w formatach, które inne narzędzia już odczytują.",
+      "std.th1": "Standard", "std.th2": "Rozwijany przez", "std.th3": "Zastosowanie",
+      "std.1": "Sceny, modele, kamery, światła, transformacje i komentarze; import i eksport całych manifestów.",
+      "std.2": "Komentarze i oceny na ścianach i obszarach, z motywacjami <code>commenting</code> i <code>assessing</code> oraz selektorami punktów i WKT.",
+      "std.3": "Format dostarczania, z kompresją geometrii Draco i Meshopt, teksturami KTX2/Basis i materiałami bez oświetlenia.",
+      "std.4": "Strumieniowanie dużych siatek i chmur punktów w szczegółowości potrzebnej dla danego widoku.",
+      "std.5": "Modele budynków, czytane w przeglądarce lub konwertowane z zachowaniem zestawów właściwości jako metadanych.",
+      "std.6": "Chmury punktów ze skanowania laserowego, wczytywane bezpośrednio lub konwertowane do 3D Tiles.",
+      "std.7": "Blok manifestu AIM3D, opublikowany i walidowany przy imporcie.",
+      "std.wisskiBody": "społeczność WissKI",
+      "std.8": "Repozytoria oparte na Drupalu i CIDOC CRM, przechowujące modele i ich metadane.",
+      "man.eyebrow": "Manifest to widok",
+      "man.title": "Manifest IIIF ze stanem przeglądarki na pokładzie",
+      "man.p": "Standardowy IIIF przenosi scenę. Blok <code>AIM3DViewer</code> przenosi to, co badacz na niej ustawił. Przeglądarki, które nie znają tego bloku, i tak pokażą model; ExPlora4D odtworzy całe odczytanie.",
+      "man.1": "<strong>Eksportuj</strong> z paska narzędzi po ustawieniu widoku.",
+      "man.2": "<strong>Zwaliduj</strong> względem opublikowanego schematu; przeglądarka sprawdza go także przy imporcie.",
+      "man.3": "<strong>Udostępnij</strong> plik lub jego adres URL. Otwarcie przywraca kamerę, światła, cieniowanie i adnotacje.",
+      "tech.title": "Technologia",
+      "tech.lede": "Przeglądarka 3D oparta na WebGL, usługa konwersji na serwerze i ten sam kod przygotowany dla repozytoriów i telefonów.",
+      "tech.h1": "W przeglądarce internetowej", "tech.h2": "Na serwerze", "tech.h3": "Dystrybucja i jakość",
+      "tech.p1": "Logarytmiczny bufor głębi dla modeli w skali miasta i w skali monety; łańcuch postprocessingu z SMAA, FXAA i siedmioma mapowaniami tonów.",
+      "tech.p2": "Jedno <code>docker compose up</code> uruchamia przeglądarkę i cały proces konwersji, z kontami i limitami przesyłania.",
+      "tech.p3": "Testy end-to-end w prawdziwej przeglądarce z WebGL obejmują wczytywanie, edycję, eksport i schemat manifestu.",
+      "fmt.h1": "Otwierane bezpośrednio", "fmt.h2": "Konwertowane przy przesyłaniu",
+      "fmt.via": "Formaty otwierane bezpośrednio są optymalizowane tak samo: do skompresowanego GLB, z miniaturami z dziewięciu ujęć.",
+      "dep.title": "Gdzie działa",
+      "dep.lede": "Ta sama przeglądarka, konfigurowana jednym plikiem ustawień albo samym manifestem.",
+      "dep.1h": "W repozytorium", "dep.1p": "Moduł Drupala dla WissKI: modele na stronach encji, konwersja przy przesyłaniu, adnotacje zapisywane z powrotem.",
+      "dep.2h": "Na własnym serwerze", "dep.2p": "Obrazy Dockera dla przeglądarki i usługi konwersji, z profilami testowym, deweloperskim i piaskownicą drag-and-drop.",
+      "dep.3h": "Na dowolnej stronie", "dep.3p": "Kod osadzenia z trybem prezentacji, autoobrotem i wybraną kamerą. Ustawienia pochodzą z manifestu.",
+      "dep.4h": "Na telefonie", "dep.4p": "Wersje tej samej przeglądarki na Androida i iOS, do pracy w terenie i dydaktyki.",
+      "end.title": "Otwórz synagogę w Wołpie i wypróbuj każde odczytanie",
+      "end.p": "Kolekcja przykładów zawiera widoki skanu, światło skośne, warstwice i widok pewności, każdy jako manifest do pobrania i zmiany.",
+      "end.schema": "Przeczytaj schemat",
+      "foot.powered": "Napędzane przez DLF AIM3D<sup>ex</sup> Viewer.",
+      "foot.dev": "Autor: Daniel Dworak",
+      "foot.dfg": "Ze wsparciem Deutsche Forschungsgemeinschaft (DFG)",
+      "foot.langs": "Interfejs po angielsku, polsku i niemiecku",
+      "foot.viewer": "Przeglądarka", "foot.schema": "Schemat manifestu (JSON)",
+    },
+    de: {
+      "nav.label": "Abschnitte", "nav.cap": "Funktionen", "nav.loc": "Gewissheit", "nav.std": "Standards", "nav.man": "Manifest", "nav.tech": "Technologie",
+      "lang.label": "Sprache",
+      "theme.toDark": "Zum dunklen Modus wechseln", "theme.toLight": "Zum hellen Modus wechseln",
+      "cta.open": "Viewer öffnen",
+      "hero.eyebrow": "3D für die Geisteswissenschaften · IIIF-nativ",
+      "hero.title": "Lesen Sie ein 3D-Modell wie eine <em>Quelle</em>.",
+      "hero.lede": "ExPlora4D ist ein Web-Viewer für Kulturerbe in 3D. Untersuchen Sie die Oberfläche, annotieren Sie, was Sie sehen, geben Sie an, wie gesichert jeder Teil einer Rekonstruktion ist, und veröffentlichen Sie alles als offenes IIIF-Manifest.",
+      "hero.schema": "Manifest-Schema",
+      "facts.formats": "<strong>25+</strong> 3D-Formate",
+      "stage.tag": "Synagoge Wołpa · Rekonstruktion",
+      "tabs.label": "Lesarten des Modells",
+      "tab.original": "Original", "tab.clay": "Ton + AO", "tab.raking": "Streiflicht", "tab.contours": "Höhenlinien", "tab.normals": "Normalen", "tab.certainty": "Gewissheit",
+      "alt.original": "Die hölzerne Synagoge von Wołpa als texturiertes 3D-Modell",
+      "alt.clay": "Dasselbe Modell als untexturierter Ton mit Umgebungsverdeckung",
+      "alt.raking": "Dasselbe Modell unter flachem Streiflicht",
+      "alt.contours": "Dasselbe Modell nach Höhe eingefärbt, mit Höhenlinien",
+      "alt.normals": "Dasselbe Modell mit den Flächennormalen als Farben",
+      "alt.certainty": "Dasselbe Modell nach Grad der Gewissheit eingefärbt, mit Buchstabenmarkern",
+      "alt.certaintyFig": "Die Rekonstruktion der Synagoge, nach Grad der Gewissheit eingefärbt",
+      "cap.title": "Vier Dinge, die Forschende mit einem 3D-Modell tun",
+      "cap.lede": "Jedes Werkzeug speichert seinen Zustand im Manifest, unter dem darunter angegebenen Schlüssel. Was Sie auf dem Bildschirm einrichten, öffnet die nächste Person genauso.",
+      "inspect.h": "Untersuchen", "inspect.p": "Die Oberfläche sehen, nicht die Textur.",
+      "inspect.1h": "Scan-Ansichten", "inspect.1p": "Originalmaterialien, Ton, Matcap, flache Flächen, Normalen, Phong, Lambert, Toon oder eigenes GLSL.",
+      "inspect.2h": "Streiflicht", "inspect.2p": "Ein flach einfallendes Licht, das der Ansicht folgt, für Inschriften und Werkzeugspuren. Von Hand drehen oder umlaufen lassen.",
+      "inspect.3h": "Umgebungsverdeckung", "inspect.3p": "Fugen und Ecken werden dunkler, sodass Relief sofort lesbar wird.",
+      "inspect.4h": "Schnitte und Messungen", "inspect.4p": "Schnittebenen auf drei Achsen; Abstand, Winkel, Fläche, Abmessungen, Oberfläche und Volumen in realen Einheiten.",
+      "interpret.h": "Deuten", "interpret.p": "Etwas über einen Teil des Objekts sagen.",
+      "interpret.1h": "Annotationen auf Flächen", "interpret.1p": "Fläche anklicken, weitere hinzufügen oder ein Rechteck über die sichtbaren ziehen; verdeckte und weggeschnittene Flächen werden übersprungen.",
+      "interpret.2h": "Grad der Gewissheit", "interpret.2p": "Jedes Element einer Rekonstruktion bewerten, vom vermessenen Befund bis zur Hypothese, und das Modell danach einfärben.",
+      "interpret.3h": "Geführte Touren", "interpret.3p": "Annotationen werden zu Schritten mit gespeicherten Kameraansichten, der Reihe nach oder automatisch abgespielt.",
+      "interpret.4h": "Hierarchie", "interpret.4p": "Teile des Modells nach Namen durchsuchen und ganze Gruppen auswählen.",
+      "publish.h": "Veröffentlichen", "publish.p": "Die Ansicht unverändert weitergeben.",
+      "publish.1h": "IIIF-Manifeste", "publish.1p": "Export und Import von IIIF Presentation 4 mit dem AIM3D-Block: Kamera, Licht, Rendering, Annotationen.",
+      "publish.2h": "Überall einbetten", "publish.2p": "Ein Einbettungs-Konfigurator erzeugt den Code; der Präsentationsmodus blendet den Editor aus.",
+      "publish.3h": "Repository-Anbindung", "publish.3p": "Ein Drupal-Modul für WissKI-basierte Repositorien, mit Metadaten neben dem Modell.",
+      "publish.4h": "Screenshots und Vorschaubilder", "publish.4p": "Die Ansicht festhalten oder Galerie-Vorschaubilder aus neun Blickwinkeln rendern.",
+      "ingest.h": "Einspielen", "ingest.p": "Übernehmen, was das Projekt schon hat.",
+      "ingest.1h": "Konvertierung", "ingest.1p": "Uploads werden entpackt und nach glTF konvertiert: Blender für Meshes, IfcConvert für BIM, OpenCASCADE für CAD.",
+      "ingest.2h": "Kompression", "ingest.2p": "gltfpack, Draco, Meshopt und KTX2-Texturen; zuerst erscheint eine leichte Vorschau, dann das vollständige Modell.",
+      "ingest.3h": "Punktwolken", "ingest.3p": "LAS und LAZ werden direkt geladen; E57 und große Scans werden zu gestreamten 3D Tiles mit Eye-Dome Lighting.",
+      "ingest.4h": "Archive", "ingest.4p": "ZIP-, RAR- und tar-Archive mit ihren Texturen und Materialdateien.",
+      "loc.title": "Wie sicher sind wir uns bei diesem Dach?",
+      "loc.lede": "Eine Rekonstruktion verbindet Erhaltenes mit Erschlossenem. In ExPlora4D kann jede Annotation einen Gewissheitsgrad tragen; das Modell wird danach eingefärbt, und die Skala steht im Manifest, damit andere sie genauso lesen.",
+      "loc.th1": "Stufe", "loc.th2": "Code", "loc.th3": "Grundlage", "loc.th4": "Wert",
+      "loc.a": "Erhalten / vermessen", "loc.b": "Direkte Dokumentation", "loc.c": "Indirekte Quellen", "loc.d": "Analogie", "loc.e": "Hypothese",
+      "loc.n1": "Jede Stufe hat eine Farbe, einen Buchstaben und ein Symbol; die Skala ist so auch ohne Farbsehen und im Schwarzweißdruck lesbar.",
+      "loc.n2": "Eine Bewertung gilt für ein Objekt oder seine ganze Gruppe. Die Legende zählt bewertete Objekte je Stufe; ein Klick auf eine Stufe zeigt nur diese Teile.",
+      "loc.n3": "Projekte können im Manifest eigene Skalen, Bezeichnungen und Farben festlegen; sonst gilt die obige Standardskala.",
+      "loc.caption": "Bei aktiver Gewissheitsansicht zeigen die Marker Code und Symbol der Stufe statt der Annotationsnummern.",
+      "std.title": "Auf offenen Standards gebaut",
+      "std.lede": "Nichts an einem Modell oder seiner Deutung bleibt im Viewer eingeschlossen. Die Daten bleiben in Formaten, die andere Werkzeuge bereits lesen.",
+      "std.th1": "Standard", "std.th2": "Gepflegt von", "std.th3": "Verwendet für",
+      "std.1": "Szenen, Modelle, Kameras, Lichter, Transformationen und Kommentare; Import und Export ganzer Manifeste.",
+      "std.2": "Kommentare und Bewertungen auf Flächen und Bereichen, mit den Motivationen <code>commenting</code> und <code>assessing</code>, Punkt- und WKT-Selektoren.",
+      "std.3": "Das Auslieferungsformat, mit Draco- und Meshopt-Geometriekompression, KTX2/Basis-Texturen und unbeleuchteten Materialien.",
+      "std.4": "Streaming großer Meshes und Punktwolken im Detailgrad, den die Ansicht braucht.",
+      "std.5": "Gebäudemodelle, im Browser gelesen oder konvertiert, wobei ihre Property Sets als Metadaten erhalten bleiben.",
+      "std.6": "Punktwolken aus Laserscans, direkt geladen oder nach 3D Tiles konvertiert.",
+      "std.7": "Der AIM3D-Manifestblock, veröffentlicht und beim Import validiert.",
+      "std.wisskiBody": "WissKI-Community",
+      "std.8": "Drupal-basierte, CIDOC-CRM-fähige Repositorien, die Modelle und Metadaten vorhalten.",
+      "man.eyebrow": "Das Manifest ist die Ansicht",
+      "man.title": "Ein IIIF-Manifest mit dem Zustand des Viewers an Bord",
+      "man.p": "Standard-IIIF trägt die Szene. Der Block <code>AIM3DViewer</code> trägt, was Forschende darauf eingerichtet haben. Viewer, die den Block nicht kennen, zeigen trotzdem das Modell; ExPlora4D stellt die ganze Lesart wieder her.",
+      "man.1": "<strong>Exportieren</strong> Sie über die Werkzeugleiste, sobald die Ansicht steht.",
+      "man.2": "<strong>Validieren</strong> Sie gegen das veröffentlichte Schema; der Viewer prüft es auch beim Import.",
+      "man.3": "<strong>Teilen</strong> Sie die Datei oder ihre URL. Beim Öffnen werden Kamera, Licht, Schattierung und Annotationen wiederhergestellt.",
+      "tech.title": "Technologie",
+      "tech.lede": "Ein WebGL-Viewer im Browser, ein Konvertierungsdienst auf dem Server und derselbe Code für Repositorien und Smartphones.",
+      "tech.h1": "Im Browser", "tech.h2": "Auf dem Server", "tech.h3": "Auslieferung und Qualität",
+      "tech.p1": "Logarithmischer Tiefenpuffer für Modelle in Stadt- wie in Münzgröße; eine Nachbearbeitungskette mit SMAA, FXAA und sieben Tone-Mappings.",
+      "tech.p2": "Ein <code>docker compose up</code> startet den Viewer und die gesamte Konvertierung, mit Konten und Upload-Limits.",
+      "tech.p3": "End-to-End-Tests in einem echten WebGL-Browser decken Laden, Bearbeiten, Export und das Manifest-Schema ab.",
+      "fmt.h1": "Direkt geöffnet", "fmt.h2": "Beim Upload konvertiert",
+      "fmt.via": "Die direkt geöffneten Formate werden ebenso optimiert: zu komprimiertem GLB, mit Vorschaubildern aus neun Blickwinkeln.",
+      "dep.title": "Wo es läuft",
+      "dep.lede": "Derselbe Viewer, konfiguriert über eine Einstellungsdatei oder das Manifest selbst.",
+      "dep.1h": "Im Repositorium", "dep.1p": "Ein Drupal-Modul für WissKI: Modelle auf Entitätsseiten, Konvertierung beim Upload, Annotationen werden zurückgespeichert.",
+      "dep.2h": "Auf dem eigenen Server", "dep.2p": "Docker-Images für Viewer und Konvertierungsdienst, mit Profilen für Test, Entwicklung und eine Drag-and-drop-Sandbox.",
+      "dep.3h": "Auf jeder Seite", "dep.3p": "Ein Einbettungscode mit Präsentationsmodus, Autorotation und gewählter Kamera. Die Einstellungen folgen dem Manifest.",
+      "dep.4h": "Auf dem Smartphone", "dep.4p": "Android- und iOS-Fassungen desselben Viewers, für Feldarbeit und Lehre.",
+      "end.title": "Öffnen Sie die Synagoge von Wołpa und probieren Sie jede Lesart",
+      "end.p": "Die Beispielsammlung enthält die Scan-Ansichten, Streiflicht, Höhenlinien und die Gewissheitsansicht, jeweils als Manifest zum Herunterladen und Anpassen.",
+      "end.schema": "Schema lesen",
+      "foot.powered": "Basiert auf dem DLF AIM3D<sup>ex</sup> Viewer.",
+      "foot.dev": "Entwickelt von Daniel Dworak",
+      "foot.dfg": "Mit Unterstützung der Deutschen Forschungsgemeinschaft (DFG)",
+      "foot.langs": "Oberfläche auf Englisch, Polnisch und Deutsch",
+      "foot.viewer": "Viewer", "foot.schema": "Manifest-Schema (JSON)",
+    },
+  };
+
+  const notes = {
+    en: {
+      "original": ["The model as it was published: photographic textures, scene lights and environment.", "shadingMode: \"original\""],
+      "clay-ao": ["Untextured clay with ambient occlusion. Only the geometry is left, and the shadows in its corners.", "shadingMode: \"clay\" · postprocessing.ao: true"],
+      "raking": ["A light grazing the roofs at 9°. Shallow relief casts shadows that a frontal light flattens.", "rakingLight: { direction: 160, height: 9 }"],
+      "contours": ["A custom shader colours the building by height and draws a contour line every 100 units.", "shadingMode: \"custom\" · customShader"],
+      "normals": ["Surface directions as colours: flipped faces and mesh errors stand out at once.", "shadingMode: \"normals\""],
+      "certainty": ["Each element coloured by how well it is attested, from surveyed (A) to hypothesis (E).", "AIM3DViewer.certainty · visible: true"],
+    },
+    pl: {
+      "original": ["Model w opublikowanej postaci: fotograficzne tekstury, światła sceny i otoczenie."],
+      "clay-ao": ["Glina bez tekstury z okluzją otoczenia. Zostaje sama geometria i cienie w jej zakamarkach."],
+      "raking": ["Światło padające na dachy pod kątem 9°. Płytki relief rzuca cienie, które czołowe światło spłaszcza."],
+      "contours": ["Własny shader koloruje budynek według wysokości i rysuje warstwicę co 100 jednostek."],
+      "normals": ["Kierunki powierzchni jako kolory: odwrócone ściany i błędy siatki widać od razu."],
+      "certainty": ["Każdy element pokolorowany według tego, jak dobrze jest poświadczony, od pomiaru (A) po hipotezę (E)."],
+    },
+    de: {
+      "original": ["Das Modell wie veröffentlicht: fotografische Texturen, Szenenlicht und Umgebung."],
+      "clay-ao": ["Untexturierter Ton mit Umgebungsverdeckung. Es bleibt nur die Geometrie und der Schatten in ihren Ecken."],
+      "raking": ["Ein Licht, das die Dächer unter 9° streift. Flaches Relief wirft Schatten, die frontales Licht einebnet."],
+      "contours": ["Ein eigener Shader färbt das Gebäude nach Höhe und zeichnet alle 100 Einheiten eine Höhenlinie."],
+      "normals": ["Flächenrichtungen als Farben: umgedrehte Flächen und Mesh-Fehler fallen sofort auf."],
+      "certainty": ["Jedes Element nach seiner Belegdichte eingefärbt, vom vermessenen Befund (A) bis zur Hypothese (E)."],
+    },
+  };
+
+  // The English originals, read once from the page.
+  const english = {};
+  document.querySelectorAll("[data-i18n]").forEach((el) => { english[el.dataset.i18n] = el.innerHTML; });
+  document.querySelectorAll("[data-i18n-alt]").forEach((el) => { english[el.dataset.i18nAlt] = el.alt; });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => { english[el.dataset.i18nAria] = el.getAttribute("aria-label"); });
+  english["theme.toDark"] = "Switch to dark mode";
+  english["theme.toLight"] = "Switch to light mode";
+
+  let lang = "en";
+  let reading = "original";
+  const text = (key) => (lang === "en" ? english[key] : strings[lang][key] ?? english[key]);
+
+  const stage = document.getElementById("stage");
+  const note = document.getElementById("reading-note");
+  const tabs = [...document.querySelectorAll(".tab")];
+  const showReading = (next) => {
+    reading = next;
+    stage.querySelectorAll("img").forEach((img) => img.classList.toggle("on", img.dataset.reading === next));
+    tabs.forEach((tab) => tab.setAttribute("aria-selected", String(tab.dataset.reading === next)));
+    const line = notes[lang][next][0];
+    const key = notes.en[next][1];
+    note.textContent = line;
+    const code = document.createElement("span");
+    code.className = "key";
+    code.textContent = key;
+    note.append(code);
+  };
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => showReading(tab.dataset.reading));
+    tab.addEventListener("keydown", (event) => {
+      const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+      if (!step) return;
+      const next = tabs[(index + step + tabs.length) % tabs.length];
+      next.focus();
+      showReading(next.dataset.reading);
+    });
+  });
+
+  const themeButton = document.getElementById("theme-toggle");
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+  const isDark = () => {
+    if (root.classList.contains("force-dark")) return true;
+    if (root.classList.contains("force-light")) return false;
+    const host = root.getAttribute("data-theme");
+    if (host === "dark" || host === "light") return host === "dark";
+    return systemDark.matches;
+  };
+  const syncThemeButton = () => {
+    const dark = isDark();
+    themeButton.classList.toggle("is-dark", dark);
+    themeButton.setAttribute("aria-label", text(dark ? "theme.toLight" : "theme.toDark"));
+    themeButton.title = themeButton.getAttribute("aria-label");
+  };
+  const setTheme = (theme) => {
+    root.classList.toggle("force-dark", theme === "dark");
+    root.classList.toggle("force-light", theme === "light");
+    syncThemeButton();
+  };
+  themeButton.addEventListener("click", () => {
+    const next = isDark() ? "light" : "dark";
+    setTheme(next);
+    store.set("explora4d-theme", next);
+  });
+  systemDark.addEventListener?.("change", syncThemeButton);
+  new MutationObserver(syncThemeButton).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+
+  const setLanguage = (next) => {
+    lang = strings[next] || next === "en" ? next : "en";
+    root.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach((el) => { el.innerHTML = text(el.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-alt]").forEach((el) => { el.alt = text(el.dataset.i18nAlt); });
+    document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.setAttribute("aria-label", text(el.dataset.i18nAria)); });
+    document.querySelectorAll(".lang button").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.lang === lang)));
+    showReading(reading);
+    syncThemeButton();
+  };
+  document.querySelectorAll(".lang button").forEach((button) => {
+    button.addEventListener("click", () => {
+      setLanguage(button.dataset.lang);
+      store.set("explora4d-lang", lang);
+    });
+  });
+
+  // A remembered choice, else the browser's language.
+  const savedTheme = store.get("explora4d-theme");
+  if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
+  else syncThemeButton();
+  const savedLang = store.get("explora4d-lang");
+  const browserLang = (navigator.language || "en").slice(0, 2).toLowerCase();
+  setLanguage(["en", "pl", "de"].includes(savedLang) ? savedLang : (["pl", "de"].includes(browserLang) ? browserLang : "en"));
+})();
+</script>
+</body>
+</html>

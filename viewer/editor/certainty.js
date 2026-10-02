@@ -29,6 +29,9 @@ function contrastColor(hex) {
   return luminance > 0.45 ? "#111827" : "#ffffff";
 }
 
+// Filter key of the objects no annotation assesses.
+const UNASSESSED = "__unassessed__";
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]
@@ -44,10 +47,14 @@ export function attachCertainty(Viewer) {
     // mesh -> its colour overlay, while the view is on.
     certaintyOverlays: null,
     certaintyLegend: null,
+    // Level codes (and UNASSESSED) picked in the legend, or null: no filter,
+    // every level shown. An empty set (Select none) shows none.
+    certaintyFilter: null,
 
     setCertaintyScale(raw) {
       Viewer.certaintyScale = normalizeCertaintyScale(raw);
       Viewer.certaintyScaleFromManifest = raw != null;
+      Viewer.certaintyFilter = null;
       Viewer.populateCertaintyDialogOptions?.();
       if (Viewer.certaintyView) Viewer.refreshAnnotationPOIs?.();
     },
@@ -126,33 +133,83 @@ export function attachCertainty(Viewer) {
       return slots.flat().filter((item) => item?.isObject3D);
     },
 
-    // Paints the model for the view; does nothing while it is off.
+    // Whether the legend's filter shows objects (and badges) of `key`, a
+    // level code or UNASSESSED.
+    isCertaintyKeyShown(key) {
+      const filter = Viewer.certaintyFilter;
+      return !filter || filter.has(key);
+    },
+
+    // An annotation badge hidden by the legend's filter.
+    isCertaintyEntryFilteredOut(entry) {
+      if (!Viewer.certaintyView || !Viewer.certaintyFilter) return false;
+      const level = Viewer.getCertaintyLevelForEntry(entry);
+      return !Viewer.isCertaintyKeyShown(level ? level.code : UNASSESSED);
+    },
+
+    // Every key the legend can filter by: the levels and UNASSESSED.
+    getCertaintyFilterKeys() {
+      return [...Viewer.certaintyScale.levels.map((level) => level.code), UNASSESSED];
+    },
+
+    // Picks or drops `key` in the filter and repaints; dropping the last one
+    // lifts the filter.
+    toggleCertaintyFilter(key) {
+      const filter = new Set(Viewer.certaintyFilter || []);
+      if (filter.has(key)) filter.delete(key);
+      else filter.add(key);
+      return Viewer.setCertaintyFilter(filter.size ? filter : null);
+    },
+
+    // Select all (every level picked) or none (nothing painted).
+    selectAllCertaintyLevels(all) {
+      return Viewer.setCertaintyFilter(all ? Viewer.getCertaintyFilterKeys() : []);
+    },
+
+    // `keys`: the keys to show, or null for no filter. Repaints.
+    setCertaintyFilter(keys) {
+      Viewer.certaintyFilter = keys == null ? null : new Set(keys);
+      Viewer.refreshAnnotationPOIs?.();
+      return Viewer.certaintyFilter ? Array.from(Viewer.certaintyFilter) : null;
+    },
+
+    // Every level picked, or no filter at all.
+    isEveryCertaintyLevelShown() {
+      const filter = Viewer.certaintyFilter;
+      return !filter || Viewer.getCertaintyFilterKeys().every((key) => filter.has(key));
+    },
+
+    // Paints the model for the view; does nothing while it is off. Objects
+    // of levels left out by the legend's filter keep their own look.
     applyCertaintyView() {
       Viewer.removeCertaintyOverlays();
       if (!Viewer.certaintyView) return;
 
-      const overlays = new Map();
-      Viewer.certaintyOverlays = overlays;
-      const paint = (mesh, color) => {
+      // mesh -> { color, key }, the last paint winning.
+      const paints = new Map();
+      const paint = (mesh, color, key) => {
         if (!mesh.isMesh || !mesh.geometry || mesh.userData?.isCertaintyOverlay) return;
         if (Viewer.isPickingOverlayObject?.(mesh)) return;
-        const overlay = overlays.get(mesh);
-        if (overlay) {
-          overlay.material.color.set(color);
-          return;
-        }
-        overlays.set(mesh, Viewer.createCertaintyOverlay(mesh, color));
+        paints.set(mesh, { color, key });
       };
 
       Viewer.getCertaintyRoots().forEach((root) => {
-        root.traverse((child) => paint(child, Viewer.certaintyScale.unassessedColor));
+        root.traverse((child) => paint(child, Viewer.certaintyScale.unassessedColor, UNASSESSED));
       });
       const counts = new Map();
       Viewer.getCertaintyAssessments().forEach(({ level, node }) => {
-        node.traverse((child) => paint(child, level.color));
+        node.traverse((child) => paint(child, level.color, level.code));
         counts.set(level.code, (counts.get(level.code) || 0) + 1);
       });
-      overlays.forEach((overlay, mesh) => mesh.add(overlay));
+
+      const overlays = new Map();
+      Viewer.certaintyOverlays = overlays;
+      paints.forEach(({ color, key }, mesh) => {
+        if (!Viewer.isCertaintyKeyShown(key)) return;
+        const overlay = Viewer.createCertaintyOverlay(mesh, color);
+        overlays.set(mesh, overlay);
+        mesh.add(overlay);
+      });
       Viewer.renderCertaintyLegend(counts);
     },
 
@@ -215,6 +272,7 @@ export function attachCertainty(Viewer) {
     setCertaintyView(enabled) {
       Viewer.certaintyView = enabled === true;
       if (!Viewer.certaintyView) {
+        Viewer.certaintyFilter = null;
         Viewer.removeCertaintyOverlays();
         Viewer.removeCertaintyLegend();
       }
@@ -229,10 +287,19 @@ export function attachCertainty(Viewer) {
       return Viewer.setCertaintyView(!Viewer.certaintyView);
     },
 
-    // Before a new model: its meshes are gone, the view stays switched on.
+    // Before a new model: its meshes are gone, and the view, the filter and
+    // the scale go with the old model. A manifest with a visible scale
+    // switches the view back on (import3IFManifest).
     disposeCertaintyView() {
       Viewer.certaintyOverlays = null;
       Viewer.removeCertaintyLegend();
+      Viewer.certaintyView = false;
+      Viewer.certaintyFilter = null;
+      Viewer.certaintyScale = normalizeCertaintyScale(null);
+      Viewer.certaintyScaleFromManifest = false;
+      Viewer.populateCertaintyDialogOptions?.();
+      Viewer.updateEditorToolbarLabels?.();
+      Viewer.updateEditorToolbarState?.();
     },
 
     applyCertaintyLanguage() {
@@ -257,7 +324,17 @@ export function attachCertainty(Viewer) {
         legend.className = "certainty-legend";
         legend.setAttribute("aria-live", "polite");
         legend.addEventListener("click", (event) => {
-          if (event.target.closest(".certainty-legend__close")) Viewer.setCertaintyView(false);
+          if (event.target.closest(".certainty-legend__close")) {
+            Viewer.setCertaintyView(false);
+            return;
+          }
+          const toggleAll = event.target.closest(".certainty-legend__select-all");
+          if (toggleAll) {
+            Viewer.selectAllCertaintyLevels(toggleAll.dataset.select === "all");
+            return;
+          }
+          const swatch = event.target.closest(".certainty-legend__swatch[data-filter]");
+          if (swatch) Viewer.toggleCertaintyFilter(swatch.dataset.filter);
         });
         legend.addEventListener("input", (event) => {
           if (event.target.matches(".certainty-legend__opacity input")) {
@@ -271,12 +348,23 @@ export function attachCertainty(Viewer) {
       const title = scale.label
         ? certaintyText(scale.label, core.currentLanguage || "en")
         : t("certainty.legendTitle", "Level of Certainty (LoC)");
+      const filter = Viewer.certaintyFilter;
+      const filterTitle = escapeHtml(t("certainty.filter", "Show only this level (click again to undo)"));
+      // A swatch is a toggle button of the filter; the picked ones ringed,
+      // the rows left out dimmed.
+      const swatch = (key, color, text) => `
+            <button type="button" class="certainty-legend__swatch${filter?.has(key) ? " is-active" : ""}" data-filter="${escapeHtml(key)}" aria-pressed="${filter?.has(key) === true}" title="${filterTitle}" style="background:${color};color:${contrastColor(color)}">${escapeHtml(text)}</button>`;
+      const rowClass = (key) => (filter && !filter.has(key) ? " is-filtered-out" : "");
+      // Select none while everything shows, select all otherwise.
+      const selectAll = !Viewer.isEveryCertaintyLevelShown();
+      const selectLabel = selectAll
+        ? t("certainty.selectAll", "Select all")
+        : t("certainty.selectNone", "Select none");
       const rows = scale.levels.map((level, index) => {
         const range = certaintyLevelRange(scale, index);
         const count = counts.get(level.code) || 0;
         return `
-          <li class="certainty-legend__row" data-code="${escapeHtml(level.code)}">
-            <span class="certainty-legend__swatch" style="background:${level.color};color:${contrastColor(level.color)}" aria-hidden="true">${escapeHtml(level.symbol || level.code)}</span>
+          <li class="certainty-legend__row${rowClass(level.code)}" data-code="${escapeHtml(level.code)}">${swatch(level.code, level.color, level.symbol || level.code)}
             <span class="certainty-legend__code">${escapeHtml(level.code)}</span>
             <span class="certainty-legend__label">${escapeHtml(Viewer.getCertaintyLevelLabel(level))}</span>
             <span class="certainty-legend__range">${escapeHtml(range)}</span>
@@ -287,12 +375,12 @@ export function attachCertainty(Viewer) {
       legend.innerHTML = `
         <div class="certainty-legend__header">
           <h4 class="certainty-legend__title">${escapeHtml(title)}</h4>
+          <button type="button" class="certainty-legend__select-all" data-select="${selectAll ? "all" : "none"}">${escapeHtml(selectLabel)}</button>
           <button type="button" class="certainty-legend__close" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">&times;</button>
         </div>
         <ul class="certainty-legend__levels">
           ${rows}
-          <li class="certainty-legend__row certainty-legend__row--unassessed">
-            <span class="certainty-legend__swatch" style="background:${scale.unassessedColor};color:${contrastColor(scale.unassessedColor)}" aria-hidden="true">–</span>
+          <li class="certainty-legend__row certainty-legend__row--unassessed${rowClass(UNASSESSED)}">${swatch(UNASSESSED, scale.unassessedColor, "–")}
             <span class="certainty-legend__code"></span>
             <span class="certainty-legend__label">${escapeHtml(t("certainty.unassessed", "Not assessed"))}</span>
           </li>

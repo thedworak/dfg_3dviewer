@@ -450,6 +450,8 @@ export function attachAnnotations(Viewer) {
       const leaderLayout = this.annotationLeaderLines ? this.getAnnotationLeaderLayout() : null;
       let added = 0;
       entries.forEach((entry, index) => {
+        // Left out by the Level of Certainty legend's filter.
+        if (this.isCertaintyEntryFilteredOut?.(entry)) return;
         const center = this.getAnnotationEntryCenter(entry);
         if (!center) return;
         // With leader lines on, the number sits above the model on a
@@ -1551,6 +1553,9 @@ export function attachAnnotations(Viewer) {
           // The Level of Certainty scale, when used.
           certainty: this.getCertaintyScaleForExport?.(),
 
+          // The raking light, while it is on.
+          rakingLight: this.getRakingLightForExport?.(),
+
           modelTransform: {
             position:
               primaryModelObject?.position?.toArray?.() ||
@@ -1576,7 +1581,8 @@ export function attachAnnotations(Viewer) {
 
             wireframe: core.wireframeMode || false,
 
-            shadingMode: this.shadingMode || "standard",
+            // Left out for the materials as loaded (the default).
+            ...(this.shadingMode && this.shadingMode !== "original" ? { shadingMode: this.shadingMode } : {}),
 
             ...(this.shadingMode === "custom"
               ? {
@@ -2089,7 +2095,10 @@ export function attachAnnotations(Viewer) {
       }
 
       if (typeof modelTransform.shadingMode === "string") {
-        this.setShadingMode?.(modelTransform.shadingMode, {
+        // "standard" was the default every manifest was written with before
+        // "original" existed: it meant the model's own look.
+        const shadingMode = modelTransform.shadingMode === "standard" ? "original" : modelTransform.shadingMode;
+        this.setShadingMode?.(shadingMode, {
           vertexShader: modelTransform.customShader?.vertexShader,
           fragmentShader: modelTransform.customShader?.fragmentShader,
           silent: true,
@@ -2121,6 +2130,12 @@ export function attachAnnotations(Viewer) {
       // The manifest's Level of Certainty scale (the default one without),
       // before its annotations are read against it.
       this.setCertaintyScale?.(aim3dConfig?.certainty ?? null);
+      // Imported over the current model (no reset): a manifest without a
+      // scale leaves no Level of Certainty view open.
+      if (!aim3dConfig?.certainty && this.certaintyView) this.setCertaintyView(false);
+      // The raking light dims the lights and the environment the manifest
+      // is about to set: off first, on again (if the manifest has it) after.
+      this.setRakingLight?.(false);
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
         const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
@@ -2128,6 +2143,7 @@ export function attachAnnotations(Viewer) {
         const appliedIntegration = this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
         const appliedLights = this.apply3IFManifestLights(aim3dConfig.lights);
         const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
+        const appliedRakingLight = this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
 
         appliedAIM3DConfig = [
           appliedCamera,
@@ -2136,6 +2152,7 @@ export function attachAnnotations(Viewer) {
           appliedIntegration,
           appliedLights,
           appliedModelTransform,
+          appliedRakingLight,
         ].some(Boolean);
       }
 
