@@ -32,7 +32,7 @@ The English text is the page's own HTML. Polish and German are the `strings`
 dictionaries in the script at the end of `index.html`, keyed by the elements'
 `data-i18n` (text), `data-i18n-alt` (image alt) and `data-i18n-aria`
 (labels) attributes; a key missing from a dictionary falls back to English.
-The captions of the six model views are in `notes`.
+The captions of the model views are in `notes`.
 
 The first visit follows the browser's language and the system's light or dark
 setting; the header switches override both and are remembered
@@ -40,8 +40,10 @@ setting; the header switches override both and are remembered
 
 ## Screenshots
 
-The six views of the Wołpa synagogue (`img/original.webp`, `clay-ao`,
-`raking`, `contours`, `normals`, `certainty`) are rendered by the viewer
+The views of the Wołpa synagogue in the hero (`img/original.webp`, `section`,
+`annotations`, `clay-ao`, `raking`, `contours`, `normals`, `certainty`,
+`golden-hour`, `night`, `wireframe`, `measurement`; `section` is also the phone screen in the Mobile
+section) are rendered by the viewer
 itself from the example manifests in `viewer/manifesto/examples`. After a
 visual change to the viewer, render them again:
 
@@ -52,3 +54,22 @@ node website/scripts/capture-screenshots.mjs
 ```
 
 The logos in `img/` are copies of `viewer/img/logo/ExPlora4D*.webp`.
+
+## App store badges and QR codes
+
+The Mobile section links to the app with the official badges (Google Play in
+English, Polish and German, swapped with the page's language; App Store in
+English) and a QR code for each store. Until the app is published, the links
+and codes are examples: Google Play uses the app's id from
+`capacitor.config.json` (`com.thedworak.explora4d`), the App Store a
+placeholder id. Once the store pages exist, change the two `href`s in the
+Mobile section and render the codes again:
+
+```bash
+npx -y qrcode@1.5.4 -t svg -e M -q 1 -o website/img/qr-google-play.svg "https://play.google.com/store/apps/details?id=com.thedworak.explora4d"
+npx -y qrcode@1.5.4 -t svg -e M -q 1 -o website/img/qr-app-store.svg "https://apps.apple.com/app/<name>/id<number>"
+```
+
+Then drop the "examples" sentence (`store.note`, in all three languages).
+The badges come from Google's and Apple's badge pages and follow their usage
+guidelines: shown unchanged, at the same height, linking to the app.

@@ -9,6 +9,7 @@
     {
       "id": "./examples/WolpaSynagogue.glb/scene",
       "type": "Scene",
+      "spatialScale": { "type": "Quantity", "quantityValue": 0.01, "unit": "m" },
       "label": {
         "en": ["Wolpa Synagogue"]
       },
