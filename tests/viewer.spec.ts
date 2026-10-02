@@ -1,5 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validation.js';
 
 const defaultModel = '/examples/box.stl';
 const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ';
@@ -989,6 +991,55 @@ test('Level of Certainty: objects and groups get see-through colour overlays by 
   expect((await state()).slider).toBe('70%');
   expect(await page.locator('[data-tool="certainty"]').getAttribute('aria-pressed')).toBe('true');
 
+  // Clicking a legend swatch filters: only that level stays painted (and
+  // badged), its swatch ringed; clicking it again shows every level.
+  const swatchB = page.locator('.certainty-legend__row[data-code="B"] .certainty-legend__swatch');
+  await swatchB.click();
+  const filtered = await state();
+  expect(filtered.walls).toBe('#2166ac');
+  expect(filtered.roof).toBeNull();
+  expect(filtered.door).toBeNull();
+  expect(filtered.markers).toBe(1);
+  await expect(swatchB).toHaveAttribute('aria-pressed', 'true');
+  await expect(swatchB).toHaveClass(/is-active/);
+  await expect(page.locator('.certainty-legend__row[data-code="E"]')).toHaveClass(/is-filtered-out/);
+  // Several levels at once.
+  await page.locator('.certainty-legend__row[data-code="E"] .certainty-legend__swatch').click();
+  expect((await state()).roof).toBe('#c51b7d');
+  expect((await state()).markers).toBe(2);
+  await page.locator('.certainty-legend__row[data-code="E"] .certainty-legend__swatch').click();
+  await swatchB.click();
+  const unfiltered = await state();
+  expect(unfiltered.roof).toBe('#c51b7d');
+  expect(unfiltered.markers).toBe(2);
+  await expect(swatchB).toHaveAttribute('aria-pressed', 'false');
+  expect(unfiltered.opacity).toBeCloseTo(0.7);
+
+  // Select none / all: one button, its label following the selection.
+  const selectAll = page.locator('.certainty-legend__select-all');
+  await expect(selectAll).toHaveText('Select none');
+  await selectAll.click();
+  const none = await state();
+  expect(none.walls).toBeNull();
+  expect(none.roof).toBeNull();
+  expect(none.markers).toBe(0);
+  await expect(page.locator('.certainty-legend__swatch.is-active')).toHaveCount(0);
+  await expect(selectAll).toHaveText('Select all');
+  await selectAll.click();
+  const all = await state();
+  expect(all.walls).toBe('#2166ac');
+  expect(all.roof).toBe('#c51b7d');
+  expect(all.markers).toBe(2);
+  // Every level ringed, the unassessed one too.
+  await expect(page.locator('.certainty-legend__swatch.is-active')).toHaveCount(6);
+  await expect(selectAll).toHaveText('Select none');
+  // Dropping one level from "all" leaves the rest.
+  await swatchB.click();
+  expect((await state()).walls).toBeNull();
+  expect((await state()).roof).toBe('#c51b7d');
+  await expect(selectAll).toHaveText('Select all');
+  await page.evaluate(() => window.Viewer.setCertaintyFilter(null));
+
   // Export: the scale, an "assessing" motivation and the assessment.
   const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
   expect(manifest.AIM3DViewer.certainty.levels.map((level) => level.code)).toEqual(['A', 'B', 'C', 'D', 'E']);
@@ -1039,6 +1090,163 @@ test('Level of Certainty: objects and groups get see-through colour overlays by 
   const invalid = structuredClone(manifest);
   invalid.items[0].annotations[0].items[0].AIM3DViewer.certainty.value = 12;
   expect(await page.evaluate((json) => window.Viewer.import3IFManifest(json), invalid)).toBe(false);
+
+  // A manifest without a scale, imported over the open view, closes it.
+  const plain = structuredClone(manifest);
+  delete plain.AIM3DViewer.certainty;
+  plain.items[0].annotations[0].items.forEach((annotation) => { delete annotation.AIM3DViewer?.certainty; });
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), plain);
+  expect((await state()).view).toBe(false);
+  await expect(page.locator('.certainty-legend')).toHaveCount(0);
+
+  // Switching models switches the view off and forgets the scale and the
+  // filter; the next manifest decides again.
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  await page.locator('.certainty-legend__row[data-code="B"] .certainty-legend__swatch').click();
+  const switched = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.resetLoadedModelState();
+    return {
+      view: viewer.certaintyView,
+      filter: viewer.certaintyFilter,
+      fromManifest: viewer.certaintyScaleFromManifest,
+      opacity: viewer.certaintyScale.opacity,
+      legend: document.querySelectorAll('.certainty-legend').length,
+      pressed: document.querySelector('[data-tool="certainty"]')?.getAttribute('aria-pressed'),
+    };
+  });
+  expect(switched).toEqual({ view: false, filter: null, fromManifest: false, opacity: 0.4, legend: 0, pressed: 'false' });
+});
+
+test('shading modes: the original materials come back untouched, switched-out ones are released, scan views and manifests', async ({ page }) => {
+  await openViewer(page, '/examples/compressed.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  // A textured part of the model, with its loader material.
+  const prepared = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    let mesh = null;
+    viewer.resolveObjectByTargetId('m0:root').traverse((child) => {
+      if (!mesh && child.isMesh && !Array.isArray(child.material) && child.material.map) mesh = child;
+    });
+    viewer.__shadingMesh = mesh;
+    viewer.__shadingOriginal = mesh.material;
+    return { mode: viewer.shadingMode, type: mesh.material.type };
+  });
+  expect(prepared.mode).toBe('original');
+
+  const material = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    const current = viewer.__shadingMesh.material;
+    return {
+      type: current.type,
+      original: current === viewer.__shadingOriginal,
+      map: Boolean(current.map),
+      sameMap: current.map === viewer.__shadingOriginal.map,
+      flat: current.flatShading === true,
+      sharedPlanes: current.clippingPlanes === viewer.__shadingOriginal.clippingPlanes,
+    };
+  });
+
+  // Phong is made from the original; leaving it releases it, and "original"
+  // puts back the very material the loader made.
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.setShadingMode('phong', { silent: true });
+    viewer.__released = false;
+    viewer.__shadingMesh.material.addEventListener('dispose', () => { viewer.__released = true; });
+  });
+  expect((await material()).type).toBe('MeshPhongMaterial');
+  // The submenu button (its tool sits in the toolbar's folded tray).
+  await page.evaluate(() => document.querySelector('[data-tool="shading-original"]').click());
+  expect(await material()).toMatchObject({ original: true, type: prepared.type });
+  expect(await page.evaluate(() => window.Viewer.__released)).toBe(true);
+  await expect(page.locator('[data-tool="shading-original"]')).toHaveClass(/is-active/);
+
+  // Scan views: flat keeps the material and its maps, faceted; clay and
+  // matcap drop the texture; normals.
+  await page.evaluate(() => window.Viewer.setShadingMode('flat', { silent: true }));
+  expect(await material()).toMatchObject({ type: prepared.type, original: false, flat: true, sameMap: true, sharedPlanes: true });
+  await page.evaluate(() => window.Viewer.setShadingMode('clay', { silent: true }));
+  expect(await material()).toMatchObject({ type: 'MeshStandardMaterial', map: false });
+  await page.evaluate(() => window.Viewer.setShadingMode('matcap', { silent: true }));
+  expect(await material()).toMatchObject({ type: 'MeshMatcapMaterial', map: false });
+  await page.evaluate(() => window.Viewer.setShadingMode('normals', { silent: true }));
+  expect((await material()).type).toBe('MeshNormalMaterial');
+  // The original is still the loader's, not touched by the switches.
+  expect(await page.evaluate(() => window.Viewer.__shadingOriginal.flatShading)).toBe(false);
+
+  // Manifests: a mode is exported and read back; the materials as loaded
+  // are the default and left out; "standard", the old default, reads as
+  // the original materials.
+  await page.evaluate(() => window.Viewer.setShadingMode('clay', { silent: true }));
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.modelTransform.shadingMode).toBe('clay');
+  await page.evaluate(() => window.Viewer.setShadingMode('original', { silent: true }));
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.modelTransform.shadingMode)).toBeUndefined();
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  expect(await page.evaluate(() => window.Viewer.shadingMode)).toBe('clay');
+  const legacy = structuredClone(manifest);
+  legacy.AIM3DViewer.modelTransform.shadingMode = 'standard';
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), legacy);
+  expect(await page.evaluate(() => window.Viewer.shadingMode)).toBe('original');
+  expect((await material()).original).toBe(true);
+
+  // A new model is shown with its own materials.
+  await page.evaluate(() => window.Viewer.setShadingMode('matcap', { silent: true }));
+  await page.evaluate(() => window.Viewer.resetLoadedModelState());
+  expect(await page.evaluate(() => window.Viewer.shadingMode)).toBe('original');
+});
+
+test('example manifests: all valid, and the scan views open as written (shading, ambient occlusion, raking light, custom shader)', async ({ page }) => {
+  test.setTimeout(120_000);
+  // Every example passes the viewer's own validation.
+  const dir = 'viewer/manifesto/examples';
+  for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.json'))) {
+    const result = validateAIM3DManifest(JSON.parse(fs.readFileSync(`${dir}/${file}`, 'utf8')));
+    expect(result.errors, file).toEqual([]);
+  }
+
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const open = async (name) => {
+    await page.evaluate(async (file) => {
+      const text = await (await fetch(`/manifests/wolpa-synagogue-aim3d-local-${file}.json`)).text();
+      window.viewer.fullModelLoaded = false;
+      window.viewer.toasts = [];
+      await window.Viewer.setupManifesto(text, 'text');
+    }, name);
+    await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+    return page.evaluate(() => ({
+      shading: window.Viewer.shadingMode,
+      ao: window.viewer.ambientOcclusion,
+      raking: { ...window.Viewer.rakingLight },
+    }));
+  };
+
+  expect(await open('raking-light')).toEqual({
+    shading: 'clay',
+    ao: false,
+    raking: expect.objectContaining({ enabled: true, height: 10, sweep: true }),
+  });
+  // It goes back into an export as it came.
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer);
+  expect(exported.rakingLight).toMatchObject({ enabled: true, height: 10, sweep: true });
+  expect(exported.modelTransform.shadingMode).toBe('clay');
+
+  // A manifest without one switches it off.
+  expect(await open('clay-ao')).toEqual({
+    shading: 'clay',
+    ao: true,
+    raking: expect.objectContaining({ enabled: false }),
+  });
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.rakingLight)).toBeUndefined();
+
+  // The custom shader of the contours example compiles.
+  expect((await open('contours')).shading).toBe('custom');
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await page.evaluate(() => window.viewer.toasts.filter((text) => text.includes('does not compile')))).toEqual([]);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
 test('IIIF Presentation 4 transforms apply in order, and manifest lights replace the default ones', async ({ page }) => {
@@ -1868,5 +2076,115 @@ test('tone mapping defaults to Neutral and post-processing is switched from the 
 
   await clickTool('renderingPostprocessing');
   await expect.poll(async () => (await state()).postProcessing).toBe(false);
+
+  // Ambient occlusion runs the chain by itself, post-processing left off;
+  // its strength follows the slider, and it is saved with the rendering.
+  await clickTool('renderingAo');
+  await expect.poll(() => page.evaluate(() => [window.viewer.ambientOcclusion, window.viewer.postProcessing])).toEqual([true, true]);
+  expect((await state()).rendering.postprocessing).toMatchObject({ enabled: false, ao: true, aoIntensity: 1 });
+  await expect.poll(centerAlpha).toBeGreaterThan(0);
+  // A slider in a folded menu: set as the input event a drag sends.
+  const setSlider = (tool, value) => page.evaluate(([key, next]) => {
+    const input = document.querySelector(`button[data-tool="${key}"] input[type="range"]`);
+    input.value = next;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [tool, value]);
+  await setSlider('renderingAoIntensity', '1.5');
+  expect((await state()).rendering.postprocessing.aoIntensity).toBeCloseTo(1.5);
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.viewer.rendering.postprocessing);
+  expect(exported).toMatchObject({ ao: true, aoIntensity: 1.5 });
+  await clickTool('renderingAo');
+  await expect.poll(() => page.evaluate(() => [window.viewer.ambientOcclusion, window.viewer.postProcessing])).toEqual([false, false]);
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('raking light grazes the view with the other lights dimmed, sweeps, and goes with the model', async ({ page }) => {
+  await openViewer(page, '/examples/compressed.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const clickTool = (key) => page.evaluate((tool) => document.querySelector(`button[data-tool="${tool}"]`).click(), key);
+
+  const lights = () => page.evaluate(() => {
+    const result = { raking: null, others: [], environment: window.Viewer.scene.environmentIntensity };
+    window.Viewer.scene.traverse((object) => {
+      if (!object.isLight) return;
+      if (object.userData.isRakingLight) {
+        // Its direction in camera space: x right, y up, z towards the viewer.
+        const direction = object.position.clone().sub(object.target.position).normalize()
+          .applyQuaternion(window.Viewer.camera.quaternion.clone().invert());
+        result.raking = direction.toArray().map((value) => Math.round(value * 100) / 100);
+      } else {
+        result.others.push(object.intensity);
+      }
+    });
+    return result;
+  });
+
+  const before = await lights();
+  expect(before.raking).toBeNull();
+  await clickTool('lightRakingToggle');
+  await expect(page.locator('button[data-tool="lightRakingToggle"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => window.Viewer.setRakingLightAngles({ direction: 0, height: 10 }));
+  const on = await lights();
+  // From the right of the screen, 10 degrees above the surface facing the camera.
+  expect(on.raking[0]).toBeCloseTo(Math.cos(Math.PI / 18), 1);
+  expect(on.raking[1]).toBeCloseTo(0, 1);
+  expect(on.raking[2]).toBeCloseTo(Math.sin(Math.PI / 18), 1);
+  on.others.forEach((intensity, index) => expect(intensity).toBeCloseTo(before.others[index] * 0.12));
+  expect(on.environment).toBeCloseTo(before.environment * 0.12);
+  // The slider shows degrees.
+  // A slider in a folded menu: set as the input event a drag sends.
+  const setSlider = (tool, value) => page.evaluate(([key, next]) => {
+    const input = document.querySelector(`button[data-tool="${key}"] input[type="range"]`);
+    input.value = next;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [tool, value]);
+  await setSlider('lightRakingHeight', '30');
+  await expect(page.locator('button[data-tool="lightRakingHeight"] .viewer-editor-tool_submenu-value')).toHaveText('30°');
+  expect((await lights()).raking[2]).toBeCloseTo(0.5, 1);
+
+  // The sweep turns it round the view.
+  await page.evaluate(() => window.Viewer.setRakingLightSweep(true));
+  const direction = await page.evaluate(() => window.Viewer.rakingLight.direction);
+  await expect.poll(() => page.evaluate(() => window.Viewer.rakingLight.direction)).not.toBe(direction);
+
+  // Off: the other lights as they were. A new model switches it off too.
+  await clickTool('lightRakingToggle');
+  const off = await lights();
+  expect(off).toEqual(before);
+  await clickTool('lightRakingToggle');
+  await page.evaluate(() => window.Viewer.resetLoadedModelState());
+  expect(await page.evaluate(() => [window.Viewer.rakingLight.enabled, window.Viewer.rakingLight.sweep])).toEqual([false, false]);
+  await expect(page.locator('button[data-tool="lightRakingToggle"]')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('custom shader: the default one compiles with section planes and vertex colours, a broken one is reported', async ({ page }) => {
+  await openViewer(page, '/examples/compressed.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  const nextFrames = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  // With a section plane, so the clipping chunks are compiled in.
+  const custom = await page.evaluate(() => {
+    window.viewer.toasts = [];
+    window.Viewer.setShadingMode('custom', { silent: true });
+    const types = new Set();
+    window.Viewer.resolveObjectByTargetId('m0:root').traverse((child) => {
+      if (!child.isMesh || child.userData.isCertaintyOverlay) return;
+      child.material.clippingPlanes = [new window.THREE.Plane(new window.THREE.Vector3(0, -1, 0), 1000)];
+      types.add(child.material.type);
+    });
+    return [...types];
+  });
+  expect(custom).toEqual(['ShaderMaterial']);
+  await nextFrames();
+  expect(await page.evaluate(() => [window.viewer.toasts, window.viewer.errors])).toEqual([[], []]);
+
+  await page.evaluate(() => window.Viewer.setShadingMode('custom', {
+    vertexShader: window.Viewer.customVertexShader,
+    fragmentShader: 'void main() { gl_FragColor = vec4(undefinedValue, 1.0); }',
+  }));
+  await expect.poll(() => page.evaluate(() => window.viewer.toasts.join(' '))).toContain('does not compile');
+  // Reported once per Apply, not every frame.
+  await nextFrames();
+  expect(await page.evaluate(() => window.viewer.toasts.filter((text) => text.includes('does not compile')).length)).toBe(1);
+  await page.evaluate(() => window.Viewer.setShadingMode('original', { silent: true }));
 });

@@ -6,3 +6,4 @@ worker/data
 *.log
 __pycache__
 *.py[cod]
+website

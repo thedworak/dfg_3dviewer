@@ -19,6 +19,9 @@ function resolveBuildId() {
   }
 }
 const buildId = resolveBuildId();
+// When the bundle was built (ISO 8601, UTC), shown beside BUILD_ID; BUILD_TIME
+// overrides it (e.g. the commit's time, for a reproducible build).
+const buildTime = process.env.BUILD_TIME?.trim() || new Date().toISOString();
 
 const source = process.env.BUILD_SOURCE ?? "IIIF";
 const envBuild = process.env.BUILD ?? "test";
@@ -480,6 +483,7 @@ export default {
         __BUILD_SOURCE__: JSON.stringify(source),
         __BUILD__: JSON.stringify(envBuild),
         __BUILD_ID__: JSON.stringify(buildId),
+        __BUILD_TIME__: JSON.stringify(buildTime),
         __IS_PROD__: JSON.stringify(production),
         __MODULES_PATH__: JSON.stringify(modulesPath),
         __ENV_SUBDIR__: JSON.stringify(envSubdir),

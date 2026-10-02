@@ -13,6 +13,7 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
     "viewer": {},
     "integration": {},
     "lights": [],
+    "rakingLight": {},
     "modelTransform": {}
   }
 }
@@ -67,7 +68,9 @@ Stores runtime viewer options.
     "exposure": 1,
     "postprocessing": {
       "enabled": false,
-      "antialias": "msaa"
+      "antialias": "msaa",
+      "ao": false,
+      "aoIntensity": 1
     }
   },
   "tour": {
@@ -128,6 +131,8 @@ Notes:
   - `exposure`: tone mapping exposure, a number `>= 0` (default `1`)
   - `postprocessing.enabled`: renders through a post-processing chain (default `false`); tone mapping looks the same either way
   - `postprocessing.antialias`: anti-aliasing used by that chain - `msaa` (4x multisampling, default), `smaa`, `fxaa` (cheapest) or `none`
+  - `postprocessing.ao`: ambient occlusion (GTAO) - darkens crevices and corners so relief reads better (default `false`). It runs the post-processing chain by itself, even with `postprocessing.enabled` off, and costs an extra pass over the model every frame
+  - `postprocessing.aoIntensity`: strength of the ambient occlusion, `0` to `2` (default `1`)
 - `showNotifications` controls toast/status notices
 - `tour`: guided tour through the manifest's annotations, same keys as `viewer-settings.json` `viewer.tour` (each optional, the settings file stays the fallback):
   - `autostart`: start the tour once the model and annotations have loaded (default `false`); a manifest that sets `tour` may autostart it again even if an earlier manifest already did
@@ -220,9 +225,48 @@ Stores model transform and rendering flags.
     "order": "XYZ"
   },
   "scale": [1, 1, 1],
-  "wireframe": false
+  "wireframe": false,
+  "shadingMode": "clay"
 }
 ```
+
+`shadingMode` (optional) sets how the model's surfaces are drawn; left out,
+the model keeps the materials it was loaded with:
+
+| Value | Look |
+|---|---|
+| `original` | the materials as loaded (the default; not written on export) |
+| `standard` | converted to PBR (`MeshStandardMaterial`). Manifests written before `original` existed carry `standard` as their default, so it is read as `original` |
+| `phong`, `lambert` | the classic lighting models, textures kept |
+| `toon` | cel shading |
+| `flat` | the model's own materials with faceted normals: shows the triangles of a scan |
+| `clay` | untextured matte clay: the geometry alone, without the photo texture |
+| `matcap` | studio clay sphere (matcap), independent of the scene's lights |
+| `normals` | surface normals as colours, for checking a mesh |
+| `custom` | the GLSL of `customShader` (`vertexShader`, `fragmentShader`); the `clipping_planes` chunks and `USE_COLOR` / `color` let it follow the section planes and vertex colours |
+
+## `AIM3DViewer.rakingLight`
+
+A low light grazing the surface the camera looks at, with the other lights and
+the environment dimmed, so shallow relief (inscriptions, tool marks, worn
+ornament) casts readable shading. Written only while it is on; a manifest
+without it leaves the raking light off.
+
+```json
+{
+  "enabled": true,
+  "direction": 135,
+  "height": 12,
+  "sweep": false
+}
+```
+
+It is placed relative to the view, as in RTI viewers, so it keeps grazing the
+surface while the camera moves:
+
+- `direction`: where on the screen the light comes from, in degrees (`0` right, `90` top, `180` left, `270` bottom; default `135`)
+- `height`: its angle above the surface facing the camera, `1` to `89` degrees; low values graze (default `12`)
+- `sweep`: turns the light round the view continuously (default `false`)
 
 ## `AIM3DViewer.certainty`
 

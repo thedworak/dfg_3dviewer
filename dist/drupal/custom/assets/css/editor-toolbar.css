@@ -421,6 +421,14 @@
   min-width: max-content;
 }
 
+/* Shading: two rows of five - the material models, then the views for
+   reading a scan's geometry and the custom shader. One row of ten is
+   wider than a phone. */
+.viewer-editor-tool_submenu--grid {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+}
+
 .viewer-editor-tool.has-submenu:hover > .viewer-editor-tool_submenu,
 .viewer-editor-tool.has-submenu:focus-within > .viewer-editor-tool_submenu,
 .viewer-editor-tool.has-submenu > .viewer-editor-tool_submenu:hover {

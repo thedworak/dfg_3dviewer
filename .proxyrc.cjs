@@ -84,6 +84,7 @@ const MIME_TYPES = {
   ".vox": "application/octet-stream",
   ".lwo": "application/octet-stream",
   ".wasm": "application/wasm",
+  ".js": "text/javascript",
 };
 
 // Mirrors the copyDirectory() calls in rollup.config.js, which is what
@@ -99,9 +100,25 @@ const ASSET_DIR_ALIASES = [
   ["/assets/fonts/", path.join(PROJECT_ROOT, "viewer", "fonts") + path.sep],
   ["/assets/maps/", path.join(PROJECT_ROOT, "viewer", "js", "maps") + path.sep],
   ["/assets/ifc/", path.join(PROJECT_ROOT, "node_modules", "web-ifc") + path.sep],
+  // glTF decoders (loaders.js): Draco and the KTX2/Basis transcoder.
+  ["/assets/draco/", path.join(PROJECT_ROOT, "node_modules", "three", "examples", "jsm", "libs", "draco") + path.sep],
+  ["/assets/basis/", path.join(PROJECT_ROOT, "node_modules", "three", "examples", "jsm", "libs", "basis") + path.sep],
   ["/examples/", path.join(PROJECT_ROOT, "viewer", "examples") + path.sep],
   ["/manifests/", path.join(PROJECT_ROOT, "viewer", "manifesto", "examples") + path.sep],
 ];
+
+// Model files are never part of the bundle graph: one missing at the root
+// is a 404, as on a real server, not the SPA fallback (the viewer reports
+// the failed load instead of choking on dev.html's markup).
+const MODEL_EXTENSIONS = new Set(Object.keys(MIME_TYPES).filter((ext) => (
+  ![".json", ".html", ".png", ".jpg", ".jpeg", ".svg", ".woff", ".woff2", ".ttf", ".wasm", ".js"].includes(ext)
+)));
+
+function notFound(res) {
+  res.statusCode = 404;
+  res.setHeader("Content-Type", "text/plain");
+  res.end("Not found");
+}
 
 function resolveFilePath(urlPath) {
   if (urlPath === "/viewer-settings.json" || urlPath.startsWith("/viewer/")) {
@@ -128,12 +145,15 @@ module.exports = function (app) {
     const urlPath = decodeURIComponent((req.url || "").split("?")[0]);
     const filePath = resolveFilePath(urlPath);
     if (!filePath || !filePath.startsWith(PROJECT_ROOT + path.sep)) {
+      if (MODEL_EXTENSIONS.has(path.extname(urlPath).toLowerCase())) return notFound(res);
       return next();
     }
 
     fs.stat(filePath, (err, stat) => {
+      // A mapped asset directory has no SPA routes: a missing file is a 404.
       if (err || !stat.isFile()) {
-        return next();
+        const passThrough = urlPath === "/viewer-settings.json" || urlPath.startsWith("/viewer/");
+        return passThrough ? next() : notFound(res);
       }
       const ext = path.extname(filePath).toLowerCase();
       res.setHeader("Content-Type", MIME_TYPES[ext] || "application/octet-stream");

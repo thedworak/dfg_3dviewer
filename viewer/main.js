@@ -66,6 +66,7 @@ import { attachTour } from "./editor/tour.js";
 import { attachAnnotationSpread } from "./editor/annotation-spread.js";
 import { attachAnnotationStack } from "./editor/annotation-stack.js";
 import { attachCertainty } from "./editor/certainty.js";
+import { attachRakingLight } from "./editor/raking-light.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
@@ -77,8 +78,9 @@ import { captureAndUploadThumbnail, generateAllThumbnails } from "./editor/thumb
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
+import { attachBrandLogo } from "./ui/brand-logo.js";
 import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, displayManifestInForm, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
-import { initRendering, applyRenderingSettings, getRenderingSettings, isPostProcessingActive, renderFrame } from "./rendering.js";
+import { initRendering, applyRenderingSettings, getRenderingSettings, isAmbientOcclusionActive, isPostProcessingActive, renderFrame } from "./rendering.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
 
@@ -212,6 +214,10 @@ export const Viewer = {
 
         get postProcessing() {
           return isPostProcessingActive();
+        },
+
+        get ambientOcclusion() {
+          return isAmbientOcclusionActive();
         },
       };
     } else {
@@ -1284,6 +1290,12 @@ export const Viewer = {
       if (!node || typeof node !== "object") return;
       node.geometry?.dispose?.();
       Viewer.disposeMaterial(node.material);
+      // Under a shading mode (editor/shading.js) the loader's materials are
+      // kept aside, not on the mesh.
+      const originals = node.userData?.__shadingBaseMaterials;
+      if (originals && originals[0] !== (Array.isArray(node.material) ? node.material[0] : node.material)) {
+        Viewer.disposeMaterial(originals);
+      }
     };
 
     if (Array.isArray(object)) {
@@ -1324,6 +1336,10 @@ export const Viewer = {
     Viewer.disposeAnnotationSpread();
     Viewer.disposeAnnotationStack();
     Viewer.disposeCertaintyView();
+    Viewer.disposeRakingLight();
+    // The next model comes with its own materials: shown as they are.
+    Viewer.shadingMode = "original";
+    Viewer.updateShadingSubmenuState?.();
     Viewer.disposePointCloudControls();
     disposeTiles();
     removeImportedLights();
@@ -2357,6 +2373,7 @@ export const Viewer = {
     // =========================
     
     Viewer.updateTour(time);
+    Viewer.updateRakingLight(delta);
     Viewer.updateAnnotationSpread();
     Viewer.updateAnnotationStack();
     updateTiles();
@@ -3571,12 +3588,17 @@ export const Viewer = {
       core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
       core.camera.updateProjectionMatrix();
 
+      // In presentation mode the asset path comes from the configuration
+      // alone (no DFG_ASSETS), as for the model loaders.
+      if (core.PRESENTATION_MODE) attachBrandLogo(core.container);
+
       if (!core.PRESENTATION_MODE) {
         const scriptUrl = document.currentScript?.src || import.meta.url;
         Viewer.DFG_ASSETS = scriptUrl.replace(/\/[^\/]*$/, '');
 
         setCore('DFG_ASSETS', Viewer.DFG_ASSETS);
         getModuleAssetBasePath();
+        attachBrandLogo(core.container);
 
         Viewer.actionMenu = document.createElement("div");
         Viewer.actionMenu.setAttribute("id", "viewerActionMenu");
@@ -4121,6 +4143,7 @@ attachTour(Viewer);
 attachAnnotationSpread(Viewer);
 attachAnnotationStack(Viewer);
 attachCertainty(Viewer);
+attachRakingLight(Viewer);
 attachViewHelper(Viewer);
 attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);

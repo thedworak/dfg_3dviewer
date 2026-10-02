@@ -16,6 +16,9 @@
     }
   },
   "packages": {},
+  "@parcel/resolver-default": {
+    "packageExports": true
+  },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.2",
@@ -60,8 +63,8 @@
     "cap:assets:ios": "capacitor-assets generate --ios --assetPath resources --iconBackgroundColor '#0b0e14' --iconBackgroundColorDark '#0b0e14' --splashBackgroundColor '#f0f4f8' --splashBackgroundColorDark '#0b0e14'",
     "cap:android": "pnpm run cap:sync && cap open android",
     "cap:ios": "pnpm run cap:sync && cap open ios",
-    "serve:dist": "cross-env BUILD=test serve dist",
-    "serve:dist:test": "cross-env BUILD=test serve dist/test",
+    "serve:dev": "npx serve -n -l 3100 --no-port-switching dist/dev",
+    "serve:test": "npx serve -n -l 3101 --no-port-switching dist/test",
     "test:local": "sh ./scripts/run-local-tests.sh",
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
     "pack-dist": "node ./scripts/pack-dist.js"

@@ -4,26 +4,47 @@ import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
 import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
-export const SHADING_MODES = ["standard", "phong", "lambert", "toon", "custom"];
+// "original": the loader's own materials, as loaded. The others are made
+// from them on each switch (see buildMaterialForMode); "clay", "matcap",
+// "flat" and "normals" are for reading the geometry of a scan.
+export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
+export const DEFAULT_SHADING_MODE = "original";
 
-export const DEFAULT_CUSTOM_VERTEX_SHADER = `varying vec3 vNormal;
+// Untextured clay: a warm light grey, matte.
+const CLAY_COLOR = 0xc9c2b6;
+
+// The clipping_planes chunks make the section planes cut the model in this
+// mode too; vColor carries vertex colours (PLY, XYZ, ...), USE_COLOR being
+// defined for a model that has them.
+export const DEFAULT_CUSTOM_VERTEX_SHADER = `#include <clipping_planes_pars_vertex>
+varying vec3 vNormal;
 varying vec2 vUv;
+varying vec3 vColor;
 
 void main() {
   vNormal = normalize(normalMatrix * normal);
   vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vColor = vec3(1.0);
+#ifdef USE_COLOR
+  vColor = color.rgb;
+#endif
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mvPosition;
+  #include <clipping_planes_vertex>
 }
 `;
 
-export const DEFAULT_CUSTOM_FRAGMENT_SHADER = `uniform vec3 uColor;
+export const DEFAULT_CUSTOM_FRAGMENT_SHADER = `#include <clipping_planes_pars_fragment>
+uniform vec3 uColor;
 uniform sampler2D uMap;
 uniform bool uHasMap;
 varying vec3 vNormal;
 varying vec2 vUv;
+varying vec3 vColor;
 
 void main() {
-  vec3 base = uHasMap ? texture2D(uMap, vUv).rgb * uColor : uColor;
+  #include <clipping_planes_fragment>
+  vec3 base = (uHasMap ? texture2D(uMap, vUv).rgb * uColor : uColor) * vColor;
   // Simple rim-light effect: brighten edges facing away from the camera.
   float rim = 1.0 - max(dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), 0.0);
   vec3 color = base + rim * rim * 0.6;
@@ -58,10 +79,82 @@ function copyCommonMaterialProperties(target, base) {
   }
 }
 
+// Geometry-only modes keep what shapes the surface's outline (sides,
+// cut-outs, clipping, wireframe) and drop everything about its look.
+function copyShapeProperties(target, base) {
+  target.name = base.name;
+  target.side = base.side;
+  target.alphaTest = base.alphaTest;
+  if ("alphaMap" in target && base.alphaMap) target.alphaMap = base.alphaMap;
+  target.wireframe = core.wireframeMode || false;
+  target.clippingPlanes = base.clippingPlanes || null;
+  target.clipShadows = base.clipShadows || false;
+}
+
+// The matcap of the "matcap" mode: a lit clay sphere, drawn once.
+let matcapTexture = null;
+function getMatcapTexture() {
+  if (matcapTexture) return matcapTexture;
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#3a3632";
+  ctx.fillRect(0, 0, size, size);
+  // Key light from the upper left, a soft rim on the lower right.
+  const body = ctx.createRadialGradient(size * 0.36, size * 0.32, size * 0.02, size * 0.5, size * 0.5, size * 0.5);
+  body.addColorStop(0, "#fbf6ee");
+  body.addColorStop(0.35, "#d8cfc2");
+  body.addColorStop(0.75, "#8f857a");
+  body.addColorStop(1, "#4a443e");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+  const rim = ctx.createRadialGradient(size * 0.5, size * 0.5, size * 0.4, size * 0.5, size * 0.5, size * 0.5);
+  rim.addColorStop(0, "rgba(200, 210, 230, 0)");
+  rim.addColorStop(1, "rgba(200, 210, 230, 0.35)");
+  ctx.fillStyle = rim;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+  matcapTexture = new THREE.CanvasTexture(canvas);
+  matcapTexture.colorSpace = THREE.SRGBColorSpace;
+  return matcapTexture;
+}
+
 function buildMaterialForMode(baseMaterial, mode, customShader) {
   const color = baseMaterial.color ? baseMaterial.color.clone() : new THREE.Color(0xffffff);
 
   switch (mode) {
+    case "flat": {
+      // The material itself, every map kept, with faceted normals; an
+      // unlit one (no flatShading) becomes a lit standard one.
+      const material = "flatShading" in baseMaterial && !baseMaterial.isMeshBasicMaterial
+        ? baseMaterial.clone()
+        : buildMaterialForMode(baseMaterial, "standard", null);
+      material.flatShading = true;
+      material.wireframe = core.wireframeMode || false;
+      // clone() copies the planes; the clipping tool moves the shared ones.
+      material.clippingPlanes = baseMaterial.clippingPlanes || null;
+      return material;
+    }
+    case "clay": {
+      const material = new THREE.MeshStandardMaterial({ color: CLAY_COLOR, roughness: 0.85, metalness: 0 });
+      copyShapeProperties(material, baseMaterial);
+      return material;
+    }
+    case "matcap": {
+      const material = new THREE.MeshMatcapMaterial({ matcap: getMatcapTexture() });
+      copyShapeProperties(material, baseMaterial);
+      return material;
+    }
+    case "normals": {
+      const material = new THREE.MeshNormalMaterial();
+      copyShapeProperties(material, baseMaterial);
+      return material;
+    }
     case "phong": {
       const material = new THREE.MeshPhongMaterial({ color, shininess: 30, specular: 0x111111 });
       copyCommonMaterialProperties(material, baseMaterial);
@@ -90,6 +183,7 @@ function buildMaterialForMode(baseMaterial, mode, customShader) {
         side: baseMaterial.side,
         transparent: baseMaterial.transparent,
         wireframe: core.wireframeMode || false,
+        vertexColors: baseMaterial.vertexColors === true,
         clipping: true,
       });
       material.clippingPlanes = baseMaterial.clippingPlanes || null;
@@ -125,7 +219,7 @@ export function attachShadingEditor(Viewer) {
       const certaintyView = this.certaintyView === true;
       if (certaintyView) this.removeCertaintyOverlays?.();
 
-      const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : "standard";
+      const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : DEFAULT_SHADING_MODE;
       const customShader = mode === "custom"
         ? { vertexShader: this.customVertexShader, fragmentShader: this.customFragmentShader }
         : null;
@@ -143,13 +237,32 @@ export function attachShadingEditor(Viewer) {
               : [child.material];
           }
 
-          const nextMaterials = child.userData.__shadingBaseMaterials.map((baseMaterial) => {
-            const newMaterial = buildMaterialForMode(baseMaterial, mode, customShader);
-            newMaterial.needsUpdate = true;
-            return newMaterial;
-          });
+          // The previous switch's materials (never the originals): released,
+          // or every switch would leave a set of programs behind. Their
+          // textures are the originals' (or the shared matcap): kept.
+          child.userData.__shadingMaterials?.forEach((material) => material.dispose());
+          child.userData.__shadingMaterials = null;
 
-          child.material = Array.isArray(child.material) ? nextMaterials : nextMaterials[0];
+          const baseMaterials = child.userData.__shadingBaseMaterials;
+          let nextMaterials;
+          if (mode === "original") {
+            // As loaded; wireframe and the clipping planes may have changed
+            // meanwhile.
+            nextMaterials = baseMaterials;
+            nextMaterials.forEach((material) => {
+              material.wireframe = core.wireframeMode || false;
+              material.needsUpdate = true;
+            });
+          } else {
+            nextMaterials = baseMaterials.map((baseMaterial) => {
+              const newMaterial = buildMaterialForMode(baseMaterial, mode, customShader);
+              newMaterial.needsUpdate = true;
+              return newMaterial;
+            });
+            child.userData.__shadingMaterials = nextMaterials;
+          }
+
+          child.material = Array.isArray(child.material) ? nextMaterials.slice() : nextMaterials[0];
         });
       });
       if (certaintyView) this.applyCertaintyView?.();
@@ -164,13 +277,37 @@ export function attachShadingEditor(Viewer) {
         this.customFragmentShader = options.fragmentShader || this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
       }
 
+      if (mode === "custom") this.watchCustomShaderErrors();
       this.applyShadingMode();
       this.updateEditorToolbarState?.();
       this.updateShadingSubmenuState?.();
 
-      if (options.silent !== true) {
-        toastHelper("shadingModeApplied", "success", { mode: t(`gui.shading${mode.charAt(0).toUpperCase()}${mode.slice(1)}`, mode) });
+      // The menu shows the mode; only the shader dialog's Apply, which has no
+      // other feedback, says so.
+      if (mode === "custom" && options.silent !== true) {
+        toastHelper("shadingModeApplied", "success", { mode: t("gui.shadingCustom", "Custom shader") });
       }
+    },
+
+    // A custom shader that does not compile leaves the model invisible:
+    // the compiler's first error is shown, once per Apply. three checks a
+    // program on its first use, i.e. on the next frame. The handler replaces
+    // three's own console report, so it logs as well.
+    watchCustomShaderErrors() {
+      const renderer = core.renderer;
+      if (!renderer?.debug) return;
+      this.customShaderErrorShown = false;
+      renderer.debug.onShaderError = (gl, program, vertexShader, fragmentShader) => {
+        const logs = [vertexShader, fragmentShader]
+          .map((shader) => (gl.getShaderParameter(shader, gl.COMPILE_STATUS) ? "" : gl.getShaderInfoLog(shader)?.trim()))
+          .filter(Boolean);
+        const programLog = gl.getProgramInfoLog(program)?.trim();
+        console.error("Custom shader failed to compile:", ...logs, programLog || "");
+        if (this.shadingMode !== "custom" || this.customShaderErrorShown) return;
+        this.customShaderErrorShown = true;
+        const detail = (logs[0] || programLog || "").split("\n").find((line) => /error/i.test(line)) || logs[0] || "";
+        toastHelper("customShaderError", "error", { detail: detail.slice(0, 200), duration: 9000 });
+      };
     },
 
     openCustomShaderDialog() {

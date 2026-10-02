@@ -3,7 +3,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { isAppBuild } from "./remote.js";
 import { t } from "./i18n-utils.js";
-import { applyRenderingSettings, getRenderingSettings, renderToneMappingPreviews } from "./rendering.js";
+import { AO_INTENSITY_MAX, applyRenderingSettings, getRenderingSettings, renderToneMappingPreviews } from "./rendering.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
@@ -27,6 +27,16 @@ export function getEditorToolbarIcon(icon) {
     shadingPhong: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="2.2" fill="currentColor"/></svg>',
     shadingLambert: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.25"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     shadingToon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 9a6.5 6.5 0 0 1 9-3M6.5 15a6.5 6.5 0 0 0 8 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    shadingOriginal: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6.5 15.5c2-3 4-1 5.5-3.5s3.5-3 5.5-1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/></svg>',
+    shadingFlat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 19 8v8l-7 4-7-4V8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 4v8m0 0 7-4m-7 4-7-4m7 4v8" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.7"/><path d="M12 12 19 8v8l-7 4z" fill="currentColor" opacity="0.3"/></svg>',
+    shadingClay: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18c0-4 2.5-6 4-9 1-2 2-4 3-4s2 2 3 4c1.5 3 4 5 4 9z" fill="currentColor" opacity="0.25"/><path d="M5 18c0-4 2.5-6 4-9 1-2 2-4 3-4s2 2 3 4c1.5 3 4 5 4 9zM4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+    shadingMatcap: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.2"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 10a5.5 5.5 0 0 1 5-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M15 18.5a7 7 0 0 0 3.5-4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/></svg>',
+    shadingNormals: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17c4-4 12-4 16 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7.5 14.5 6 9m6 4V6.5m4.5 8L18 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="m4.6 10.6 1.3-1.8 1.9 1.1M10.3 8.2 12 6.3l1.7 1.9M16.2 9.9l1.9-1.1 1.3 1.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    rakingLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 19c1-2 2-2 3 0s2 2 3 0 2-2 3 0 2 2 3 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="7" r="2.2" fill="currentColor"/><path d="M8 8.5 19 13M8 10.5 15 15.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.7"/></svg>',
+    rakingDirection: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.5 2.5"/><circle cx="17.7" cy="6.3" r="2.3" fill="currentColor"/><path d="M12 12l4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    rakingHeight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 19a10 10 0 0 1 3-7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M6 19 17 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="18.5" cy="7.5" r="2" fill="currentColor"/></svg>',
+    rakingSweep: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12a7 7 0 1 1-2.05-4.95" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17.5 3.5v4h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>',
+    ambientOcclusion: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18V8l4-3h12v10l-4 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 5v13M8 18H4m4 0h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 18l1-1h6v-9l1-3" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/></svg>',
     shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
@@ -781,12 +791,13 @@ function appendLightsSubmenuItems(viewer, items, container) {
       slider.addEventListener("input", (event) => {
         const value = parseFloat(event.target.value);
         item.onChange(value);
-        valueLabel.textContent = value.toFixed(2);
+        valueLabel.textContent = formatValue(value);
       });
 
+      const formatValue = item.format || ((value) => value.toFixed(2));
       const valueLabel = document.createElement("span");
       valueLabel.className = "viewer-editor-tool_submenu-value";
-      valueLabel.textContent = Number(item.value()).toFixed(2);
+      valueLabel.textContent = formatValue(Number(item.value()));
       valueLabel.setAttribute("aria-hidden", "true");
 
       subButton.appendChild(slider);
@@ -834,7 +845,8 @@ function appendLightsSubmenuItems(viewer, items, container) {
       item.key === "lightTargetTransformMove" ||
       item.key === "lightTargetTransformTarget" ||
       item.key.startsWith("environmentMap") ||
-      item.key.startsWith("rendering")
+      item.key.startsWith("rendering") ||
+      item.key.startsWith("lightRaking")
     ) {
       viewer.lightsSubmenuButtons[item.key] = subButton;
     }
@@ -976,6 +988,28 @@ const LIGHTS_SUBMENU_ITEMS = {
       },
     },
     {
+      key: "renderingAo",
+      icon: "ambientOcclusion",
+      label: t("gui.ambientOcclusion", "Ambient occlusion"),
+      type: "toggle",
+      value: () => getRenderingSettings().postprocessing.ao,
+      onChange: (ao) => {
+        applyRenderingSettings({ postprocessing: { ao } });
+        viewer.updateLightsSubmenuState();
+      },
+    },
+    {
+      key: "renderingAoIntensity",
+      icon: "intensity",
+      label: t("gui.ambientOcclusionIntensity", "Ambient occlusion strength"),
+      type: "slider",
+      min: 0,
+      max: AO_INTENSITY_MAX,
+      step: 0.05,
+      value: () => getRenderingSettings().postprocessing.aoIntensity,
+      onChange: (aoIntensity) => applyRenderingSettings({ postprocessing: { aoIntensity } }),
+    },
+    {
       key: "renderingAntialias",
       icon: "antialias",
       label: t("gui.antialiasing", "Anti-aliasing"),
@@ -991,6 +1025,53 @@ const LIGHTS_SUBMENU_ITEMS = {
     },
   ],
   lights: (viewer) => [
+    {
+      key: "lightRaking",
+      icon: "rakingLight",
+      label: t("gui.rakingLight", "Raking light"),
+      children: [
+        {
+          key: "lightRakingToggle",
+          icon: "rakingLight",
+          label: t("gui.rakingLight", "Raking light"),
+          type: "toggle",
+          value: () => viewer.rakingLight.enabled,
+          onChange: (enabled) => viewer.setRakingLight(enabled),
+        },
+        {
+          key: "lightRakingDirection",
+          icon: "rakingDirection",
+          label: t("gui.rakingLightDirection", "Direction"),
+          type: "slider",
+          min: 0,
+          max: 359,
+          step: 1,
+          format: (value) => `${Math.round(value)}°`,
+          value: () => Math.round(viewer.rakingLight.direction),
+          onChange: (direction) => viewer.setRakingLightAngles({ direction }),
+        },
+        {
+          key: "lightRakingHeight",
+          icon: "rakingHeight",
+          label: t("gui.rakingLightHeight", "Height above the surface"),
+          type: "slider",
+          min: 1,
+          max: 60,
+          step: 1,
+          format: (value) => `${Math.round(value)}°`,
+          value: () => viewer.rakingLight.height,
+          onChange: (height) => viewer.setRakingLightAngles({ height }),
+        },
+        {
+          key: "lightRakingSweep",
+          icon: "rakingSweep",
+          label: t("gui.rakingLightSweep", "Sweep around"),
+          type: "toggle",
+          value: () => viewer.rakingLight.sweep,
+          onChange: (sweep) => viewer.setRakingLightSweep(sweep),
+        },
+      ],
+    },
     {
       key: "lightTarget",
       icon: "lightTarget",
@@ -1181,7 +1262,7 @@ export function createEditorToolbar(viewer) {
   viewer.lightsSubmenuButtons = {};
   viewer.toneMappingPreviewCanvases = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
-  viewer.shadingMode = viewer.shadingMode || "standard";
+  viewer.shadingMode = viewer.shadingMode || "original";
 
   const secondaryTray = document.createElement("div");
   secondaryTray.className = "viewer-editor-toolbar_secondary-tray";
@@ -1670,14 +1751,21 @@ export function createEditorToolbar(viewer) {
     } else if (tool.key === "shading") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu";
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu--grid";
       viewer.shadingSubmenuButtons = {};
 
+      // The model as loaded, then the material models, then the views
+      // for reading a scan's geometry.
       const shadingModes = [
+        { key: "original", icon: "shadingOriginal", label: t("gui.shadingOriginal", "Original materials") },
         { key: "standard", icon: "shadingStandard", label: t("gui.shadingStandard", "Standard (PBR)") },
         { key: "phong", icon: "shadingPhong", label: t("gui.shadingPhong", "Phong") },
         { key: "lambert", icon: "shadingLambert", label: t("gui.shadingLambert", "Lambert") },
-        { key: "toon", icon: "shadingToon", label: t("gui.shadingToon", "Toon / Flat") },
+        { key: "toon", icon: "shadingToon", label: t("gui.shadingToon", "Toon") },
+        { key: "clay", icon: "shadingClay", label: t("gui.shadingClay", "Clay (no texture)") },
+        { key: "matcap", icon: "shadingMatcap", label: t("gui.shadingMatcap", "Matcap (studio clay)") },
+        { key: "flat", icon: "shadingFlat", label: t("gui.shadingFlat", "Flat shading (show faces)") },
+        { key: "normals", icon: "shadingNormals", label: t("gui.shadingNormals", "Normals") },
       ];
 
       shadingModes.forEach((item) => {
@@ -1890,7 +1978,7 @@ export function updateMeasurementSubmenuState(viewer) {
 
 export function updateShadingSubmenuState(viewer) {
   if (!viewer.shadingSubmenuButtons) return;
-  const activeMode = viewer.shadingMode || "standard";
+  const activeMode = viewer.shadingMode || "original";
   Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
     button?.classList.toggle("is-active", key === activeMode);
   });
@@ -1928,8 +2016,24 @@ export function updateLightsSubmenuState(viewer) {
   Object.entries(RENDERING_ANTIALIAS_KEYS).forEach(([key, antialias]) => {
     setPressed(viewer.lightsSubmenuButtons[key], rendering.postprocessing.antialias === antialias);
   });
-  // Anti-aliasing belongs to the post-processing chain.
-  viewer.lightsSubmenuButtons.renderingAntialias?.classList.toggle("is-disabled", !rendering.postprocessing.enabled);
+  // Anti-aliasing belongs to the post-processing chain (which ambient
+  // occlusion runs as well); the strength to ambient occlusion.
+  viewer.lightsSubmenuButtons.renderingAntialias?.classList.toggle(
+    "is-disabled",
+    !rendering.postprocessing.enabled && !rendering.postprocessing.ao
+  );
+  viewer.lightsSubmenuButtons.renderingAoIntensity?.classList.toggle("is-disabled", !rendering.postprocessing.ao);
+  const syncToggle = (button, isEnabled) => {
+    const label = button?.querySelector(".viewer-editor-tool_submenu-toggle-state");
+    if (label) label.textContent = isEnabled ? t("gui.on", "ON") : t("gui.off", "OFF");
+    setPressed(button, isEnabled);
+  };
+  syncToggle(viewer.lightsSubmenuButtons.renderingAo, rendering.postprocessing.ao);
+  syncToggle(viewer.lightsSubmenuButtons.lightRakingToggle, viewer.rakingLight?.enabled === true);
+  syncToggle(viewer.lightsSubmenuButtons.lightRakingSweep, viewer.rakingLight?.sweep === true);
+  viewer.lightsSubmenuButtons.lightRakingDirection?.classList.toggle("is-disabled", !viewer.rakingLight?.enabled);
+  viewer.lightsSubmenuButtons.lightRakingHeight?.classList.toggle("is-disabled", !viewer.rakingLight?.enabled);
+  viewer.lightsSubmenuButtons.lightRakingSweep?.classList.toggle("is-disabled", !viewer.rakingLight?.enabled);
 
   const postprocessingToggle = viewer.lightsSubmenuButtons.renderingPostprocessing;
   if (postprocessingToggle) {

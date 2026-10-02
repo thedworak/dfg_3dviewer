@@ -112,7 +112,9 @@
                   "type": "object",
                   "properties": {
                     "enabled": { "type": "boolean" },
-                    "antialias": { "enum": ["msaa", "smaa", "fxaa", "none"] }
+                    "antialias": { "enum": ["msaa", "smaa", "fxaa", "none"] },
+                    "ao": { "type": "boolean" },
+                    "aoIntensity": { "type": "number", "minimum": 0, "maximum": 2 }
                   },
                   "additionalProperties": true
                 }
@@ -217,6 +219,16 @@
           }
         },
         "certainty": { "$ref": "#/$defs/certaintyScale" },
+        "rakingLight": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "direction": { "type": "number", "minimum": 0, "maximum": 360 },
+            "height": { "type": "number", "minimum": 1, "maximum": 89 },
+            "sweep": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
         "modelTransform": {
           "type": "object",
           "properties": {
@@ -235,7 +247,7 @@
             "wireframe": { "type": "boolean" },
             "shadingMode": {
               "type": "string",
-              "enum": ["standard", "phong", "lambert", "toon", "custom"]
+              "enum": ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"]
             },
             "customShader": {
               "type": "object",

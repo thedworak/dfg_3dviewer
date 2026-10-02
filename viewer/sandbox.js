@@ -3,11 +3,22 @@ import { core, setCore } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
 
 const BUILD_ID = (typeof __BUILD_ID__ !== "undefined") ? __BUILD_ID__ : "";
+const BUILD_TIME = (typeof __BUILD_TIME__ !== "undefined") ? __BUILD_TIME__ : "";
+
+// "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
+function formatBuildTime(iso) {
+  const date = new Date(iso);
+  if (!iso || Number.isNaN(date.getTime())) return "";
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 function poweredByHtml() {
-  const build = BUILD_ID ? ` (${BUILD_ID})` : "";
+  const parts = [BUILD_ID, formatBuildTime(BUILD_TIME)].filter(Boolean);
+  const build = parts.length ? ` (${parts.join(", ")})` : "";
   const text = `Powered by three.js r${THREE.REVISION}${build}`;
-  return `<span class="credits-item"><a href="https://threejs.org" target="_blank" rel="noopener noreferrer" class="credits-link">${text}</a></span>`;
+  const title = BUILD_TIME ? ` title="Build ${BUILD_ID || ""} ${BUILD_TIME}"` : "";
+  return `<span class="credits-item"><a href="https://threejs.org" target="_blank" rel="noopener noreferrer" class="credits-link"${title}>${text}</a></span>`;
 }
 
 export async function createCreditsElement() {
