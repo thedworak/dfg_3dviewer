@@ -3,13 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ExPlora4D</title>
+<title>ExPlora4D – IIIF 3D viewer for cultural heritage</title>
 <meta name="description" content="ExPlora4D is a web viewer for cultural heritage in 3D: inspect the surface, annotate, grade the certainty of a reconstruction and publish it as an open IIIF manifest.">
-<meta property="og:title" content="ExPlora4D">
-<meta property="og:description" content="A IIIF-native web viewer for 3D cultural heritage.">
+<link rel="canonical" href="https://explora4d.eu/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="author" content="Daniel Dworak">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://explora4d.eu/img/original.webp">
+<meta property="og:site_name" content="ExPlora4D">
+<meta property="og:url" content="https://explora4d.eu/">
+<meta property="og:title" content="ExPlora4D – IIIF 3D viewer for cultural heritage">
+<meta property="og:description" content="Inspect, annotate and grade the certainty of 3D models of cultural heritage, and publish them as open IIIF manifests. On the web, in repositories and on phones.">
+<meta property="og:image" content="https://explora4d.eu/img/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The wooden synagogue of Wołpa as a 3D model in ExPlora4D">
+<meta property="og:locale" content="en_GB">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="de_DE">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ExPlora4D – IIIF 3D viewer for cultural heritage">
+<meta name="twitter:description" content="Inspect, annotate and grade the certainty of 3D models of cultural heritage, and publish them as open IIIF manifests.">
+<meta name="twitter:image" content="https://explora4d.eu/img/og-image.jpg">
 <link rel="icon" href="img/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://explora4d.eu/#website",
+      "url": "https://explora4d.eu/",
+      "name": "ExPlora4D",
+      "inLanguage": ["en", "pl", "de"],
+      "publisher": { "@id": "https://portfolio.thedworak.com/#person" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://explora4d.eu/#app",
+      "name": "ExPlora4D",
+      "alternateName": "DLF AIM3D Viewer",
+      "url": "https://explora4d.eu/",
+      "description": "A IIIF-native web viewer for 3D cultural heritage: inspect the surface with scan views, raking light, ambient occlusion and sections; annotate faces; grade the level of certainty of a reconstruction; publish everything as an open IIIF Presentation 4 manifest.",
+      "applicationCategory": "MultimediaApplication",
+      "applicationSubCategory": "3D viewer",
+      "operatingSystem": "Web browser, Android, iOS",
+      "image": "https://explora4d.eu/img/og-image.jpg",
+      "screenshot": [
+        "https://explora4d.eu/img/original.webp",
+        "https://explora4d.eu/img/section.webp",
+        "https://explora4d.eu/img/certainty.webp"
+      ],
+      "featureList": [
+        "IIIF Presentation API 4 manifests with 3D scenes",
+        "W3C Web Annotation on model faces",
+        "Level of Certainty for 3D reconstructions",
+        "Scan views: clay, matcap, flat shading, normals, custom GLSL",
+        "Raking light and ambient occlusion",
+        "Section planes and measurement in real units",
+        "glTF, OBJ, FBX, PLY, STL, IFC, USD, LAS/LAZ point clouds and 3D Tiles",
+        "Drupal / WissKI integration",
+        "Android and iOS app"
+      ],
+      "inLanguage": ["en", "pl", "de"],
+      "author": { "@id": "https://portfolio.thedworak.com/#person" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://portfolio.thedworak.com/#person",
+      "name": "Daniel Dworak",
+      "url": "https://portfolio.thedworak.com",
+      "jobTitle": "DevOps Team Lead"
+    }
+  ]
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
@@ -243,7 +311,7 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 .btn-primary:hover { filter: brightness(1.08); }
 .btn-ghost { color: var(--accent); background: transparent; }
 .btn-ghost:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .nav { display: none; }
   .prefs { margin-left: auto; }
 }
@@ -255,7 +323,9 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 
 /* Hero: the same synagogue, read six ways */
 .hero { padding-block: clamp(40px, 6vw, 80px) clamp(40px, 5vw, 64px); }
-.hero-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 56px); align-items: center; }
+/* Top-aligned: centred columns would move the image whenever the caption
+   under it changes length. */
+.hero-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 56px); align-items: start; }
 .hero h1 { font-size: var(--step-3); font-weight: 800; letter-spacing: -0.025em; margin-top: 14px; }
 .hero h1 em { font-style: normal; color: var(--accent); }
 .lede { margin-top: 20px; font-size: var(--step-1); line-height: 1.5; color: var(--muted); max-width: 36ch; }
@@ -277,12 +347,35 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 .stage img.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .stage img { transition: none; } }
 /* Over the render, which is light whatever the theme. */
+/* Top-left: the renders keep their labels (measurements) at the bottom. */
 .stage-tag {
-  position: absolute; left: 12px; bottom: 12px;
+  position: absolute; left: 12px; top: 12px;
   padding: 5px 10px; border-radius: 6px;
   background: rgba(10, 16, 25, 0.78); color: #e6ecf4;
   font: 500 0.75rem/1.2 var(--font-mono);
 }
+/* Slideshow: play/pause in the corner, the time to the next view below. */
+.stage-play {
+  position: absolute; top: 10px; right: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0;
+  border: 0; border-radius: 999px;
+  background: rgba(10, 16, 25, 0.78); color: #e6ecf4;
+  cursor: pointer;
+}
+.stage-play:hover { background: rgba(10, 16, 25, 0.92); }
+.stage-play svg { width: 16px; height: 16px; }
+.stage-play .play { display: none; }
+.stage-play.is-paused .play { display: block; }
+.stage-play.is-paused .pause { display: none; }
+.stage-progress {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 3px;
+  background: var(--accent);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.stage-progress[hidden] { display: none; }
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .tab {
   padding: 8px 12px; border-radius: 999px;
@@ -291,7 +384,9 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 }
 .tab:hover { border-color: var(--accent); }
 .tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.reading-note { margin-top: 12px; color: var(--muted); font-size: 0.98rem; min-height: 3.2em; }
+/* Room for the longest caption, so the page below does not jump either. */
+.reading-note { margin-top: 12px; color: var(--muted); font-size: 0.98rem; min-height: 6.4em; }
+@media (max-width: 600px) { .reading-note { min-height: 10em; } }
 .reading-note .key { display: block; margin-top: 4px; }
 @media (max-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .lede { max-width: 46ch; } }
 
@@ -300,6 +395,34 @@ section.band { padding-block: clamp(48px, 7vw, 96px); border-top: 1px solid var(
 .head { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: clamp(16px, 4vw, 56px); margin-bottom: clamp(28px, 4vw, 48px); align-items: end; }
 .head p { color: var(--muted); max-width: 60ch; }
 @media (max-width: 820px) { .head { grid-template-columns: minmax(0, 1fr); } }
+
+/* The name: Explore + Experience, set as the words they come from. */
+.name-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(28px, 5vw, 72px); align-items: start; }
+.name-grid h2 { margin-top: 12px; }
+.name-grid .intro { margin-top: 16px; color: var(--muted); max-width: 54ch; }
+.etym { display: grid; gap: 14px; min-width: 0; }
+.etym-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px; }
+.etym-word { font: 700 var(--step-2)/1.1 var(--font-display); letter-spacing: -0.01em; }
+.etym .ex { color: var(--accent); }
+.etym .plor {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 7px;
+}
+.etym-gloss { font: 400 var(--step--1)/1.4 var(--font-mono); color: var(--muted); }
+.etym-result {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px;
+  margin-top: 6px; padding-top: 16px;
+  border-top: 2px solid var(--ink);
+}
+.etym-result .etym-word { font-size: var(--step-3); font-weight: 800; letter-spacing: -0.025em; }
+.etym-result .four { color: var(--muted); }
+.name-parts { display: grid; gap: 12px; margin: 26px 0 0; }
+.name-parts div { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.name-parts dt { font: 700 1.05rem/1.3 var(--font-display); color: var(--accent); }
+.name-parts dd { margin: 0; color: var(--muted); font-size: 0.98rem; }
+@media (max-width: 900px) { .name-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Capabilities: four tasks */
 .tasks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
@@ -388,6 +511,66 @@ pre.code .c { color: var(--code-comment); }
 @media (max-width: 1000px) { .deploy { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .deploy { grid-template-columns: minmax(0, 1fr); } }
 
+/* Mobile: the app, its three sources of models, and a phone showing it. */
+.mobile-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: clamp(28px, 5vw, 72px); align-items: center; }
+.mobile-grid h2 { margin-top: 12px; }
+.mobile-grid .intro { margin-top: 16px; color: var(--muted); max-width: 60ch; }
+.sources { display: grid; gap: 0; margin: 28px 0 0; border-top: 2px solid var(--ink); }
+.sources div { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.sources dt { font: 700 1.05rem/1.3 var(--font-display); }
+.sources dt.hub { color: var(--accent); }
+.sources dd { margin: 0; color: var(--muted); font-size: 0.98rem; }
+.mobile-note { margin-top: 18px; color: var(--muted); font-size: 0.95rem; max-width: 60ch; }
+/* A device, so its bezel is dark in both themes. */
+.phone {
+  justify-self: center;
+  position: relative;
+  width: min(270px, 100%);
+  aspect-ratio: 9 / 19;
+  border: 10px solid #0b0f16;
+  border-radius: 38px;
+  overflow: hidden;
+  background: var(--stage);
+  box-shadow: 0 0 0 1px var(--rule), 0 24px 60px rgba(10, 16, 25, 0.28);
+}
+.phone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
+.phone-notch { position: absolute; top: 8px; left: 50%; width: 34%; height: 20px; transform: translateX(-50%); border-radius: 999px; background: #0b0f16; }
+.phone-sources {
+  position: absolute; left: 10px; right: 10px; bottom: 14px;
+  display: flex; justify-content: center; gap: 4px;
+  padding: 4px; border-radius: 999px;
+  background: rgba(11, 15, 22, 0.82);
+}
+.phone-sources span { padding: 6px 9px; border-radius: 999px; color: #c9d3e2; font: 500 0.7rem/1 var(--font-mono); }
+.phone-sources span.on { background: #e6ecf4; color: #0b0f16; }
+.stores { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 26px; }
+.store {
+  display: grid; grid-template-columns: auto auto; align-items: center; gap: 14px;
+  padding: 12px 16px 12px 12px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius);
+}
+/* Codes need dark on light to scan: a white tile in both themes. */
+.store .qr { width: 96px; height: 96px; padding: 6px; background: #ffffff; border-radius: 6px; display: block; }
+.store-side { display: grid; gap: 8px; justify-items: start; }
+.store-side a { display: block; line-height: 0; border-radius: 8px; }
+.store-side img.badge { height: 44px; width: auto; display: block; }
+.store-side span { font: 400 var(--step--1)/1.3 var(--font-mono); color: var(--muted); }
+.stores-note { margin-top: 10px; font: 400 var(--step--1)/1.4 var(--font-mono); color: var(--muted); }
+@media (max-width: 860px) { .mobile-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) { .sources div { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+
+/* Author */
+.author-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: clamp(24px, 5vw, 72px); align-items: start; }
+.author-grid h2 { margin-top: 12px; font-size: var(--step-3); font-weight: 800; letter-spacing: -0.02em; }
+.author-role { margin-top: 12px; font: 400 var(--step--1)/1.5 var(--font-mono); color: var(--muted); }
+.author-grid .chips { margin-top: 20px; }
+.author-bio { display: grid; gap: 14px; max-width: 64ch; min-width: 0; }
+.author-bio p:first-child { font-size: var(--step-1); line-height: 1.5; }
+.author-bio p + p { color: var(--muted); }
+.portfolio { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 10px; }
+.portfolio .key { font-size: 0.85rem; }
+@media (max-width: 820px) { .author-grid { grid-template-columns: minmax(0, 1fr); } }
+
 /* Closing band */
 .cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; padding: clamp(28px, 4vw, 44px); border-radius: 14px; background: var(--band); color: var(--band-ink); border: 1px solid var(--band-rule); }
 .cta h2 { color: var(--band-ink); max-width: 22ch; }
@@ -418,6 +601,8 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       <a href="#standards" data-i18n="nav.std">Standards</a>
       <a href="#manifest" data-i18n="nav.man">Manifest</a>
       <a href="#technology" data-i18n="nav.tech">Technology</a>
+      <a href="#mobile" data-i18n="nav.mobile">Mobile</a>
+      <a href="#author" data-i18n="nav.author">Author</a>
     </nav>
     <div class="prefs">
       <div class="lang" role="group" aria-label="Language" data-i18n-aria="lang.label">
@@ -455,23 +640,69 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 
       <div class="reader">
         <div class="stage" id="stage">
-          <img class="on" data-reading="original" src="img/original.webp" data-i18n-alt="alt.original" alt="The wooden synagogue of Wołpa as a textured 3D model" width="1200" height="711">
+          <img class="on" data-reading="original" src="img/original.webp" fetchpriority="high" data-i18n-alt="alt.original" alt="The wooden synagogue of Wołpa as a textured 3D model" width="1200" height="711">
           <img data-reading="clay-ao" src="img/clay-ao.webp" data-i18n-alt="alt.clay" alt="The same model in untextured clay with ambient occlusion" width="1200" height="711" loading="lazy">
           <img data-reading="raking" src="img/raking.webp" data-i18n-alt="alt.raking" alt="The same model under a low raking light" width="1200" height="711" loading="lazy">
           <img data-reading="contours" src="img/contours.webp" data-i18n-alt="alt.contours" alt="The same model coloured by height with contour lines" width="1200" height="711" loading="lazy">
           <img data-reading="normals" src="img/normals.webp" data-i18n-alt="alt.normals" alt="The same model showing its surface normals as colours" width="1200" height="711" loading="lazy">
           <img data-reading="certainty" src="img/certainty.webp" data-i18n-alt="alt.certainty" alt="The same model coloured by level of certainty, with lettered badges" width="1200" height="711" loading="lazy">
+          <img data-reading="section" src="img/section.webp" data-i18n-alt="alt.section" alt="The same model cut lengthwise by a section plane, showing the interior" width="1200" height="711" loading="lazy">
+          <img data-reading="annotations" src="img/annotations.webp" data-i18n-alt="alt.annotations" alt="The same model with numbered annotation markers" width="1200" height="711" loading="lazy">
+          <img data-reading="golden-hour" src="img/golden-hour.webp" data-i18n-alt="alt.golden" alt="The same model in warm evening light" width="1200" height="711" loading="lazy">
+          <img data-reading="measurement" src="img/measurement.webp" data-i18n-alt="alt.measurement" alt="The same model in a bounding box labelled with its size in metres" width="1200" height="711" loading="lazy">
+          <img data-reading="wireframe" src="img/wireframe.webp" data-i18n-alt="alt.wireframe" alt="The same model as a wire mesh" width="1200" height="711" loading="lazy">
+          <img data-reading="night" src="img/night.webp" data-i18n-alt="alt.night" alt="The same model at night under spotlights" width="1200" height="711" loading="lazy">
           <span class="stage-tag" data-i18n="stage.tag">Wołpa synagogue · reconstruction</span>
+          <button type="button" class="stage-play" id="stage-play" aria-label="Pause the slideshow">
+            <svg class="pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 3h2.5v10H4.5zM9 3h2.5v10H9z" fill="currentColor"/></svg>
+            <svg class="play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3l8 5-8 5z" fill="currentColor"/></svg>
+          </button>
+          <span class="stage-progress" id="stage-progress" aria-hidden="true"></span>
         </div>
         <div class="tabs" role="tablist" aria-label="Ways of reading the model" data-i18n-aria="tabs.label">
           <button class="tab" role="tab" id="tab-original" aria-selected="true" data-reading="original" data-i18n="tab.original">Original</button>
+          <button class="tab" role="tab" id="tab-section" aria-selected="false" data-reading="section" data-i18n="tab.section">Section</button>
+          <button class="tab" role="tab" id="tab-annotations" aria-selected="false" data-reading="annotations" data-i18n="tab.annotations">Annotations</button>
+          <button class="tab" role="tab" id="tab-measurement" aria-selected="false" data-reading="measurement" data-i18n="tab.measurement">Measurement</button>
+          <button class="tab" role="tab" id="tab-wireframe" aria-selected="false" data-reading="wireframe" data-i18n="tab.wireframe">Wireframe</button>
           <button class="tab" role="tab" id="tab-clay-ao" aria-selected="false" data-reading="clay-ao" data-i18n="tab.clay">Clay + AO</button>
           <button class="tab" role="tab" id="tab-raking" aria-selected="false" data-reading="raking" data-i18n="tab.raking">Raking light</button>
           <button class="tab" role="tab" id="tab-contours" aria-selected="false" data-reading="contours" data-i18n="tab.contours">Contours</button>
           <button class="tab" role="tab" id="tab-normals" aria-selected="false" data-reading="normals" data-i18n="tab.normals">Normals</button>
           <button class="tab" role="tab" id="tab-certainty" aria-selected="false" data-reading="certainty" data-i18n="tab.certainty">Certainty</button>
+          <button class="tab" role="tab" id="tab-golden-hour" aria-selected="false" data-reading="golden-hour" data-i18n="tab.golden">Golden hour</button>
+          <button class="tab" role="tab" id="tab-night" aria-selected="false" data-reading="night" data-i18n="tab.night">Night</button>
         </div>
         <p class="reading-note" id="reading-note" aria-live="polite">The model as it was published: photographic textures, scene lights and environment.<span class="key">shadingMode: "original"</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="name">
+    <div class="wrap name-grid">
+      <div>
+        <p class="eyebrow" data-i18n="name.eyebrow">Where the name comes from</p>
+        <h2>Explore + Experience = ExPlora</h2>
+        <p class="intro" data-i18n="name.p">The name joins two words that begin the same way. Explore is the researcher's side: searching a model, measuring it, questioning it. Experience is the visitor's side: walking round a building that no longer stands, or seeing an object up close. ExPlora4D is made for both.</p>
+        <dl class="name-parts">
+          <div><dt>Ex</dt><dd data-i18n="name.ex">Shared by both words, and drawn as the crossed X in the logo.</dd></div>
+          <div><dt>Plora</dt><dd data-i18n="name.plora">From explore, Latin <i>explorare</i>: to search out, to examine.</dd></div>
+          <div><dt>4D</dt><dd data-i18n="name.4d">The three dimensions of the model, and time, in which heritage changes.</dd></div>
+        </dl>
+      </div>
+      <div class="etym" role="img" aria-label="Explore and Experience share Ex; Explore gives plor; together they make ExPlora4D" data-i18n-aria="name.diagram">
+        <div class="etym-row">
+          <span class="etym-word"><span class="ex">Ex</span><span class="plor">plor</span>e</span>
+          <span class="etym-gloss" data-i18n="name.exploreGloss">to search out, to study closely</span>
+        </div>
+        <div class="etym-row">
+          <span class="etym-word"><span class="ex">Ex</span>perience</span>
+          <span class="etym-gloss" data-i18n="name.experienceGloss">to see and live through for yourself</span>
+        </div>
+        <div class="etym-result">
+          <span class="etym-word"><span class="ex">Ex</span><span class="plor">Plor</span>a<span class="four">4D</span></span>
+          <span class="etym-gloss" data-i18n="name.resultGloss">research and experience in one viewer</span>
+        </div>
       </div>
     </div>
   </section>
@@ -678,8 +909,70 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       <div class="deploy">
         <article class="place"><h3 data-i18n="dep.1h">In a repository</h3><p data-i18n="dep.1p">A Drupal module for WissKI: models on entity pages, conversion on upload, annotations saved back.</p></article>
         <article class="place"><h3 data-i18n="dep.2h">On your server</h3><p data-i18n="dep.2p">Docker images for the viewer and worker, with profiles for test, development and drag-and-drop sandbox.</p></article>
-        <article class="place"><h3 data-i18n="dep.3h">In any page</h3><p data-i18n="dep.3p">An embed snippet with presentation mode, autorotation and a chosen camera. Settings follow the manifest.</p><span class="key">embed.html?<b>…</b></span></article>
+        <article class="place"><h3 data-i18n="dep.3h">In any page</h3><p data-i18n="dep.3p">An embed snippet with presentation mode, autorotation and a chosen camera. Settings follow the manifest.</p></article>
         <article class="place"><h3 data-i18n="dep.4h">On a phone</h3><p data-i18n="dep.4p">Android and iOS builds of the same viewer, for fieldwork and teaching.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="mobile">
+    <div class="wrap mobile-grid">
+      <div>
+        <p class="eyebrow" data-i18n="mobile.eyebrow">Mobile</p>
+        <h2 data-i18n="mobile.title">The same viewer in your pocket</h2>
+        <p class="intro" data-i18n="mobile.lede">The Android and iOS app is built from the same code as the web viewer, so it has the same tools: scan views, raking light, sections, measurement, annotations, the certainty view and IIIF manifests. Models and point clouds come from ExHUB, the shared repository, or from the device itself.</p>
+        <dl class="sources">
+          <div><dt class="hub">ExHUB</dt><dd data-i18n="mobile.hub">The shared repository of the project's models and point clouds, converted on upload: meshes as compressed glTF, large scans as streamed 3D Tiles.</dd></div>
+          <div><dt data-i18n="mobile.deviceH">On the device</dt><dd data-i18n="mobile.device">Models picked from the phone, and models saved from ExHUB, stay on the device and open without a network.</dd></div>
+          <div><dt data-i18n="mobile.examplesH">Examples</dt><dd data-i18n="mobile.examples">The example manifests, from scan views to the certainty view, to try every tool.</dd></div>
+        </dl>
+        <div class="stores">
+          <div class="store">
+            <img class="qr" src="img/qr-google-play.svg" data-i18n-alt="store.qrGoogle" alt="QR code for the app on Google Play" width="96" height="96" loading="lazy">
+            <div class="store-side">
+              <a href="https://play.google.com/store/apps/details?id=com.thedworak.explora4d" target="_blank" rel="noopener"><img class="badge" src="img/badge-google-play-en.png" data-i18n-src="store.googleBadge" data-i18n-alt="store.google" alt="Get it on Google Play" height="44" loading="lazy"></a>
+              <span data-i18n="store.android">Android</span>
+            </div>
+          </div>
+          <div class="store">
+            <img class="qr" src="img/qr-app-store.svg" data-i18n-alt="store.qrApple" alt="QR code for the app on the App Store" width="96" height="96" loading="lazy">
+            <div class="store-side">
+              <a href="https://apps.apple.com/app/explora4d/id0000000000" target="_blank" rel="noopener"><img class="badge" src="img/badge-app-store.svg" data-i18n-alt="store.apple" alt="Download on the App Store" height="44" loading="lazy"></a>
+              <span data-i18n="store.ios">iPhone and iPad</span>
+            </div>
+          </div>
+        </div>
+        <p class="stores-note" data-i18n="store.note">Scan a code with your phone's camera, or tap a badge. Store links and codes are examples until the app is published.</p>
+        <p class="mobile-note"><span data-i18n="mobile.note">One Models button switches between the three. The app reaches ExHUB at an address you can change, so a project can point it at its own repository.</span></p>
+      </div>
+      <div class="phone" role="img" aria-label="The app on a phone, showing a section through the synagogue and its three model sources" data-i18n-aria="mobile.phone">
+        <img src="img/section.webp" alt="" width="1200" height="711" loading="lazy">
+        <span class="phone-notch"></span>
+        <div class="phone-sources" aria-hidden="true">
+          <span class="on">ExHUB</span><span data-i18n="mobile.pillDevice">Device</span><span data-i18n="mobile.pillExamples">Examples</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="author">
+    <div class="wrap author-grid">
+      <div>
+        <p class="eyebrow" data-i18n="author.eyebrow">Author</p>
+        <h2>Daniel Dworak</h2>
+        <p class="author-role" data-i18n="author.role">3D web developer · DevOps Team Lead · 16+ years</p>
+        <ul class="chips">
+          <li data-i18n="author.c1">3D visualization</li><li data-i18n="author.c2">Clean architecture</li><li>CI/CD</li><li data-i18n="author.c3">Containers</li><li>Observability</li><li data-i18n="author.c4">Security</li>
+        </ul>
+      </div>
+      <div class="author-bio">
+        <p data-i18n="author.p1">Hi, I'm Daniel. I build high-performance web applications with a focus on 3D visualization, interaction and clean architecture, and I'm a DevOps Team Lead with 16+ years of experience designing, automating and operating scalable infrastructure.</p>
+        <p data-i18n="author.p2">My background spans CI/CD, containerized platforms, observability and security. I lead teams, mentor developers and work across multinational, cross-functional groups, representing technical teams, facilitating decisions and aligning engineering work with business goals.</p>
+        <p data-i18n="author.p3">I care about reliable, secure, automated platforms and a culture of ownership, knowledge sharing and continuous improvement.</p>
+        <div class="portfolio">
+          <a class="btn btn-ghost" href="https://portfolio.thedworak.com" target="_blank" rel="noopener" data-i18n="author.link">See my portfolio</a>
+          <span class="key">portfolio.<b>thedworak.com</b></span>
+        </div>
       </div>
     </div>
   </section>
@@ -710,7 +1003,7 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       <p data-i18n="foot.powered">Powered by the DLF AIM3D<sup>ex</sup> Viewer.</p>
     </div>
     <ul>
-      <li data-i18n="foot.dev">Developed by Daniel Dworak</li>
+      <li data-i18n="foot.dev">Developed by <a href="#author">Daniel Dworak</a></li>
       <li data-i18n="foot.dfg">Supported by the Deutsche Forschungsgemeinschaft (DFG)</li>
       <li data-i18n="foot.langs">Interface in English, Polish and German</li>
     </ul>
@@ -736,6 +1029,8 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "nav.label": "Sekcje", "nav.cap": "Możliwości", "nav.loc": "Pewność", "nav.std": "Standardy", "nav.man": "Manifest", "nav.tech": "Technologia",
       "lang.label": "Język",
       "theme.toDark": "Przełącz na tryb ciemny", "theme.toLight": "Przełącz na tryb jasny",
+      "slides.pause": "Zatrzymaj pokaz", "slides.play": "Odtwórz pokaz",
+      "meta.title": "ExPlora4D – przeglądarka 3D IIIF dla dziedzictwa kulturowego",
       "cta.open": "Otwórz przeglądarkę",
       "hero.eyebrow": "3D dla humanistyki · natywnie w IIIF",
       "hero.title": "Czytaj model 3D tak, jak czytasz <em>źródło</em>.",
@@ -752,6 +1047,15 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "alt.normals": "Ten sam model z normalnymi powierzchni pokazanymi jako kolory",
       "alt.certainty": "Ten sam model pokolorowany według poziomu pewności, ze znacznikami literowymi",
       "alt.certaintyFig": "Rekonstrukcja synagogi pokolorowana według poziomu pewności",
+      "name.eyebrow": "Skąd ta nazwa",
+      "name.p": "Nazwa łączy dwa angielskie słowa, które zaczynają się tak samo. Explore (odkrywać, badać) to strona badacza: przeszukiwanie modelu, pomiary, stawianie pytań. Experience (doświadczać) to strona odbiorcy: obejście budynku, którego już nie ma, albo obejrzenie obiektu z bliska. ExPlora4D powstała dla obu.",
+      "name.ex": "Wspólny początek obu słów, w logo narysowany jako skrzyżowane X.",
+      "name.plora": "Od explore, łac. <i>explorare</i>: wyszukiwać, badać.",
+      "name.4d": "Trzy wymiary modelu oraz czas, w którym dziedzictwo się zmienia.",
+      "name.diagram": "Explore i Experience mają wspólne Ex; z Explore pochodzi plor; razem tworzą ExPlora4D",
+      "name.exploreGloss": "odkrywać, dokładnie badać",
+      "name.experienceGloss": "zobaczyć i przeżyć samemu",
+      "name.resultGloss": "badanie i doświadczenie w jednej przeglądarce",
       "cap.title": "Cztery rzeczy, które badacz robi z modelem 3D",
       "cap.lede": "Każde narzędzie zapisuje swój stan w manifeście, pod kluczem podanym poniżej. To, co ustawisz na ekranie, zobaczy kolejny czytelnik.",
       "inspect.h": "Badaj", "inspect.p": "Zobacz powierzchnię, nie teksturę.",
@@ -818,7 +1122,40 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "end.p": "Kolekcja przykładów zawiera widoki skanu, światło skośne, warstwice i widok pewności, każdy jako manifest do pobrania i zmiany.",
       "end.schema": "Przeczytaj schemat",
       "foot.powered": "Napędzane przez DLF AIM3D<sup>ex</sup> Viewer.",
-      "foot.dev": "Autor: Daniel Dworak",
+      "foot.dev": "Autor: <a href=\"#author\">Daniel Dworak</a>",
+      "nav.author": "Autor",
+      "nav.mobile": "Aplikacja",
+      "tab.section": "Przekrój", "tab.annotations": "Adnotacje", "tab.golden": "Złota godzina", "tab.night": "Noc",
+      "tab.measurement": "Pomiary", "tab.wireframe": "Siatka",
+      "alt.measurement": "Ten sam model w prostopadłościanie opisanym wymiarami w metrach",
+      "alt.wireframe": "Ten sam model jako siatka trójkątów",
+      "alt.section": "Ten sam model przecięty wzdłuż płaszczyzną przekroju, z widocznym wnętrzem",
+      "alt.annotations": "Ten sam model z numerowanymi znacznikami adnotacji",
+      "alt.golden": "Ten sam model w ciepłym wieczornym świetle",
+      "alt.night": "Ten sam model nocą w świetle reflektorów",
+      "mobile.eyebrow": "Aplikacja mobilna",
+      "mobile.title": "Ta sama przeglądarka w kieszeni",
+      "mobile.lede": "Aplikacja na Androida i iOS powstaje z tego samego kodu co przeglądarka internetowa, więc ma te same narzędzia: widoki skanu, światło skośne, przekroje, pomiary, adnotacje, widok pewności i manifesty IIIF. Modele i chmury punktów pochodzą z ExHUB, wspólnego repozytorium, albo z samego urządzenia.",
+      "mobile.hub": "Wspólne repozytorium modeli i chmur punktów projektu, konwertowanych przy przesyłaniu: siatki jako skompresowany glTF, duże skany jako strumieniowane 3D Tiles.",
+      "mobile.deviceH": "Na urządzeniu",
+      "mobile.device": "Modele wybrane z telefonu i zapisane z ExHUB zostają na urządzeniu i otwierają się bez sieci.",
+      "mobile.examplesH": "Przykłady",
+      "mobile.examples": "Przykładowe manifesty, od widoków skanu po widok pewności, do wypróbowania każdego narzędzia.",
+      "mobile.note": "Jeden przycisk Modele przełącza między tymi trzema źródłami. Aplikacja łączy się z ExHUB pod adresem, który można zmienić, więc projekt może wskazać własne repozytorium.",
+      "mobile.phone": "Aplikacja na telefonie z przekrojem synagogi i trzema źródłami modeli",
+      "mobile.pillDevice": "Urządzenie", "mobile.pillExamples": "Przykłady",
+      "store.google": "Pobierz z Google Play", "store.apple": "Pobierz w App Store",
+      "store.googleBadge": "img/badge-google-play-pl.png",
+      "store.qrGoogle": "Kod QR aplikacji w Google Play", "store.qrApple": "Kod QR aplikacji w App Store",
+      "store.android": "Android", "store.ios": "iPhone i iPad",
+      "store.note": "Zeskanuj kod aparatem telefonu albo dotknij odznaki. Linki i kody są przykładowe do czasu publikacji aplikacji.",
+      "author.eyebrow": "Autor",
+      "author.role": "Twórca aplikacji webowych 3D · Lider zespołu DevOps · 16+ lat doświadczenia",
+      "author.c1": "Wizualizacja 3D", "author.c2": "Czysta architektura", "author.c3": "Kontenery", "author.c4": "Bezpieczeństwo",
+      "author.p1": "Cześć, jestem Daniel. Tworzę wydajne aplikacje internetowe, skupiając się na wizualizacji 3D, interakcji i czystej architekturze. Jestem też liderem zespołu DevOps z ponad 16-letnim doświadczeniem w projektowaniu, automatyzacji i utrzymaniu skalowalnej infrastruktury.",
+      "author.p2": "Moje doświadczenie obejmuje CI/CD, platformy kontenerowe, obserwowalność i bezpieczeństwo. Kieruję zespołami, jestem mentorem dla programistów i pracuję w międzynarodowych, interdyscyplinarnych grupach: reprezentuję zespoły techniczne, ułatwiam podejmowanie decyzji i łączę pracę inżynierską z celami biznesowymi.",
+      "author.p3": "Zależy mi na niezawodnych, bezpiecznych i zautomatyzowanych platformach oraz na kulturze odpowiedzialności, dzielenia się wiedzą i ciągłego doskonalenia.",
+      "author.link": "Zobacz moje portfolio",
       "foot.dfg": "Ze wsparciem Deutsche Forschungsgemeinschaft (DFG)",
       "foot.langs": "Interfejs po angielsku, polsku i niemiecku",
       "foot.viewer": "Przeglądarka", "foot.schema": "Schemat manifestu (JSON)",
@@ -827,6 +1164,8 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "nav.label": "Abschnitte", "nav.cap": "Funktionen", "nav.loc": "Gewissheit", "nav.std": "Standards", "nav.man": "Manifest", "nav.tech": "Technologie",
       "lang.label": "Sprache",
       "theme.toDark": "Zum dunklen Modus wechseln", "theme.toLight": "Zum hellen Modus wechseln",
+      "slides.pause": "Diashow anhalten", "slides.play": "Diashow abspielen",
+      "meta.title": "ExPlora4D – IIIF-3D-Viewer für das kulturelle Erbe",
       "cta.open": "Viewer öffnen",
       "hero.eyebrow": "3D für die Geisteswissenschaften · IIIF-nativ",
       "hero.title": "Lesen Sie ein 3D-Modell wie eine <em>Quelle</em>.",
@@ -843,6 +1182,15 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "alt.normals": "Dasselbe Modell mit den Flächennormalen als Farben",
       "alt.certainty": "Dasselbe Modell nach Grad der Gewissheit eingefärbt, mit Buchstabenmarkern",
       "alt.certaintyFig": "Die Rekonstruktion der Synagoge, nach Grad der Gewissheit eingefärbt",
+      "name.eyebrow": "Woher der Name kommt",
+      "name.p": "Der Name verbindet zwei englische Wörter mit demselben Anfang. Explore (erkunden, erforschen) ist die Seite der Forschenden: ein Modell durchsuchen, vermessen, befragen. Experience (erleben) ist die Seite des Publikums: ein Gebäude umrunden, das nicht mehr steht, oder ein Objekt aus der Nähe sehen. ExPlora4D ist für beide gemacht.",
+      "name.ex": "Der gemeinsame Anfang beider Wörter, im Logo als gekreuztes X gezeichnet.",
+      "name.plora": "Von explore, lat. <i>explorare</i>: auskundschaften, erforschen.",
+      "name.4d": "Die drei Dimensionen des Modells und die Zeit, in der sich Kulturerbe verändert.",
+      "name.diagram": "Explore und Experience teilen Ex; Explore gibt plor; zusammen ergeben sie ExPlora4D",
+      "name.exploreGloss": "erkunden, genau erforschen",
+      "name.experienceGloss": "selbst sehen und erleben",
+      "name.resultGloss": "Forschen und Erleben in einem Viewer",
       "cap.title": "Vier Dinge, die Forschende mit einem 3D-Modell tun",
       "cap.lede": "Jedes Werkzeug speichert seinen Zustand im Manifest, unter dem darunter angegebenen Schlüssel. Was Sie auf dem Bildschirm einrichten, öffnet die nächste Person genauso.",
       "inspect.h": "Untersuchen", "inspect.p": "Die Oberfläche sehen, nicht die Textur.",
@@ -909,7 +1257,40 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "end.p": "Die Beispielsammlung enthält die Scan-Ansichten, Streiflicht, Höhenlinien und die Gewissheitsansicht, jeweils als Manifest zum Herunterladen und Anpassen.",
       "end.schema": "Schema lesen",
       "foot.powered": "Basiert auf dem DLF AIM3D<sup>ex</sup> Viewer.",
-      "foot.dev": "Entwickelt von Daniel Dworak",
+      "foot.dev": "Entwickelt von <a href=\"#author\">Daniel Dworak</a>",
+      "nav.author": "Autor",
+      "nav.mobile": "App",
+      "tab.section": "Schnitt", "tab.annotations": "Annotationen", "tab.golden": "Goldene Stunde", "tab.night": "Nacht",
+      "tab.measurement": "Messung", "tab.wireframe": "Drahtgitter",
+      "alt.measurement": "Dasselbe Modell in einem Quader, beschriftet mit seinen Maßen in Metern",
+      "alt.wireframe": "Dasselbe Modell als Drahtgitter",
+      "alt.section": "Dasselbe Modell, von einer Schnittebene längs geteilt, mit sichtbarem Innenraum",
+      "alt.annotations": "Dasselbe Modell mit nummerierten Annotationsmarkern",
+      "alt.golden": "Dasselbe Modell in warmem Abendlicht",
+      "alt.night": "Dasselbe Modell bei Nacht unter Spotlights",
+      "mobile.eyebrow": "Mobile App",
+      "mobile.title": "Derselbe Viewer in der Tasche",
+      "mobile.lede": "Die App für Android und iOS entsteht aus demselben Code wie der Web-Viewer und hat deshalb dieselben Werkzeuge: Scan-Ansichten, Streiflicht, Schnitte, Messungen, Annotationen, die Gewissheitsansicht und IIIF-Manifeste. Modelle und Punktwolken kommen aus ExHUB, dem gemeinsamen Repositorium, oder vom Gerät selbst.",
+      "mobile.hub": "Das gemeinsame Repositorium der Modelle und Punktwolken des Projekts, beim Upload konvertiert: Meshes als komprimiertes glTF, große Scans als gestreamte 3D Tiles.",
+      "mobile.deviceH": "Auf dem Gerät",
+      "mobile.device": "Modelle vom Telefon und aus ExHUB gespeicherte Modelle bleiben auf dem Gerät und öffnen sich ohne Netz.",
+      "mobile.examplesH": "Beispiele",
+      "mobile.examples": "Die Beispielmanifeste, von den Scan-Ansichten bis zur Gewissheitsansicht, um jedes Werkzeug auszuprobieren.",
+      "mobile.note": "Eine Schaltfläche „Modelle“ wechselt zwischen den drei Quellen. Die App erreicht ExHUB unter einer änderbaren Adresse, sodass ein Projekt auf sein eigenes Repositorium verweisen kann.",
+      "mobile.phone": "Die App auf einem Smartphone mit einem Schnitt durch die Synagoge und ihren drei Modellquellen",
+      "mobile.pillDevice": "Gerät", "mobile.pillExamples": "Beispiele",
+      "store.google": "Jetzt bei Google Play", "store.apple": "Laden im App Store",
+      "store.googleBadge": "img/badge-google-play-de.png",
+      "store.qrGoogle": "QR-Code der App bei Google Play", "store.qrApple": "QR-Code der App im App Store",
+      "store.android": "Android", "store.ios": "iPhone und iPad",
+      "store.note": "Code mit der Handykamera scannen oder auf ein Badge tippen. Links und Codes sind Beispiele, bis die App veröffentlicht ist.",
+      "author.eyebrow": "Autor",
+      "author.role": "Entwickler für 3D im Web · DevOps-Teamleiter · 16+ Jahre",
+      "author.c1": "3D-Visualisierung", "author.c2": "Saubere Architektur", "author.c3": "Container", "author.c4": "Sicherheit",
+      "author.p1": "Hallo, ich bin Daniel. Ich entwickle leistungsstarke Webanwendungen mit Schwerpunkt auf 3D-Visualisierung, Interaktion und sauberer Architektur und bin DevOps-Teamleiter mit über 16 Jahren Erfahrung im Entwerfen, Automatisieren und Betreiben skalierbarer Infrastruktur.",
+      "author.p2": "Mein Hintergrund umfasst CI/CD, containerisierte Plattformen, Observability und Sicherheit. Ich leite Teams, begleite Entwicklerinnen und Entwickler als Mentor und arbeite in multinationalen, funktionsübergreifenden Gruppen: Ich vertrete technische Teams, moderiere Entscheidungen und bringe die technische Arbeit mit den Geschäftszielen in Einklang.",
+      "author.p3": "Mir liegen zuverlässige, sichere, automatisierte Plattformen am Herzen und eine Kultur der Verantwortung, des Wissensaustauschs und der kontinuierlichen Verbesserung.",
+      "author.link": "Zu meinem Portfolio",
       "foot.dfg": "Mit Unterstützung der Deutschen Forschungsgemeinschaft (DFG)",
       "foot.langs": "Oberfläche auf Englisch, Polnisch und Deutsch",
       "foot.viewer": "Viewer", "foot.schema": "Manifest-Schema (JSON)",
@@ -924,6 +1305,12 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "contours": ["A custom shader colours the building by height and draws a contour line every 100 units.", "shadingMode: \"custom\" · customShader"],
       "normals": ["Surface directions as colours: flipped faces and mesh errors stand out at once.", "shadingMode: \"normals\""],
       "certainty": ["Each element coloured by how well it is attested, from surveyed (A) to hypothesis (E).", "AIM3DViewer.certainty · visible: true"],
+      "section": ["A section plane cuts the building lengthwise. The red fill marks the cut and opens the interior: the bimah in the middle, the galleries around it.", "AIM3DViewer.viewer.clipping"],
+      "annotations": ["Numbered annotations sit on the faces they describe. Each opens its text; in order, they make a guided tour.", "Web Annotation · motivation: commenting"],
+      "golden-hour": ["Warm, low sun with ACES tone mapping: the same scene, lit for presentation.", "rendering.toneMapping: \"aces\""],
+      "measurement": ["The building's bounding box in real units: 27.76 × 18.75 × 24.36 m. Distance, angle and area are measured the same way.", "IIIF Scene.spatialScale"],
+      "wireframe": ["The model's triangles as a wire mesh: density, structure and hidden parts at a glance.", "modelTransform.wireframe: true"],
+      "night": ["Night under spotlights with Reinhard tone mapping. Lights, environment and exposure all travel in the manifest.", "rendering.toneMapping: \"reinhard\" · lights"],
     },
     pl: {
       "original": ["Model w opublikowanej postaci: fotograficzne tekstury, światła sceny i otoczenie."],
@@ -932,6 +1319,12 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "contours": ["Własny shader koloruje budynek według wysokości i rysuje warstwicę co 100 jednostek."],
       "normals": ["Kierunki powierzchni jako kolory: odwrócone ściany i błędy siatki widać od razu."],
       "certainty": ["Każdy element pokolorowany według tego, jak dobrze jest poświadczony, od pomiaru (A) po hipotezę (E)."],
+      "section": ["Płaszczyzna przekroju tnie budynek wzdłuż. Czerwone wypełnienie zaznacza cięcie i odsłania wnętrze: bimę pośrodku i galerie wokół niej."],
+      "annotations": ["Numerowane adnotacje leżą na ścianach, które opisują. Każda otwiera swój tekst; po kolei tworzą wycieczkę z przewodnikiem."],
+      "golden-hour": ["Ciepłe, niskie słońce i mapowanie tonów ACES: ta sama scena, oświetlona do prezentacji."],
+      "measurement": ["Prostopadłościan otaczający budynek w rzeczywistych jednostkach: 27,76 × 18,75 × 24,36 m. Odległość, kąt i pole mierzy się tak samo."],
+      "wireframe": ["Trójkąty modelu jako siatka: gęstość, budowa i ukryte części na pierwszy rzut oka."],
+      "night": ["Noc w świetle reflektorów z mapowaniem tonów Reinharda. Światła, otoczenie i ekspozycja są zapisane w manifeście."],
     },
     de: {
       "original": ["Das Modell wie veröffentlicht: fotografische Texturen, Szenenlicht und Umgebung."],
@@ -940,6 +1333,12 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "contours": ["Ein eigener Shader färbt das Gebäude nach Höhe und zeichnet alle 100 Einheiten eine Höhenlinie."],
       "normals": ["Flächenrichtungen als Farben: umgedrehte Flächen und Mesh-Fehler fallen sofort auf."],
       "certainty": ["Jedes Element nach seiner Belegdichte eingefärbt, vom vermessenen Befund (A) bis zur Hypothese (E)."],
+      "section": ["Eine Schnittebene teilt das Gebäude der Länge nach. Die rote Füllung markiert den Schnitt und öffnet das Innere: die Bima in der Mitte, die Galerien ringsum."],
+      "annotations": ["Nummerierte Annotationen liegen auf den Flächen, die sie beschreiben. Jede öffnet ihren Text; der Reihe nach ergeben sie eine geführte Tour."],
+      "golden-hour": ["Warme, tiefe Sonne mit ACES-Tone-Mapping: dieselbe Szene, für die Präsentation beleuchtet."],
+      "measurement": ["Der umschließende Quader des Gebäudes in realen Einheiten: 27,76 × 18,75 × 24,36 m. Abstand, Winkel und Fläche werden ebenso gemessen."],
+      "wireframe": ["Die Dreiecke des Modells als Drahtgitter: Dichte, Aufbau und verdeckte Teile auf einen Blick."],
+      "night": ["Nacht unter Spotlights mit Reinhard-Tone-Mapping. Licht, Umgebung und Belichtung reisen alle im Manifest mit."],
     },
   };
 
@@ -948,6 +1347,10 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
   document.querySelectorAll("[data-i18n]").forEach((el) => { english[el.dataset.i18n] = el.innerHTML; });
   document.querySelectorAll("[data-i18n-alt]").forEach((el) => { english[el.dataset.i18nAlt] = el.alt; });
   document.querySelectorAll("[data-i18n-aria]").forEach((el) => { english[el.dataset.i18nAria] = el.getAttribute("aria-label"); });
+  document.querySelectorAll("[data-i18n-src]").forEach((el) => { english[el.dataset.i18nSrc] = el.getAttribute("src"); });
+  english["meta.title"] = document.title;
+  english["slides.pause"] = "Pause the slideshow";
+  english["slides.play"] = "Play the slideshow";
   english["theme.toDark"] = "Switch to dark mode";
   english["theme.toLight"] = "Switch to light mode";
 
@@ -971,15 +1374,78 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
     note.append(code);
   };
   tabs.forEach((tab, index) => {
-    tab.addEventListener("click", () => showReading(tab.dataset.reading));
+    tab.addEventListener("click", () => {
+      stopSlideshow();
+      showReading(tab.dataset.reading);
+    });
     tab.addEventListener("keydown", (event) => {
       const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
       if (!step) return;
       const next = tabs[(index + step + tabs.length) % tabs.length];
+      stopSlideshow();
       next.focus();
       showReading(next.dataset.reading);
     });
   });
+
+  // Slideshow: every view for SLIDE_MS, in a loop. A tab chosen by hand stops
+  // it (the button starts it again); it holds while the mouse is over the
+  // reader, the hero is off screen or the tab hidden, and does not start by
+  // itself for readers who ask for reduced motion.
+  const SLIDE_MS = 5500;
+  const reader = document.querySelector(".reader");
+  const playButton = document.getElementById("stage-play");
+  const progress = document.getElementById("stage-progress");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const holds = new Set();
+  let playing = !reducedMotion;
+  let elapsed = 0;
+  let lastFrame = null;
+
+  function syncPlayButton() {
+    playButton.classList.toggle("is-paused", !playing);
+    playButton.setAttribute("aria-label", text(playing ? "slides.pause" : "slides.play"));
+    playButton.title = playButton.getAttribute("aria-label");
+    progress.hidden = !playing;
+    // Automatic changes are not read out; chosen ones are.
+    note.setAttribute("aria-live", playing ? "off" : "polite");
+  }
+  function stopSlideshow() {
+    playing = false;
+    elapsed = 0;
+    syncPlayButton();
+  }
+  function startSlideshow() {
+    playing = true;
+    elapsed = 0;
+    syncPlayButton();
+  }
+  function frame(now) {
+    const running = playing && holds.size === 0;
+    if (running && lastFrame !== null) elapsed += now - lastFrame;
+    lastFrame = now;
+    if (running && elapsed >= SLIDE_MS) {
+      elapsed = 0;
+      const index = tabs.findIndex((tab) => tab.dataset.reading === reading);
+      showReading(tabs[(index + 1) % tabs.length].dataset.reading);
+    }
+    progress.style.transform = `scaleX(${Math.min(1, elapsed / SLIDE_MS)})`;
+    requestAnimationFrame(frame);
+  }
+  playButton.addEventListener("click", () => (playing ? stopSlideshow() : startSlideshow()));
+  reader.addEventListener("pointerenter", (event) => { if (event.pointerType === "mouse") holds.add("hover"); });
+  reader.addEventListener("pointerleave", () => holds.delete("hover"));
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) holds.add("hidden");
+    else holds.delete("hidden");
+  });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) holds.delete("offscreen");
+      else holds.add("offscreen");
+    }, { threshold: 0.25 }).observe(stage);
+  }
+  requestAnimationFrame(frame);
 
   const themeButton = document.getElementById("theme-toggle");
   const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1012,12 +1478,15 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
   const setLanguage = (next) => {
     lang = strings[next] || next === "en" ? next : "en";
     root.lang = lang;
+    document.title = text("meta.title");
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.innerHTML = text(el.dataset.i18n); });
     document.querySelectorAll("[data-i18n-alt]").forEach((el) => { el.alt = text(el.dataset.i18nAlt); });
     document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.setAttribute("aria-label", text(el.dataset.i18nAria)); });
+    document.querySelectorAll("[data-i18n-src]").forEach((el) => { el.setAttribute("src", text(el.dataset.i18nSrc)); });
     document.querySelectorAll(".lang button").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.lang === lang)));
     showReading(reading);
     syncThemeButton();
+    syncPlayButton();
   };
   document.querySelectorAll(".lang button").forEach((button) => {
     button.addEventListener("click", () => {

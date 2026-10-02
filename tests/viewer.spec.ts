@@ -1876,6 +1876,36 @@ test('model units: from the file, a remembered choice for implausible sizes, and
   await expect(warning).toContainText('2.78 km');
 });
 
+test('the IIIF logo: in the credits, and on the metadata card of a model from a manifest, linking to it', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const icon = () => page.evaluate(() => document.querySelector('#metadata-card .metadata-iiif')?.href ?? null);
+
+  // The credits name IIIF next to three.js.
+  await expect(page.locator('#credits .credits-iiif')).toHaveAttribute('href', 'https://iiif.io');
+  // A model opened on its own has no manifest to link to.
+  expect(await icon()).toBeNull();
+
+  // Opened from a manifest's address: the icon links there, so it can be
+  // dragged into another IIIF viewer.
+  await page.evaluate(async () => {
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto('/manifests/box-aim3d-local.json', 'url', 'aim3if');
+  });
+  await waitForModel(page);
+  await expect.poll(icon).toMatch(/\/manifests\/box-aim3d-local\.json$/);
+  expect(await page.evaluate(() => document.querySelector('.metadata-iiif img').naturalWidth)).toBeGreaterThan(0);
+
+  // Given as text, with an id that is no web address: nothing to link to.
+  await page.evaluate(async () => {
+    const text = await (await fetch('/manifests/box-aim3d-local.json')).text();
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(text, 'text');
+  });
+  await waitForModel(page);
+  expect(await icon()).toBeNull();
+});
+
 test('IIIF Scene.spatialScale sets the model unit and is exported again', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);

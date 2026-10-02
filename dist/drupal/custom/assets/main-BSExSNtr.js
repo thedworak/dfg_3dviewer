@@ -804,6 +804,7 @@ const VIEWER_I18N = {
     },
     metadata: {
       modelDetails: "Model details",
+      iiifManifest: "IIIF manifest: drag it into another IIIF viewer, or open it",
       metadata: "Metadata",
       visualizedFile: "Visualized file",
       vertices: "Vertices",
@@ -1543,6 +1544,7 @@ const VIEWER_I18N = {
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
+      iiifManifest: "Manifest IIIF: przeciągnij go do innej przeglądarki IIIF albo otwórz",
       metadata: "Metadane",
       visualizedFile: "Wizualizowany plik",
       vertices: "Wierzchołki",
@@ -2298,6 +2300,7 @@ const VIEWER_I18N = {
     },
     metadata: {
       modelDetails: "Modelldetails",
+      iiifManifest: "IIIF-Manifest: in einen anderen IIIF-Viewer ziehen oder öffnen",
       metadata: "Metadaten",
       visualizedFile: "Visualisierte Datei",
       vertices: "Vertices",
@@ -6224,7 +6227,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "37dfdf7" ;
+const BUILD_ID$2 = "bf1307f" ;
 const BUILD = "drupal" ;
 
 let initPromise = null;
@@ -6275,8 +6278,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "37dfdf7" ;
-const BUILD_TIME$1 = "2026-10-02T10:22:52.921Z" ;
+const BUILD_ID$1 = "bf1307f" ;
+const BUILD_TIME$1 = "2026-10-02T12:43:44.879Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -12539,6 +12542,24 @@ function initializeMetadataDragAndResize() {
 /**
  * Appends metadata HTML to the DOM.
  */
+// The address of the manifest the model came from, or null: the URL it was
+// loaded from, else its id when that is a web address (a manifest given as
+// text has no other).
+function currentManifestUrl() {
+  const manifest = window.Viewer?.currentManifest;
+  if (!manifest) return null;
+  const source = manifest.source;
+  if (manifest.type !== "text" && typeof source === "string" && !source.trim().startsWith("{")) {
+    try {
+      return new URL(source, window.location.href).href;
+    } catch {
+      return null;
+    }
+  }
+  const id = manifest.json?.id || manifest.json?.["@id"];
+  return typeof id === "string" && /^https?:\/\//.test(id) ? id : null;
+}
+
 function appendMetadata(
   metadataContent
 ) {
@@ -12715,8 +12736,19 @@ async function handleMetadataResponse(
       '<span class="metadata-stat-label" data-i18n-key="metadata.' + key + '">' + escapeHtml$1(t$1(`metadata.${key}`, fallback)) + '</span>' +
     '</div>';
 
+  // A model from a IIIF (or AIM3D) manifest: the IIIF icon, linking to the
+  // manifest. The community's drag-and-drop convention: dropped on another
+  // IIIF viewer (Mirador, Universal Viewer) it opens the same manifest there.
+  const manifestUrl = currentManifestUrl();
+  const iiifLink = manifestUrl
+    ? '<a class="metadata-iiif" href="' + escapeHtml$1(manifestUrl) + '" target="_blank" rel="noopener"' +
+        ' title="' + escapeHtml$1(t$1("metadata.iiifManifest", "IIIF manifest: drag it into another IIIF viewer, or open it")) + '">' +
+        '<img src="' + escapeHtml$1(`${core.DFG_ASSETS || "assets"}/img/logo/iiif.png`) + '" alt="IIIF" width="22" height="20">' +
+      '</a>'
+    : '';
+
   var metadataContent =
-    '<div id="metadata-card">' +
+    '<div id="metadata-card"' + (iiifLink ? ' class="metadata-has-iiif"' : '') + '>' +
       '<div class="metadata-drag-handle" title="' + escapeHtml$1(t$1("metadata.move", "Move")) + '"></div>' +
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content"' +
         ' aria-label="' + escapeHtml$1(t$1("metadata.modelDetails", "Model details")) + ': ' + escapeHtml$1(fileName) + '">' +
@@ -12728,6 +12760,7 @@ async function handleMetadataResponse(
         '</span>' +
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
+      iiifLink +
       '<div id="metadata-content" class="metadata-content">' +
         '<div class="metadata-stats">' +
           statTile("vertices", "Vertices") +
@@ -23734,7 +23767,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-D_MP6TMH.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BbbzggxR.js');
+const loadTilesPlugins = () => import('./index.three-plugins-COfiK5aL.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -26684,7 +26717,7 @@ const loadLWOLoader = async () => (await import('./three-CcXsnZni.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DaGIrRE_.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aW; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DWiux8v9.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BmyrZ1SE.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aX; })).HDRLoader;
 
 var outlineClipping;
@@ -35199,8 +35232,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "37dfdf7" ;
-const BUILD_TIME = "2026-10-02T10:22:52.921Z" ;
+const BUILD_ID = "bf1307f" ;
+const BUILD_TIME = "2026-10-02T12:43:44.879Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -35208,6 +35241,12 @@ function formatBuildTime(iso) {
   if (Number.isNaN(date.getTime())) return "";
   const pad = (value) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// The viewer reads and writes IIIF Presentation manifests.
+function iiifCreditHtml() {
+  const src = `${core.DFG_ASSETS || "assets"}/img/logo/iiif.png`;
+  return `<span class="credits-item"><a href="https://iiif.io" target="_blank" rel="noopener noreferrer" class="credits-link credits-iiif" title="IIIF - International Image Interoperability Framework"><img class="credits-logo" src="${src}" alt="IIIF" width="16" height="14">IIIF</a></span>`;
 }
 
 function poweredByHtml() {
@@ -35263,7 +35302,7 @@ async function createCreditsElement() {
         : `<span class="credits-text">${item.text}</span>`;
       return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
     })
-    .concat(poweredByHtml())
+    .concat(iiifCreditHtml(), poweredByHtml())
     .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
 
   html += `<span class="credits-items">${itemsHtml}</span>`;
@@ -39441,4 +39480,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-D8wBhIBY.js.map
+//# sourceMappingURL=main-BbRxHH4X.js.map
