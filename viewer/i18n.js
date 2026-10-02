@@ -183,6 +183,7 @@ export const VIEWER_I18N = {
     },
     metadata: {
       modelDetails: "Model details",
+      iiifManifest: "IIIF manifest: drag it into another IIIF viewer, or open it",
       metadata: "Metadata",
       visualizedFile: "Visualized file",
       vertices: "Vertices",
@@ -922,6 +923,7 @@ export const VIEWER_I18N = {
     },
     metadata: {
       modelDetails: "Szczegóły modelu",
+      iiifManifest: "Manifest IIIF: przeciągnij go do innej przeglądarki IIIF albo otwórz",
       metadata: "Metadane",
       visualizedFile: "Wizualizowany plik",
       vertices: "Wierzchołki",
@@ -1677,6 +1679,7 @@ export const VIEWER_I18N = {
     },
     metadata: {
       modelDetails: "Modelldetails",
+      iiifManifest: "IIIF-Manifest: in einen anderen IIIF-Viewer ziehen oder öffnen",
       metadata: "Metadaten",
       visualizedFile: "Visualisierte Datei",
       vertices: "Vertices",

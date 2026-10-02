@@ -13,6 +13,12 @@ function formatBuildTime(iso) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+// The viewer reads and writes IIIF Presentation manifests.
+function iiifCreditHtml() {
+  const src = `${core.DFG_ASSETS || "assets"}/img/logo/iiif.png`;
+  return `<span class="credits-item"><a href="https://iiif.io" target="_blank" rel="noopener noreferrer" class="credits-link credits-iiif" title="IIIF - International Image Interoperability Framework"><img class="credits-logo" src="${src}" alt="IIIF" width="16" height="14">IIIF</a></span>`;
+}
+
 function poweredByHtml() {
   const parts = [BUILD_ID, formatBuildTime(BUILD_TIME)].filter(Boolean);
   const build = parts.length ? ` (${parts.join(", ")})` : "";
@@ -66,7 +72,7 @@ export async function createCreditsElement() {
         : `<span class="credits-text">${item.text}</span>`;
       return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
     })
-    .concat(poweredByHtml())
+    .concat(iiifCreditHtml(), poweredByHtml())
     .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
 
   html += `<span class="credits-items">${itemsHtml}</span>`;

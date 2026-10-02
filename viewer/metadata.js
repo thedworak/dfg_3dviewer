@@ -527,6 +527,24 @@ function initializeMetadataDragAndResize() {
 /**
  * Appends metadata HTML to the DOM.
  */
+// The address of the manifest the model came from, or null: the URL it was
+// loaded from, else its id when that is a web address (a manifest given as
+// text has no other).
+function currentManifestUrl() {
+  const manifest = window.Viewer?.currentManifest;
+  if (!manifest) return null;
+  const source = manifest.source;
+  if (manifest.type !== "text" && typeof source === "string" && !source.trim().startsWith("{")) {
+    try {
+      return new URL(source, window.location.href).href;
+    } catch {
+      return null;
+    }
+  }
+  const id = manifest.json?.id || manifest.json?.["@id"];
+  return typeof id === "string" && /^https?:\/\//.test(id) ? id : null;
+}
+
 export function appendMetadata(
   metadataContent
 ) {
@@ -704,8 +722,19 @@ export async function handleMetadataResponse(
       '<span class="metadata-stat-label" data-i18n-key="metadata.' + key + '">' + escapeHtml(t(`metadata.${key}`, fallback)) + '</span>' +
     '</div>';
 
+  // A model from a IIIF (or AIM3D) manifest: the IIIF icon, linking to the
+  // manifest. The community's drag-and-drop convention: dropped on another
+  // IIIF viewer (Mirador, Universal Viewer) it opens the same manifest there.
+  const manifestUrl = currentManifestUrl();
+  const iiifLink = manifestUrl
+    ? '<a class="metadata-iiif" href="' + escapeHtml(manifestUrl) + '" target="_blank" rel="noopener"' +
+        ' title="' + escapeHtml(t("metadata.iiifManifest", "IIIF manifest: drag it into another IIIF viewer, or open it")) + '">' +
+        '<img src="' + escapeHtml(`${core.DFG_ASSETS || "assets"}/img/logo/iiif.png`) + '" alt="IIIF" width="22" height="20">' +
+      '</a>'
+    : '';
+
   var metadataContent =
-    '<div id="metadata-card">' +
+    '<div id="metadata-card"' + (iiifLink ? ' class="metadata-has-iiif"' : '') + '>' +
       '<div class="metadata-drag-handle" title="' + escapeHtml(t("metadata.move", "Move")) + '"></div>' +
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content"' +
         ' aria-label="' + escapeHtml(t("metadata.modelDetails", "Model details")) + ': ' + escapeHtml(fileName) + '">' +
@@ -717,6 +746,7 @@ export async function handleMetadataResponse(
         '</span>' +
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
+      iiifLink +
       '<div id="metadata-content" class="metadata-content">' +
         '<div class="metadata-stats">' +
           statTile("vertices", "Vertices") +
