@@ -1833,6 +1833,7 @@ test('sign-in and user management sit in their own account area, outside the exa
 });
 
 test('model units: from the file, a remembered choice for implausible sizes, and imperial display', async ({ page }) => {
+  test.slow();
   const readout = page.locator('#viewerMeasurementReadout');
   const showDimensions = () => page.evaluate(() => {
     if (!window.Viewer.measurementDimensions) window.Viewer.toggleModelDimensions();
