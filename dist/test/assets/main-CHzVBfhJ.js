@@ -6227,7 +6227,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "04f5e3a" ;
+const BUILD_ID$2 = "bf1307f" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -6278,8 +6278,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "04f5e3a" ;
-const BUILD_TIME$1 = "2026-10-02T12:33:19.985Z" ;
+const BUILD_ID$1 = "bf1307f" ;
+const BUILD_TIME$1 = "2026-10-02T12:43:25.374Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -23768,7 +23768,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-D_MP6TMH.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BwSJ5MWg.js');
+const loadTilesPlugins = () => import('./index.three-plugins-zgMhrfGd.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -26703,7 +26703,7 @@ const loadLWOLoader = async () => (await import('./three-CcXsnZni.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DaGIrRE_.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aW; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-AIPQl4FE.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DJcqvwOG.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aX; })).HDRLoader;
 
 var outlineClipping;
@@ -35175,8 +35175,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "04f5e3a" ;
-const BUILD_TIME = "2026-10-02T12:33:19.985Z" ;
+const BUILD_ID = "bf1307f" ;
+const BUILD_TIME = "2026-10-02T12:43:25.374Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {

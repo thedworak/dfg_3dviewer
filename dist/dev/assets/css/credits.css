@@ -87,3 +87,9 @@
 .credits-link:hover {
     text-decoration: underline;
 }
+
+.credits-iiif {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}

@@ -1260,6 +1260,24 @@ canvas {
   white-space: nowrap;
 }
 
+/* The IIIF drag-and-drop icon (metadata.js), left of the chevron; the title
+   stops short of it. */
+.metadata-iiif {
+  position: absolute;
+  top: 20px;
+  right: 40px;
+  display: block;
+  line-height: 0;
+  border-radius: 4px;
+  z-index: 2;
+}
+.metadata-iiif img { width: 22px; height: 20px; display: block; }
+.metadata-iiif:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--metadata-value-color) 40%, transparent);
+  outline-offset: 3px;
+}
+#metadata-card.metadata-has-iiif .metadata-toggle-copy { padding-right: 30px; }
+
 .metadata-toggle-chevron {
   position: relative;
   width: 18px;
