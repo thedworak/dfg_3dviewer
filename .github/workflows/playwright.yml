@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     # The tests are split across parallel runners; each one builds and runs
     # its share.
