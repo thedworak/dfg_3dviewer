@@ -12,7 +12,17 @@ website/
   index.html                    the page (English, Polish and German in one file)
   img/                          model screenshots, the two logo variants, favicon
   scripts/capture-screenshots.mjs   re-renders the screenshots from the viewer
+  robots.txt, sitemap.xml       for search engines (both name https://explora4d.eu/)
 ```
+
+## Search engines
+
+`index.html` carries the title and description, a canonical URL, Open Graph
+and Twitter/X cards (`img/og-image.jpg`, 1200×630) and JSON-LD structured
+data (WebSite, SoftwareApplication, Person). All of them, `robots.txt` and
+`sitemap.xml` assume the site is served at `https://explora4d.eu/`; change
+them together if it moves. Update `lastmod` in `sitemap.xml` when the page
+changes.
 
 ## Preview and deploy
 
@@ -22,7 +32,8 @@ Open `index.html` directly, or serve the folder:
 npx serve website
 ```
 
-To publish, copy the folder's contents (`index.html` and `img/`) to the web
+To publish, copy the folder's contents (`index.html`, `img/`, `robots.txt`,
+`sitemap.xml`) to the web
 root of explora4d.eu. Fonts load from Google Fonts; the viewer links point to
 `https://ExPlora4D.thedworak.com`.
 

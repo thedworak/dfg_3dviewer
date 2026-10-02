@@ -3,13 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ExPlora4D</title>
+<title>ExPlora4D – IIIF 3D viewer for cultural heritage</title>
 <meta name="description" content="ExPlora4D is a web viewer for cultural heritage in 3D: inspect the surface, annotate, grade the certainty of a reconstruction and publish it as an open IIIF manifest.">
-<meta property="og:title" content="ExPlora4D">
-<meta property="og:description" content="A IIIF-native web viewer for 3D cultural heritage.">
+<link rel="canonical" href="https://explora4d.eu/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="author" content="Daniel Dworak">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://explora4d.eu/img/original.webp">
+<meta property="og:site_name" content="ExPlora4D">
+<meta property="og:url" content="https://explora4d.eu/">
+<meta property="og:title" content="ExPlora4D – IIIF 3D viewer for cultural heritage">
+<meta property="og:description" content="Inspect, annotate and grade the certainty of 3D models of cultural heritage, and publish them as open IIIF manifests. On the web, in repositories and on phones.">
+<meta property="og:image" content="https://explora4d.eu/img/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The wooden synagogue of Wołpa as a 3D model in ExPlora4D">
+<meta property="og:locale" content="en_GB">
+<meta property="og:locale:alternate" content="pl_PL">
+<meta property="og:locale:alternate" content="de_DE">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ExPlora4D – IIIF 3D viewer for cultural heritage">
+<meta name="twitter:description" content="Inspect, annotate and grade the certainty of 3D models of cultural heritage, and publish them as open IIIF manifests.">
+<meta name="twitter:image" content="https://explora4d.eu/img/og-image.jpg">
 <link rel="icon" href="img/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://explora4d.eu/#website",
+      "url": "https://explora4d.eu/",
+      "name": "ExPlora4D",
+      "inLanguage": ["en", "pl", "de"],
+      "publisher": { "@id": "https://portfolio.thedworak.com/#person" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://explora4d.eu/#app",
+      "name": "ExPlora4D",
+      "alternateName": "DLF AIM3D Viewer",
+      "url": "https://explora4d.eu/",
+      "description": "A IIIF-native web viewer for 3D cultural heritage: inspect the surface with scan views, raking light, ambient occlusion and sections; annotate faces; grade the level of certainty of a reconstruction; publish everything as an open IIIF Presentation 4 manifest.",
+      "applicationCategory": "MultimediaApplication",
+      "applicationSubCategory": "3D viewer",
+      "operatingSystem": "Web browser, Android, iOS",
+      "image": "https://explora4d.eu/img/og-image.jpg",
+      "screenshot": [
+        "https://explora4d.eu/img/original.webp",
+        "https://explora4d.eu/img/section.webp",
+        "https://explora4d.eu/img/certainty.webp"
+      ],
+      "featureList": [
+        "IIIF Presentation API 4 manifests with 3D scenes",
+        "W3C Web Annotation on model faces",
+        "Level of Certainty for 3D reconstructions",
+        "Scan views: clay, matcap, flat shading, normals, custom GLSL",
+        "Raking light and ambient occlusion",
+        "Section planes and measurement in real units",
+        "glTF, OBJ, FBX, PLY, STL, IFC, USD, LAS/LAZ point clouds and 3D Tiles",
+        "Drupal / WissKI integration",
+        "Android and iOS app"
+      ],
+      "inLanguage": ["en", "pl", "de"],
+      "author": { "@id": "https://portfolio.thedworak.com/#person" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://portfolio.thedworak.com/#person",
+      "name": "Daniel Dworak",
+      "url": "https://portfolio.thedworak.com",
+      "jobTitle": "DevOps Team Lead"
+    }
+  ]
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
@@ -572,7 +640,7 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 
       <div class="reader">
         <div class="stage" id="stage">
-          <img class="on" data-reading="original" src="img/original.webp" data-i18n-alt="alt.original" alt="The wooden synagogue of Wołpa as a textured 3D model" width="1200" height="711">
+          <img class="on" data-reading="original" src="img/original.webp" fetchpriority="high" data-i18n-alt="alt.original" alt="The wooden synagogue of Wołpa as a textured 3D model" width="1200" height="711">
           <img data-reading="clay-ao" src="img/clay-ao.webp" data-i18n-alt="alt.clay" alt="The same model in untextured clay with ambient occlusion" width="1200" height="711" loading="lazy">
           <img data-reading="raking" src="img/raking.webp" data-i18n-alt="alt.raking" alt="The same model under a low raking light" width="1200" height="711" loading="lazy">
           <img data-reading="contours" src="img/contours.webp" data-i18n-alt="alt.contours" alt="The same model coloured by height with contour lines" width="1200" height="711" loading="lazy">
@@ -962,6 +1030,7 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "lang.label": "Język",
       "theme.toDark": "Przełącz na tryb ciemny", "theme.toLight": "Przełącz na tryb jasny",
       "slides.pause": "Zatrzymaj pokaz", "slides.play": "Odtwórz pokaz",
+      "meta.title": "ExPlora4D – przeglądarka 3D IIIF dla dziedzictwa kulturowego",
       "cta.open": "Otwórz przeglądarkę",
       "hero.eyebrow": "3D dla humanistyki · natywnie w IIIF",
       "hero.title": "Czytaj model 3D tak, jak czytasz <em>źródło</em>.",
@@ -1096,6 +1165,7 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
       "lang.label": "Sprache",
       "theme.toDark": "Zum dunklen Modus wechseln", "theme.toLight": "Zum hellen Modus wechseln",
       "slides.pause": "Diashow anhalten", "slides.play": "Diashow abspielen",
+      "meta.title": "ExPlora4D – IIIF-3D-Viewer für das kulturelle Erbe",
       "cta.open": "Viewer öffnen",
       "hero.eyebrow": "3D für die Geisteswissenschaften · IIIF-nativ",
       "hero.title": "Lesen Sie ein 3D-Modell wie eine <em>Quelle</em>.",
@@ -1278,6 +1348,7 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
   document.querySelectorAll("[data-i18n-alt]").forEach((el) => { english[el.dataset.i18nAlt] = el.alt; });
   document.querySelectorAll("[data-i18n-aria]").forEach((el) => { english[el.dataset.i18nAria] = el.getAttribute("aria-label"); });
   document.querySelectorAll("[data-i18n-src]").forEach((el) => { english[el.dataset.i18nSrc] = el.getAttribute("src"); });
+  english["meta.title"] = document.title;
   english["slides.pause"] = "Pause the slideshow";
   english["slides.play"] = "Play the slideshow";
   english["theme.toDark"] = "Switch to dark mode";
@@ -1407,6 +1478,7 @@ footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
   const setLanguage = (next) => {
     lang = strings[next] || next === "en" ? next : "en";
     root.lang = lang;
+    document.title = text("meta.title");
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.innerHTML = text(el.dataset.i18n); });
     document.querySelectorAll("[data-i18n-alt]").forEach((el) => { el.alt = text(el.dataset.i18nAlt); });
     document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.setAttribute("aria-label", text(el.dataset.i18nAria)); });
