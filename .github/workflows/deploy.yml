@@ -18,32 +18,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # A merged pull request was already tested (playwright.yml runs on pull
-  # requests) - deploy it without testing again. A direct push, a manual run,
-  # or a pull request without a passing test run is tested first.
+  # A commit that already passed the tests on its branch (playwright.yml runs
+  # on every push), or a merged pull request whose head commit did, is
+  # deployed without testing again; so is a push that only changes files the
+  # tests ignore. A manual run, or a commit without a passing run, is tested
+  # first.
   tested:
     runs-on: ubuntu-latest
     outputs:
       tested: ${{ steps.check.outputs.tested }}
     steps:
-      - name: Check for a merged pull request with passing tests
+      - name: Check for a passing test run of this commit
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before }}
         run: |
           tested=false
+          passed() {
+            gh api "repos/$REPO/actions/runs?head_sha=$1&status=success" \
+              --jq '[.workflow_runs[] | select(.name == "Playwright Tests")] | length'
+          }
           if [ "${{ github.event_name }}" = "push" ]; then
             head="$(gh api "repos/$REPO/commits/$SHA/pulls" \
               --jq "[.[] | select(.merged_at != null and .merge_commit_sha == \"$SHA\")][0].head.sha // empty")"
-            if [ -n "$head" ]; then
-              passed="$(gh api "repos/$REPO/actions/runs?head_sha=$head&event=pull_request&status=success" \
-                --jq '[.workflow_runs[] | select(.name == "Playwright Tests")] | length')"
-              [ "${passed:-0}" -gt 0 ] && tested=true
-              echo "Pull request head $head: $passed passing Playwright run(s)."
-            else
-              echo "Not the merge of a pull request."
+            for commit in "$SHA" $head; do
+              count="$(passed "$commit")"
+              echo "Commit $commit: ${count:-0} passing Playwright run(s)."
+              if [ "${count:-0}" -gt 0 ]; then tested=true; break; fi
+            done
+
+            # Only website, docs or Markdown changes: nothing the tests cover.
+            if [ "$tested" = false ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+              files="$(gh api "repos/$REPO/compare/$BEFORE...$SHA" --jq '.files[].filename')"
+              if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvE '^(website/|docs/)|\.md$'; then
+                echo "Only files the tests ignore changed."
+                tested=true
+              fi
             fi
           fi
           echo "tested=$tested" >> "$GITHUB_OUTPUT"
@@ -55,7 +68,7 @@ jobs:
 
   build:
     needs: [tested, tests]
-    # Skipped tests (already passed in the pull request) still let it build.
+    # Skipped tests (already passed for this commit) still let it build.
     if: always() && needs.tested.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.tests.result)
     runs-on: ubuntu-latest
     steps:

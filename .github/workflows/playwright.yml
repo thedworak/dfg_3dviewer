@@ -1,21 +1,37 @@
 name: Playwright Tests
 
-# Once per change: in its pull request. deploy.yml calls this workflow itself
-# (workflow_call) for a push to main/stable-release that did not come from a
-# pull request with passing tests, before deploying.
+# Once per commit: on the push to its branch. A pull request does not run the
+# tests again - the run of its head commit is shown in the pull request's
+# checks. deploy.yml calls this workflow itself (workflow_call) for a push to
+# main/stable-release whose commit has no passing run yet, before deploying.
+# Changes to the website, the docs or Markdown files alone do not run it.
 on:
-  pull_request:
+  push:
+    branches-ignore:
+      - main
+      - stable-release
+    paths-ignore:
+      - 'website/**'
+      - 'docs/**'
+      - '**/*.md'
   workflow_call:
   workflow_dispatch:
 
-# A new push to the pull request cancels the run for the previous commit.
+# A new push to the branch cancels the run for the previous commit.
 concurrency:
-  group: playwright-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: playwright-${{ github.workflow }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
+
+    # The tests are split across parallel runners; each one builds and runs
+    # its share.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     steps:
        - name: Checkout repo
@@ -41,7 +57,7 @@ jobs:
          run: pnpm run build:test
  
        - name: Run Playwright tests
-         run: pnpm exec playwright test
+         run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
          env:
            CI: true
  
@@ -49,6 +65,6 @@ jobs:
          if: always()
          uses: actions/upload-artifact@v6
          with:
-           name: playwright-report
+           name: playwright-report-${{ matrix.shard }}
            path: playwright-report/
            retention-days: 30
