@@ -24,7 +24,7 @@ jobs:
   # tests ignore. A manual run, or a commit without a passing run, is tested
   # first.
   tested:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       tested: ${{ steps.check.outputs.tested }}
     steps:
@@ -70,7 +70,7 @@ jobs:
     needs: [tested, tests]
     # Skipped tests (already passed for this commit) still let it build.
     if: always() && needs.tested.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.tests.result)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -102,6 +102,9 @@ jobs:
 
   deploy:
     needs: build
+    # always(): without it GitHub skips this job whenever any earlier job in
+    # the chain was skipped - here the tests, when the commit already passed.
+    if: always() && needs.build.result == 'success'
     # Runs directly on the target server (see README/docs for the
     # self-hosted runner setup) instead of SSHing into it from a
     # GitHub-hosted runner - those have no fixed IP, so a firewall locked to
