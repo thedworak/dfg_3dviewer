@@ -150,7 +150,9 @@ canvas {
   left: 50%;
   bottom: var(--viewer-notice-safe-bottom);
   transform: translateX(-50%);
-  z-index: 110;
+  /* Above the panel windows (99999) and the upload overlay (100000), so
+     errors raised from inside a panel (e.g. plans, account link) stay visible. */
+  z-index: 100001;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2504,20 +2506,21 @@ body.presentation-mode {
 /* No network (viewer/connectivity.js) or no repository configured in the app
    (viewer/remote.js): hide controls that need the server. The model browser
    stays in the app without a repository - its address is entered there.
-   Sign-in needs a same-site session cookie, which the app (another origin)
-   never gets. */
+   The app signs in with a session token (remote.js), like a page does with
+   its cookie. */
 body.viewer-offline #uploadModel,
 body.viewer-offline #browseModelsButton,
 body.viewer-offline #loginButton,
 body.viewer-offline #manageUsersButton,
 body.viewer-no-remote #uploadModel,
-body.viewer-app #loginButton,
-body.viewer-app #manageUsersButton,
+body.viewer-no-remote #loginButton,
+body.viewer-no-remote #manageUsersButton,
 body.viewer-app #browseModelsButton,
 /* ...and the bar that holds only those two, or its empty frame stays in the
    header's corner. */
 body.viewer-offline #viewer-account-bar,
-body.viewer-app #viewer-account-bar {
+body.viewer-no-remote #viewer-account-bar,
+body.viewer-app #viewer-account-bar:not(:has(button:not([hidden]))) {
   display: none !important;
 }
 

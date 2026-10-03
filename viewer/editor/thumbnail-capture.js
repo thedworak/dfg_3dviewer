@@ -1,7 +1,7 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { renderFrame } from "../rendering.js";
-import { apiUrl, remoteAssetUrl } from "../remote.js";
+import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 
 const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
@@ -42,7 +42,7 @@ function thumbnailUploadUrl() {
 // new image instead of the placeholders.
 async function refreshWorkerThumbnails(viewer, jobId) {
   try {
-    const response = await fetch(apiUrl("/api/jobs"), { cache: "no-store" });
+    const response = await fetch(apiUrl("/api/jobs"), { cache: "no-store", headers: appRequestHeaders() });
     if (!response.ok) return;
     const job = ((await response.json()).jobs || []).find((entry) => entry.id === jobId);
     const galleryCfg = core.CONFIG?.viewer?.gallery;
@@ -107,7 +107,7 @@ async function uploadThumbnail(blob, view = "side45") {
     method: "POST",
     credentials: "same-origin",
     // Drupal's CSRF token; the worker does not allow the header (CORS).
-    headers: BUILD === "drupal" ? { "X-CSRF-Token": window.CSRF_TOKEN } : {},
+    headers: BUILD === "drupal" ? { "X-CSRF-Token": window.CSRF_TOKEN } : appRequestHeaders(),
     body: fileform,
   });
   const text = await res.text();
@@ -134,7 +134,7 @@ async function requireWorkerJob() {
     return null;
   }
   try {
-    const response = await fetch(apiUrl("/api/jobs"), { cache: "no-store" });
+    const response = await fetch(apiUrl("/api/jobs"), { cache: "no-store", headers: appRequestHeaders() });
     if (response.ok) {
       const job = ((await response.json()).jobs || []).find((entry) => entry.id === jobId);
       if (job?.canDelete === false) {

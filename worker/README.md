@@ -252,7 +252,7 @@ With `WORKER_AUTH_MODE=required`, uploading and deleting need a logged-in accoun
 
 - Set the variables in a `.env` next to `docker-compose.yml` (e.g. `WORKER_AUTH_MODE=required`, `WORKER_ADMIN_USER=you`, `WORKER_ADMIN_PASSWORD=...`), then recreate the worker.
 - Visitors register in the viewer's upload panel. With the default `approval` registration, new accounts stay *pending* until you approve them.
-- Endpoints: `GET /api/auth/config`, `GET /api/auth/me`, `POST /api/auth/register|login|logout` (JSON `{username, password}`; the session is an HttpOnly, SameSite=Lax cookie, `Secure` when the proxy sends `X-Forwarded-Proto: https`). Five failed logins lock a username for five minutes.
+- Endpoints: `GET /api/auth/config`, `GET /api/auth/me`, `POST /api/auth/register|login|logout` (JSON `{username, password}`; the session is an HttpOnly, SameSite=Lax cookie, `Secure` when the proxy sends `X-Forwarded-Proto: https`). The mobile app runs on another origin and never gets that cookie: it logs in with `{"session": "token"}`, gets the same signed token back in the response (`token`) and sends it as `Authorization: Bearer <token>`. A failed login says `Unknown username.` or `Invalid password.`; five failed logins lock a username for five minutes.
 - Every upload records its account, original filename and size in `<job>/owner.json`. Users can delete only their own uploads; admins can delete any. Jobs from before accounts were enabled are admin-only.
 - Admins can correct who uploaded a model and when: in the viewer's user panel ("Edit" next to a model), or `POST /api/admin/jobs/<id>` with `{"owner": "alice", "createdAt": 1767225600}` (`owner: null` = no owner; `createdAt` in Unix seconds). It rewrites `<job>/owner.json`, so storage quotas move with the owner.
 - Supervise from the command line (there is deliberately no admin HTTP API):
@@ -262,6 +262,8 @@ docker compose exec worker python3 /app/worker/server.py admin users
 docker compose exec worker python3 /app/worker/server.py admin uploads
 docker compose exec worker python3 /app/worker/server.py admin approve alice
 # also: disable <user>, promote <user>, demote <user>, delete-user <user>
+docker compose exec worker python3 /app/worker/server.py admin plan alice business 30   # grant Business for 30 days
+docker compose exec worker python3 /app/worker/server.py admin plan alice purchase      # drop the grant
 ```
 
 The viewer-side switch lives in the AIM3D manifest (`AIM3DViewer.viewer.auth`, see `viewer/manifesto/AIM3DViewer-schema.md`), but that only controls whether the login UI is shown - **the worker setting is what actually enforces access**, because a manifest is client-side data.
@@ -329,17 +331,17 @@ The id is not a secret: someone who learns a subscriber's id can use their limit
 
 #### App plans linked to accounts
 
-With accounts on (`WORKER_AUTH_MODE=required`), the app's plans panel can link a purchase to an account: the user logs in there once, and the app calls these endpoints with its RevenueCat id in `X-App-User-Id`:
+With accounts on (`WORKER_AUTH_MODE=required`), anyone can log in in the app (account button or plans panel) with their own account. The app then applies the account's plan on that device (the higher of it and what the device bought), and links the device's purchase to the account. It calls these endpoints with its RevenueCat id in `X-App-User-Id`:
 
 | Endpoint | Body | |
 |---|---|---|
-| `POST /api/app/link` | `{"username", "password"}` | Checks the credentials, asks RevenueCat for the plan and stores it on the account |
+| `POST /api/app/link` | `{"username", "password"}`, or nothing with the app's session (`Authorization: Bearer`) | Asks RevenueCat for the plan and stores it on the account. An account keeps one purchase: another device replaces it only with an equal or better plan |
 | `POST /api/app/sync` | - | Asks RevenueCat again for the linked account (the app calls it on start and after every plan change) |
 | `POST /api/app/unlink` | - | Removes the link |
 
 An account with Business linked gets the `WORKER_LIMIT_BUSINESS_*` limits for everything it uploads, from the browser too; an admin's per-account overrides still win, and the admin panel shows the Business values as that account's defaults. Pro and Free accounts keep the normal defaults.
 
-The plan is stored in `users.json` as `appPlan` (`appUserId`, `tier`, `expiresAt`, `updatedAt`; one app id belongs to one account). A subscription whose `expiresAt` has passed shows as Free until the next sync. The admin panel shows it next to each user name, and `GET /api/auth/me` returns it (`plan`), so the account panel shows it next to the signed-in name.
+The plan is stored in `users.json` as `appPlan` (`appUserId`, `tier`, `expiresAt`, `updatedAt`; one app id belongs to one account). Admins can also grant a plan (`planGrant`: `tier`, optional `expiresAt`) in the admin panel ("Change plan"), with `POST /api/admin/users/<user>/plan` `{"tier": "pro"|"business"|null, "expiresAt": <unix seconds>|null}` or `admin plan` above; the higher of the grant and the purchase applies (`plan.source` says which), in the app and for the limits. A subscription whose `expiresAt` has passed shows as Free until the next sync. The admin panel shows it next to each user name, and `GET /api/auth/me` returns it (`plan`), so the account panel shows it next to the signed-in name.
 
 Linking needs `WORKER_REVENUECAT_SECRET_KEY` and `WORKER_REVENUECAT_PROJECT_ID`: the plan always comes from RevenueCat, never from the app. For testing without a key, `WORKER_APP_PLANS_UNVERIFIED=true` accepts the plan the app reports (the app's testing builds can force any plan) - never set it in production.
 

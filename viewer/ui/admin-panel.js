@@ -1,5 +1,5 @@
 import { core } from "../core.js";
-import { apiUrl, remoteAssetUrl } from "../remote.js";
+import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
@@ -14,9 +14,9 @@ async function adminRequest(path, method = "GET", body = undefined) {
 }
 
 async function adminFetch(endpoint, method = "GET", body = undefined) {
-  const options = { method };
+  const options = { method, headers: appRequestHeaders() };
   if (body !== undefined) {
-    options.headers = { "Content-Type": "application/json" };
+    options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(body);
   }
   const response = await fetch(apiUrl(endpoint), options);
@@ -38,7 +38,7 @@ async function adminFetch(endpoint, method = "GET", body = undefined) {
 // list_jobs) - reused here to compute each user's upload count/listing
 // without a dedicated endpoint. Jobs without an owner are keyed "".
 async function fetchJobsByOwner() {
-  const response = await fetch(apiUrl("/api/jobs"));
+  const response = await fetch(apiUrl("/api/jobs"), { headers: appRequestHeaders() });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   const jobs = Array.isArray(data.jobs) ? data.jobs : [];
@@ -318,7 +318,12 @@ export function attachAdminPanel(Viewer) {
       // The mobile app plan linked to the account (worker/entitlements.py).
       if (user.plan) {
         const badge = createPlanIcon(user.plan.tier);
-        const details = [t(`plans.${user.plan.tier}`, user.plan.tier), t("loginPanel.planTitle", "Plan in the mobile app")];
+        const details = [
+          t(`plans.${user.plan.tier}`, user.plan.tier),
+          user.plan.source === "admin"
+            ? t("adminPanel.planSourceAdmin", "granted by an admin")
+            : t("loginPanel.planTitle", "Plan in the mobile app"),
+        ];
         if (user.plan.expiresAt) {
           details.push(t("adminPanel.planRenews", { date: new Date(user.plan.expiresAt * 1000).toLocaleDateString() }, "renews/ends {date}"));
         }
@@ -379,9 +384,102 @@ export function attachAdminPanel(Viewer) {
 
       top.append(info, actions);
       item.append(top, this.renderUserModelsTab(user.username, models));
+      item.appendChild(this.renderUserPlanTab(user));
       // Older workers do not report limits - leave the section out.
       if (user.effectiveLimits) item.appendChild(this.renderUserLimitsTab(user));
       return item;
+    },
+
+    // The account's plan (worker/auth.py effective_app_plan): what it bought
+    // in the app, raised by a plan an admin grants here (optionally until a
+    // date). A grant cannot take away a purchase - the higher one applies.
+    renderUserPlanTab(user) {
+      const section = document.createElement("div");
+      section.className = "admin-users-limits admin-users-plan";
+      const plan = user.plan;
+      const purchase = plan?.purchase?.tier || (plan?.source === "store" ? plan.tier : null);
+      const grant = plan?.grant || null;
+
+      const summary = document.createElement("p");
+      summary.className = "admin-users-limits-summary";
+      const parts = [
+        t("adminPanel.planCurrent", { plan: t(`plans.${plan?.tier || "free"}`, plan?.tier || "free") }, "Plan: {plan}"),
+        t("adminPanel.planPurchase", { plan: t(`plans.${purchase || "free"}`, purchase || "free") }, "bought in the app: {plan}"),
+      ];
+      if (grant) {
+        parts.push(grant.expiresAt
+          ? t("adminPanel.planGrantUntil", { plan: t(`plans.${grant.tier}`, grant.tier), date: new Date(grant.expiresAt * 1000).toLocaleDateString() }, "granted: {plan} until {date}")
+          : t("adminPanel.planGrant", { plan: t(`plans.${grant.tier}`, grant.tier) }, "granted: {plan}"));
+      }
+      summary.textContent = parts.join(" · ");
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "admin-users-models-toggle";
+      toggle.textContent = t("adminPanel.planShow", "Change plan");
+
+      const form = document.createElement("form");
+      form.className = "admin-users-limits-form";
+      form.hidden = true;
+
+      const tierField = document.createElement("label");
+      tierField.className = "admin-users-limits-field";
+      const tierText = document.createElement("span");
+      tierText.textContent = t("adminPanel.planGrantLabel", "Granted plan");
+      const tierSelect = document.createElement("select");
+      tierSelect.appendChild(new Option(t("adminPanel.planNone", "None (only what was bought)"), ""));
+      ["pro", "business"].forEach((tier) => tierSelect.appendChild(new Option(t(`plans.${tier}`, tier), tier)));
+      tierSelect.value = grant?.tier && grant.tier !== "free" ? grant.tier : "";
+      tierField.append(tierText, tierSelect);
+
+      const untilField = document.createElement("label");
+      untilField.className = "admin-users-limits-field";
+      const untilText = document.createElement("span");
+      untilText.textContent = t("adminPanel.planUntil", "Until (empty = no end)");
+      const until = document.createElement("input");
+      until.type = "datetime-local";
+      until.value = toDateTimeInputValue(grant?.expiresAt);
+      untilField.append(untilText, until);
+
+      const hint = document.createElement("p");
+      hint.className = "admin-users-limits-note";
+      hint.textContent = t("adminPanel.planHint", "The higher of the granted and the bought plan applies, in the app and for the upload limits.");
+
+      const buttons = document.createElement("div");
+      buttons.className = "admin-users-actions";
+      const save = document.createElement("button");
+      save.type = "submit";
+      save.textContent = t("adminPanel.planSave", "Save plan");
+      buttons.appendChild(save);
+      form.append(tierField, untilField, hint, buttons);
+
+      const syncUntil = () => { until.disabled = !tierSelect.value; };
+      syncUntil();
+      this.bindEventListener(tierSelect, "change", syncUntil);
+      this.bindEventListener(toggle, "click", () => {
+        form.hidden = !form.hidden;
+        toggle.textContent = form.hidden
+          ? t("adminPanel.planShow", "Change plan")
+          : t("adminPanel.planHide", "Hide plan");
+      });
+      this.bindEventListener(form, "submit", async (event) => {
+        event.preventDefault();
+        const tier = tierSelect.value || null;
+        const expiresAt = tier && until.value ? fromDateTimeInputValue(until.value) : null;
+        try {
+          await adminRequest(`/${encodeURIComponent(user.username)}/plan`, "POST", { tier, expiresAt });
+          toastHelper("userUpdated", "success");
+          await this.loadUsersList();
+          // An admin changing their own plan: the app applies it right away.
+          if (user.username === this.authState?.user) this.refreshAuthState?.();
+        } catch (error) {
+          this.reportError(error, { context: "Failed to save user plan" });
+          this.setAdminStatusText(error.message, "error");
+        }
+      });
+
+      section.append(summary, toggle, form);
+      return section;
     },
 
     renderUserLimitsTab(user) {
@@ -704,7 +802,7 @@ export function attachAdminPanel(Viewer) {
       if (!confirmed) return;
 
       try {
-        const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}`), { method: "DELETE" });
+        const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}`), { method: "DELETE", headers: appRequestHeaders() });
         if (!response.ok && response.status !== 404) {
           throw new Error(`Delete failed (HTTP ${response.status})`);
         }

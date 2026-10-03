@@ -44,11 +44,17 @@ export const LOCKED_TOOLS = {
 const DEFAULT_PRICES = { pro: "20 €", business: "20 €" };
 
 const TIER_KEY = "dfg3dviewer-plan";
+// The plan of the account signed in on the repository (worker/auth.py: a
+// purchase linked to it, or one an admin granted) - see setAccountTier().
+const ACCOUNT_TIER_KEY = "dfg3dviewer-account-plan";
 // Testing builds only: forces a plan without buying it (plans panel).
 const OVERRIDE_KEY = "dfg3dviewer-plan-override";
 
 const listeners = new Set();
-let tier = "free";
+const storeListeners = new Set();
+let tier = "free"; // what applies: the higher of the two below
+let storeTier = "free"; // bought on this device (RevenueCat)
+let accountTier = "free";
 let purchases = null; // the RevenueCat plugin once configured
 let appUserId = "";
 let ready = Promise.resolve();
@@ -116,11 +122,46 @@ export function onTierChange(listener) {
   return () => listeners.delete(listener);
 }
 
+// The store's plan for this device (testing builds: the forced one), never
+// mixed with the account's plan - it is what goes to the repository as the
+// purchase, and must not turn a granted plan into a bought one.
+export function currentStoreTier() {
+  if (!isPlansEnabled()) return "business";
+  const override = isTestingBuild() ? readStorage(OVERRIDE_KEY) : null;
+  return TIERS.includes(override) ? override : storeTier;
+}
+
+const higherTier = (a, b) => (TIERS.indexOf(a) >= TIERS.indexOf(b) ? a : b);
+
+// Calls listener() when what the store reports changes (a purchase, a
+// restore, a lapsed subscription), but not for the account's plan.
+export function onStoreTierChange(listener) {
+  storeListeners.add(listener);
+  return () => storeListeners.delete(listener);
+}
+
 function setTier(next) {
-  const value = TIERS.includes(next) ? next : "free";
+  const previous = currentStoreTier();
+  storeTier = TIERS.includes(next) ? next : "free";
   // Remembered so the app starts on the last known plan offline, before
   // RevenueCat answers.
-  writeStorage(TIER_KEY, value);
+  writeStorage(TIER_KEY, storeTier);
+  applyTier();
+  if (currentStoreTier() !== previous) storeListeners.forEach((listener) => listener());
+}
+
+// The signed-in account's plan (login-panel.js, from GET /api/auth/me);
+// null when signed out. Kept so the app starts on it offline.
+export function setAccountTier(next) {
+  if (!isPlansEnabled()) return;
+  accountTier = TIERS.includes(next) ? next : "free";
+  writeStorage(ACCOUNT_TIER_KEY, TIERS.includes(next) ? next : null);
+  applyTier();
+}
+
+function applyTier() {
+  const override = isTestingBuild() ? readStorage(OVERRIDE_KEY) : null;
+  const value = TIERS.includes(override) ? override : higherTier(storeTier, accountTier);
   if (value === tier) return;
   tier = value;
   document.body?.setAttribute("data-app-plan", tier);
@@ -136,7 +177,6 @@ function tierFromCustomerInfo(customerInfo) {
 }
 
 function applyCustomerInfo(customerInfo) {
-  if (isTestingBuild() && readStorage(OVERRIDE_KEY)) return;
   setTier(tierFromCustomerInfo(customerInfo));
 }
 
@@ -152,9 +192,10 @@ export function initPlan() {
 
 async function loadPlan() {
   if (!isPlansEnabled()) return;
-  tier = TIERS.includes(readStorage(TIER_KEY)) ? readStorage(TIER_KEY) : "free";
+  storeTier = TIERS.includes(readStorage(TIER_KEY)) ? readStorage(TIER_KEY) : "free";
+  accountTier = TIERS.includes(readStorage(ACCOUNT_TIER_KEY)) ? readStorage(ACCOUNT_TIER_KEY) : "free";
   const override = isTestingBuild() ? readStorage(OVERRIDE_KEY) : null;
-  if (TIERS.includes(override)) tier = override;
+  tier = TIERS.includes(override) ? override : higherTier(storeTier, accountTier);
   document.body?.setAttribute("data-app-plan", tier);
 
   const apiKey = monetizationSettings()?.revenuecat?.apiKeys?.[appPlatform()];
@@ -221,14 +262,16 @@ export async function restorePlans() {
 // Testing builds: pick a plan without the store (null = back to the store's).
 export function setTierOverride(value) {
   if (!isTestingBuild()) return;
+  const previous = currentStoreTier();
   writeStorage(OVERRIDE_KEY, TIERS.includes(value) ? value : null);
   if (TIERS.includes(value)) {
-    setTier(value);
+    applyTier();
   } else if (purchases) {
-    purchases.getCustomerInfo().then(({ customerInfo }) => applyCustomerInfo(customerInfo)).catch(() => {});
+    purchases.getCustomerInfo().then(({ customerInfo }) => applyCustomerInfo(customerInfo)).catch(() => applyTier());
   } else {
-    setTier("free");
+    applyTier();
   }
+  if (currentStoreTier() !== previous) storeListeners.forEach((listener) => listener());
 }
 
 export function getTierOverride() {

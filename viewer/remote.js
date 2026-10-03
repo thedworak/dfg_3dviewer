@@ -55,11 +55,48 @@ export function setRemoteUrl(input) {
   return value;
 }
 
-// Headers for requests to the repository. Business: the RevenueCat app user
-// id, from which the worker grants its business limits (worker/entitlements.py).
+// The app's session on the repository (worker/auth.py): the app runs on
+// another origin and never gets the session cookie, so it keeps the token
+// from logging in and sends it as a Bearer header instead. Per repository
+// address - a token is only valid on the worker that issued it.
+const SESSION_KEY = 'dfg3dviewer-session';
+let sessionsInMemory = {};
+
+function readSessions() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || '{}') || {};
+  } catch {
+    return sessionsInMemory;
+  }
+}
+
+export function sessionToken() {
+  return isAppBuild() ? readSessions()[remoteBase()] || '' : '';
+}
+
+export function setSessionToken(token) {
+  if (!isAppBuild()) return;
+  const sessions = readSessions();
+  if (token) sessions[remoteBase()] = token;
+  else delete sessions[remoteBase()];
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
+  } catch {
+    // Storage blocked: signed in until the app restarts.
+    sessionsInMemory = sessions;
+  }
+}
+
+// Headers for requests to the repository: the app's session (above) and,
+// for Business, the RevenueCat app user id, from which the worker grants its
+// business limits (worker/entitlements.py).
 export function appRequestHeaders() {
+  const headers = {};
+  const token = sessionToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
   const id = isAppBuild() && hasFeature('serverBusinessLimits') ? getAppUserId() : '';
-  return id ? { 'X-App-User-Id': id } : {};
+  if (id) headers['X-App-User-Id'] = id;
+  return headers;
 }
 
 export function hasRemote() {
@@ -88,9 +125,8 @@ export function deleteAccountUrl() {
   return remoteAssetUrl('/delete-account.html');
 }
 
-// body.viewer-app hides what cannot work from inside the app (sign-in and user
-// management rely on a same-site session cookie); body.viewer-no-remote hides
-// everything that needs a repository when none is configured.
+// body.viewer-app hides what the app does not use; body.viewer-no-remote
+// hides everything that needs a repository when none is configured.
 export function initRemote() {
   document.body?.classList.toggle('viewer-app', isAppBuild());
   document.body?.classList.toggle('viewer-no-remote', !hasRemote());

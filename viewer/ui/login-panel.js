@@ -1,14 +1,19 @@
 import { core } from "../core.js";
-import { apiUrl, deleteAccountUrl, hasRemote } from "../remote.js";
+import { apiUrl, appRequestHeaders, deleteAccountUrl, hasRemote, isAppBuild, setSessionToken } from "../remote.js";
 import { t } from "../i18n-utils.js";
+import { setAccountTier } from "../monetization/plan.js";
+import { syncAccountLink } from "../monetization/account-link.js";
 import { makePanelWindow } from "./panel-window.js";
 
-// Same-origin worker endpoints (see worker/auth.py). Cookies travel by default
-// for same-origin requests, so no credentials option is needed.
+// Worker endpoints (see worker/auth.py). On a page the repository serves,
+// the session is a same-origin cookie; the app (another origin) sends its
+// session token instead (remote.js appRequestHeaders).
 async function authRequest(path, body) {
+  const headers = appRequestHeaders();
+  if (body) headers["Content-Type"] = "application/json";
   const response = await fetch(apiUrl(`/api/auth/${path}`), {
     method: body ? "POST" : "GET",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   let data = {};
@@ -69,8 +74,13 @@ export function attachLoginPanel(Viewer) {
               const me = await authRequest("me");
               state.user = me.user || null;
               state.role = me.role || null;
-              // The mobile app plan linked to the account (worker POST /api/app/link).
+              // The account's plan: a purchase in the app linked to it
+              // (worker POST /api/app/link) or one an admin granted. The app
+              // applies it on top of what this device bought.
               state.plan = me.plan || null;
+              setAccountTier(state.user ? state.plan?.tier : null);
+              // An expired or revoked app session: start signed out.
+              if (!state.user) setSessionToken("");
             }
           }
         } catch (_error) {
@@ -189,6 +199,7 @@ export function attachLoginPanel(Viewer) {
       const username = document.createElement("input");
       username.type = "text";
       username.autocomplete = "username";
+      username.autocapitalize = "off";
       username.placeholder = t("uploadPanel.username", "Username");
       username.setAttribute("aria-label", username.placeholder);
       const password = document.createElement("input");
@@ -241,15 +252,31 @@ export function attachLoginPanel(Viewer) {
           );
           return;
         }
-        await authRequest(action, credentials || {});
+        await this.runAuthAction(action, credentials);
         this.setLoginStatusText("");
-        await this.refreshAuthState();
-        // Delete permissions in the models panel depend on who's logged in;
-        // refresh it too if it's already open.
-        this.loadModelsList?.();
       } catch (error) {
         this.setLoginStatusText(error.message, "error");
       }
+    },
+
+    // Logs in or out and updates everything that depends on the account.
+    // Throws the worker's message (e.g. "Unknown username.") - the plans
+    // panel signs in through this too and shows it there.
+    async runAuthAction(action, credentials) {
+      if (action === "login" && isAppBuild()) {
+        const result = await authRequest("login", { ...credentials, session: "token" });
+        setSessionToken(result.token);
+        // This device's purchase now belongs to the account.
+        await syncAccountLink();
+      } else {
+        await authRequest(action, credentials || {});
+        if (action === "logout") setSessionToken("");
+      }
+      await this.refreshAuthState();
+      if (this.plansPanel?.hidden === false) this.renderPlansPanel?.();
+      // Delete permissions in the models panel depend on who's logged in;
+      // refresh it too if it's already open.
+      this.loadModelsList?.();
     },
   });
 }

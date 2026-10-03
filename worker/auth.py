@@ -8,12 +8,14 @@ portfolio links keep working.
 Storage lives next to the jobs (JOBS_DIR/.auth/, on the same persistent
 volume; the dot prefix keeps it out of the job listing):
 
-  users.json  accounts (scrypt password hashes, role, status, and the
-              mobile app plan linked to the account - see set_app_plan)
+  users.json  accounts (scrypt password hashes, role, status, the mobile
+              app plan linked to the account - see set_app_plan - and a
+              plan granted by an admin - see set_plan_grant)
   secret      HMAC key for session tokens (or WORKER_AUTH_SECRET)
 
-Sessions are stateless signed tokens in an HttpOnly cookie, so they survive a
-worker restart, and are re-checked against users.json on every request, so
+Sessions are stateless signed tokens in an HttpOnly cookie (in the mobile
+app, which runs on another origin: an Authorization: Bearer header with the
+same token), so they survive a worker restart, and are re-checked against users.json on every request, so
 disabling an account takes effect immediately.
 
 Supervision is done from the command line inside the container - there is
@@ -52,18 +54,45 @@ ROLES = ("user", "admin")
 APP_TIERS = ("free", "pro", "business")
 
 
-def effective_app_plan(record: dict):
-    """The account's mobile app plan ({"tier", "expiresAt", "updatedAt"}),
-    with a lapsed subscription reported as free; None when no app purchase
-    is linked."""
-    plan = record.get("appPlan")
+PLAN_RANK = {"free": 0, "pro": 1, "business": 2}
+
+
+def _active_tier(plan) -> str:
+    """The tier of a stored plan, "free" once its expiresAt has passed."""
     if not plan:
-        return None
-    tier = plan.get("tier", "free")
+        return "free"
     expires = plan.get("expiresAt")
     if expires and expires < time.time():
-        tier = "free"
-    return {"tier": tier, "expiresAt": expires, "updatedAt": plan.get("updatedAt", 0)}
+        return "free"
+    return plan.get("tier", "free")
+
+
+def effective_app_plan(record: dict):
+    """The account's plan ({"tier", "expiresAt", "updatedAt", "source"}): the
+    higher of the mobile app purchase linked to it (appPlan, "store") and the
+    plan an admin granted (planGrant, "admin"), a lapsed one counting as free.
+    None when the account has neither. "purchase"/"grant" carry both sides
+    for the admin panel."""
+    purchase = record.get("appPlan")
+    grant = record.get("planGrant")
+    if not purchase and not grant:
+        return None
+    purchase_tier = _active_tier(purchase) if purchase else None
+    grant_tier = _active_tier(grant) if grant else None
+    if grant and PLAN_RANK[grant_tier] > PLAN_RANK.get(purchase_tier or "free", 0):
+        chosen, tier, source = grant, grant_tier, "admin"
+    elif purchase:
+        chosen, tier, source = purchase, purchase_tier, "store"
+    else:
+        chosen, tier, source = grant, grant_tier, "admin"
+    return {
+        "tier": tier,
+        "expiresAt": chosen.get("expiresAt"),
+        "updatedAt": chosen.get("updatedAt", 0),
+        "source": source,
+        "purchase": {"tier": purchase_tier, "expiresAt": purchase.get("expiresAt")} if purchase else None,
+        "grant": {"tier": grant.get("tier"), "expiresAt": grant.get("expiresAt")} if grant else None,
+    }
 
 
 class AuthError(Exception):
@@ -195,13 +224,9 @@ class AuthStore:
         self._validate_credentials(username, password)
         with self._lock:
             users = self._load()
-            existing = users.get(username, {})
-            users[username] = {
-                "passwordHash": _hash_password(password),
-                "role": "admin",
-                "status": "active",
-                "createdAt": existing.get("createdAt", int(time.time())),
-            }
+            # Updated in place: the account's email, limits and plans stay.
+            record = users.setdefault(username, {"createdAt": int(time.time())})
+            record.update(passwordHash=_hash_password(password), role="admin", status="active")
             self._save(users)
 
     def login(self, username: str, password: str) -> dict:
@@ -219,7 +244,9 @@ class AuthStore:
         if not (record and valid):
             count += 1
             self._failures[key] = (count, time.time() + LOCKOUT_SECONDS if count >= MAX_FAILED_LOGINS else 0)
-            raise AuthError(401, "Invalid username or password.")
+            # Told apart on purpose: registering already reveals whether a
+            # username is taken, and the app needs to say which field is wrong.
+            raise AuthError(401, "Invalid password." if record else "Unknown username.")
 
         self._failures.pop(key, None)
         if record["status"] == "pending":
@@ -238,8 +265,8 @@ class AuthStore:
         return f"{payload}.{signature}"
 
     def user_from_cookie_header(self, cookie_header: str):
-        """Returns {"username", "role"} for a valid, unexpired session of an
-        active account, else None."""
+        """Returns {"username", "role", "plan"} for a valid, unexpired session
+        cookie of an active account, else None."""
         if not self.enabled or not cookie_header:
             return None
         token = None
@@ -247,7 +274,13 @@ class AuthStore:
             name, _, value = part.strip().partition("=")
             if name == COOKIE_NAME:
                 token = value
-        if not token or "." not in token:
+        return self.user_from_token(token)
+
+    def user_from_token(self, token: str):
+        """The same for a session token itself - the mobile app sends it as
+        "Authorization: Bearer <token>", since it runs on another origin and
+        never gets the cookie."""
+        if not self.enabled or not token or "." not in token:
             return None
         payload, _, signature = token.rpartition(".")
         expected = hmac.new(self._key(), payload.encode("ascii", "ignore"), hashlib.sha256).hexdigest()
@@ -293,13 +326,20 @@ class AuthStore:
     def set_app_plan(self, username: str, app_user_id: str, plan: dict) -> None:
         """Links the app's purchase (RevenueCat app user id and its verified
         plan) to the account. One app id belongs to one account: linking it
-        elsewhere moves it."""
+        elsewhere moves it. An account keeps one purchase: another device's
+        replaces it only with an equal or better plan."""
         if plan.get("tier") not in APP_TIERS:
             raise AuthError(400, f"tier must be one of {APP_TIERS}")
         with self._lock:
             users = self._load()
             if username not in users:
                 raise AuthError(404, f"No such user: {username}")
+            # An account signed in on several devices: one without a purchase
+            # (or with a lesser one) must not replace another device's.
+            current = users[username].get("appPlan")
+            if (current and current.get("appUserId") != app_user_id
+                    and PLAN_RANK[plan["tier"]] < PLAN_RANK.get(_active_tier(current), 0)):
+                return
             for record in users.values():
                 if (record.get("appPlan") or {}).get("appUserId") == app_user_id:
                     record.pop("appPlan", None)
@@ -309,6 +349,28 @@ class AuthStore:
                 "expiresAt": plan.get("expiresAt"),
                 "updatedAt": int(time.time()),
             }
+            self._save(users)
+
+    def set_plan_grant(self, username: str, tier, expires_at=None) -> None:
+        """A plan an admin gives the account (admin panel), on top of what
+        it bought in the app: the higher of the two applies. tier None
+        removes the grant; expires_at (unix seconds) ends it, None = never."""
+        if tier is not None and tier not in APP_TIERS:
+            raise AuthError(400, f"tier must be one of {APP_TIERS} or null")
+        if expires_at is not None and (isinstance(expires_at, bool) or not isinstance(expires_at, (int, float))):
+            raise AuthError(400, "expiresAt must be unix seconds or null")
+        with self._lock:
+            users = self._load()
+            if username not in users:
+                raise AuthError(404, f"No such user: {username}")
+            if tier is None:
+                users[username].pop("planGrant", None)
+            else:
+                users[username]["planGrant"] = {
+                    "tier": tier,
+                    "expiresAt": int(expires_at) if expires_at else None,
+                    "updatedAt": int(time.time()),
+                }
             self._save(users)
 
     def user_for_app_id(self, app_user_id: str):

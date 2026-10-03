@@ -16,6 +16,7 @@ could talk to either backend interchangeably:
   POST /api/auth/...                see worker/auth.py and worker/README.md)
   POST /api/app/link|sync|unlink  the mobile app's plan on an account (see
                                   entitlements.py and worker/README.md)
+  POST /api/admin/users/<u>/plan  a plan granted by an admin (auth.py)
   GET  /files/<id>/<path>       static access to converted output
   GET  /healthz                 liveness check
 
@@ -602,6 +603,11 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _current_user(self):
+        # The mobile app (another origin, no cookie) sends the session token
+        # it got from POST /api/auth/login {"session": "token"}.
+        scheme, _, token = self.headers.get("Authorization", "").partition(" ")
+        if scheme.lower() == "bearer" and token.strip():
+            return AUTH.user_from_token(token.strip())
         return AUTH.user_from_cookie_header(self.headers.get("Cookie", ""))
 
     def _client_ip(self) -> str:
@@ -677,10 +683,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(201, result)
             elif action == "login":
                 user = AUTH.login(data.get("username", ""), data.get("password", ""))
-                self._send_json(
-                    200, user,
-                    cookie=AUTH.cookie_header(AUTH.issue_token(user["username"]), self._cookie_is_secure()),
-                )
+                token = AUTH.issue_token(user["username"])
+                payload = dict(user, plan=AUTH.user_from_token(token)["plan"])
+                # Only on request: the token is otherwise kept away from
+                # page scripts in the HttpOnly cookie.
+                if data.get("session") == "token":
+                    payload["token"] = token
+                self._send_json(200, payload, cookie=AUTH.cookie_header(token, self._cookie_is_secure()))
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
@@ -714,8 +723,13 @@ class Handler(BaseHTTPRequestHandler):
             data = self._read_json_body() if int(self.headers.get("Content-Length", "0") or 0) else {}
             claimed = str(data.get("tier", ""))
             if action == "link":
-                user = AUTH.login(data.get("username", ""), data.get("password", ""))
-                username = user["username"]
+                # With the account's credentials, or as the signed-in account
+                # (the app's session token) - then no password is needed.
+                session = self._current_user() if not data.get("username") else None
+                if session:
+                    username = session["username"]
+                else:
+                    username = AUTH.login(data.get("username", ""), data.get("password", ""))["username"]
             else:
                 username = AUTH.user_for_app_id(app_user_id)
                 if not username:
@@ -759,6 +773,20 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"status": "ok", "limits": limits})
         except ValueError as exc:
             self._send_json(400, {"error": str(exc)})
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_admin_set_plan(self, username: str) -> None:
+        """POST /api/admin/users/<u>/plan {"tier": "pro"|"business"|null,
+        "expiresAt": unix seconds|null}: grants a plan (null = only what the
+        account bought in the app)."""
+        admin = self._require_admin()
+        if admin is None:
+            return
+        try:
+            data = self._read_json_body()
+            AUTH.set_plan_grant(username, data.get("tier"), data.get("expiresAt"))
+            self._send_json(200, {"status": "ok"})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
@@ -816,7 +844,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-App-User-Id")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-App-User-Id, Authorization")
         self.end_headers()
 
     def do_GET(self) -> None:
@@ -924,6 +952,10 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/limits", path)
         if match:
             self._handle_admin_set_limits(match.group(1))
+            return
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/plan", path)
+        if match:
+            self._handle_admin_set_plan(match.group(1))
             return
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/(approve|disable|promote|demote)", path)
         if match:
@@ -1122,6 +1154,7 @@ def admin_cli(args) -> None:
     """docker compose exec worker python3 /app/worker/server.py admin <command>"""
     commands = (
         "users | uploads | usage | limits <user> [key=value|key=default ...] | "
+        "plan <user> [free|pro|business|purchase] [days] | "
         "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user>"
     )
     if not args:
@@ -1177,6 +1210,17 @@ def admin_cli(args) -> None:
                 if record["role"] == "admin":
                     source = "admin"
                 print(f"{name:<16} {effective[name] or 'unlimited':<10} ({source})")
+        elif command == "plan" and rest:
+            user = rest[0]
+            if len(rest) > 1:
+                # "purchase" drops the grant: only what was bought in the app.
+                tier = None if rest[1] == "purchase" else rest[1]
+                expires = time.time() + float(rest[2]) * 86400 if len(rest) > 2 else None
+                AUTH.set_plan_grant(user, tier, expires)
+            record = next((u for u in AUTH.list_users() if u["username"] == user), None)
+            if record is None:
+                sys.exit(f"No such user: {user}")
+            print(json.dumps(record["plan"], indent=2))
         elif command in ("approve", "disable", "promote", "demote", "delete-user") and len(rest) == 1:
             user = rest[0]
             if command == "approve":
