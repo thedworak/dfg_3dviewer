@@ -1,5 +1,5 @@
 import { core } from "../core.js";
-import { apiUrl, remoteAssetUrl, isAppBuild, hasRemote, remoteBase, setRemoteUrl } from "../remote.js";
+import { apiUrl, appRequestHeaders, remoteAssetUrl, isAppBuild, hasRemote, remoteBase, setRemoteUrl } from "../remote.js";
 import { listLibrary, saveToLibrary, repositoryEntryId } from "../offline-library.js";
 import { toastHelper } from "../viewer-utils.js";
 import { isOnline } from "../connectivity.js";
@@ -158,7 +158,7 @@ export function attachModelsPanel(Viewer) {
 
       let jobs = [];
       try {
-        const response = await fetch(apiUrl("/api/jobs"));
+        const response = await fetch(apiUrl("/api/jobs"), { headers: appRequestHeaders() });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         jobs = Array.isArray(data.jobs) ? data.jobs : [];
@@ -356,7 +356,7 @@ export function attachModelsPanel(Viewer) {
       if (!confirmed) return;
 
       try {
-        const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}`), { method: "DELETE" });
+        const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}`), { method: "DELETE", headers: appRequestHeaders() });
         if (!response.ok && response.status !== 404) {
           throw new Error(`Delete failed (HTTP ${response.status})`);
         }

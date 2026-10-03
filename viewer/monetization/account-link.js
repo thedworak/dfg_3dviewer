@@ -1,13 +1,12 @@
-import { apiUrl, hasRemote } from "../remote.js";
-import { currentTier, getAppUserId, isTestingBuild, whenPlanReady } from "./plan.js";
+import { apiUrl, appRequestHeaders, hasRemote, sessionToken } from "../remote.js";
+import { currentStoreTier, getAppUserId, isTestingBuild, whenPlanReady } from "./plan.js";
 
 // The app's purchase linked to an account on the repository (worker
 // POST /api/app/link|sync|unlink, see worker/entitlements.py). The worker
 // checks the plan with RevenueCat itself and stores it on the account, so the
-// admin panel and the account's name show it. The app only remembers which
-// account it is linked to.
+// admin panel and the account's name show it, and the app applies the
+// account's plan (login-panel.js) on every device it signs in on.
 
-const ACCOUNT_KEY = "dfg3dviewer-plan-account";
 // Testing builds without the store have no RevenueCat id: a random one per
 // device stands in for it.
 const TEST_ID_KEY = "dfg3dviewer-plan-test-id";
@@ -44,12 +43,8 @@ export function canLinkAccount() {
   return hasRemote() && Boolean(linkId());
 }
 
-export function linkedAccount() {
-  return readStorage(ACCOUNT_KEY) || "";
-}
-
 async function appRequest(action, body) {
-  const headers = { "X-App-User-Id": linkId() };
+  const headers = { ...appRequestHeaders(), "X-App-User-Id": linkId() };
   if (body) headers["Content-Type"] = "application/json";
   const response = await fetch(apiUrl(`/api/app/${action}`), {
     method: "POST",
@@ -67,28 +62,21 @@ async function appRequest(action, body) {
     error.status = response.status;
     throw error;
   }
-  writeStorage(ACCOUNT_KEY, data.user || "");
   return data;
 }
 
-// The tier goes along only for workers that accept it unverified (testing,
-// WORKER_APP_PLANS_UNVERIFIED); otherwise the worker asks RevenueCat.
-export function linkAccount(username, password) {
-  return appRequest("link", { username, password, tier: currentTier() });
-}
-
-export function unlinkAccount() {
-  return appRequest("unlink");
-}
-
-// Re-reports the plan of a linked account (after a purchase, a restore or on
-// start). Quiet: no network or no repository just means it waits for the
-// next time.
+// Reports this device's purchase to the repository (after signing in, a
+// purchase, a restore or on start): signed in, it is linked to that account
+// (moved from any other one); signed out, an account it was linked to before
+// gets its plan refreshed. The tier goes along only for workers that accept
+// it unverified (testing, WORKER_APP_PLANS_UNVERIFIED); otherwise the worker
+// asks RevenueCat. Quiet: no network or no repository just means it waits
+// for the next time.
 export async function syncAccountLink() {
   await whenPlanReady();
-  if (!linkedAccount() || !canLinkAccount()) return null;
+  if (!canLinkAccount()) return null;
   try {
-    return await appRequest("sync", { tier: currentTier() });
+    return await appRequest(sessionToken() ? "link" : "sync", { tier: currentStoreTier() });
   } catch (error) {
     console.warn("Plans: account sync failed", error);
     return null;

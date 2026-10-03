@@ -8,7 +8,9 @@ export default defineConfig({
     timeout: 5_000,
   },
 
-  fullyParallel: false,
+  // On CI: lets --shard split single tests rather than whole files (all the
+  // tests are in one file, so by file one shard would get all of them).
+  fullyParallel: !!process.env.CI,
 
   workers: process.env.CI ? 1 : undefined,
 
