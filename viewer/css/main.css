@@ -2781,11 +2781,17 @@ html[data-viewer-theme]::-webkit-scrollbar-thumb:hover {
 }
 
 /* Fades while the pointer is over the model, back when it leaves the
-   canvas. Mice only: a tap would leave it faded on a touch screen. */
+   canvas. Mice only: a tap would leave it faded on a touch screen - there
+   brand-logo.js fades it (.is-faded) while fingers are on the model. */
 @media (hover: hover) {
   .mainContainer:has(#MainCanvas:hover) .viewer-brand-logo {
     opacity: 0.35;
   }
+}
+
+.viewer-brand-logo.is-faded {
+  opacity: 0.35;
+  transition-duration: 0.3s;
 }
 
 @media (max-width: 640px) {

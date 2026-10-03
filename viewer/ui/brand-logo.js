@@ -13,6 +13,9 @@ import { getModuleAssetBasePath } from "../loaders.js";
 const BACKGROUND_CHECK_MS = 1000;
 // Relative luminance below which the background counts as dark.
 const DARK_LUMINANCE = 0.4;
+// Touch screens: how long the logo stays faded after the last finger
+// leaves the model (a mouse fades it on hover instead - main.css).
+const TOUCH_FADE_HOLD_MS = 1500;
 
 const luminance = (r, g, b) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 
@@ -76,5 +79,28 @@ export function attachBrandLogo(container) {
   };
   const timer = setInterval(update, BACKGROUND_CHECK_MS);
   update();
+  fadeWhileTouched(container, logo);
   return logo;
+}
+
+// Fades the logo while fingers (or a pen) move the model: touch has no
+// hover, so the CSS rule for the mouse never applies. Capture phase - the
+// camera controls may stop the events from bubbling.
+function fadeWhileTouched(container, logo) {
+  const pointers = new Set();
+  let restore = 0;
+  const release = (event) => {
+    if (!pointers.delete(event.pointerId) || pointers.size) return;
+    clearTimeout(restore);
+    restore = setTimeout(() => logo.classList.remove("is-faded"), TOUCH_FADE_HOLD_MS);
+  };
+  container.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" || event.target?.id !== "MainCanvas") return;
+    pointers.add(event.pointerId);
+    clearTimeout(restore);
+    logo.classList.add("is-faded");
+  }, { capture: true, passive: true });
+  ["pointerup", "pointercancel"].forEach((type) => {
+    window.addEventListener(type, release, { capture: true, passive: true });
+  });
 }
