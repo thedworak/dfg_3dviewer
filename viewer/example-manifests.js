@@ -15,8 +15,8 @@ import DEFAULT_LIST from "./manifesto/examples/index.json";
 // Format: { "iiif": [entry], "aim3d": [entry] }, entry = { url, i18n?,
 // fallback?, name?, excludeFromMobile?, inIIIFSelect? }. "name" may be a
 // string or { en, de, pl }; "./manifests/..." URLs are served with the viewer.
-// excludeFromMobile: its model is not in the app (MOBILE_EXCLUDED_MODELS in
-// rollup.config.js), so the app loads it from the site the list comes from
+// excludeFromMobile: its model is not in the app (left out of the app
+// bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
 const DEFAULT_URL = "https://viewer.thedworak.com/manifests/index.json";
 const CACHE_KEY = "dfg3dviewer-example-manifests";

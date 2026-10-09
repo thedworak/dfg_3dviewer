@@ -777,6 +777,9 @@ async function animateCameraToPose ({
 
   core.cameraTween.start();
   core.targetTween.start();
+  // For the tests: whether a fly-in is still running (a slow frame rate can
+  // make the camera look still for a while before it arrives).
+  if (window.viewer) window.viewer.isCameraAnimating = () => Boolean(core.cameraTween?.isPlaying?.());
 
   // === (near / far / limits) ===
   core.cameraTween.onComplete(() => {

@@ -3465,6 +3465,9 @@ async function animateCameraToPose ({
 
   core.cameraTween.start();
   core.targetTween.start();
+  // For the tests: whether a fly-in is still running (a slow frame rate can
+  // make the camera look still for a while before it arrives).
+  if (window.viewer) window.viewer.isCameraAnimating = () => Boolean(core.cameraTween?.isPlaying?.());
 
   // === (near / far / limits) ===
   core.cameraTween.onComplete(() => {
@@ -7269,8 +7272,8 @@ var DEFAULT_LIST = {
 // Format: { "iiif": [entry], "aim3d": [entry] }, entry = { url, i18n?,
 // fallback?, name?, excludeFromMobile?, inIIIFSelect? }. "name" may be a
 // string or { en, de, pl }; "./manifests/..." URLs are served with the viewer.
-// excludeFromMobile: its model is not in the app (MOBILE_EXCLUDED_MODELS in
-// rollup.config.js), so the app loads it from the site the list comes from
+// excludeFromMobile: its model is not in the app (left out of the app
+// bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
 const DEFAULT_URL = "https://viewer.thedworak.com/manifests/index.json";
 const CACHE_KEY = "dfg3dviewer-example-manifests";
@@ -9948,7 +9951,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "9176e43" ;
+const BUILD_ID$2 = "398a93b5" ;
 const BUILD = "dev" ;
 
 let initPromise = null;
@@ -9999,8 +10002,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "9176e43" ;
-const BUILD_TIME$1 = "2026-10-09T08:27:30.456Z" ;
+const BUILD_ID$1 = "398a93b5" ;
+const BUILD_TIME$1 = "2026-10-09T10:00:33.438Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -23004,7 +23007,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-D_MP6TMH.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BnMSU6zZ.js');
+const loadTilesPlugins = () => import('./index.three-plugins-Biom6LZ-.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -27215,7 +27218,7 @@ const loadLWOLoader = async () => (await import('./three-CcXsnZni.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DaGIrRE_.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aW; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BWPDZkBZ.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-CHbhvYFx.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aX; })).HDRLoader;
 
 var outlineClipping;
@@ -35616,8 +35619,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "9176e43" ;
-const BUILD_TIME = "2026-10-09T08:27:30.456Z" ;
+const BUILD_ID = "398a93b5" ;
+const BUILD_TIME = "2026-10-09T10:00:33.438Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -37630,7 +37633,7 @@ const Viewer$1 = {
       ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
       ["./examples/WolpaSynagogue-progressive.glb", "Wolpa Synagogue (progressive, Meshopt + KTX2)"],
     ]
-      // Not in the app bundle (MOBILE_EXCLUDED_MODELS, rollup.config.js).
+      // Not in the app bundle (its build extension leaves it out).
       .filter(([value]) => true)
       .forEach(([value, text]) => {
         const option = document.createElement("option");
@@ -39899,4 +39902,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-Bo3jmo-G.js.map
+//# sourceMappingURL=main-WzpwPlxK.js.map

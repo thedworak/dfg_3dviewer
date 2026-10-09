@@ -7766,7 +7766,7 @@ var fc = {
 	}
 }, gc = Math.PI / 180, _c = null;
 function vc() {
-	return _c ??= import('./index-BmCU0Puk.js').then((e) => e.PMTiles);
+	return _c ??= import('./index-BTEt-740.js').then((e) => e.PMTiles);
 }
 var yc = class extends St {
 	constructor(e, t) {
@@ -8195,4 +8195,4 @@ var al = class extends X$1 {
 };
 
 export { qi as BaseRegion, Fi as BatchedTilesPlugin, Qn as CesiumIonAuthPlugin, Sn as CesiumIonOverlay, ja as DebugTilesPlugin, _n as DeepZoomOverlay, ps as DefaultMVTAnnotationsDriver, ti as GLTFCesiumRTCExtension, ni as GLTFExtensionsPlugin, ei as GLTFMeshFeaturesExtension, Kr as GLTFStructuralMetadataExtension, vt as GeneratedSurfacePlugin, vn as GeoJSONOverlay, Cn as GoogleMapsOverlay, mn as ImageOverlay, pn as ImageOverlayPlugin, Ki as LoadRegionPlugin, ds as MVTAnnotationsDriver, ms as MVTAnnotationsPlugin, Jo as MVTGlyphAtlasTexture, Xo as MVTGlyphMaterial, rs as MVTGlyphs, is as MVTIconGlyphs, os as MVTLabelGlyphs, Sc as MVTOverlay, Zr as MeshFeatures, Xi as OBBRegion, Cc as PMTilesOverlay, Os as PointCloudEffectsPlugin, Fs as PotreePlugin, Zn as QuantizedMeshPlugin, Yi as RayRegion, ii as ReorientationPlugin, Ji as SphereRegion, Hr as StructuralMetadata, lt as TILE_LEVEL, st as TILE_X, ct as TILE_Y, xn as TMSTilesOverlay, cc as TerrainRGBMeshPlugin, lc as TerrariumMeshPlugin, ir as TileCompressionPlugin, Gi as TileFlatteningPlugin, hn as TiledImageOverlay, Ci as TilesFadePlugin, ai as UnloadTilesPlugin, er as UpdateOnChangePlugin, al as WMSCapabilitiesLoader, yn as WMSTilesOverlay, Mc as WMTSCapabilitiesLoader, bn as WMTSTilesOverlay, gn as XYZTilesOverlay };
-//# sourceMappingURL=index.three-plugins-BGbB9C-E.js.map
+//# sourceMappingURL=index.three-plugins-C00ERIp6.js.map

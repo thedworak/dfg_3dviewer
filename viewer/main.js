@@ -21,7 +21,7 @@ const BUILD = (typeof __BUILD__ !== 'undefined') ? __BUILD__ : "";
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
 const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
 const envSubDir = (typeof __ENV_SUBDIR__ !== 'undefined') ? __ENV_SUBDIR__ : "main";
-// Examples left out of the app bundle (MOBILE_EXCLUDED_MODELS, rollup.config.js).
+// Examples an app build leaves out of its bundle.
 const isExcludedFromApp = (url) => url === "./examples/WolpaSynagogue.glb"
   || /^\.\/examples\/(box[.-]|broken\.glb$)/.test(url);
 
@@ -1944,7 +1944,7 @@ export const Viewer = {
       ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
       ["./examples/WolpaSynagogue-progressive.glb", "Wolpa Synagogue (progressive, Meshopt + KTX2)"],
     ]
-      // Not in the app bundle (MOBILE_EXCLUDED_MODELS, rollup.config.js).
+      // Not in the app bundle (its build extension leaves it out).
       .filter(([value]) => !(BUILD === "mobile" && isExcludedFromApp(value)))
       .forEach(([value, text]) => {
         const option = document.createElement("option");

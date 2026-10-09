@@ -60,6 +60,9 @@ async function waitForModel(page, timeout = 15_000) {
 // a test's own camera changes are not overwritten by it.
 async function waitForCameraIdle(page) {
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true);
+  // The fly-in after loading first: on a slow runner (software WebGL) frames
+  // can be far enough apart for the camera to look still mid-animation.
+  await page.waitForFunction(() => !window.viewer?.isCameraAnimating?.(), null, { timeout: 15_000 });
   const pose = () => page.evaluate(() => {
     const camera = window.Viewer?.camera;
     const target = window.Viewer?.controls?.target;
