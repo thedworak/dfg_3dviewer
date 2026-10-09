@@ -1,0 +1,740 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/WolpaSynagogue.glb/manifest-certainty.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Wolpa Synagogue - Level of Certainty (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/WolpaSynagogue.glb/scene",
+      "type": "Scene",
+      "spatialScale": { "type": "Quantity", "quantityValue": 0.01, "unit": "m" },
+      "label": {
+        "en": [
+          "Wolpa Synagogue"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/WolpaSynagogue.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/certainty-walls",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Walls"
+                ],
+                "pl": [
+                  "Ściany"
+                ],
+                "de": [
+                  "Wände"
+                ]
+              },
+              "created": "2026-10-01T00:00:00.000Z",
+              "modified": "2026-10-01T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Example assessment that demonstrates the Level of Certainty view; it is not the result of a source analysis.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przykładowa ocena pokazująca widok poziomu pewności; nie jest wynikiem analizy źródeł.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beispielbewertung zur Vorführung der Gewissheitsansicht; sie ist nicht das Ergebnis einer Quellenanalyse.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.4:0",
+                "object": "m0:0.4",
+                "targetId": "m0:0.4",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 9,
+                  "code": "B",
+                  "scope": "object",
+                  "targetId": "m0:0.4"
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/certainty-wall-n",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "North wall"
+                ],
+                "pl": [
+                  "Ściana północna"
+                ],
+                "de": [
+                  "Nordwand"
+                ]
+              },
+              "created": "2026-10-01T00:00:00.000Z",
+              "modified": "2026-10-01T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Example assessment that demonstrates the Level of Certainty view; it is not the result of a source analysis.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przykładowa ocena pokazująca widok poziomu pewności; nie jest wynikiem analizy źródeł.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beispielbewertung zur Vorführung der Gewissheitsansicht; sie ist nicht das Ergebnis einer Quellenanalyse.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.32:0",
+                "object": "m0:0.32",
+                "targetId": "m0:0.32",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 8,
+                  "code": "B",
+                  "scope": "object",
+                  "targetId": "m0:0.32"
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/certainty-roof",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Roof"
+                ],
+                "pl": [
+                  "Dach"
+                ],
+                "de": [
+                  "Dach"
+                ]
+              },
+              "created": "2026-10-01T00:00:00.000Z",
+              "modified": "2026-10-01T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Example assessment that demonstrates the Level of Certainty view; it is not the result of a source analysis.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przykładowa ocena pokazująca widok poziomu pewności; nie jest wynikiem analizy źródeł.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beispielbewertung zur Vorführung der Gewissheitsansicht; sie ist nicht das Ergebnis einer Quellenanalyse.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.3:0",
+                "object": "m0:0.3",
+                "targetId": "m0:0.3",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 7,
+                  "code": "C",
+                  "scope": "object",
+                  "targetId": "m0:0.3"
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/certainty-window-frames",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Window frames"
+                ],
+                "pl": [
+                  "Ramy okienne"
+                ],
+                "de": [
+                  "Fensterrahmen"
+                ]
+              },
+              "created": "2026-10-01T00:00:00.000Z",
+              "modified": "2026-10-01T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Example assessment that demonstrates the Level of Certainty view; it is not the result of a source analysis.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przykładowa ocena pokazująca widok poziomu pewności; nie jest wynikiem analizy źródeł.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beispielbewertung zur Vorführung der Gewissheitsansicht; sie ist nicht das Ergebnis einer Quellenanalyse.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.5:0",
+                "object": "m0:0.5",
+                "targetId": "m0:0.5",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 6,
+                  "code": "C",
+                  "scope": "object",
+                  "targetId": "m0:0.5"
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/certainty-door",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Wooden door"
+                ],
+                "pl": [
+                  "Drewniane drzwi"
+                ],
+                "de": [
+                  "Holztür"
+                ]
+              },
+              "created": "2026-10-01T00:00:00.000Z",
+              "modified": "2026-10-01T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Example assessment that demonstrates the Level of Certainty view; it is not the result of a source analysis.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przykładowa ocena pokazująca widok poziomu pewności; nie jest wynikiem analizy źródeł.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beispielbewertung zur Vorführung der Gewissheitsansicht; sie ist nicht das Ergebnis einer Quellenanalyse.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.14:0",
+                "object": "m0:0.14",
+                "targetId": "m0:0.14",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 5,
+                  "code": "D",
+                  "scope": "object",
+                  "targetId": "m0:0.14"
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/certainty-gallery-1",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Gallery"
+                ],
+                "pl": [
+                  "Galeria"
+                ],
+                "de": [
+                  "Galerie"
+                ]
+              },
+              "created": "2026-10-01T00:00:00.000Z",
+              "modified": "2026-10-01T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Example assessment that demonstrates the Level of Certainty view; it is not the result of a source analysis.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przykładowa ocena pokazująca widok poziomu pewności; nie jest wynikiem analizy źródeł.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beispielbewertung zur Vorführung der Gewissheitsansicht; sie ist nicht das Ergebnis einer Quellenanalyse.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.20:0",
+                "object": "m0:0.20",
+                "targetId": "m0:0.20",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 4,
+                  "code": "D",
+                  "scope": "object",
+                  "targetId": "m0:0.20"
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/certainty-polychromy",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Polychromy"
+                ],
+                "pl": [
+                  "Polichromia"
+                ],
+                "de": [
+                  "Polychromie"
+                ]
+              },
+              "created": "2026-10-01T00:00:00.000Z",
+              "modified": "2026-10-01T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Example assessment that demonstrates the Level of Certainty view; it is not the result of a source analysis.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przykładowa ocena pokazująca widok poziomu pewności; nie jest wynikiem analizy źródeł.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beispielbewertung zur Vorführung der Gewissheitsansicht; sie ist nicht das Ergebnis einer Quellenanalyse.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.21:0",
+                "object": "m0:0.21",
+                "targetId": "m0:0.21",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 2,
+                  "code": "E",
+                  "scope": "object",
+                  "targetId": "m0:0.21"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-08-21T00:00:00.000Z",
+    "camera": {
+      "position": [
+        3235.1,
+        2379.7,
+        3833.8
+      ],
+      "target": [
+        -47.9,
+        737.7,
+        -106.2
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 5384,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "performance": "high-performance"
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#404040",
+        "intensity": 1
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          0,
+          3000,
+          1500
+        ],
+        "target": [
+          -47.9,
+          737.7,
+          -106.2
+        ],
+        "color": "#ffffff",
+        "intensity": 1
+      }
+    ],
+    "certainty": {
+      "label": {
+        "en": [
+          "Level of Certainty (LoC)"
+        ],
+        "pl": [
+          "Poziom pewności (LoC)"
+        ],
+        "de": [
+          "Grad der Gewissheit (LoC)"
+        ]
+      },
+      "min": 0,
+      "max": 10,
+      "unassessedColor": "#9ca3af",
+      "opacity": 0.4,
+      "visible": true,
+      "levels": [
+        {
+          "value": 10,
+          "code": "A",
+          "symbol": "✓",
+          "color": "#1a9850",
+          "label": {
+            "en": [
+              "Preserved / surveyed"
+            ],
+            "pl": [
+              "Stan zachowany / pomiar"
+            ],
+            "de": [
+              "Erhalten / vermessen"
+            ]
+          }
+        },
+        {
+          "value": 8,
+          "code": "B",
+          "symbol": "■",
+          "color": "#2166ac",
+          "label": {
+            "en": [
+              "Direct documentation"
+            ],
+            "pl": [
+              "Dokumentacja bezpośrednia"
+            ],
+            "de": [
+              "Direkte Dokumentation"
+            ]
+          }
+        },
+        {
+          "value": 6,
+          "code": "C",
+          "symbol": "▲",
+          "color": "#ffd400",
+          "label": {
+            "en": [
+              "Indirect sources"
+            ],
+            "pl": [
+              "Źródła pośrednie"
+            ],
+            "de": [
+              "Indirekte Quellen"
+            ]
+          }
+        },
+        {
+          "value": 4,
+          "code": "D",
+          "symbol": "≈",
+          "color": "#f46d00",
+          "label": {
+            "en": [
+              "Analogy"
+            ],
+            "pl": [
+              "Analogia"
+            ],
+            "de": [
+              "Analogie"
+            ]
+          }
+        },
+        {
+          "value": 0,
+          "code": "E",
+          "symbol": "?",
+          "color": "#c51b7d",
+          "label": {
+            "en": [
+              "Hypothesis"
+            ],
+            "pl": [
+              "Hipoteza"
+            ],
+            "de": [
+              "Hypothese"
+            ]
+          }
+        }
+      ]
+    },
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "standard"
+    }
+  },
+  "modified": "2026-10-01T00:00:00.000Z"
+}

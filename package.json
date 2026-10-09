@@ -1,0 +1,88 @@
+{
+  "name": "dfg_3dviewer",
+  "version": "1.0.2",
+  "packageManager": "pnpm@12.8.1",
+  "description": "Three.js based DFG 3D Viewer",
+  "keywords": [
+    "typescript",
+    "javascript"
+  ],
+  "source": "index.html",
+  "type": "module",
+  "targets": {
+    "default": {
+      "outputFormat": "esmodule",
+      "distDir": "dist"
+    }
+  },
+  "packages": {},
+  "@parcel/resolver-default": {
+    "packageExports": true
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@jsxtools/rollup-plugin-copy": "^0.3.2",
+    "@playwright/test": "^1.63.0",
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-replace": "^6.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@rollup/plugin-url": "^8.0.2",
+    "@types/node": "^25.9.9",
+    "buffer": "^6.0.3",
+    "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
+    "meshoptimizer": "^1.3.0",
+    "parcel": "^2.16.4",
+    "path-browserify": "^1.0.1",
+    "postcss": "^8.5.29",
+    "process": "^0.11.10",
+    "rollup": "^4.64.0",
+    "rollup-plugin-dts": "^6.5.1",
+    "rollup-plugin-ignore": "^1.0.10",
+    "rollup-plugin-lightningcss": "^1.0.0",
+    "serve": "^14.2.6",
+    "sharp": "^0.35.5"
+  },
+  "scripts": {
+    "dev": "pnpm run dev:test",
+    "dev:test": "cross-env BUILD_SOURCE=IIIF BUILD=test parcel dev.html --port 1234",
+    "dev:dev": "cross-env BUILD_SOURCE='' BUILD=test parcel dev.html --port 1234",
+    "dev:prod": "cross-env BUILD_SOURCE='' BUILD=prod parcel dev.html --port 1234",
+    "build:test": "cross-env BUILD_SOURCE='' BUILD=test rollup -c",
+    "build:dev": "cross-env BUILD_SOURCE='IIIF' BUILD=dev rollup -c",
+    "build:prod": "cross-env BUILD_SOURCE='' BUILD=prod rollup -c",
+    "build:drupal": "node ./scripts/build-drupal.js",
+    "build:drupal:custom": "cross-env BUILD_SOURCE='' BUILD=drupal MODULE_CUSTOM=/custom rollup -c",
+    "build:all": "pnpm run build:dev && pnpm run build:test && pnpm run build:drupal && pnpm run build:drupal:custom",
+    "examples:tempietto": "node scripts/build-tempietto-examples.mjs",
+    "serve:dev": "npx serve -n -l 3100 --no-port-switching dist/dev",
+    "serve:test": "npx serve -n -l 3101 --no-port-switching dist/test",
+    "test:local": "sh ./scripts/run-local-tests.sh",
+    "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
+    "pack-dist": "node ./scripts/pack-dist.js"
+  },
+  "files": [
+    "dist/**"
+  ],
+  "dependencies": {
+    "3d-tiles-renderer": "^0.5.3",
+    "@iiif/3d-manifesto-dev": "^0.7.0",
+    "@loaders.gl/las": "^4.5.2",
+    "@rollup/plugin-alias": "^6.0.0",
+    "@sentry/browser": "^11.4.0",
+    "fflate": "^0.8.3",
+    "jquery": "^4.0.0",
+    "lru-cache": "^11.5.3",
+    "playwright": "^1.63.0",
+    "pnpm": "^11.28.5",
+    "stats.js": "^0.17.0",
+    "three": "^0.186.1",
+    "toastify-js": "^1.12.0",
+    "web-ifc": "^0.0.77"
+  }
+}

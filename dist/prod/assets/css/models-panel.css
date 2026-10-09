@@ -1,0 +1,415 @@
+#browseModelsButton,
+#openLocalFileButton,
+#planButton {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+#browseModelsButton:hover,
+#openLocalFileButton:hover,
+#planButton:hover {
+  transform: translateY(-1px);
+}
+
+body[data-viewer-theme="dark"] #browseModelsButton,
+body[data-viewer-theme="dark"] #openLocalFileButton,
+body[data-viewer-theme="dark"] #planButton {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+.browse-models-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+.open-local-file-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Zm0 0v5h5M12 11v6m-3-3 3 3 3-3'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Zm0 0v5h5M12 11v6m-3-3 3 3 3-3'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+#modelsPanel[hidden],
+#libraryPanel[hidden],
+#examplesPanel[hidden],
+#plansPanel[hidden] {
+  display: none !important;
+}
+
+#modelsPanel,
+#libraryPanel,
+#examplesPanel,
+#plansPanel {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  width: min(320px, calc(100vw - 36px));
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
+}
+
+@media (max-width: 640px) {
+  #modelsPanel,
+  #libraryPanel,
+  #examplesPanel,
+  #plansPanel {
+    width: calc(100vw - 36px);
+  }
+}
+
+.models-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.models-panel-empty {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.models-panel-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.models-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 5px 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.models-panel-item:hover {
+  opacity: 0.8;
+}
+
+/* Placeholder (a cube) under the image. A model without thumbnails gets a
+   generic image (fillModelThumbnail, ui/thumbnail-gallery.js); the cube shows
+   only if that is missing too. */
+.models-panel-item-thumb {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--viewer-panel-text) 10%, transparent);
+}
+
+.models-panel-item-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  background-color: var(--viewer-panel-text);
+  opacity: 0.45;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M12 2.5 21 7v10l-9 4.5L3 17V7z'/%3E%3Cpath d='M3 7l9 4.5L21 7M12 11.5v10'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M12 2.5 21 7v10l-9 4.5L3 17V7z'/%3E%3Cpath d='M3 7l9 4.5L21 7M12 11.5v10'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.models-panel-item-thumb img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.models-panel-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.models-panel-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models-panel-item-meta {
+  font-size: 10px;
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models-panel-delete {
+  flex: none;
+  width: 28px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: #d54646;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.models-panel-delete:hover {
+  background: #d54646;
+  color: #fff;
+}
+
+.models-panel-save {
+  flex: none;
+  width: 28px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.models-panel-save::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 4v11m-4-4 4 4 4-4M5 20h14'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 4v11m-4-4 4 4 4-4M5 20h14'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.models-panel-save[data-state="saving"]::before {
+  opacity: 0.4;
+}
+
+.models-panel-save[data-state="saved"] {
+  color: #2f9e5b;
+  cursor: default;
+}
+
+.models-panel-save[data-state="saved"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m5 12 5 5 9-10'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m5 12 5 5 9-10'/%3E%3C/svg%3E");
+}
+
+.models-panel-repository {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
+.models-panel-repository-row {
+  display: flex;
+  gap: 6px;
+}
+
+.models-panel-repository input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+}
+
+.models-panel-repository button,
+.library-panel-browse {
+  padding: 5px 10px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.library-panel-browse {
+  width: 100%;
+  margin: 0 0 10px;
+}
+
+/* App (ui/models-source.js): device | remote, under the panel header. */
+.models-source-toggle {
+  display: flex;
+  gap: 2px;
+  margin: 0 0 10px;
+  padding: 2px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: var(--viewer-panel-bg);
+}
+
+.models-source-toggle button {
+  flex: 1 1 0;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.models-source-toggle button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--viewer-brand-blue, #7db6de) 22%, transparent);
+  font-weight: 600;
+  opacity: 1;
+  cursor: default;
+}
+
+.models-panel-repository[hidden] {
+  display: none;
+}
+
+/* "Delete account and data": plans panel and login panel (see
+   viewer/legal/delete-account.html). */
+.delete-account-link {
+  align-self: flex-start;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--viewer-panel-text) 70%, transparent);
+}
+
+.delete-account-link:hover,
+.delete-account-link:focus-visible {
+  color: var(--viewer-panel-text);
+}
+
+/* The plan next to a user name: plans panel, account panel, admin panel. */
+.plan-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--viewer-panel-border);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.plan-badge[data-tier="pro"] {
+  border-color: transparent;
+  background: #0284c7;
+  color: #fff;
+}
+
+.plan-badge[data-tier="business"] {
+  border-color: transparent;
+  background: linear-gradient(90deg, #2563eb, #db2777);
+  color: #fff;
+}
+
+/* The repository address without the Business plan: shown locked, a tap
+   opens the plans panel (ui/models-panel.js). */
+.models-panel-repository[data-locked="true"] label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.models-panel-repository[data-locked="true"] .models-panel-repository-row {
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.models-panel-repository[data-locked="true"] .models-panel-repository-row > * {
+  pointer-events: none;
+}
+
+/* App: example manifests (ui/examples-panel.js), grouped AIM3D / IIIF. */
+.examples-panel-heading {
+  margin: 10px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.examples-panel-heading:first-child {
+  margin-top: 0;
+}
+
+.examples-panel-list .models-panel-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Next to the close button, not centered between title and close. */
+#examplesPanelRefresh {
+  margin-left: auto;
+}
+
+#examplesPanelRefresh:disabled {
+  opacity: 0.3;
+  cursor: progress;
+}
+
+/* The password field takes the input's place in the row. */
+.plans-account-form .password-field {
+  flex: 1 1 120px;
+}

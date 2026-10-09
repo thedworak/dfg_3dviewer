@@ -1,0 +1,59 @@
+# editor backups
+*.yml~
+*.module~
+*.php~
+*.mdb~
+
+# config
+/main/config.json
+scripts/.env
+settings.local.php
+
+# local Docker Compose overrides (ports, GPU, env vars) - see
+# docker-compose.override.example.yml; docker-compose.yml itself stays
+# tracked so repo changes (new services, etc.) always apply.
+docker-compose.override.yml
+
+# node
+node_modules/
+# pnpm only (pnpm-lock.yaml) - an npm lockfile drifts out of sync and breaks CI
+package-lock.json
+
+# build
+/.parcel-cache
+# `parcel dev.html` (dev:* scripts) writes its output straight into dist/ -
+# only these build folders belong in the repository; any other build stays
+# local.
+/dist/*
+!/dist/dev/
+!/dist/test/
+!/dist/prod/
+!/dist/drupal/
+!/dist/.gitkeep
+
+# viewer config
+/viewer/viewer-settings.json
+/dist/*/viewer-settings.json
+/dist/drupal/viewer-settings.json
+/dist/test/viewer-settings.json
+viewer-settings.json
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+.codex
+
+/viewer/admin/admin.sqlite
+# Docker Compose variables (worker accounts: admin password etc.) - never commit
+/.env
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# large generated test data (scripts/generate-pointcloud-lod.py) - not shipped
+/viewer/test-data/

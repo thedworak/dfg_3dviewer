@@ -1,0 +1,164 @@
+services:
+  # Build-only: Ubuntu, Blender, gltfpack and the Python libraries
+  # (worker/Dockerfile.base). Built once and then served from the build cache,
+  # so code changes only rebuild the thin worker image below. Never started.
+  worker-base:
+    build:
+      context: worker
+      dockerfile: Dockerfile.base
+      # Published by .github/workflows/worker-base.yml; speeds up the first
+      # build on a fresh machine. A missing or private image only means a
+      # full local build (BuildKit logs a warning and carries on).
+      cache_from:
+        - ghcr.io/thedworak/dfg-3dviewer-worker-base:latest
+    image: dfg-3dviewer-worker-base
+    scale: 0
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      # Code only - "FROM worker-base" resolves to the service above.
+      additional_contexts:
+        worker-base: service:worker-base
+    ports:
+      - "8080:8080"
+    volumes:
+      - worker-jobs:/data/jobs
+    environment:
+      # CPU (default), GPU, or AUTO - see worker/README.md. GPU/AUTO also
+      # need the reservation block below uncommented, plus
+      # nvidia-container-toolkit installed on the host.
+      - WORKER_RENDER_DEVICE=AUTO
+      # Upload cap in bytes (100 MB). Keep in sync with client_max_body_size
+      # in docker/nginx.conf; set it in .env to change.
+      - WORKER_MAX_UPLOAD_BYTES=${WORKER_MAX_UPLOAD_BYTES:-104857600}
+      # Upload limits - see "Upload limits" in worker/README.md. 0 means
+      # unlimited; admins are never limited and can override these per
+      # account in the viewer's user panel. Set them in .env to change.
+      - WORKER_LIMIT_UPLOADS_PER_HOUR=${WORKER_LIMIT_UPLOADS_PER_HOUR:-20}
+      - WORKER_LIMIT_UPLOADS_PER_DAY=${WORKER_LIMIT_UPLOADS_PER_DAY:-100}
+      - WORKER_LIMIT_STORAGE_MB=${WORKER_LIMIT_STORAGE_MB:-0}
+      - WORKER_LIMIT_MAX_MODELS=${WORKER_LIMIT_MAX_MODELS:-0}
+      - WORKER_LIMIT_CONCURRENT_JOBS=${WORKER_LIMIT_CONCURRENT_JOBS:-1}
+      - WORKER_MAX_CONCURRENT_CONVERSIONS=${WORKER_MAX_CONCURRENT_CONVERSIONS:-2}
+      - WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR=${WORKER_LIMIT_BUSINESS_UPLOADS_PER_HOUR:-100}
+      - WORKER_LIMIT_BUSINESS_UPLOADS_PER_DAY=${WORKER_LIMIT_BUSINESS_UPLOADS_PER_DAY:-500}
+      - WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS=${WORKER_LIMIT_BUSINESS_CONCURRENT_JOBS:-3}
+      # Business accounts only; empty = the account defaults above.
+      - WORKER_LIMIT_BUSINESS_STORAGE_MB=${WORKER_LIMIT_BUSINESS_STORAGE_MB:-}
+      - WORKER_LIMIT_BUSINESS_MAX_MODELS=${WORKER_LIMIT_BUSINESS_MAX_MODELS:-}
+      # Reverse proxies in front of the worker: 1 = the viewer's nginx
+      # (docker/nginx.conf); 2 with docker/host-nginx.example.conf in front.
+      - WORKER_TRUSTED_PROXIES=${WORKER_TRUSTED_PROXIES:-1}
+      # Cloudflare cache purge of deleted models and re-rendered thumbnails
+      # (worker/cloudflare.py) - off unless the token and zone are set.
+      - CF_API_TOKEN=${CF_API_TOKEN:-}
+      - CF_ZONE_ID=${CF_ZONE_ID:-}
+      - WORKER_PUBLIC_HOSTS=${WORKER_PUBLIC_HOSTS:-}
+      # Optional accounts - off by default. Set these in a .env file next to
+      # this compose file (or the shell), not here; see "Accounts" in
+      # worker/README.md. WORKER_AUTH_MODE=required makes uploading/deleting
+      # need a login; registration is open | approval | closed.
+      - WORKER_AUTH_MODE=${WORKER_AUTH_MODE:-off}
+      - WORKER_AUTH_REGISTRATION=${WORKER_AUTH_REGISTRATION:-approval}
+      - WORKER_ADMIN_USER=${WORKER_ADMIN_USER:-}
+      - WORKER_ADMIN_PASSWORD=${WORKER_ADMIN_PASSWORD:-}
+      # Session-signing key; empty = generated once into the worker-jobs
+      # volume. Set it if that volume can be lost (logins would reset).
+      - WORKER_AUTH_SECRET=${WORKER_AUTH_SECRET:-}
+      # Optional: mail users when an admin approves their account (see
+      # "Accounts" in worker/README.md). Mail stays off without SMTP_HOST.
+      - WORKER_SMTP_HOST=${WORKER_SMTP_HOST:-}
+      - WORKER_SMTP_PORT=${WORKER_SMTP_PORT:-}
+      - WORKER_SMTP_SECURITY=${WORKER_SMTP_SECURITY:-starttls}
+      - WORKER_SMTP_USER=${WORKER_SMTP_USER:-}
+      - WORKER_SMTP_PASSWORD=${WORKER_SMTP_PASSWORD:-}
+      - WORKER_SMTP_FROM=${WORKER_SMTP_FROM:-}
+      - WORKER_PUBLIC_URL=${WORKER_PUBLIC_URL:-}
+    # Requesting this reservation without nvidia-container-toolkit on the
+    # host makes `docker compose up` fail outright ("could not select
+    # device driver \"nvidia\"") before the container ever starts, so it
+    # stays commented out here - enable it per-machine via
+    # docker-compose.override.yml instead (see
+    # docker-compose.override.example.yml) rather than editing this file.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  # Each viewer service takes its settings from an AIM3D manifest profile
+  # (VIEWER_PROFILE -> docker/profiles/<profile>.manifest.json), edited in the
+  # settings volume after first start.
+  #
+  # Three viewer services, one per npm build target you'd otherwise run
+  # locally via `npm run dev:test` / `dev:dev` / `dev:prod` - see "Standalone
+  # Docker setup" in README.md. All three reverse-proxy /api/ and /files/ to
+  # the same `worker` service (see docker/nginx.conf), so any of them can
+  # drive the "Upload & convert" panel identically.
+  viewer-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+      args:
+        BUILD_TARGET: test
+        VIEWER_PROFILE: ${VIEWER_PROFILE:-test}
+        BUILD_ID: ${BUILD_ID:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      # Named volumes can only be mounted as directories, not onto a single
+      # file - docker/viewer-entrypoint.d/10-persist-viewer-settings.sh
+      # seeds this directory from the image's built-in viewer-settings.json
+      # on first run, then symlinks viewer-settings.json to it on every
+      # start, so edits survive `docker compose up --build`.
+      - viewer-test-settings:/data/viewer-config
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  viewer-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+      args:
+        BUILD_TARGET: dev
+        VIEWER_PROFILE: ${VIEWER_PROFILE:-dev}
+        BUILD_ID: ${BUILD_ID:-}
+    ports:
+      - "3001:3000"
+    volumes:
+      - viewer-dev-settings:/data/viewer-config
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  # Same "test" build as viewer-test, but its profile manifest
+  # (docker/profiles/sandbox.manifest.json) sets viewer.sandbox=true
+  # (drag-and-drop model upload, see viewer/sandbox.js) so opening this one's
+  # root URL lands in sandbox mode without needing to append ?sandbox=1.
+  viewer-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.viewer
+      args:
+        BUILD_TARGET: test
+        VIEWER_PROFILE: ${VIEWER_PROFILE:-sandbox}
+        BUILD_ID: ${BUILD_ID:-}
+    ports:
+      - "3002:3000"
+    volumes:
+      - viewer-sandbox-settings:/data/viewer-config
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+volumes:
+  worker-jobs:
+  viewer-test-settings:
+  viewer-dev-settings:
+  viewer-sandbox-settings:

@@ -1,0 +1,918 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/WolpaSynagogue.glb/manifest-night-tour.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Wolpa Synagogue - night, guided tour (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/WolpaSynagogue.glb/scene",
+      "type": "Scene",
+      "spatialScale": { "type": "Quantity", "quantityValue": 0.01, "unit": "m" },
+      "label": {
+        "en": [
+          "Wolpa Synagogue"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/WolpaSynagogue.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-01-roof",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Tiered roof"
+                ],
+                "pl": [
+                  "Wielopoziomowy dach"
+                ],
+                "de": [
+                  "Gestuftes Dach"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The wooden synagogue in Wołpa was one of the best-known wooden synagogues of the former Polish-Lithuanian Commonwealth. Its stepped, multi-tiered roof covers the tiered wooden dome of the prayer hall. The building was destroyed during the Second World War; this model is a reconstruction.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Drewniana synagoga w Wołpie była jedną z najbardziej znanych drewnianych synagog dawnej Rzeczypospolitej. Jej schodkowy, wielopoziomowy dach kryje wielostopniową drewnianą kopułę sali modlitw. Budynek zniszczono w czasie II wojny światowej; model jest rekonstrukcją.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Die Holzsynagoge in Wołpa war eine der bekanntesten Holzsynagogen der früheren polnisch-litauischen Adelsrepublik. Ihr gestuftes, mehrgeschossiges Dach überdeckt die gestufte Holzkuppel des Betsaals. Das Gebäude wurde im Zweiten Weltkrieg zerstört; das Modell ist eine Rekonstruktion.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -44.9,
+                    "y": 1633.9,
+                    "z": 72.5
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  -44.9,
+                  1633.9,
+                  72.5
+                ],
+                "view": {
+                  "position": [
+                    3000,
+                    2600,
+                    3400
+                  ],
+                  "target": [
+                    -48,
+                    1100,
+                    -106
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-02-west-facade",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Western façade"
+                ],
+                "pl": [
+                  "Fasada zachodnia"
+                ],
+                "de": [
+                  "Westfassade"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The entrance side of the building. The chevron ornament sits on the building's main axis, above the vestibule.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Strona wejściowa budynku. Ornament w jodełkę leży na głównej osi budowli, nad przedsionkiem.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Die Eingangsseite des Gebäudes. Das Fischgrätornament liegt auf der Hauptachse über dem Vorraum.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -66.8,
+                    "y": 652.3,
+                    "z": 581.7
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  -66.8,
+                  652.3,
+                  581.7
+                ],
+                "view": {
+                  "position": [
+                    -48,
+                    700,
+                    2900
+                  ],
+                  "target": [
+                    -67,
+                    560,
+                    500
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-03-entrance",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Entrance"
+                ],
+                "pl": [
+                  "Wejście"
+                ],
+                "de": [
+                  "Eingang"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Wooden doors lead from the vestibule into the prayer hall.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Drewniane drzwi prowadzą z przedsionka do sali modlitw.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Holztüren führen vom Vorraum in den Betsaal.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -45.4,
+                    "y": 248.1,
+                    "z": 396.7
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  -45.4,
+                  248.1,
+                  396.7
+                ],
+                "view": {
+                  "position": [
+                    700,
+                    300,
+                    1800
+                  ],
+                  "target": [
+                    -45,
+                    248,
+                    397
+                  ],
+                  "fov": 50
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-04-ark",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "East wall and Torah ark"
+                ],
+                "pl": [
+                  "Ściana wschodnia i Aron ha-Kodesz"
+                ],
+                "de": [
+                  "Ostwand und Toraschrein"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The Torah ark (Aron ha-Kodesh) stands on the east wall, facing Jerusalem, and is the focal point of the prayer hall.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Aron ha-Kodesz, szafa ołtarzowa na zwoje Tory, stoi przy ścianie wschodniej, zwróconej ku Jerozolimie, i jest centralnym punktem sali modlitw.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Der Toraschrein (Aron ha-Kodesch) steht an der nach Jerusalem gerichteten Ostwand und ist der Blickpunkt des Betsaals.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 4.7,
+                    "y": 404.9,
+                    "z": -992
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  4.7,
+                  404.9,
+                  -992
+                ],
+                "view": {
+                  "position": [
+                    -48,
+                    350,
+                    200
+                  ],
+                  "target": [
+                    4.7,
+                    404.9,
+                    -992
+                  ],
+                  "fov": 60
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-05-gallery",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "First tier of the dome"
+                ],
+                "pl": [
+                  "Pierwsza kondygnacja kopuły"
+                ],
+                "de": [
+                  "Erste Stufe der Kuppel"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Above the walls of the hall the wooden dome begins. Each tier is set back from the one below and edged by a small gallery.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Nad ścianami sali zaczyna się drewniana kopuła. Każda kondygnacja jest cofnięta względem niższej i obwiedziona niewielką galerią.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Über den Wänden des Saals beginnt die Holzkuppel. Jede Stufe springt gegenüber der unteren zurück und wird von einer kleinen Galerie gesäumt.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -49.9,
+                    "y": 737.7,
+                    "z": 351.5
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  -49.9,
+                  737.7,
+                  351.5
+                ],
+                "view": {
+                  "position": [
+                    -48,
+                    400,
+                    -700
+                  ],
+                  "target": [
+                    -50,
+                    738,
+                    352
+                  ],
+                  "fov": 60
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-06-corner",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Corner of the hall"
+                ],
+                "pl": [
+                  "Narożnik sali"
+                ],
+                "de": [
+                  "Ecke des Saals"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The corners fill the transition between the square hall and the tiered dome above it.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Narożniki wypełniają przejście między kwadratową salą a wielostopniową kopułą nad nią.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Die Ecken vermitteln zwischen dem quadratischen Saal und der gestuften Kuppel darüber.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 537.6,
+                    "y": 574.2,
+                    "z": -885.5
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  537.6,
+                  574.2,
+                  -885.5
+                ],
+                "view": {
+                  "position": [
+                    -200,
+                    300,
+                    -300
+                  ],
+                  "target": [
+                    537.6,
+                    574.2,
+                    -885.5
+                  ],
+                  "fov": 60
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-07-ceiling",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Painted ceiling"
+                ],
+                "pl": [
+                  "Malowany strop"
+                ],
+                "de": [
+                  "Bemalte Decke"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The upper tiers carry polychrome painting. The \"painted ceiling view\" example shows it under neutral light.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Wyższe kondygnacje pokrywa polichromia. Przykład z widokiem na sufit pokazuje ją w neutralnym świetle.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Die oberen Stufen tragen eine Polychromie. Das Beispiel mit der Deckenansicht zeigt sie bei neutralem Licht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -51.5,
+                    "y": 1190.8,
+                    "z": -311
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  -51.5,
+                  1190.8,
+                  -311
+                ],
+                "view": {
+                  "position": [
+                    300,
+                    200,
+                    -500
+                  ],
+                  "target": [
+                    -48,
+                    1190,
+                    -311
+                  ],
+                  "fov": 60
+                }
+              }
+            },
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/tour-08-top",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Top of the dome"
+                ],
+                "pl": [
+                  "Szczyt kopuły"
+                ],
+                "de": [
+                  "Kuppelscheitel"
+                ]
+              },
+              "created": "2026-09-30T00:00:00.000Z",
+              "modified": "2026-09-30T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The highest point of the interior, closing the last and smallest tier of the dome.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Najwyższy punkt wnętrza, zamykający ostatnią, najmniejszą kondygnację kopuły.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Der höchste Punkt des Innenraums, der die letzte und kleinste Kuppelstufe abschließt.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/WolpaSynagogue.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -5.7,
+                    "y": 1517.8,
+                    "z": -225.9
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  -5.7,
+                  1517.8,
+                  -225.9
+                ],
+                "view": {
+                  "position": [
+                    150,
+                    300,
+                    -150
+                  ],
+                  "target": [
+                    -6,
+                    1518,
+                    -226
+                  ],
+                  "fov": 60
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-09-30T00:00:00.000Z",
+    "camera": {
+      "position": [
+        3235.1,
+        2379.7,
+        3833.8
+      ],
+      "target": [
+        -47.9,
+        737.7,
+        -106.2
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 5384,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 0,
+        "preset": "neutral",
+        "enabled": false
+      },
+      "performance": "high-performance",
+      "backgroundColor": "#05070d",
+      "rendering": {
+        "toneMapping": "reinhard",
+        "exposure": 1.6,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "tour": {
+        "autostart": false,
+        "autoplay": true,
+        "stepDuration": 8,
+        "transitionDuration": 2,
+        "loop": true
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#1a2440",
+        "intensity": 0.25
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          -2000,
+          5000,
+          -3000
+        ],
+        "target": [
+          -47.9,
+          737.7,
+          -106.2
+        ],
+        "color": "#8fa8ff",
+        "intensity": 0.35
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          4000,
+          0
+        ],
+        "color": "#22304f",
+        "groundColor": "#050608",
+        "intensity": 0.2
+      },
+      {
+        "type": "SpotLight",
+        "position": [
+          2500,
+          300,
+          2500
+        ],
+        "target": [
+          -47.9,
+          1400,
+          -106.2
+        ],
+        "color": "#ffc27a",
+        "intensity": 4,
+        "distance": 0,
+        "decay": 0,
+        "angle": 0.45,
+        "penumbra": 0.6
+      },
+      {
+        "type": "SpotLight",
+        "position": [
+          -2500,
+          300,
+          2500
+        ],
+        "target": [
+          -47.9,
+          1400,
+          -106.2
+        ],
+        "color": "#ffc27a",
+        "intensity": 4,
+        "distance": 0,
+        "decay": 0,
+        "angle": 0.45,
+        "penumbra": 0.6
+      },
+      {
+        "type": "PointLight",
+        "position": [
+          -47.9,
+          1500,
+          -106.2
+        ],
+        "color": "#ff9b4a",
+        "intensity": 2,
+        "distance": 3000,
+        "decay": 0
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "phong"
+    }
+  },
+  "modified": "2026-09-30T00:00:00.000Z"
+}

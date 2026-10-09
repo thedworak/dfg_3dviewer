@@ -1,0 +1,625 @@
+import { core } from "../core.js";
+import { isValidUrl } from "../utils.js";
+
+function getGalleryConfig() {
+  return core.CONFIG?.viewer?.gallery || {};
+}
+
+function getGalleryHost(Viewer, mainElement) {
+  return (
+    Viewer.fileElement?.[0] ||
+    mainElement ||
+    Viewer.container ||
+    core.container ||
+    null
+  );
+}
+
+function removeExistingGalleryDom() {
+  const imageList = document.getElementById("image-list");
+  (imageList?.closest(".image-list-scroller") || imageList)?.remove();
+  document.getElementById("modalGallery")?.remove();
+}
+
+// Renders of the Explora 4D logo (viewer/examples/gallery/generic/
+// explora4d-placeholder-01..09.png), shown wherever a gallery image is
+// missing. Resolved against this module like viewer-settings.json: the chunk
+// sits in <build>/assets/, the examples next to it in <build>/examples/.
+const GENERIC_GALLERY_IMAGE_COUNT = 9;
+
+// Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
+// convertGalleryToWebp); the dev server (Parcel, no __BUILD__) serves the
+// PNGs straight from viewer/examples.
+const GALLERY_IMAGE_EXT = typeof __BUILD__ !== "undefined" ? "webp" : "png";
+
+function getGenericGalleryImageUrl(index) {
+  const moduleUrl = new URL(import.meta.url);
+  const examplesPath = moduleUrl.pathname.includes("/assets/") ? "../examples/" : "./examples/";
+  const number = String((index % GENERIC_GALLERY_IMAGE_COUNT) + 1).padStart(2, "0");
+  return new URL(`${examplesPath}gallery/generic/explora4d-placeholder-${number}.${GALLERY_IMAGE_EXT}`, moduleUrl).href;
+}
+
+// One of the generic images for a model without thumbnails (browse and
+// admin panels), the same one for the same model every time.
+export function genericThumbnailUrl(seed = "") {
+  let hash = 0;
+  for (const char of String(seed)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return getGenericGalleryImageUrl(hash % GENERIC_GALLERY_IMAGE_COUNT);
+}
+
+// Fills a list row's thumbnail slot: the model's own image, or a generic one
+// when it has none or it fails to load (the slot's CSS placeholder is left
+// if even that is missing).
+export function fillModelThumbnail(slot, imageUrl, seed) {
+  const thumb = document.createElement("img");
+  thumb.alt = "";
+  thumb.loading = "lazy";
+  const generic = genericThumbnailUrl(seed);
+  thumb.addEventListener("error", function onError() {
+    if (thumb.src !== generic && imageUrl) {
+      thumb.src = generic;
+      return;
+    }
+    thumb.removeEventListener("error", onError);
+    thumb.remove();
+  });
+  thumb.src = imageUrl || generic;
+  slot.appendChild(thumb);
+}
+
+// Swaps a thumbnail that fails to load for the generic image with the same
+// position (once - a missing generic image is left broken).
+function useGenericImageOnError(img, index, onReplaced) {
+  img.addEventListener("error", () => {
+    if (img.dataset.genericFallback) return;
+    img.dataset.genericFallback = "1";
+    img.src = getGenericGalleryImageUrl(index);
+    onReplaced?.(img.src);
+  }, { once: true });
+}
+
+function getConfiguredTestImages() {
+  const gallery = getGalleryConfig();
+  const configuredImages = Array.isArray(gallery.testImages) ? gallery.testImages : [];
+  const normalizedImages = configuredImages.map((entry, index) => {
+    if (typeof entry === "string") {
+      const src = normalizeGalleryUrl(entry);
+      return src ? { src, alt: `Preview ${index + 1}` } : null;
+    }
+    if (entry && typeof entry === "object") {
+      const src = normalizeGalleryUrl(entry.src || entry.url || "");
+      if (!src) return null;
+      return {
+        src,
+        alt: String(entry.alt || entry.label || `Preview ${index + 1}`),
+      };
+    }
+    return null;
+  }).filter(Boolean);
+
+  if (normalizedImages.length > 0) {
+    return normalizedImages;
+  }
+
+  return [];
+}
+
+function createDefaultTestImages() {
+  return Array.from({ length: GENERIC_GALLERY_IMAGE_COUNT }, (_unused, index) => ({
+    src: getGenericGalleryImageUrl(index),
+    alt: `Preview ${index + 1}`,
+  }));
+}
+
+const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315"];
+
+// scripts/render.py writes a 9-shot turntable per source file into
+// viewer/examples/gallery/<filename>/<basename>_side<angle>.png (+ _top.png;
+// .webp in the builds),
+// named after that same file's own filename/basename - see core.fileObject,
+// set from the currently loaded model's path in main.js. Deriving the path
+// this way means a freshly rendered example picks up its own thumbnails
+// automatically, with no config file to keep in sync per model.
+// An example in a folder of its own (examples/tempietto/: one model in every
+// format) shares one set for all its files, gallery/<folder>/.
+function getPerModelGalleryImages() {
+  const filename = core.fileObject?.filename;
+  const basename = core.fileObject?.basename;
+  if (!filename || !basename) return [];
+  const folder = (core.fileObject?.path || "").match(/\/examples\/([^/]+)\/$/)?.[1];
+  const dir = folder && folder !== "gallery" ? folder : filename;
+
+  const images = GALLERY_RENDER_ANGLES.map((angle) => ({
+    src: normalizeGalleryUrl(`examples/gallery/${dir}/${basename}_side${angle}.${GALLERY_IMAGE_EXT}`),
+    alt: `${basename} - ${angle}°`,
+  }));
+  images.push({
+    src: normalizeGalleryUrl(`examples/gallery/${dir}/${basename}_top.${GALLERY_IMAGE_EXT}`),
+    alt: `${basename} - top`,
+  });
+  return images.filter((img) => img.src);
+}
+
+function probeImageExists(src) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve(false);
+      return;
+    }
+    const probe = new Image();
+    probe.onload = () => resolve(true);
+    probe.onerror = () => resolve(false);
+    probe.src = src;
+  });
+}
+
+function createFakeGalleryElements(testImages) {
+  return testImages.map((entry) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "field__item";
+    wrapper.innerHTML =
+      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
+    return wrapper;
+  });
+}
+
+function prepareGalleryImages(Viewer, imageElementsChildren) {
+  imageElementsChildren = imageElementsChildren.filter(function (_image) {
+    if (!(_image instanceof Element)) return false;
+    let rawUrl = "";
+    const img = _image.querySelector("img");
+    const link = _image.querySelector("a");
+    if (img && img.getAttribute("src")) {
+      rawUrl = img.getAttribute("src");
+    } else if (link && link.getAttribute("href")) {
+      rawUrl = link.getAttribute("href");
+    } else {
+      rawUrl = (_image.textContent || _image.innerHTML || "").trim();
+    }
+
+    const normalized = normalizeGalleryUrl(rawUrl);
+    if (!isValidUrl(normalized)) {
+      return false;
+    }
+    _image.innerHTML = normalized;
+    return !!img;
+  });
+  imageElementsChildren.forEach(function (imgLink) {
+    imgLink.innerHTML =
+      '<img loading="lazy" src="' +
+      imgLink.innerHTML +
+      '" width="200px" height="200px" alt="" class="img-fluid image-style-wisski-preview">';
+  });
+  return imageElementsChildren;
+}
+
+function normalizeGalleryUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return "";
+  }
+
+  let url = rawUrl.trim();
+  if (url === "") {
+    return "";
+  }
+
+  if (url.startsWith("public://")) {
+    url = "/sites/default/files/" + url.substring("public://".length);
+  } else if (url.startsWith("sites/default/files/")) {
+    url = "/" + url;
+  }
+
+  const base = (core.CONFIG?.mainUrl || window.location.origin || "").replace(/\/+$/, "");
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const host = parsed.host || "";
+    const path = parsed.pathname || "";
+    const normalizedHost = host.toLowerCase();
+    const hasBadHost = host.includes("_") || normalizedHost === "default" || normalizedHost === "dfg_3dviewer";
+
+    if (path.startsWith("/sites/default/files/")) {
+      if (hasBadHost) {
+        return `${base}${path}`;
+      }
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.href;
+      }
+      return `${base}${path}`;
+    }
+    return parsed.href;
+  } catch (_error) {
+    if (url.startsWith("/sites/default/files/")) {
+      return `${base}${url}`;
+    }
+    return url;
+  }
+}
+
+const SCROLL_HINT_ICONS = {
+  prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>',
+  next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>',
+};
+
+// On a phone the thumbnails are one row that scrolls sideways (main.css),
+// which nothing on screen gave away. The wrapper fades the edge that has
+// more thumbnails behind it and shows a small chevron there (tapping it
+// scrolls); both only when the row overflows that way, and CSS keeps them
+// to the phone layout.
+function wrapWithScrollHints(Viewer, imageList) {
+  const scroller = document.createElement("div");
+  scroller.className = "image-list-scroller";
+  scroller.appendChild(imageList);
+
+  const [prevButton, nextButton] = ["prev", "next"].map((direction) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `image-list-hint image-list-hint--${direction}`;
+    button.tabIndex = -1; // the thumbnails themselves are reachable by keyboard
+    // Shown by update() only when the row scrolls that way - not left to the
+    // stylesheet alone, so a missing or older one never shows empty buttons.
+    button.hidden = true;
+    button.setAttribute("aria-hidden", "true");
+    button.innerHTML = SCROLL_HINT_ICONS[direction];
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const step = Math.max(64, imageList.clientWidth * 0.8);
+      imageList.scrollBy({ left: direction === "next" ? step : -step, behavior: "smooth" });
+    });
+    scroller.appendChild(button);
+    return button;
+  });
+
+  const update = () => {
+    const max = imageList.scrollWidth - imageList.clientWidth;
+    const canPrev = imageList.scrollLeft > 2;
+    const canNext = imageList.scrollLeft < max - 2;
+    scroller.classList.toggle("can-scroll-prev", canPrev);
+    scroller.classList.toggle("can-scroll-next", canNext);
+    prevButton.hidden = !canPrev;
+    nextButton.hidden = !canNext;
+  };
+  imageList.addEventListener("scroll", update, { passive: true });
+  if (typeof ResizeObserver === "function") new ResizeObserver(update).observe(imageList);
+  Viewer.bindEventListener(window, "resize", update);
+  // Thumbnails can change the row's width as they load.
+  imageList.addEventListener("load", update, true);
+  requestAnimationFrame(update);
+  return scroller;
+}
+
+// Swaps the thumbnail shimmer placeholder for the real image once it has
+// finished loading (or failed), covering both the still-loading case and
+// images that are already cached and complete by the time this runs.
+function markThumbnailLoaded(img, container) {
+  const markLoaded = () => {
+    img.classList.add("is-loaded");
+    if (container instanceof HTMLElement) {
+      container.classList.add("is-loaded");
+    }
+  };
+  if (img.complete && img.naturalWidth > 0) {
+    markLoaded();
+  } else {
+    img.addEventListener("load", markLoaded, { once: true });
+    img.addEventListener("error", markLoaded, { once: true });
+  }
+}
+
+function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
+  if (imageElementsChildren === undefined) {
+    imageElementsChildren = imageElements;
+  }
+  removeExistingGalleryDom();
+  var imageList = document.createElement("div");
+  imageList.setAttribute("id", "image-list");
+  imageList.style.display = "flex";
+  imageList.style.flexWrap = "wrap";
+  imageList.style.gap = "16px";
+  imageList.style.alignItems = "center";
+  var modalGallery = document.createElement("div");
+  var modalImageWrap = document.createElement("div");
+  var modalImage = document.createElement("img");
+  var modalPrev = document.createElement("button");
+  var modalNext = document.createElement("button");
+  var modalCounter = document.createElement("span");
+  const galleryImageSources = [];
+  const galleryThumbEls = [];
+  let currentGalleryIndex = -1;
+  modalImageWrap.setAttribute("class", "modalImageWrap");
+  modalCounter.setAttribute("class", "galleryCounter");
+  modalImage.setAttribute("class", "modalImage");
+  // Start from whatever zoom the user last left the gallery at (Viewer.zoomImage
+  // persists on the Viewer instance across images and across open/close), so a
+  // fresh build still reflects the remembered zoom instead of always resetting.
+  modalImage.style.transform = `scale(${Viewer.zoomImage})`;
+  Viewer.bindEventListener(modalGallery, "wheel", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
+    } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
+      modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
+    }
+    return false;
+  });
+  var modalClose = document.createElement("span");
+  modalGallery.setAttribute("id", "modalGallery");
+  modalGallery.setAttribute("class", "modalGallery");
+  modalClose.setAttribute("class", "closeGallery");
+  modalClose.setAttribute("title", "Close");
+  modalClose.innerHTML = "&times";
+  modalPrev.setAttribute("type", "button");
+  modalPrev.setAttribute("class", "galleryNav galleryNavPrev");
+  modalPrev.setAttribute("title", "Previous image");
+  modalPrev.setAttribute("aria-label", "Previous image");
+  modalPrev.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>';
+  modalNext.setAttribute("type", "button");
+  modalNext.setAttribute("class", "galleryNav galleryNavNext");
+  modalNext.setAttribute("title", "Next image");
+  modalNext.setAttribute("aria-label", "Next image");
+  modalNext.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>';
+
+  const showGalleryImageAtIndex = function (index) {
+    if (galleryImageSources.length === 0) {
+      return;
+    }
+    const normalizedIndex =
+      (index + galleryImageSources.length) % galleryImageSources.length;
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
+    currentGalleryIndex = normalizedIndex;
+    modalImage.src = galleryImageSources[normalizedIndex];
+    modalCounter.textContent = `${normalizedIndex + 1} / ${galleryImageSources.length}`;
+    if (galleryThumbEls[normalizedIndex]) {
+      galleryThumbEls[normalizedIndex].classList.add("is-active-thumb");
+    }
+  };
+
+  const openModalGalleryAtIndex = function (index) {
+    showGalleryImageAtIndex(index);
+    modalGallery.classList.add("is-open");
+    imageList.style.zIndex = 0;
+    imageList.style.display = "hidden";
+  };
+
+  const closeModalGallery = function () {
+    modalGallery.classList.remove("is-open");
+    if (galleryThumbEls[currentGalleryIndex]) {
+      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    }
+    // Intentionally leave Viewer.zoomImage / modalImage's transform as-is so the
+    // zoom level the user scrolled to carries over to the next image and the
+    // next time the gallery is opened, instead of snapping back to a default.
+  };
+
+  modalClose.onclick = function () {
+    closeModalGallery();
+  };
+
+  modalPrev.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex - 1);
+  };
+
+  modalNext.onclick = function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    showGalleryImageAtIndex(currentGalleryIndex + 1);
+  };
+
+  Viewer.bindEventListener(modalGallery, "click", function (event) {
+    if (event.target === modalGallery) {
+      closeModalGallery();
+    }
+  });
+
+  Viewer.bindEventListener(document, "click", function (event) {
+    if (
+      !modalGallery.contains(event.target) &&
+      !imageList.contains(event.target)
+    ) {
+      closeModalGallery();
+    }
+  });
+
+  Viewer.bindEventListener(document, "keydown", function (event) {
+    if (!modalGallery.classList.contains("is-open")) {
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex - 1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      showGalleryImageAtIndex(currentGalleryIndex + 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeModalGallery();
+    }
+  });
+
+  modalImageWrap.appendChild(modalImage);
+  modalGallery.appendChild(modalPrev);
+  modalGallery.appendChild(modalImageWrap);
+  modalGallery.appendChild(modalNext);
+  modalGallery.appendChild(modalCounter);
+  modalGallery.appendChild(modalClose);
+  for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
+    if (
+      imageElementsChildren[i] !== undefined &&
+      imageElementsChildren[i].innerHTML !== undefined
+    ) {
+      var imgList = imageElementsChildren[i].getElementsByTagName("a");
+      for (let j = 0; j < imgList.length; j++) {
+        imgList[j].setAttribute("href", "#");
+        imgList[j].setAttribute("src", imgList[j].firstChild.src);
+        imgList[j].setAttribute("class", "image-list-item");
+      }
+      imgList = imageElementsChildren[i].getElementsByTagName("img");
+      if (imgList.length == 1) {
+        imgList[0].style.maxWidth = "fit-content";
+        imgList[0].style.maxHeight = "180px";
+      }
+      for (let j = 0; j < imgList.length; j++) {
+        const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
+        const thumbContainer =
+          imgList[j].closest(".field__item") || imageElementsChildren[i];
+        galleryThumbEls[nextIndex] = thumbContainer;
+        imgList[j].onclick = function () {
+          openModalGalleryAtIndex(nextIndex);
+        };
+        useGenericImageOnError(imgList[j], nextIndex, (src) => {
+          galleryImageSources[nextIndex] = src;
+        });
+        markThumbnailLoaded(imgList[j], thumbContainer);
+      }
+      if (imageElementsChildren[i] instanceof HTMLElement) {
+        imageElementsChildren[i].style.display = "block";
+      }
+      imageList.appendChild(imageElementsChildren[i]);
+    }
+  }
+  if (
+    imageList &&
+    imageList.childNodes.length > 0 &&
+    getGalleryHost(Viewer, mainElement)
+  ) {
+    const galleryHost = getGalleryHost(Viewer, mainElement);
+    galleryHost.insertAdjacentElement("beforebegin", modalGallery);
+    galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
+  }
+}
+
+// Bumped on every gallery (re)build so a stale probeImageExists()
+// resolution from an earlier, since-superseded model switch can't overwrite
+// the gallery for whichever model is actually selected now (a fast switch
+// could otherwise let an older, slower-to-resolve probe win the race and
+// leave mismatched thumbnails on screen).
+let galleryBuildGeneration = 0;
+
+// getPerModelGalleryImages() only knows how to guess paths for the built-in
+// viewer/examples/gallery/<filename>/... fixtures - a model just converted by
+// the standalone worker (worker/server.py) lives at whatever /files/<job id>/
+// views/... URLs its status response actually returned, so that convention
+// can't find it. This renders a gallery directly from an explicit URL list
+// instead of guessing one, reusing the same thumbnail/lightbox DOM as the
+// buildFake fallback below. A model without images (none rendered yet) gets
+// the generic placeholders, so the previous model's gallery never lingers.
+export function renderModelGalleryImages(Viewer, imageUrls = []) {
+  // Supersedes a buildThumbnailGallery() probe still in flight.
+  galleryBuildGeneration++;
+  const gallery = getGalleryConfig();
+  const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+  let images = (Array.isArray(imageUrls) ? imageUrls : [])
+    .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}` }))
+    .filter((img) => img.src);
+  if (images.length === 0) images = createDefaultTestImages();
+  const elements = createFakeGalleryElements(images);
+  handleImages(Viewer, mainElement, elements, elements);
+}
+
+export function buildThumbnailGallery(Viewer) {
+  const buildGeneration = ++galleryBuildGeneration;
+  const gallery = getGalleryConfig();
+  var mainElement = gallery.container
+    ? document.getElementById(gallery.container)
+    : null;
+  var imageElements;
+  if (gallery.imageClass !== "") {
+    imageElements = document.getElementsByClassName(
+      gallery.imageClass
+    );
+    if (imageElements.length === 0) {
+      const fallbackFields = document.querySelectorAll(
+        ".field--type-image"
+      );
+      if (fallbackFields.length > 0) {
+        imageElements = fallbackFields;
+        console.warn(
+          "Gallery imageClass not found, falling back to .field--type-image."
+        );
+      }
+    }
+    if (imageElements.length > 0) {
+      var galleryLabel = document.getElementsByClassName("field__label");
+      if (galleryLabel !== undefined && galleryLabel.length > 0) {
+        galleryLabel[0].innerText = "";
+      }
+    }
+  } else if (gallery.imageId !== "") {
+    imageElements = document.getElementById(gallery.imageId);
+  }
+
+  if (imageElements != null) {
+    if (imageElements.length > 0) {
+      if (imageElements[0].innerHTML !== undefined) {
+        let imagesList = Array.from(
+          imageElements[0].getElementsByClassName("field__items")[0]
+            .childNodes
+        );
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements[0].classList.add("field--label-hidden");
+        //imageElements[0].classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imagesList);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    } else if (
+      imageElements.childNodes !== undefined &&
+      imageElements.childNodes.length > 0
+    ) {
+      if (
+        typeof imageElements.childNodes[0].innerHTML == "string" ||
+        typeof imageElements.childNodes[1].innerHTML == "string"
+      ) {
+        let imagesList = Array.from(imageElements.childNodes);
+        imagesList = prepareGalleryImages(Viewer, imagesList);
+        imageElements.classList.add("field--type-image");
+        imageElements.classList.add("field--label-hidden");
+        //imageElements.classList.add("field__items");
+        handleImages(Viewer, mainElement, imagesList, imageElements);
+      } else {
+        handleImages(Viewer, mainElement, imageElements);
+      }
+    }
+  }
+
+  if (core.CONFIG?.viewer?.gallery?.buildFake === true) {
+    // buildFake is the dedicated opt-in for this fallback, so it doesn't
+    // also gate on gallery.build: that flag is forced to false for the
+    // test/dev rollup targets (see rollup.config.js) to disable the real
+    // Drupal-field-based gallery there, which would otherwise silently
+    // disable this fallback too even though it's the one thing meant to
+    // work in those environments.
+    const renderFake = (images) => {
+      const fakeImages = createFakeGalleryElements(images);
+      handleImages(Viewer, mainElement, fakeImages, fakeImages);
+      console.log("Built fallback thumbnail gallery for local testing");
+    };
+
+    const testImages = getConfiguredTestImages();
+    const staticFallback = testImages.length > 0 ? testImages : createDefaultTestImages();
+
+    // Prefer thumbnails rendered for the currently loaded example (see
+    // core.fileObject, refreshed on every model switch) over the static
+    // testImages config, so picking a different example model actually
+    // swaps the gallery instead of always showing the same fixed set.
+    const perModelImages = getPerModelGalleryImages();
+    if (perModelImages.length > 0) {
+      probeImageExists(perModelImages[0].src).then((exists) => {
+        if (buildGeneration !== galleryBuildGeneration) return;
+        renderFake(exists ? perModelImages : staticFallback);
+      });
+    } else {
+      renderFake(staticFallback);
+    }
+    return;
+  }
+
+  console.log("No gallery source found");
+}

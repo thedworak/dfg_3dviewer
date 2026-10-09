@@ -1,0 +1,1035 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/tempietto/Tempietto.glb/manifest-certainty.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Tempietto - Level of Certainty (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/tempietto/Tempietto.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Tempietto"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-podium",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Podium"
+                ],
+                "pl": [
+                  "Podium"
+                ],
+                "de": [
+                  "Podium"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Preserved and surveyed. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Zachowane i zmierzone. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Erhalten und vermessen. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.0:0",
+                "object": "m0:0.0",
+                "targetId": "m0:0.0",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 10,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0.0"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-cella",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Cella walls"
+                ],
+                "pl": [
+                  "Ściany celi"
+                ],
+                "de": [
+                  "Cellawände"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Preserved to the top of the walls. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Zachowane do korony murów. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Bis zur Mauerkrone erhalten. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.1:0",
+                "object": "m0:0.1",
+                "targetId": "m0:0.1",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 9,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0.1"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-columns",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Column 1"
+                ],
+                "pl": [
+                  "Kolumna 1"
+                ],
+                "de": [
+                  "Säule 1"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Complete, standing in place. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Kompletna, stoi na miejscu. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Vollständig, steht an Ort und Stelle. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.2.0:0",
+                "object": "m0:0.2.0",
+                "targetId": "m0:0.2.0",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 10,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0.2.0"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-column-2",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Column 2"
+                ],
+                "pl": [
+                  "Kolumna 2"
+                ],
+                "de": [
+                  "Säule 2"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Complete, standing in place. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Kompletna, stoi na miejscu. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Vollständig, steht an Ort und Stelle. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.2.1:0",
+                "object": "m0:0.2.1",
+                "targetId": "m0:0.2.1",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 10,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0.2.1"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-column-3",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Column 3"
+                ],
+                "pl": [
+                  "Kolumna 3"
+                ],
+                "de": [
+                  "Säule 3"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Complete, standing in place. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Kompletna, stoi na miejscu. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Vollständig, steht an Ort und Stelle. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.2.2:0",
+                "object": "m0:0.2.2",
+                "targetId": "m0:0.2.2",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 10,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0.2.2"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-stump",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Column 4 - stump"
+                ],
+                "pl": [
+                  "Kolumna 4 - pień"
+                ],
+                "de": [
+                  "Säule 4 - Stumpf"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The surviving lower drums. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Zachowane dolne bębny. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Die erhaltenen unteren Trommeln. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.2.3:0",
+                "object": "m0:0.2.3",
+                "targetId": "m0:0.2.3",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 10,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0.2.3"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-drum",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Fallen drum"
+                ],
+                "pl": [
+                  "Upadły bęben"
+                ],
+                "de": [
+                  "Herabgefallene Trommel"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Found in front of the podium. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Znaleziony przed podium. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Vor dem Podium gefunden. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.2.5:0",
+                "object": "m0:0.2.5",
+                "targetId": "m0:0.2.5",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 9,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0.2.5"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-column-4",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Column 4 - upper part"
+                ],
+                "pl": [
+                  "Kolumna 4 - górna część"
+                ],
+                "de": [
+                  "Säule 4 - oberer Teil"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Reconstructed by analogy with the three complete columns. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Odtworzona przez analogię do trzech kompletnych kolumn. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Nach Analogie zu den drei vollständigen Säulen rekonstruiert. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.2.4:0",
+                "object": "m0:0.2.4",
+                "targetId": "m0:0.2.4",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 5,
+                  "code": "D",
+                  "scope": "object",
+                  "targetId": "m0:0.2.4"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-entablature",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Entablature"
+                ],
+                "pl": [
+                  "Belkowanie"
+                ],
+                "de": [
+                  "Gebälk"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Fragments and a historic drawing. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Fragmenty i historyczny rysunek. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Fragmente und eine historische Zeichnung. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.3:0",
+                "object": "m0:0.3",
+                "targetId": "m0:0.3",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 7,
+                  "code": "C",
+                  "scope": "object",
+                  "targetId": "m0:0.3"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-glazing",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Windows"
+                ],
+                "pl": [
+                  "Okna"
+                ],
+                "de": [
+                  "Fenster"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Window openings preserved; the stained glass follows comparable buildings. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Otwory okienne zachowane; witraże według porównywalnych budowli. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Fensteröffnungen erhalten; die Verglasung folgt vergleichbaren Bauten. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.6:0",
+                "object": "m0:0.6",
+                "targetId": "m0:0.6",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 4,
+                  "code": "D",
+                  "scope": "object",
+                  "targetId": "m0:0.6"
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/certainty-roof",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Roof"
+                ],
+                "pl": [
+                  "Dach"
+                ],
+                "de": [
+                  "Dach"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Nothing survives - a hypothesis. Example assessment for the Level of Certainty view.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Nic się nie zachowało - hipoteza. Przykładowa ocena dla widoku poziomu pewności.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Nichts erhalten - eine Hypothese. Beispielbewertung für die Gewissheitsansicht.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "m0:0.4:0",
+                "object": "m0:0.4",
+                "targetId": "m0:0.4",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
+                ],
+                "certainty": {
+                  "value": 1,
+                  "code": "E",
+                  "scope": "object",
+                  "targetId": "m0:0.4"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-07T00:00:00.000Z",
+    "camera": {
+      "position": [
+        6.5,
+        4.5,
+        9.5
+      ],
+      "target": [
+        0,
+        2.3,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 11.72,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0.6
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          6,
+          10,
+          4
+        ],
+        "target": [
+          0,
+          2.3,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 2.2
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          8,
+          0
+        ],
+        "color": "#ffffff",
+        "groundColor": "#7aa0b0",
+        "intensity": 0.4
+      }
+    ],
+    "certainty": {
+      "label": {
+        "en": [
+          "Level of Certainty (LoC)"
+        ],
+        "pl": [
+          "Poziom pewności (LoC)"
+        ],
+        "de": [
+          "Grad der Gewissheit (LoC)"
+        ]
+      },
+      "min": 0,
+      "max": 10,
+      "unassessedColor": "#9ca3af",
+      "opacity": 0.4,
+      "visible": true,
+      "levels": [
+        {
+          "value": 10,
+          "code": "A",
+          "symbol": "✓",
+          "color": "#1a9850",
+          "label": {
+            "en": [
+              "Preserved / surveyed"
+            ],
+            "pl": [
+              "Stan zachowany / pomiar"
+            ],
+            "de": [
+              "Erhalten / vermessen"
+            ]
+          }
+        },
+        {
+          "value": 8,
+          "code": "B",
+          "symbol": "■",
+          "color": "#2166ac",
+          "label": {
+            "en": [
+              "Direct documentation"
+            ],
+            "pl": [
+              "Dokumentacja bezpośrednia"
+            ],
+            "de": [
+              "Direkte Dokumentation"
+            ]
+          }
+        },
+        {
+          "value": 6,
+          "code": "C",
+          "symbol": "▲",
+          "color": "#ffd400",
+          "label": {
+            "en": [
+              "Indirect sources"
+            ],
+            "pl": [
+              "Źródła pośrednie"
+            ],
+            "de": [
+              "Indirekte Quellen"
+            ]
+          }
+        },
+        {
+          "value": 4,
+          "code": "D",
+          "symbol": "≈",
+          "color": "#f46d00",
+          "label": {
+            "en": [
+              "Analogy"
+            ],
+            "pl": [
+              "Analogia"
+            ],
+            "de": [
+              "Analogie"
+            ]
+          }
+        },
+        {
+          "value": 0,
+          "code": "E",
+          "symbol": "?",
+          "color": "#c51b7d",
+          "label": {
+            "en": [
+              "Hypothesis"
+            ],
+            "pl": [
+              "Hipoteza"
+            ],
+            "de": [
+              "Hypothese"
+            ]
+          }
+        }
+      ]
+    },
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "standard"
+    }
+  },
+  "modified": "2026-10-07T00:00:00.000Z"
+}

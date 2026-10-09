@@ -1,0 +1,157 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/WolpaSynagogue.glb/manifest-clay-ao.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Wolpa Synagogue - clay, ambient occlusion (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/WolpaSynagogue.glb/scene",
+      "type": "Scene",
+      "spatialScale": { "type": "Quantity", "quantityValue": 0.01, "unit": "m" },
+      "label": {
+        "en": [
+          "Wolpa Synagogue"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/WolpaSynagogue.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-02T00:00:00.000Z",
+    "camera": {
+      "position": [
+        3235.1,
+        2379.7,
+        3833.8
+      ],
+      "target": [
+        -47.9,
+        737.7,
+        -106.2
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 5384,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 0.15,
+        "preset": "studio",
+        "enabled": true
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa",
+          "ao": true,
+          "aoIntensity": 1.6
+        }
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0.25
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          3000,
+          5000,
+          2000
+        ],
+        "target": [
+          -47.9,
+          737.7,
+          -106.2
+        ],
+        "color": "#ffffff",
+        "intensity": 1.6
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          4000,
+          0
+        ],
+        "color": "#ffffff",
+        "groundColor": "#7aa0b0",
+        "intensity": 0.25
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "clay"
+    }
+  },
+  "modified": "2026-10-02T00:00:00.000Z"
+}

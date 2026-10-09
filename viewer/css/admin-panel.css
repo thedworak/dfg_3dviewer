@@ -1,0 +1,394 @@
+#manageUsersButton[hidden] {
+  display: none !important;
+}
+
+#manageUsersButton {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+#manageUsersButton:hover {
+  transform: translateY(-1px);
+}
+
+body[data-viewer-theme="dark"] #manageUsersButton {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+.admin-users-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='9' cy='8' r='3'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11a2.5 2.5 0 1 0 0-5M18.5 14c2 .4 3.5 2.2 3.5 4.3'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8'%3E%3Ccircle cx='9' cy='8' r='3'/%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 11a2.5 2.5 0 1 0 0-5M18.5 14c2 .4 3.5 2.2 3.5 4.3'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+#adminUsersPanel[hidden] {
+  display: none !important;
+}
+
+#adminUsersPanel {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 36px));
+  max-height: min(84vh, 900px);
+  overflow: auto;
+  padding: 16px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 14px;
+  line-height: 1.45;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
+}
+
+@media (max-width: 640px) {
+  #adminUsersPanel {
+    width: calc(100vw - 36px);
+  }
+}
+
+/* Sort bar above the user list (renderAdminUsers). */
+.admin-users-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.admin-users-sort[hidden] {
+  display: none;
+}
+
+.admin-users-sort label {
+  opacity: 0.7;
+}
+
+.admin-users-sort select,
+.admin-users-sort button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  padding: 3px 6px;
+}
+
+.admin-users-sort select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-users-sort select option {
+  color: initial;
+}
+
+.admin-users-sort button {
+  flex: none;
+  width: 26px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-users-sort button:hover {
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+}
+
+/* App plan next to the user name: Free grey, Pro like the Pro badge,
+   Business with the badge's gradient (inside the SVG). */
+.admin-plan-icon {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: -2px;
+  line-height: 0;
+  cursor: help;
+}
+
+.admin-plan-icon[data-tier="free"] {
+  color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent);
+}
+
+.admin-plan-icon[data-tier="pro"] {
+  color: var(--viewer-brand-blue, #7db6de);
+}
+
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-users-empty {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.admin-users-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.admin-users-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-users-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-users-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-users-meta {
+  font-size: 12px;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-users-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-users-actions button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: none;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.admin-users-actions button:hover {
+  opacity: 0.8;
+}
+
+.admin-users-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.admin-users-actions .admin-users-delete {
+  color: #d54646;
+  border-color: color-mix(in srgb, #d54646 45%, var(--viewer-panel-border));
+}
+
+.admin-users-actions .admin-users-delete:hover:not(:disabled) {
+  background: #d54646;
+  color: #fff;
+}
+
+.admin-users-models-toggle {
+  align-self: flex-start;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: none;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.admin-users-models-toggle:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.admin-users-models-toggle:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.admin-users-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+.admin-users-models-list[hidden] {
+  display: none !important;
+}
+
+.admin-users-models-list .models-panel-item {
+  cursor: default;
+}
+
+.admin-users-models-list .models-panel-item:hover {
+  opacity: 1;
+}
+
+/* Per-account upload limits (renderUserLimitsTab). */
+.admin-users-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-users-limits-summary,
+.admin-users-limits-note {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.admin-users-limits-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+.admin-users-limits-form[hidden] {
+  display: none;
+}
+
+.admin-users-limits-form > .admin-users-limits-note,
+.admin-users-limits-form > .admin-users-actions {
+  grid-column: 1 / -1;
+}
+
+.admin-users-limits-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-users-limits-field input,
+.admin-users-limits-field select {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-weight: 400;
+}
+
+.admin-users-limits-field select option {
+  color: initial;
+}
+
+/* A model in a user's list: name, owner and date; edit and delete buttons;
+   the edit form (renderModelEditForm) wraps onto its own line below. */
+.admin-users-models-list .models-panel-item {
+  font-size: 13px;
+}
+
+.admin-users-models-list .models-panel-item-thumb {
+  width: 40px;
+  height: 40px;
+}
+
+.admin-users-models-list .models-panel-item-meta {
+  font-size: 11px;
+}
+
+.admin-model-row {
+  flex-wrap: wrap;
+}
+
+.models-panel-edit {
+  flex: none;
+  width: 30px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.models-panel-edit:hover,
+.models-panel-edit[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--viewer-panel-text) 14%, var(--viewer-panel-bg));
+}
+
+.admin-model-edit {
+  flex: 1 0 100%;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, 1fr);
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border: 1px dashed var(--viewer-panel-border);
+  border-radius: 6px;
+}
+
+.admin-model-edit[hidden] {
+  display: none;
+}
+
+.admin-model-edit > .admin-users-actions {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 520px) {
+  .admin-model-edit {
+    grid-template-columns: 1fr;
+  }
+}

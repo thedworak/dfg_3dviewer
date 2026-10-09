@@ -1,0 +1,22 @@
+# Tempietto - ExPlora4D - scripts/build-tempietto-examples.mjs
+newmtl stone
+Kd 1 1 1
+Ks 0.04 0.04 0.04
+Ns 10
+map_Kd tex/base_ao.webp
+norm tex/normal.webp
+
+newmtl glass
+Kd 0.84 0.91 0.94
+Ks 1 1 1
+Ns 200
+d 0.25
+
+newmtl stained
+Kd 1 1 1
+Ks 0.2 0.2 0.2
+Ns 80
+Ke 0.55 0.55 0.55
+map_Kd tex/glass.png
+map_Ke tex/glass.png
+d 0.99

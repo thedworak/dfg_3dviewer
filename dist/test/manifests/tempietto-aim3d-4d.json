@@ -1,0 +1,317 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/tempietto/Tempietto.glb/manifest-4d.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Tempietto - 4D timeline: building, ruin, protection (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/tempietto/Tempietto.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Tempietto"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-07T00:00:00.000Z",
+    "camera": {
+      "position": [
+        6.5,
+        4.5,
+        9.5
+      ],
+      "target": [
+        0,
+        2.3,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 11.72,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": true,
+          "antialias": "smaa",
+          "ao": true,
+          "aoIntensity": 0.8
+        }
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0.6
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          6,
+          10,
+          4
+        ],
+        "target": [
+          0,
+          2.3,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 2.2
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          8,
+          0
+        ],
+        "color": "#ffffff",
+        "groundColor": "#7aa0b0",
+        "intensity": 0.4
+      }
+    ],
+    "timeline": {
+      "enabled": true,
+      "year": 1520,
+      "startYear": 1500,
+      "endYear": 2026,
+      "label": {
+        "en": [
+          "Tempietto 1520-2026 (example)"
+        ],
+        "pl": [
+          "Tempietto 1520-2026 (przykład)"
+        ],
+        "de": [
+          "Tempietto 1520-2026 (Beispiel)"
+        ]
+      },
+      "description": {
+        "en": [
+          "An invented history that shows how a 4D timeline works: the stages switch the parts of the model on and off (the roof, the upper part of the fourth column, the glazing, the exhibit). Tempietto is a sample model made for ExPlora4D, not a survey of a real building."
+        ],
+        "pl": [
+          "Wymyślona historia pokazująca działanie osi czasu 4D: etapy włączają i wyłączają części modelu (dach, górną część czwartej kolumny, przeszklenia, eksponat). Tempietto to przykładowy model przygotowany dla ExPlora4D, a nie pomiar istniejącego budynku."
+        ],
+        "de": [
+          "Eine erfundene Geschichte, die zeigt, wie eine 4D-Zeitleiste funktioniert: Die Phasen blenden Teile des Modells ein und aus (Dach, oberer Teil der vierten Säule, Verglasung, Exponat). Das Tempietto ist ein für ExPlora4D erstelltes Beispielmodell, keine Vermessung eines realen Gebäudes."
+        ]
+      },
+      "transition": "interpolate",
+      "transitionDuration": 0.8,
+      "playback": {
+        "autoplay": true,
+        "loop": true,
+        "yearsPerSecond": 40,
+        "pauseAtEvents": 1.5
+      },
+      "stages": [
+        {
+          "year": 1520,
+          "approximate": true,
+          "type": "modelled",
+          "label": {
+            "en": [
+              "Temple completed"
+            ],
+            "pl": [
+              "Ukończenie świątyni"
+            ],
+            "de": [
+              "Fertigstellung des Tempels"
+            ]
+          },
+          "description": {
+            "en": [
+              "Complete building: roof, all four columns, stained-glass windows."
+            ],
+            "pl": [
+              "Kompletna budowla: dach, wszystkie cztery kolumny, witraże."
+            ],
+            "de": [
+              "Vollständiger Bau: Dach, alle vier Säulen, Buntglasfenster."
+            ]
+          },
+          "nodes": [
+            "Column_4_Stump",
+            "Column_4_Reconstructed",
+            "Roof_Hypothesis",
+            "Glazing"
+          ]
+        },
+        {
+          "year": 1783,
+          "type": "documented",
+          "label": {
+            "en": [
+              "Earthquake"
+            ],
+            "pl": [
+              "Trzęsienie ziemi"
+            ],
+            "de": [
+              "Erdbeben"
+            ]
+          },
+          "description": {
+            "en": [
+              "The roof collapses, the fourth column breaks and a drum falls in front of the podium; the windows are lost."
+            ],
+            "pl": [
+              "Dach się zawala, czwarta kolumna pęka, a jej bęben spada przed podium; okna przepadają."
+            ],
+            "de": [
+              "Das Dach stürzt ein, die vierte Säule bricht und eine Trommel fällt vor das Podium; die Fenster gehen verloren."
+            ]
+          },
+          "source": {
+            "en": [
+              "Example stage - invented for this demonstration."
+            ],
+            "pl": [
+              "Przykładowy etap - wymyślony na potrzeby demonstracji."
+            ],
+            "de": [
+              "Beispielphase - für diese Vorführung erfunden."
+            ]
+          },
+          "nodes": [
+            "Column_4_Stump",
+            "Fallen_Drum"
+          ]
+        },
+        {
+          "year": 2024,
+          "type": "documented",
+          "label": {
+            "en": [
+              "Protective roof and exhibition"
+            ],
+            "pl": [
+              "Dach ochronny i ekspozycja"
+            ],
+            "de": [
+              "Schutzdach und Ausstellung"
+            ]
+          },
+          "description": {
+            "en": [
+              "A new roof after the hypothetical reconstruction protects the ruin, the windows are glazed again and the glass sphere is shown in the cella. The fallen drum stays where it was found."
+            ],
+            "pl": [
+              "Nowy dach według hipotetycznej rekonstrukcji chroni ruinę, okna znów są przeszklone, a w celi wystawiono szklaną kulę. Upadły bęben zostaje tam, gdzie go znaleziono."
+            ],
+            "de": [
+              "Ein neues Dach nach der hypothetischen Rekonstruktion schützt die Ruine, die Fenster sind wieder verglast und in der Cella wird die Glaskugel gezeigt. Die herabgefallene Trommel bleibt am Fundort."
+            ]
+          },
+          "source": {
+            "en": [
+              "Example stage - invented for this demonstration."
+            ],
+            "pl": [
+              "Przykładowy etap - wymyślony na potrzeby demonstracji."
+            ],
+            "de": [
+              "Beispielphase - für diese Vorführung erfunden."
+            ]
+          },
+          "nodes": [
+            "Column_4_Stump",
+            "Fallen_Drum",
+            "Roof_Hypothesis",
+            "Glazing",
+            "Interior"
+          ]
+        }
+      ]
+    },
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "standard"
+    }
+  },
+  "modified": "2026-10-07T00:00:00.000Z"
+}

@@ -1,0 +1,210 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/tempietto/Tempietto.glb/manifest-night.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Tempietto - night, floodlights and a lit cella, Reinhard (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/tempietto/Tempietto.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Tempietto"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-07T00:00:00.000Z",
+    "camera": {
+      "position": [
+        5.2,
+        1.6,
+        8.6
+      ],
+      "target": [
+        0,
+        2.4,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 10.08,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 0,
+        "preset": "neutral",
+        "enabled": false
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "reinhard",
+        "exposure": 1.6,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "backgroundColor": "#05070d"
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#1a2440",
+        "intensity": 0.25
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          -4,
+          10,
+          -6
+        ],
+        "target": [
+          0,
+          2.3,
+          0
+        ],
+        "color": "#8fa8ff",
+        "intensity": 0.35
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          8,
+          0
+        ],
+        "color": "#22304f",
+        "groundColor": "#050608",
+        "intensity": 0.2
+      },
+      {
+        "type": "SpotLight",
+        "position": [
+          4,
+          0.2,
+          6
+        ],
+        "target": [
+          0,
+          3,
+          1.6
+        ],
+        "color": "#ffc27a",
+        "intensity": 4,
+        "distance": 0,
+        "decay": 0,
+        "angle": 0.45,
+        "penumbra": 0.6
+      },
+      {
+        "type": "SpotLight",
+        "position": [
+          -4,
+          0.2,
+          6
+        ],
+        "target": [
+          0,
+          3,
+          1.6
+        ],
+        "color": "#ffc27a",
+        "intensity": 4,
+        "distance": 0,
+        "decay": 0,
+        "angle": 0.45,
+        "penumbra": 0.6
+      },
+      {
+        "type": "PointLight",
+        "position": [
+          0,
+          2.6,
+          -1.3
+        ],
+        "color": "#ff9b4a",
+        "intensity": 3,
+        "distance": 6,
+        "decay": 0
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "phong"
+    }
+  },
+  "modified": "2026-10-07T00:00:00.000Z"
+}

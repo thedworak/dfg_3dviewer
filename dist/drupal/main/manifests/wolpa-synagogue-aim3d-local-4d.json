@@ -1,0 +1,576 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/4D/WolpaSynagogue_4D.glb/manifest-4d.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Wolpa Synagogue - 4D timeline, weathering 1730-1936 (AIM3D, localhost)"
+    ],
+    "pl": [
+      "Synagoga w Wołpie - oś czasu 4D, starzenie 1730-1936 (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/4D/WolpaSynagogue_4D.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 0.01,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Wolpa Synagogue 1730-1936"
+        ],
+        "pl": [
+          "Synagoga w Wołpie 1730-1936"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/4D/WolpaSynagogue_4D.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/4D/WolpaSynagogue_4D.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/4D/WolpaSynagogue_4D.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/4D/WolpaSynagogue_4D.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/4D/WolpaSynagogue_4D.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-06T00:00:00.000Z",
+    "camera": {
+      "position": [
+        3235.1,
+        2379.7,
+        3833.8
+      ],
+      "target": [
+        -47.9,
+        737.7,
+        -106.2
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 5384,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 0.4,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 0.8,
+        "postprocessing": {
+          "enabled": true,
+          "antialias": "smaa",
+          "ao": true,
+          "aoIntensity": 1
+        }
+      },
+      "performance": "high-performance"
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0,
+        "visible": false
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          -3000,
+          3500,
+          2500
+        ],
+        "target": [
+          -47.9,
+          737.7,
+          -106.2
+        ],
+        "color": "#fff1dc",
+        "intensity": 2
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          3000,
+          1200,
+          -2500
+        ],
+        "target": [
+          -47.9,
+          737.7,
+          -106.2
+        ],
+        "color": "#cfdcff",
+        "intensity": 0.3
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          4000,
+          0
+        ],
+        "color": "#dfe8f5",
+        "groundColor": "#4a4036",
+        "intensity": 0.4
+      }
+    ],
+    "timeline": {
+      "enabled": true,
+      "year": 1730,
+      "startYear": 1730,
+      "endYear": 1936,
+      "label": {
+        "pl": [
+          "Starzenie elewacji 1730–1936"
+        ],
+        "en": [
+          "Weathering of the exterior 1730–1936"
+        ]
+      },
+      "description": {
+        "pl": [
+          "Trzy zdarzenia są udokumentowane w źródłach (budowa ok. 1730, nowe gonty 1781, remont dachu 1903); pozostałe etapy to wymodelowane procesy starzenia drewna, rozłożone między tymi datami. Przez cały czas działają te same zjawiska: szarzenie od słońca i deszczu (szybsze od południa i zachodu), wolniejsze ciemnienie miejsc osłoniętych, glony i mech od północy oraz ciemnienie przy ziemi od wody rozbryzgowej."
+        ],
+        "en": [
+          "Three events are documented in the sources (construction c. 1730, new shingles 1781, roof repair 1903); the other stages are modelled weathering of the timber, spread between those dates. The same processes act throughout: greying from sun and rain (faster on the south and west), slower darkening of sheltered parts, algae and moss from the north, and darkening near the ground from splash water."
+        ]
+      },
+      "transition": "interpolate",
+      "transitionDuration": 0.8,
+      "playback": {
+        "autoplay": false,
+        "loop": false,
+        "yearsPerSecond": 10,
+        "pauseAtEvents": 1.5
+      },
+      "stages": [
+        {
+          "year": 1730,
+          "approximate": true,
+          "type": "documented",
+          "label": {
+            "pl": [
+              "Budowa"
+            ],
+            "en": [
+              "Construction"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Świeże, jasne drewno i gont."
+            ],
+            "en": [
+              "Fresh, light timber and shingles."
+            ]
+          },
+          "source": {
+            "pl": [
+              "Źródła podają tylko „1. połowa XVIII w.” (albo połowę XVII w.), więc rok 1730 jest umowny."
+            ],
+            "en": [
+              "The sources give only “first half of the 18th century” (or the mid-17th century), so the year 1730 is conventional."
+            ]
+          },
+          "nodes": [
+            "Stage_1730"
+          ]
+        },
+        {
+          "year": 1735,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Drewno ciemnieje"
+            ],
+            "en": [
+              "The timber darkens"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Drewno ciemnieje i brązowieje od słońca."
+            ],
+            "en": [
+              "The timber darkens and browns in the sun."
+            ]
+          },
+          "nodes": [
+            "Stage_1735"
+          ]
+        },
+        {
+          "year": 1745,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Szarzenie stron nasłonecznionych"
+            ],
+            "en": [
+              "Sunny sides turn grey"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Ściany południowe i zachodnie zaczynają szarzeć, gont robi się srebrnoszary."
+            ],
+            "en": [
+              "The south and west walls begin to grey, the shingles turn silver-grey."
+            ]
+          },
+          "nodes": [
+            "Stage_1745"
+          ]
+        },
+        {
+          "year": 1760,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Patyna i pierwsze glony"
+            ],
+            "en": [
+              "Patina and the first algae"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Patyna na ścianach, pierwsze glony od północy i pierwsze plamy mchu na dachu."
+            ],
+            "en": [
+              "Patina on the walls, the first algae on the north side and the first patches of moss on the roof."
+            ]
+          },
+          "nodes": [
+            "Stage_1760"
+          ]
+        },
+        {
+          "year": 1780,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Stary, omszały gont"
+            ],
+            "en": [
+              "Old, mossy shingles"
+            ]
+          },
+          "description": {
+            "pl": [
+              "50-letni gont, ciemny, z mchem na połaciach północnych."
+            ],
+            "en": [
+              "50-year-old shingles, dark, with moss on the northern slopes."
+            ]
+          },
+          "nodes": [
+            "Stage_1780"
+          ]
+        },
+        {
+          "year": 1781,
+          "type": "documented",
+          "label": {
+            "pl": [
+              "Nowe gonty"
+            ],
+            "en": [
+              "New shingles"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Dach wraca do jasnego koloru, ściany zostają 50-letnie."
+            ],
+            "en": [
+              "The roof is light again; the walls stay 50 years old."
+            ]
+          },
+          "nodes": [
+            "Stage_1781"
+          ]
+        },
+        {
+          "year": 1790,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Gont szarzeje"
+            ],
+            "en": [
+              "The shingles turn grey"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Nowy gont z 1781 r. już zszarzał."
+            ],
+            "en": [
+              "The new shingles of 1781 have already greyed."
+            ]
+          },
+          "nodes": [
+            "Stage_1790"
+          ]
+        },
+        {
+          "year": 1810,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Dach ciemnieje"
+            ],
+            "en": [
+              "The roof darkens"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Dach ciemnieje, a mech stopniowo zajmuje połacie północne; ściany pod okapami są ciemnobrązowe, odsłonięte szarobrązowe."
+            ],
+            "en": [
+              "The roof darkens and moss gradually takes over the northern slopes; the walls under the eaves are dark brown, the exposed ones greyish brown."
+            ]
+          },
+          "nodes": [
+            "Stage_1810"
+          ]
+        },
+        {
+          "year": 1840,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Mech na połaciach północnych"
+            ],
+            "en": [
+              "Moss on the northern slopes"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Dach ciemnieje, a mech stopniowo zajmuje połacie północne; ściany pod okapami są ciemnobrązowe, odsłonięte szarobrązowe."
+            ],
+            "en": [
+              "The roof darkens and moss gradually takes over the northern slopes; the walls under the eaves are dark brown, the exposed ones greyish brown."
+            ]
+          },
+          "nodes": [
+            "Stage_1840"
+          ]
+        },
+        {
+          "year": 1870,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Postępujące omszenie"
+            ],
+            "en": [
+              "Spreading moss"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Dach ciemnieje, a mech stopniowo zajmuje połacie północne; ściany pod okapami są ciemnobrązowe, odsłonięte szarobrązowe."
+            ],
+            "en": [
+              "The roof darkens and moss gradually takes over the northern slopes; the walls under the eaves are dark brown, the exposed ones greyish brown."
+            ]
+          },
+          "nodes": [
+            "Stage_1870"
+          ]
+        },
+        {
+          "year": 1902,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Dach przed remontem"
+            ],
+            "en": [
+              "The roof before the repair"
+            ]
+          },
+          "description": {
+            "pl": [
+              "121-letni dach tuż przed remontem, mocno omszony."
+            ],
+            "en": [
+              "The 121-year-old roof just before the repair, heavily overgrown with moss."
+            ]
+          },
+          "nodes": [
+            "Stage_1902"
+          ]
+        },
+        {
+          "year": 1903,
+          "type": "documented",
+          "label": {
+            "pl": [
+              "Remont dachu"
+            ],
+            "en": [
+              "Roof repair"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Pokazany jako całkowita wymiana pokrycia."
+            ],
+            "en": [
+              "Shown as a complete replacement of the roofing."
+            ]
+          },
+          "source": {
+            "pl": [
+              "Źródło mówi tylko o remoncie dachu."
+            ],
+            "en": [
+              "The source mentions only a repair of the roof."
+            ]
+          },
+          "nodes": [
+            "Stage_1903"
+          ]
+        },
+        {
+          "year": 1912,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Gont po remoncie szarzeje"
+            ],
+            "en": [
+              "The new shingles turn grey"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Gont położony w 1903 r. szarzeje od słońca i deszczu."
+            ],
+            "en": [
+              "The shingles laid in 1903 turn grey in the sun and rain."
+            ]
+          },
+          "nodes": [
+            "Stage_1912"
+          ]
+        },
+        {
+          "year": 1924,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Gont po remoncie szarzeje"
+            ],
+            "en": [
+              "The new shingles turn grey"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Gont położony w 1903 r. szarzeje od słońca i deszczu."
+            ],
+            "en": [
+              "The shingles laid in 1903 turn grey in the sun and rain."
+            ]
+          },
+          "nodes": [
+            "Stage_1924"
+          ]
+        },
+        {
+          "year": 1936,
+          "type": "modelled",
+          "label": {
+            "pl": [
+              "Stan końcowy"
+            ],
+            "en": [
+              "Final state"
+            ]
+          },
+          "description": {
+            "pl": [
+              "Prawie taki jak w oryginalnym modelu (stan z inwentaryzacji)."
+            ],
+            "en": [
+              "Almost as in the original model (the surveyed state)."
+            ]
+          },
+          "nodes": [
+            "Stage_1936"
+          ]
+        }
+      ]
+    },
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false
+    }
+  },
+  "modified": "2026-10-06T00:00:00.000Z"
+}

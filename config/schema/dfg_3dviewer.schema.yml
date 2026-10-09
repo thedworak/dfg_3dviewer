@@ -1,0 +1,13 @@
+dfg_3dviewer.settings:
+  type: config_object
+  label: 'Configuration of DFG 3D Viewer'
+  mapping:
+    ENTITY_BUNDLE:
+      type: text
+      label: 'Entity bundle'
+    dfg_3dviewer_conversion_backend:
+      type: string
+      label: 'Conversion backend (local or docker)'
+    dfg_3dviewer_worker_url:
+      type: string
+      label: 'Standalone worker container base URL'

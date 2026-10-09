@@ -1,0 +1,939 @@
+#form-manifesto {
+  /* Normal document flow, appended into the viewer's own wrapper (see
+     createManifestUI() in metadata.js) instead of position: fixed on
+     document.body - it needs to render as its own block below the viewer,
+     not as a viewport-anchored overlay on top of the model. */
+  /* A column, so a form resized taller hands the extra height to the
+     tree/JSON view (see .form-manifesto-group.column below). */
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  min-width: 280px;
+  min-height: 120px;
+  /* max-width/max-height follow the browser window (set in
+     initializeManifestoFormDrag() in metadata.js). */
+  box-sizing: border-box;
+  margin: 10px auto 0;
+  /* Draggable via .form-manifesto-header (see initializeManifestoFormDrag()
+     in metadata.js), so moving it is instant instead of animated. */
+  transition: none;
+
+  background: rgba(250, 247, 242, 0.94);
+  backdrop-filter: blur(8px);
+
+  border-radius: 10px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  box-shadow: 0 14px 30px rgba(129, 116, 96, 0.14);
+
+  padding: 14px;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+
+  /* Native resize handle (bottom-right corner) - resize requires overflow
+     other than visible; a ResizeObserver in metadata.js persists the
+     result into core.CONFIG.viewer.manifestoForm.size. */
+  overflow: auto;
+  resize: both;
+
+  --manifesto-scroll-thumb: rgba(96, 82, 66, 0.38);
+  --manifesto-scroll-thumb-hover: rgba(96, 82, 66, 0.6);
+  scrollbar-width: thin;
+  scrollbar-color: var(--manifesto-scroll-thumb) transparent;
+}
+
+#form-manifesto[data-viewer-theme="dark"] {
+  --manifesto-scroll-thumb: rgba(238, 238, 238, 0.32);
+  --manifesto-scroll-thumb-hover: rgba(238, 238, 238, 0.52);
+}
+
+/* Custom scrollbars for the form and its scrolling parts. */
+#form-manifesto textarea,
+#form-manifesto .manifesto-manifest-tree {
+  scrollbar-width: thin;
+  scrollbar-color: var(--manifesto-scroll-thumb) transparent;
+}
+
+#form-manifesto::-webkit-scrollbar,
+#form-manifesto textarea::-webkit-scrollbar,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#form-manifesto::-webkit-scrollbar-track,
+#form-manifesto textarea::-webkit-scrollbar-track,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-track,
+#form-manifesto::-webkit-scrollbar-corner,
+#form-manifesto textarea::-webkit-scrollbar-corner,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+#form-manifesto::-webkit-scrollbar-thumb,
+#form-manifesto textarea::-webkit-scrollbar-thumb,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-thumb {
+  background: var(--manifesto-scroll-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+#form-manifesto::-webkit-scrollbar-thumb:hover,
+#form-manifesto textarea::-webkit-scrollbar-thumb:hover,
+#form-manifesto .manifesto-manifest-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--manifesto-scroll-thumb-hover);
+  background-clip: padding-box;
+}
+
+.form-manifesto-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#form-manifesto.form-manifesto-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+#form-manifesto * {
+  box-sizing: border-box;
+}
+
+.form-manifesto-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+/* "Refresh" beside the example manifest dropdown (metadata.js). */
+#form-manifesto .manifesto-examples-refresh {
+  flex: 0 0 auto;
+}
+
+#form-manifesto .manifesto-examples-refresh:disabled {
+  cursor: progress;
+  opacity: 0.5;
+}
+
+.form-manifesto-group.column {
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.manifesto-source-group {
+  align-items: center;
+}
+
+.manifesto-source-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  color: #605242;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+.manifesto-source-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.manifesto-source-track {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 20px;
+  border-radius: 999px;
+  background: #9ca3af;
+  transition: background-color .15s ease;
+}
+
+.manifesto-source-track::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+  transition: transform .15s ease;
+}
+
+.manifesto-source-switch input:checked + .manifesto-source-track {
+  background: var(--viewer-brand-blue-strong, #3d6a91);
+}
+
+.manifesto-source-switch input:checked + .manifesto-source-track::after {
+  transform: translateX(18px);
+}
+
+.manifesto-source-switch input:focus-visible + .manifesto-source-track {
+  outline: 2px solid var(--viewer-brand-blue, #7db6de);
+  outline-offset: 2px;
+}
+
+#form-manifesto textarea {
+  min-width: 0;
+}
+
+#form-manifesto input,
+#form-manifesto textarea {
+  padding: 8px 10px;
+  font-size: 14px;
+
+  border-radius: 6px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  background: rgba(255, 252, 247, 0.96);
+
+  transition: border-color .15s, box-shadow .15s;
+}
+
+#form-manifesto textarea {
+  /* Sized with the whole form (its own resize handle) instead. */
+  flex: 1 1 auto;
+  min-height: 140px;
+  resize: none;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* focus */
+#form-manifesto input:focus,
+#form-manifesto textarea:focus {
+  outline: none;
+  border-color: var(--viewer-brand-blue, #7db6de);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--viewer-brand-blue, #7db6de) 30%, transparent);
+}
+
+#form-manifesto button {
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+
+  transition: background .15s, transform .05s;
+}
+
+#form-manifesto button:active {
+  transform: translateY(1px);
+}
+
+/* primary */
+#form-manifesto button.primary {
+  background: var(--viewer-brand-blue-strong, #3d6a91);
+  color: #fff;
+}
+
+#form-manifesto button.primary:hover {
+  background: #3b5bdb;
+}
+
+/* secondary */
+#form-manifesto button.secondary {
+  background: #e9ecef;
+  color: #333;
+}
+
+#form-manifesto button.secondary:hover {
+  background: #dee2e6;
+}
+
+/* Text area actions */
+#form-manifesto .actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.form-manifesto-label {
+  font-size: 13px;
+  color: #605242;
+  white-space: nowrap;
+  align-self: center;
+}
+
+#form-manifesto select {
+  flex: 1;
+  min-width: 0;
+
+  padding: 8px 10px;
+  font-size: 13px;
+
+  border-radius: 6px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  background-color: rgba(255, 252, 247, 0.96);
+
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #666 50%),
+    linear-gradient(135deg, #666 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+
+  transition: border-color .15s, box-shadow .15s;
+}
+
+#form-manifesto select:focus {
+  outline: none;
+  border-color: var(--viewer-brand-blue, #7db6de);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--viewer-brand-blue, #7db6de) 30%, transparent);
+}
+
+.form-manifesto-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  /* Drag handle - see initializeManifestoFormDrag() in metadata.js. The
+     collapse button inside keeps its own "cursor: pointer" (see the
+     ".form-manifesto-header button" rule below) since it's excluded from
+     the drag itself in metadata.js. */
+  cursor: grab;
+  touch-action: none;
+}
+
+.form-manifesto-drag-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: rgba(37, 33, 28, 0.45);
+}
+
+.form-manifesto-header .title {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: #25211c;
+}
+
+.form-manifesto-header .tools {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.form-manifesto-header button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.form-manifesto-header button:hover {
+  background: rgba(96, 82, 66, .08);
+}
+
+#form-manifesto.collapsed .form-manifesto-group {
+  display: none;
+}
+
+#form-manifesto.collapsed {
+  padding-bottom: 8px;
+  /* A manually set height would leave an empty box when collapsed. */
+  height: auto !important;
+  min-height: 0;
+}
+
+#form-manifesto[data-viewer-theme="dark"] {
+  background: rgba(30, 32, 36, 0.95);
+  color: #eee;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-header .title {
+  color: #eee;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-drag-icon {
+  color: rgba(238, 238, 238, 0.45);
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-label {
+  color: #cfd3d9;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .manifesto-source-switch {
+  color: #cfd3d9;
+}
+
+/* inputs */
+#form-manifesto[data-viewer-theme="dark"] input,
+#form-manifesto[data-viewer-theme="dark"] textarea,
+#form-manifesto[data-viewer-theme="dark"] select {
+  background: #1e2024;
+  color: #eee;
+  border-color: #444;
+}
+
+#form-manifesto select {
+  flex: 1;
+  min-width: 0;
+
+  padding: 8px 36px 8px 10px;
+  font-size: 13px;
+
+  border-radius: 6px;
+  border: 1px solid #cfd3d9;
+  background-color: #fff;
+
+  appearance: none;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, #666 50%),
+    linear-gradient(135deg, #666 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%;
+  background-size: 7px 7px;
+  background-repeat: no-repeat;
+}
+
+#form-manifesto[data-viewer-theme="dark"] select {
+  appearance: auto;
+  background-image: none;
+}
+
+#form-manifesto[data-viewer-theme="dark"] input::placeholder,
+#form-manifesto[data-viewer-theme="dark"] textarea::placeholder {
+  color: #888;
+}
+
+/* buttons */
+#form-manifesto[data-viewer-theme="dark"] button.primary {
+  background: #5c7cfa;
+}
+
+#form-manifesto[data-viewer-theme="dark"] button.secondary {
+  background: #343a40;
+  color: #eee;
+}
+
+#form-manifesto[data-viewer-theme="dark"] .form-manifesto-header button:hover {
+  background: rgba(255,255,255,.12);
+}
+
+#example-model-picker {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  margin: 5px 0px;
+  padding: 4px 10px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 10px;
+  background: rgba(250, 247, 242, 0.94);
+  box-shadow: 0 12px 24px rgba(129, 116, 96, 0.12);
+  font:
+    12px/1.2 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: #111827;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+}
+
+/* The row above the viewer: the example picker on the left, the account
+   area (sign-in, user management) on the right. */
+#viewer-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+#viewer-account-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 5px auto;
+  padding: 4px 10px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 10px;
+  background: rgba(250, 247, 242, 0.94);
+  box-shadow: 0 12px 24px rgba(129, 116, 96, 0.12);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Nothing to show (no sign-in required): no empty box. */
+#viewer-account-bar:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+body[data-viewer-theme="dark"] #viewer-account-bar {
+  border-color: #444;
+  background: rgba(30, 32, 36, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+#example-model-picker label {
+  font-weight: 600;
+  color: #42382d;
+}
+
+#example-model-picker .example-model-picker-spacer {
+  flex: 1 1 auto;
+}
+
+#example-model-picker select {
+  min-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+#example-theme-toggle {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+  display: none;
+}
+
+#example-theme-toggle:hover {
+  transform: translateY(-1px);
+}
+
+#uploadModel {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(164, 151, 132, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+#uploadModel:hover {
+  transform: translateY(-1px);
+}
+
+#uploadModel .upload-model-icon {
+  width: 18px;
+  height: 18px;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker {
+  border-color: #444;
+  background: rgba(30, 32, 36, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker label {
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #example-model-picker select {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #example-theme-toggle {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+body[data-viewer-theme="dark"] #uploadModel {
+  border-color: #444;
+  background: #1e2024;
+  color: #eee;
+}
+
+/* Example model list: a customizable select (Chromium 135+), so that its
+   open list - and its scrollbar - match the viewer's panels. Other browsers
+   keep the native list; the colours below still reach its scrollbar where
+   they can (scrollbar-color). */
+#example-model-picker {
+  --example-picker-bg: rgba(255, 252, 247, 0.98);
+  --example-picker-text: #25211c;
+  --example-picker-border: rgba(164, 151, 132, 0.28);
+  --example-picker-hover: rgba(164, 151, 132, 0.16);
+  --example-picker-selected: rgba(164, 151, 132, 0.28);
+  --example-picker-thumb: rgba(66, 56, 45, 0.38);
+  --example-picker-thumb-hover: rgba(66, 56, 45, 0.58);
+  --example-picker-shadow: 0 12px 24px rgba(129, 116, 96, 0.18);
+}
+
+body[data-viewer-theme="dark"] #example-model-picker {
+  --example-picker-bg: rgba(30, 32, 36, 0.98);
+  --example-picker-text: #eee;
+  --example-picker-border: #444;
+  --example-picker-hover: rgba(255, 255, 255, 0.08);
+  --example-picker-selected: rgba(255, 255, 255, 0.14);
+  --example-picker-thumb: rgba(238, 238, 238, 0.32);
+  --example-picker-thumb-hover: rgba(238, 238, 238, 0.52);
+  --example-picker-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+#example-model-picker select {
+  scrollbar-width: thin;
+  scrollbar-color: var(--example-picker-thumb) transparent;
+  /* Closed, a long name stays on one line, cut off - with a large system
+     font it otherwise wrapped and made the header several rows tall. The
+     open list shows names in full. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@supports (appearance: base-select) {
+  #example-model-picker select,
+  #example-model-picker select::picker(select) {
+    appearance: base-select;
+  }
+
+  #example-model-picker select {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  #example-model-picker select > button {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #example-model-picker select selectedcontent {
+    display: inline;
+    white-space: nowrap;
+  }
+
+  #example-model-picker select::picker-icon {
+    flex: 0 0 auto;
+    color: var(--example-picker-text);
+    opacity: 0.6;
+    transition: rotate 0.2s ease;
+  }
+
+  #example-model-picker select:open::picker-icon {
+    rotate: 180deg;
+  }
+
+  #example-model-picker select::picker(select) {
+    max-height: min(320px, 60vh);
+    max-width: calc(100vw - 16px);
+    margin-top: 4px;
+    padding: 4px;
+    border: 1px solid var(--example-picker-border);
+    border-radius: 10px;
+    background: var(--example-picker-bg);
+    color: var(--example-picker-text);
+    box-shadow: var(--example-picker-shadow);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--example-picker-thumb) transparent;
+  }
+
+  #example-model-picker select::picker(select):hover {
+    scrollbar-color: var(--example-picker-thumb-hover) transparent;
+  }
+
+  #example-model-picker option {
+    white-space: normal;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--example-picker-text);
+    cursor: pointer;
+  }
+
+  #example-model-picker option:hover,
+  #example-model-picker option:focus-visible {
+    background: var(--example-picker-hover);
+    outline: none;
+  }
+
+  #example-model-picker option:checked {
+    background: var(--example-picker-selected);
+    font-weight: 600;
+  }
+
+  #example-model-picker option::checkmark {
+    display: none;
+  }
+}
+
+/* Touch screens (Android) draw an overlay scrollbar that only shows while
+   the list moves, and no CSS keeps it on screen - so nothing said the list
+   scrolls. The picker draws its own slim thumb instead: a background layer
+   the scroll position moves (scroll-driven animation). With nothing to
+   scroll the timeline is inactive and the thumb stays transparent. */
+@property --example-picker-scroll {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+@property --example-picker-scroll-thumb {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+@keyframes example-picker-scroll {
+  from {
+    --example-picker-scroll: 0%;
+    --example-picker-scroll-thumb: var(--example-picker-thumb-hover);
+  }
+  to {
+    --example-picker-scroll: 100%;
+    --example-picker-scroll-thumb: var(--example-picker-thumb-hover);
+  }
+}
+
+@supports (appearance: base-select) and (animation-timeline: scroll()) {
+  @media (pointer: coarse) {
+    #example-model-picker select::picker(select) {
+      scrollbar-width: none;
+      background:
+        linear-gradient(var(--example-picker-scroll-thumb), var(--example-picker-scroll-thumb))
+          right 2px top var(--example-picker-scroll) / 4px 48px no-repeat
+          border-box,
+        var(--example-picker-bg);
+      animation: example-picker-scroll linear both;
+      animation-timeline: scroll(self);
+    }
+  }
+}
+
+/* Manifest tree/JSON view (see viewer/manifesto/manifest-tree-editor.js) */
+.manifesto-view-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.manifesto-view-toggle {
+  display: inline-flex;
+  border: 1px solid rgba(164, 151, 132, 0.35);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-right: auto;
+}
+
+#form-manifesto .manifesto-view-toggle button,
+#form-manifesto .manifesto-tree-tool {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #605242;
+  cursor: pointer;
+}
+
+#form-manifesto .manifesto-tree-tool {
+  border-radius: 6px;
+}
+
+#form-manifesto .manifesto-view-toggle button.active {
+  background: var(--viewer-brand-blue-strong, #3d6a91);
+  color: #fff;
+}
+
+#form-manifesto .manifesto-view-toggle button:not(.active):hover,
+#form-manifesto .manifesto-tree-tool:hover {
+  background: rgba(96, 82, 66, .08);
+}
+
+.manifesto-manifest-tree {
+  /* 360px by default, taking the extra height of a form resized taller. */
+  flex: 1 1 360px;
+  min-height: 140px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  background: rgba(255, 252, 247, 0.96);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #25211c;
+}
+
+.manifesto-manifest-tree[hidden],
+#form-manifesto textarea[hidden],
+#form-manifesto .manifesto-tree-tool[hidden] {
+  display: none;
+}
+
+.manifesto-manifest-tree details > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 4px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.manifesto-manifest-tree details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.manifesto-manifest-tree details > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 10px;
+  flex: 0 0 auto;
+  color: #9a8b78;
+  transition: transform .12s ease;
+}
+
+.manifesto-manifest-tree details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.manifesto-manifest-tree details > summary:hover {
+  background: color-mix(in srgb, var(--viewer-brand-blue, #7db6de) 12%, transparent);
+}
+
+.manifesto-manifest-tree .mt-children {
+  margin-left: 7px;
+  padding-left: 12px;
+  border-left: 1px dashed rgba(164, 151, 132, 0.4);
+}
+
+.manifesto-manifest-tree .mt-leaf {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0 4px 0 20px;
+  min-width: 0;
+}
+
+.manifesto-manifest-tree .mt-key { color: #8b3fa8; }
+.manifesto-manifest-tree .mt-index { color: #9a8b78; }
+.manifesto-manifest-tree .mt-bracket { color: #9a8b78; }
+.manifesto-manifest-tree .mt-count {
+  font-size: 11px;
+  color: #9a8b78;
+}
+.manifesto-manifest-tree .mt-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #7a6d5d;
+  font-style: italic;
+  min-width: 0;
+}
+.manifesto-manifest-tree .mt-empty {
+  padding-left: 20px;
+  color: #9a8b78;
+}
+
+.manifesto-manifest-tree .mt-value {
+  padding: 0 3px;
+  border-radius: 3px;
+  outline: none;
+  word-break: break-all;
+  cursor: text;
+}
+
+.manifesto-manifest-tree .mt-value:hover { background: color-mix(in srgb, var(--viewer-brand-blue, #7db6de) 12%, transparent); }
+.manifesto-manifest-tree .mt-value:focus {
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--viewer-brand-blue, #7db6de);
+}
+.manifesto-manifest-tree .mt-string { color: #2f7d32; }
+.manifesto-manifest-tree .mt-string::before,
+.manifesto-manifest-tree .mt-string::after { content: '"'; opacity: .55; }
+.manifesto-manifest-tree .mt-string:focus::before,
+.manifesto-manifest-tree .mt-string:focus::after { content: none; }
+.manifesto-manifest-tree .mt-url { color: #1f6fb2; }
+.manifesto-manifest-tree .mt-number { color: #c2410c; }
+.manifesto-manifest-tree .mt-null { color: #9a8b78; font-style: italic; }
+.manifesto-manifest-tree .mt-boolean {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+#form-manifesto .manifesto-manifest-tree .mt-boolean input {
+  margin: 0;
+  padding: 0;
+}
+.manifesto-manifest-tree .mt-invalid {
+  box-shadow: 0 0 0 1px #dc2626;
+  background: rgba(220, 38, 38, .1);
+}
+#form-manifesto .manifesto-manifest-tree .mt-color {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, .2);
+  border-radius: 3px;
+  align-self: center;
+  cursor: pointer;
+}
+
+/* dark theme */
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree {
+  background: #1e2024;
+  border-color: #444;
+  color: #eee;
+}
+#form-manifesto[data-viewer-theme="dark"] .manifesto-view-toggle { border-color: #444; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-view-toggle button:not(.active),
+#form-manifesto[data-viewer-theme="dark"] .manifesto-tree-tool { color: #cfd3d9; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-view-toggle button:not(.active):hover,
+#form-manifesto[data-viewer-theme="dark"] .manifesto-tree-tool:hover { background: rgba(255, 255, 255, .08); }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-children { border-left-color: #444; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-key { color: #d19af0; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-string { color: #8bd49c; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-url { color: #7cb7f0; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-number { color: #f5a36c; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-boolean { color: #93b4ff; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-preview { color: #a9adb4; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-value:focus { background: #2a2d33; }
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree details > summary:hover,
+#form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-value:hover { background: rgba(147, 180, 255, .1); }

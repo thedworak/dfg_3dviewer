@@ -1,0 +1,69 @@
+name: Playwright Tests
+
+# Once per commit: on the push to its branch. A pull request does not run the
+# tests again - the run of its head commit is shown in the pull request's
+# checks. deploy.yml calls this workflow itself (workflow_call) for a push to
+# main/stable-release whose commit has no passing run yet, before deploying.
+# Changes to the docs or Markdown files alone do not run it.
+on:
+  push:
+    branches-ignore:
+      - main
+      - stable-release
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_call:
+  workflow_dispatch:
+
+# A new push to the branch cancels the run for the previous commit.
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-26.04
+
+    # The tests are split across parallel runners; each one builds and runs
+    # its share.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+
+    steps:
+       - name: Checkout repo
+         uses: actions/checkout@v6
+ 
+       # pnpm, the version pinned in package.json ("packageManager").
+       - name: Setup pnpm
+         uses: pnpm/action-setup@v6
+
+       - name: Setup Node
+         uses: actions/setup-node@v6
+         with:
+           node-version: 24
+           cache: pnpm
+ 
+       - name: Install dependencies
+         run: pnpm install --frozen-lockfile
+ 
+       - name: Install Playwright browsers
+         run: pnpm exec playwright install --with-deps chromium
+ 
+       - name: Build test dist
+         run: pnpm run build:test
+ 
+       - name: Run Playwright tests
+         run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+         env:
+           CI: true
+ 
+       - name: Upload Playwright report
+         if: always()
+         uses: actions/upload-artifact@v6
+         with:
+           name: playwright-report-${{ matrix.shard }}
+           path: playwright-report/
+           retention-days: 30

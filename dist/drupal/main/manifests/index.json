@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "iiif": [
+    { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", "i18n": "iiif.optionModelPositionScale", "fallback": "Model Position and Scale" },
+    { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin.json", "i18n": "iiif.optionModelOrigin", "fallback": "Model Origin" },
+    { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/1_basic_model_in_scene/model_origin_bgcolor.json", "i18n": "iiif.optionModelOriginBg", "fallback": "Model Origin with background color" },
+    { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_position.json", "i18n": "iiif.optionModelPosition", "fallback": "Model Position" },
+    { "url": "./manifests/box-iiif-p4.json", "i18n": "iiif.optionP4Local", "fallback": "Camera, lights and comments (localhost)", "excludeFromMobile": true },
+    { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/2_cameras/positioned_camera_lookat_point.json", "i18n": "iiif.optionCamera", "fallback": "Positioned camera" },
+    { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/3_lights/multiple_lights_with_intensities_and_colors.json", "i18n": "iiif.optionLights", "fallback": "Lights with colours and intensities" },
+    { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", "i18n": "iiif.optionComments", "fallback": "Comments with their own views" }
+  ],
+  "aim3d": [
+    { "url": "https://viewer.thedworak.com/manifests/box.json", "i18n": "aim3if.optionBox", "fallback": "Box configuration" },
+    { "url": "./manifests/box-aim3d-local.json", "i18n": "aim3if.optionBoxLocal", "fallback": "Box (localhost)", "excludeFromMobile": true },
+    { "url": "./manifests/tempietto-aim3d-tour.json", "name": { "en": "Tempietto - guided tour with annotations (localhost)", "pl": "Tempietto - wycieczka z przewodnikiem i adnotacjami (localhost)", "de": "Tempietto - Führung mit Annotationen (localhost)" } },
+    { "url": "./manifests/tempietto-aim3d-4d.json", "name": { "en": "Tempietto - 4D timeline: building, ruin, protection (localhost)", "pl": "Tempietto - oś czasu 4D: budowa, ruina, ochrona (localhost)", "de": "Tempietto - 4D-Zeitleiste: Bau, Ruine, Schutz (localhost)" } },
+    { "url": "./manifests/tempietto-aim3d-certainty.json", "name": { "en": "Tempietto - Level of Certainty (localhost)", "pl": "Tempietto - poziom pewności (localhost)", "de": "Tempietto - Grad der Gewissheit (localhost)" } },
+    { "url": "./manifests/tempietto-aim3d-toon.json", "name": { "en": "Tempietto - toon shading (localhost)", "pl": "Tempietto - cieniowanie toon (localhost)", "de": "Tempietto - Toon-Shading (localhost)" } },
+    { "url": "./manifests/tempietto-aim3d-matcap.json", "name": { "en": "Tempietto - matcap clay, ambient occlusion (localhost)", "pl": "Tempietto - matcap (glina), okluzja otoczenia (localhost)", "de": "Tempietto - Matcap-Ton, Umgebungsverdeckung (localhost)" } },
+    { "url": "./manifests/tempietto-aim3d-golden-hour.json", "name": { "en": "Tempietto - golden hour, ACES (localhost)", "pl": "Tempietto - złota godzina, ACES (localhost)", "de": "Tempietto - goldene Stunde, ACES (localhost)" } },
+    { "url": "./manifests/tempietto-aim3d-night.json", "name": { "en": "Tempietto - night, floodlights, lit cella (localhost)", "pl": "Tempietto - noc, iluminacja, oświetlona cela (localhost)", "de": "Tempietto - Nacht, Strahler, beleuchtete Cella (localhost)" } },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local.json", "i18n": "aim3if.optionWolpaLocal", "fallback": "Wolpa Synagogue (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", "i18n": "aim3if.optionWolpaLocalCeiling", "fallback": "Wolpa Synagogue - ceiling view (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-4d.json", "i18n": "aim3if.optionWolpa4D", "fallback": "Wolpa Synagogue - 4D timeline: weathering 1730-1936 (localhost)", "excludeFromMobile": true, "inIIIFSelect": true },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json", "i18n": "aim3if.optionWolpaGoldenHour", "fallback": "Wolpa Synagogue - golden hour, ACES (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json", "i18n": "aim3if.optionWolpaStudio", "fallback": "Wolpa Synagogue - studio, AgX (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json", "i18n": "aim3if.optionWolpaNight", "fallback": "Wolpa Synagogue - night spotlights, Reinhard (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-night-tour.json", "i18n": "aim3if.optionWolpaNightTour", "fallback": "Wolpa Synagogue - night, annotations and guided tour (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-certainty.json", "i18n": "aim3if.optionWolpaCertainty", "fallback": "Wolpa Synagogue - Level of Certainty (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-toon.json", "i18n": "aim3if.optionWolpaToon", "fallback": "Wolpa Synagogue - toon shading (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json", "i18n": "aim3if.optionWolpaOvercast", "fallback": "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-clay-ao.json", "i18n": "aim3if.optionWolpaClayAo", "fallback": "Wolpa Synagogue - clay, ambient occlusion (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-raking-light.json", "i18n": "aim3if.optionWolpaRaking", "fallback": "Wolpa Synagogue - raking light, sweeping, clay (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-raking-light-texture.json", "i18n": "aim3if.optionWolpaRakingTexture", "fallback": "Wolpa Synagogue - raking light on the textures (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-matcap.json", "i18n": "aim3if.optionWolpaMatcap", "fallback": "Wolpa Synagogue - matcap studio clay (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-flat-faces.json", "i18n": "aim3if.optionWolpaFlat", "fallback": "Wolpa Synagogue - flat shading, faces shown (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-normals.json", "i18n": "aim3if.optionWolpaNormals", "fallback": "Wolpa Synagogue - surface normals (localhost)" },
+    { "url": "./manifests/wolpa-synagogue-aim3d-local-contours.json", "i18n": "aim3if.optionWolpaContours", "fallback": "Wolpa Synagogue - custom shader: contour lines (localhost)" }
+  ]
+}

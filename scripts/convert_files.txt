@@ -1,0 +1,1 @@
+/opt/drupal/web/sites/default/files/2024-12/MAINZ_3D_Impressao_3D.glb

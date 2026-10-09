@@ -1,0 +1,2588 @@
+import { core } from "../core.js";
+import { toastHelper, showToast } from "../viewer-utils.js";
+import { t } from "../i18n-utils.js";
+import THREE from "../init.js";
+import { unitNameToMeters } from "./model-units.js";
+import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
+import { EnvironmentNode } from "three/src/nodes/Nodes.js";
+import {
+  formatAIM3DManifestValidationErrors,
+  normalizeAIM3DManifest,
+  validateAIM3DManifest,
+} from "../manifesto/aim3dviewer-validation.js";
+import {
+  buildCameraAnnotation,
+  buildCommentTarget,
+  buildLightAnnotations,
+  buildCanvasAnnotation,
+  buildModelAnnotation,
+  buildSpatialScale,
+  modelFormatOf,
+  buildViewCameraAnnotation,
+  commentsToAnnotationEntries,
+  addImportedLight,
+  importedLightObjects,
+  localizedTexts,
+  pickLanguage,
+  pickLanguageKey,
+  readCommentText,
+  readSceneContent,
+  sceneIndexOf,
+  scenePlacements,
+  removeImportedLights,
+  stopCameraIntro,
+  suspendDefaultLights,
+} from "../IIIF/presentation4.js";
+
+// What a manifest says about itself, and a Scene about itself - kept when a
+// scene loaded from a manifest is exported again.
+const MANIFEST_DESCRIPTIVE_PROPERTIES = [
+  "label", "summary", "metadata", "requiredStatement", "rights", "provider", "homepage",
+  "thumbnail", "logo", "seeAlso", "rendering", "partOf", "navDate", "navPlace", "language",
+];
+const SCENE_DESCRIPTIVE_PROPERTIES = ["label", "summary", "metadata", "requiredStatement", "rights", "thumbnail", "navDate"];
+
+// Point annotations are anchored to the first model root.
+const POINT_ANNOTATION_ROOT = "m0:root";
+
+export function attachAnnotations(Viewer) {
+  Object.assign(Viewer, {
+    clearAnnotationPOIs() {
+      this.closeAnnotationPOITooltip();
+      if (!this.annotationPOIGroup) {
+        this.annotationPOIMarkers = [];
+        return;
+      }
+
+      this.annotationPOIGroup.children.slice().forEach((child) => {
+        this.removeAndDisposeFromScene(child);
+      });
+      this.annotationPOIGroup.clear();
+      this.annotationPOIMarkers = [];
+      this.annotationPOIGroup.visible = false;
+    },
+
+    ensureAnnotationPOIGroup() {
+      if (this.annotationPOIGroup) return this.annotationPOIGroup;
+      const group = new THREE.Group();
+      group.name = "annotation-poi-group";
+      group.visible = false;
+      core.scene?.add?.(group);
+      this.annotationPOIGroup = group;
+      return group;
+    },
+
+    // Leader lines (off by default): each annotation's number is lifted
+    // above the model's bounding box on a vertical line from its point.
+    annotationLeaderLines: false,
+
+    setAnnotationLeaderLines(enabled) {
+      this.annotationLeaderLines = enabled === true;
+      if (this.annotationLeaderLines && this.annotationSpread) this.setAnnotationSpread?.(false);
+      this.refreshAnnotationPOIs();
+      this.syncTourLeaderToggle?.();
+    },
+
+    toggleAnnotationLeaderLines() {
+      this.setAnnotationLeaderLines(!this.annotationLeaderLines);
+    },
+
+    // Height the numbers are lifted to (just above the models' bounding box)
+    // and the step between staggered rows, so neighbouring numbers overlap less.
+    getAnnotationLeaderLayout() {
+      const roots = (Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject])
+        .flat()
+        .filter((item) => item?.isObject3D);
+      const box = new THREE.Box3();
+      roots.forEach((root) => box.expandByObject(root));
+      if (box.isEmpty()) return null;
+      const height = Math.max(box.max.y - box.min.y, 1e-3);
+      return { top: box.max.y + height * 0.12, stagger: height * 0.06 };
+    },
+
+    // One per dot: removing markers disposes their textures.
+    createAnnotationLeaderDotTexture() {
+      const size = 64;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgba(17, 24, 39, 0.9)";
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    },
+
+    // The line from the annotated point up to the underside of its number,
+    // and a small dot marking the point itself. Drawn over the model (no
+    // depth test), like the numbers.
+    addAnnotationLeaderLine(group, entry, anchor, marker) {
+      const end = marker.position.clone();
+      end.y -= marker.scale.y * 0.42;
+      if (end.y <= anchor.y) return;
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([anchor, end]),
+        new THREE.LineBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.85,
+          depthTest: false,
+          toneMapped: false,
+        })
+      );
+      line.name = "annotation-leader";
+      line.renderOrder = 998;
+      line.userData.annotationId = entry.id;
+      group.add(line);
+
+      const dot = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: this.createAnnotationLeaderDotTexture(),
+        transparent: true,
+        depthTest: false,
+        toneMapped: false,
+        sizeAttenuation: false,
+      }));
+      dot.scale.set(0.012, 0.012, 1);
+      dot.position.copy(anchor);
+      dot.name = "annotation-leader-dot";
+      dot.renderOrder = 998;
+      dot.userData.annotationId = entry.id;
+      group.add(dot);
+    },
+
+    // A numbered badge: dark fill, blue ring (keeps it apart from dark
+    // backgrounds) and a soft shadow (keeps it apart from light ones).
+    createNumberTexture(text) {
+      const size = 256;
+      const center = size / 2;
+      const radius = size * 0.4;
+      const ringWidth = size * 0.05;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+      ctx.shadowBlur = size * 0.08;
+      ctx.shadowOffsetY = size * 0.015;
+      ctx.fillStyle = "rgba(17, 24, 39, 0.88)";
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.lineWidth = ringWidth;
+      ctx.strokeStyle = "#0062fd";
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Shrink longer numbers to stay inside the ring.
+      let fontSize = size * 0.46;
+      ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
+      const maxTextWidth = radius * 1.35;
+      const textWidth = ctx.measureText(text).width;
+      if (textWidth > maxTextWidth) {
+        fontSize *= maxTextWidth / textWidth;
+        ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
+      }
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, center, center + fontSize * 0.04);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+
+      return texture;
+    },
+
+    createAnnotationPOIMarker(entry, position, index = 1) {
+      // The badge fills ~85% of its texture (the rest is ring and shadow),
+      // so the sprite is scaled up to keep the badge its former size.
+      const radius = Math.max((this.gridSize || core.gridSize || 1) / 15, 0.005) * 1.15;
+
+      // In the Level of Certainty view: the level's code and symbol.
+      const certaintyLevel = this.certaintyView ? this.getCertaintyLevelForEntry?.(entry) : null;
+      const texture = certaintyLevel
+        ? Viewer.createCertaintyBadgeTexture(certaintyLevel)
+        : Viewer.createNumberTexture(index.toString());
+
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        // Same look under every tone mapping / exposure preset.
+        toneMapped: false,
+      });
+
+      const sprite = new THREE.Sprite(spriteMaterial);
+      // Over the model and its see-through Level of Certainty overlays.
+      sprite.renderOrder = 1000;
+
+      sprite.scale.set(radius, radius, 1);
+
+      sprite.position.copy(position);
+
+      sprite.userData.isAnnotationPOI = true;
+      sprite.userData.annotationId = entry.id;
+      sprite.userData.groupId = entry.groupId || "";
+      sprite.userData.key = entry.key || "";
+      sprite.userData.targetId = entry.targetId;
+      sprite.userData.faceIndex = entry.faceIndex;
+      sprite.userData.title = entry.title || "";
+      sprite.userData.certainty = entry.certainty ? entry.certainty.value : null;
+
+      return sprite;
+    },
+
+    ensureAnnotationPOITooltip() {
+      if (this.annotationPOITooltip) return this.annotationPOITooltip;
+      const tooltip = document.createElement("div");
+      tooltip.id = "annotationPOITooltip";
+      tooltip.className = "annotation-poi-tooltip";
+      tooltip.hidden = true;
+      tooltip.innerHTML = `
+        <div class="annotation-poi-tooltip__panel" role="status" aria-live="polite" aria-atomic="true">
+          <div class="annotation-poi-tooltip__title" id="annotationPOITooltipTitle"></div>
+        </div>
+      `;
+      document.body.appendChild(tooltip);
+      this.annotationPOITooltip = tooltip;
+      this.annotationPOITooltipTitle = tooltip.querySelector("#annotationPOITooltipTitle");
+      return tooltip;
+    },
+
+    openAnnotationPOITooltip(marker) {
+      if (!marker?.userData?.isAnnotationPOI) {
+        this.closeAnnotationPOITooltip();
+        return false;
+      }
+
+      const tooltip = this.ensureAnnotationPOITooltip();
+      if (!tooltip) return false;
+
+      this.annotationPOITooltipTarget = marker;
+      const titleText = String(marker.userData?.title || "").trim();
+      if (this.annotationPOITooltipTitle) {
+        this.annotationPOITooltipTitle.textContent = titleText || "Annotation";
+        const level = this.getCertaintyLevel?.(marker.userData?.certainty);
+        if (level) this.annotationPOITooltipTitle.textContent += ` · ${t("certainty.short", "LoC")} ${this.formatCertaintyLevel(level)}`;
+      }
+
+      tooltip.hidden = false;
+      tooltip.style.visibility = "visible";
+      this.updateAnnotationPOITooltipPosition();
+      return true;
+    },
+
+    getAnnotationEntriesForPOIMarker(marker) {
+      if (!marker?.userData?.isAnnotationPOI) return [];
+      const markerId = String(marker.userData?.annotationId || "").trim();
+      const markerGroupId = String(marker.userData?.groupId || "").trim();
+      const markerKey = String(marker.userData?.key || "").trim();
+
+      let baseEntry = null;
+      if (markerId) {
+        baseEntry = this.annotationEntries.find((entry) => String(entry?.id || "") === markerId) || null;
+      }
+      if (!baseEntry && markerKey) {
+        baseEntry = this.annotationEntries.find((entry) => String(entry?.key || "") === markerKey) || null;
+      }
+
+      const effectiveGroupId = String(baseEntry?.groupId || markerGroupId || "").trim();
+      if (effectiveGroupId) {
+        const groupedEntries = this.annotationEntries.filter(
+          (entry) => String(entry?.groupId || "").trim() === effectiveGroupId
+        );
+        if (groupedEntries.length > 0) return groupedEntries;
+      }
+
+      if (baseEntry) return [baseEntry];
+
+      const fallbackTargetId = String(marker.userData?.targetId || "").trim();
+      const fallbackFaceIndex = Number(marker.userData?.faceIndex);
+      if (!fallbackTargetId || !Number.isInteger(fallbackFaceIndex) || fallbackFaceIndex < 0) return [];
+      return [{
+        id: markerId || "",
+        key: this.getFaceSelectionKey(fallbackTargetId, fallbackFaceIndex),
+        targetId: fallbackTargetId,
+        object: fallbackTargetId,
+        faceIndex: fallbackFaceIndex,
+        title: String(marker.userData?.title || "").trim(),
+        description: "",
+        groupId: effectiveGroupId,
+      }];
+    },
+
+    selectAnnotationEntriesFaces(entries) {
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return;
+      }
+      this.clearSelectedFaces();
+      entries.forEach((entry) => {
+        if (entry.point) return;
+        const object = this.resolveObjectByTargetId(entry.targetId);
+        if (!object) return;
+
+        const faces = Array.isArray(entry.faceNumbers)
+          ? entry.faceNumbers
+          : [entry.faceIndex];
+
+        faces.forEach((faceIndex) => {
+          this.toggleSelectedFace(
+            {
+              object,
+              faceIndex,
+            },
+            {
+              multiSelect: true,
+            }
+          );
+        });
+      });
+
+      this.updateSelectedFacesCount();
+    },
+
+    openAnnotationDialogFromPOIMarker(marker) {
+      const entries = this.getAnnotationEntriesForPOIMarker(marker);
+      if (!entries.length) {
+        toastHelper("annotationDataMissing", "warning");
+        return false;
+      }
+      // Point annotations (from IIIF manifests) have no faces: edit their
+      // text and view in place.
+      this.annotationEditingPointId = entries.every((entry) => entry.point) ? String(entries[0].id) : "";
+
+      this.selectAnnotationEntriesFaces(entries);
+      this.buildAnnotationDialog();
+      if (!this.annotationDialog) return false;
+
+      const keys = entries
+        .map((entry) => String(entry?.key || "").trim())
+        .filter(Boolean);
+      this.annotationTargetFaceKeys = Array.from(new Set(keys));
+
+      const existingGroupIds = Array.from(
+        new Set(entries.map((entry) => String(entry?.groupId || "").trim()).filter(Boolean))
+      );
+      this.annotationBatchGroupId = existingGroupIds.length === 1
+        ? existingGroupIds[0]
+        : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const uniqueTitles = Array.from(
+        new Set(entries.map((entry) => String(entry?.title || "").trim()))
+      );
+      const uniqueDescriptions = Array.from(
+        new Set(entries.map((entry) => String(entry?.description || "").trim()))
+      );
+      this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
+      this.annotationDialogDescriptionInput.value =
+        uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+      this.syncAnnotationDialogSaveView(entries);
+      this.syncAnnotationDialogCertainty(entries, { point: Boolean(this.annotationEditingPointId) });
+
+      this.updateAnnotationDialogBounds();
+      this.annotationDialog.hidden = false;
+      this.closeAnnotationPOITooltip();
+      this.closeActionMenu();
+      this.annotationDialogTitleInput?.focus();
+      this.annotationDialogTitleInput?.select();
+      return true;
+    },
+
+    closeAnnotationPOITooltip() {
+      this.annotationPOITooltipTarget = null;
+      if (!this.annotationPOITooltip) return;
+      this.annotationPOITooltip.hidden = true;
+      this.annotationPOITooltip.style.visibility = "hidden";
+    },
+
+    updateAnnotationPOITooltipPosition() {
+      const tooltip = this.annotationPOITooltip;
+      const marker = this.annotationPOITooltipTarget;
+      if (!tooltip || tooltip.hidden || !marker || !core.camera) return;
+
+      const rect =
+        Viewer.mainCanvas?.getBoundingClientRect?.() ||
+        core.container?.getBoundingClientRect?.();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+      const worldPosition = new THREE.Vector3();
+      marker.getWorldPosition(worldPosition);
+      const projected = worldPosition.clone().project(core.camera);
+      const withinDepth = projected.z >= -1 && projected.z <= 1;
+      const screenX = rect.left + ((projected.x + 1) / 2) * rect.width;
+      const screenY = rect.top + ((-projected.y + 1) / 2) * rect.height;
+      const withinHorizontal = screenX >= rect.left && screenX <= rect.right;
+      const withinVertical = screenY >= rect.top && screenY <= rect.bottom;
+      if (!withinDepth || !withinHorizontal || !withinVertical) {
+        tooltip.style.visibility = "hidden";
+        return;
+      }
+
+      tooltip.style.left = `${Math.round(screenX)}px`;
+      tooltip.style.top = `${Math.round(screenY)}px`;
+      tooltip.style.visibility = "visible";
+    },
+
+    refreshAnnotationPOIs() {
+      this.clearAnnotationPOIs();
+      this.applyCertaintyView?.();
+      const entries = this.getAnnotationEntriesForPersistence();
+      if (!entries.length) {
+        this.onAnnotationsChangedForTour?.();
+        return 0;
+      }
+
+      const group = this.ensureAnnotationPOIGroup();
+      const leaderLayout = this.annotationLeaderLines ? this.getAnnotationLeaderLayout() : null;
+      let added = 0;
+      entries.forEach((entry, index) => {
+        // Left out by the Level of Certainty legend's filter.
+        if (this.isCertaintyEntryFilteredOut?.(entry)) return;
+        const center = this.getAnnotationEntryCenter(entry);
+        if (!center) return;
+        // With leader lines on, the number sits above the model on a
+        // vertical line rising from the annotated point.
+        const markerPosition = leaderLayout
+          ? new THREE.Vector3(center.x, leaderLayout.top + (index % 3) * leaderLayout.stagger, center.z)
+          : center;
+        const marker = this.createAnnotationPOIMarker(entry, markerPosition, index + 1);
+        group.add(marker);
+        this.annotationPOIMarkers.push(marker);
+        if (leaderLayout) this.addAnnotationLeaderLine(group, entry, center, marker);
+        added += 1;
+        // A comment on a region (IIIF WktSelector): its outline too.
+        const polygon = this.getAnnotationEntryPolygonWorld(entry);
+        if (polygon) {
+          const outline = new THREE.LineLoop(
+            new THREE.BufferGeometry().setFromPoints(polygon),
+            new THREE.LineBasicMaterial({ color: 0xffb000, depthTest: false, transparent: true })
+          );
+          outline.name = "annotation-region";
+          outline.renderOrder = 999;
+          outline.userData.annotationId = entry.id;
+          group.add(outline);
+        }
+      });
+
+      group.visible = added > 0;
+      this.onAnnotationsChangedForTour?.();
+      return added;
+    },
+
+    // World-space centre of an annotation's faces, or null when its target
+    // object is not in the scene.
+    getAnnotationEntryCenter(entry) {
+      const object = this.resolveObjectByTargetId(entry?.targetId);
+      if (!object) return null;
+      const point = this.normalizeAnnotationPoint(entry.point);
+      if (point) {
+        object.updateMatrixWorld(true);
+        return new THREE.Vector3().fromArray(point).applyMatrix4(object.matrixWorld);
+      }
+      const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
+      const center = new THREE.Vector3();
+      let count = 0;
+      faces.forEach((faceIndex) => {
+        const point = this.getFaceCentroidWorld(object, faceIndex);
+        if (!point) return;
+        center.add(point);
+        count += 1;
+      });
+      return count > 0 ? center.divideScalar(count) : null;
+    },
+
+    // Averaged world-space normal of an annotation's faces, or null.
+    getAnnotationEntryNormal(entry) {
+      const object = this.resolveObjectByTargetId(entry?.targetId);
+      if (!object || entry.point) return null;
+      const faces = Array.isArray(entry.faceNumbers) ? entry.faceNumbers : [entry.faceIndex];
+      const normal = new THREE.Vector3();
+      faces.forEach((faceIndex) => {
+        const faceNormal = this.getFaceNormalWorld(object, faceIndex);
+        if (faceNormal) normal.add(faceNormal);
+      });
+      return normal.lengthSq() > 0 ? normal.normalize() : null;
+    },
+
+    normalizeAnnotationPoint(rawPoint) {
+      if (!rawPoint) return null;
+      const values = (typeof rawPoint === "string" ? rawPoint.split(/[,\s;]+/).filter(Boolean) : rawPoint);
+      const point = this.parse3IFManifestVector(values, null, 3);
+      return point || null;
+    },
+
+    // Camera pose stored with an annotation (used by the guided tour).
+    // Accepts { position, target, fov } with arrays or "x,y,z" strings and
+    // returns the canonical form, or null when position/target are missing.
+    normalizeAnnotationView(rawView) {
+      if (!rawView || typeof rawView !== "object") return null;
+      const toVector = (value) => this.parse3IFManifestVector(
+        typeof value === "string" ? value.split(/[,\s;]+/).filter(Boolean) : value,
+        null,
+        3
+      );
+      const position = toVector(rawView.position);
+      const target = toVector(rawView.target);
+      if (!position || !target) return null;
+      const view = { position, target };
+      const fov = Number(rawView.fov);
+      if (rawView.fov != null && rawView.fov !== "" && Number.isFinite(fov) && fov > 0 && fov < 180) {
+        view.fov = fov;
+      }
+      return view;
+    },
+
+    captureCurrentAnnotationView() {
+      if (!core.camera || !core.controls?.target) return null;
+      const view = {
+        position: core.camera.position.toArray(),
+        target: core.controls.target.toArray(),
+      };
+      if (core.camera.isPerspectiveCamera) view.fov = core.camera.fov;
+      return view;
+    },
+
+    findAnnotationByFaceKey(key) {
+      if (!key) return null;
+
+      return this.annotationEntries.find((annotation) => {
+        const targetId = String(
+          annotation.targetId ||
+          annotation.object ||
+          annotation.target?.id ||
+          ""
+        ).trim();
+
+        if (!targetId) return false;
+
+        const faceNumbers = Array.isArray(annotation.faceNumbers)
+          ? annotation.faceNumbers
+          : [annotation.faceIndex];
+
+        return faceNumbers.some((faceIndex) => {
+          const annotationKey = this.getFaceSelectionKey(
+            targetId,
+            Number(faceIndex)
+          );
+
+          return annotationKey === key;
+        });
+      }) || null;
+    },
+
+    buildAnnotationDialog() {
+      if (!core.container || this.annotationDialog) return;
+
+      const dialog = document.createElement("div");
+      dialog.id = "annotationDialog";
+      dialog.className = "annotation-dialog";
+      dialog.hidden = true;
+      dialog.innerHTML = `
+        <div class="annotation-dialog__backdrop" data-annotation-dismiss="true"></div>
+        <div class="annotation-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="annotationDialogTitle">
+          <div class="annotation-dialog__header">
+            <h3 id="annotationDialogTitle">Add annotation</h3>
+            <button type="button" class="annotation-dialog__close" data-annotation-dismiss="true" aria-label="Close annotation dialog">&times;</button>
+          </div>
+          <form id="annotationDialogForm" class="annotation-dialog__form">
+            <label>
+              <span>Title</span>
+              <input id="annotationTitleInput" name="title" type="text" maxlength="120" required />
+            </label>
+            <label>
+              <span>Description</span>
+              <textarea id="annotationDescriptionInput" name="description" rows="5" maxlength="4000"></textarea>
+            </label>
+            <div class="annotation-dialog__certainty" id="annotationCertaintyFields">
+              <label>
+                <span id="annotationCertaintyLabel">Level of Certainty (LoC)</span>
+                <select id="annotationCertaintyInput" name="certainty"></select>
+              </label>
+              <label>
+                <span id="annotationCertaintyScopeLabel">Applies to</span>
+                <select id="annotationCertaintyScopeInput" name="certaintyScope">
+                  <option value="object">Object</option>
+                  <option value="group">Group</option>
+                </select>
+              </label>
+            </div>
+            <label class="annotation-dialog__checkbox">
+              <input id="annotationSaveViewInput" name="saveView" type="checkbox" />
+              <span id="annotationSaveViewLabel">Save current camera view for the tour</span>
+            </label>
+            <div class="annotation-dialog__actions">
+              <button type="submit">Save annotation</button>
+              <button type="button" data-annotation-dismiss="true">Cancel</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      document.body.appendChild(dialog);
+      this.annotationDialog = dialog;
+      this.annotationDialogHost = document.body;
+      this.annotationDialogTitleInput = dialog.querySelector("#annotationTitleInput");
+      this.annotationDialogDescriptionInput = dialog.querySelector("#annotationDescriptionInput");
+      this.annotationDialogSaveViewInput = dialog.querySelector("#annotationSaveViewInput");
+      this.annotationDialogSaveViewLabel = dialog.querySelector("#annotationSaveViewLabel");
+      this.annotationDialogCertaintyFields = dialog.querySelector("#annotationCertaintyFields");
+      this.annotationDialogCertaintyInput = dialog.querySelector("#annotationCertaintyInput");
+      this.annotationDialogCertaintyScopeInput = dialog.querySelector("#annotationCertaintyScopeInput");
+      this.populateCertaintyDialogOptions();
+      const form = dialog.querySelector("#annotationDialogForm");
+
+      this.bindEventListener(dialog, "click", (event) => {
+        const dismissTrigger = event.target?.closest?.("[data-annotation-dismiss='true']");
+        if (dismissTrigger) {
+          this.closeAnnotationDialog();
+        }
+      });
+
+      this.bindEventListener(document, "keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!this.annotationDialog || this.annotationDialog.hidden) return;
+        event.preventDefault();
+        this.closeAnnotationDialog();
+      });
+
+      this.bindEventListener(form, "submit", (event) => {
+        event.preventDefault();
+        this.saveAnnotationFromDialog();
+      });
+
+      this.bindEventListener(window, "resize", () => this.updateAnnotationDialogBounds());
+      this.bindEventListener(window, "scroll", () => this.updateAnnotationDialogBounds(), true);
+      this.bindEventListener(document, "fullscreenchange", () => this.updateAnnotationDialogBounds());
+    },
+
+    // The scale's levels (code, symbol, name) in the dialog's LoC field.
+    populateCertaintyDialogOptions() {
+      const select = this.annotationDialogCertaintyInput;
+      if (!select) return;
+      const current = select.value;
+      select.replaceChildren(
+        new Option(t("certainty.none", "— not assessed —"), ""),
+        ...(this.certaintyScale?.levels || []).map((level) => (
+          new Option(`${this.formatCertaintyLevel(level)} (${level.value})`, String(level.value))
+        ))
+      );
+      select.value = current;
+      const labels = {
+        annotationCertaintyLabel: t("certainty.field", "Level of Certainty (LoC)"),
+        annotationCertaintyScopeLabel: t("certainty.scope", "Applies to"),
+      };
+      Object.entries(labels).forEach(([id, text]) => {
+        const node = this.annotationDialog?.querySelector(`#${id}`);
+        if (node) node.textContent = text;
+      });
+      const scopeOptions = this.annotationDialogCertaintyScopeInput?.options;
+      if (scopeOptions) {
+        scopeOptions[0].textContent = t("certainty.scopeObject", "Object");
+        scopeOptions[1].textContent = t("certainty.scopeGroup", "Group (parent object)");
+      }
+    },
+
+    // Shows the LoC of the entries being edited when they share one; point
+    // annotations have no object to assess.
+    syncAnnotationDialogCertainty(entries, { point = false } = {}) {
+      this.populateCertaintyDialogOptions();
+      if (this.annotationDialogCertaintyFields) this.annotationDialogCertaintyFields.hidden = point;
+      if (!this.annotationDialogCertaintyInput) return;
+      const values = Array.from(new Set((entries || []).map((entry) => (
+        entry?.certainty ? String(this.getCertaintyLevel(entry.certainty.value)?.value ?? "") : ""
+      ))));
+      this.annotationDialogCertaintyInput.value = values.length === 1 ? values[0] : "";
+      const scopes = Array.from(new Set((entries || []).map((entry) => entry?.certainty?.scope || "object")));
+      this.annotationDialogCertaintyScopeInput.value = scopes.length === 1 ? scopes[0] : "object";
+    },
+
+    // The dialog's assessment for an annotation of `targetId`, or null. An
+    // unchanged level keeps the exact value it had (e.g. 9 on level B, 8-9).
+    readAnnotationDialogCertainty(targetId, previous = null) {
+      const raw = this.annotationDialogCertaintyInput?.value;
+      if (!raw || this.annotationDialogCertaintyFields?.hidden) return null;
+      const level = this.getCertaintyLevel(Number(raw));
+      if (!level) return null;
+      const scope = this.annotationDialogCertaintyScopeInput?.value === "group" ? "group" : "object";
+      const previousLevel = previous ? this.getCertaintyLevel(previous.value) : null;
+      return {
+        value: previousLevel === level ? previous.value : level.value,
+        code: level.code,
+        scope,
+        targetId: this.resolveCertaintyTargetId(targetId, scope),
+      };
+    },
+
+    updateAnnotationDialogBounds() {
+      if (!this.annotationDialog) return;
+      const targetRect =
+        Viewer.mainCanvas?.getBoundingClientRect?.() ||
+        core.container?.getBoundingClientRect?.();
+      if (!targetRect) return;
+
+      const left = Math.max(0, Math.round(targetRect.left));
+      const top = Math.max(0, Math.round(targetRect.top));
+      const width = Math.max(0, Math.round(targetRect.width));
+      const height = Math.max(0, Math.round(targetRect.height));
+
+      this.annotationDialog.style.left = `${left}px`;
+      this.annotationDialog.style.top = `${top}px`;
+      this.annotationDialog.style.width = `${width}px`;
+      this.annotationDialog.style.height = `${height}px`;
+    },
+
+    // Annotations store face indices of the full model; the progressive
+    // preview (loaders.js) has different triangles.
+    isPreviewModelActive() {
+      if (core.tiledModel) {
+        // Streamed tiles swap their meshes with the level of detail, so
+        // face indices would not stay valid.
+        toastHelper("tiledAnnotationBlocked", "info");
+        return true;
+      }
+      if (!core.progressiveLoad) return false;
+      toastHelper("previewAnnotationBlocked", "info");
+      return true;
+    },
+
+    openAnnotationDialog() {
+      if (this.isPreviewModelActive()) return;
+      this.annotationEditingPointId = "";
+      if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
+        toastHelper("selectFaceRequired", "warning");
+        return;
+      }
+
+      this.buildAnnotationDialog();
+      if (!this.annotationDialog) return;
+
+      const selectedKeys = this.selectedFaces
+        .map((entry) => String(entry?.key || "").trim())
+        .filter(Boolean);
+      this.annotationTargetFaceKeys = selectedKeys;
+      const existingGroupIds = Array.from(
+        new Set(
+          selectedKeys
+            .map((key) => this.annotationEntries.find((entry) => entry.key === key)?.groupId || "")
+            .map((value) => String(value).trim())
+            .filter(Boolean)
+        )
+      );
+      this.annotationBatchGroupId = existingGroupIds.length === 1
+        ? existingGroupIds[0]
+        : `anno-group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const existingEntries = selectedKeys
+        .map((key) => this.annotationEntries.find((entry) => entry.key === key))
+        .filter(Boolean);
+      const uniqueTitles = Array.from(
+        new Set(existingEntries.map((entry) => String(entry.title || "").trim()))
+      );
+      const uniqueDescriptions = Array.from(
+        new Set(existingEntries.map((entry) => String(entry.description || "").trim()))
+      );
+      this.annotationDialogTitleInput.value = uniqueTitles.length === 1 ? uniqueTitles[0] : "";
+      this.annotationDialogDescriptionInput.value =
+        uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
+      this.syncAnnotationDialogSaveView(existingEntries);
+      this.syncAnnotationDialogCertainty(existingEntries);
+      this.updateAnnotationDialogBounds();
+      this.annotationDialog.hidden = false;
+      this.closeAnnotationPOITooltip();
+      this.closeActionMenu();
+      this.annotationDialogTitleInput?.focus();
+      this.annotationDialogTitleInput?.select();
+    },
+
+    // New annotations capture the current view by default; editing one that
+    // already has a view keeps it unless the box is ticked again.
+    syncAnnotationDialogSaveView(entries) {
+      if (!this.annotationDialogSaveViewInput) return;
+      const hasView = (entries || []).some((entry) => this.normalizeAnnotationView(entry?.view));
+      this.annotationDialogSaveViewInput.checked = !hasView;
+      if (this.annotationDialogSaveViewLabel) {
+        this.annotationDialogSaveViewLabel.textContent = hasView
+          ? t("tour.replaceView", "Replace the saved tour view with the current camera view")
+          : t("tour.saveView", "Save current camera view for the tour");
+      }
+    },
+
+    openAnnotationDialogWithAutoPicking() {
+      if (this.isPreviewModelActive()) return;
+      if (!this.pickingMode) {
+        this.pickingMode = true;
+        this.RULER_MODE = false;
+        this.updateDistanceMeasurementControllerLabel();
+        this.updatePickingModeControllerLabel();
+        this.updatePickingControlsVisibility();
+        toastHelper("featureToggle", "info", {
+          feature: "Face picking",
+          state: "enabled"
+        });
+      }
+
+      if (!Array.isArray(this.selectedFaces) || this.selectedFaces.length === 0) {
+        toastHelper("selectFaceRequiredAgain", "warning");
+        return;
+      }
+
+      this.openAnnotationDialog();
+    },
+
+    closeAnnotationDialog() {
+      if (!this.annotationDialog) return;
+      this.annotationDialog.hidden = true;
+      this.annotationEditingPointId = "";
+      this.annotationTargetFaceKeys = [];
+      this.annotationBatchGroupId = "";
+    },
+
+    saveAnnotationFromDialog() {
+      if (this.annotationEditingPointId) {
+        this.savePointAnnotationFromDialog(this.annotationEditingPointId);
+        return;
+      }
+      if (!Array.isArray(this.annotationTargetFaceKeys) || this.annotationTargetFaceKeys.length === 0) {
+        toastHelper("noFacesSelected", "warning");
+        this.closeAnnotationDialog();
+        return;
+      }
+
+      const title = String(this.annotationDialogTitleInput?.value || "").trim();
+      const description = String(this.annotationDialogDescriptionInput?.value || "").trim();
+
+      if (!title) {
+        toastHelper("titleRequired", "warning");
+        this.annotationDialogTitleInput?.focus();
+        return;
+      }
+
+      const selectedFaces = this.annotationTargetFaceKeys
+        .map((key) => {
+          const selected = this.selectedFaces.find((entry) => entry.key === key);
+          if (selected) return selected;
+          const existingEntry = this.findAnnotationByFaceKey(key);
+          if (!existingEntry) return null;
+          return {
+            key: existingEntry.key,
+            targetId: existingEntry.targetId || existingEntry.object || "",
+            object: existingEntry.object || existingEntry.targetId || "",
+            faceIndex: existingEntry.faceIndex,
+          };
+        })
+        .filter(Boolean);
+      if (selectedFaces.length === 0) {
+        toastHelper("facesInactive", "warning");
+        this.closeAnnotationDialog();
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      //const groupId = String(this.annotationBatchGroupId || `anno-group-${Date.now()}`);
+      let updatedCount = 0;
+      let addedCount = 0;
+
+      const targetId = selectedFaces[0].targetId;
+
+      const faceNumbers = selectedFaces
+        .map(f => Number(f.faceIndex))
+        .filter(Number.isInteger);
+
+      const annotationId = this.annotationBatchGroupId || `anno-${Date.now()}`;
+      const previousEntry = this.annotationEntries.find((entry) => entry.id === annotationId);
+      const view = this.annotationDialogSaveViewInput?.checked
+        ? this.captureCurrentAnnotationView()
+        : this.normalizeAnnotationView(previousEntry?.view);
+      const certainty = this.readAnnotationDialogCertainty(targetId, previousEntry?.certainty);
+
+      const annotationPayload = {
+        id: annotationId,
+        targetId,
+        object: targetId,
+
+        faceNumbers,
+        faceIndex: faceNumbers[0],
+
+        target: {
+          id: targetId,
+          faces: faceNumbers
+        },
+
+        ...this.setAnnotationEntryText({ localized: previousEntry?.localized }, title, description),
+        ...(certainty ? { certainty } : {}),
+        ...(view ? { view } : {}),
+        updatedAt: nowIso,
+        createdAt: previousEntry?.createdAt || nowIso
+      };
+
+      const existingIndex = this.annotationEntries.findIndex(
+        entry => entry.id === annotationPayload.id
+      );
+
+      if (existingIndex >= 0) {
+        this.annotationEntries.splice(
+          existingIndex,
+          1,
+          annotationPayload
+        );
+        updatedCount++;
+      } else {
+        this.annotationEntries.push(annotationPayload);
+        addedCount++;
+      }
+
+      const totalChanged = updatedCount + addedCount;
+      if (totalChanged > 0) {
+        toastHelper("annotationsSaved", "success", {
+          count: totalChanged,
+          plural: totalChanged === 1 ? "" : "s"
+        });
+      }
+
+      this.refreshAnnotationPOIs();
+      this.closeAnnotationDialog();
+    },
+
+    savePointAnnotationFromDialog(id) {
+      const entry = this.annotationEntries.find((item) => String(item.id) === id);
+      const title = String(this.annotationDialogTitleInput?.value || "").trim();
+      if (!title) {
+        toastHelper("titleRequired", "warning");
+        this.annotationDialogTitleInput?.focus();
+        return;
+      }
+      if (entry) {
+        this.setAnnotationEntryText(entry, title, String(this.annotationDialogDescriptionInput?.value || "").trim());
+        if (this.annotationDialogSaveViewInput?.checked) entry.view = this.captureCurrentAnnotationView();
+        entry.updatedAt = new Date().toISOString();
+        toastHelper("annotationsSaved", "success", { count: 1, plural: "" });
+      }
+      this.refreshAnnotationPOIs();
+      this.closeAnnotationDialog();
+    },
+
+    // A comment's polygon in world space (THREE.Vector3s), or null.
+    getAnnotationEntryPolygonWorld(entry) {
+      const polygon = this.normalizeAnnotationPolygon(entry?.polygon);
+      const root = polygon && this.resolveObjectByTargetId(entry.targetId || POINT_ANNOTATION_ROOT);
+      if (!root) return null;
+      root.updateMatrixWorld(true);
+      return polygon.map((point) => new THREE.Vector3().fromArray(point).applyMatrix4(root.matrixWorld));
+    },
+
+    // A comment's region: points ([x, y, z], model-root space) of the polygon
+    // a IIIF WktSelector gave it. null when not one.
+    normalizeAnnotationPolygon(polygon) {
+      if (!Array.isArray(polygon) || polygon.length < 2) return null;
+      const points = polygon.map((point) => this.normalizeAnnotationPoint(point));
+      return points.every(Boolean) ? points : null;
+    },
+
+    // Sets an entry's title and description; an entry with several languages
+    // gets them as the text of the language shown.
+    setAnnotationEntryText(entry, title, description) {
+      entry.title = title;
+      entry.description = description;
+      const localized = entry.localized;
+      if (localized) {
+        ["title", "description"].forEach((field) => {
+          const texts = localized[field];
+          const key = texts && pickLanguageKey(texts);
+          if (!key) return;
+          if (entry[field]) texts[key] = entry[field];
+          else delete texts[key];
+        });
+        if (!localizedTexts(localized.title, localized.description)) delete entry.localized;
+      }
+      if (!entry.localized) delete entry.localized;
+      return entry;
+    },
+
+    // Shows each annotation in the viewer's language, when it has several.
+    applyAnnotationLanguage() {
+      if (!Array.isArray(this.annotationEntries)) return;
+      let changed = false;
+      this.annotationEntries.forEach((entry) => {
+        if (!entry?.localized) return;
+        ["title", "description"].forEach((field) => {
+          const texts = entry.localized[field];
+          if (!texts) return;
+          const text = pickLanguage(texts);
+          if (text !== entry[field]) {
+            entry[field] = text;
+            changed = true;
+          }
+        });
+      });
+      if (changed) this.refreshAnnotationPOIs?.();
+    },
+
+    getAnnotationEntriesForPersistence() {
+      if (!Array.isArray(this.annotationEntries)) return [];
+
+      return this.annotationEntries
+        .map((entry, index) => {
+          if (!entry || typeof entry !== "object") return null;
+          const point = this.normalizeAnnotationPoint(entry.point);
+          if (point) {
+            // A point in the model root's space (IIIF PointSelector comments).
+            const view = this.normalizeAnnotationView(entry.view);
+            const pointTargetId = String(entry.targetId || POINT_ANNOTATION_ROOT).trim();
+            return {
+              id: String(entry.id || `anno-point-${index + 1}`),
+              groupId: "",
+              key: "",
+              object: pointTargetId,
+              targetId: pointTargetId,
+              point,
+              ...(this.normalizeAnnotationPolygon(entry.polygon) ? { polygon: this.normalizeAnnotationPolygon(entry.polygon) } : {}),
+              faceNumbers: [],
+              title: String(entry.title || "").trim(),
+              description: String(entry.description || "").trim(),
+              ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
+              ...(view ? { view } : {}),
+              createdAt: entry.createdAt ? String(entry.createdAt) : "",
+              updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
+            };
+          }
+          const targetId = String(entry.targetId || entry.object || "").trim();
+          const faceNumbersRaw = Array.isArray(entry.faceNumbers)
+            ? entry.faceNumbers
+            : [entry.faceIndex];
+          const faceNumbers = faceNumbersRaw
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value >= 0);
+          const faceIndex = faceNumbers[0] ?? Number(entry.faceIndex);
+          const normalizedFaceIndex = Number.isInteger(faceIndex) && faceIndex >= 0 ? faceIndex : -1;
+          if (!targetId || normalizedFaceIndex < 0) return null;
+
+          const key = this.getFaceSelectionKey(targetId, normalizedFaceIndex);
+          const fallbackId = `anno-${this.toStableIdToken(targetId)}-f${normalizedFaceIndex}`;
+          const view = this.normalizeAnnotationView(entry.view);
+
+          return {
+            id: String(entry.id || fallbackId),
+            groupId: entry.groupId ? String(entry.groupId) : "",
+            key,
+            object: targetId,
+            targetId,
+            faceIndex: normalizedFaceIndex,
+            faceNumbers: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
+            target: {
+              id: targetId,
+              faces: faceNumbers.length > 0 ? faceNumbers : [normalizedFaceIndex],
+            },
+            title: String(entry.title || "").trim(),
+            description: String(entry.description || "").trim(),
+            ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
+            ...(this.normalizeCertainty?.(entry.certainty) ? { certainty: this.normalizeCertainty(entry.certainty) } : {}),
+            ...(view ? { view } : {}),
+            createdAt: entry.createdAt ? String(entry.createdAt) : "",
+            updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
+          };
+        })
+        .filter(Boolean);
+    },
+
+    exportAnnotationsToIIIFXml() {
+      const entries = this.getAnnotationEntriesForPersistence();
+      const groups = new Map();
+
+      entries.forEach((entry) => {
+        const key = entry.groupId || entry.id;
+
+        if (!groups.has(key)) {
+          groups.set(key, {
+            ...entry,
+            faceNumbers: [],
+          });
+        }
+
+        groups.get(key).faceNumbers.push(...entry.faceNumbers);
+      });
+
+      const doc = document.implementation.createDocument("", "", null);
+      const root = doc.createElement("iiif:annotations");
+      root.setAttribute("xmlns:iiif", "http://iiif.io/api/presentation/3#");
+      root.setAttribute("version", "3.0");
+      root.setAttribute("generatedAt", new Date().toISOString());
+      doc.appendChild(root);
+
+      groups.forEach((entry) => {
+        const annotation = doc.createElement("iiif:annotation");
+        annotation.setAttribute("id", entry.id);
+        annotation.setAttribute("type", "Annotation");
+        annotation.setAttribute("motivation", "commenting");
+        if (entry.groupId) {
+          annotation.setAttribute("groupId", String(entry.groupId));
+        }
+
+        const body = doc.createElement("iiif:body");
+        body.setAttribute("type", "TextualBody");
+        body.setAttribute("format", "text/plain");
+
+        const titleNode = doc.createElement("iiif:title");
+        titleNode.textContent = entry.title || "";
+        body.appendChild(titleNode);
+
+        const descriptionNode = doc.createElement("iiif:description");
+        descriptionNode.textContent = entry.description || "";
+        body.appendChild(descriptionNode);
+        annotation.appendChild(body);
+
+        const targetNode = doc.createElement("iiif:target");
+        targetNode.setAttribute("id", entry.targetId);
+        if (entry.point) {
+          targetNode.setAttribute("point", entry.point.join(","));
+        } else {
+          targetNode.setAttribute("faces", entry.faceNumbers.join(","));
+        }
+        annotation.appendChild(targetNode);
+
+        if (entry.certainty) {
+          const certaintyNode = doc.createElement("iiif:certainty");
+          certaintyNode.setAttribute("value", String(entry.certainty.value));
+          if (entry.certainty.code) certaintyNode.setAttribute("code", entry.certainty.code);
+          certaintyNode.setAttribute("scope", entry.certainty.scope);
+          if (entry.certainty.targetId) certaintyNode.setAttribute("target", entry.certainty.targetId);
+          annotation.appendChild(certaintyNode);
+        }
+
+        if (entry.view) {
+          const viewNode = doc.createElement("iiif:view");
+          viewNode.setAttribute("position", entry.view.position.join(","));
+          viewNode.setAttribute("target", entry.view.target.join(","));
+          if (Number.isFinite(entry.view.fov)) viewNode.setAttribute("fov", String(entry.view.fov));
+          annotation.appendChild(viewNode);
+        }
+
+        root.appendChild(annotation);
+      });
+
+      return new XMLSerializer().serializeToString(doc);
+    },
+
+    downloadAnnotationsXmlFile() {
+      const xml = this.exportAnnotationsToIIIFXml();
+      if (!xml) {
+        toastHelper("noAnnotationsToExport", "warning");
+        return false;
+      }
+
+      const defaultBaseName = core.fileObject?.basename || "annotations";
+      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const fileName = `${safeBaseName || "annotations"}-iiif-annotations.xml`;
+      const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      toastHelper("annotationsExported", "success");
+      return true;
+    },
+
+    // Downloads the 3IF manifest (IIIF Presentation 4 + AIM3DViewer block).
+    export3IFManifest() {
+      const manifest = this.build3IFManifest();
+      if (!manifest) return false;
+      const defaultBaseName = core.fileObject?.basename || "manifest";
+      const safeBaseName = String(defaultBaseName).replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const fileName = `${safeBaseName || "manifest"}-iiif-manifest.json`;
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+
+      toastHelper("iiifManifestGenerated", "success");
+      return true;
+    },
+
+    // The current scene as a 3IF manifest: IIIF Presentation 4 (model with
+    // its transform, default camera, lights, comments with views) plus the
+    // AIM3DViewer block with this viewer's own settings. null when invalid.
+    build3IFManifest() {
+      const iiifUrl = core.fileObject?.originalPath || ""; 
+      if (!iiifUrl) {
+        toastHelper("iiifUrlMissing", "warning");
+        return null;
+      }
+      const primaryModelObject =
+        (Array.isArray(core.mainObject) ? core.mainObject.find((item) => item?.isObject3D) : null)
+        || (core.mainObject?.isObject3D ? core.mainObject : null)
+        || (Array.isArray(core.helperObjects) ? core.helperObjects.find((item) => item?.isObject3D) : null);
+      // Generate the IIIF manifest and log it to the console 
+      const sceneId = `${iiifUrl}/scene`;
+
+      // Every model of the scene, each with its root's transform. A scene of
+      // several models comes from a manifest: its model config has the URLs.
+      const modelSlots = Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject];
+      const modelAnnotations = modelSlots
+        .map((entry, slot) => {
+          const root = Array.isArray(entry) ? entry.find((item) => item?.isObject3D) : entry;
+          if (!root?.isObject3D) return null;
+          const url = (modelSlots.length > 1 && core.objectsConfig?.models?.[slot]?.url)
+            || (slot === 0 ? core.fileObject.originalPath : "");
+          if (!url) return null;
+          return buildModelAnnotation(
+            sceneId,
+            slot === 0 ? `${sceneId}/annotation/model` : `${sceneId}/annotation/model/${slot + 1}`,
+            {
+              id: url,
+              type: "Model",
+              format: modelFormatOf(url) || (slot === 0 ? core.fileObject.mimeType : undefined) || undefined,
+            },
+            root
+          );
+        })
+        .filter(Boolean);
+      const sceneBackgroundColor = core.scene?.background?.isColor
+        ? `#${core.scene.background.getHexString()}`
+        : core.sceneBackgroundColor;
+
+      // Comments on scene points; a saved view becomes a camera painted into
+      // the scene, referenced from the comment's `scope`.
+      const viewCameras = [];
+      const commentAnnotations = this.getAnnotationEntriesForPersistence().map((entry) => {
+        const center = this.getAnnotationEntryCenter(entry);
+        const annotationId = String(entry.id);
+        const viewCamera = buildViewCameraAnnotation(sceneId, `${annotationId}/view`, entry.view);
+        if (viewCamera) viewCameras.push(viewCamera);
+        return {
+          id: annotationId,
+          type: "Annotation",
+
+          // An assessed one also states its Level of Certainty (W3C Web
+          // Annotation "assessing"; the level is in AIM3DViewer.certainty).
+          motivation: entry.certainty ? ["commenting", "assessing"] : ["commenting"],
+
+          // Every language of the title; the body a Choice of one
+          // TextualBody per language when the description has several.
+          label: entry.localized?.title
+            ? Object.fromEntries(Object.entries(entry.localized.title).map(([language, text]) => [language, [text]]))
+            : { en: [String(entry.title || "").trim()] },
+
+          created: entry.createdAt || undefined,
+          modified: entry.updatedAt || undefined,
+
+          body: entry.localized?.description
+            ? {
+              type: "Choice",
+              items: Object.entries(entry.localized.description).map(([language, text]) => ({
+                type: "TextualBody",
+                value: text,
+                format: "text/plain",
+                ...(language !== "none" ? { language: [language] } : {}),
+              })),
+            }
+            : {
+              type: "TextualBody",
+              value: String(entry.description || "").trim(),
+              format: "text/plain"
+            },
+
+          ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
+
+          target: center
+            ? buildCommentTarget(sceneId, center, this.getAnnotationEntryPolygonWorld(entry))
+            : { id: sceneId, type: "Scene" },
+
+          // Exact anchoring for this viewer: the annotated faces, or the
+          // point in the model root's space.
+          AIM3DViewer: {
+            ...(entry.polygon ? { polygon: entry.polygon } : {}),
+            groupId: entry.groupId || "",
+            key: entry.key || "",
+            object: entry.object || "",
+            targetId: entry.targetId,
+            ...(entry.point
+              ? { point: entry.point }
+              : { faceIndex: entry.faceIndex, faceNumbers: entry.faceNumbers || [] }),
+            view: entry.view || undefined,
+            certainty: entry.certainty || undefined
+          }
+        };
+      });
+
+      const manifest = {
+        "@context": "http://iiif.io/api/presentation/4/context.json",
+
+        id: `${iiifUrl}/manifest.json`,
+        type: "Manifest",
+
+        label: {
+          en: [core.fileObject?.basename || "Model"]
+        },
+
+        items: [
+          {
+            id: sceneId,
+            type: "Scene",
+
+            label: {
+              en: [core.fileObject?.basename || "Model"]
+            },
+
+            // A solid background only (a gradient has no IIIF equivalent).
+            ...(sceneBackgroundColor ? { backgroundColor: sceneBackgroundColor } : {}),
+
+            // The size of one scene unit, when it is not a meter.
+            ...(this.resolveModelUnit().meters !== 1 ? { spatialScale: buildSpatialScale(this.resolveModelUnit().meters) } : {}),
+
+            items: [
+              {
+                id: `${sceneId}/page/model`,
+                type: "AnnotationPage",
+                // IIIF Presentation 4 (3D): the model with its transform, the
+                // current camera and the scene lights (IIIF/presentation4.js).
+                items: [
+                  ...modelAnnotations,
+                  // The first camera is the scene's default view.
+                  buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`),
+                  ...buildLightAnnotations(sceneId, `${sceneId}/annotation/light`),
+                  ...viewCameras,
+                ]
+              }
+            ],
+
+            annotations: [
+              {
+                id: `${sceneId}/page/annotations`,
+                type: "AnnotationPage",
+
+                items: commentAnnotations
+              }
+            ]
+          }
+        ],
+
+        AIM3DViewer: {
+          version: "1.0",
+
+          generatedAt: new Date().toISOString(),
+
+          camera: {
+            position: core.camera.position.toArray(),
+
+            target: core.controls?.target
+              ? core.controls.target.toArray()
+              : [0, 0, 0],
+
+            up: core.camera.up.toArray(),
+
+            fov: core.camera.fov,
+
+            zoom:
+              typeof core.camera?.zoom === "number"
+                ? core.camera.zoom
+                : undefined,
+            distance:
+              core.camera.position.distanceTo(
+                core.controls.target
+              ),
+            perspectiveMode: core.camera.isPerspectiveCamera ? "perspective" : "orthographic",
+          },
+
+          viewer: {
+            container: core.CONFIG?.viewer?.container || "DFG_3DViewer",
+            mailUrl: core.CONFIG.mainUrl || "https://localhost",
+            mainUrl: core.CONFIG.mainUrl || undefined,
+            baseModulePath: core.CONFIG.baseModulePath || undefined,
+            background: core.CONFIG.viewer?.background || undefined,
+            credits: core.CONFIG.viewer?.credits || undefined,
+            manifestoForm: core.CONFIG.viewer?.manifestoForm || undefined,
+            metadataContainer: core.CONFIG.viewer?.metadataContainer || undefined,
+            baseNamespace: "https://localhost",
+            metadataUrl: "https://localhost",
+            theme: this.currentTheme === "light" ? "light" : "dark",
+            language: core.currentLanguage || this.currentLanguage || "en",
+
+            backgroundColor: core.scene?.background?.isColor
+              ? `#${core.scene.background.getHexString()}`
+              : undefined,
+            environmentMap: {
+              intensity: core.environmentMapIntensity || 0.5,
+              preset: core.environmentMapPreset || "neutral",
+              enabled: core.environmentMapEnabled || true
+            },
+            rendering: getRenderingSettings(),
+            presentationMode: core.PRESENTATION_MODE || false,
+            sandbox: core.SANDBOX_MODE || false,
+            autorotate: core.controls?.autoRotate === true,
+            autorotateSpeed: Number.isFinite(core.controls?.autoRotateSpeed)
+              ? core.controls.autoRotateSpeed
+              : undefined,
+            disableInteraction:
+              this.urlOptions?.disableInteraction === true || (
+                core.PRESENTATION_MODE !== true
+                && core.controls?.enabled === false
+                && core.controls?.enableRotate === false
+                && core.controls?.enablePan === false
+                && core.controls?.enableZoom === false
+              ),
+            hideUi: this.urlOptions?.hideUi === true || this.actionMenu?.hidden === true,
+            hideMetadata:
+              this.urlOptions?.hideMetadata === true
+              || this.metadataContainer?.style?.display === "none",
+            showNotifications: core.showNotifications !== false,
+            scale: {
+              x: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.x))
+                ? Number(core.CONFIG.viewer.scaleContainer.x)
+                : 1,
+              y: Number.isFinite(Number(core.CONFIG?.viewer?.scaleContainer?.y))
+                ? Number(core.CONFIG.viewer.scaleContainer.y)
+                : 1,
+            },
+            window: this.getWindowState?.(),
+            performance:
+              typeof core.CONFIG?.viewer?.performanceMode === "string"
+                ? core.CONFIG.viewer.performanceMode
+                : core.CONFIG?.viewer?.performanceMode?.Performance || "high-performance",
+            units: this.resolveModelUnit().meters,
+            gallery: {
+              build: core.CONFIG.viewer.gallery?.build || false,
+              container: core.CONFIG.viewer.gallery?.container || "AIM3DViewerContainer",
+              imageClass: core.CONFIG.viewer.gallery?.imageClass || "AIM3DViewerGalleryImage",
+              imageId: core.CONFIG.viewer.gallery?.imageId || "AIM3DViewerGalleryImage",
+              buildFake: true,
+              testImages: [undefined],
+            },
+            editorToolbar: this.getCurrentEditorToolbarState?.(),
+            menuToolbar: {
+              enabled: core.CONFIG.viewer.menuToolbar?.enabled || true,
+              position: core.CONFIG.viewer.menuToolbar?.position || { x: 0, y: 0 },
+            },
+            clipping: {
+              mode: {
+                x: core.planeParams?.clippingMode?.x === true,
+                y: core.planeParams?.clippingMode?.y === true,
+                z: core.planeParams?.clippingMode?.z === true,
+              },
+              constants: [
+                Number(core.clippingPlanes?.[0]?.constant ?? core.planeParams?.planeX?.constantX ?? 0),
+                Number(core.clippingPlanes?.[1]?.constant ?? core.planeParams?.planeY?.constantY ?? 0),
+                Number(core.clippingPlanes?.[2]?.constant ?? core.planeParams?.planeZ?.constantZ ?? 0),
+              ],
+              outlineVisible: core.planeParams?.outline?.visible === true,
+              negated: this.getClippingNegatedState?.(),
+            }
+          },
+
+          integration: {
+            type: core.CONFIG.entity ? "drupal" : "none",
+            bundle: core.CONFIG.entity?.bundle || "bd3d7baa74856d141bcff7b4193fa128",
+            fieldDf: core.CONFIG.entity?.fieldDf || "field_df",
+            exportViewer: core.CONFIG.entity?.exportViewer || "field_df",
+            idUri: core.CONFIG.entity?.idUri || "/wisski/navigate/(.*)/view",
+            viewEntityPath: core.CONFIG.entity?.viewEntityPath || "/wisski/navigate/",
+            attributeId: core.CONFIG.entity?.attributeId || "wisski_id",
+            metadata: {
+              source: core.CONFIG.entity?.metadata?.source || "",
+            },
+            exportViewerUrl: core.CONFIG.entity?.exportViewerUrl || undefined,
+            api: core.CONFIG.api?.thumbnailUploadEndpoint
+              ? { thumbnailUploadEndpoint: core.CONFIG.api.thumbnailUploadEndpoint }
+              : undefined,
+            fileUpload: core.CONFIG.viewer.fileUpload || "fbf95bddee5160d515b982b3fd2e05f7",
+            fileName: core.CONFIG.viewer.fileName || "faa602a0be629324806aef22892cdbe5",
+            imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
+          },
+
+          // The viewer's own lights plus the ones imported from a manifest.
+          lights: [...(core.scene?.children || []), ...importedLightObjects()]
+            .filter((child) =>
+              [
+                "DirectionalLight",
+                "SpotLight",
+                "PointLight",
+                "AmbientLight",
+                "HemisphereLight"
+              ].includes(child.type)
+            )
+            .map((light) => ({
+              type: light.type,
+
+              position: light.position?.toArray?.() || [0, 0, 0],
+
+              target:
+                light.target?.position?.toArray?.() || undefined,
+
+              color: `#${light.color.getHexString()}`,
+
+              intensity: light.intensity,
+
+              ...(light.visible === false ? { visible: false } : {}),
+
+              ...(light.isHemisphereLight
+                ? { groundColor: `#${light.groundColor.getHexString()}` }
+                : {}),
+
+              ...(light.isPointLight || light.isSpotLight
+                ? { distance: light.distance, decay: light.decay }
+                : {}),
+
+              ...(light.isSpotLight
+                ? { angle: light.angle, penumbra: light.penumbra }
+                : {}),
+            })),
+
+          // The Level of Certainty scale, when used.
+          certainty: this.getCertaintyScaleForExport?.(),
+
+          // The raking light, while it is on.
+          rakingLight: this.getRakingLightForExport?.(),
+
+          // The 4D timeline: its stages and the year shown.
+          timeline: this.getTimelineForExport?.(),
+
+          modelTransform: {
+            position:
+              primaryModelObject?.position?.toArray?.() ||
+              [0, 0, 0],
+
+            rotation: primaryModelObject?.rotation
+              ? {
+                  x: primaryModelObject.rotation.x,
+                  y: primaryModelObject.rotation.y,
+                  z: primaryModelObject.rotation.z,
+                  order: primaryModelObject.rotation.order
+                }
+              : {
+                  x: 0,
+                  y: 0,
+                  z: 0,
+                  order: "XYZ"
+                },
+
+            scale:
+              primaryModelObject?.scale?.toArray?.() ||
+              [1, 1, 1],
+
+            wireframe: core.wireframeMode || false,
+
+            // Left out for the materials as loaded (the default).
+            ...(this.shadingMode && this.shadingMode !== "original" ? { shadingMode: this.shadingMode } : {}),
+
+            ...(this.shadingMode === "custom"
+              ? {
+                  customShader: {
+                    vertexShader: this.customVertexShader || "",
+                    fragmentShader: this.customFragmentShader || "",
+                  },
+                }
+              : {}),
+          }
+        },
+        modified: new Date().toISOString(),
+      };
+
+      // A scene shown from a manifest keeps what that manifest says about
+      // itself and the scene, and the Canvases painted into the scene.
+      const source = this.currentManifest?.json;
+      if (source && typeof source === "object") {
+        MANIFEST_DESCRIPTIVE_PROPERTIES.forEach((key) => {
+          if (source[key] !== undefined) manifest[key] = structuredClone(source[key]);
+        });
+        const sourceScenes = (source.items || []).filter((item) => item?.type === "Scene");
+        const sourceScene = sourceScenes[sceneIndexOf(source, core.activeScene)];
+        const exportedScene = manifest.items[0];
+        SCENE_DESCRIPTIVE_PROPERTIES.forEach((key) => {
+          if (sourceScene?.[key] !== undefined) exportedScene[key] = structuredClone(sourceScene[key]);
+        });
+        scenePlacements(source, core.activeScene).canvases.forEach(({ canvas, matrix }, index) => {
+          exportedScene.items[0].items.push(buildCanvasAnnotation(sceneId, `${sceneId}/annotation/canvas/${index + 1}`, canvas, matrix));
+          if (canvas.id && !manifest.items.some((item) => item.id === canvas.id)) manifest.items.push(structuredClone(canvas));
+        });
+      }
+
+      const exportValidation = validateAIM3DManifest(manifest, { requireCustomBlock: true });
+      if (!exportValidation.valid) {
+        const detail = formatAIM3DManifestValidationErrors(exportValidation.errors);
+        console.error("AIM3D manifest export validation failed", exportValidation.errors);
+        toastHelper("manifestValidationFailed", "error", { detail, duration: 9000 });
+        return null;
+      }
+
+      manifest.AIM3DViewer.generatedAt = new Date().toISOString();
+      core.fileObject?.iiifUrl && (manifest.id = `${core.fileObject?.basename}_manifest.json`);
+      // JSON only: drops undefined fields.
+      return JSON.parse(JSON.stringify(manifest));
+    },
+
+    parse3IFManifestVector(value, fallback = null, expectedLength = 3) {
+      if (Array.isArray(value) && value.length >= expectedLength) {
+        const normalized = value.slice(0, expectedLength).map((item) => Number(item));
+        if (normalized.every(Number.isFinite)) return normalized;
+      }
+
+      if (value && typeof value === "object") {
+        const keys = expectedLength === 2 ? ["x", "y"] : ["x", "y", "z"];
+        const normalized = keys.map((key) => Number(value[key]));
+        if (normalized.every(Number.isFinite)) return normalized;
+      }
+
+      return fallback;
+    },
+
+    apply3IFManifestClipping(clippingConfig) {
+      if (!clippingConfig || typeof clippingConfig !== "object") return false;
+
+      const constants = this.parse3IFManifestVector(clippingConfig.constants, null, 3);
+      const mode = clippingConfig.mode && typeof clippingConfig.mode === "object"
+        ? {
+            x: clippingConfig.mode.x === true,
+            y: clippingConfig.mode.y === true,
+            z: clippingConfig.mode.z === true,
+          }
+        : null;
+      const outlineVisible = typeof clippingConfig.outlineVisible === "boolean"
+        ? clippingConfig.outlineVisible
+        : (typeof clippingConfig.outline === "boolean" ? clippingConfig.outline : null);
+
+      const negated = clippingConfig.negated && typeof clippingConfig.negated === "object"
+        ? {
+            x: clippingConfig.negated.x === true,
+            y: clippingConfig.negated.y === true,
+            z: clippingConfig.negated.z === true,
+          }
+        : null;
+
+      if (!constants && !mode && !negated && typeof outlineVisible !== "boolean") return false;
+
+      const previousUrlOptions = this.urlOptions;
+      this.urlOptions = {
+        ...(previousUrlOptions || {}),
+        clippingMode: mode,
+        clippingConstants: constants
+          ? new THREE.Vector3(constants[0], constants[1], constants[2])
+          : null,
+        clippingOutline: outlineVisible,
+        clippingNegated: negated,
+      };
+
+      try {
+        this.applyClippingOverridesFromUrl?.();
+      } finally {
+        this.urlOptions = previousUrlOptions;
+      }
+
+      return true;
+    },
+
+    apply3IFManifestCamera(cameraConfig) {
+      if (!cameraConfig || typeof cameraConfig !== "object") return false;
+      if (!core.camera) return false;
+      stopCameraIntro();
+
+      const position = this.parse3IFManifestVector(cameraConfig.position, null, 3);
+      const target = this.parse3IFManifestVector(cameraConfig.target, null, 3);
+      const up = this.parse3IFManifestVector(cameraConfig.up, null, 3);
+
+      // Apply position/target/up before switching projection so that the
+      // orthographic frustum (sized from camera<->target distance) is computed
+      // from the manifest's own camera pose rather than a stale one.
+      if (position) {
+        core.camera.position.set(position[0], position[1], position[2]);
+        core.cameraLight?.position?.set?.(position[0], position[1], position[2]);
+      }
+
+      if (target) {
+        core.controls?.target?.set?.(target[0], target[1], target[2]);
+        core.camera.lookAt(new THREE.Vector3(target[0], target[1], target[2]));
+      }
+
+      if (up) {
+        core.camera.up.set(up[0], up[1], up[2]);
+      }
+
+      // The camera may sit farther out than the model's fitted limit -
+      // OrbitControls.update() would pull it in.
+      if (core.controls) {
+        const distance = core.camera.position.distanceTo(core.controls.target);
+        if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
+      }
+
+      const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
+      if (projectionMode === "perspective" || projectionMode === "orthographic") {
+        this.setCameraProjection?.(projectionMode);
+      }
+
+      const fov = Number(cameraConfig.fov);
+      if (Number.isFinite(fov) && core.camera.isPerspectiveCamera) {
+        core.camera.fov = Math.max(1, Math.min(179, fov));
+      }
+
+      const zoom = Number(cameraConfig.zoom);
+      if (Number.isFinite(zoom) && typeof core.camera.zoom === "number") {
+        core.camera.zoom = zoom;
+      }
+
+      core.camera.updateProjectionMatrix();
+      core.controls?.update?.();
+      this.updateCamera?.();
+      // "Reset camera" returns to the manifest's camera.
+      core.cameraCoords = core.camera.position.clone();
+      if (core.controls) core.controlsTarget = core.controls.target.clone();
+      return true;
+    },
+
+    apply3IFManifestViewerConfig(viewerConfig) {
+      if (!viewerConfig || typeof viewerConfig !== "object") return false;
+
+      core.CONFIG ??= {};
+      core.CONFIG.viewer ??= {};
+
+      if (typeof viewerConfig.container === "string" && viewerConfig.container.trim() !== "") {
+        core.CONFIG.viewer.container = viewerConfig.container;
+      }
+      if (typeof viewerConfig.mailUrl === "string" && viewerConfig.mailUrl.trim() !== "") {
+        core.CONFIG.mainUrl = viewerConfig.mailUrl;
+      }
+      if (typeof viewerConfig.baseNamespace === "string" && viewerConfig.baseNamespace.trim() !== "") {
+        core.CONFIG.baseNamespace = viewerConfig.baseNamespace;
+      }
+      if (typeof viewerConfig.metadataUrl === "string" && viewerConfig.metadataUrl.trim() !== "") {
+        core.CONFIG.metadataUrl = viewerConfig.metadataUrl;
+      }
+
+      if (typeof viewerConfig.theme === "string") {
+        const normalizedTheme = viewerConfig.theme.trim().toLowerCase() === "light" ? "light" : "dark";
+        this.currentTheme = normalizedTheme;
+        this.urlOptions ??= {};
+        this.urlOptions.theme = normalizedTheme;
+        this.applyTheme?.(normalizedTheme, { persist: false });
+      }
+
+      if (typeof viewerConfig.language === "string") {
+        const normalizedLanguage = this.normalizeLanguage?.(viewerConfig.language);
+        if (normalizedLanguage) {
+          core.currentLanguage = normalizedLanguage;
+          this.currentLanguage = normalizedLanguage;
+          this.urlOptions ??= {};
+          this.urlOptions.language = normalizedLanguage;
+          this.applyLanguage?.({ persist: false });
+        }
+      }
+
+      if (viewerConfig.environmentMap && typeof viewerConfig.environmentMap === "object") {
+        const environmentMap = viewerConfig.environmentMap;
+        const intensity = Number(environmentMap.intensity);
+        if (Number.isFinite(intensity)) {
+          core.environmentMapIntensity = intensity;
+          core.scene && (core.scene.environmentIntensity = intensity);
+        }
+        if (typeof environmentMap.preset === "string" && environmentMap.preset.trim() !== "") {
+          this.environmentMapPreset = environmentMap.preset;
+          core.environmentMapPreset = environmentMap.preset;
+        }
+        if (typeof environmentMap.enabled === "boolean") {
+          this.environmentMapEnabled = environmentMap.enabled;
+          core.environmentMapEnabled = environmentMap.enabled;
+          if (core.scene) {
+            core.scene.environmentIntensity = environmentMap.enabled
+              ? (Number.isFinite(Number(environmentMap.intensity)) ? Number(environmentMap.intensity) : (core.environmentMapIntensity ?? 0.5))
+              : 0;
+          }
+        }
+
+        if (typeof this.setEnvironmentMapPreset === "function") {
+          this.setEnvironmentMapPreset(this.environmentMapPreset).catch((error) => console.error(error));
+        }
+        if (typeof this.setEnvironmentMapEnabled === "function" && typeof environmentMap.enabled === "boolean") {
+          this.setEnvironmentMapEnabled(environmentMap.enabled).catch((error) => console.error(error));
+        }
+      }
+
+      if (viewerConfig.rendering && typeof viewerConfig.rendering === "object") {
+        applyRenderingSettings(viewerConfig.rendering);
+        this.updateLightsSubmenuState?.();
+      }
+
+      const backgroundColor = String(viewerConfig.backgroundColor || "").trim();
+      if (backgroundColor && core.scene) {
+        try {
+          core.scene.background = new THREE.Color(backgroundColor);
+        } catch (_error) {
+          // Ignore malformed color in imported manifest.
+        }
+      }
+
+      if (typeof viewerConfig.presentationMode === "boolean") {
+        this.PRESENTATION_MODE = viewerConfig.presentationMode;
+        core.PRESENTATION_MODE = viewerConfig.presentationMode;
+        core.CONFIG.viewer.presentationMode = viewerConfig.presentationMode;
+      }
+      if (typeof viewerConfig.sandbox === "boolean") {
+        this.SANDBOX_MODE = viewerConfig.sandbox;
+        core.SANDBOX_MODE = viewerConfig.sandbox;
+        core.CONFIG.viewer.sandboxMode = viewerConfig.sandbox;
+      }
+
+      if (typeof viewerConfig.autorotate === "boolean" && core.controls) {
+        core.controls.autoRotate = viewerConfig.autorotate;
+        this.urlOptions ??= {};
+        this.urlOptions.autoRotate = viewerConfig.autorotate;
+      }
+
+      if (Number.isFinite(Number(viewerConfig.autorotateSpeed)) && core.controls) {
+        core.controls.autoRotateSpeed = Number(viewerConfig.autorotateSpeed);
+        this.urlOptions ??= {};
+        this.urlOptions.autoRotateSpeed = Number(viewerConfig.autorotateSpeed);
+      }
+
+      if (typeof viewerConfig.disableInteraction === "boolean" && core.controls) {
+        const shouldDisableInteraction = viewerConfig.disableInteraction === true || core.PRESENTATION_MODE === true;
+        core.controls.enabled = !shouldDisableInteraction;
+        core.controls.enableRotate = !shouldDisableInteraction;
+        core.controls.enablePan = !shouldDisableInteraction;
+        core.controls.enableZoom = !shouldDisableInteraction;
+        this.urlOptions ??= {};
+        this.urlOptions.disableInteraction = viewerConfig.disableInteraction === true;
+      }
+
+      if (typeof viewerConfig.hideUi === "boolean") {
+        this.urlOptions ??= {};
+        this.urlOptions.hideUi = viewerConfig.hideUi;
+        if (this.actionMenu) {
+          this.actionMenu.hidden = viewerConfig.hideUi;
+        }
+        if (core.editorToolbar) {
+          core.editorToolbar.classList.toggle("editorToolbar-hidden", viewerConfig.hideUi === true);
+        } else if (viewerConfig.hideUi !== true) {
+          this.createEditorToolbar?.();
+          this.attachEditorToolbar?.();
+        }
+      }
+
+      if (typeof viewerConfig.hideMetadata === "boolean") {
+        this.urlOptions ??= {};
+        this.urlOptions.hideMetadata = viewerConfig.hideMetadata;
+        if (this.metadataContainer?.style) {
+          this.metadataContainer.style.display = viewerConfig.hideMetadata ? "none" : "";
+        }
+      }
+
+      if (typeof viewerConfig.showNotifications === "boolean") {
+        this.showNotifications = viewerConfig.showNotifications;
+        core.showNotifications = viewerConfig.showNotifications;
+        this.urlOptions ??= {};
+        this.urlOptions.showNotifications = viewerConfig.showNotifications;
+      }
+
+      const scale = this.parse3IFManifestVector(viewerConfig.scale, null, 2);
+      if (scale) {
+        core.CONFIG.viewer.scaleContainer = { x: scale[0], y: scale[1] };
+      }
+
+      if (typeof viewerConfig.performance === "string" && viewerConfig.performance.trim() !== "") {
+        core.CONFIG.viewer.performanceMode = viewerConfig.performance;
+        this.setPerformanceMode?.(viewerConfig.performance);
+      }
+
+      // Meters per scene unit (a number, or a unit name: "cm"), for this
+      // model only; the scene's spatialScale, when it has one, comes first.
+      if (viewerConfig.units !== undefined) {
+        const units = Number.isFinite(Number(viewerConfig.units))
+          ? Number(viewerConfig.units)
+          : unitNameToMeters(viewerConfig.units);
+        if (units > 0 && !(Number(this.manifestUnitMeters) > 0)) this.manifestUnitMeters = units;
+      }
+
+      if (viewerConfig.gallery && typeof viewerConfig.gallery === "object") {
+        core.CONFIG.viewer.gallery ??= {};
+        Object.assign(core.CONFIG.viewer.gallery, viewerConfig.gallery);
+      }
+
+      if (viewerConfig.editorToolbar && typeof viewerConfig.editorToolbar === "object") {
+        core.CONFIG.viewer.editorToolbar ??= {};
+        Object.assign(core.CONFIG.viewer.editorToolbar, viewerConfig.editorToolbar);
+        this.applyEditorToolbarConfig?.(this, viewerConfig.editorToolbar);
+      }
+
+      if (viewerConfig.menuToolbar && typeof viewerConfig.menuToolbar === "object") {
+        core.CONFIG.viewer.menuToolbar ??= {};
+        Object.assign(core.CONFIG.viewer.menuToolbar, viewerConfig.menuToolbar);
+        const menuPosition = this.parse3IFManifestVector(viewerConfig.menuToolbar.position, null, 2);
+        if (menuPosition) {
+          core.CONFIG.viewer.menuToolbar.position = { x: menuPosition[0], y: menuPosition[1] };
+        }
+        if (!viewerConfig.editorToolbar) {
+          this.applyEditorToolbarConfig?.(this, {
+            enabled: viewerConfig.menuToolbar.enabled,
+            position: core.CONFIG.viewer.menuToolbar.position,
+          });
+        }
+      }
+
+      this.apply3IFManifestClipping(viewerConfig.clipping);
+      this.updateShareMenuEntryState?.();
+      this.updateEmbedMenuEntryState?.();
+      this.updateEditorToolbarState?.();
+
+      return true;
+    },
+
+    apply3IFManifestIntegrationConfig(integrationConfig) {
+      if (!integrationConfig || typeof integrationConfig !== "object") return false;
+
+      core.CONFIG ??= {};
+      core.CONFIG.entity ??= {};
+      core.CONFIG.viewer ??= {};
+
+      if (typeof integrationConfig.type === "string" && integrationConfig.type.trim() !== "") {
+        core.CONFIG.entity.type = integrationConfig.type;
+      }
+      if (typeof integrationConfig.bundle === "string") core.CONFIG.entity.bundle = integrationConfig.bundle;
+      if (typeof integrationConfig.fieldDf === "string") core.CONFIG.entity.fieldDf = integrationConfig.fieldDf;
+      if (typeof integrationConfig.exportViewer === "string") core.CONFIG.entity.exportViewer = integrationConfig.exportViewer;
+      if (typeof integrationConfig.idUri === "string") core.CONFIG.entity.idUri = integrationConfig.idUri;
+      if (typeof integrationConfig.viewEntityPath === "string") core.CONFIG.entity.viewEntityPath = integrationConfig.viewEntityPath;
+      if (typeof integrationConfig.attributeId === "string") core.CONFIG.entity.attributeId = integrationConfig.attributeId;
+
+      if (integrationConfig.metadata && typeof integrationConfig.metadata === "object") {
+        core.CONFIG.entity.metadata ??= {};
+        Object.assign(core.CONFIG.entity.metadata, integrationConfig.metadata);
+      }
+
+      if (typeof integrationConfig.fileUpload === "string") core.CONFIG.viewer.fileUpload = integrationConfig.fileUpload;
+      if (typeof integrationConfig.fileName === "string") core.CONFIG.viewer.fileName = integrationConfig.fileName;
+      if (typeof integrationConfig.imageGeneration === "string") core.CONFIG.viewer.imageGeneration = integrationConfig.imageGeneration;
+
+      return true;
+    },
+
+    apply3IFManifestLights(lightsConfig) {
+      if (!Array.isArray(lightsConfig) || lightsConfig.length === 0) return false;
+
+      const directionalLights = lightsConfig.filter((light) => String(light?.type || "") === "DirectionalLight");
+      const ambientLights = lightsConfig.filter((light) => String(light?.type || "") === "AmbientLight");
+      const pointLights = lightsConfig.filter((light) => String(light?.type || "") === "PointLight");
+      const spotLights = lightsConfig.filter((light) => String(light?.type || "") === "SpotLight");
+      const hemisphereLight = lightsConfig.find((light) => String(light?.type || "") === "HemisphereLight");
+
+      const applyLight = (target, data) => {
+        if (!target || !data) return;
+        const position = this.parse3IFManifestVector(data.position, null, 3);
+        const targetPosition = this.parse3IFManifestVector(data.target, null, 3);
+        const intensity = Number(data.intensity);
+        const color = String(data.color || "").trim();
+
+        if (position) target.position?.set?.(position[0], position[1], position[2]);
+        if (targetPosition && target.target?.position) {
+          target.target.position.set(targetPosition[0], targetPosition[1], targetPosition[2]);
+          target.target.updateMatrixWorld?.();
+        }
+        if (Number.isFinite(intensity)) target.intensity = intensity;
+        target.visible = data.visible !== false;
+        if (color) {
+          try {
+            target.color?.set?.(color);
+          } catch (_error) {
+            // Ignore malformed color in imported manifest.
+          }
+        }
+      };
+
+      // Lights beyond the viewer's own go into the imported-lights group, so
+      // they are replaced, not piled up, on the next import; the viewer's own
+      // get their settings back on the next load, too.
+      removeImportedLights();
+      suspendDefaultLights({ hide: false });
+
+      if (core.dirLight && directionalLights.length > 0) {
+        applyLight(core.dirLight, directionalLights[0]);
+      }
+      if (core.cameraLight && directionalLights.length > 1) {
+        applyLight(core.cameraLight, directionalLights[1]);
+      }
+      if (core.ambientLight && ambientLights.length > 0) {
+        applyLight(core.ambientLight, ambientLights[0]);
+      }
+      const viewerHemisphereLight = core.scene?.children?.find((child) => child.isHemisphereLight);
+      if (viewerHemisphereLight && hemisphereLight) {
+        applyLight(viewerHemisphereLight, hemisphereLight);
+        try {
+          if (hemisphereLight.groundColor) viewerHemisphereLight.groundColor.set(String(hemisphereLight.groundColor));
+        } catch (_error) {
+          // Ignore malformed color in imported manifest.
+        }
+      }
+
+      const addExtraLight = (lightData) => {
+        const type = String(lightData?.type || "");
+        const light = type === "PointLight" ? new THREE.PointLight(0xffffff, 1)
+          : type === "SpotLight" ? new THREE.SpotLight(0xffffff, 1)
+            : type === "DirectionalLight" ? new THREE.DirectionalLight(0xffffff, 1)
+              : new THREE.AmbientLight(0xffffff, 1);
+        const distance = Number(lightData.distance);
+        const decay = Number(lightData.decay);
+        const angle = Number(lightData.angle);
+        const penumbra = Number(lightData.penumbra);
+        if (Number.isFinite(distance) && distance >= 0 && "distance" in light) light.distance = distance;
+        if (Number.isFinite(decay) && decay >= 0 && "decay" in light) light.decay = decay;
+        if (light.isSpotLight && Number.isFinite(angle) && angle > 0) light.angle = Math.min(angle, Math.PI / 2);
+        if (light.isSpotLight && Number.isFinite(penumbra)) light.penumbra = THREE.MathUtils.clamp(penumbra, 0, 1);
+        light.name = `iiif-${type}`;
+        addImportedLight(light);
+        applyLight(light, lightData);
+      };
+
+      directionalLights.slice(2).forEach(addExtraLight);
+      ambientLights.slice(1).forEach(addExtraLight);
+      pointLights.forEach(addExtraLight);
+      spotLights.forEach(addExtraLight);
+
+      this.updateLightsSubmenuState?.();
+      return true;
+    },
+
+    apply3IFManifestModelTransform(modelTransform) {
+      if (!modelTransform || typeof modelTransform !== "object") return false;
+
+      const modelObject =
+        (Array.isArray(core.mainObject) ? core.mainObject.find((item) => item?.isObject3D) : null)
+        || (core.mainObject?.isObject3D ? core.mainObject : null)
+        || (Array.isArray(core.helperObjects) ? core.helperObjects.find((item) => item?.isObject3D) : null);
+
+      if (modelObject) {
+        const position = this.parse3IFManifestVector(modelTransform.position, null, 3);
+        const scale = this.parse3IFManifestVector(modelTransform.scale, null, 3);
+        const rotation = modelTransform.rotation && typeof modelTransform.rotation === "object"
+          ? {
+              x: Number(modelTransform.rotation.x),
+              y: Number(modelTransform.rotation.y),
+              z: Number(modelTransform.rotation.z),
+              order: String(modelTransform.rotation.order || "XYZ"),
+            }
+          : null;
+
+        if (position) modelObject.position.set(position[0], position[1], position[2]);
+        if (scale) modelObject.scale.set(scale[0], scale[1], scale[2]);
+        if (rotation && Number.isFinite(rotation.x) && Number.isFinite(rotation.y) && Number.isFinite(rotation.z)) {
+          modelObject.rotation.set(rotation.x, rotation.y, rotation.z, rotation.order);
+        }
+        modelObject.updateMatrixWorld?.(true);
+      }
+
+      if (typeof modelTransform.wireframe === "boolean") {
+        core.wireframeMode = modelTransform.wireframe;
+        core.scene?.traverse?.((child) => {
+          if (!child?.material) return;
+          child.material.wireframe = core.wireframeMode;
+          child.material.needsUpdate = true;
+        });
+      }
+
+      if (typeof modelTransform.shadingMode === "string") {
+        // "standard" was the default every manifest was written with before
+        // "original" existed: it meant the model's own look.
+        const shadingMode = modelTransform.shadingMode === "standard" ? "original" : modelTransform.shadingMode;
+        this.setShadingMode?.(shadingMode, {
+          vertexShader: modelTransform.customShader?.vertexShader,
+          fragmentShader: modelTransform.customShader?.fragmentShader,
+          silent: true,
+        });
+      }
+
+      this.updateEditorToolbarState?.();
+      this.updateEditorToolbarLabels?.();
+      return true;
+    },
+
+    import3IFManifest(manifestJson) {
+      if (!manifestJson || typeof manifestJson !== "object") {
+        toastHelper("invalidManifest", "error");
+        return false;
+      }
+
+      normalizeAIM3DManifest(manifestJson);
+      const importValidation = validateAIM3DManifest(manifestJson);
+      if (!importValidation.valid) {
+        const detail = formatAIM3DManifestValidationErrors(importValidation.errors);
+        console.error("AIM3D manifest import validation failed", importValidation.errors);
+        toastHelper("invalidManifest", "error", { detail, duration: 9000 });
+        return false;
+      }
+
+      const aim3dConfig = manifestJson.AIM3DViewer;
+      let appliedAIM3DConfig = false;
+      // The manifest's Level of Certainty scale (the default one without),
+      // before its annotations are read against it.
+      this.setCertaintyScale?.(aim3dConfig?.certainty ?? null);
+      // Imported over the current model (no reset): a manifest without a
+      // scale leaves no Level of Certainty view open.
+      if (!aim3dConfig?.certainty && this.certaintyView) this.setCertaintyView(false);
+      // The raking light dims the lights and the environment the manifest
+      // is about to set: off first, on again (if the manifest has it) after.
+      this.setRakingLight?.(false);
+      if (aim3dConfig && typeof aim3dConfig === "object") {
+        const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
+        const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
+        const appliedClipping = this.apply3IFManifestClipping(aim3dConfig.clipping);
+        const appliedIntegration = this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
+        const appliedLights = this.apply3IFManifestLights(aim3dConfig.lights);
+        const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
+        const appliedRakingLight = this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
+        const appliedTimeline = this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
+
+        appliedAIM3DConfig = [
+          appliedCamera,
+          appliedViewer,
+          appliedClipping,
+          appliedIntegration,
+          appliedLights,
+          appliedModelTransform,
+          appliedRakingLight,
+          appliedTimeline,
+        ].some(Boolean);
+      }
+
+      // The comments of the scene shown (core.activeScene), and the
+      // manifest's own ones.
+      const sceneIndex = sceneIndexOf(manifestJson, core.activeScene);
+      const shownScene = (manifestJson?.items || []).filter((item) => item?.type === "Scene")[sceneIndex];
+      const annotationPages = [
+        ...(Array.isArray(shownScene?.annotations) ? shownScene.annotations : []),
+        ...(Array.isArray(manifestJson?.annotations) ? manifestJson.annotations : []),
+      ].filter((page) => Array.isArray(page?.items));
+
+      if (annotationPages.length === 0) {
+        toastHelper(
+          appliedAIM3DConfig
+            ? "manifestImportedWithoutAnnotations"
+            : "noValidAnnotationsInManifest",
+          appliedAIM3DConfig ? "success" : "warning"
+        );
+        return true;
+      }
+
+      const allAnnotations = annotationPages.flatMap((page) => page.items || []);
+      // Scene points (PointSelector) and scope cameras, per annotation id.
+      const pointComments = new Map(readSceneContent(manifestJson, sceneIndex).comments.map((comment) => [comment.id, comment]));
+      const pointRoot = this.resolveObjectByTargetId(POINT_ANNOTATION_ROOT);
+
+      const importedEntries = allAnnotations.map((annotation, index) => {
+        const custom = annotation?.AIM3DViewer || {};
+        // Older exports kept the faces in a JsonSelector on the target.
+        const legacySelector = annotation?.target?.selector;
+        const selectorValue = (!Array.isArray(legacySelector) && legacySelector?.value) || {};
+        const targetId = String(
+          custom.targetId
+          || selectorValue?.targetId
+          || custom.object
+          || (typeof annotation?.target?.source === "string" ? annotation.target.source : "")
+          || ""
+        ).trim();
+
+        const comment = pointComments.get(String(annotation?.id || ""));
+        // Title and description, in every language the annotation has.
+        const { titles, descriptions } = readCommentText(annotation);
+        if (!Object.keys(descriptions).length && annotation?.body?.en?.[0]) {
+          descriptions.en = String(annotation.body.en[0]).trim();
+        }
+        const localized = localizedTexts(titles, descriptions);
+        const commentText = {
+          title: pickLanguage(titles),
+          description: pickLanguage(descriptions),
+          ...(localized ? { localized } : {}),
+        };
+        const customPoint = this.normalizeAnnotationPoint(custom.point);
+        const hasFaces = Array.isArray(custom.faceNumbers) || Array.isArray(selectorValue?.faceNumbers)
+          || Number.isInteger(Number(custom.faceIndex ?? selectorValue?.faceIndex));
+        if (customPoint || (!hasFaces && comment)) {
+          // A point annotation: ours (model-root space) or any IIIF comment
+          // on a scene point (world space, converted).
+          const [fromComment] = comment ? commentsToAnnotationEntries([comment], pointRoot) : [];
+          const point = customPoint || fromComment?.point;
+          if (!point) return null;
+          const polygon = this.normalizeAnnotationPolygon(custom.polygon) || fromComment?.polygon;
+          const pointView = this.normalizeAnnotationView(custom.view) || this.normalizeAnnotationView(comment?.view);
+          return {
+            id: String(annotation.id || `anno-point-${index + 1}`),
+            targetId: custom.targetId || POINT_ANNOTATION_ROOT,
+            point,
+            ...(polygon ? { polygon } : {}),
+            ...commentText,
+            ...(pointView ? { view: pointView } : {}),
+            createdAt: annotation?.created ? String(annotation.created) : "",
+            updatedAt: annotation?.modified ? String(annotation.modified) : "",
+          };
+        }
+
+        const faceNumbers = Array.isArray(custom.faceNumbers)
+          ? custom.faceNumbers
+          : Array.isArray(selectorValue?.faceNumbers)
+            ? selectorValue.faceNumbers
+            : [custom.faceIndex ?? selectorValue?.faceIndex];
+        const normalizedFaceNumbers = faceNumbers
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0);
+        const faceIndex = normalizedFaceNumbers[0];
+
+        if (!targetId || !Number.isInteger(faceIndex)) return null;
+
+        const key = String(annotation?.AIM3DViewer?.key || "").trim() || this.getFaceSelectionKey(targetId, faceIndex);
+        const view = this.normalizeAnnotationView(annotation?.AIM3DViewer?.view)
+          || this.normalizeAnnotationView(comment?.view);
+
+        const certainty = this.normalizeCertainty?.(custom.certainty);
+
+        return {
+          id: String(annotation.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
+          groupId: String(annotation.AIM3DViewer?.groupId || ""),
+          key,
+          object: targetId,
+          targetId,
+          faceIndex,
+          faceNumbers: normalizedFaceNumbers.length > 0 ? normalizedFaceNumbers : [faceIndex],
+          target: {
+            id: targetId,
+            faces: normalizedFaceNumbers.length > 0 ? normalizedFaceNumbers : [faceIndex],
+          },
+          ...commentText,
+          ...(certainty ? { certainty } : {}),
+          ...(view ? { view } : {}),
+          createdAt: annotation?.created ? String(annotation.created) : "",
+          updatedAt: annotation?.modified ? String(annotation.modified) : "",
+        };
+      }).filter(Boolean);
+
+      if (importedEntries.length === 0) {
+        toastHelper(
+          appliedAIM3DConfig
+            ? "manifestImportedWithoutAnnotations"
+            : "noValidAnnotationsInManifest",
+          appliedAIM3DConfig ? "success" : "warning"
+        );
+        return true;
+      }
+
+      this.annotationEntries = importedEntries;
+      // A manifest may open in the Level of Certainty view.
+      if (this.certaintyScale?.visible && importedEntries.some((entry) => entry.certainty)) {
+        this.setCertaintyView(true);
+      } else {
+        this.refreshAnnotationPOIs();
+      }
+      toastHelper("annotationsImportedFromManifest", "success", {
+        count: importedEntries.length,
+        plural: importedEntries.length === 1 ? "" : "s"
+      });
+      return true;
+    },
+
+    ensure3IFManifestImportInput() {
+      if (this.annotation3IFImportInput) return this.annotation3IFImportInput;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json,application/json,text/json";
+      input.hidden = true;
+      this.bindEventListener(input, "change", async (event) => {
+        const target = event?.target;
+        const file = target?.files?.[0];
+        if (!file) return;
+
+        try {
+          const manifestText = await file.text();
+          const manifestJson = JSON.parse(manifestText);
+          this.import3IFManifest(manifestJson);
+        } catch (error) {
+          console.error(error);
+          toastHelper("invalidManifest", "error");
+        } finally {
+          target.value = "";
+        }
+      });
+      document.body.appendChild(input);
+      this.annotation3IFImportInput = input;
+      return input;
+    },
+
+    trigger3IFManifestImport() {
+      const input = this.ensure3IFManifestImportInput();
+      if (!input) return false;
+      input.click();
+      return true;
+    },
+
+    ensureAnnotationImportInput() {
+      if (this.annotationImportInput) return this.annotationImportInput;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".xml,text/xml,application/xml";
+      input.hidden = true;
+      this.bindEventListener(input, "change", async (event) => {
+        const target = event?.target;
+        const file = target?.files?.[0];
+        if (!file) return;
+
+        try {
+          const xmlText = await file.text();
+          const imported = this.importAnnotationsFromIIIFXml(xmlText);
+          if (imported > 0) {
+            toastHelper("annotationsImported", "success", {
+              count: imported,
+              plural: imported === 1 ? "" : "s"
+            });
+          } else {
+            toastHelper("noValidAnnotations", "warning");
+          }
+        } catch (error) {
+          console.error(error);
+          toastHelper("annotationsImportError", "error");
+        } finally {
+          target.value = "";
+        }
+      });
+      document.body.appendChild(input);
+      this.annotationImportInput = input;
+      return input;
+    },
+
+    triggerAnnotationsXmlImport() {
+      const input = this.ensureAnnotationImportInput();
+      if (!input) return false;
+      input.click();
+      return true;
+    },
+
+    importAnnotationsFromIIIFXml(xmlText) {
+      const xml = String(xmlText || "").trim();
+      if (!xml) {
+        this.annotationEntries = [];
+        return 0;
+      }
+
+      let doc;
+      try {
+        doc = new DOMParser().parseFromString(xml, "application/xml");
+      } catch (_error) {
+        return 0;
+      }
+
+      if (!doc || doc.querySelector("parsererror")) {
+        return 0;
+      }
+
+      const annotations = Array.from(
+        doc.querySelectorAll("annotation, iiif\\:annotation")
+      );
+      const importedEntries = [];
+
+      annotations.forEach((node, index) => {
+        const rawId = node.getAttribute("id") || "";
+        const rawGroupId = node.getAttribute("groupId") || "";
+        const targetNode =
+          node.querySelector("target, iiif\\:target") ||
+          node.getElementsByTagName("target")[0] ||
+          node.getElementsByTagName("iiif:target")[0];
+        const targetId = String(targetNode?.getAttribute?.("id") || "").trim();
+        const facesAttr = String(targetNode?.getAttribute?.("faces") || "").trim();
+        const faceNumbers = facesAttr
+          .split(/[,\s;|]+/)
+          .filter(Boolean)
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 0);
+        const faceIndex = faceNumbers[0];
+        const point = this.normalizeAnnotationPoint(targetNode?.getAttribute?.("point"));
+        if (!point && (!targetId || !Number.isInteger(faceIndex))) return;
+
+        const titleNode =
+          node.querySelector("title, iiif\\:title, label, iiif\\:label") ||
+          node.getElementsByTagName("title")[0] ||
+          node.getElementsByTagName("iiif:title")[0];
+        const descriptionNode =
+          node.querySelector("description, iiif\\:description, value, iiif\\:value") ||
+          node.getElementsByTagName("description")[0] ||
+          node.getElementsByTagName("iiif:description")[0];
+
+        const viewNode =
+          node.querySelector("view, iiif\\:view") ||
+          node.getElementsByTagName("view")[0] ||
+          node.getElementsByTagName("iiif:view")[0];
+        const view = viewNode
+          ? this.normalizeAnnotationView({
+              position: viewNode.getAttribute("position"),
+              target: viewNode.getAttribute("target"),
+              fov: viewNode.getAttribute("fov"),
+            })
+          : null;
+
+        const certaintyNode =
+          node.querySelector("certainty, iiif\\:certainty") ||
+          node.getElementsByTagName("iiif:certainty")[0];
+        const certainty = certaintyNode
+          ? this.normalizeCertainty?.({
+              value: certaintyNode.getAttribute("value"),
+              code: certaintyNode.getAttribute("code") || undefined,
+              scope: certaintyNode.getAttribute("scope") || undefined,
+              targetId: certaintyNode.getAttribute("target") || undefined,
+            })
+          : null;
+
+        if (point) {
+          importedEntries.push({
+            id: rawId || `anno-point-${index + 1}`,
+            targetId: targetId || POINT_ANNOTATION_ROOT,
+            point,
+            title: String(titleNode?.textContent || "").trim(),
+            description: String(descriptionNode?.textContent || "").trim(),
+            ...(view ? { view } : {}),
+          });
+          return;
+        }
+
+        const key = this.getFaceSelectionKey(targetId, faceIndex);
+        importedEntries.push({
+          id: rawId || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`,
+          groupId: rawGroupId ? String(rawGroupId) : "",
+          key,
+          object: targetId,
+          targetId,
+          faceIndex,
+          faceNumbers: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
+          target: {
+            id: targetId,
+            faces: faceNumbers.length > 0 ? faceNumbers : [faceIndex],
+          },
+          title: String(titleNode?.textContent || "").trim(),
+          description: String(descriptionNode?.textContent || "").trim(),
+          ...(certainty ? { certainty } : {}),
+          ...(view ? { view } : {}),
+        });
+      });
+
+      this.annotationEntries = importedEntries;
+      this.refreshAnnotationPOIs();
+      return importedEntries.length;
+    },
+
+    hydrateAnnotationsFromMetadataPayload(payload) {
+      if (!payload || typeof payload !== "object") {
+        this.annotationEntries = [];
+        this.refreshAnnotationPOIs();
+        return 0;
+      }
+
+      const xmlCandidate = payload.iiifAnnotationsXml
+        || payload.iiif_annotations_xml
+        || payload.annotationsXml
+        || payload.annotations_xml
+        || "";
+      if (typeof xmlCandidate === "string" && xmlCandidate.trim() !== "") {
+        return this.importAnnotationsFromIIIFXml(xmlCandidate);
+      }
+
+      if (Array.isArray(payload.annotationEntries)) {
+        this.annotationEntries = payload.annotationEntries
+          .map((entry, index) => {
+            const point = this.normalizeAnnotationPoint(entry?.point);
+            if (point) {
+              const pointView = this.normalizeAnnotationView(entry?.view);
+              return {
+                id: String(entry?.id || `anno-point-${index + 1}`),
+                targetId: String(entry?.targetId || POINT_ANNOTATION_ROOT),
+                point,
+                title: String(entry?.title || "").trim(),
+                description: String(entry?.description || "").trim(),
+                ...(pointView ? { view: pointView } : {}),
+                createdAt: entry?.createdAt ? String(entry.createdAt) : "",
+                updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
+              };
+            }
+            const targetId = String(entry?.targetId || entry?.object || entry?.target?.id || "").trim();
+            const faceNumbers = Array.isArray(entry?.faceNumbers)
+              ? entry.faceNumbers
+              : Array.isArray(entry?.target?.faces)
+                ? entry.target.faces
+                : [entry?.faceIndex];
+            const normalizedFaces = faceNumbers
+              .map((value) => Number(value))
+              .filter((value) => Number.isInteger(value) && value >= 0);
+            const faceIndex = normalizedFaces[0];
+            if (!targetId || !Number.isInteger(faceIndex)) return null;
+            const view = this.normalizeAnnotationView(entry?.view);
+            return {
+              id: String(entry?.id || `anno-${this.toStableIdToken(targetId)}-f${faceIndex}-${index}`),
+              groupId: entry?.groupId ? String(entry.groupId) : "",
+              key: this.getFaceSelectionKey(targetId, faceIndex),
+              object: targetId,
+              targetId,
+              faceIndex,
+              faceNumbers: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
+              target: {
+                id: targetId,
+                faces: normalizedFaces.length > 0 ? normalizedFaces : [faceIndex],
+              },
+              title: String(entry?.title || "").trim(),
+              description: String(entry?.description || "").trim(),
+              ...(this.normalizeCertainty?.(entry?.certainty) ? { certainty: this.normalizeCertainty(entry.certainty) } : {}),
+              ...(view ? { view } : {}),
+              createdAt: entry?.createdAt ? String(entry.createdAt) : "",
+              updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
+            };
+          })
+          .filter(Boolean);
+        this.refreshAnnotationPOIs();
+        return this.annotationEntries.length;
+      }
+
+      this.annotationEntries = [];
+      this.refreshAnnotationPOIs();
+      return 0;
+    },
+
+    extractAnnotationsXmlFromExportDocument(doc) {
+      if (!doc) return "";
+      const node =
+        doc.querySelector("iiif\\:annotations, annotations, iiif_annotations, iiif_annotations_xml") ||
+        doc.getElementsByTagName("iiif:annotations")[0] ||
+        doc.getElementsByTagName("annotations")[0] ||
+        doc.getElementsByTagName("iiif_annotations")[0] ||
+        doc.getElementsByTagName("iiif_annotations_xml")[0];
+      if (!node) return "";
+
+      if (node.tagName === "iiif_annotations_xml") {
+        return String(node.textContent || "").trim();
+      }
+
+      try {
+        return new XMLSerializer().serializeToString(node);
+      } catch (_error) {
+        return "";
+      }
+    },
+
+    applyPendingAnnotationsIfAny() {
+      const pendingXml = String(this.pendingAnnotationsXml || "").trim();
+      if (!pendingXml) return 0;
+      const imported = this.importAnnotationsFromIIIFXml(pendingXml);
+      this.pendingAnnotationsXml = "";
+      return imported;
+    },
+  });
+}

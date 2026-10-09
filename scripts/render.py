@@ -1,0 +1,732 @@
+# 
+# The MIT License (MIT)
+#
+# Copyright (c) since 2017 UX3D GmbH
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# 
+
+#
+# Imports
+#
+
+import bpy
+import os
+import sys
+import numpy as np
+import math
+from mathutils import Matrix, Vector
+import itertools
+from math import radians
+import argparse
+import time
+
+if '--' in sys.argv:
+    argv = sys.argv[sys.argv.index('--') + 1:]
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--input", help="Input file path")
+    parser.add_argument("--ext", help="Extenstion of imported file")
+    parser.add_argument("--org_ext", help="Original extenstion of imported file")
+    parser.add_argument("--output", help="Output file path")
+    parser.add_argument("--is_archive", help="Importing archive flag")
+    parser.add_argument("--resolution", help="Resolution preview images")
+    parser.add_argument("--samples", help="Samples rendering quality")
+    parser.add_argument("--hdri", help="Path to HDRI (.exr/.hdr) environment file")
+    parser.add_argument("--no-hdri-lights", dest="no_hdri_lights", action="store_true",
+                         help="Skip the 3-point light rig and rely on HDRI only")
+    parser.add_argument("--device", default="CPU",
+                         help="Render device: CPU (default), GPU, or AUTO (try GPU, fall back to CPU silently)")
+    args = parser.parse_known_args(argv)[0]
+
+def try_enable_gpu(preferred_backend=None):
+    """
+    Tries each Cycles GPU backend in turn (OptiX/CUDA first, since they're
+    NVIDIA-only and fastest, then HIP/oneAPI/Metal for AMD/Intel/Apple) and
+    enables every device found for the first one that has any. Returns the
+    backend name on success, or None if no GPU device was found - the caller
+    is expected to fall back to CPU rendering in that case rather than treat
+    this as an error, since "no GPU in this environment" is an expected,
+    common outcome (e.g. scripts/render.sh's default CPU-only behavior).
+    """
+    cycles_prefs = bpy.context.preferences.addons['cycles'].preferences
+    backends = ['OPTIX', 'CUDA', 'HIP', 'ONEAPI', 'METAL']
+    if preferred_backend in backends:
+        backends = [preferred_backend] + [b for b in backends if b != preferred_backend]
+
+    for backend in backends:
+        try:
+            cycles_prefs.compute_device_type = backend
+        except TypeError:
+            continue
+        gpu_devices = [d for d in cycles_prefs.get_devices_for_type(backend) if d.type == backend]
+        if not gpu_devices:
+            continue
+        for device in cycles_prefs.devices:
+            device.use = device.type == backend
+        return backend
+
+    return None
+
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis / math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta / 2.0)
+    b, c, d = -axis * math.sin(theta / 2.0)
+    aa, bb, cc, dd = a * a, b * b, c * c, d * d
+    bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+    return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                     [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                     [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
+					 
+def rotate(point, angle_degrees, axis=(0,1,0)):
+    theta_degrees = angle_degrees
+    theta_radians = math.radians(theta_degrees)
+    
+    rotated_point = np.dot(rotation_matrix(axis, theta_radians), point)
+    return rotated_point
+
+""" get_min
+- (bound_box)	bound_box
+				utilized bound_box
+>>> (Vector) (x,y,z)
+get_min estimates the minimal x, y, z values
+"""
+def get_min(bound_box):
+	min_x = min([bound_box[i][0] for i in range(0, 8)])
+	min_y = min([bound_box[i][1] for i in range(0, 8)])
+	min_z = min([bound_box[i][2] for i in range(0, 8)])
+	return Vector((min_x, min_y, min_z))
+
+	
+""" get_max
+- (bound_box)	bound_box
+				utilized bound_box
+>>> (Vector) (x,y,z)
+get_max estimates the maximal x, y, z values
+"""
+def get_max(bound_box):
+	max_x = max([bound_box[i][0] for i in range(0, 8)])
+	max_y = max([bound_box[i][1] for i in range(0, 8)])
+	max_z = max([bound_box[i][2] for i in range(0, 8)])
+	return Vector((max_x, max_y, max_z))
+
+
+def get_origin(v1, v2):
+	 return v1 + 0.5 * (v2 - v1)
+
+max_model_dim = 10
+
+def scale_scene():
+    pmin = Vector((float("inf"), float("inf"), float("inf")))
+    pmax = Vector((float("-inf"), float("-inf"), float("-inf")))
+    for o in bpy.data.objects:
+        if o.type == 'MESH':
+            mat = o.matrix_world
+            for v in o.bound_box:
+                v = mat @ Vector(v)
+                if v[0] < pmin[0]: pmin[0] = v[0]
+                if v[1] < pmin[1]: pmin[1] = v[1]
+                if v[2] < pmin[2]: pmin[2] = v[2]
+                if v[0] > pmax[0]: pmax[0] = v[0]
+                if v[1] > pmax[1]: pmax[1] = v[1]
+                if v[2] > pmax[2]: pmax[2] = v[2]
+
+    root = bpy.data.objects.new("scaled_root", None)
+    for obj in bpy.context.scene.objects:
+        if not obj.parent:
+            obj.parent = root
+    bpy.context.scene.collection.objects.link(root)
+
+    center = (pmin + pmax) / 2
+    scale = max_model_dim / (pmax-pmin).length
+    root.matrix_world = Matrix.Diagonal((scale,) * 3).to_4x4() @ Matrix.Translation(-center)
+
+    pmin = root.matrix_world @ pmin
+    pmax = root.matrix_world @ pmax
+    bounds = [
+        pmin[0], pmin[1], pmin[2], # left front bottom
+        pmin[0], pmin[1], pmax[2], # left front top
+        pmin[0], pmax[1], pmax[2], # left back top
+        pmin[0], pmax[1], pmin[2], # left back bottom
+        pmax[0], pmin[1], pmin[2], # right front bottom
+        pmax[0], pmin[1], pmax[2], # right front top
+        pmax[0], pmax[1], pmax[2], # right back top
+        pmax[0], pmax[1], pmin[2]  # right back bottom
+    ]
+    return bounds
+
+
+#
+# Globals
+#
+bpy.context.scene.render.resolution_percentage = 70
+bpy.context.scene.render.resolution_x = 1024
+bpy.context.scene.render.resolution_y = 1024
+bpy.context.scene.cycles.samples = 20
+
+if args.resolution:
+    resolution = args.resolution.split('x', 2)
+    bpy.context.scene.render.resolution_x = int(resolution[0])
+    bpy.context.scene.render.resolution_y = int(resolution[1])
+if args.samples:
+    bpy.context.scene.cycles.samples = int(args.samples)
+#
+# Functions
+#
+current_directory = os.getcwd()
+
+extension = "glb"
+original_extension = "glb"
+
+if args.ext:
+    extension = args.ext
+if extension == "gltf":
+    format = "GLTF_EMBEDDED"
+else:
+   format = "GLB"
+
+if args.org_ext:
+	original_extension = args.org_ext
+
+is_archive = args.is_archive
+
+print("Converting: '" + original_extension + "'")
+
+root, current_extension = os.path.splitext(args.input)
+current_basename = os.path.basename(root)
+
+if current_extension == ".abc" or current_extension == ".blend" or current_extension == ".dae" or current_extension == ".fbx" or current_extension == ".gltf" or current_extension == ".glb" or current_extension == ".obj" or current_extension == ".ply" or current_extension == ".stl" or current_extension == ".wrl" or current_extension == ".x3d":
+
+	bpy.ops.wm.read_factory_settings(use_empty=True)
+
+	if current_extension == ".abc":
+		bpy.ops.wm.alembic_import(filepath=args.input)    
+
+	if current_extension == ".blend":
+		bpy.ops.wm.open_mainfile(filepath=args.input)
+
+	if current_extension == ".dae":
+		bpy.ops.wm.collada_import(filepath=args.input)    
+
+	if current_extension == ".fbx":
+		bpy.ops.import_scene.fbx(filepath=args.input)    
+
+	if current_extension == ".obj":
+		object=bpy.ops.import_scene.obj(filepath=args.input)    
+
+	if current_extension == ".ply":
+		bpy.ops.import_mesh.ply(filepath=args.input)    
+
+	if current_extension == ".stl":
+		bpy.ops.import_mesh.stl(filepath=args.input)
+
+	if current_extension == ".wrl" or current_extension == ".x3d":
+		bpy.ops.import_scene.x3d(filepath=args.input)
+
+	if current_extension == ".gltf" or current_extension == ".glb":
+		bpy.ops.import_scene.gltf(filepath=args.input)
+
+	scene = bpy.context.scene
+	context = bpy.context
+	render = scene.render
+
+	# --------------------------------------------------
+	# UTILS
+	# --------------------------------------------------
+
+	def np_matmul_coords(coords, matrix):
+		M = matrix.transposed()
+		ones = np.ones((coords.shape[0], 1))
+		coords4d = np.hstack((coords, ones))
+		return np.dot(coords4d, M)[:, :-1]
+
+
+	def get_scene_bounds():
+		coords = np.vstack(
+			tuple(
+				np_matmul_coords(np.array(o.bound_box), o.matrix_world.copy())
+				for o in scene.objects if o.type == 'MESH'
+			)
+		)
+		bfl = coords.min(axis=0)
+		tbr = coords.max(axis=0)
+		size = Vector(tbr - bfl)
+		center = Vector((bfl + tbr) * 0.5)
+		return center, size
+
+
+	def fit_camera_to_bounds(cam, center, size, margin=1.2):
+		# aspect ratio of render
+		render = bpy.context.scene.render
+		aspect = render.resolution_x / render.resolution_y
+
+		ratio = size.x / size.z
+		print(f"Camera fit ratio: {ratio:.2f}")
+
+		if ratio > 6.0:
+			cam.data.type = 'ORTHO'
+
+			# ORTHO: scale
+			ortho_height = size.z * 1.2
+			ortho_width = size.x * 1.2 / aspect
+
+			cam.data.ortho_scale = max(ortho_height, ortho_width)
+
+			# clipping – MUST HAVE
+			cam.data.clip_start = 0.01
+			cam.data.clip_end = max(size) * 10
+
+		else:
+			cam.data.type = 'PERSP'
+			cam.data.clip_start = 0.01
+			cam.data.clip_end = max(size) * 10
+
+		# FOV vertical and horizontal
+		fov_x = cam_data.angle
+		fov_y = 2 * math.atan(math.tan(fov_x / 2) / aspect)
+
+		# required distance to fit bounds in view
+		dist_x = (size.x * 0.5) / math.tan(fov_x * 0.5)
+		dist_z = (size.z * 0.5) / math.tan(fov_y * 0.5)
+
+		distance = max(dist_x, dist_z) * margin
+
+		# `cam` is parented to `cam_empty`, which already sits at `center` —
+		# so this is a *local* offset. Adding `center` again here used to
+		# double-count it (rotated into the orbit by cam_empty's rotation),
+		# pushing the whole turntable ~40% of the model's height too high
+		# and off-center.
+		cam.location = Vector((0, -distance, 0))
+
+	if args.output:
+		export_file = args.output
+	else:
+		root = root[::-1].replace(current_basename[::-1], "", 1)[::-1]
+		export_file = root + "_" + extension
+
+	if is_archive:
+		mainfilepath=export_file+current_basename
+	else:
+		mainfilepath=export_file+current_basename+"."+original_extension
+
+	# --------------------------------------------------
+	# RENDER / CYCLES
+	# --------------------------------------------------
+
+	render.engine = 'CYCLES'
+	render.film_transparent = True
+	render.resolution_x = int(resolution[0])
+	render.resolution_y = int(resolution[1])
+	render.resolution_percentage = 100
+
+	render.image_settings.file_format = 'PNG'
+	render.image_settings.color_mode = 'RGBA'
+	render.image_settings.color_depth = '16'
+	render.image_settings.color_management = 'FOLLOW_SCENE'
+
+	scene.render.use_compositing = True
+	# reuse geometry/BVH across the 9 sequential renders below instead of
+	# rebuilding it for every angle
+	scene.render.use_persistent_data = True
+
+	# respect --samples when the caller passed one; otherwise fall back to
+	# the higher-quality default (previously this was always hard-reset to
+	# 256, silently ignoring --samples/render.sh's RENDER_SAMPLES)
+	scene.cycles.samples = int(args.samples) if args.samples else 256
+	scene.cycles.use_adaptive_sampling = True
+	scene.cycles.adaptive_threshold = 0.03
+	scene.cycles.adaptive_min_samples = 16
+
+	# Distribution builds of Blender (e.g. Ubuntu's) come without
+	# OpenImageDenoise: render without denoising there instead of failing.
+	try:
+		scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+		scene.cycles.use_denoising = True
+		scene.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+		scene.cycles.denoising_prefilter = 'ACCURATE'
+	except TypeError:
+		scene.cycles.use_denoising = False
+
+	scene.cycles.max_bounces = 6
+	scene.cycles.diffuse_bounces = 3
+	scene.cycles.glossy_bounces = 3
+	scene.cycles.transparent_max_bounces = 4
+	scene.cycles.transmission_bounces = 4
+
+	# clamp both direct and indirect light so a single hot specular sample
+	# (e.g. a sun/area light reflecting straight off a glossy material)
+	# can't blow a pixel out to white / show up as a firefly
+	scene.cycles.sample_clamp_direct = 10.0
+	scene.cycles.sample_clamp_indirect = 4.0
+	scene.cycles.light_sampling_threshold = 0.03
+
+	# --device CPU (default) preserves the exact previous behavior; GPU/AUTO
+	# opt in to trying a GPU backend, falling back to CPU silently if none is
+	# found (e.g. AUTO on a host with no GPU, or GPU requested but none
+	# passed through to the container).
+	device_request = (args.device or 'CPU').upper()
+	gpu_backend = try_enable_gpu() if device_request in ('GPU', 'AUTO') else None
+	if gpu_backend:
+		scene.cycles.device = 'GPU'
+		print(f"Rendering with GPU backend: {gpu_backend}")
+	else:
+		scene.cycles.device = 'CPU'
+		prefs = bpy.context.preferences
+		prefs.addons['cycles'].preferences.compute_device_type = 'NONE'
+		if device_request == 'GPU':
+			print("Requested GPU rendering but no GPU device was found - falling back to CPU.")
+
+	# --------------------------------------------------
+	# VIEW LAYER PASSES (CLI SAFE)
+	# --------------------------------------------------
+
+	view_layer = scene.view_layers["ViewLayer"]
+	view_layer.use_pass_normal = True
+	view_layer.use_pass_diffuse_color = True
+	view_layer.use_pass_object_index = True
+
+	# --------------------------------------------------
+	# CAMERA
+	# --------------------------------------------------
+
+	center, size = get_scene_bounds()
+	cam_data = bpy.data.cameras.new("Camera")
+	cam_data.lens = 50	# product look
+	cam_data.sensor_width = 36
+
+	cam = bpy.data.objects.new("Camera", cam_data)
+	scene.collection.objects.link(cam)
+	scene.camera = cam
+
+	cam_empty = bpy.data.objects.new("CamTarget", None)
+	cam_empty.location = center 
+	scene.collection.objects.link(cam_empty)
+
+	cam.parent = cam_empty
+
+	constraint = cam.constraints.new(type='TRACK_TO')
+	constraint.target = cam_empty
+	constraint.track_axis = 'TRACK_NEGATIVE_Z'
+	constraint.up_axis = 'UP_Y'
+	constraint.owner_space = 'WORLD'
+	constraint.target_space = 'WORLD'
+
+	# --------------------------------------------------
+	# BASE CAMERA FIT
+	# --------------------------------------------------
+
+	fit_camera_to_bounds(cam, center, size, margin=1.45)
+
+
+	# --------------------------------------------------
+	# MATERIAL FIXUP
+	# --------------------------------------------------
+
+	# Formats without material data (plain STL/PLY, OBJ without an MTL) import
+	# with no material slots at all, which Cycles then renders blown-out white
+	# instead of falling back to a neutral shaded look. Give those a default
+	# material matching the same per-extension fallback color the live viewer
+	# itself uses when a model has no material (see viewer/loaders.js's "stl"
+	# and "ply" cases, and THREE's bare `new MeshPhongMaterial()` for OBJ
+	# without an MTL, which defaults to white) - otherwise the gallery
+	# thumbnail shows a different color than what actually loads on screen.
+	# FIX 5 below still tones down whichever of these is too bright to avoid
+	# blowing out under this scene's lighting.
+	DEFAULT_MATERIAL_COLOR_BY_EXT = {
+		"stl": (1.0, 0.333, 0.2, 1.0),  # viewer/loaders.js STL fallback: 0xff5533
+		"ply": (0.0, 0.333, 1.0, 1.0),  # viewer/loaders.js PLY fallback: 0x0055ff
+		"obj": (1.0, 1.0, 1.0, 1.0),    # THREE MeshPhongMaterial() default: white
+	}
+	default_mat = None
+	for obj in scene.objects:
+		if obj.type != 'MESH':
+			continue
+		if len(obj.data.materials) == 0:
+			if default_mat is None:
+				default_mat = bpy.data.materials.new("DefaultPreviewMaterial")
+				default_mat.use_nodes = True
+				bsdf = default_mat.node_tree.nodes.get("Principled BSDF")
+				if bsdf:
+					color = DEFAULT_MATERIAL_COLOR_BY_EXT.get(
+						original_extension.lower(), (0.22, 0.22, 0.25, 1.0)
+					)
+					bsdf.inputs["Base Color"].default_value = color
+					bsdf.inputs["Roughness"].default_value = 0.5
+			obj.data.materials.append(default_mat)
+
+	# FIX 4: brightness boost for very dark, unlinked Base Color materials
+	# (roughness/specular tweaks are kept as before; on top of that we lift
+	# base colors that are close to black so they don't stay near-invisible
+	# even under a well-lit scene)
+	DARK_THRESHOLD = 0.15
+	BRIGHTEN_FACTOR = 1.6
+	BRIGHT_LUMINANCE_THRESHOLD = 0.4
+	TARGET_BRIGHT_LUMINANCE = 0.35
+
+	for mat in bpy.data.materials:
+		if not mat.use_nodes:
+			continue
+
+		for node in mat.node_tree.nodes:
+			if node.type == 'BSDF_PRINCIPLED':
+
+				# Bardziej naturalne materiały
+				if "Roughness" in node.inputs:
+					node.inputs["Roughness"].default_value = max(
+						node.inputs["Roughness"].default_value,
+						0.45
+					)
+
+				if "Specular IOR Level" in node.inputs:
+					node.inputs["Specular IOR Level"].default_value = 0.5
+
+				if "Metallic" in node.inputs:
+					if node.inputs["Metallic"].default_value < 0.01:
+						node.inputs["Metallic"].default_value = 0.0
+
+				# FIX 4: rozjaśnienie bardzo ciemnych, niepodłączonych Base Color
+				base_color_input = node.inputs.get("Base Color")
+				if base_color_input is not None and not base_color_input.is_linked:
+					col = base_color_input.default_value
+					if max(col[0], col[1], col[2]) < DARK_THRESHOLD:
+						base_color_input.default_value = (
+							min(col[0] * BRIGHTEN_FACTOR, 1.0),
+							min(col[1] * BRIGHTEN_FACTOR, 1.0),
+							min(col[2] * BRIGHTEN_FACTOR, 1.0),
+							col[3],
+						)
+					else:
+						# FIX 5: przyciemnienie zbyt jasnych, niepodłączonych
+						# Base Color. Ta scena (HDRI + fill, Standard view
+						# transform, exposure 0.0) nie ma highlight rolloff,
+						# więc materiały o wysokiej luminancji (np. jednolity
+						# szary 0.6-0.7) prześwietlają się na biało - w
+						# odróżnieniu od nasyconych kolorów o podobnej
+						# wartości pojedynczego kanału (np. niebieski (0,0,0.8),
+						# którego luminancja jest niska), dlatego skalujemy po
+						# luminancji, a nie po pojedynczym kanale.
+						luminance = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2]
+						if luminance > BRIGHT_LUMINANCE_THRESHOLD:
+							scale = TARGET_BRIGHT_LUMINANCE / luminance
+							base_color_input.default_value = (
+								col[0] * scale,
+								col[1] * scale,
+								col[2] * scale,
+								col[3],
+							)
+
+	# --------------------------------------------------
+	# WORLD (HDRI environment)
+	# --------------------------------------------------
+
+	world = bpy.data.worlds.new("World")
+	world.use_nodes = True
+	scene.world = world
+
+	w_nodes = world.node_tree.nodes
+	w_links = world.node_tree.links
+	w_nodes.clear()
+
+	w_output = w_nodes.new("ShaderNodeOutputWorld")
+	w_bg = w_nodes.new("ShaderNodeBackground")
+
+	# Flat, non-rotating ambient floor added on top of the directional HDRI
+	# below. Without it, whichever side currently faces away from the (single,
+	# camera-relative) HDRI key light goes almost black — measured ~0.025 vs
+	# ~0.20 mean luminance between adjacent turntable angles on a building
+	# model, an 8x swing purely from self-shadowing. This fill is a World
+	# shader, so unlike point/area lights its contribution doesn't fall off
+	# with the model's real-world scale.
+	w_bg_fill = w_nodes.new("ShaderNodeBackground")
+	w_bg_fill.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+	w_bg_fill.inputs["Strength"].default_value = 1.5
+	w_add = w_nodes.new("ShaderNodeAddShader")
+	w_links.new(w_bg.outputs["Background"], w_add.inputs[0])
+	w_links.new(w_bg_fill.outputs["Background"], w_add.inputs[1])
+	w_links.new(w_add.outputs["Shader"], w_output.inputs["Surface"])
+
+	default_hdri = os.path.join(
+		os.path.dirname(os.path.abspath(__file__)), "maps", "default.exr"
+	)
+	hdri_path = args.hdri if getattr(args, "hdri", None) else default_hdri
+
+	hdri_mapping = None  # used later to sync rotation with camera angle
+
+	if os.path.isfile(hdri_path):
+		texcoord = w_nodes.new("ShaderNodeTexCoord")
+		hdri_mapping = w_nodes.new("ShaderNodeMapping")
+		env = w_nodes.new("ShaderNodeTexEnvironment")
+
+		env.image = bpy.data.images.load(hdri_path)
+		try:
+			env.image.colorspace_settings.name = 'Linear Rec.709'
+		except TypeError:
+			pass
+
+		w_links.new(texcoord.outputs["Generated"], hdri_mapping.inputs["Vector"])
+		w_links.new(hdri_mapping.outputs["Vector"], env.inputs["Vector"])
+		w_links.new(env.outputs["Color"], w_bg.inputs["Color"])
+
+		w_bg.inputs["Strength"].default_value = 0.35
+
+		world.cycles_visibility.camera = False
+	else:
+		print(f"HDRI nie znaleziony pod '{hdri_path}', fallback on white background.")
+		w_bg.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+		# already uniform in every direction, so it doesn't need w_bg_fill's
+		# help — keep the combined total in line with the HDRI branch above
+		w_bg.inputs["Strength"].default_value = 0.5
+
+	# NOTE: 'Standard' has no highlight rolloff, so any positive exposure
+	# here pushes bright materials straight into clipping (measured ~40% of
+	# visible pixels fully blown out at exposure=1.2 on a textured model,
+	# and near-total blowout on light-colored materials). Keep this at 0.0
+	# unless HDRI/light strengths above are lowered to compensate.
+	scene.view_settings.view_transform = "Standard"
+	scene.view_settings.look = "None"
+	scene.view_settings.exposure = 0.0
+	scene.view_settings.gamma = 1.0
+
+	# --------------------------------------------------
+	# LIGHTS
+	# --------------------------------------------------
+	# Przy dobrym studyjnym HDRI dodatkowy rig 3-punktowy zwykle jest zbędny
+	# (HDRI samo daje kierunkowe światło + odbicia) i może dawać sprzeczne
+	# cienie / przepalone highlighty. Domyślnie więc pomijamy światła, gdy
+	# HDRI zostało poprawnie wczytane. Można to wymusić flagą
+	# --no-hdri-lights.
+
+	max_size = max(size)
+	use_hdri_only = os.path.isfile(hdri_path) or getattr(args, "no_hdri_lights", False)
+
+	light_rig = None
+
+	if not use_hdri_only:
+		light_rig = bpy.data.objects.new("LightRig", None)
+		light_rig.location = center
+		scene.collection.objects.link(light_rig)
+
+		#
+		# KEY
+		#
+
+		key_data = bpy.data.lights.new("Key", "AREA")
+		key_data.energy = 10000
+		key_data.shape = 'RECTANGLE'
+		key_data.size = max_size * 2.5
+
+		key = bpy.data.objects.new("Key", key_data)
+		scene.collection.objects.link(key)
+
+		key.parent = light_rig
+		key.location = Vector((5, -5, 4))
+		key.rotation_euler = (
+			math.radians(55),
+			0,
+			math.radians(45)
+		)
+
+		#
+		# FILL
+		#
+
+		fill_data = bpy.data.lights.new("Fill", "AREA")
+		fill_data.energy = 5500
+		fill_data.shape = 'RECTANGLE'
+		fill_data.size = max_size * 3.0
+
+		fill = bpy.data.objects.new("Fill", fill_data)
+		scene.collection.objects.link(fill)
+
+		fill.parent = light_rig
+		fill.location = Vector((-5, -4, 3))
+		fill.rotation_euler = (
+			math.radians(65),
+			0,
+			math.radians(-40)
+		)
+
+		#
+		# RIM
+		#
+
+		rim_data = bpy.data.lights.new("Rim", "AREA")
+		rim_data.energy = 3000
+		rim_data.shape = 'RECTANGLE'
+		rim_data.size = max_size * 2.0
+
+		rim = bpy.data.objects.new("Rim", rim_data)
+		scene.collection.objects.link(rim)
+
+		rim.parent = light_rig
+		rim.location = Vector((0, 6, 5))
+		rim.rotation_euler = (
+			math.radians(120),
+			0,
+			math.radians(180)
+		)
+
+		key_data.spread = math.radians(120)
+		fill_data.spread = math.radians(140)
+		rim_data.spread = math.radians(160)
+
+	# --------------------------------------------------
+	# RENDERS
+	# --------------------------------------------------
+	t0 = time.perf_counter()
+	
+	print("Starting rendering...")
+	def render_angle(angle_deg, suffix):
+		print(f"Rendering angle {angle_deg}")
+		cam_empty.rotation_euler = (0, 0, math.radians(angle_deg))
+
+		if light_rig is not None:
+			# klasyczny rig świateł nadal obraca się razem z kamerą
+			light_rig.rotation_euler = (0, 0, math.radians(angle_deg))
+		if hdri_mapping is not None:
+			# HDRI-only: obracamy środowisko, żeby "słońce" z HDRI
+			# podążało za kątem kamery tak samo jak wcześniej light_rig
+			hdri_mapping.inputs["Rotation"].default_value = (0, 0, math.radians(angle_deg))
+
+		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
+		bpy.ops.render.render(write_still=True)
+
+	# sides
+	for a in [0, 90, 180, 270]:
+		render_angle(a, f"side{a}")
+
+	# hero angles
+	for a in [45, 135, 225, 315]:
+		render_angle(a, f"side{a}")
+
+	# top
+	cam_empty.rotation_euler = (0, 0, 0)
+	cam.location = Vector((0, 0, max(size.x, size.y) * 1.3))  # local offset, see fit_camera_to_bounds
+	cam.rotation_euler = (0, 0, 0)
+	scene.render.filepath = f"{mainfilepath}_top.png"
+	bpy.ops.render.render(write_still=True)
+
+	t1 = time.perf_counter()
+
+	print(f"Rendering done (took: {t1 - t0:.3f} s)")
+	# --------------------------------------------------

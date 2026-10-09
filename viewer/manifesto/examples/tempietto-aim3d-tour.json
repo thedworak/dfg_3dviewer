@@ -1,0 +1,785 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/tempietto/Tempietto.glb/manifest-tour.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Tempietto - guided tour with annotations (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/tempietto/Tempietto.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Tempietto"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/tour-01-podium",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Podium and steps"
+                ],
+                "pl": [
+                  "Podium i schody"
+                ],
+                "de": [
+                  "Podium und Stufen"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The temple stands on a raised podium of stone blocks, reached by three steps at the front. The podium lifts the cella above the ground and gives the small building its monumental presence.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Świątynia stoi na podwyższonym podium z kamiennych bloków, na które prowadzą trzy stopnie od frontu. Podium unosi celę ponad teren i nadaje małej budowli monumentalny charakter.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Der Tempel steht auf einem erhöhten Podium aus Steinblöcken, zu dem vorne drei Stufen hinaufführen. Das Podium hebt die Cella über das Gelände und verleiht dem kleinen Bau eine monumentale Wirkung.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 0.6,
+                    "z": 2.4
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  0,
+                  0.6,
+                  2.4
+                ],
+                "view": {
+                  "position": [
+                    4.5,
+                    2.2,
+                    8.5
+                  ],
+                  "target": [
+                    0,
+                    0.8,
+                    1.5
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/tour-02-colonnade",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Colonnade and the broken column"
+                ],
+                "pl": [
+                  "Kolumnada i złamana kolumna"
+                ],
+                "de": [
+                  "Säulenhalle und die gebrochene Säule"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Four columns carry the entablature of the portico. Only the lower drums of the fourth column survive; its upper part is a reconstruction based on the three complete columns.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Cztery kolumny dźwigają belkowanie portyku. Z czwartej kolumny zachowały się tylko dolne bębny; jej górna część jest rekonstrukcją na podstawie trzech kompletnych kolumn.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Vier Säulen tragen das Gebälk der Vorhalle. Von der vierten Säule sind nur die unteren Trommeln erhalten; ihr oberer Teil ist eine Rekonstruktion nach den drei vollständigen Säulen.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 1.5,
+                    "y": 1.85,
+                    "z": 1.88
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  1.5,
+                  1.85,
+                  1.88
+                ],
+                "view": {
+                  "position": [
+                    4.2,
+                    2.4,
+                    5.2
+                  ],
+                  "target": [
+                    1.3,
+                    1.6,
+                    1.6
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/tour-03-drum",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Fallen drum"
+                ],
+                "pl": [
+                  "Upadły bęben"
+                ],
+                "de": [
+                  "Herabgefallene Trommel"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "A column drum lies at the foot of the podium, where it fell when the column broke. Pieces like this one help to reconstruct the height of the missing shaft.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "U stóp podium leży bęben kolumny, który spadł, gdy kolumna się złamała. Takie fragmenty pomagają odtworzyć wysokość brakującego trzonu.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Am Fuß des Podiums liegt eine Säulentrommel, die beim Bruch der Säule herabfiel. Solche Fragmente helfen, die Höhe des fehlenden Schafts zu rekonstruieren.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 1.6,
+                    "y": 0.4,
+                    "z": 2.55
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  1.6,
+                  0.4,
+                  2.55
+                ],
+                "view": {
+                  "position": [
+                    3.6,
+                    1.3,
+                    4.6
+                  ],
+                  "target": [
+                    1.6,
+                    0.3,
+                    2.5
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/tour-04-interior",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Glass sphere in the cella"
+                ],
+                "pl": [
+                  "Szklana kula w celi"
+                ],
+                "de": [
+                  "Glaskugel in der Cella"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Inside the cella a glass sphere rests on a pedestal. In the glTF file it uses real transmission and refraction (KHR_materials_transmission), so the room behind it is seen through the glass.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Wewnątrz celi na postumencie spoczywa szklana kula. W pliku glTF ma prawdziwą transmisję i załamanie światła (KHR_materials_transmission), więc wnętrze za nią widać przez szkło.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "In der Cella ruht eine Glaskugel auf einem Sockel. In der glTF-Datei nutzt sie echte Transmission und Lichtbrechung (KHR_materials_transmission), sodass der Raum dahinter durch das Glas sichtbar ist.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 1.75,
+                    "z": -0.85
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  0,
+                  1.75,
+                  -0.85
+                ],
+                "view": {
+                  "position": [
+                    0,
+                    1.9,
+                    3.4
+                  ],
+                  "target": [
+                    0,
+                    1.6,
+                    -1.3
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/tour-05-windows",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Stained-glass windows"
+                ],
+                "pl": [
+                  "Witraże"
+                ],
+                "de": [
+                  "Buntglasfenster"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "The side walls and the back wall have stained-glass windows. Their colours glow slightly on their own (an emissive texture), so they read even in the shade.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Ściany boczne i tylna mają witrażowe okna. Ich kolory lekko świecą same z siebie (tekstura emisyjna), więc są czytelne nawet w cieniu.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Die Seitenwände und die Rückwand haben Buntglasfenster. Ihre Farben leuchten leicht von selbst (eine emissive Textur) und bleiben so auch im Schatten lesbar.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -1.6,
+                    "y": 2.0,
+                    "z": -1.3
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  -1.6,
+                  2.0,
+                  -1.3
+                ],
+                "view": {
+                  "position": [
+                    -5.5,
+                    2.4,
+                    -0.6
+                  ],
+                  "target": [
+                    -1.5,
+                    2.0,
+                    -1.3
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/tour-06-roof",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Pediment and roof - a hypothesis"
+                ],
+                "pl": [
+                  "Fronton i dach - hipoteza"
+                ],
+                "de": [
+                  "Giebel und Dach - eine Hypothese"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Nothing of the roof has survived. The gabled roof with its pediments follows the proportions of comparable temples and is a hypothesis; the Level of Certainty view marks it as such.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Z dachu nic się nie zachowało. Dwuspadowy dach z frontonami odtworzono według proporcji porównywalnych świątyń i jest hipotezą; widok poziomu pewności tak go oznacza.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Vom Dach ist nichts erhalten. Das Satteldach mit seinen Giebeln folgt den Proportionen vergleichbarer Tempel und ist eine Hypothese; die Ansicht des Gewissheitsgrades kennzeichnet es so.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 4.5,
+                    "z": 1.95
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  0,
+                  4.5,
+                  1.95
+                ],
+                "view": {
+                  "position": [
+                    0.5,
+                    6.2,
+                    8.8
+                  ],
+                  "target": [
+                    0,
+                    4.2,
+                    0.5
+                  ],
+                  "fov": 45
+                }
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/tour-07-skylight",
+              "type": "Annotation",
+              "motivation": [
+                "commenting"
+              ],
+              "label": {
+                "en": [
+                  "Skylight"
+                ],
+                "pl": [
+                  "Świetlik"
+                ],
+                "de": [
+                  "Oberlicht"
+                ]
+              },
+              "created": "2026-10-07T00:00:00.000Z",
+              "modified": "2026-10-07T00:00:00.000Z",
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "A glazed skylight in the roof lights the glass sphere from above. With the roof hidden (hierarchy panel) the cella can be looked into from here.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Przeszklony świetlik w dachu oświetla szklaną kulę od góry. Po ukryciu dachu (panel hierarchii) można stąd zajrzeć do celi.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Ein verglastes Oberlicht im Dach beleuchtet die Glaskugel von oben. Wird das Dach ausgeblendet (Hierarchie), lässt sich von hier in die Cella sehen.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 4.9,
+                    "z": -1.3
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "",
+                "targetId": "m0:root",
+                "point": [
+                  0,
+                  4.9,
+                  -1.3
+                ],
+                "view": {
+                  "position": [
+                    3.2,
+                    8.4,
+                    1.4
+                  ],
+                  "target": [
+                    0,
+                    4.7,
+                    -1.3
+                  ],
+                  "fov": 45
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-07T00:00:00.000Z",
+    "camera": {
+      "position": [
+        6.5,
+        4.5,
+        9.5
+      ],
+      "target": [
+        0,
+        2.3,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 11.72,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "agx",
+        "exposure": 1.1,
+        "postprocessing": {
+          "enabled": true,
+          "antialias": "smaa",
+          "ao": true,
+          "aoIntensity": 0.8
+        }
+      },
+      "tour": {
+        "autostart": true,
+        "autoplay": true,
+        "stepDuration": 7,
+        "transitionDuration": 2,
+        "loop": true
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0.6
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          6,
+          10,
+          4
+        ],
+        "target": [
+          0,
+          2.3,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 2.2
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          8,
+          0
+        ],
+        "color": "#ffffff",
+        "groundColor": "#7aa0b0",
+        "intensity": 0.4
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "standard"
+    }
+  },
+  "modified": "2026-10-07T00:00:00.000Z"
+}
