@@ -2,10 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 30_000,
+  // CI renders with software WebGL on small runners (2 vCPU for a private
+  // repository): waits on rendered frames take several times longer there.
+  timeout: process.env.CI ? 60_000 : 30_000,
 
   expect: {
-    timeout: 5_000,
+    timeout: process.env.CI ? 15_000 : 5_000,
   },
 
   // On CI: lets --shard split single tests rather than whole files (all the
