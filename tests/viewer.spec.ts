@@ -826,6 +826,9 @@ test('LAZ point clouds load directly, re-centred in double precision', async ({ 
 });
 
 test('point cloud panel changes colours, shape and size, and only appears for point clouds', async ({ page }) => {
+  // Three models one after another (LAZ, a streamed tileset, a GLB): about
+  // 35 s on the CI runner's software WebGL, over the default 30 s.
+  test.setTimeout(60_000);
   await openViewer(page, '/examples/points.laz');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
   const panel = page.locator('#viewerPointCloudPanel');
