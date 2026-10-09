@@ -23,14 +23,21 @@ concurrency:
 
 jobs:
   e2e:
-    runs-on: ubuntu-26.04
+    # Repository variables (Settings > Secrets and variables > Actions >
+    # Variables), all optional - without them: GitHub's runners, 3 shards,
+    # 1 worker each.
+    #   PLAYWRIGHT_RUNS_ON  runner labels as JSON, e.g. ["self-hosted","tests"]
+    #                       (never a self-hosted runner for a public repository)
+    #   PLAYWRIGHT_SHARDS   shard numbers as JSON, e.g. [1] for one machine
+    #   PLAYWRIGHT_WORKERS  parallel browsers per shard (playwright.config.js)
+    runs-on: ${{ fromJSON(vars.PLAYWRIGHT_RUNS_ON || '"ubuntu-26.04"') }}
 
     # The tests are split across parallel runners; each one builds and runs
     # its share.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: ${{ fromJSON(vars.PLAYWRIGHT_SHARDS || '[1, 2, 3]') }}
 
     steps:
        - name: Checkout repo
@@ -49,8 +56,11 @@ jobs:
        - name: Install dependencies
          run: pnpm install --frozen-lockfile
  
+       # A self-hosted runner has the system libraries installed once
+       # (sudo npx playwright install-deps chromium) - installing them needs
+       # root, which it should not have.
        - name: Install Playwright browsers
-         run: pnpm exec playwright install --with-deps chromium
+         run: pnpm exec playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
  
        - name: Build test dist
          run: pnpm run build:test
@@ -59,6 +69,7 @@ jobs:
          run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
          env:
            CI: true
+           PLAYWRIGHT_WORKERS: ${{ vars.PLAYWRIGHT_WORKERS || 1 }}
  
        - name: Upload Playwright report
          if: always()

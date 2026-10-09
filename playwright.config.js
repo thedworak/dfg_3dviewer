@@ -14,7 +14,9 @@ export default defineConfig({
   // tests are in one file, so by file one shard would get all of them).
   fullyParallel: !!process.env.CI,
 
-  workers: process.env.CI ? 1 : undefined,
+  // PLAYWRIGHT_WORKERS: more on a CI machine with the cores for it (the
+  // workflow passes the repository variable of that name).
+  workers: process.env.CI ? Number(process.env.PLAYWRIGHT_WORKERS) || 1 : undefined,
 
   retries: process.env.CI ? 2 : 0,
 
