@@ -3,6 +3,7 @@ import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { metaCaption, metaPart } from "./meta-icons.js";
 import { fillModelThumbnail } from "./thumbnail-gallery.js";
 
 // Same-origin worker endpoints (see worker/auth.py's "administration" methods
@@ -221,7 +222,7 @@ export function attachAdminPanel(Viewer) {
 
       const closeButton = panel.querySelector("#adminPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeAdminPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeAdminPanel());
     },
 
     async loadUsersList() {
@@ -663,14 +664,14 @@ export function attachAdminPanel(Viewer) {
       const label = document.createElement("span");
       label.className = "models-panel-item-name";
       label.textContent = name;
-      const caption = document.createElement("span");
-      caption.className = "models-panel-item-meta";
-      caption.textContent = [
+      const caption = metaCaption([
         job.owner
-          ? t("modelsPanel.uploadedBy", { user: job.owner }, "Uploaded by {user}")
-          : t("adminPanel.modelNoOwner", "No owner"),
-        job.createdAt ? new Date(job.createdAt * 1000).toLocaleString() : "",
-      ].filter(Boolean).join(" · ");
+          ? metaPart("user", t("modelsMeta.uploadedBy", "Uploaded by"), job.owner)
+          : metaPart("no-user", t("adminPanel.modelNoOwner", "No owner")),
+        job.createdAt
+          ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleString())
+          : null,
+      ]);
       text.append(label, caption);
       entry.appendChild(text);
       item.appendChild(entry);

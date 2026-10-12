@@ -1,24 +1,23 @@
 name: Playwright Tests
 
-# Once per commit: on the push to its branch. A pull request does not run the
-# tests again - the run of its head commit is shown in the pull request's
-# checks. deploy.yml calls this workflow itself (workflow_call) for a push to
-# main/stable-release whose commit has no passing run yet, before deploying.
-# Changes to the docs or Markdown files alone do not run it.
+# On pull requests to main (stable-release -> main): the checks of the pull
+# request. Pushes do not run it - stable-release deploys untested, and main
+# deploys the merge without testing again (deploy.yml finds this run of the
+# pull request's head commit; without one it calls this workflow itself,
+# workflow_call). Changes to the docs or Markdown files alone do not run it.
 on:
-  push:
-    branches-ignore:
+  pull_request:
+    branches:
       - main
-      - stable-release
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
   workflow_call:
   workflow_dispatch:
 
-# A new push to the branch cancels the run for the previous commit.
+# A new push to the pull request cancels the run for its previous commit.
 concurrency:
-  group: playwright-${{ github.workflow }}-${{ github.event_name == 'push' && github.ref || github.run_id }}
+  group: playwright-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

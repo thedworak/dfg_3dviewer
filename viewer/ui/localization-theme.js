@@ -1,5 +1,6 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
+import { renderExampleModelOptions } from "../example-models.js";
 import { UltraLoader } from "../ultra-loader.js";
 import { relocalizeManifestTree } from "../manifesto/manifest-tree-editor.js";
 import { normalizeLanguage } from "../viewer-param-utils.js";
@@ -160,6 +161,8 @@ export function attachLocalizationTheme(viewer) {
       if (label) {
         label.textContent = t("localPreview.loadExampleModel", "Load example model");
       }
+      // Names given per language (example-models.js).
+      renderExampleModelOptions(document.getElementById("example-model-select"));
     },
 
     updateIIIFFormLabels() {

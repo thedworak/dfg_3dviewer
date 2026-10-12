@@ -404,6 +404,26 @@ function validateLanguageMap(value, path, errors) {
   });
 }
 
+// AIM3DViewer.thumbnails (ui/thumbnail-gallery.js): URLs, or { src, label }.
+function validateThumbnails(thumbnails, path, errors) {
+  if (!Array.isArray(thumbnails)) {
+    pushError(errors, path, "must be an array");
+    return;
+  }
+  thumbnails.forEach((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    if (isString(entry)) {
+      if (!entry.trim()) pushError(errors, entryPath, "must not be empty");
+      return;
+    }
+    if (!isPlainObject(entry) || !isString(entry.src) || !entry.src.trim()) {
+      pushError(errors, entryPath, "must be a URL or an object with a non-empty src");
+      return;
+    }
+    if (entry.label !== undefined) validateLanguageMap(entry.label, `${entryPath}.label`, errors);
+  });
+}
+
 // AIM3DViewer.timeline (timeline.js): the 4D stages of the model.
 function validateTimeline(timeline, path, errors) {
   if (!isPlainObject(timeline)) {
@@ -487,6 +507,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.clipping !== undefined) validateClipping(block.clipping, `${path}.clipping`, errors);
   if (block.rakingLight !== undefined) validateRakingLight(block.rakingLight, `${path}.rakingLight`, errors);
   if (block.timeline !== undefined) validateTimeline(block.timeline, `${path}.timeline`, errors);
+  if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
   }

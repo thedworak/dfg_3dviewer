@@ -21,9 +21,8 @@ const BUILD = (typeof __BUILD__ !== 'undefined') ? __BUILD__ : "";
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
 const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
 const envSubDir = (typeof __ENV_SUBDIR__ !== 'undefined') ? __ENV_SUBDIR__ : "main";
-// Examples an app build leaves out of its bundle.
-const isExcludedFromApp = (url) => url === "./examples/WolpaSynagogue.glb"
-  || /^\.\/examples\/(box[.-]|broken\.glb$)/.test(url);
+// The example list is fetched again when the select opens, at most this often.
+const EXAMPLE_MODELS_REFRESH_MS = 60_000;
 
 window.viewer = {
   ready: false,
@@ -36,7 +35,8 @@ window.viewer = {
 };
 
 import { core, setCore } from './core.js';
-import { initConnectivity } from './connectivity.js';
+import { initConnectivity, isOnline, onConnectivityChange } from './connectivity.js';
+import { getExampleModels, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';
 import { initRemote, isAppBuild } from './remote.js';
 import { initAppEarly, initAppSettings, attachAppUi, hideAppSplash } from './app-hooks.js';
 
@@ -53,7 +53,7 @@ import { attachModelsSource } from "./ui/models-source.js";
 import { attachExamplesPanel } from "./ui/examples-panel.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
 import { attachLoginPanel } from "./ui/login-panel.js";
-import { buildThumbnailGallery } from "./ui/thumbnail-gallery.js";
+import { buildThumbnailGallery, getManifestThumbnails } from "./ui/thumbnail-gallery.js";
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
 import { attachMaterialsEditor } from "./editor/materials-editor.js";
@@ -1901,6 +1901,32 @@ export const Viewer = {
     return renderModelGalleryImages(this, imageUrls);
   },
 
+  // The example list (example-models.js) is fetched again - so a new
+  // example needs no new release of the app - at start, when the select
+  // opens (at most once a minute), when the app comes back to the
+  // foreground and when the network returns. The options change only when
+  // the list did.
+  watchExampleModelList(select) {
+    let lastFetch = 0;
+    const refresh = async ({ force = false } = {}) => {
+      if (!force && Date.now() - lastFetch < EXAMPLE_MODELS_REFRESH_MS) return;
+      lastFetch = Date.now();
+      const { updated } = await refreshExampleModels();
+      if (updated) renderExampleModelOptions(select);
+    };
+    refresh({ force: true });
+    this.bindEventListener(select, "pointerdown", () => refresh());
+    this.bindEventListener(select, "focus", () => refresh());
+    this.bindEventListener(document, "visibilitychange", () => {
+      if (document.visibilityState === "visible") refresh();
+    });
+    this.addCleanup(onConnectivityChange((online) => {
+      // Online-only examples are enabled again, or disabled.
+      renderExampleModelOptions(select);
+      if (online) refresh({ force: true });
+    }));
+  },
+
   // Mirrors the static #example-model-picker markup in this repo's own
   // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
   // without that markup - see the forceLocalPreview handling above.
@@ -1921,37 +1947,8 @@ export const Viewer = {
     const selectButton = document.createElement("button");
     selectButton.appendChild(document.createElement("selectedcontent"));
     select.appendChild(selectButton);
-    [
-      ["./examples/tempietto/Tempietto.dae", "DAE"],
-      ["./examples/tempietto/Tempietto.stl", "STL"],
-      ["./examples/tempietto/Tempietto.ply", "PLY"],
-      ["./examples/tempietto/Tempietto.obj", "OBJ"],
-      ["./examples/tempietto/Tempietto.xyz", "XYZ"],
-      ["./examples/tempietto/Tempietto.pcd", "PCD"],
-      ["./examples/tempietto/Tempietto.3ds", "3DS"],
-      ["./examples/tempietto/Tempietto.ifc", "IFC"],
-      ["./examples/tempietto/Tempietto.fbx", "FBX"],
-      ["./examples/tempietto/Tempietto.glb", "GLB"],
-      ["./examples/tempietto/Tempietto.usdz", "USDZ"],
-      ["./examples/tempietto/Tempietto.usda", "USDA"],
-      ["./examples/tempietto/Tempietto.3mf", "3MF"],
-      ["./examples/tempietto/Tempietto.amf", "AMF"],
-      ["./examples/tempietto/Tempietto.wrl", "WRL (VRML)"],
-      ["./examples/tempietto/Tempietto.kmz", "KMZ"],
-      ["./examples/tempietto/Tempietto.vox", "VOX"],
-      ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
-      ["./examples/broken.glb", "Broken GLB"],
-      ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
-      ["./examples/WolpaSynagogue-progressive.glb", "Wolpa Synagogue (progressive, Meshopt + KTX2)"],
-    ]
-      // Not in the app bundle (its build extension leaves it out).
-      .filter(([value]) => !(BUILD === "mobile" && isExcludedFromApp(value)))
-      .forEach(([value, text]) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = text;
-        select.appendChild(option);
-      });
+    // The options come from the example list (example-models.js).
+    renderExampleModelOptions(select);
     picker.appendChild(select);
 
     const themeToggle = document.createElement("button");
@@ -3181,6 +3178,16 @@ export const Viewer = {
     Viewer.manifestCameras = content?.cameraChoices || [];
     Viewer.updateManifestSceneSwitch(manifestJson);
     Viewer.updateManifestCameraSwitch();
+    // The gallery follows the manifest: its AIM3DViewer.thumbnails, else the
+    // generic images (thumbnail-gallery.js) - not the previous model's
+    // renders. The page's own gallery (Drupal fields, gallery.build) is
+    // built once from the page and only replaced by a manifest's renders.
+    const galleryCfg = core.CONFIG.viewer?.gallery;
+    const manifestThumbnails = getManifestThumbnails(Viewer) || [];
+    if ((galleryCfg?.buildFake === true || (galleryCfg?.build === true && manifestThumbnails.length > 0))
+      && !core.SANDBOX_MODE && !Viewer.isEmbedMode()) {
+      Viewer.buildGallery();
+    }
   },
 
   readManifestSceneContent(manifestJson) {
@@ -3969,8 +3976,12 @@ export const Viewer = {
           // last opened it gets the progressive one instead.
           if (BUILD === 'mobile' && selectedModel === './examples/WolpaSynagogue.glb') {
             selectedModel = './examples/WolpaSynagogue-progressive.glb';
-          } else if (BUILD === 'mobile' && selectedModel && isExcludedFromApp(selectedModel)) {
+          } else if (BUILD === 'mobile' && selectedModel && isHiddenInApp(selectedModel)) {
             // A box.* sample, replaced by the Tempietto ones: the default model.
+            selectedModel = null;
+          } else if (selectedModel && !isOnline()
+            && getExampleModels().some((entry) => entry.online && entry.url === selectedModel)) {
+            // An example from the site, and no network: the default model.
             selectedModel = null;
           }
           // The app's first model (mobile.defaultModel, rollup.config.js).
@@ -3985,7 +3996,9 @@ export const Viewer = {
           }
           core.autoPath = selectedModel;
           picker.style.display = 'inline-flex';
+          renderExampleModelOptions(selectModel);
           selectModel.value = selectedModel;
+          Viewer.watchExampleModelList(selectModel);
           viewerElement.setAttribute('3d', selectedModel);
           if (themeToggle) {
             themeToggle.hidden = true;

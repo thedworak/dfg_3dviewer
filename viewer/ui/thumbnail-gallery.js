@@ -157,8 +157,16 @@ function createFakeGalleryElements(testImages) {
   return testImages.map((entry) => {
     const wrapper = document.createElement("div");
     wrapper.className = "field__item";
-    wrapper.innerHTML =
-      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
+    // Built with properties, not markup: the alt text may come from a
+    // manifest (AIM3DViewer.thumbnails labels).
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.src = entry.src;
+    img.width = 200;
+    img.height = 200;
+    img.alt = entry.alt;
+    img.className = "img-fluid image-style-wisski-preview";
+    wrapper.appendChild(img);
     return wrapper;
   });
 }
@@ -523,9 +531,76 @@ export function renderModelGalleryImages(Viewer, imageUrls = []) {
   handleImages(Viewer, mainElement, elements, elements);
 }
 
-export function buildThumbnailGallery(Viewer) {
-  const buildGeneration = ++galleryBuildGeneration;
+// A thumbnail label: a string or a IIIF language map, in the viewer's
+// language, else English, else any.
+function thumbnailLabel(label, fallback) {
+  if (typeof label === "string") return label.trim() || fallback;
+  if (!label || typeof label !== "object") return fallback;
+  const texts = label[core.currentLanguage] || label.en || label.none || Object.values(label)[0];
+  const text = Array.isArray(texts) ? texts.join(" ") : String(texts || "");
+  return text.trim() || fallback;
+}
+
+// A manifest's thumbnail URL: relative ones ("./examples/...") against the
+// page, like the manifest's model URLs. The builds only ship the WebP copies
+// of the examples' gallery PNGs (GALLERY_IMAGE_EXT).
+function resolveManifestThumbnailUrl(src) {
+  let url = src.trim();
+  try {
+    url = new URL(url, document.baseURI).href;
+  } catch {
+    return "";
+  }
+  if (GALLERY_IMAGE_EXT === "webp") {
+    url = url.replace(/(\/examples\/gallery\/[^?#]*)\.png(?=$|[?#])/, "$1.webp");
+  }
+  return normalizeGalleryUrl(url);
+}
+
+// AIM3DViewer.thumbnails of the manifest just loaded (any number of URLs or
+// { src, label }), or the generic placeholders when it has none - never the
+// gallery of the model or manifest shown before.
+export function renderManifestGalleryImages(Viewer, thumbnails) {
+  galleryBuildGeneration++;
   const gallery = getGalleryConfig();
+  const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+  let images = (Array.isArray(thumbnails) ? thumbnails : [])
+    .map((entry, index) => {
+      const src = typeof entry === "string" ? entry : entry?.src;
+      if (typeof src !== "string" || !src.trim()) return null;
+      const fallbackAlt = `Preview ${index + 1}`;
+      return {
+        src: resolveManifestThumbnailUrl(src),
+        alt: typeof entry === "string" ? fallbackAlt : thumbnailLabel(entry.label, fallbackAlt),
+      };
+    })
+    .filter((img) => img?.src);
+  if (images.length === 0) images = createDefaultTestImages();
+  const elements = createFakeGalleryElements(images);
+  handleImages(Viewer, mainElement, elements, elements);
+}
+
+// The thumbnails of the manifest on screen (Viewer.currentManifest, cleared
+// when a model is loaded without one): an array, empty when it has none;
+// null without a manifest.
+export function getManifestThumbnails(Viewer) {
+  const manifest = Viewer?.currentManifest?.json;
+  if (!manifest) return null;
+  const thumbnails = manifest.AIM3DViewer?.thumbnails;
+  return Array.isArray(thumbnails) ? thumbnails : [];
+}
+
+export function buildThumbnailGallery(Viewer) {
+  const gallery = getGalleryConfig();
+  // A manifest's own renders, whichever gallery source is configured; one
+  // without them gets the generic images in the local-testing gallery, the
+  // page's own images (Drupal fields) otherwise.
+  const manifestThumbnails = getManifestThumbnails(Viewer);
+  if (manifestThumbnails && (manifestThumbnails.length > 0 || gallery.buildFake === true)) {
+    renderManifestGalleryImages(Viewer, manifestThumbnails);
+    return;
+  }
+  const buildGeneration = ++galleryBuildGeneration;
   var mainElement = gallery.container
     ? document.getElementById(gallery.container)
     : null;

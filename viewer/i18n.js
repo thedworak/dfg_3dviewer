@@ -342,7 +342,6 @@ export const VIEWER_I18N = {
       closeAria: "Close models panel",
       empty: "No previously generated models yet.",
       loadError: "Could not load previous models.",
-      uploadedBy: "Uploaded by {user}",
       deleteAria: "Delete {name}",
       deleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
       deleteAction: "Delete",
@@ -354,6 +353,12 @@ export const VIEWER_I18N = {
       savedOffline: "{name} is on this device",
       offline: "No internet connection. Models on this device still work.",
       unreachable: "The repository is not responding. Models on this device still work.",
+    },
+    modelsMeta: {
+      uploadedBy: "Uploaded by",
+      uploaded: "Uploaded",
+      saved: "Saved",
+      size: "Size",
     },
     libraryPanel: {
       title: "Models on this device",
@@ -1089,7 +1094,6 @@ export const VIEWER_I18N = {
       closeAria: "Zamknij panel modeli",
       empty: "Brak wcześniej wygenerowanych modeli.",
       loadError: "Nie udało się wczytać listy poprzednich modeli.",
-      uploadedBy: "Wrzucone przez {user}",
       deleteAria: "Usuń {name}",
       deleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
       deleteAction: "Usuń",
@@ -1101,6 +1105,12 @@ export const VIEWER_I18N = {
       savedOffline: "{name} jest na tym urządzeniu",
       offline: "Brak połączenia z internetem. Modele na urządzeniu działają dalej.",
       unreachable: "Repozytorium nie odpowiada. Modele na urządzeniu działają dalej.",
+    },
+    modelsMeta: {
+      uploadedBy: "Wrzucone przez",
+      uploaded: "Wrzucone",
+      saved: "Zapisane",
+      size: "Rozmiar",
     },
     libraryPanel: {
       title: "Modele na tym urządzeniu",
@@ -1869,7 +1879,6 @@ export const VIEWER_I18N = {
       closeAria: "Modell-Panel schließen",
       empty: "Noch keine zuvor generierten Modelle.",
       loadError: "Vorherige Modelle konnten nicht geladen werden.",
-      uploadedBy: "Hochgeladen von {user}",
       deleteAria: "{name} löschen",
       deleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
       deleteAction: "Löschen",
@@ -1881,6 +1890,12 @@ export const VIEWER_I18N = {
       savedOffline: "{name} ist auf diesem Gerät",
       offline: "Keine Internetverbindung. Modelle auf diesem Gerät funktionieren weiterhin.",
       unreachable: "Das Repository antwortet nicht. Modelle auf diesem Gerät funktionieren weiterhin.",
+    },
+    modelsMeta: {
+      uploadedBy: "Hochgeladen von",
+      uploaded: "Hochgeladen",
+      saved: "Gespeichert",
+      size: "Größe",
     },
     libraryPanel: {
       title: "Modelle auf diesem Gerät",

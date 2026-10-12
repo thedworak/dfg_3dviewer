@@ -22,7 +22,8 @@ const TIMELINE_DEFAULTS = Object.freeze({
   transition: "interpolate",
   transitionDuration: 0.8,
   autoplay: false,
-  loop: false,
+  loop: true,
+  speed: 0.5,
   pauseAtEvents: 1.5,
   showPanel: true,
 });
@@ -217,7 +218,7 @@ function buildTimeline(roots, manifestConfig) {
     transition: TIMELINE_TRANSITIONS.includes(config.transition) ? config.transition : TIMELINE_DEFAULTS.transition,
     transitionDuration: Number.isFinite(transitionDuration) && transitionDuration >= 0 ? transitionDuration : TIMELINE_DEFAULTS.transitionDuration,
     yearsPerSecond: Number(playback.yearsPerSecond) > 0 ? Number(playback.yearsPerSecond) : span / PLAY_SPAN_SECONDS,
-    speed: Number(playback.speed) > 0 ? Number(playback.speed) : 1,
+    speed: Number(playback.speed) > 0 ? Number(playback.speed) : TIMELINE_DEFAULTS.speed,
     pauseAtEvents: Number(playback.pauseAtEvents) >= 0 ? Number(playback.pauseAtEvents) : TIMELINE_DEFAULTS.pauseAtEvents,
     loop: typeof playback.loop === "boolean" ? playback.loop : TIMELINE_DEFAULTS.loop,
     autoplay: typeof playback.autoplay === "boolean" ? playback.autoplay : TIMELINE_DEFAULTS.autoplay,
@@ -759,7 +760,7 @@ export function attachTimeline(Viewer) {
           autoplay: state.autoplay,
           loop: state.loop,
           yearsPerSecond: round(state.yearsPerSecond),
-          ...(state.speed !== 1 ? { speed: state.speed } : {}),
+          ...(state.speed !== TIMELINE_DEFAULTS.speed ? { speed: state.speed } : {}),
           pauseAtEvents: state.pauseAtEvents,
         },
         stages: state.stages.map((stage) => ({

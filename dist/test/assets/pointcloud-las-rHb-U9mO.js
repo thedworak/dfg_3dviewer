@@ -1,4 +1,4 @@
-import { g as getDefaultExportFromNamespaceIfNotNamed, c as core } from './main-Ce4zpagm.js';
+import { g as getDefaultExportFromNamespaceIfNotNamed, c as core } from './main-Bu8GwjmW.js';
 import { a9 as THREE } from './three-CcXsnZni.js';
 
 // loaders.gl
@@ -23,7 +23,7 @@ const LASFormat = {
 // Copyright (c) vis.gl contributors
 // __VERSION__ is injected by babel-plugin-version-inline
 // @ts-ignore TS2304: Cannot find name '__VERSION__'.
-const VERSION = "4.5.2" ;
+const VERSION = "4.5.4" ;
 /**
  * Loader for the LAS (LASer) point cloud format
  */
@@ -19727,4 +19727,4 @@ function buildLasPointCloud(buffer, name = "Point cloud") {
 }
 
 export { buildLasPointCloud, readLasPointCount };
-//# sourceMappingURL=pointcloud-las-JTlKEorw.js.map
+//# sourceMappingURL=pointcloud-las-CVWNiKUN.js.map

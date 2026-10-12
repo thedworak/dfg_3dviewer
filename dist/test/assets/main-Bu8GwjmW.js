@@ -62,297 +62,14 @@ function initConnectivity() {
   window.addEventListener('offline', () => applyState(false));
 }
 
+// Calls listener(online) on every change; returns a function that unsubscribes.
+function onConnectivityChange(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 function isOnline() {
   return core.isOnline !== false;
-}
-
-// Which features are available, for builds that wrap the viewer in an app
-// (see app-hooks.js; an app build swaps this module the same way). Kept apart
-// from app-hooks.js and free of imports: remote.js reads it, and most of the
-// viewer imports remote.js.
-
-
-// Whether some features can be locked at all (and the lock icons shown).
-function isFeatureGatingEnabled() {
-  return false;
-}
-
-// Extra headers for requests to the repository (uploads, model list).
-function extraRequestHeaders() {
-  return {};
-}
-
-// The repository the viewer talks to (worker API, converted models). A normal
-// page is served by that repository, so everything stays same-origin. The app
-// build is served from inside the app package
-// instead, and reaches the repository at mobile.remoteUrl from
-// viewer-settings.json - empty there means the app runs offline only.
-function isAppBuild() {
-  return Boolean(core.CONFIG?.mobile);
-}
-
-const REMOTE_URL_KEY = 'dfg3dviewer-remote-url';
-
-// Set in the app (models panel); wins over mobile.remoteUrl from the build.
-function storedRemoteUrl() {
-  try {
-    return localStorage.getItem(REMOTE_URL_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function remoteBase() {
-  if (!isAppBuild()) return '';
-  // Another repository address may not be available (app-features.js); then
-  // the one the app was built with.
-  const stored = storedRemoteUrl() ;
-  const url = stored !== null ? stored : core.CONFIG.mobile.remoteUrl;
-  return String(url || '').trim().replace(/\/+$/, '');
-}
-
-// "repo.example.org" -> "https://repo.example.org"; "" clears it (offline
-// only). Returns the normalized value, or null when it is not a usable URL.
-function setRemoteUrl(input) {
-  let value = String(input || '').trim();
-  if (/\s/.test(value)) return null;
-  if (value && !/^[a-z][\w+.-]*:\/\//i.test(value)) value = `https://${value}`;
-  if (value) {
-    try {
-      const url = new URL(value);
-      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-      value = url.origin + url.pathname.replace(/\/+$/, '');
-    } catch {
-      return null;
-    }
-  }
-  try {
-    localStorage.setItem(REMOTE_URL_KEY, value);
-  } catch {
-    // Storage blocked: the setting lasts for this session only.
-    core.CONFIG.mobile.remoteUrl = value;
-  }
-  initRemote();
-  return value;
-}
-
-// The app's session on the repository (worker/auth.py): the app runs on
-// another origin and never gets the session cookie, so it keeps the token
-// from logging in and sends it as a Bearer header instead. Per repository
-// address - a token is only valid on the worker that issued it.
-const SESSION_KEY = 'dfg3dviewer-session';
-let sessionsInMemory = {};
-
-function readSessions() {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || '{}') || {};
-  } catch {
-    return sessionsInMemory;
-  }
-}
-
-function sessionToken() {
-  return isAppBuild() ? readSessions()[remoteBase()] || '' : '';
-}
-
-function setSessionToken(token) {
-  if (!isAppBuild()) return;
-  const sessions = readSessions();
-  if (token) sessions[remoteBase()] = token;
-  else delete sessions[remoteBase()];
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
-  } catch {
-    // Storage blocked: signed in until the app restarts.
-    sessionsInMemory = sessions;
-  }
-}
-
-// Headers for requests to the repository: the app's session (above) and
-// whatever the app build adds (app-features.js).
-function appRequestHeaders() {
-  const headers = isAppBuild() ? { ...extraRequestHeaders() } : {};
-  const token = sessionToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-}
-
-function hasRemote() {
-  return !isAppBuild() || remoteBase() !== '';
-}
-
-// "/api/jobs" -> "https://repo.example.org/api/jobs" in the app build,
-// unchanged elsewhere.
-function apiUrl(path) {
-  return remoteBase() + path;
-}
-
-// Model and image URLs the worker returns are site-relative ("/files/...");
-// in the app they must point back at the repository, not at the app bundle.
-function remoteAssetUrl(url) {
-  const base = remoteBase();
-  if (!base || typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//')) {
-    return url;
-  }
-  return base + url;
-}
-
-// The page to request deleting an account and its data (viewer/legal/),
-// served by the repository the account lives on.
-function deleteAccountUrl() {
-  return remoteAssetUrl('/delete-account.html');
-}
-
-// body.viewer-app hides what the app does not use; body.viewer-no-remote
-// hides everything that needs a repository when none is configured.
-function initRemote() {
-  document.body?.classList.toggle('viewer-app', isAppBuild());
-  document.body?.classList.toggle('viewer-no-remote', !hasRemote());
-}
-
-// Extension points for builds that wrap the viewer in an app (isAppBuild()
-// in remote.js). These are the defaults the web builds use: nothing to start
-// and nothing gated. An app build swaps this module for its own when bundling
-// (see VIEWER_BUILD_EXTENSION in rollup.config.js), so none of its code ends
-// up in the web bundles. What features are available is app-features.js.
-
-
-// Signed in from the app (a session token, not a cookie).
-async function onAppLogin() {}
-
-// String helpers
-function isValidUrl(urlString) {
-  const urlPattern = new RegExp(
-    "^(https?:\\/\\/)?" +
-    "((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|" +
-    "((\\d{1,3}\\.){3}\\d{1,3}))" +
-    "(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*" +
-    "(\\?[;&a-z\\d%_.~+=-]*)?" +
-    "(\\#[-a-z\\d_]*)?$",
-    "i"
-  );
-  return !!urlPattern.test(urlString);
-}
-
-function truncateString(str, n) {
-  if (str.length === 0) return str;
-  if (str.length > n) return str.substring(0, n) + "...";
-  return str;
-}
-
-// Path helpers
-function getProxyPath(url, config) {
-  const tempPath = decodeURIComponent(config.mainUrl);
-  return tempPath.replace(core.fileObject.originalPath, encodeURIComponent(url));
-}
-
-setCore("getProxyPath", getProxyPath);
-
-function normalizeColor(value) {
-  if (value == null) return null;
-
-  //legacy: [[r,g,b]]
-  if (Array.isArray(value) && Array.isArray(value[0])) {
-    value = value[0];
-  }
-
-  //already normalized
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    typeof value.r === "number" &&
-    typeof value.g === "number" &&
-    typeof value.b === "number"
-  ) {
-    return {
-      r: value.r,
-      g: value.g,
-      b: value.b,
-      a: value.a ?? 1
-    };
-  }
-
-  //[r, g, b, a?]
-  if (Array.isArray(value)) {
-    const [r, g, b, a = 1] = value;
-    if (
-      typeof r === "number" &&
-      typeof g === "number" &&
-      typeof b === "number"
-    ) {
-      return { r, g, b, a };
-    }
-    return null;
-  }
-
-  //number (0xffffff or 16777215)
-  if (typeof value === "number") {
-    return {
-      r: (value >> 16) & 255,
-      g: (value >> 8) & 255,
-      b: value & 255,
-      a: 1
-    };
-  }
-
-  //string
-  if (typeof value === "string") {
-    return parseCssColor(value);
-  }
-
-  return null;
-}
-
-function parseCssColor(str) {
-  if (typeof str !== "string") return null;
-
-  str = str.trim();
-
-  // 0xFFFFFF
-  if (str.startsWith("0x")) {
-    const n = parseInt(str, 16);
-    return {
-      r: (n >> 16) & 255,
-      g: (n >> 8) & 255,
-      b: n & 255,
-      a: 1
-    };
-  }
-
-  // #RGB / #RRGGBB
-  if (str.startsWith("#")) {
-    let hex = str.slice(1);
-
-    if (hex.length === 3) {
-      hex = hex.split("").map(c => c + c).join("");
-    }
-
-    if (hex.length !== 6) return null;
-
-    return {
-      r: parseInt(hex.slice(0, 2), 16),
-      g: parseInt(hex.slice(2, 4), 16),
-      b: parseInt(hex.slice(4, 6), 16),
-      a: 1
-    };
-  }
-
-  // rgb / rgba
-  const m = str.match(
-    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/i
-  );
-
-  if (m) {
-    const [, r, g, b, a] = m;
-    return {
-      r: +r,
-      g: +g,
-      b: +b,
-      a: a !== undefined ? +a : 1
-    };
-  }
-
-  return null;
 }
 
 const VIEWER_I18N = {
@@ -699,7 +416,6 @@ const VIEWER_I18N = {
       closeAria: "Close models panel",
       empty: "No previously generated models yet.",
       loadError: "Could not load previous models.",
-      uploadedBy: "Uploaded by {user}",
       deleteAria: "Delete {name}",
       deleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
       deleteAction: "Delete",
@@ -711,6 +427,12 @@ const VIEWER_I18N = {
       savedOffline: "{name} is on this device",
       offline: "No internet connection. Models on this device still work.",
       unreachable: "The repository is not responding. Models on this device still work.",
+    },
+    modelsMeta: {
+      uploadedBy: "Uploaded by",
+      uploaded: "Uploaded",
+      saved: "Saved",
+      size: "Size",
     },
     libraryPanel: {
       title: "Models on this device",
@@ -1446,7 +1168,6 @@ const VIEWER_I18N = {
       closeAria: "Zamknij panel modeli",
       empty: "Brak wcześniej wygenerowanych modeli.",
       loadError: "Nie udało się wczytać listy poprzednich modeli.",
-      uploadedBy: "Wrzucone przez {user}",
       deleteAria: "Usuń {name}",
       deleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
       deleteAction: "Usuń",
@@ -1458,6 +1179,12 @@ const VIEWER_I18N = {
       savedOffline: "{name} jest na tym urządzeniu",
       offline: "Brak połączenia z internetem. Modele na urządzeniu działają dalej.",
       unreachable: "Repozytorium nie odpowiada. Modele na urządzeniu działają dalej.",
+    },
+    modelsMeta: {
+      uploadedBy: "Wrzucone przez",
+      uploaded: "Wrzucone",
+      saved: "Zapisane",
+      size: "Rozmiar",
     },
     libraryPanel: {
       title: "Modele na tym urządzeniu",
@@ -2226,7 +1953,6 @@ const VIEWER_I18N = {
       closeAria: "Modell-Panel schließen",
       empty: "Noch keine zuvor generierten Modelle.",
       loadError: "Vorherige Modelle konnten nicht geladen werden.",
-      uploadedBy: "Hochgeladen von {user}",
       deleteAria: "{name} löschen",
       deleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
       deleteAction: "Löschen",
@@ -2238,6 +1964,12 @@ const VIEWER_I18N = {
       savedOffline: "{name} ist auf diesem Gerät",
       offline: "Keine Internetverbindung. Modelle auf diesem Gerät funktionieren weiterhin.",
       unreachable: "Das Repository antwortet nicht. Modelle auf diesem Gerät funktionieren weiterhin.",
+    },
+    modelsMeta: {
+      uploadedBy: "Hochgeladen von",
+      uploaded: "Hochgeladen",
+      saved: "Gespeichert",
+      size: "Größe",
     },
     libraryPanel: {
       title: "Modelle auf diesem Gerät",
@@ -2692,6 +2424,552 @@ const t$1=function(key, varsOrFallback = {}, maybeFallback = "") {
     return val ?? `{${v}}`;
   });
 };
+
+// A list the viewer fetches at runtime so it can change without a new build
+// (or app release): the example manifests (example-manifests.js) and the
+// example models (example-models.js). The last list fetched is kept on the
+// device; without a connection (or when the fetch fails) that one is used,
+// else the copy bundled at build time.
+//
+// normalize(data) turns the fetched JSON into the list in use, or null when
+// it is not one (the list in use then stays).
+const FETCH_TIMEOUT_MS = 8000;
+
+function createRemoteList({ name, cacheKey, defaultData, url, normalize }) {
+  function readCache() {
+    try {
+      return normalize(JSON.parse(window.localStorage.getItem(cacheKey) || "null"));
+    } catch {
+      return null;
+    }
+  }
+
+  function writeCache(data) {
+    try {
+      window.localStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch {
+      // Not kept - the next start without a connection uses the default list.
+    }
+  }
+
+  let current = readCache() || normalize(defaultData);
+  let pending = null;
+
+  return {
+    get: () => current,
+
+    // Resolves to { list, updated }. Never rejects: on any failure the list
+    // in use stays as it is. Concurrent calls share one fetch.
+    refresh() {
+      if (pending) return pending;
+      if (!isOnline()) return Promise.resolve({ list: current, updated: false });
+
+      pending = (async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+          const response = await fetch(url(), { cache: "no-cache", signal: controller.signal });
+          if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+          const data = await response.json();
+          const list = normalize(data);
+          if (!list) throw new Error("Unexpected format");
+          writeCache(data);
+          current = list;
+          return { list, updated: true };
+        } catch (error) {
+          console.warn(`${name}: keeping the current list -`, error?.message || error);
+          return { list: current, updated: false };
+        } finally {
+          clearTimeout(timer);
+          pending = null;
+        }
+      })();
+      return pending;
+    },
+  };
+}
+
+// The URL in viewer-settings.json (viewer.<key>), else the fallback.
+function configuredUrl(key, fallback) {
+  const configured = core.CONFIG?.viewer?.[key];
+  return typeof configured === "string" && configured.trim() ? configured.trim() : fallback;
+}
+
+const isRelativeUrl = (url) => /^\.\.?\//.test(url);
+
+// A name given as a string or as { en, de, pl }.
+function localizedName(name) {
+  if (typeof name === "string") return name;
+  if (!name || typeof name !== "object") return "";
+  return name[core.currentLanguage] || name.en || Object.values(name).find((value) => typeof value === "string") || "";
+}
+
+var version$1 = 1;
+var models = [
+	{
+		url: "./examples/tempietto/Tempietto.dae",
+		name: "DAE"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.stl",
+		name: "STL"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.ply",
+		name: "PLY"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.obj",
+		name: "OBJ"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.xyz",
+		name: "XYZ"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.pcd",
+		name: "PCD"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.3ds",
+		name: "3DS"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.ifc",
+		name: "IFC"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.fbx",
+		name: "FBX"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.glb",
+		name: "GLB"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.usdz",
+		name: "USDZ"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.usda",
+		name: "USDA"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.3mf",
+		name: "3MF"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.amf",
+		name: "AMF"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.wrl",
+		name: "WRL (VRML)"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.kmz",
+		name: "KMZ"
+	},
+	{
+		url: "./examples/tempietto/Tempietto.vox",
+		name: "VOX"
+	},
+	{
+		url: "./examples/box-missing-mtl.obj",
+		name: "OBJ (missing MTL)",
+		app: false
+	},
+	{
+		url: "./examples/broken.glb",
+		name: "Broken GLB",
+		app: false
+	},
+	{
+		url: "./examples/WolpaSynagogue.glb",
+		name: "Wolpa Synagogue",
+		app: false
+	},
+	{
+		url: "./examples/WolpaSynagogue-progressive.glb",
+		name: "Wolpa Synagogue (progressive, Meshopt + KTX2)"
+	},
+	{
+		url: "./examples/tiles/wolpa-points/tileset.json",
+		name: "Wolpa Synagogue (point cloud, 3D Tiles)"
+	},
+	{
+		url: "./examples/points.laz",
+		name: "Point cloud (LAZ, UTM coordinates)"
+	},
+	{
+		url: "./examples/animated.glb",
+		name: "Animated GLB"
+	}
+];
+var DEFAULT_LIST$1 = {
+	version: version$1,
+	models: models
+};
+
+// The web viewer serves the list itself; the app fetches it from the site.
+const DEFAULT_URL$1 = "./examples/index.json";
+
+const listUrl$1 = () => configuredUrl("exampleModelsUrl", DEFAULT_URL$1);
+
+new Set((DEFAULT_LIST$1.models || []).filter((entry) => entry.app !== false).map((entry) => entry.url));
+
+function normalizeList$1(data) {
+  if (!Array.isArray(data?.models)) return null;
+  return data.models
+    .filter((entry) => entry && typeof entry.url === "string" && entry.url.trim())
+    .filter((entry) => true)
+    .flatMap((entry) => {
+      if (!isRelativeUrl(entry.url)) return [{ ...entry, online: true }];
+      return [{ ...entry, online: false }];
+    });
+}
+
+const list$1 = createRemoteList({
+  name: "Example models",
+  cacheKey: "dfg3dviewer-example-models",
+  defaultData: DEFAULT_LIST$1,
+  url: listUrl$1,
+  normalize: normalizeList$1,
+});
+
+function getExampleModels() {
+  return list$1.get();
+}
+
+function refreshExampleModels() {
+  return list$1.refresh();
+}
+
+// Fills the select with the list, keeping its <button> (customizable select,
+// external-sources.css), the options marked data-keep (dev.html's own test
+// files) and the chosen model. base: prefix for the "./" URLs of a page not
+// served from the site root (dev.html: "./viewer/"). The same list in the
+// same language leaves the options as they are (an open list stays open);
+// only the online-only ones follow the network.
+function renderExampleModelOptions(select) {
+  if (!select) return;
+  const base = select.dataset.exampleBase || "";
+  const online = isOnline();
+  const options = getExampleModels().map((entry) => ({
+    value: base && isRelativeUrl(entry.url) ? base + entry.url.replace(/^\.\//, "") : entry.url,
+    text: localizedName(entry.name) || entry.url,
+    online: entry.online,
+  }));
+  const signature = JSON.stringify(options);
+  if (select.dataset.exampleList !== signature) {
+    select.dataset.exampleList = signature;
+    const value = select.value;
+    select.querySelectorAll("option:not([data-keep])").forEach((option) => option.remove());
+    const kept = select.querySelector("option[data-keep]");
+    options.forEach(({ value: url, text, online: needsNetwork }) => {
+      const option = document.createElement("option");
+      option.value = url;
+      option.textContent = text;
+      if (needsNetwork) option.dataset.online = "true";
+      select.insertBefore(option, kept);
+    });
+    if (value) select.value = value;
+  }
+  const label = t$1("examplesPanel.online", "Needs an internet connection");
+  select.querySelectorAll("option[data-online]").forEach((option) => {
+    option.title = label;
+    option.disabled = !online;
+  });
+}
+
+// Which features are available, for builds that wrap the viewer in an app
+// (see app-hooks.js; an app build swaps this module the same way). Kept apart
+// from app-hooks.js and free of imports: remote.js reads it, and most of the
+// viewer imports remote.js.
+
+
+// Whether some features can be locked at all (and the lock icons shown).
+function isFeatureGatingEnabled() {
+  return false;
+}
+
+// Extra headers for requests to the repository (uploads, model list).
+function extraRequestHeaders() {
+  return {};
+}
+
+// The repository the viewer talks to (worker API, converted models). A normal
+// page is served by that repository, so everything stays same-origin. The app
+// build is served from inside the app package
+// instead, and reaches the repository at mobile.remoteUrl from
+// viewer-settings.json - empty there means the app runs offline only.
+function isAppBuild() {
+  return Boolean(core.CONFIG?.mobile);
+}
+
+const REMOTE_URL_KEY = 'dfg3dviewer-remote-url';
+
+// Set in the app (models panel); wins over mobile.remoteUrl from the build.
+function storedRemoteUrl() {
+  try {
+    return localStorage.getItem(REMOTE_URL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function remoteBase() {
+  if (!isAppBuild()) return '';
+  // Another repository address may not be available (app-features.js); then
+  // the one the app was built with.
+  const stored = storedRemoteUrl() ;
+  const url = stored !== null ? stored : core.CONFIG.mobile.remoteUrl;
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+// "repo.example.org" -> "https://repo.example.org"; "" clears it (offline
+// only). Returns the normalized value, or null when it is not a usable URL.
+function setRemoteUrl(input) {
+  let value = String(input || '').trim();
+  if (/\s/.test(value)) return null;
+  if (value && !/^[a-z][\w+.-]*:\/\//i.test(value)) value = `https://${value}`;
+  if (value) {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+      value = url.origin + url.pathname.replace(/\/+$/, '');
+    } catch {
+      return null;
+    }
+  }
+  try {
+    localStorage.setItem(REMOTE_URL_KEY, value);
+  } catch {
+    // Storage blocked: the setting lasts for this session only.
+    core.CONFIG.mobile.remoteUrl = value;
+  }
+  initRemote();
+  return value;
+}
+
+// The app's session on the repository (worker/auth.py): the app runs on
+// another origin and never gets the session cookie, so it keeps the token
+// from logging in and sends it as a Bearer header instead. Per repository
+// address - a token is only valid on the worker that issued it.
+const SESSION_KEY = 'dfg3dviewer-session';
+let sessionsInMemory = {};
+
+function readSessions() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || '{}') || {};
+  } catch {
+    return sessionsInMemory;
+  }
+}
+
+function sessionToken() {
+  return isAppBuild() ? readSessions()[remoteBase()] || '' : '';
+}
+
+function setSessionToken(token) {
+  if (!isAppBuild()) return;
+  const sessions = readSessions();
+  if (token) sessions[remoteBase()] = token;
+  else delete sessions[remoteBase()];
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
+  } catch {
+    // Storage blocked: signed in until the app restarts.
+    sessionsInMemory = sessions;
+  }
+}
+
+// Headers for requests to the repository: the app's session (above) and
+// whatever the app build adds (app-features.js).
+function appRequestHeaders() {
+  const headers = isAppBuild() ? { ...extraRequestHeaders() } : {};
+  const token = sessionToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+function hasRemote() {
+  return !isAppBuild() || remoteBase() !== '';
+}
+
+// "/api/jobs" -> "https://repo.example.org/api/jobs" in the app build,
+// unchanged elsewhere.
+function apiUrl(path) {
+  return remoteBase() + path;
+}
+
+// Model and image URLs the worker returns are site-relative ("/files/...");
+// in the app they must point back at the repository, not at the app bundle.
+function remoteAssetUrl(url) {
+  const base = remoteBase();
+  if (!base || typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//')) {
+    return url;
+  }
+  return base + url;
+}
+
+// The page to request deleting an account and its data (viewer/legal/),
+// served by the repository the account lives on.
+function deleteAccountUrl() {
+  return remoteAssetUrl('/delete-account.html');
+}
+
+// body.viewer-app hides what the app does not use; body.viewer-no-remote
+// hides everything that needs a repository when none is configured.
+function initRemote() {
+  document.body?.classList.toggle('viewer-app', isAppBuild());
+  document.body?.classList.toggle('viewer-no-remote', !hasRemote());
+}
+
+// Extension points for builds that wrap the viewer in an app (isAppBuild()
+// in remote.js). These are the defaults the web builds use: nothing to start
+// and nothing gated. An app build swaps this module for its own when bundling
+// (see VIEWER_BUILD_EXTENSION in rollup.config.js), so none of its code ends
+// up in the web bundles. What features are available is app-features.js.
+
+
+// Signed in from the app (a session token, not a cookie).
+async function onAppLogin() {}
+
+// String helpers
+function isValidUrl(urlString) {
+  const urlPattern = new RegExp(
+    "^(https?:\\/\\/)?" +
+    "((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|" +
+    "((\\d{1,3}\\.){3}\\d{1,3}))" +
+    "(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*" +
+    "(\\?[;&a-z\\d%_.~+=-]*)?" +
+    "(\\#[-a-z\\d_]*)?$",
+    "i"
+  );
+  return !!urlPattern.test(urlString);
+}
+
+function truncateString(str, n) {
+  if (str.length === 0) return str;
+  if (str.length > n) return str.substring(0, n) + "...";
+  return str;
+}
+
+// Path helpers
+function getProxyPath(url, config) {
+  const tempPath = decodeURIComponent(config.mainUrl);
+  return tempPath.replace(core.fileObject.originalPath, encodeURIComponent(url));
+}
+
+setCore("getProxyPath", getProxyPath);
+
+function normalizeColor(value) {
+  if (value == null) return null;
+
+  //legacy: [[r,g,b]]
+  if (Array.isArray(value) && Array.isArray(value[0])) {
+    value = value[0];
+  }
+
+  //already normalized
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof value.r === "number" &&
+    typeof value.g === "number" &&
+    typeof value.b === "number"
+  ) {
+    return {
+      r: value.r,
+      g: value.g,
+      b: value.b,
+      a: value.a ?? 1
+    };
+  }
+
+  //[r, g, b, a?]
+  if (Array.isArray(value)) {
+    const [r, g, b, a = 1] = value;
+    if (
+      typeof r === "number" &&
+      typeof g === "number" &&
+      typeof b === "number"
+    ) {
+      return { r, g, b, a };
+    }
+    return null;
+  }
+
+  //number (0xffffff or 16777215)
+  if (typeof value === "number") {
+    return {
+      r: (value >> 16) & 255,
+      g: (value >> 8) & 255,
+      b: value & 255,
+      a: 1
+    };
+  }
+
+  //string
+  if (typeof value === "string") {
+    return parseCssColor(value);
+  }
+
+  return null;
+}
+
+function parseCssColor(str) {
+  if (typeof str !== "string") return null;
+
+  str = str.trim();
+
+  // 0xFFFFFF
+  if (str.startsWith("0x")) {
+    const n = parseInt(str, 16);
+    return {
+      r: (n >> 16) & 255,
+      g: (n >> 8) & 255,
+      b: n & 255,
+      a: 1
+    };
+  }
+
+  // #RGB / #RRGGBB
+  if (str.startsWith("#")) {
+    let hex = str.slice(1);
+
+    if (hex.length === 3) {
+      hex = hex.split("").map(c => c + c).join("");
+    }
+
+    if (hex.length !== 6) return null;
+
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+      a: 1
+    };
+  }
+
+  // rgb / rgba
+  const m = str.match(
+    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/i
+  );
+
+  if (m) {
+    const [, r, g, b, a] = m;
+    return {
+      r: +r,
+      g: +g,
+      b: +b,
+      a: a !== undefined ? +a : 1
+    };
+  }
+
+  return null;
+}
 
 // viewer-utils.js
 
@@ -4645,10 +4923,59 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
-function makePanelWindow(Viewer, panel, handle) {
+// One window at a time: showing a panel window closes the others, and a
+// click (not a drag) on the background - the 3D canvas or the viewer
+// container itself - closes them all. Each panel closes through its own
+// close function, so its side effects run.
+const windows = new Map();
+const CLICK_SLOP_PX = 6;
+let pressStart = null;
+
+function closeWindows(except) {
+  windows.forEach((close, panel) => {
+    if (panel !== except && !panel.hidden) close();
+  });
+}
+
+function isBackground(target) {
+  const container = core.container;
+  if (!container || !(target instanceof Element)) return false;
+  return target === container || (target.tagName === "CANVAS" && container.contains(target));
+}
+
+let backgroundWatched = false;
+
+function watchBackgroundClicks(Viewer) {
+  if (backgroundWatched) return;
+  backgroundWatched = true;
+  Viewer.addCleanup(() => { backgroundWatched = false; });
+  Viewer.bindEventListener(document, "pointerdown", (event) => {
+    pressStart = event.isPrimary && isBackground(event.target) ? { x: event.clientX, y: event.clientY } : null;
+  }, true);
+  Viewer.bindEventListener(document, "pointerup", (event) => {
+    const start = pressStart;
+    pressStart = null;
+    if (!start || !event.isPrimary || !isBackground(event.target)) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP_PX) return;
+    closeWindows(null);
+  }, true);
+}
+
+function makePanelWindow(Viewer, panel, handle, close = () => { panel.hidden = true; }) {
   if (!panel || !handle) return;
   handle.classList.add("panel-window-handle");
   panel.classList.add("panel-window");
+
+  windows.set(panel, close);
+  watchBackgroundClicks(Viewer);
+  const observer = new MutationObserver(() => {
+    if (!panel.hidden) closeWindows(panel);
+  });
+  observer.observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+  Viewer.addCleanup(() => {
+    observer.disconnect();
+    windows.delete(panel);
+  });
 
   Viewer.bindEventListener(handle, "pointerdown", (event) => {
     if (event.button !== 0 || event.target.closest("button, input, select, textarea, a")) return;
@@ -4986,7 +5313,7 @@ function attachUploadPanel(Viewer) {
         this.markUploadUrl(url.value.trim() ? validateModelUrl(url.value) : null);
       });
       this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeUploadPanel());
     },
 
     /**
@@ -5271,6 +5598,40 @@ function libraryEntryFile(entry) {
 
 const repositoryEntryId = (jobId) => `repository-${jobId}`;
 
+// The line under a model's name in the model lists (library, repository,
+// admin): small icons instead of words. Each part is an icon, optionally
+// followed by a value; the words stay as its tooltip and accessible name.
+// The icons themselves are CSS masks (.meta-icon[data-icon] in models-panel.css).
+
+function metaPart(icon, label, value = "") {
+  const part = document.createElement("span");
+  part.className = "meta-part";
+  part.title = label;
+  const glyph = document.createElement("span");
+  glyph.className = "meta-icon";
+  glyph.dataset.icon = icon;
+  part.appendChild(glyph);
+  if (value) {
+    const text = document.createElement("span");
+    text.textContent = value;
+    part.appendChild(text);
+    glyph.setAttribute("aria-hidden", "true");
+    part.setAttribute("aria-label", `${label}: ${value}`);
+  } else {
+    part.setAttribute("role", "img");
+    part.setAttribute("aria-label", label);
+  }
+  return part;
+}
+
+// The caption itself; empty parts (null) are left out.
+function metaCaption(parts) {
+  const caption = document.createElement("span");
+  caption.className = "models-panel-item-meta";
+  caption.append(...parts.filter(Boolean));
+  return caption;
+}
+
 function getGalleryConfig() {
   return core.CONFIG?.viewer?.gallery || {};
 }
@@ -5427,8 +5788,16 @@ function createFakeGalleryElements(testImages) {
   return testImages.map((entry) => {
     const wrapper = document.createElement("div");
     wrapper.className = "field__item";
-    wrapper.innerHTML =
-      `<img loading="lazy" src="${entry.src}" width="200px" height="200px" alt="${entry.alt}" class="img-fluid image-style-wisski-preview">`;
+    // Built with properties, not markup: the alt text may come from a
+    // manifest (AIM3DViewer.thumbnails labels).
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.src = entry.src;
+    img.width = 200;
+    img.height = 200;
+    img.alt = entry.alt;
+    img.className = "img-fluid image-style-wisski-preview";
+    wrapper.appendChild(img);
     return wrapper;
   });
 }
@@ -5793,9 +6162,76 @@ function renderModelGalleryImages$1(Viewer, imageUrls = []) {
   handleImages(Viewer, mainElement, elements, elements);
 }
 
-function buildThumbnailGallery(Viewer) {
-  const buildGeneration = ++galleryBuildGeneration;
+// A thumbnail label: a string or a IIIF language map, in the viewer's
+// language, else English, else any.
+function thumbnailLabel(label, fallback) {
+  if (typeof label === "string") return label.trim() || fallback;
+  if (!label || typeof label !== "object") return fallback;
+  const texts = label[core.currentLanguage] || label.en || label.none || Object.values(label)[0];
+  const text = Array.isArray(texts) ? texts.join(" ") : String(texts || "");
+  return text.trim() || fallback;
+}
+
+// A manifest's thumbnail URL: relative ones ("./examples/...") against the
+// page, like the manifest's model URLs. The builds only ship the WebP copies
+// of the examples' gallery PNGs (GALLERY_IMAGE_EXT).
+function resolveManifestThumbnailUrl(src) {
+  let url = src.trim();
+  try {
+    url = new URL(url, document.baseURI).href;
+  } catch {
+    return "";
+  }
+  {
+    url = url.replace(/(\/examples\/gallery\/[^?#]*)\.png(?=$|[?#])/, "$1.webp");
+  }
+  return normalizeGalleryUrl(url);
+}
+
+// AIM3DViewer.thumbnails of the manifest just loaded (any number of URLs or
+// { src, label }), or the generic placeholders when it has none - never the
+// gallery of the model or manifest shown before.
+function renderManifestGalleryImages(Viewer, thumbnails) {
+  galleryBuildGeneration++;
   const gallery = getGalleryConfig();
+  const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
+  let images = (Array.isArray(thumbnails) ? thumbnails : [])
+    .map((entry, index) => {
+      const src = typeof entry === "string" ? entry : entry?.src;
+      if (typeof src !== "string" || !src.trim()) return null;
+      const fallbackAlt = `Preview ${index + 1}`;
+      return {
+        src: resolveManifestThumbnailUrl(src),
+        alt: typeof entry === "string" ? fallbackAlt : thumbnailLabel(entry.label, fallbackAlt),
+      };
+    })
+    .filter((img) => img?.src);
+  if (images.length === 0) images = createDefaultTestImages();
+  const elements = createFakeGalleryElements(images);
+  handleImages(Viewer, mainElement, elements, elements);
+}
+
+// The thumbnails of the manifest on screen (Viewer.currentManifest, cleared
+// when a model is loaded without one): an array, empty when it has none;
+// null without a manifest.
+function getManifestThumbnails(Viewer) {
+  const manifest = Viewer?.currentManifest?.json;
+  if (!manifest) return null;
+  const thumbnails = manifest.AIM3DViewer?.thumbnails;
+  return Array.isArray(thumbnails) ? thumbnails : [];
+}
+
+function buildThumbnailGallery(Viewer) {
+  const gallery = getGalleryConfig();
+  // A manifest's own renders, whichever gallery source is configured; one
+  // without them gets the generic images in the local-testing gallery, the
+  // page's own images (Drupal fields) otherwise.
+  const manifestThumbnails = getManifestThumbnails(Viewer);
+  if (manifestThumbnails && (manifestThumbnails.length > 0 || gallery.buildFake === true)) {
+    renderManifestGalleryImages(Viewer, manifestThumbnails);
+    return;
+  }
+  const buildGeneration = ++galleryBuildGeneration;
   var mainElement = gallery.container
     ? document.getElementById(gallery.container)
     : null;
@@ -6419,7 +6855,7 @@ function attachModelsPanel(Viewer) {
 
       const closeButton = panel.querySelector("#modelsPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeModelsPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeModelsPanel());
     },
 
     // The address field can be locked in the app (hasFeature() in
@@ -6591,14 +7027,13 @@ function attachModelsPanel(Viewer) {
       // job.owner is null for anonymous uploads (accounts off, or jobs from
       // before accounts were enabled) - the caption then just falls back to
       // the date.
-      const uploadedBy = job.owner ? t$1("modelsPanel.uploadedBy", { user: job.owner }, "Uploaded by {user}") : "";
-      const uploadedAt = job.createdAt ? new Date(job.createdAt * 1000).toLocaleDateString() : "";
-      const captionText = [uploadedBy, uploadedAt].filter(Boolean).join(" · ");
-      if (captionText) {
-        const caption = document.createElement("span");
-        caption.className = "models-panel-item-meta";
-        caption.textContent = captionText;
-        text.appendChild(caption);
+      if (job.owner || job.createdAt) {
+        text.appendChild(metaCaption([
+          job.owner ? metaPart("user", t$1("modelsMeta.uploadedBy", "Uploaded by"), job.owner) : null,
+          job.createdAt
+            ? metaPart("date", t$1("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleDateString())
+            : null,
+        ]));
       }
 
       button.appendChild(text);
@@ -6833,7 +7268,7 @@ function attachLibraryPanel(Viewer) {
 
       this.bindEventListener(panel.querySelector("#libraryPanelClose"), "click", () => this.closeLibraryPanel());
       this.bindEventListener(panel.querySelector("#libraryPanelBrowse"), "click", () => this.browseDeviceFiles());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeLibraryPanel());
     },
 
     // No accept filter: Android has no MIME types for most 3D formats (.glb,
@@ -6905,13 +7340,17 @@ function attachLibraryPanel(Viewer) {
       label.className = "models-panel-item-name";
       label.textContent = entry.name;
       text.appendChild(label);
-      const caption = document.createElement("span");
-      caption.className = "models-panel-item-meta";
-      const origin = entry.source === "repository"
-        ? t$1("libraryPanel.fromRepository", "From the repository")
-        : t$1("libraryPanel.fromDevice", "From this device");
-      caption.textContent = [origin, formatSize(entry.size), new Date(entry.savedAt).toLocaleDateString()].join(" · ");
-      text.appendChild(caption);
+      const fromRepository = entry.source === "repository";
+      text.appendChild(metaCaption([
+        metaPart(
+          fromRepository ? "repository" : "device",
+          fromRepository
+            ? t$1("libraryPanel.fromRepository", "From the repository")
+            : t$1("libraryPanel.fromDevice", "From this device")
+        ),
+        metaPart("size", t$1("modelsMeta.size", "Size"), formatSize(entry.size)),
+        metaPart("date", t$1("modelsMeta.saved", "Saved"), new Date(entry.savedAt).toLocaleDateString()),
+      ]));
       button.appendChild(text);
 
       this.bindEventListener(button, "click", async () => {
@@ -7022,14 +7461,22 @@ function attachModelsSource(Viewer) {
       toggle.className = "models-source-toggle";
       toggle.setAttribute("role", "group");
       toggle.setAttribute("aria-label", t$1("modelsSource.aria", "Where the models come from"));
+      // Icons, with the words as tooltip and accessible name: a phone, a
+      // cloud, a star (the .meta-icon masks in models-panel.css).
       [
-        ["local", t$1("modelsSource.local", "On this device")],
-        ["remote", t$1("modelsSource.remote", "Remote")],
-        ["examples", t$1("modelsSource.examples", "Examples")],
-      ].forEach(([source, label]) => {
+        ["local", "device", t$1("modelsSource.local", "On this device")],
+        ["remote", "repository", t$1("modelsSource.remote", "Remote")],
+        ["examples", "examples", t$1("modelsSource.examples", "Examples")],
+      ].forEach(([source, icon, label]) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = label;
+        const glyph = document.createElement("span");
+        glyph.className = "meta-icon";
+        glyph.dataset.icon = icon;
+        glyph.setAttribute("aria-hidden", "true");
+        button.appendChild(glyph);
+        button.setAttribute("aria-label", label);
+        button.title = label;
         button.dataset.source = source;
         button.setAttribute("aria-pressed", source === active ? "true" : "false");
         if (source !== active) {
@@ -7056,6 +7503,7 @@ function attachModelsSource(Viewer) {
   });
 }
 
+var version = 1;
 var iiif = [
 	{
 		url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json",
@@ -7168,6 +7616,14 @@ var aim3d = [
 		}
 	},
 	{
+		url: "./manifests/tempietto-aim3d-thumbnails.json",
+		name: {
+			en: "Tempietto - own gallery renders (localhost)",
+			pl: "Tempietto - własne rendery w galerii (localhost)",
+			de: "Tempietto - eigene Galerie-Renderings (localhost)"
+		}
+	},
+	{
 		url: "./manifests/wolpa-synagogue-aim3d-local.json",
 		i18n: "aim3if.optionWolpaLocal",
 		fallback: "Wolpa Synagogue (localhost)"
@@ -7256,18 +7712,17 @@ var aim3d = [
 	}
 ];
 var DEFAULT_LIST = {
+	version: version,
 	iiif: iiif,
 	aim3d: aim3d
 };
 
 // The example AIM3D/IIIF manifests offered by the dev build's manifest form
 // (metadata.js) and the app's examples panel (ui/examples-panel.js). The list
-// is fetched at runtime - each time one of them opens and on "Refresh" - from
-// viewer.exampleManifestsUrl (viewer-settings.json), so it can change without
-// a new build. The last list fetched is kept on the device; without a
-// connection (or when the fetch fails) that one is used, else the copy of
-// manifesto/examples/index.json taken at build time - the same file is
-// published with the manifests and is the default online source.
+// is fetched at runtime (remote-list.js) - each time one of them opens and on
+// "Refresh" - from viewer.exampleManifestsUrl (viewer-settings.json); the
+// bundled copy is manifesto/examples/index.json - the same file is published
+// with the manifests and is the default online source.
 //
 // Format: { "iiif": [entry], "aim3d": [entry] }, entry = { url, i18n?,
 // fallback?, name?, excludeFromMobile?, inIIIFSelect? }. "name" may be a
@@ -7276,8 +7731,8 @@ var DEFAULT_LIST = {
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
 const DEFAULT_URL = "https://viewer.thedworak.com/manifests/index.json";
-const CACHE_KEY = "dfg3dviewer-example-manifests";
-const FETCH_TIMEOUT_MS = 8000;
+
+const listUrl = () => configuredUrl("exampleManifestsUrl", DEFAULT_URL);
 
 function normalizeEntries(entries) {
   if (!Array.isArray(entries)) return null;
@@ -7294,67 +7749,20 @@ function normalizeList(data) {
   return iiif && aim3d ? { iiif, aim3d } : null;
 }
 
-function readCache() {
-  try {
-    return normalizeList(JSON.parse(window.localStorage.getItem(CACHE_KEY) || "null"));
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(data) {
-  try {
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-  } catch {
-    // Not kept - the next start without a connection uses the default list.
-  }
-}
-
-let current = readCache() || normalizeList(DEFAULT_LIST);
-let pending = null;
+const list = createRemoteList({
+  name: "Example manifests",
+  cacheKey: "dfg3dviewer-example-manifests",
+  defaultData: DEFAULT_LIST,
+  url: listUrl,
+  normalize: normalizeList,
+});
 
 function getExampleManifests() {
-  return current;
+  return list.get();
 }
 
-function listUrl() {
-  const configured = core.CONFIG?.viewer?.exampleManifestsUrl;
-  return typeof configured === "string" && configured.trim() ? configured.trim() : DEFAULT_URL;
-}
-
-// Fetches the list; resolves to { list, updated }. Never rejects: on any
-// failure the list in use stays as it is. Concurrent calls share one fetch.
 function refreshExampleManifests() {
-  if (pending) return pending;
-  if (!isOnline()) return Promise.resolve({ list: current, updated: false });
-
-  pending = (async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    try {
-      const response = await fetch(listUrl(), { cache: "no-cache", signal: controller.signal });
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-      const data = await response.json();
-      const list = normalizeList(data);
-      if (!list) throw new Error("Unexpected format");
-      writeCache(data);
-      current = list;
-      return { list, updated: true };
-    } catch (error) {
-      console.warn("Example manifests: keeping the current list -", error?.message || error);
-      return { list: current, updated: false };
-    } finally {
-      clearTimeout(timer);
-      pending = null;
-    }
-  })();
-  return pending;
-}
-
-function localizedName(name) {
-  if (typeof name === "string") return name;
-  if (!name || typeof name !== "object") return "";
-  return name[core.currentLanguage] || name.en || Object.values(name).find((value) => typeof value === "string") || "";
+  return list.refresh();
 }
 
 // { url, i18n, name, baseUrl } with the name in the current language.
@@ -7409,7 +7817,7 @@ function attachExamplesPanel(Viewer) {
 
       this.bindEventListener(panel.querySelector("#examplesPanelClose"), "click", () => this.closeExamplesPanel());
       this.bindEventListener(panel.querySelector("#examplesPanelRefresh"), "click", () => this.loadExamplesList({ notify: true }));
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeExamplesPanel());
     },
 
     // On every open: shows the list in use at once, then fetches the current
@@ -7449,13 +7857,20 @@ function attachExamplesPanel(Viewer) {
           const title = document.createElement("span");
           title.className = "models-panel-item-name";
           title.textContent = displayName(name);
-          const caption = document.createElement("span");
-          caption.className = "models-panel-item-meta";
-          caption.textContent = isBundled(url)
+          text.appendChild(title);
+          // An icon instead of a caption: a phone for the bundled ones, a
+          // globe for those fetched from the internet.
+          const bundled = isBundled(url);
+          const sourceLabel = bundled
             ? t$1("examplesPanel.bundled", "In the app, works offline")
             : t$1("examplesPanel.online", "Needs an internet connection");
-          text.append(title, caption);
-          button.appendChild(text);
+          const source = document.createElement("span");
+          source.className = "examples-panel-source";
+          source.dataset.source = bundled ? "bundled" : "online";
+          source.setAttribute("role", "img");
+          source.setAttribute("aria-label", sourceLabel);
+          source.title = sourceLabel;
+          button.append(text, source);
           button.disabled = !online && !isBundled(url);
           this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
           item.appendChild(button);
@@ -7694,7 +8109,7 @@ function attachAdminPanel(Viewer) {
 
       const closeButton = panel.querySelector("#adminPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeAdminPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeAdminPanel());
     },
 
     async loadUsersList() {
@@ -8136,14 +8551,14 @@ function attachAdminPanel(Viewer) {
       const label = document.createElement("span");
       label.className = "models-panel-item-name";
       label.textContent = name;
-      const caption = document.createElement("span");
-      caption.className = "models-panel-item-meta";
-      caption.textContent = [
+      const caption = metaCaption([
         job.owner
-          ? t$1("modelsPanel.uploadedBy", { user: job.owner }, "Uploaded by {user}")
-          : t$1("adminPanel.modelNoOwner", "No owner"),
-        job.createdAt ? new Date(job.createdAt * 1000).toLocaleString() : "",
-      ].filter(Boolean).join(" · ");
+          ? metaPart("user", t$1("modelsMeta.uploadedBy", "Uploaded by"), job.owner)
+          : metaPart("no-user", t$1("adminPanel.modelNoOwner", "No owner")),
+        job.createdAt
+          ? metaPart("date", t$1("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleString())
+          : null,
+      ]);
       text.append(label, caption);
       entry.appendChild(text);
       item.appendChild(entry);
@@ -8542,7 +8957,7 @@ function attachLoginPanel(Viewer) {
         status: panel.querySelector("#loginPanelStatus"),
       };
       this.bindEventListener(panel.querySelector("#loginPanelClose"), "click", () => this.closeLoginPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeLoginPanel());
       this.renderLoginPanel();
     },
 
@@ -9269,6 +9684,8 @@ function attachLocalizationTheme(viewer) {
       if (label) {
         label.textContent = t$1("localPreview.loadExampleModel", "Load example model");
       }
+      // Names given per language (example-models.js).
+      renderExampleModelOptions(document.getElementById("example-model-select"));
     },
 
     updateIIIFFormLabels() {
@@ -9951,7 +10368,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "398a93b5" ;
+const BUILD_ID$2 = "0a1192a9" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -9971,7 +10388,7 @@ function initErrorTracking() {
   const config = getErrorTrackingConfig();
   if (!config.dsn) return Promise.resolve(null);
 
-  initPromise = import('./error-tracking-sdk-DKlus4u2.js')
+  initPromise = import('./error-tracking-sdk-B-tlsOvf.js')
     .then((Sentry) => {
       // autoCapture: false sends only what users report with the bug button,
       // not every uncaught error.
@@ -10002,8 +10419,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "398a93b5" ;
-const BUILD_TIME$1 = "2026-10-09T10:00:43.800Z" ;
+const BUILD_ID$1 = "0a1192a9" ;
+const BUILD_TIME$1 = "2026-10-12T08:01:25.535Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -15261,6 +15678,26 @@ function validateLanguageMap(value, path, errors) {
   });
 }
 
+// AIM3DViewer.thumbnails (ui/thumbnail-gallery.js): URLs, or { src, label }.
+function validateThumbnails(thumbnails, path, errors) {
+  if (!Array.isArray(thumbnails)) {
+    pushError(errors, path, "must be an array");
+    return;
+  }
+  thumbnails.forEach((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    if (isString(entry)) {
+      if (!entry.trim()) pushError(errors, entryPath, "must not be empty");
+      return;
+    }
+    if (!isPlainObject$3(entry) || !isString(entry.src) || !entry.src.trim()) {
+      pushError(errors, entryPath, "must be a URL or an object with a non-empty src");
+      return;
+    }
+    if (entry.label !== undefined) validateLanguageMap(entry.label, `${entryPath}.label`, errors);
+  });
+}
+
 // AIM3DViewer.timeline (timeline.js): the 4D stages of the model.
 function validateTimeline(timeline, path, errors) {
   if (!isPlainObject$3(timeline)) {
@@ -15344,6 +15781,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.clipping !== undefined) validateClipping(block.clipping, `${path}.clipping`, errors);
   if (block.rakingLight !== undefined) validateRakingLight(block.rakingLight, `${path}.rakingLight`, errors);
   if (block.timeline !== undefined) validateTimeline(block.timeline, `${path}.timeline`, errors);
+  if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
   }
@@ -20154,7 +20592,8 @@ const TIMELINE_DEFAULTS = Object.freeze({
   transition: "interpolate",
   transitionDuration: 0.8,
   autoplay: false,
-  loop: false,
+  loop: true,
+  speed: 0.5,
   pauseAtEvents: 1.5,
   showPanel: true,
 });
@@ -20349,7 +20788,7 @@ function buildTimeline(roots, manifestConfig) {
     transition: TIMELINE_TRANSITIONS.includes(config.transition) ? config.transition : TIMELINE_DEFAULTS.transition,
     transitionDuration: Number.isFinite(transitionDuration) && transitionDuration >= 0 ? transitionDuration : TIMELINE_DEFAULTS.transitionDuration,
     yearsPerSecond: Number(playback.yearsPerSecond) > 0 ? Number(playback.yearsPerSecond) : span / PLAY_SPAN_SECONDS,
-    speed: Number(playback.speed) > 0 ? Number(playback.speed) : 1,
+    speed: Number(playback.speed) > 0 ? Number(playback.speed) : TIMELINE_DEFAULTS.speed,
     pauseAtEvents: Number(playback.pauseAtEvents) >= 0 ? Number(playback.pauseAtEvents) : TIMELINE_DEFAULTS.pauseAtEvents,
     loop: typeof playback.loop === "boolean" ? playback.loop : TIMELINE_DEFAULTS.loop,
     autoplay: typeof playback.autoplay === "boolean" ? playback.autoplay : TIMELINE_DEFAULTS.autoplay,
@@ -20891,7 +21330,7 @@ function attachTimeline(Viewer) {
           autoplay: state.autoplay,
           loop: state.loop,
           yearsPerSecond: round(state.yearsPerSecond),
-          ...(state.speed !== 1 ? { speed: state.speed } : {}),
+          ...(state.speed !== TIMELINE_DEFAULTS.speed ? { speed: state.speed } : {}),
           pauseAtEvents: state.pauseAtEvents,
         },
         stages: state.stages.map((stage) => ({
@@ -23007,7 +23446,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-D_MP6TMH.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-4g_OTOsC.js');
+const loadTilesPlugins = () => import('./index.three-plugins-C5Yb4jzc.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -27218,7 +27657,7 @@ const loadLWOLoader = async () => (await import('./three-CcXsnZni.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DaGIrRE_.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aW; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-S-ltU-Bu.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-rHb-U9mO.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aX; })).HDRLoader;
 
 var outlineClipping;
@@ -28332,6 +28771,8 @@ function fadeWhileTouched(logo) {
     }, options);
   });
 }
+
+var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
 function getDefaultExportFromCjs (x) {
 	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
@@ -30063,6 +30504,108 @@ function require_arrayPush () {
 	return _arrayPush;
 }
 
+/** Detect free variable `global` from Node.js. */
+
+var _freeGlobal;
+var hasRequired_freeGlobal;
+
+function require_freeGlobal () {
+	if (hasRequired_freeGlobal) return _freeGlobal;
+	hasRequired_freeGlobal = 1;
+	var freeGlobal = typeof commonjsGlobal == 'object' && commonjsGlobal && commonjsGlobal.Object === Object && commonjsGlobal;
+
+	_freeGlobal = freeGlobal;
+	return _freeGlobal;
+}
+
+var _root;
+var hasRequired_root;
+
+function require_root () {
+	if (hasRequired_root) return _root;
+	hasRequired_root = 1;
+	var freeGlobal = /*@__PURE__*/ require_freeGlobal();
+
+	/** Detect free variable `self`. */
+	var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+	/** Used as a reference to the global object. */
+	var root = freeGlobal || freeSelf || Function('return this')();
+
+	_root = root;
+	return _root;
+}
+
+var _Symbol;
+var hasRequired_Symbol;
+
+function require_Symbol () {
+	if (hasRequired_Symbol) return _Symbol;
+	hasRequired_Symbol = 1;
+	var root = /*@__PURE__*/ require_root();
+
+	/** Built-in value references. */
+	var Symbol = root.Symbol;
+
+	_Symbol = Symbol;
+	return _Symbol;
+}
+
+var _getRawTag;
+var hasRequired_getRawTag;
+
+function require_getRawTag () {
+	if (hasRequired_getRawTag) return _getRawTag;
+	hasRequired_getRawTag = 1;
+	var Symbol = /*@__PURE__*/ require_Symbol();
+
+	/** Used for built-in method references. */
+	var objectProto = Object.prototype;
+
+	/** Used to check objects for own properties. */
+	var hasOwnProperty = objectProto.hasOwnProperty;
+
+	/**
+	 * Used to resolve the
+	 * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+	 * of values.
+	 */
+	var nativeObjectToString = objectProto.toString;
+
+	/** Built-in value references. */
+	var symToStringTag = Symbol ? Symbol.toStringTag : undefined;
+
+	/**
+	 * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
+	 *
+	 * @private
+	 * @param {*} value The value to query.
+	 * @returns {string} Returns the raw `toStringTag`.
+	 */
+	function getRawTag(value) {
+	  var isOwn = hasOwnProperty.call(value, symToStringTag),
+	      tag = value[symToStringTag];
+
+	  try {
+	    value[symToStringTag] = undefined;
+	    var unmasked = true;
+	  } catch (e) {}
+
+	  var result = nativeObjectToString.call(value);
+	  if (unmasked) {
+	    if (isOwn) {
+	      value[symToStringTag] = tag;
+	    } else {
+	      delete value[symToStringTag];
+	    }
+	  }
+	  return result;
+	}
+
+	_getRawTag = getRawTag;
+	return _getRawTag;
+}
+
 /** Used for built-in method references. */
 
 var _objectToString;
@@ -30101,11 +30644,16 @@ var hasRequired_baseGetTag;
 function require_baseGetTag () {
 	if (hasRequired_baseGetTag) return _baseGetTag;
 	hasRequired_baseGetTag = 1;
-	var objectToString = /*@__PURE__*/ require_objectToString();
+	var Symbol = /*@__PURE__*/ require_Symbol(),
+	    getRawTag = /*@__PURE__*/ require_getRawTag(),
+	    objectToString = /*@__PURE__*/ require_objectToString();
 
 	/** `Object#toString` result references. */
 	var nullTag = '[object Null]',
 	    undefinedTag = '[object Undefined]';
+
+	/** Built-in value references. */
+	var symToStringTag = Symbol ? Symbol.toStringTag : undefined;
 
 	/**
 	 * The base implementation of `getTag` without fallbacks for buggy environments.
@@ -30118,7 +30666,9 @@ function require_baseGetTag () {
 	  if (value == null) {
 	    return value === undefined ? undefinedTag : nullTag;
 	  }
-	  return objectToString(value);
+	  return (symToStringTag && symToStringTag in Object(value))
+	    ? getRawTag(value)
+	    : objectToString(value);
 	}
 
 	_baseGetTag = baseGetTag;
@@ -30278,8 +30828,12 @@ var hasRequired_isFlattenable;
 function require_isFlattenable () {
 	if (hasRequired_isFlattenable) return _isFlattenable;
 	hasRequired_isFlattenable = 1;
-	var isArguments = /*@__PURE__*/ requireIsArguments(),
+	var Symbol = /*@__PURE__*/ require_Symbol(),
+	    isArguments = /*@__PURE__*/ requireIsArguments(),
 	    isArray = /*@__PURE__*/ requireIsArray();
+
+	/** Built-in value references. */
+	var spreadableSymbol = Symbol ? Symbol.isConcatSpreadable : undefined;
 
 	/**
 	 * Checks if `value` is a flattenable `arguments` object or array.
@@ -30290,7 +30844,7 @@ function require_isFlattenable () {
 	 */
 	function isFlattenable(value) {
 	  return isArray(value) || isArguments(value) ||
-	    false;
+	    !!(spreadableSymbol && value && value[spreadableSymbol]);
 	}
 
 	_isFlattenable = isFlattenable;
@@ -35619,8 +36173,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "398a93b5" ;
-const BUILD_TIME = "2026-10-09T10:00:43.800Z" ;
+const BUILD_ID = "0a1192a9" ;
+const BUILD_TIME = "2026-10-12T08:01:25.535Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -35860,6 +36414,8 @@ https://www.gnu.org/licenses/.
 
 const SOURCE = "" ;
 const isE2E = window.__E2E__ === true ;
+// The example list is fetched again when the select opens, at most this often.
+const EXAMPLE_MODELS_REFRESH_MS = 60_000;
 
 window.viewer = {
   ready: false,
@@ -37590,6 +38146,32 @@ const Viewer$1 = {
     return renderModelGalleryImages(this, imageUrls);
   },
 
+  // The example list (example-models.js) is fetched again - so a new
+  // example needs no new release of the app - at start, when the select
+  // opens (at most once a minute), when the app comes back to the
+  // foreground and when the network returns. The options change only when
+  // the list did.
+  watchExampleModelList(select) {
+    let lastFetch = 0;
+    const refresh = async ({ force = false } = {}) => {
+      if (!force && Date.now() - lastFetch < EXAMPLE_MODELS_REFRESH_MS) return;
+      lastFetch = Date.now();
+      const { updated } = await refreshExampleModels();
+      if (updated) renderExampleModelOptions(select);
+    };
+    refresh({ force: true });
+    this.bindEventListener(select, "pointerdown", () => refresh());
+    this.bindEventListener(select, "focus", () => refresh());
+    this.bindEventListener(document, "visibilitychange", () => {
+      if (document.visibilityState === "visible") refresh();
+    });
+    this.addCleanup(onConnectivityChange((online) => {
+      // Online-only examples are enabled again, or disabled.
+      renderExampleModelOptions(select);
+      if (online) refresh({ force: true });
+    }));
+  },
+
   // Mirrors the static #example-model-picker markup in this repo's own
   // index.html, for pages (Drupal/WissKI, etc.) that embed the viewer
   // without that markup - see the forceLocalPreview handling above.
@@ -37610,37 +38192,8 @@ const Viewer$1 = {
     const selectButton = document.createElement("button");
     selectButton.appendChild(document.createElement("selectedcontent"));
     select.appendChild(selectButton);
-    [
-      ["./examples/tempietto/Tempietto.dae", "DAE"],
-      ["./examples/tempietto/Tempietto.stl", "STL"],
-      ["./examples/tempietto/Tempietto.ply", "PLY"],
-      ["./examples/tempietto/Tempietto.obj", "OBJ"],
-      ["./examples/tempietto/Tempietto.xyz", "XYZ"],
-      ["./examples/tempietto/Tempietto.pcd", "PCD"],
-      ["./examples/tempietto/Tempietto.3ds", "3DS"],
-      ["./examples/tempietto/Tempietto.ifc", "IFC"],
-      ["./examples/tempietto/Tempietto.fbx", "FBX"],
-      ["./examples/tempietto/Tempietto.glb", "GLB"],
-      ["./examples/tempietto/Tempietto.usdz", "USDZ"],
-      ["./examples/tempietto/Tempietto.usda", "USDA"],
-      ["./examples/tempietto/Tempietto.3mf", "3MF"],
-      ["./examples/tempietto/Tempietto.amf", "AMF"],
-      ["./examples/tempietto/Tempietto.wrl", "WRL (VRML)"],
-      ["./examples/tempietto/Tempietto.kmz", "KMZ"],
-      ["./examples/tempietto/Tempietto.vox", "VOX"],
-      ["./examples/box-missing-mtl.obj", "OBJ (missing MTL)"],
-      ["./examples/broken.glb", "Broken GLB"],
-      ["./examples/WolpaSynagogue.glb", "Wolpa Synagogue"],
-      ["./examples/WolpaSynagogue-progressive.glb", "Wolpa Synagogue (progressive, Meshopt + KTX2)"],
-    ]
-      // Not in the app bundle (its build extension leaves it out).
-      .filter(([value]) => true)
-      .forEach(([value, text]) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = text;
-        select.appendChild(option);
-      });
+    // The options come from the example list (example-models.js).
+    renderExampleModelOptions(select);
     picker.appendChild(select);
 
     const themeToggle = document.createElement("button");
@@ -38870,6 +39423,16 @@ const Viewer$1 = {
     Viewer$1.manifestCameras = content?.cameraChoices || [];
     Viewer$1.updateManifestSceneSwitch(manifestJson);
     Viewer$1.updateManifestCameraSwitch();
+    // The gallery follows the manifest: its AIM3DViewer.thumbnails, else the
+    // generic images (thumbnail-gallery.js) - not the previous model's
+    // renders. The page's own gallery (Drupal fields, gallery.build) is
+    // built once from the page and only replaced by a manifest's renders.
+    const galleryCfg = core.CONFIG.viewer?.gallery;
+    const manifestThumbnails = getManifestThumbnails(Viewer$1) || [];
+    if ((galleryCfg?.buildFake === true || (galleryCfg?.build === true && manifestThumbnails.length > 0))
+      && !core.SANDBOX_MODE && !Viewer$1.isEmbedMode()) {
+      Viewer$1.buildGallery();
+    }
   },
 
   readManifestSceneContent(manifestJson) {
@@ -39654,6 +40217,13 @@ const Viewer$1 = {
           if (!selectedModel) {
             selectedModel = localStorage.getItem('dfg3dviewer-example-model');
           }
+          // Not in the app bundle any more (rollup.config.js) - a device that
+          // last opened it gets the progressive one instead.
+          if (selectedModel && !isOnline()
+            && getExampleModels().some((entry) => entry.online && entry.url === selectedModel)) {
+            // An example from the site, and no network: the default model.
+            selectedModel = null;
+          }
           // The app's first model (mobile.defaultModel, rollup.config.js).
           if (!selectedModel) {
             selectedModel = core.CONFIG?.mobile?.defaultModel || null;
@@ -39666,7 +40236,9 @@ const Viewer$1 = {
           }
           core.autoPath = selectedModel;
           picker.style.display = 'inline-flex';
+          renderExampleModelOptions(selectModel);
           selectModel.value = selectedModel;
+          Viewer$1.watchExampleModelList(selectModel);
           viewerElement.setAttribute('3d', selectedModel);
           if (themeToggle) {
             themeToggle.hidden = true;
@@ -39902,4 +40474,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-CxCZRvVP.js.map
+//# sourceMappingURL=main-BN76ZwIa.js.map

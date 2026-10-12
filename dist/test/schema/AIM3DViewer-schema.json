@@ -230,6 +230,24 @@
           "additionalProperties": true
         },
         "timeline": { "$ref": "#/$defs/timeline" },
+        "thumbnails": {
+          "description": "Renders of the model shown in the thumbnail gallery, in this order (any number). Without it the viewer shows its generic placeholder images. Relative URLs (\"./...\") resolve like the manifest's model URLs.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string", "minLength": 1 },
+              {
+                "type": "object",
+                "required": ["src"],
+                "properties": {
+                  "src": { "type": "string", "minLength": 1 },
+                  "label": { "$ref": "#/$defs/languageMap" }
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        },
         "modelTransform": {
           "type": "object",
           "properties": {
@@ -342,7 +360,7 @@
             "autoplay": { "type": "boolean" },
             "loop": { "type": "boolean" },
             "yearsPerSecond": { "type": "number", "exclusiveMinimum": 0 },
-            "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Multiple of yearsPerSecond chosen in the panel (default 1)." },
+            "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Multiple of yearsPerSecond chosen in the panel (default 0.5)." },
             "pauseAtEvents": { "type": "number", "minimum": 0, "description": "Seconds held on each documented stage while playing (default 1.5)." }
           },
           "additionalProperties": true

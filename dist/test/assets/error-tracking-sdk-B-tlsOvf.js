@@ -2,7 +2,7 @@ const DEBUG_BUILD$2 = (typeof __SENTRY_DEBUG__ === 'undefined' || __SENTRY_DEBUG
 
 const GLOBAL_OBJ = globalThis;
 
-const SDK_VERSION = "11.4.0" ;
+const SDK_VERSION = "11.6.0" ;
 
 function getMainCarrier() {
   getSentryCarrier(GLOBAL_OBJ);
@@ -704,22 +704,48 @@ function isAlreadyCaptured(exception) {
 }
 
 const ONE_SECOND_IN_MS = 1e3;
+const CLOCK_DRIFT_THRESHOLD_MS = 1e3;
+const MAX_TIME_ORIGIN_SEGMENTS = 100;
 function dateTimestampInSeconds() {
   return safeDateNow() / ONE_SECOND_IN_MS;
 }
+let _timeOriginSegments = [];
 function createUnixTimestampInSecondsFunc() {
   const { performance } = GLOBAL_OBJ;
   if (!performance?.now || !performance.timeOrigin) {
+    if (performance?.now) {
+      _timeOriginSegments = [{ from: 0, origin: safeDateNow() - withRandomSafeContext(() => performance.now()) }];
+    }
     return dateTimestampInSeconds;
   }
-  const timeOrigin = performance.timeOrigin;
+  let correctedTimeOrigin = performance.timeOrigin;
+  _timeOriginSegments = [{ from: 0, origin: correctedTimeOrigin }];
+  let isFirstCall = true;
+  let lastCheckedPerformanceNow = 0;
   return () => {
-    return (timeOrigin + withRandomSafeContext(() => performance.now())) / ONE_SECOND_IN_MS;
+    return withRandomSafeContext(() => {
+      const performanceNow = performance.now();
+      const dateNow = Date.now();
+      if (Math.abs(correctedTimeOrigin + performanceNow - dateNow) > CLOCK_DRIFT_THRESHOLD_MS) {
+        correctedTimeOrigin = dateNow - performanceNow;
+        if (isFirstCall) {
+          _timeOriginSegments = [{ from: 0, origin: correctedTimeOrigin }];
+        } else {
+          _timeOriginSegments.push({ from: lastCheckedPerformanceNow, origin: correctedTimeOrigin });
+          if (_timeOriginSegments.length > MAX_TIME_ORIGIN_SEGMENTS) {
+            _timeOriginSegments.splice(1, 1);
+          }
+        }
+      }
+      isFirstCall = false;
+      lastCheckedPerformanceNow = performanceNow;
+      return (correctedTimeOrigin + performanceNow) / ONE_SECOND_IN_MS;
+    });
   };
 }
-let _cachedTimestampInSeconds;
+let _cachedTimestampInSecondsFn;
 function timestampInSeconds() {
-  const func = _cachedTimestampInSeconds ?? (_cachedTimestampInSeconds = createUnixTimestampInSecondsFunc());
+  const func = _cachedTimestampInSecondsFn ?? (_cachedTimestampInSecondsFn = createUnixTimestampInSecondsFunc());
   return func();
 }
 
@@ -1619,12 +1645,10 @@ function getTraceContextFromScope(scope) {
   return traceContext;
 }
 
-const fr="gen_ai.conversation.id",_o="http.request.header",ad="sentry.exclusive_time",ud="sentry.is_localhost",wd="sentry.op",Pd="sentry.profile_id",Hd="sentry.segment.name.source",_b="url.full",wb="user_agent.original";
+const vr="gen_ai.conversation.id",ho="http.request.header",rd="sentry.exclusive_time",gd="sentry.is_localhost",Rd="sentry.op",Nd="sentry.origin",qd="sentry.profile_id",jd="sentry.segment.name.source",fb="url.full",Rb="user_agent.original";
 
 const SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE = "sentry.sample_rate";
 const SEMANTIC_ATTRIBUTE_SENTRY_PREVIOUS_TRACE_SAMPLE_RATE = "sentry.previous_trace_sample_rate";
-const SEMANTIC_ATTRIBUTE_SENTRY_OP = "sentry.op";
-const SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN = "sentry.origin";
 
 const SPAN_STATUS_TYPES = [
   /** The operation completed successfully. */
@@ -1921,8 +1945,8 @@ function spanToStaticSpanJSON(span) {
       // This is [0,0] by default in OTEL, in which case we want to interpret this as no end time
       timestamp: spanTimeInputToSeconds(endTime) || void 0,
       status: getStatusMessage(status),
-      op: attributes[SEMANTIC_ATTRIBUTE_SENTRY_OP],
-      origin: attributes[SEMANTIC_ATTRIBUTE_SENTRY_ORIGIN],
+      op: attributes[Rd],
+      origin: attributes[Nd],
       links: convertSpanLinksForEnvelope(links)
     };
   }
@@ -2203,7 +2227,7 @@ function getDynamicSamplingContextFromSpan(span) {
     return applyLocalSampleRateToDsc(dscOnTraceState);
   }
   const dsc = getDynamicSamplingContextFromClient(span.spanContext().traceId, client);
-  const source = rootSpanAttributes[Hd];
+  const source = rootSpanAttributes[jd];
   const name = rootSpanJson.description;
   if (source !== "url" && name) {
     dsc.transaction = name;
@@ -2354,25 +2378,13 @@ function recover(message, error, fallback) {
 function isStaticBeforeSendSpanCallback(callback) {
   return !!callback && typeof callback === "function" && "_static" in callback && !!callback._static;
 }
-let hasShownSpanDropWarning = false;
 function applyBeforeSendSpanCallback(span, beforeSendSpan) {
   const modifiedSpan = safeCallback(
     DEBUG_BUILD$2 ? "The `beforeSendSpan` callback threw an error, sending the span unmodified:" : "",
     () => beforeSendSpan(span),
     () => span
   );
-  if (modifiedSpan) {
-    return modifiedSpan;
-  }
-  if (!hasShownSpanDropWarning) {
-    consoleSandbox(() => {
-      console.warn(
-        "[Sentry] Returning null from `beforeSendSpan` is disallowed. To drop certain spans, configure the respective integrations directly or use `ignoreSpans`."
-      );
-    });
-    hasShownSpanDropWarning = true;
-  }
-  return span;
+  return modifiedSpan || span;
 }
 
 function spanJsonToSerializedStreamedSpan(span) {
@@ -2848,6 +2860,27 @@ function getFilenameToDebugIdMap(stackParser) {
   return cachedFilenameDebugIds;
 }
 
+function isInternalException(hint) {
+  return hint.data?.__sentry__ === true;
+}
+function getPossibleEventMessages(event) {
+  const possibleMessages = [];
+  if (event.message) {
+    possibleMessages.push(event.message);
+  }
+  try {
+    const lastException = event.exception.values[event.exception.values.length - 1];
+    if (lastException?.value) {
+      possibleMessages.push(lastException.value);
+      if (lastException.type) {
+        possibleMessages.push(`${lastException.type}: ${lastException.value}`);
+      }
+    }
+  } catch {
+  }
+  return possibleMessages;
+}
+
 function prepareEvent(options, event, hint, scope, client, isolationScope) {
   const { normalizeDepth = 3, normalizeMaxBreadth = 1e3 } = options;
   const prepared = {
@@ -2885,8 +2918,7 @@ function prepareEvent(options, event, hint, scope, client, isolationScope) {
     // Run scope event processors _after_ all other processors
     ...data.eventProcessors
   ];
-  const isInternalException = hint.data && hint.data.__sentry__ === true;
-  const result = isInternalException ? resolvedSyncPromise(prepared) : notifyEventProcessors(eventProcessors, prepared, hint, 0, (reason) => {
+  const result = isInternalException(hint) ? resolvedSyncPromise(prepared) : notifyEventProcessors(eventProcessors, prepared, hint, 0, (reason) => {
     if (!client) {
       return;
     }
@@ -3425,24 +3457,6 @@ function createClientReportEnvelope(discarded_events, dsn, timestamp) {
   return createEnvelope(dsn ? { dsn } : {}, [clientReportItem]);
 }
 
-function getPossibleEventMessages(event) {
-  const possibleMessages = [];
-  if (event.message) {
-    possibleMessages.push(event.message);
-  }
-  try {
-    const lastException = event.exception.values[event.exception.values.length - 1];
-    if (lastException?.value) {
-      possibleMessages.push(lastException.value);
-      if (lastException.type) {
-        possibleMessages.push(`${lastException.type}: ${lastException.value}`);
-      }
-    }
-  } catch {
-  }
-  return possibleMessages;
-}
-
 function convertTransactionEventToSpanJson(event) {
   const { trace_id, parent_span_id, span_id, status, origin, data, op } = event.contexts?.trace ?? {};
   return {
@@ -3456,8 +3470,8 @@ function convertTransactionEventToSpanJson(event) {
     timestamp: event.timestamp,
     trace_id: trace_id ?? "",
     origin,
-    profile_id: data?.[Pd],
-    exclusive_time: data?.[ad],
+    profile_id: data?.[qd],
+    exclusive_time: data?.[rd],
     measurements: event.measurements,
     is_segment: true
   };
@@ -3478,8 +3492,8 @@ function convertSpanJsonToTransactionEvent(span) {
         origin: span.origin,
         data: {
           ...span.data,
-          ...span.profile_id && { [Pd]: span.profile_id },
-          ...span.exclusive_time && { [ad]: span.exclusive_time }
+          ...span.profile_id && { [qd]: span.profile_id },
+          ...span.exclusive_time && { [rd]: span.exclusive_time }
         }
       }
     },
@@ -3555,6 +3569,10 @@ const MISSING_RELEASE_FOR_SESSION_ERROR = "Discarded session because of missing 
 const INTERNAL_ERROR_SYMBOL = /* @__PURE__ */ Symbol.for("SentryInternalError");
 const DO_NOT_SEND_EVENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryDoNotSendEventError");
 const DEFAULT_FLUSH_INTERVAL = 5e3;
+const CLOSED_CLIENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryClosedClient");
+function isClientClosed(client) {
+  return CLOSED_CLIENT_SYMBOL in client;
+}
 function _makeInternalError(message) {
   return {
     message,
@@ -3790,6 +3808,7 @@ class Client {
    */
   // @ts-expect-error - PromiseLike is a subset of Promise
   async close(timeout) {
+    Object.defineProperty(this, CLOSED_CLIENT_SYMBOL, { value: true });
     const result = await this.flush(timeout);
     this.getOptions().enabled = false;
     this.emit("close");
@@ -3860,8 +3879,10 @@ class Client {
     this.emit("beforeSendEvent", event, hint);
     const genAiSpanItem = extractGenAiSpansFromEvent(event, this);
     let env = createEventEnvelope(event, this._dsn, this._options._metadata, this._options.tunnel);
-    for (const attachment of hint.attachments || []) {
-      env = addItemToEnvelope(env, createAttachmentEnvelopeItem(attachment));
+    if (!isInternalException(hint)) {
+      for (const attachment of hint.attachments || []) {
+        env = addItemToEnvelope(env, createAttachmentEnvelopeItem(attachment));
+      }
     }
     if (genAiSpanItem) {
       env = addItemToEnvelope(env, genAiSpanItem);
@@ -4117,8 +4138,7 @@ class Client {
       if (prepared === null) {
         throw _makeDoNotSendEventError("An event processor returned `null`, will not send event.");
       }
-      const isInternalException = hint.data?.__sentry__ === true;
-      if (isInternalException) {
+      if (isInternalException(hint)) {
         return prepared;
       }
       const result = processBeforeSend(this, options, prepared, hint, () => {
@@ -4387,12 +4407,26 @@ function initAndBind(clientClass, options) {
       });
     }
   }
+  warnIfClientIsActive();
   const scope = getCurrentScope();
   scope.update(options.initialScope);
   const client = new clientClass(options);
   setCurrentClient(client);
   client.init();
   return client;
+}
+function getActiveClient() {
+  const client = getClient();
+  return client && !isClientClosed(client) ? client : void 0;
+}
+function warnIfClientIsActive() {
+  if (getActiveClient()) {
+    consoleSandbox(() => {
+      console.warn(
+        "[Sentry] `Sentry.init()` was called more than once. The new client replaces the active client, but the active client is not closed, so state from both can mix. Call `Sentry.init()` only once, or call `await Sentry.close()` before you call it again."
+      );
+    });
+  }
 }
 function setCurrentClient(client) {
   getCurrentScope().setClient(client);
@@ -5067,7 +5101,7 @@ const _conversationIdIntegration = (() => {
           if (!op?.startsWith("gen_ai.") && !attributes["ai.operationId"] && !name?.startsWith("ai.")) {
             return;
           }
-          span.setAttribute(fr, conversationId);
+          span.setAttribute(vr, conversationId);
         }
       });
     }
@@ -6137,18 +6171,42 @@ class BrowserClient extends Client {
       };
     }
     const { sendClientReports } = this._options;
-    if (WINDOW.document) {
-      WINDOW.document.addEventListener("visibilitychange", () => {
-        if (WINDOW.document.visibilityState === "hidden") {
-          if (sendClientReports) {
-            this._flushOutcomes();
+    const checkDrift = () => {
+      timestampInSeconds();
+    };
+    const listeners = [
+      // Flush buffered data when the page becomes hidden (e.g. tab switch, navigation, or the page
+      // being discarded). `flush()` emits the `flush` hook, which drains the span (streaming), log and
+      // metric buffers and hands the resulting envelopes to the transport (which uses `keepalive`).
+      // Client report outcomes don't listen to the `flush` hook, so we flush them separately.
+      [
+        WINDOW.document,
+        "visibilitychange",
+        () => {
+          checkDrift();
+          if (WINDOW.document.visibilityState === "hidden") {
+            if (sendClientReports) {
+              this._flushOutcomes();
+            }
+            queueMicrotask(() => {
+              void this.flush();
+            });
           }
-          queueMicrotask(() => {
-            void this.flush();
-          });
         }
-      });
-    }
+      ],
+      // `freeze` and `resume` are only fired by Chromium browsers. Other browsers never fire them, so these listeners
+      // are no-ops there.
+      [WINDOW.document, "freeze", checkDrift],
+      [WINDOW.document, "resume", checkDrift],
+      // Pages restored from the back/forward cache were paused while they were cached.
+      [WINDOW, "pagehide", checkDrift],
+      [WINDOW, "pageshow", checkDrift]
+    ];
+    listeners.forEach(([target, name, listener]) => target?.addEventListener?.(name, listener));
+    this.on(
+      "close",
+      () => listeners.forEach(([target, name, listener]) => target?.removeEventListener?.(name, listener))
+    );
     if (userInfo) {
       this.on("beforeSendSession", addAutoIpAddressToSession);
     }
@@ -6941,18 +6999,18 @@ const httpContextIntegration = defineIntegration(() => {
       safeSetSpanJSONAttributes(span, {
         // This attribute is used by the "Filter out events from legacy browsers and crawlers" features on the Sentry backend.
         // Therefore, it's set on every span.
-        [wb]: headers["User-Agent"],
+        [Rb]: headers["User-Agent"],
         // Likewise for the "Filter out localhost events" feature. Deliberately inlined rather than
         // sharing the server-side helper, which costs bundle size for request headers and IPs that
         // don't exist here. Mirrors Relay's localhost filter (relay-filter/src/localhost.rs).
-        [ud]: protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1" || // `location.hostname` keeps the brackets for IPv6 hosts, so this is `[::1]`, not `::1`.
+        [gd]: protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1" || // `location.hostname` keeps the brackets for IPv6 hosts, so this is `[::1]`, not `::1`.
         hostname === "[::1]" || !!hostname?.endsWith(".localhost"),
         // These attributes, we only need on the segment span (analogous to the `request` context for events)
         ...span.is_segment && {
           // Coerce empty string to undefined so the helper's nullish check drops it,
           // rather than writing an empty `url.full` attribute onto the span.
-          [_b]: span.attributes?.[wd] !== "http.client" ? filterCollectedUrl(reqData.url) : void 0,
-          [`${_o}.referer`]: referer ? [referer] : void 0
+          [fb]: span.attributes?.[Rd] !== "http.client" ? filterCollectedUrl(reqData.url) : void 0,
+          [`${ho}.referer`]: referer ? [referer] : void 0
         }
       });
     }
@@ -7069,4 +7127,4 @@ function init(options = {}) {
 }
 
 export { captureMessage, flush, init, setTag };
-//# sourceMappingURL=error-tracking-sdk-BGmezmIF.js.map
+//# sourceMappingURL=error-tracking-sdk-Bl_UpPNL.js.map

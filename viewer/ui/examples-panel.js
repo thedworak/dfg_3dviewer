@@ -51,7 +51,7 @@ export function attachExamplesPanel(Viewer) {
 
       this.bindEventListener(panel.querySelector("#examplesPanelClose"), "click", () => this.closeExamplesPanel());
       this.bindEventListener(panel.querySelector("#examplesPanelRefresh"), "click", () => this.loadExamplesList({ notify: true }));
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeExamplesPanel());
     },
 
     // On every open: shows the list in use at once, then fetches the current
@@ -91,13 +91,20 @@ export function attachExamplesPanel(Viewer) {
           const title = document.createElement("span");
           title.className = "models-panel-item-name";
           title.textContent = displayName(name);
-          const caption = document.createElement("span");
-          caption.className = "models-panel-item-meta";
-          caption.textContent = isBundled(url)
+          text.appendChild(title);
+          // An icon instead of a caption: a phone for the bundled ones, a
+          // globe for those fetched from the internet.
+          const bundled = isBundled(url);
+          const sourceLabel = bundled
             ? t("examplesPanel.bundled", "In the app, works offline")
             : t("examplesPanel.online", "Needs an internet connection");
-          text.append(title, caption);
-          button.appendChild(text);
+          const source = document.createElement("span");
+          source.className = "examples-panel-source";
+          source.dataset.source = bundled ? "bundled" : "online";
+          source.setAttribute("role", "img");
+          source.setAttribute("aria-label", sourceLabel);
+          source.title = sourceLabel;
+          button.append(text, source);
           button.disabled = !online && !isBundled(url);
           this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
           item.appendChild(button);

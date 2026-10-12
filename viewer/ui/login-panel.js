@@ -164,7 +164,7 @@ export function attachLoginPanel(Viewer) {
         status: panel.querySelector("#loginPanelStatus"),
       };
       this.bindEventListener(panel.querySelector("#loginPanelClose"), "click", () => this.closeLoginPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeLoginPanel());
       this.renderLoginPanel();
     },
 

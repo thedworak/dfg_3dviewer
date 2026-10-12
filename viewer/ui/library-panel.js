@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { metaCaption, metaPart } from "./meta-icons.js";
 import { listLibrary, saveToLibrary, removeFromLibrary, libraryEntryFile } from "../offline-library.js";
 import { setPendingIfcProperties } from "../ifc-properties.js";
 
@@ -58,7 +59,7 @@ export function attachLibraryPanel(Viewer) {
 
       this.bindEventListener(panel.querySelector("#libraryPanelClose"), "click", () => this.closeLibraryPanel());
       this.bindEventListener(panel.querySelector("#libraryPanelBrowse"), "click", () => this.browseDeviceFiles());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeLibraryPanel());
     },
 
     // No accept filter: Android has no MIME types for most 3D formats (.glb,
@@ -130,13 +131,17 @@ export function attachLibraryPanel(Viewer) {
       label.className = "models-panel-item-name";
       label.textContent = entry.name;
       text.appendChild(label);
-      const caption = document.createElement("span");
-      caption.className = "models-panel-item-meta";
-      const origin = entry.source === "repository"
-        ? t("libraryPanel.fromRepository", "From the repository")
-        : t("libraryPanel.fromDevice", "From this device");
-      caption.textContent = [origin, formatSize(entry.size), new Date(entry.savedAt).toLocaleDateString()].join(" · ");
-      text.appendChild(caption);
+      const fromRepository = entry.source === "repository";
+      text.appendChild(metaCaption([
+        metaPart(
+          fromRepository ? "repository" : "device",
+          fromRepository
+            ? t("libraryPanel.fromRepository", "From the repository")
+            : t("libraryPanel.fromDevice", "From this device")
+        ),
+        metaPart("size", t("modelsMeta.size", "Size"), formatSize(entry.size)),
+        metaPart("date", t("modelsMeta.saved", "Saved"), new Date(entry.savedAt).toLocaleDateString()),
+      ]));
       button.appendChild(text);
 
       this.bindEventListener(button, "click", async () => {

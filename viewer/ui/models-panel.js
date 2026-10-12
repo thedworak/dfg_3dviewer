@@ -7,6 +7,7 @@ import { hasFeature, isFeatureGatingEnabled } from "../app-features.js";
 import { createLockIcon } from "./lock-icon.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { metaCaption, metaPart } from "./meta-icons.js";
 import { fillModelThumbnail } from "./thumbnail-gallery.js";
 import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
 
@@ -101,7 +102,7 @@ export function attachModelsPanel(Viewer) {
 
       const closeButton = panel.querySelector("#modelsPanelClose");
       this.bindEventListener(closeButton, "click", () => this.closeModelsPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeModelsPanel());
     },
 
     // The address field can be locked in the app (hasFeature() in
@@ -285,14 +286,13 @@ export function attachModelsPanel(Viewer) {
       // job.owner is null for anonymous uploads (accounts off, or jobs from
       // before accounts were enabled) - the caption then just falls back to
       // the date.
-      const uploadedBy = job.owner ? t("modelsPanel.uploadedBy", { user: job.owner }, "Uploaded by {user}") : "";
-      const uploadedAt = job.createdAt ? new Date(job.createdAt * 1000).toLocaleDateString() : "";
-      const captionText = [uploadedBy, uploadedAt].filter(Boolean).join(" · ");
-      if (captionText) {
-        const caption = document.createElement("span");
-        caption.className = "models-panel-item-meta";
-        caption.textContent = captionText;
-        text.appendChild(caption);
+      if (job.owner || job.createdAt) {
+        text.appendChild(metaCaption([
+          job.owner ? metaPart("user", t("modelsMeta.uploadedBy", "Uploaded by"), job.owner) : null,
+          job.createdAt
+            ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleDateString())
+            : null,
+        ]));
       }
 
       button.appendChild(text);

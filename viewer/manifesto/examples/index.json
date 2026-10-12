@@ -20,6 +20,7 @@
     { "url": "./manifests/tempietto-aim3d-matcap.json", "name": { "en": "Tempietto - matcap clay, ambient occlusion (localhost)", "pl": "Tempietto - matcap (glina), okluzja otoczenia (localhost)", "de": "Tempietto - Matcap-Ton, Umgebungsverdeckung (localhost)" } },
     { "url": "./manifests/tempietto-aim3d-golden-hour.json", "name": { "en": "Tempietto - golden hour, ACES (localhost)", "pl": "Tempietto - złota godzina, ACES (localhost)", "de": "Tempietto - goldene Stunde, ACES (localhost)" } },
     { "url": "./manifests/tempietto-aim3d-night.json", "name": { "en": "Tempietto - night, floodlights, lit cella (localhost)", "pl": "Tempietto - noc, iluminacja, oświetlona cela (localhost)", "de": "Tempietto - Nacht, Strahler, beleuchtete Cella (localhost)" } },
+    { "url": "./manifests/tempietto-aim3d-thumbnails.json", "name": { "en": "Tempietto - own gallery renders (localhost)", "pl": "Tempietto - własne rendery w galerii (localhost)", "de": "Tempietto - eigene Galerie-Renderings (localhost)" } },
     { "url": "./manifests/wolpa-synagogue-aim3d-local.json", "i18n": "aim3if.optionWolpaLocal", "fallback": "Wolpa Synagogue (localhost)" },
     { "url": "./manifests/wolpa-synagogue-aim3d-local-ceiling.json", "i18n": "aim3if.optionWolpaLocalCeiling", "fallback": "Wolpa Synagogue - ceiling view (localhost)" },
     { "url": "./manifests/wolpa-synagogue-aim3d-local-4d.json", "i18n": "aim3if.optionWolpa4D", "fallback": "Wolpa Synagogue - 4D timeline: weathering 1730-1936 (localhost)", "excludeFromMobile": true, "inIIIFSelect": true },

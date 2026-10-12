@@ -81,14 +81,22 @@ export function attachModelsSource(Viewer) {
       toggle.className = "models-source-toggle";
       toggle.setAttribute("role", "group");
       toggle.setAttribute("aria-label", t("modelsSource.aria", "Where the models come from"));
+      // Icons, with the words as tooltip and accessible name: a phone, a
+      // cloud, a star (the .meta-icon masks in models-panel.css).
       [
-        ["local", t("modelsSource.local", "On this device")],
-        ["remote", t("modelsSource.remote", "Remote")],
-        ["examples", t("modelsSource.examples", "Examples")],
-      ].forEach(([source, label]) => {
+        ["local", "device", t("modelsSource.local", "On this device")],
+        ["remote", "repository", t("modelsSource.remote", "Remote")],
+        ["examples", "examples", t("modelsSource.examples", "Examples")],
+      ].forEach(([source, icon, label]) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = label;
+        const glyph = document.createElement("span");
+        glyph.className = "meta-icon";
+        glyph.dataset.icon = icon;
+        glyph.setAttribute("aria-hidden", "true");
+        button.appendChild(glyph);
+        button.setAttribute("aria-label", label);
+        button.title = label;
         button.dataset.source = source;
         button.setAttribute("aria-pressed", source === active ? "true" : "false");
         if (source !== active) {

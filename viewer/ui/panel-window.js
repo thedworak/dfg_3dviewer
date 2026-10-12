@@ -1,3 +1,5 @@
+import { core } from "../core.js";
+
 const RESIZE_GRIP_PX = 18;
 
 // Panels start centered via left:50% + translateX(-50%); the first drag or
@@ -18,10 +20,59 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
-export function makePanelWindow(Viewer, panel, handle) {
+// One window at a time: showing a panel window closes the others, and a
+// click (not a drag) on the background - the 3D canvas or the viewer
+// container itself - closes them all. Each panel closes through its own
+// close function, so its side effects run.
+const windows = new Map();
+const CLICK_SLOP_PX = 6;
+let pressStart = null;
+
+function closeWindows(except) {
+  windows.forEach((close, panel) => {
+    if (panel !== except && !panel.hidden) close();
+  });
+}
+
+function isBackground(target) {
+  const container = core.container;
+  if (!container || !(target instanceof Element)) return false;
+  return target === container || (target.tagName === "CANVAS" && container.contains(target));
+}
+
+let backgroundWatched = false;
+
+function watchBackgroundClicks(Viewer) {
+  if (backgroundWatched) return;
+  backgroundWatched = true;
+  Viewer.addCleanup(() => { backgroundWatched = false; });
+  Viewer.bindEventListener(document, "pointerdown", (event) => {
+    pressStart = event.isPrimary && isBackground(event.target) ? { x: event.clientX, y: event.clientY } : null;
+  }, true);
+  Viewer.bindEventListener(document, "pointerup", (event) => {
+    const start = pressStart;
+    pressStart = null;
+    if (!start || !event.isPrimary || !isBackground(event.target)) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP_PX) return;
+    closeWindows(null);
+  }, true);
+}
+
+export function makePanelWindow(Viewer, panel, handle, close = () => { panel.hidden = true; }) {
   if (!panel || !handle) return;
   handle.classList.add("panel-window-handle");
   panel.classList.add("panel-window");
+
+  windows.set(panel, close);
+  watchBackgroundClicks(Viewer);
+  const observer = new MutationObserver(() => {
+    if (!panel.hidden) closeWindows(panel);
+  });
+  observer.observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+  Viewer.addCleanup(() => {
+    observer.disconnect();
+    windows.delete(panel);
+  });
 
   Viewer.bindEventListener(handle, "pointerdown", (event) => {
     if (event.button !== 0 || event.target.closest("button, input, select, textarea, a")) return;

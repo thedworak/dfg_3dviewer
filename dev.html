@@ -30,38 +30,15 @@
     <div id="viewer-page-header">
       <div id="example-model-picker">
         <label for="example-model-select">Load example model</label>
-        <select id="example-model-select">
+        <!-- Options: the example list, viewer/examples/index.json (viewer/example-models.js); data-keep: this page's own test files. -->
+        <select id="example-model-select" data-example-base="./viewer/">
           <button><selectedcontent></selectedcontent></button>
-          <option value="./viewer/examples/tempietto/Tempietto.dae">DAE</option>
-          <option value="./viewer/examples/tempietto/Tempietto.stl">STL</option>
-          <option value="./viewer/examples/tempietto/Tempietto.ply">PLY</option>
-          <option value="./viewer/examples/tempietto/Tempietto.obj">OBJ</option>
-          <option value="./viewer/examples/tempietto/Tempietto.xyz">XYZ</option>
-          <option value="./viewer/examples/tempietto/Tempietto.pcd">PCD</option>
-          <option value="./viewer/examples/tempietto/Tempietto.3ds">3DS</option>
-          <option value="./viewer/examples/tempietto/Tempietto.ifc">IFC</option>
-          <option value="./viewer/examples/tempietto/Tempietto.fbx">FBX</option>
-          <option value="./viewer/examples/tempietto/Tempietto.glb" selected>GLB</option>
-          <option value="./viewer/examples/tempietto/Tempietto.usdz">USDZ</option>
-          <option value="./viewer/examples/tempietto/Tempietto.usda">USDA</option>
-          <option value="./viewer/examples/tempietto/Tempietto.3mf">3MF</option>
-          <option value="./viewer/examples/tempietto/Tempietto.amf">AMF</option>
-          <option value="./viewer/examples/tempietto/Tempietto.wrl">WRL (VRML)</option>
-          <option value="./viewer/examples/tempietto/Tempietto.kmz">KMZ</option>
-          <option value="./viewer/examples/tempietto/Tempietto.vox">VOX</option>
-          <option value="./viewer/examples/box-missing-mtl.obj">OBJ (missing MTL)</option>
-          <option value="./viewer/examples/broken.glb">Broken GLB</option>
-          <option value="./viewer/examples/WolpaSynagogue.glb">Wolpa Synagogue</option>
-          <option value="./viewer/examples/WolpaSynagogue-progressive.glb">Wolpa Synagogue (progressive, Meshopt + KTX2)</option>
-          <option value="./viewer/examples/tiles/wolpa-points/tileset.json">Wolpa Synagogue (point cloud, 3D Tiles)</option>
-          <option value="./viewer/examples/points.laz">Point cloud (LAZ, UTM coordinates)</option>
-          <option value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-1M.laz">Wolpa point cloud LoD test: 1M (LAZ)</option>
-          <option value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-2M.laz">Wolpa point cloud LoD test: 2M (LAZ)</option>
-          <option value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-5M.laz">Wolpa point cloud LoD test: 5M (LAZ)</option>
-          <option value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-10M.laz">Wolpa point cloud LoD test: 10M (LAZ)</option>
-          <option value="./viewer/test-data/pointcloud-lod/tiles/WolpaSynagogue/tileset.json">Wolpa point cloud LoD test: 10M (3D Tiles, streamed)</option>
-          <option value="./viewer/test-data/pointcloud-lod/tiles/WolpaSynagogue-30M/tileset.json">Wolpa point cloud LoD test: 30M (3D Tiles, streamed)</option>
-          <option value="./viewer/examples/animated.glb">Animated GLB</option>
+          <option data-keep value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-1M.laz">Wolpa point cloud LoD test: 1M (LAZ)</option>
+          <option data-keep value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-2M.laz">Wolpa point cloud LoD test: 2M (LAZ)</option>
+          <option data-keep value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-5M.laz">Wolpa point cloud LoD test: 5M (LAZ)</option>
+          <option data-keep value="./viewer/test-data/pointcloud-lod/WolpaSynagogue-10M.laz">Wolpa point cloud LoD test: 10M (LAZ)</option>
+          <option data-keep value="./viewer/test-data/pointcloud-lod/tiles/WolpaSynagogue/tileset.json">Wolpa point cloud LoD test: 10M (3D Tiles, streamed)</option>
+          <option data-keep value="./viewer/test-data/pointcloud-lod/tiles/WolpaSynagogue-30M/tileset.json">Wolpa point cloud LoD test: 30M (3D Tiles, streamed)</option>
         </select>
         <button type="button" id="example-theme-toggle" title="Toggle dark mode">🌙</button>
         <button type="button" id="uploadModel"></button>

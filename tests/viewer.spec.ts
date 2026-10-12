@@ -877,6 +877,24 @@ test('point cloud panel changes colours, shape and size, and only appears for po
   await expect(panel).toHaveCount(0);
 });
 
+test('manifest thumbnails: the gallery shows the manifest\'s own renders, generic images without them', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  const gallery = () => page.locator('#image-list img').evaluateAll((imgs) => imgs.map((img) => ({ src: img.getAttribute('src'), alt: img.alt })));
+
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
+  await expect.poll(async () => (await gallery()).length).toBe(5);
+  const own = await gallery();
+  expect(own.every(({ src }) => src.includes('/examples/gallery/tempietto/Tempietto_'))).toBe(true);
+  expect(own[2].alt).toBe('Back');
+  expect(own[4].src).toContain('Tempietto_top.');
+
+  // Another manifest without thumbnails: not the previous renders.
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-aim3d-local.json', 'url', 'aim3if'));
+  await expect.poll(async () => (await gallery()).every(({ src }) => src.includes('explora4d-placeholder-'))).toBe(true);
+  expect((await gallery()).length).toBe(9);
+});
+
 test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments round-trip', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
@@ -1228,6 +1246,38 @@ test('shading modes: the original materials come back untouched, switched-out on
   await page.evaluate(() => window.Viewer.setShadingMode('matcap', { silent: true }));
   await page.evaluate(() => window.Viewer.resetLoadedModelState());
   expect(await page.evaluate(() => window.Viewer.shadingMode)).toBe('original');
+});
+
+test('4D timeline: plays in a loop at 0.5× unless the manifest says otherwise', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const open = (playback) => page.evaluate(async (playback) => {
+    const manifest = await (await fetch('/manifests/wolpa-synagogue-aim3d-local-4d.json')).json();
+    manifest.AIM3DViewer.timeline.playback = playback;
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  }, playback);
+  const state = () => page.evaluate(() => {
+    const { loop, speed, ui } = window.Viewer.timelineState;
+    return { loop, speed, select: ui?.speedSelect.value, exported: window.Viewer.build3IFManifest().AIM3DViewer.timeline.playback };
+  });
+
+  await open({ autoplay: false, yearsPerSecond: 10 });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.timelineState, null, { timeout: 60_000 });
+  const defaults = await state();
+  expect(defaults).toMatchObject({ loop: true, speed: 0.5, select: '0.5' });
+  expect(defaults.exported.loop).toBe(true);
+  expect(defaults.exported.speed).toBeUndefined();
+
+  // A speed chosen in the panel survives the reload, so the panel's speed
+  // is reset first to see the manifest's own.
+  await page.evaluate(() => window.Viewer.disposeTimeline());
+  await open({ autoplay: false, loop: false, speed: 2, yearsPerSecond: 10 });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.timelineState, null, { timeout: 60_000 });
+  const own = await state();
+  expect(own).toMatchObject({ loop: false, speed: 2, select: '2' });
+  expect(own.exported).toMatchObject({ loop: false, speed: 2 });
 });
 
 test('example manifests: all valid, and the scan views open as written (shading, ambient occlusion, raking light, custom shader)', async ({ page }) => {
@@ -2016,6 +2066,63 @@ test('upload panel shows limit usage and limit errors from the worker', async ({
   await expect(page.locator('#uploadPanelStatus')).toHaveText(
     'Upload limit reached (20 per hour). Try again in 25 min.'
   );
+});
+
+test('example model list: fetched from examples/index.json, so a new example needs no new build', async ({ page }) => {
+  const list = JSON.parse(fs.readFileSync('viewer/examples/index.json', 'utf8'));
+  list.models.push(
+    { url: './examples/box.glb', name: { en: 'New example', pl: 'Nowy przykład' } },
+    { url: 'https://example.org/model.glb', name: 'Elsewhere' }
+  );
+  await page.route('**/examples/index.json', (route) => route.fulfill({ json: list }));
+  await openViewer(page);
+  await waitForModel(page);
+
+  const select = page.locator('#example-model-select');
+  await expect(select.locator('option', { hasText: 'New example' })).toHaveAttribute('value', './examples/box.glb');
+  await expect(select.locator('option[value="./examples/tempietto/Tempietto.glb"]')).toHaveText('GLB');
+  // Another site: marked, and disabled without network.
+  const elsewhere = select.locator('option', { hasText: 'Elsewhere' });
+  await expect(elsewhere).toHaveAttribute('data-online', 'true');
+  await page.context().setOffline(true);
+  await expect(elsewhere).toBeDisabled();
+  await page.context().setOffline(false);
+  await expect(elsewhere).toBeEnabled();
+
+  // Names follow the language; the list is kept for the next start.
+  await page.evaluate(() => window.Viewer.selectLanguage('pl'));
+  await expect(select.locator('option[value="./examples/box.glb"]')).toHaveText('Nowy przykład');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('dfg3dviewer-example-models')).models.length))
+    .toBe(list.models.length);
+});
+
+test('panel windows: opening one closes the other, a click on the background closes it, a drag does not', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'required', registration: 'open', maxUploadBytes: 104857600 } })
+  );
+  await openViewer(page);
+  await waitForModel(page);
+
+  await page.evaluate(() => window.Viewer.openUploadPanel());
+  await expect(page.locator('#uploadModelPanel')).toBeVisible();
+  await page.evaluate(() => window.Viewer.openLoginPanel());
+  await expect(page.locator('#loginPanel')).toBeVisible();
+  await expect(page.locator('#uploadModelPanel')).toBeHidden();
+
+  const canvas = page.locator('#MainCanvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('No canvas');
+  const x = box.x + box.width * 0.2;
+  const y = box.y + box.height * 0.8;
+  // Orbiting the model keeps the window open.
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 60, y - 20, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.locator('#loginPanel')).toBeVisible();
+
+  await page.mouse.click(x, y);
+  await expect(page.locator('#loginPanel')).toBeHidden();
 });
 
 test('reports unsupported format without loading a model', async ({ page }) => {

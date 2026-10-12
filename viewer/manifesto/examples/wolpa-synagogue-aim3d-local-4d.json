@@ -183,7 +183,7 @@
       "transitionDuration": 0.8,
       "playback": {
         "autoplay": false,
-        "loop": false,
+        "loop": true,
         "yearsPerSecond": 10,
         "pauseAtEvents": 1.5
       },

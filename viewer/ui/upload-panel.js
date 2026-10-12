@@ -300,7 +300,7 @@ export function attachUploadPanel(Viewer) {
         this.markUploadUrl(url.value.trim() ? validateModelUrl(url.value) : null);
       });
       this.bindEventListener(closeButton, "click", () => this.closeUploadPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeUploadPanel());
     },
 
     /**

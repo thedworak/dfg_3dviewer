@@ -61,6 +61,8 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.tour.loop` — go back to the first step after the last one while autoplaying (default `true`)
 - `viewer.viewHelper` — axes gizmo in a corner of the canvas; `false` or `{ "enabled": false }` hides it, `{ "position": "top-left" }` moves it (`bottom-right` by default)
 - `viewer.scaleContainer` — scale adjustments for the viewer container
+- `viewer.exampleModelsUrl` — the list of the "Load example model" select (default: `./examples/index.json`, served with the viewer; the app fetches `https://viewer.thedworak.com/examples/index.json`). Fetched at start, when the select opens (at most once a minute), when the page comes back to the foreground and when the network returns; the last list is kept on the device. Format: `{ "models": [{ "url", "name", "app"? }] }`, `name` a string or `{ en, de, pl }`, `"app": false` not offered in the app. The app loads models added after its release from the list's site (online only); see `viewer/example-models.js`
+- `viewer.exampleManifestsUrl` — the same for the example manifests (default `https://viewer.thedworak.com/manifests/index.json`); see `viewer/example-manifests.js`
 
 ## Built output behavior
 
