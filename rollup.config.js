@@ -34,7 +34,7 @@ const production = process.env.IS_PROD === 'true';
 // file. It may also claim an app build (isAppBuild(envBuild)): one served
 // from inside an app package, so no PHP helpers, admin panel or source maps,
 // and its viewer-settings.json comes from extension.appSettings(). Hooks, all
-// optional: plugins(ctx), examplesFilter(source), transformHtml(html),
+// optional: plugins(ctx), examplesFilter(source, ctx), transformHtml(html),
 // appSettings(settings, ctx), writeBundle(ctx); ctx = { envBuild,
 // outDistDir, production, appBuild }.
 const extensionPath = process.env.VIEWER_BUILD_EXTENSION?.trim();
@@ -244,7 +244,8 @@ function copyBuildAssets() {
           keepFiles('viewer/fonts', ['helvetiker_regular.typeface.json', 'LICENSE', 'README.md'])
         ),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
-        copyDirectory('viewer/examples', path.join(outDistDir, 'examples'), extension.examplesFilter)
+        copyDirectory('viewer/examples', path.join(outDistDir, 'examples'),
+          extension.examplesFilter && ((source) => extension.examplesFilter(source, buildContext)))
           .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),
         // manifests/index.json is the example list the viewer fetches at
         // runtime (example-manifests.js).
