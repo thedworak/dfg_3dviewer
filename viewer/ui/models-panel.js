@@ -206,11 +206,13 @@ export function attachModelsPanel(Viewer) {
     // A model converted from IFC has its properties in metadata/<name>_ifc.json.
     // The app opens repository models from a downloaded File (blob: URL), so it
     // fetches that file here instead of the loader. Null when there is none.
+    // /files/ never changes under its URL (worker/server.py, _serve_file), so
+    // the WebView's and Cloudflare's copies are used (no cache: "no-store").
     async fetchIfcProperties(job) {
       const url = ifcPropertiesUrlForModel(remoteAssetUrl(job.modelUrl));
       if (!url) return null;
       try {
-        const response = await fetch(url, { cache: "no-store" });
+        const response = await fetch(url);
         if (!response.ok) return null;
         const data = await response.json();
         return data?.elements ? data : null;
@@ -381,7 +383,7 @@ export function attachModelsPanel(Viewer) {
       const controller = new AbortController();
       const timer = window.setTimeout(() => controller.abort(), 8000);
       try {
-        const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
+        const response = await fetch(url, { signal: controller.signal });
         return response.ok;
       } catch {
         return false;
@@ -394,13 +396,15 @@ export function attachModelsPanel(Viewer) {
     // App, single-file models: the whole file is downloaded (progress in
     // the loader card) before the current model is cleared, so a connection
     // lost half-way leaves the scene as it was. Returns a File, or null.
+    // Cacheable like fetchIfcProperties: opening the same model again comes
+    // from the WebView's cache, a first open from Cloudflare's.
     async downloadRemoteModel(job) {
       if (!isOnline()) return null;
       const fileName = decodeURIComponent(String(job.modelUrl).split(/[?#]/)[0].split("/").pop());
       core.circle?.show?.();
       core.circle?.set?.(0, 100);
       try {
-        const response = await fetch(remoteAssetUrl(job.modelUrl), { cache: "no-store" });
+        const response = await fetch(remoteAssetUrl(job.modelUrl));
         if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
         const total = Number(response.headers.get("content-length")) || 0;
         const reader = response.body.getReader();

@@ -40,6 +40,15 @@ Each viewer service copies its `viewer-settings.json` and profile manifest into 
 
 Also check the profile manifest (`VIEWER_PROFILE`, `docker/profiles/*.manifest.json`): all three profiles have `editor: true`, and `sandbox` turns the site into drag-and-drop mode.
 
+### Cloudflare cache
+
+The worker sends `Cache-Control: public, max-age=2592000, s-maxage=2592000` for `/files/` (converted models, never changed under their URL), but Cloudflare caches only its default list of extensions - `.png` and `.js` are on it, `.glb`, `.gltf`, `.json`, `.ifc` and the other model formats are not, so every model download reaches the server (`cf-cache-status: DYNAMIC`). Add a Cache Rule (*Caching > Cache Rules*) for each viewer host:
+
+- *When*: `Hostname` in your viewer hosts **and** `URI Path` starts with `/files/`
+- *Then*: **Eligible for cache**, Edge TTL **Use cache-control header if present**, Browser TTL **Respect origin**
+
+Purging on delete and on "Render preview" keeps working (`worker/cloudflare.py`). Check: the second `curl -sI https://<host>/files/<job>/gltf/<model>.glb` shows `cf-cache-status: HIT`. `/api/` stays uncached (`no-store`).
+
 ### After deploying
 
 - Log in as the admin and open **Manage users**: the list loads.
