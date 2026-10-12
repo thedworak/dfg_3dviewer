@@ -3,6 +3,7 @@ import { t } from "../i18n-utils.js";
 import { renderExampleModelOptions } from "../example-models.js";
 import { UltraLoader } from "../ultra-loader.js";
 import { relocalizeManifestTree } from "../manifesto/manifest-tree-editor.js";
+import { relocalizeExampleManifestDropdowns } from "../metadata.js";
 import { normalizeLanguage } from "../viewer-param-utils.js";
 
 export function attachLocalizationTheme(viewer) {
@@ -183,6 +184,8 @@ export function attachLocalizationTheme(viewer) {
         node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel, node.getAttribute("aria-label") || ""));
       });
       relocalizeManifestTree();
+      // Example names given per language, and the groups' names.
+      relocalizeExampleManifestDropdowns();
     },
 
     updateMetadataPanelLabels() {

@@ -3,7 +3,7 @@ import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { isOnline } from "../connectivity.js";
 import { makePanelWindow } from "./panel-window.js";
-import { exampleManifestOption, getExampleManifests, refreshExampleManifests } from "../example-manifests.js";
+import { exampleManifestOption, getExampleManifests, groupExampleOptions, refreshExampleManifests } from "../example-manifests.js";
 
 // App only: the example AIM3D/IIIF manifests the dev build offers in its
 // manifest form (metadata.js), as the third tab of the "Models" panels
@@ -78,40 +78,69 @@ export function attachExamplesPanel(Viewer) {
         const heading = document.createElement("h3");
         heading.className = "examples-panel-heading";
         heading.textContent = t(...label);
-        const list = document.createElement("ul");
-        list.className = "models-panel-list";
-        examples[key].map(exampleManifestOption).forEach(({ url, name, baseUrl }) => {
-          const item = document.createElement("li");
-          item.className = "models-panel-row";
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "models-panel-item";
-          const text = document.createElement("span");
-          text.className = "models-panel-item-text";
+        this.examplesList.appendChild(heading);
+        // A model's manifests folded under its name (with their count), each
+        // by what it changes; a group stays open across re-renders.
+        groupExampleOptions(examples[key].map(exampleManifestOption)).forEach(({ group, items }) => {
+          const list = document.createElement("ul");
+          list.className = "models-panel-list";
+          items.forEach(({ url, name, baseUrl }) => list.appendChild(this.renderExampleRow({ url, name, baseUrl, type, online })));
+          if (!group) {
+            this.examplesList.appendChild(list);
+            return;
+          }
+          const details = document.createElement("details");
+          details.className = "examples-panel-group";
+          details.dataset.group = `${key}:${group.id}`;
+          details.open = this.openExampleGroups?.has(details.dataset.group) === true;
+          const summary = document.createElement("summary");
+          summary.className = "examples-panel-subheading";
           const title = document.createElement("span");
-          title.className = "models-panel-item-name";
-          title.textContent = displayName(name);
-          text.appendChild(title);
-          // An icon instead of a caption: a phone for the bundled ones, a
-          // globe for those fetched from the internet.
-          const bundled = isBundled(url);
-          const sourceLabel = bundled
-            ? t("examplesPanel.bundled", "In the app, works offline")
-            : t("examplesPanel.online", "Needs an internet connection");
-          const source = document.createElement("span");
-          source.className = "examples-panel-source";
-          source.dataset.source = bundled ? "bundled" : "online";
-          source.setAttribute("role", "img");
-          source.setAttribute("aria-label", sourceLabel);
-          source.title = sourceLabel;
-          button.append(text, source);
-          button.disabled = !online && !isBundled(url);
-          this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
-          item.appendChild(button);
-          list.appendChild(item);
+          title.textContent = group.name;
+          const count = document.createElement("span");
+          count.className = "examples-panel-count";
+          count.textContent = String(items.length);
+          summary.append(title, count);
+          details.append(summary, list);
+          details.addEventListener("toggle", () => {
+            this.openExampleGroups ??= new Set();
+            if (details.open) this.openExampleGroups.add(details.dataset.group);
+            else this.openExampleGroups.delete(details.dataset.group);
+          });
+          this.examplesList.appendChild(details);
         });
-        this.examplesList.append(heading, list);
       });
+    },
+
+    renderExampleRow({ url, name, baseUrl, type, online }) {
+      const item = document.createElement("li");
+      item.className = "models-panel-row";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "models-panel-item";
+      const text = document.createElement("span");
+      text.className = "models-panel-item-text";
+      const title = document.createElement("span");
+      title.className = "models-panel-item-name";
+      title.textContent = displayName(name);
+      text.appendChild(title);
+      // An icon instead of a caption: a phone for the bundled ones, a
+      // globe for those fetched from the internet.
+      const bundled = isBundled(url);
+      const sourceLabel = bundled
+        ? t("examplesPanel.bundled", "In the app, works offline")
+        : t("examplesPanel.online", "Needs an internet connection");
+      const source = document.createElement("span");
+      source.className = "examples-panel-source";
+      source.dataset.source = bundled ? "bundled" : "online";
+      source.setAttribute("role", "img");
+      source.setAttribute("aria-label", sourceLabel);
+      source.title = sourceLabel;
+      button.append(text, source);
+      button.disabled = !online && !bundled;
+      this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
+      item.appendChild(button);
+      return item;
     },
 
     async loadExampleManifest(url, type, baseUrl) {

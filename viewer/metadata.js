@@ -5,7 +5,7 @@ import { t } from "./i18n-utils.js";
 import { parseFloatParam } from "./viewer-param-utils.js";
 import { clearIfcProperties } from "./ifc-properties.js";
 import { attachManifestTreeEditor } from "./manifesto/manifest-tree-editor.js";
-import { exampleManifestOption, getExampleManifests, refreshExampleManifests } from "./example-manifests.js";
+import { exampleManifestOption, getExampleManifests, groupExampleOptions, refreshExampleManifests } from "./example-manifests.js";
 
 // Below this distance (px) from its default glued corner, drag movement is
 // absorbed rather than moved - the panel only actually detaches from the
@@ -937,9 +937,18 @@ export async function fetchSettings(object) {
   }
 }
 
+// The dropdowns' fill functions, to rename their options with the language.
+const exampleDropdownFills = new Set();
+
+export function relocalizeExampleManifestDropdowns() {
+  exampleDropdownFills.forEach((fill) => fill());
+}
+
 // The example manifests (example-manifests.js) as the first options of the
 // manifest form's dropdown; reloaded whenever the form is built and on its
-// "Refresh" button. `fixedOptions` come first (the default manifest).
+// "Refresh" button. `fixedOptions` come first (the default manifest). The
+// manifests of one model sit in an <optgroup> named after it, each named by
+// what it changes.
 function createExampleManifestDropdown({ labelKey, labelFallback, fixedOptions, pickExamples }) {
   const group = document.createElement("div");
   group.className = "form-manifesto-group";
@@ -963,19 +972,34 @@ function createExampleManifestDropdown({ labelKey, labelFallback, fixedOptions, 
   refreshButton.setAttribute("aria-label", refreshButton.title);
 
   const fill = () => {
+    if (!select.isConnected && select.options.length) {
+      exampleDropdownFills.delete(fill);
+      return;
+    }
     const selected = select.value;
     const items = [...fixedOptions, ...pickExamples(getExampleManifests()).map(exampleManifestOption)]
       .filter((item) => item?.url);
     select.textContent = "";
-    items.forEach((item) => {
+    const option = (item) => {
       const opt = document.createElement("option");
       opt.value = item.url;
       opt.textContent = item.name;
       if (item.i18n) opt.dataset.i18n = item.i18n;
-      select.appendChild(opt);
+      return opt;
+    };
+    groupExampleOptions(items).forEach(({ group, items: run }) => {
+      if (!group) {
+        run.forEach((item) => select.appendChild(option(item)));
+        return;
+      }
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = group.name;
+      run.forEach((item) => optgroup.appendChild(option(item)));
+      select.appendChild(optgroup);
     });
     if (selected && items.some((item) => item.url === selected)) select.value = selected;
   };
+  exampleDropdownFills.add(fill);
 
   const refresh = async ({ notify = false } = {}) => {
     refreshButton.disabled = true;
@@ -1276,6 +1300,20 @@ export function createManifestUI(type = "iiif") {
       <div class="actions">
         <button class="secondary" id="load-manifesto-from-text" data-i18n="${titleKey}.loadFromText">${escapeHtml(t(`${titleKey}.loadFromText`, `Load from Text`))}</button>
       </div>
+    </div>
+
+    <div class="form-manifesto-group column manifesto-retarget">
+      <label class="form-manifesto-label" for="manifesto-retarget-url" data-i18n="manifesto.retargetTitle">${escapeHtml(t("manifesto.retargetTitle", "Use these settings with another model"))}</label>
+      <p class="manifesto-retarget-hint" data-i18n="manifesto.retargetHint">${escapeHtml(t("manifesto.retargetHint", "Lights, rendering and shading stay; annotations, thumbnails, the timeline and the section planes belong to the current model and are left out."))}</p>
+      <div class="manifesto-retarget-row">
+        <input type="text" id="manifesto-retarget-url" list="manifesto-retarget-models" data-i18n-placeholder="manifesto.retargetPlaceholder" placeholder="${escapeHtml(t("manifesto.retargetPlaceholder", "Model URL (GLB, glTF, OBJ, ...)"))}">
+        <datalist id="manifesto-retarget-models"></datalist>
+        <button class="primary" type="button" id="manifesto-retarget-apply" data-i18n="manifesto.retargetApply">${escapeHtml(t("manifesto.retargetApply", "Apply"))}</button>
+      </div>
+      <label class="manifesto-retarget-option">
+        <input type="checkbox" id="manifesto-retarget-camera">
+        <span data-i18n="manifesto.retargetKeepCamera">${escapeHtml(t("manifesto.retargetKeepCamera", "Keep the camera"))}</span>
+      </label>
     </div>
   `;
 

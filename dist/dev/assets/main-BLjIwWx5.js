@@ -72,6 +72,125 @@ function isOnline() {
   return core.isOnline !== false;
 }
 
+// The media type of a model URL, by its extension (IIIF body "format").
+// Kept apart from presentation4.js so it loads without three.js.
+const MODEL_FORMATS = {
+  glb: "model/gltf-binary",
+  gltf: "model/gltf+json",
+  obj: "model/obj",
+  stl: "model/stl",
+  usdz: "model/vnd.usdz+zip",
+};
+
+function modelFormatOf(url) {
+  const extension = String(url || "").split(/[?#]/)[0].split(".").pop().toLowerCase();
+  return MODEL_FORMATS[extension] || null;
+}
+
+// The settings of a manifest for another model (the manifest form's "Use
+// these settings with another model", metadata.js): the look - lights,
+// rendering, environment, shading, raking light, the Level of Certainty
+// scale, the viewer options - stays; what belongs to the old model goes:
+//
+// - its annotations, and the cameras of their saved views
+// - the thumbnails (renders of the old model), the 4D timeline (its nodes)
+//   and the section planes (its coordinates)
+// - the model's own transform (position, rotation, scale)
+// - the viewer window's place on the page (viewer.window)
+// - the camera, unless keepCamera: a pose that fits one model rarely fits
+//   another, and without one the viewer frames the new model itself
+//
+// Ids made from the old model's URL ("<model>/scene", ...) are made from the
+// new one. Returns the new manifest, or null when the manifest has no model.
+
+const bodyOf = (annotation) => {
+  const body = Array.isArray(annotation?.body) ? annotation.body[0] : annotation?.body;
+  return body?.type === "SpecificResource" ? body.source ?? body : body;
+};
+const typeOf$2 = (annotation) => {
+  const body = bodyOf(annotation);
+  return (Array.isArray(body) ? body[0]?.type : body?.type) || "";
+};
+const isModel = (annotation) => typeOf$2(annotation) === "Model";
+const isCamera = (annotation) => /Camera$/.test(typeOf$2(annotation));
+
+function modelUrlOfManifest(manifest) {
+  for (const scene of manifest?.items || []) {
+    for (const page of scene.items || []) {
+      const model = (page.items || []).find(isModel);
+      if (model) return bodyOf(model)?.id || null;
+    }
+  }
+  return null;
+}
+
+const basename = (url) => String(url).split(/[?#]/)[0].split("/").pop() || url;
+
+function retargetManifest(manifest, modelUrl, { keepCamera = false } = {}) {
+  const oldUrl = modelUrlOfManifest(manifest);
+  const newUrl = String(modelUrl || "").trim();
+  if (!oldUrl || !newUrl) return null;
+
+  // Every string made from the old URL, made from the new one.
+  const swap = (value) => {
+    if (typeof value === "string") return value.split(oldUrl).join(newUrl);
+    if (Array.isArray(value)) return value.map(swap);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, swap(item)]));
+    }
+    return value;
+  };
+  const result = swap(structuredClone(manifest));
+
+  if (!String(result.id || "").startsWith(newUrl)) result.id = `${newUrl}/manifest.json`;
+  result.label = { en: [basename(newUrl)] };
+  delete result.thumbnail;
+
+  const scene = result.items?.[0];
+  if (scene) {
+    scene.label = { en: [basename(newUrl)] };
+    let modelPlaced = false;
+    scene.items = (scene.items || []).map((page) => ({
+      ...page,
+      items: (page.items || []).filter((annotation) => {
+        if (isModel(annotation)) {
+          // The first model, as it comes; no transform of the old one.
+          if (modelPlaced) return false;
+          modelPlaced = true;
+          const format = modelFormatOf(newUrl);
+          annotation.body = { id: newUrl, type: "Model", ...(format ? { format } : {}) };
+          return true;
+        }
+        // The default camera (the page's first) stays with keepCamera; the
+        // cameras of saved views go with their annotations.
+        if (isCamera(annotation)) return keepCamera && !/\/view$/.test(String(annotation.id || ""));
+        return true;
+      }),
+    }));
+    scene.annotations = (scene.annotations || []).map((page) => ({ ...page, items: [] }));
+  }
+
+  const block = result.AIM3DViewer;
+  if (block && typeof block === "object") {
+    block.generatedAt = new Date().toISOString();
+    if (!keepCamera) delete block.camera;
+    delete block.thumbnails;
+    delete block.timeline;
+    delete block.clipping;
+    if (block.viewer) {
+      delete block.viewer.clipping;
+      // Where the viewer window stood on the page the settings came from.
+      delete block.viewer.window;
+    }
+    if (block.modelTransform) {
+      delete block.modelTransform.position;
+      delete block.modelTransform.rotation;
+      delete block.modelTransform.scale;
+    }
+  }
+  return result;
+}
+
 const VIEWER_I18N = {
   en: {
     menu: {
@@ -291,6 +410,14 @@ const VIEWER_I18N = {
       treeKey: "{count} key",
       treeKeys: "{count} keys",
       treeEditHint: "Click to edit, Enter to confirm, Esc to cancel",
+      retargetTitle: "Use these settings with another model",
+      retargetHint: "Lights, rendering and shading stay; annotations, thumbnails, the timeline and the section planes belong to the current model and are left out.",
+      retargetPlaceholder: "Model URL (GLB, glTF, OBJ, ...)",
+      retargetKeepCamera: "Keep the camera",
+      retargetApply: "Apply",
+      retargetInvalidUrl: "Enter the URL of a model.",
+      retargetNoModel: "No model is loaded whose settings could be used.",
+      retargetDone: "Settings applied to {model}. The new manifest is in the text field.",
     },
     iiif: {
       loader: "IIIF Loader",
@@ -1043,6 +1170,14 @@ const VIEWER_I18N = {
       treeKey: "klucze: {count}",
       treeKeys: "klucze: {count}",
       treeEditHint: "Kliknij, aby edytować; Enter zatwierdza, Esc anuluje",
+      retargetTitle: "Użyj tych ustawień z innym modelem",
+      retargetHint: "Światła, renderowanie i cieniowanie zostają; adnotacje, miniatury, oś czasu i płaszczyzny przekroju należą do obecnego modelu i są pomijane.",
+      retargetPlaceholder: "URL modelu (GLB, glTF, OBJ, ...)",
+      retargetKeepCamera: "Zachowaj kamerę",
+      retargetApply: "Zastosuj",
+      retargetInvalidUrl: "Podaj URL modelu.",
+      retargetNoModel: "Nie wczytano modelu, którego ustawień można użyć.",
+      retargetDone: "Ustawienia zastosowano do {model}. Nowy manifest jest w polu tekstowym.",
     },
     iiif: {
       loader: "Ładowanie IIIF",
@@ -1811,6 +1946,14 @@ const VIEWER_I18N = {
       treeKey: "{count} Schlüssel",
       treeKeys: "{count} Schlüssel",
       treeEditHint: "Zum Bearbeiten klicken, Enter bestätigt, Esc bricht ab",
+      retargetTitle: "Diese Einstellungen für ein anderes Modell verwenden",
+      retargetHint: "Licht, Rendering und Schattierung bleiben; Annotationen, Vorschaubilder, die Zeitleiste und die Schnittebenen gehören zum aktuellen Modell und werden weggelassen.",
+      retargetPlaceholder: "Modell-URL (GLB, glTF, OBJ, ...)",
+      retargetKeepCamera: "Kamera beibehalten",
+      retargetApply: "Anwenden",
+      retargetInvalidUrl: "Geben Sie die URL eines Modells ein.",
+      retargetNoModel: "Es ist kein Modell geladen, dessen Einstellungen verwendet werden könnten.",
+      retargetDone: "Einstellungen auf {model} angewendet. Das neue Manifest steht im Textfeld.",
     },
     iiif: {
       loader: "IIIF-Loader",
@@ -2427,16 +2570,19 @@ const t$1=function(key, varsOrFallback = {}, maybeFallback = "") {
 
 // A list the viewer fetches at runtime so it can change without a new build
 // (or app release): the example manifests (example-manifests.js) and the
-// example models (example-models.js). The last list fetched is kept on the
-// device; without a connection (or when the fetch fails) that one is used,
-// else the copy bundled at build time.
+// example models (example-models.js). Without a connection (or when the
+// fetch fails) the copy bundled at build time is used - in the app, the last
+// list fetched, kept on the device (keep). A web viewer keeps none: its
+// bundled copy is as new as the site, and a kept list could be another
+// deployment's.
 //
 // normalize(data) turns the fetched JSON into the list in use, or null when
 // it is not one (the list in use then stays).
 const FETCH_TIMEOUT_MS = 8000;
 
-function createRemoteList({ name, cacheKey, defaultData, url, normalize }) {
+function createRemoteList({ name, cacheKey, keep = true, defaultData, url, normalize }) {
   function readCache() {
+    if (!keep) return null;
     try {
       return normalize(JSON.parse(window.localStorage.getItem(cacheKey) || "null"));
     } catch {
@@ -2445,6 +2591,7 @@ function createRemoteList({ name, cacheKey, defaultData, url, normalize }) {
   }
 
   function writeCache(data) {
+    if (!keep) return;
     try {
       window.localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch {
@@ -2611,6 +2758,20 @@ var DEFAULT_LIST$1 = {
 	models: models
 };
 
+// The example models of the "Load example model" select (main.js). The list
+// is fetched at runtime (remote-list.js) - at start and on the refresh button
+// next to the select - from viewer.exampleModelsUrl (viewer-settings.json), so
+// a new example needs no new build or app release. The bundled copy is
+// examples/index.json, the same file published at <site>/examples/index.json.
+//
+// Format: { "models": [entry] }, entry = { url, name, app? }. "name" may be a
+// string or { en, de, pl }; "./examples/..." URLs are served with the viewer.
+// app: false - not offered in the app (test files, and models the app has a
+// lighter version of; the app build leaves them out of its bundle).
+//
+// The app has the models of the list it was built with. Any other "./" entry
+// is a model added since: it is loaded from the list's site, online only.
+const IS_MOBILE_BUILD$1 = "dev" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -2632,6 +2793,7 @@ function normalizeList$1(data) {
 const list$1 = createRemoteList({
   name: "Example models",
   cacheKey: "dfg3dviewer-example-models",
+  keep: IS_MOBILE_BUILD$1,
   defaultData: DEFAULT_LIST$1,
   url: listUrl$1,
   normalize: normalizeList$1,
@@ -5646,6 +5808,15 @@ function getGalleryHost(Viewer, mainElement) {
   );
 }
 
+// A viewer turned into a movable window (ui/window-controls.js, a manifest's
+// viewer.window) leaves a placeholder where it stood: the gallery goes before
+// that, so it stays above the viewer - and the placeholder stays right
+// before the window, where window-controls.js resizes it.
+function galleryAnchor(host) {
+  const previous = host?.previousElementSibling;
+  return previous?.classList.contains("viewer-window-placeholder") ? previous : host;
+}
+
 function removeExistingGalleryDom() {
   const imageList = document.getElementById("image-list");
   (imageList?.closest(".image-list-scroller") || imageList)?.remove();
@@ -5659,7 +5830,7 @@ function removeExistingGalleryDom() {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "dev") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -6128,7 +6299,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     imageList.childNodes.length > 0 &&
     getGalleryHost(Viewer, mainElement)
   ) {
-    const galleryHost = getGalleryHost(Viewer, mainElement);
+    const galleryHost = galleryAnchor(getGalleryHost(Viewer, mainElement));
     galleryHost.insertAdjacentElement("beforebegin", modalGallery);
     galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
   }
@@ -7504,6 +7675,29 @@ function attachModelsSource(Viewer) {
 }
 
 var version = 1;
+var groups = {
+	tempietto: {
+		name: {
+			en: "Tempietto",
+			pl: "Tempietto",
+			de: "Tempietto"
+		}
+	},
+	wolpa: {
+		name: {
+			en: "Wolpa Synagogue",
+			pl: "Synagoga w Wołpie",
+			de: "Synagoge Wolpa"
+		}
+	},
+	showcase: {
+		name: {
+			en: "ExPlora4D showcase",
+			pl: "ExPlora4D showcase",
+			de: "ExPlora4D-Showcase"
+		}
+	}
+};
 var iiif = [
 	{
 		url: "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json",
@@ -7565,6 +7759,12 @@ var aim3d = [
 			en: "Tempietto - guided tour with annotations (localhost)",
 			pl: "Tempietto - wycieczka z przewodnikiem i adnotacjami (localhost)",
 			de: "Tempietto - Führung mit Annotationen (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Guided tour with annotations",
+			pl: "Wycieczka z przewodnikiem i adnotacjami",
+			de: "Führung mit Annotationen"
 		}
 	},
 	{
@@ -7573,6 +7773,12 @@ var aim3d = [
 			en: "Tempietto - 4D timeline: building, ruin, protection (localhost)",
 			pl: "Tempietto - oś czasu 4D: budowa, ruina, ochrona (localhost)",
 			de: "Tempietto - 4D-Zeitleiste: Bau, Ruine, Schutz (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "4D timeline: building, ruin, protection",
+			pl: "Oś czasu 4D: budowa, ruina, ochrona",
+			de: "4D-Zeitleiste: Bau, Ruine, Schutz"
 		}
 	},
 	{
@@ -7581,6 +7787,12 @@ var aim3d = [
 			en: "Tempietto - Level of Certainty (localhost)",
 			pl: "Tempietto - poziom pewności (localhost)",
 			de: "Tempietto - Grad der Gewissheit (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Level of Certainty",
+			pl: "Poziom pewności",
+			de: "Grad der Gewissheit"
 		}
 	},
 	{
@@ -7589,6 +7801,12 @@ var aim3d = [
 			en: "Tempietto - toon shading (localhost)",
 			pl: "Tempietto - cieniowanie toon (localhost)",
 			de: "Tempietto - Toon-Shading (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Toon shading",
+			pl: "Cieniowanie toon",
+			de: "Toon-Shading"
 		}
 	},
 	{
@@ -7597,6 +7815,12 @@ var aim3d = [
 			en: "Tempietto - matcap clay, ambient occlusion (localhost)",
 			pl: "Tempietto - matcap (glina), okluzja otoczenia (localhost)",
 			de: "Tempietto - Matcap-Ton, Umgebungsverdeckung (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Matcap clay, ambient occlusion",
+			pl: "Matcap (glina), okluzja otoczenia",
+			de: "Matcap-Ton, Umgebungsverdeckung"
 		}
 	},
 	{
@@ -7605,6 +7829,12 @@ var aim3d = [
 			en: "Tempietto - golden hour, ACES (localhost)",
 			pl: "Tempietto - złota godzina, ACES (localhost)",
 			de: "Tempietto - goldene Stunde, ACES (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Golden hour, ACES",
+			pl: "Złota godzina, ACES",
+			de: "Goldene Stunde, ACES"
 		}
 	},
 	{
@@ -7613,6 +7843,12 @@ var aim3d = [
 			en: "Tempietto - night, floodlights, lit cella (localhost)",
 			pl: "Tempietto - noc, iluminacja, oświetlona cela (localhost)",
 			de: "Tempietto - Nacht, Strahler, beleuchtete Cella (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Night, floodlights, lit cella",
+			pl: "Noc, iluminacja, oświetlona cela",
+			de: "Nacht, Strahler, beleuchtete Cella"
 		}
 	},
 	{
@@ -7621,98 +7857,387 @@ var aim3d = [
 			en: "Tempietto - own gallery renders (localhost)",
 			pl: "Tempietto - własne rendery w galerii (localhost)",
 			de: "Tempietto - eigene Galerie-Renderings (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Own gallery renders",
+			pl: "Własne rendery w galerii",
+			de: "Eigene Galerie-Renderings"
 		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local.json",
 		i18n: "aim3if.optionWolpaLocal",
-		fallback: "Wolpa Synagogue (localhost)"
+		fallback: "Wolpa Synagogue (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Default view",
+			pl: "Widok podstawowy",
+			de: "Grundansicht"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-ceiling.json",
 		i18n: "aim3if.optionWolpaLocalCeiling",
-		fallback: "Wolpa Synagogue - ceiling view (localhost)"
+		fallback: "Wolpa Synagogue - ceiling view (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Ceiling view",
+			pl: "Widok sklepienia",
+			de: "Deckenansicht"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-4d.json",
 		i18n: "aim3if.optionWolpa4D",
 		fallback: "Wolpa Synagogue - 4D timeline: weathering 1730-1936 (localhost)",
 		excludeFromMobile: true,
-		inIIIFSelect: true
+		inIIIFSelect: true,
+		group: "wolpa",
+		variant: {
+			en: "4D timeline: weathering 1730-1936",
+			pl: "Oś czasu 4D: starzenie 1730-1936",
+			de: "4D-Zeitleiste: Alterung 1730-1936"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-golden-hour.json",
 		i18n: "aim3if.optionWolpaGoldenHour",
-		fallback: "Wolpa Synagogue - golden hour, ACES (localhost)"
+		fallback: "Wolpa Synagogue - golden hour, ACES (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Golden hour, ACES",
+			pl: "Złota godzina, ACES",
+			de: "Goldene Stunde, ACES"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-studio-agx.json",
 		i18n: "aim3if.optionWolpaStudio",
-		fallback: "Wolpa Synagogue - studio, AgX (localhost)"
+		fallback: "Wolpa Synagogue - studio, AgX (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Studio, AgX",
+			pl: "Studio, AgX",
+			de: "Studio, AgX"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-night-spotlights.json",
 		i18n: "aim3if.optionWolpaNight",
-		fallback: "Wolpa Synagogue - night spotlights, Reinhard (localhost)"
+		fallback: "Wolpa Synagogue - night spotlights, Reinhard (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Night spotlights, Reinhard",
+			pl: "Nocne reflektory, Reinhard",
+			de: "Nächtliche Strahler, Reinhard"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-night-tour.json",
 		i18n: "aim3if.optionWolpaNightTour",
-		fallback: "Wolpa Synagogue - night, annotations and guided tour (localhost)"
+		fallback: "Wolpa Synagogue - night, annotations and guided tour (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Night, annotations and guided tour",
+			pl: "Noc, adnotacje i wycieczka",
+			de: "Nacht, Anmerkungen und Führung"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-certainty.json",
 		i18n: "aim3if.optionWolpaCertainty",
-		fallback: "Wolpa Synagogue - Level of Certainty (localhost)"
+		fallback: "Wolpa Synagogue - Level of Certainty (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Level of Certainty",
+			pl: "Poziom pewności",
+			de: "Grad der Gewissheit"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-toon.json",
 		i18n: "aim3if.optionWolpaToon",
-		fallback: "Wolpa Synagogue - toon shading (localhost)"
+		fallback: "Wolpa Synagogue - toon shading (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Toon shading",
+			pl: "Cieniowanie toon",
+			de: "Toon-Shading"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-overcast-lambert.json",
 		i18n: "aim3if.optionWolpaOvercast",
-		fallback: "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)"
+		fallback: "Wolpa Synagogue - overcast, Lambert, Cineon (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Overcast, Lambert, Cineon",
+			pl: "Pochmurno, Lambert, Cineon",
+			de: "Bewölkt, Lambert, Cineon"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-clay-ao.json",
 		i18n: "aim3if.optionWolpaClayAo",
-		fallback: "Wolpa Synagogue - clay, ambient occlusion (localhost)"
+		fallback: "Wolpa Synagogue - clay, ambient occlusion (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Clay, ambient occlusion",
+			pl: "Glina, okluzja otoczenia",
+			de: "Ton, Umgebungsverdeckung"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-raking-light.json",
 		i18n: "aim3if.optionWolpaRaking",
-		fallback: "Wolpa Synagogue - raking light, sweeping, clay (localhost)"
+		fallback: "Wolpa Synagogue - raking light, sweeping, clay (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Raking light, sweeping, clay",
+			pl: "Światło skośne, obracające się, glina",
+			de: "Streiflicht, umlaufend, Ton"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-raking-light-texture.json",
 		i18n: "aim3if.optionWolpaRakingTexture",
-		fallback: "Wolpa Synagogue - raking light on the textures (localhost)"
+		fallback: "Wolpa Synagogue - raking light on the textures (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Raking light on the textures",
+			pl: "Światło skośne na teksturach",
+			de: "Streiflicht auf den Texturen"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-matcap.json",
 		i18n: "aim3if.optionWolpaMatcap",
-		fallback: "Wolpa Synagogue - matcap studio clay (localhost)"
+		fallback: "Wolpa Synagogue - matcap studio clay (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Matcap studio clay",
+			pl: "Matcap, glina studyjna",
+			de: "Matcap, Studio-Ton"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-flat-faces.json",
 		i18n: "aim3if.optionWolpaFlat",
-		fallback: "Wolpa Synagogue - flat shading, faces shown (localhost)"
+		fallback: "Wolpa Synagogue - flat shading, faces shown (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Flat shading, faces shown",
+			pl: "Płaskie cieniowanie, widoczne ściany",
+			de: "Flache Schattierung, Flächen sichtbar"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-normals.json",
 		i18n: "aim3if.optionWolpaNormals",
-		fallback: "Wolpa Synagogue - surface normals (localhost)"
+		fallback: "Wolpa Synagogue - surface normals (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Surface normals",
+			pl: "Normalne powierzchni",
+			de: "Oberflächennormalen"
+		}
 	},
 	{
 		url: "./manifests/wolpa-synagogue-aim3d-local-contours.json",
 		i18n: "aim3if.optionWolpaContours",
-		fallback: "Wolpa Synagogue - custom shader: contour lines (localhost)"
+		fallback: "Wolpa Synagogue - custom shader: contour lines (localhost)",
+		group: "wolpa",
+		variant: {
+			en: "Custom shader: contour lines",
+			pl: "Własny shader: warstwice",
+			de: "Eigener Shader: Höhenlinien"
+		}
+	},
+	{
+		url: "./manifests/showcase-aim3d-studio.json",
+		name: {
+			en: "Showcase - PBR materials in the studio, AgX",
+			pl: "Showcase - materiały PBR w studiu, AgX",
+			de: "Showcase - PBR-Materialien im Studio, AgX"
+		},
+		group: "showcase",
+		variant: {
+			en: "PBR materials in the studio, AgX",
+			pl: "Materiały PBR w studiu, AgX",
+			de: "PBR-Materialien im Studio, AgX"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-golden-hour.json",
+		name: {
+			en: "Showcase - golden hour, low sun, ACES",
+			pl: "Showcase - złota godzina, niskie słońce, ACES",
+			de: "Showcase - goldene Stunde, tiefe Sonne, ACES"
+		},
+		group: "showcase",
+		variant: {
+			en: "Golden hour, low sun, ACES",
+			pl: "Złota godzina, niskie słońce, ACES",
+			de: "Goldene Stunde, tiefe Sonne, ACES"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-overcast.json",
+		name: {
+			en: "Showcase - overcast sky, Lambert, Cineon",
+			pl: "Showcase - zachmurzone niebo, Lambert, Cineon",
+			de: "Showcase - bedeckter Himmel, Lambert, Cineon"
+		},
+		group: "showcase",
+		variant: {
+			en: "Overcast sky, Lambert, Cineon",
+			pl: "Zachmurzone niebo, Lambert, Cineon",
+			de: "Bedeckter Himmel, Lambert, Cineon"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-night.json",
+		name: {
+			en: "Showcase - night: spotlights and emitters, Reinhard",
+			pl: "Showcase - noc: reflektory i emitery, Reinhard",
+			de: "Showcase - Nacht: Strahler und Leuchtkörper, Reinhard"
+		},
+		group: "showcase",
+		variant: {
+			en: "Night: spotlights and emitters, Reinhard",
+			pl: "Noc: reflektory i emitery, Reinhard",
+			de: "Nacht: Strahler und Leuchtkörper, Reinhard"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-clay-ao.json",
+		name: {
+			en: "Showcase - clay and ambient occlusion",
+			pl: "Showcase - glina i okluzja otoczenia",
+			de: "Showcase - Ton und Umgebungsverdeckung"
+		},
+		group: "showcase",
+		variant: {
+			en: "Clay and ambient occlusion",
+			pl: "Glina i okluzja otoczenia",
+			de: "Ton und Umgebungsverdeckung"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-matcap.json",
+		name: {
+			en: "Showcase - matcap clay",
+			pl: "Showcase - matcap (glina)",
+			de: "Showcase - Matcap-Ton"
+		},
+		group: "showcase",
+		variant: {
+			en: "Matcap clay",
+			pl: "Matcap (glina)",
+			de: "Matcap-Ton"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-toon.json",
+		name: {
+			en: "Showcase - toon shading",
+			pl: "Showcase - cieniowanie toon",
+			de: "Showcase - Toon-Shading"
+		},
+		group: "showcase",
+		variant: {
+			en: "Toon shading",
+			pl: "Cieniowanie toon",
+			de: "Toon-Shading"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-flat-faces.json",
+		name: {
+			en: "Showcase - flat faces: flat and smooth spheres",
+			pl: "Showcase - płaskie ściany: sfera płaska i gładka",
+			de: "Showcase - flache Facetten: flache und glatte Kugel"
+		},
+		group: "showcase",
+		variant: {
+			en: "Flat faces: flat and smooth spheres",
+			pl: "Płaskie ściany: sfera płaska i gładka",
+			de: "Flache Facetten: flache und glatte Kugel"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-normals.json",
+		name: {
+			en: "Showcase - surface normals as colours",
+			pl: "Showcase - normalne powierzchni jako kolory",
+			de: "Showcase - Flächennormalen als Farben"
+		},
+		group: "showcase",
+		variant: {
+			en: "Surface normals as colours",
+			pl: "Normalne powierzchni jako kolory",
+			de: "Flächennormalen als Farben"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-contours.json",
+		name: {
+			en: "Showcase - custom shader: height bands, contour every 10 cm",
+			pl: "Showcase - własny shader: pasy wysokości, warstwica co 10 cm",
+			de: "Showcase - eigener Shader: Höhenbänder, Höhenlinie alle 10 cm"
+		},
+		group: "showcase",
+		variant: {
+			en: "Custom shader: height bands, contour every 10 cm",
+			pl: "Własny shader: pasy wysokości, warstwica co 10 cm",
+			de: "Eigener Shader: Höhenbänder, Höhenlinie alle 10 cm"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-raking-light.json",
+		name: {
+			en: "Showcase - raking light on relief and a normal map",
+			pl: "Showcase - światło skośne na reliefie i mapie normalnych",
+			de: "Showcase - Streiflicht auf Relief und Normal Map"
+		},
+		group: "showcase",
+		variant: {
+			en: "Raking light on relief and a normal map",
+			pl: "Światło skośne na reliefie i mapie normalnych",
+			de: "Streiflicht auf Relief und Normal Map"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-section.json",
+		name: {
+			en: "Showcase - section through the hollow pedestal",
+			pl: "Showcase - przekrój przez pusty postument",
+			de: "Showcase - Schnitt durch den hohlen Sockel"
+		},
+		group: "showcase",
+		variant: {
+			en: "Section through the hollow pedestal",
+			pl: "Przekrój przez pusty postument",
+			de: "Schnitt durch den hohlen Sockel"
+		},
+		excludeFromMobile: true
 	}
 ];
 var DEFAULT_LIST = {
 	version: version,
+	groups: groups,
 	iiif: iiif,
 	aim3d: aim3d
 };
@@ -7722,15 +8247,22 @@ var DEFAULT_LIST = {
 // is fetched at runtime (remote-list.js) - each time one of them opens and on
 // "Refresh" - from viewer.exampleManifestsUrl (viewer-settings.json); the
 // bundled copy is manifesto/examples/index.json - the same file is published
-// with the manifests and is the default online source.
+// with the manifests (<site>/manifests/index.json).
 //
-// Format: { "iiif": [entry], "aim3d": [entry] }, entry = { url, i18n?,
-// fallback?, name?, excludeFromMobile?, inIIIFSelect? }. "name" may be a
-// string or { en, de, pl }; "./manifests/..." URLs are served with the viewer.
+// Format: { "groups"?: { id: { name } }, "iiif": [entry], "aim3d": [entry] },
+// entry = { url, i18n?, fallback?, name?, group?, variant?,
+// excludeFromMobile?, inIIIFSelect? }. "name" may be a string or
+// { en, de, pl }; "./manifests/..." URLs are served with the viewer.
+// group + variant: the lists show the entry under its group's name (the
+// model), by the variant alone ("Golden hour, ACES"). The full name stays
+// for viewers released before groups existed.
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const DEFAULT_URL = "https://viewer.thedworak.com/manifests/index.json";
+const IS_MOBILE_BUILD = "dev" === "mobile";
+// The web viewer serves the list itself (a build shows its own examples,
+// not those of the last deployment); the app fetches it from the site.
+const DEFAULT_URL = "./manifests/index.json";
 
 const listUrl = () => configuredUrl("exampleManifestsUrl", DEFAULT_URL);
 
@@ -7746,12 +8278,14 @@ function normalizeEntries(entries) {
 function normalizeList(data) {
   const iiif = normalizeEntries(data?.iiif);
   const aim3d = normalizeEntries(data?.aim3d);
-  return iiif && aim3d ? { iiif, aim3d } : null;
+  const groups = data?.groups && typeof data.groups === "object" ? data.groups : {};
+  return iiif && aim3d ? { iiif, aim3d, groups } : null;
 }
 
 const list = createRemoteList({
   name: "Example manifests",
   cacheKey: "dfg3dviewer-example-manifests",
+  keep: IS_MOBILE_BUILD,
   defaultData: DEFAULT_LIST,
   url: listUrl,
   normalize: normalizeList,
@@ -7765,10 +8299,36 @@ function refreshExampleManifests() {
   return list.refresh();
 }
 
-// { url, i18n, name, baseUrl } with the name in the current language.
-function exampleManifestOption({ url, i18n, fallback, name, baseUrl }) {
+// { url, i18n, name, baseUrl, group } with the names in the current
+// language. In a group: name is the variant, group { id, name } the model.
+function exampleManifestOption({ url, i18n, fallback, name, baseUrl, group, variant }) {
   const fallbackName = localizedName(name) || fallback || url;
-  return { url, i18n, name: i18n ? t$1(i18n, fallbackName) : fallbackName, baseUrl };
+  const groupName = group ? localizedName(list.get()?.groups?.[group]?.name) : "";
+  const variantName = localizedName(variant);
+  if (groupName && variantName) return { url, name: variantName, baseUrl, group: { id: group, name: groupName } };
+  return { url, i18n, name: i18n ? t$1(i18n, fallbackName) : fallbackName, baseUrl, group: null };
+}
+
+// Splits options into runs: [{ group, items }], group null for the
+// ungrouped ones. Entries of a group stay together where the first one is.
+function groupExampleOptions(options) {
+  const runs = [];
+  const byGroup = new Map();
+  options.forEach((option) => {
+    const id = option.group?.id;
+    if (id && byGroup.has(id)) {
+      byGroup.get(id).items.push(option);
+      return;
+    }
+    const run = { group: option.group || null, items: [option] };
+    if (id) byGroup.set(id, run);
+    else if (runs.at(-1)?.group === null) {
+      runs.at(-1).items.push(option);
+      return;
+    }
+    runs.push(run);
+  });
+  return runs;
 }
 
 // App only: the example AIM3D/IIIF manifests the dev build offers in its
@@ -7844,40 +8404,69 @@ function attachExamplesPanel(Viewer) {
         const heading = document.createElement("h3");
         heading.className = "examples-panel-heading";
         heading.textContent = t$1(...label);
-        const list = document.createElement("ul");
-        list.className = "models-panel-list";
-        examples[key].map(exampleManifestOption).forEach(({ url, name, baseUrl }) => {
-          const item = document.createElement("li");
-          item.className = "models-panel-row";
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "models-panel-item";
-          const text = document.createElement("span");
-          text.className = "models-panel-item-text";
+        this.examplesList.appendChild(heading);
+        // A model's manifests folded under its name (with their count), each
+        // by what it changes; a group stays open across re-renders.
+        groupExampleOptions(examples[key].map(exampleManifestOption)).forEach(({ group, items }) => {
+          const list = document.createElement("ul");
+          list.className = "models-panel-list";
+          items.forEach(({ url, name, baseUrl }) => list.appendChild(this.renderExampleRow({ url, name, baseUrl, type, online })));
+          if (!group) {
+            this.examplesList.appendChild(list);
+            return;
+          }
+          const details = document.createElement("details");
+          details.className = "examples-panel-group";
+          details.dataset.group = `${key}:${group.id}`;
+          details.open = this.openExampleGroups?.has(details.dataset.group) === true;
+          const summary = document.createElement("summary");
+          summary.className = "examples-panel-subheading";
           const title = document.createElement("span");
-          title.className = "models-panel-item-name";
-          title.textContent = displayName(name);
-          text.appendChild(title);
-          // An icon instead of a caption: a phone for the bundled ones, a
-          // globe for those fetched from the internet.
-          const bundled = isBundled(url);
-          const sourceLabel = bundled
-            ? t$1("examplesPanel.bundled", "In the app, works offline")
-            : t$1("examplesPanel.online", "Needs an internet connection");
-          const source = document.createElement("span");
-          source.className = "examples-panel-source";
-          source.dataset.source = bundled ? "bundled" : "online";
-          source.setAttribute("role", "img");
-          source.setAttribute("aria-label", sourceLabel);
-          source.title = sourceLabel;
-          button.append(text, source);
-          button.disabled = !online && !isBundled(url);
-          this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
-          item.appendChild(button);
-          list.appendChild(item);
+          title.textContent = group.name;
+          const count = document.createElement("span");
+          count.className = "examples-panel-count";
+          count.textContent = String(items.length);
+          summary.append(title, count);
+          details.append(summary, list);
+          details.addEventListener("toggle", () => {
+            this.openExampleGroups ??= new Set();
+            if (details.open) this.openExampleGroups.add(details.dataset.group);
+            else this.openExampleGroups.delete(details.dataset.group);
+          });
+          this.examplesList.appendChild(details);
         });
-        this.examplesList.append(heading, list);
       });
+    },
+
+    renderExampleRow({ url, name, baseUrl, type, online }) {
+      const item = document.createElement("li");
+      item.className = "models-panel-row";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "models-panel-item";
+      const text = document.createElement("span");
+      text.className = "models-panel-item-text";
+      const title = document.createElement("span");
+      title.className = "models-panel-item-name";
+      title.textContent = displayName(name);
+      text.appendChild(title);
+      // An icon instead of a caption: a phone for the bundled ones, a
+      // globe for those fetched from the internet.
+      const bundled = isBundled(url);
+      const sourceLabel = bundled
+        ? t$1("examplesPanel.bundled", "In the app, works offline")
+        : t$1("examplesPanel.online", "Needs an internet connection");
+      const source = document.createElement("span");
+      source.className = "examples-panel-source";
+      source.dataset.source = bundled ? "bundled" : "online";
+      source.setAttribute("role", "img");
+      source.setAttribute("aria-label", sourceLabel);
+      source.title = sourceLabel;
+      button.append(text, source);
+      button.disabled = !online && !bundled;
+      this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
+      item.appendChild(button);
+      return item;
     },
 
     async loadExampleManifest(url, type, baseUrl) {
@@ -9528,6 +10117,1320 @@ function formatClippingModeParam(mode) {
   return value || null;
 }
 
+// Below this distance (px) from its default glued corner, drag movement is
+// absorbed rather than moved - the panel only actually detaches from the
+// viewer frame's edge past a deliberate drag, instead of on the first pixel.
+const METADATA_GLUE_THRESHOLD = 28;
+
+// How close to the card's bottom-right corner a pointerdown has to land to
+// count as grabbing the native resize grip (see isPointerInResizeCorner()).
+const METADATA_RESIZE_HOTSPOT = 18;
+
+let metadataResizeObserver = null;
+let metadataHostResizeObserver = null;
+let metadataNativeResizeActive = false;
+let metadataNativeResizeReleaseTimer = null;
+
+let modelSettingsResetState = null;
+
+function captureModelSettingsResetState(object) {
+  const objects = Array.isArray(object) ? object : [object];
+
+  modelSettingsResetState = {
+    object,
+    setupIndex: core.objectsConfig?.setupIndex,
+    transforms: objects.map((model) => ({
+      model,
+      position: model.position.clone(),
+      rotation: model.rotation.clone(),
+      scale: model.scale.clone(),
+    })),
+  };
+}
+
+// Progressive loading swaps the preview model for the full one in place
+// (see loaders.js): point the reset state at the new object, keeping the
+// transform captured for the preview.
+function replaceModelSettingsResetObject(previousObject, nextObject) {
+  if (!modelSettingsResetState || modelSettingsResetState.object !== previousObject) return;
+  modelSettingsResetState.object = nextObject;
+  modelSettingsResetState.transforms.forEach((entry) => {
+    if (entry.model === previousObject) entry.model = nextObject;
+  });
+}
+
+// Rebuilds the hierarchy submenu and the vertex/face counts shown in the
+// metadata panel for a swapped-in model, without re-running the camera and
+// metadata setup of handleMetadataResponse().
+function refreshModelHierarchyAndStats(object) {
+  const stats = { vertices: 0, faces: 0 };
+  Viewer.clearHierarchySubmenu();
+  const root = Array.isArray(object) ? object[0] : object;
+  root?.traverse?.((child) => {
+    if (child.isPoints) stats.vertices += fetchMetadata(child, "vertices");
+    if (!child.isMesh) return;
+    stats.vertices += fetchMetadata(child, "vertices");
+    stats.faces += fetchMetadata(child, "faces");
+    if (child.name === "") child.name = "Mesh";
+    Viewer.addHierarchySubmenuItem(truncateString(child.name, 35), child.id);
+  });
+  ["vertices", "faces"].forEach((key) => {
+    core.metadataContainer?.querySelectorAll?.(`[data-metadata-count="${key}"]`).forEach((node) => {
+      node.dataset.count = String(stats[key]);
+    });
+  });
+  updateMetadataCounts(core.metadataContainer);
+  return stats;
+}
+
+// A count in the viewer's language (108 315, 108,315, 108.315).
+function formatMetadataCount(value) {
+  const count = Number(value);
+  if (!Number.isFinite(count)) return String(value ?? "");
+  try {
+    return new Intl.NumberFormat(core.currentLanguage || "en", { maximumFractionDigits: 0 }).format(count);
+  } catch (_error) {
+    return String(Math.round(count));
+  }
+}
+
+// Writes the counts ([data-metadata-count] with data-count) of the metadata
+// card in the viewer's language: the stat tiles and the header's summary.
+function updateMetadataCounts(root = core.metadataContainer) {
+  if (!root) return;
+  root.querySelectorAll("[data-metadata-count]").forEach((node) => {
+    node.textContent = formatMetadataCount(node.dataset.count);
+  });
+  const summary = root.querySelector(".metadata-toggle-summary");
+  if (summary) {
+    summary.textContent = t$1("metadata.summary", {
+      format: summary.dataset.format || "",
+      vertices: formatMetadataCount(summary.dataset.vertices),
+    }, "{format} · {vertices} vertices");
+  }
+}
+
+async function resetModelSettings() {
+  if (!modelSettingsResetState?.object) return;
+
+  modelSettingsResetState.transforms.forEach(({ model, position, rotation, scale }) => {
+    model.position.copy(position);
+    model.rotation.copy(rotation);
+    model.scale.copy(scale);
+    model.updateMatrixWorld(true);
+  });
+
+  if (typeof modelSettingsResetState.setupIndex !== "undefined" && core.objectsConfig) {
+    core.objectsConfig.setupIndex = modelSettingsResetState.setupIndex;
+  }
+
+  window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
+  await handleMetadataResponse(null, { vertices: 0, faces: 0 }, modelSettingsResetState.object);
+}
+
+function escapeHtml$1(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildMetadataRow(label, value) {
+  if (!label || typeof value === "undefined" || value === null || value === "") {
+    return "";
+  }
+
+  return (
+    '<div class="metadata-row">' +
+      '<span class="metadata-label">' + escapeHtml$1(label) + '</span>' +
+      '<span class="metadata-value">' + escapeHtml$1(value) + '</span>' +
+    '</div>'
+  );
+}
+
+/**
+ * Formats WissKI metadata labels and values for display.
+ */
+function addWissKIMetadata(label, value) {
+  if (typeof label !== "undefined" && typeof value !== "undefined") {
+    var _str = "";
+    label = label.replace("wisski_path_3d_model__", "");
+    switch (label) {
+      case "title":
+        _str = t$1("metadata.title", "Title");
+        break;
+      case "author_name":
+        _str = t$1("metadata.author", "Author");
+        break;
+      case "author_affiliation":
+        _str = t$1("metadata.authorAffiliation", "Author affiliation");
+        break;
+      case "license":
+        _str = t$1("metadata.license", "License");
+        break;
+      case "description":
+        _str = t$1("metadata.description", "Description");
+        break;
+      case "object_type":
+        _str = t$1("metadata.objectType", "Object type");
+        break;
+      case "reconstruction_authors":
+        _str = t$1("metadata.reconstructionAuthors", "Reconstruction authors");
+        break;
+      case "reconstruction_period":
+        _str = t$1("metadata.reconstructionPeriod", "Reconstruction period");
+        break;
+      default:
+        _str = "";
+        break;
+    }
+
+    if (_str !== "") {
+      return buildMetadataRow(_str, value);
+    }
+  }
+}
+
+/**
+ * Expands/collapses the metadata panel.
+ */
+function expandMetadata() {
+  const content = document.getElementById("metadata-content");
+  const toggle = document.getElementById("metadata-collapse");
+  const card = document.getElementById("metadata-card");
+
+  if (!content || !toggle) return;
+
+  const expanded = content.classList.toggle("expanded");
+  toggle.classList.toggle("metadata-collapsed", !expanded);
+  card?.classList.toggle("metadata-open", expanded);
+
+  // accessibility
+  toggle.setAttribute("aria-expanded", expanded);
+
+  // A manual resize (see observeMetadataResize()) sets an explicit inline
+  // width/height on the card. Left alone, that inline size would keep the
+  // collapsed card just as big as when it was expanded, with the content
+  // hidden inside empty space instead of the card actually shrinking back
+  // to the compact pill - so swap it out for the collapsed default here,
+  // and restore the stored manual size when expanding again.
+  if (card?.classList.contains("metadata-card-resized")) {
+    if (expanded) {
+      const { width, height } = getInitialMetadataSize();
+      if (width != null) card.style.width = `${width}px`;
+      if (height != null) card.style.height = `${height}px`;
+    } else {
+      card.style.width = "";
+      card.style.height = "";
+    }
+  }
+
+  if (!expanded) {
+    card?.classList.remove("metadata-card-overflowing");
+    content.querySelectorAll(".metadata-row-pinned").forEach((row) => {
+      row.classList.remove("metadata-row-pinned");
+    });
+    return;
+  }
+
+  updateMetadataOverflow();
+}
+
+function updateMetadataOverflow() {
+  const content = document.getElementById("metadata-content");
+  const card = document.getElementById("metadata-card");
+
+  if (!content || !card || !content.classList.contains("expanded")) return;
+
+  const hasOverflow = content.scrollHeight - content.clientHeight > 8;
+  card.classList.toggle("metadata-card-overflowing", hasOverflow);
+
+  content.querySelectorAll(".metadata-row").forEach((row) => {
+    const value = row.querySelector(".metadata-value");
+    if (!value) return;
+
+    const wasPinned = row.classList.contains("metadata-row-pinned");
+    row.classList.remove("metadata-row-pinned", "metadata-row-expandable");
+
+    const isExpandable = value.scrollHeight - value.clientHeight > 4;
+    row.classList.toggle("metadata-row-expandable", isExpandable);
+
+    if (wasPinned && isExpandable) {
+      row.classList.add("metadata-row-pinned");
+    }
+  });
+}
+
+function bindMetadataInteractions() {
+  if (core.metadataContainer.dataset.boundCollapse === "true") return;
+
+  core.metadataContainer.addEventListener("click", (e) => {
+    const toggle = e.target.closest("#metadata-collapse");
+    if (toggle) {
+      expandMetadata();
+      return;
+    }
+
+    const card = document.getElementById("metadata-card");
+    const content = document.getElementById("metadata-content");
+    if (!card || !content || !content.classList.contains("expanded")) return;
+
+    const row = e.target.closest(".metadata-row");
+    if (!row) return;
+
+    const willPin = !row.classList.contains("metadata-row-pinned");
+    content.querySelectorAll(".metadata-row-pinned").forEach((pinnedRow) => {
+      pinnedRow.classList.remove("metadata-row-pinned");
+    });
+    if (willPin) row.classList.add("metadata-row-pinned");
+  });
+
+  // The card is rebuilt (innerHTML) on every handleMetadataResponse() call,
+  // so its own drag handle is a fresh element each time - delegate from the
+  // container (which persists) instead of binding it directly.
+  core.metadataContainer.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".metadata-drag-handle")) {
+      startMetadataDrag(e);
+      return;
+    }
+
+    const card = e.target.closest("#metadata-card");
+    if (card && isPointerInResizeCorner(card, e.clientX, e.clientY)) {
+      beginNativeResizeTracking();
+    }
+  });
+
+  window.addEventListener("resize", updateMetadataOverflow);
+  core.metadataContainer.dataset.boundCollapse = "true";
+}
+
+function getMetadataContainerConfig() {
+  return core.CONFIG?.viewer?.metadataContainer || {};
+}
+
+function getInitialMetadataPosition() {
+  const position = getMetadataContainerConfig().position || {};
+  return {
+    x: parseFloatParam(position.x) ?? 0,
+    y: parseFloatParam(position.y) ?? 0,
+  };
+}
+
+function setStoredMetadataPosition(x, y) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.metadataContainer ??= {};
+  core.CONFIG.viewer.metadataContainer.position = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function getInitialMetadataSize() {
+  const size = getMetadataContainerConfig().size || {};
+  return {
+    width: parseFloatParam(size.width),
+    height: parseFloatParam(size.height),
+  };
+}
+
+function setStoredMetadataSize(width, height) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.metadataContainer ??= {};
+  core.CONFIG.viewer.metadataContainer.size = {
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  };
+}
+
+function getMetadataDragHost() {
+  // Unlike editorToolbar/manifestoForm (which prefer the wrapper, since one
+  // can render outside the 3D canvas), the metadata panel is an overlay ON
+  // the model - it should stay confined to the actual viewer viewport, not
+  // the taller wrapper that can also contain e.g. the manifesto form below it.
+  return core.container || core.viewerWrapper || null;
+}
+
+function clampMetadataPosition(card, x, y) {
+  const host = getMetadataDragHost();
+  const hostRect = host?.getBoundingClientRect();
+  if (!hostRect) return { x, y };
+
+  // The card's untransformed rest position is the host's top-left corner
+  // (see #metadata-container { left: 0 } in main.css), so a translate of 0
+  // to (hostWidth - cardWidth)/(hostHeight - cardHeight) keeps it fully
+  // inside the viewer, unlike editorToolbar's looser +-hostSize clamp.
+  const maxX = Math.max(hostRect.width - card.offsetWidth, 0);
+  const maxY = Math.max(hostRect.height - card.offsetHeight, 0);
+
+  return {
+    x: Math.min(Math.max(x, 0), maxX),
+    y: Math.min(Math.max(y, 0), maxY),
+  };
+}
+
+function applyMetadataPosition(card, x, y) {
+  card.style.setProperty("--drag-x", `${x}px`);
+  card.style.setProperty("--drag-y", `${y}px`);
+  setStoredMetadataPosition(x, y);
+}
+
+function startMetadataDrag(event) {
+  if (event.button !== 0) return;
+  const card = document.getElementById("metadata-card");
+  if (!card) return;
+
+  event.preventDefault();
+
+  const origin = getInitialMetadataPosition();
+  // Only glued (resisting small drags) when still sitting exactly at the
+  // default corner position - once the user has deliberately moved it away,
+  // further drags follow the pointer 1:1 like editorToolbar's.
+  const glued = origin.x === 0 && origin.y === 0;
+  const startX = event.clientX;
+  const startY = event.clientY;
+
+  card.classList.add("metadata-dragging");
+
+  const onPointerMove = (moveEvent) => {
+    const rawDx = moveEvent.clientX - startX;
+    const rawDy = moveEvent.clientY - startY;
+
+    const dx = glued ? Math.sign(rawDx) * Math.max(Math.abs(rawDx) - METADATA_GLUE_THRESHOLD, 0) : rawDx;
+    const dy = glued ? Math.sign(rawDy) * Math.max(Math.abs(rawDy) - METADATA_GLUE_THRESHOLD, 0) : rawDy;
+
+    const next = clampMetadataPosition(card, origin.x + dx, origin.y + dy);
+    applyMetadataPosition(card, next.x, next.y);
+  };
+
+  const stopDrag = () => {
+    card.classList.remove("metadata-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+    document.removeEventListener("pointercancel", stopDrag);
+  };
+
+  document.addEventListener("pointermove", onPointerMove);
+  document.addEventListener("pointerup", stopDrag);
+  document.addEventListener("pointercancel", stopDrag);
+}
+
+// The card's own width/height also change from expanding/collapsing (an
+// animated CSS transition, not a resize) and from the host ResizeObserver
+// re-clamping it - neither is a user resize. Only trust a ResizeObserver
+// firing as one while the user is actually holding the native grip down.
+function isPointerInResizeCorner(card, clientX, clientY) {
+  const rect = card.getBoundingClientRect();
+  return (
+    clientX >= rect.right - METADATA_RESIZE_HOTSPOT && clientX <= rect.right + 4 &&
+    clientY >= rect.bottom - METADATA_RESIZE_HOTSPOT && clientY <= rect.bottom + 4
+  );
+}
+
+function beginNativeResizeTracking() {
+  metadataNativeResizeActive = true;
+  clearTimeout(metadataNativeResizeReleaseTimer);
+
+  const release = () => {
+    // A short grace period so the ResizeObserver entry for the drag's final
+    // frame (delivered asynchronously after pointerup) still lands while
+    // tracking is considered active.
+    metadataNativeResizeReleaseTimer = setTimeout(() => {
+      metadataNativeResizeActive = false;
+    }, 100);
+    document.removeEventListener("pointerup", release);
+    document.removeEventListener("pointercancel", release);
+  };
+  document.addEventListener("pointerup", release);
+  document.addEventListener("pointercancel", release);
+}
+
+// Resize itself is native CSS (see "#metadata-card.metadata-open { resize:
+// both }" in main.css, enabled only while expanded) - a ResizeObserver just
+// persists the result and keeps it from growing past the viewer's edge,
+// mirroring initializeManifestoFormDrag()'s resize handling below.
+function observeMetadataResize(card) {
+  metadataResizeObserver?.disconnect();
+
+  let isFirstObservation = true;
+  metadataResizeObserver = new ResizeObserver((entries) => {
+    if (isFirstObservation) {
+      isFirstObservation = false;
+      return;
+    }
+    if (!metadataNativeResizeActive) return;
+
+    const entry = entries[0];
+    if (!entry) return;
+
+    const host = getMetadataDragHost();
+    const hostRect = host?.getBoundingClientRect();
+    const { x, y } = getInitialMetadataPosition();
+
+    let width = entry.contentRect.width;
+    let height = entry.contentRect.height;
+
+    if (hostRect) {
+      const maxWidth = Math.max(hostRect.width - x, 160);
+      const maxHeight = Math.max(hostRect.height - y, 60);
+      if (width > maxWidth) {
+        width = maxWidth;
+        card.style.width = `${width}px`;
+      }
+      if (height > maxHeight) {
+        height = maxHeight;
+        card.style.height = `${height}px`;
+      }
+    }
+
+    card.classList.add("metadata-card-resized");
+    setStoredMetadataSize(Math.round(width), Math.round(height));
+  });
+  metadataResizeObserver.observe(card);
+}
+
+// Keep the stored position valid if the viewer itself is resized, mirroring
+// initializeEditorToolbarDrag()'s own host ResizeObserver in editor-toolbar.js.
+function observeMetadataHost(card) {
+  const host = getMetadataDragHost();
+  metadataHostResizeObserver?.disconnect();
+  if (!host) return;
+
+  metadataHostResizeObserver = new ResizeObserver(() => {
+    const { x, y } = getInitialMetadataPosition();
+    const next = clampMetadataPosition(card, x, y);
+    applyMetadataPosition(card, next.x, next.y);
+  });
+  metadataHostResizeObserver.observe(host);
+}
+
+function initializeMetadataDragAndResize() {
+  const card = document.getElementById("metadata-card");
+  if (!card) return;
+
+  if (core.container && getComputedStyle(core.container).position === "static") {
+    core.container.style.position = "relative";
+  }
+
+  const { x, y } = getInitialMetadataPosition();
+  applyMetadataPosition(card, x, y);
+
+  const { width, height } = getInitialMetadataSize();
+  const hasStoredSize = width != null || height != null;
+  card.classList.toggle("metadata-card-resized", hasStoredSize);
+  // The card is always (re)built collapsed (see the HTML template in
+  // handleMetadataResponse()) - only apply a previously stored manual size
+  // once it's actually expanded again (see expandMetadata()), or a freshly
+  // rebuilt card would immediately show a large collapsed box with its
+  // content hidden inside empty space.
+  if (hasStoredSize && card.classList.contains("metadata-open")) {
+    if (width != null) card.style.width = `${width}px`;
+    if (height != null) card.style.height = `${height}px`;
+  }
+
+  observeMetadataResize(card);
+  observeMetadataHost(card);
+}
+
+/**
+ * Appends metadata HTML to the DOM.
+ */
+// The address of the manifest the model came from, or null: the URL it was
+// loaded from, else its id when that is a web address (a manifest given as
+// text has no other).
+function currentManifestUrl() {
+  const manifest = window.Viewer?.currentManifest;
+  if (!manifest) return null;
+  const source = manifest.source;
+  if (manifest.type !== "text" && typeof source === "string" && !source.trim().startsWith("{")) {
+    try {
+      return new URL(source, window.location.href).href;
+    } catch {
+      return null;
+    }
+  }
+  const id = manifest.json?.id || manifest.json?.["@id"];
+  return typeof id === "string" && /^https?:\/\//.test(id) ? id : null;
+}
+
+function appendMetadata(
+  metadataContent
+) {
+  core.metadataContainer.innerHTML = metadataContent;
+
+  if (!core.container.contains(core.metadataContainer)) {
+    core.container.appendChild(core.metadataContainer);
+  }
+}
+
+async function fetchEntityMetadata() {
+  if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
+    return "";
+  }
+
+  const entityComponent = core.CONFIG.entity.id == null ? "" : encodeURIComponent(core.CONFIG.entity.id);
+  console.log("Fetching entity metadata for ID:", entityComponent);
+  if (!entityComponent) {
+    console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
+    return "";
+  }
+  const metadataUrl = core.CONFIG.entity.metadata.url.replace(/\/$/, "") + "/" + entityComponent;
+
+  try {
+    const response = await fetch(metadataUrl, { cache: "no-cache" });
+
+    if (!response.ok) {
+      console.warn("Metadata request failed with status:", response.status);
+      return "";
+    }
+
+    const responseText = await response.text();
+
+    try {
+      const jsonData = JSON.parse(responseText);
+      const record = Array.isArray(jsonData) ? jsonData[0] : jsonData;
+
+      if (!record || typeof record !== "object") {
+        return "";
+      }
+
+      console.log("Processing JSON metadata:", record);
+
+      const jsonFieldMap = {
+        title: "title",
+        reconstruction_authors: "author_name",
+        reconstruction_authors_affiliation: "author_affiliation",
+        reconstruction_license: "license",
+        reconstruction_time_frame: "reconstruction_period",
+        object_description: "description",
+        object_type: "object_type",
+      };
+
+      let entityMetadataContent = "";
+      for (const [jsonField, metadataLabel] of Object.entries(jsonFieldMap)) {
+        if (record[jsonField]) {
+          const fetchedValue = addWissKIMetadata(metadataLabel, record[jsonField]);
+          if (typeof fetchedValue !== "undefined") {
+            entityMetadataContent += fetchedValue;
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    } catch (_jsonError) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(responseText, "application/xml");
+
+      if (doc.documentElement.tagName === "parsererror") {
+        console.error("XML parsing error:", doc.documentElement.textContent);
+        return "";
+      }
+
+      let entityMetadataContent = "";
+      if (doc.documentElement.childNodes.length > 0) {
+        var data = doc.documentElement.childNodes[0].childNodes;
+        if (data !== undefined) {
+          for (var i = 0; i < data.length; i++) {
+            var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
+            if (typeof fetchedValue !== "undefined") {
+              entityMetadataContent += fetchedValue;
+            }
+          }
+        }
+      }
+
+      return entityMetadataContent;
+    }
+  } catch (error) {
+    console.error("Error processing metadata:", error);
+    return "";
+  }
+}
+
+function fetchMetadata(_object, _type) {
+  if (!_object?.geometry) return 0;
+
+  const indexedCount = _object.geometry.index?.count;
+  const positionCount = _object.geometry.attributes?.position?.count ?? 0;
+
+  switch (_type) {
+    case "vertices":
+      return positionCount;
+    case "faces":
+      if (_object.isPoints || _object.isLine) return 0;
+      return (indexedCount ?? positionCount) / 3;
+    default:
+      return 0;
+  }
+}
+/**
+ * Handles metadata response and builds the metadata UI.
+ */
+async function handleMetadataResponse(
+  data,
+  metadata,
+  object,
+) {
+  Viewer.clearHierarchySubmenu();
+  if (Array.isArray(object)) {
+    setupObject(object[0], data);
+    await setupCamera(object[0], data);
+  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
+    setupObject(object, data);
+    object.traverse(function (child) {
+      // Point clouds (e.g. LAS/LAZ, wrapped in a Group) have points but no faces.
+      if (child.isPoints) metadata["vertices"] += fetchMetadata(child, "vertices");
+      if (child.isMesh) {
+        metadata["vertices"] += fetchMetadata(child, "vertices");
+        metadata["faces"] += fetchMetadata(child, "faces");
+        if (child.name === "") child.name = "Mesh";
+        var shortChildName = truncateString(child.name, 35);
+        
+        Viewer.addHierarchySubmenuItem(shortChildName, child.id);
+        
+        child.traverse(function (children) {
+          if (children.isMesh && children.name !== child.name) {
+            if (children.name === "") children.name = "ChildrenMesh";
+            var shortChildrenName = truncateString(children.name, 35);
+            Viewer.addHierarchySubmenuItem(shortChildrenName, children.id);
+          }
+        });
+      }
+    });
+    await setupCamera(object, data);
+  } else {
+    setupObject(object, data);
+    await setupCamera(object, data);
+    metadata["vertices"] += fetchMetadata(object, "vertices");
+    metadata["faces"] += fetchMetadata(object, "faces");
+    if (object.name === "") {
+      Viewer.addHierarchySubmenuItem("Mesh", object.id);
+      object.name = object.id;
+    } else {
+      Viewer.addHierarchySubmenuItem(object.name, object.id);
+    }
+  }
+
+  if (!core.metadataContainer) {
+    core.metadataContainer = document.createElement("div");
+    core.metadataContainer.id = "metadata-container";
+  }
+  core.metadataContainer.setAttribute("data-viewer-theme", core.container?.closest(".viewer-wrapper")?.getAttribute("data-viewer-theme") || "dark");
+
+  // Header: the file and a one-line summary; open, the counts as tiles, then
+  // the entity's own metadata as a list.
+  const fileName = `${core.fileObject.basename}.${core.fileObject.extension}`;
+  const fileFormat = String(core.fileObject.extension || "").toUpperCase();
+  const statTile = (key, fallback) =>
+    '<div class="metadata-stat">' +
+      '<span class="metadata-stat-value" data-metadata-count="' + key + '" data-count="' + escapeHtml$1(metadata[key]) + '">' +
+        escapeHtml$1(formatMetadataCount(metadata[key])) +
+      '</span>' +
+      '<span class="metadata-stat-label" data-i18n-key="metadata.' + key + '">' + escapeHtml$1(t$1(`metadata.${key}`, fallback)) + '</span>' +
+    '</div>';
+
+  // A model from a IIIF (or AIM3D) manifest: the IIIF icon, linking to the
+  // manifest. The community's drag-and-drop convention: dropped on another
+  // IIIF viewer (Mirador, Universal Viewer) it opens the same manifest there.
+  const manifestUrl = currentManifestUrl();
+  const iiifLink = manifestUrl
+    ? '<a class="metadata-iiif" href="' + escapeHtml$1(manifestUrl) + '" target="_blank" rel="noopener"' +
+        ' title="' + escapeHtml$1(t$1("metadata.iiifManifest", "IIIF manifest: drag it into another IIIF viewer, or open it")) + '">' +
+        '<img src="' + escapeHtml$1(`${core.DFG_ASSETS || "assets"}/img/logo/iiif.png`) + '" alt="IIIF" width="22" height="20">' +
+      '</a>'
+    : '';
+
+  var metadataContent =
+    '<div id="metadata-card"' + (iiifLink ? ' class="metadata-has-iiif"' : '') + '>' +
+      '<div class="metadata-drag-handle" title="' + escapeHtml$1(t$1("metadata.move", "Move")) + '"></div>' +
+      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content"' +
+        ' aria-label="' + escapeHtml$1(t$1("metadata.modelDetails", "Model details")) + ': ' + escapeHtml$1(fileName) + '">' +
+        '<span class="metadata-toggle-copy">' +
+          '<span class="metadata-toggle-title" title="' + escapeHtml$1(fileName) + '">' + escapeHtml$1(fileName) + '</span>' +
+          '<span class="metadata-toggle-summary" data-format="' + escapeHtml$1(fileFormat) + '" data-vertices="' + escapeHtml$1(metadata["vertices"]) + '">' +
+            escapeHtml$1(t$1("metadata.summary", { format: fileFormat, vertices: formatMetadataCount(metadata["vertices"]) }, "{format} · {vertices} vertices")) +
+          '</span>' +
+        '</span>' +
+        '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
+      '</button>' +
+      iiifLink +
+      '<div id="metadata-content" class="metadata-content">' +
+        '<div class="metadata-stats">' +
+          statTile("vertices", "Vertices") +
+          statTile("faces", "Faces") +
+        '</div>';
+  metadataContent += await fetchEntityMetadata();
+
+  if (!core.downloadModel) {
+    if (core.downloadModelElement) {
+      core.downloadModelElement.hidden = true;
+      core.downloadModelElement.removeAttribute("href");
+    }
+  } else {
+    const c_path = core.fileObject.path;
+    if (core.loadedFile !== "") {
+      core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
+    }
+
+    if (core.downloadModelElement) {
+      core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
+      core.downloadModelElement.setAttribute("download", core.fileObject.filename);
+      core.downloadModelElement.hidden = true;
+    }
+    window.Viewer?.updateDownloadMenuEntryLabel?.();    
+  }
+
+  if (core.viewEntity) {
+    core.viewEntity.hidden = true;
+    core.viewEntity.removeAttribute("data-embed-url");
+  }
+  if (window.Viewer?.shareView) {
+    window.Viewer.shareView.hidden = true;
+    window.Viewer.shareView.removeAttribute("data-share-url");
+  }
+
+  if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
+    const sharePayload = window.Viewer?.getSharePayload?.();
+    if (sharePayload?.url) {
+      core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
+      window.Viewer?.shareView?.setAttribute("data-share-url", sharePayload.url);
+      if (window.Viewer?.shareView) {
+        window.Viewer.shareView.hidden = false;
+      }
+    }
+    window.Viewer?.updateShareMenuEntryState?.();
+    window.Viewer?.updateEmbedMenuEntryState?.();
+    core.viewEntity.hidden = false;
+  }
+  metadataContent +=
+      '</div>' +  // #metadata-content
+    '</div>';  
+  appendMetadata(metadataContent);
+  bindMetadataInteractions();
+  initializeMetadataDragAndResize();
+  requestAnimationFrame(updateMetadataOverflow);
+}
+
+async function loadMetadataData(metadataUrl) {
+  if (metadataUrl === null || metadataUrl === '') {
+    console.log("No metadata found due to null or empty metadata URL", metadataUrl);
+    return null;
+  }
+
+  try {
+    if (core.isLocalPreview) {
+      return null;
+    }
+    const response = await fetch(metadataUrl, { cache: "no-cache" });
+
+    if (response.status === 404) {
+      toastHelper("settingsNotFound", "info", {
+        filename: core.fileObject.filename
+      });
+      return null;
+    }
+
+    toastHelper("settingsFound", "success", {
+      filename: core.fileObject.filename
+    });
+    return response.json();
+  } catch (error) {
+    toastHelper("metadataFetchError", "error", {
+      error: error.message
+    });
+    return null;
+  }
+}
+
+async function traverseObject (object) {
+  if (Array.isArray(object)) {
+    // Keep relative transforms between parts; centering each element separately
+    // collapses multi-part models into overlapping geometry.
+    object.forEach((obj) => {
+      obj.updateMatrixWorld(true);
+    });
+    await setupCamera(object, null);
+  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
+    setupObject(object, null);
+    await setupCamera(object, null);
+  } else {
+    setupObject(object, null);
+    await setupCamera(object, null);
+  }
+}
+
+async function presentationMode (object) {
+  if (core.PRESENTATION_MODE) {
+    traverseObject(object);
+  } else { return; }
+}
+
+/**
+ * Fetches settings and metadata for the loaded model.
+ */
+async function fetchSettings(object) {
+  var metadata = { vertices: 0, faces: 0 };
+  let metadataUrl = '';
+
+  captureModelSettingsResetState(object);
+  clearIfcProperties();
+
+  // Skip metadata fetch for blob URLs (drag & drop files)
+  if (core.fileObject.filename.startsWith('blob:')) {
+    console.log("Skipping metadata fetch for local file");
+  } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
+    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '') || '';
+    // core.fileObject.uri can be a relative path (e.g. a manifest's own model
+    // URL resolved against the current page) - resolve it against the page
+    // instead of assuming it's already absolute, or this throws.
+    let normalizedUri = new URL(core.fileObject.uri, document.baseURI).href.replace(/\/+$/, '');
+
+    if (normalizedUri.startsWith(metadataPrefix)) {
+      normalizedUri = normalizedUri.slice(metadataPrefix.length);
+    }
+
+    normalizedUri = normalizedUri.replace(/^\/+/, '');
+    const metadataBase = new URL(core.CONFIG.metadataUrl);
+    const fileUri = new URL(core.fileObject.uri, document.baseURI);
+
+    const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
+
+    metadataUrl = new URL(
+      `/${filePath}/metadata/${core.fileObject.filename}_viewer.json`,
+      metadataBase
+    ).href;
+    console.log("Fetched metadata from:", metadataUrl);
+  } else {
+    console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
+  }
+
+  if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
+    console.log("Fetching IIIF metadata from ", core.objectsConfig);
+    await handleMetadataResponse( core.CONFIG.model, metadata, object);
+  }
+  else if (metadataUrl) {
+    console.log("Loading metadata from URL:", metadataUrl);
+    if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
+      metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
+      const data = await loadMetadataData(metadataUrl);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      await handleMetadataResponse(data, metadata, object);
+    } else {
+      const data = await loadMetadataData(metadataUrl);
+      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+      await handleMetadataResponse(data, metadata, object);
+    }
+  } else {
+    window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
+    await handleMetadataResponse(null, metadata, object);
+  }
+}
+
+// The dropdowns' fill functions, to rename their options with the language.
+const exampleDropdownFills = new Set();
+
+function relocalizeExampleManifestDropdowns() {
+  exampleDropdownFills.forEach((fill) => fill());
+}
+
+// The example manifests (example-manifests.js) as the first options of the
+// manifest form's dropdown; reloaded whenever the form is built and on its
+// "Refresh" button. `fixedOptions` come first (the default manifest). The
+// manifests of one model sit in an <optgroup> named after it, each named by
+// what it changes.
+function createExampleManifestDropdown({ labelKey, labelFallback, fixedOptions, pickExamples }) {
+  const group = document.createElement("div");
+  group.className = "form-manifesto-group";
+
+  const label = document.createElement("label");
+  label.textContent = t$1(labelKey, labelFallback);
+  label.dataset.i18n = labelKey;
+  label.className = "form-manifesto-label";
+
+  const select = document.createElement("select");
+  select.id = "manifesto-manifest-select";
+  select.name = "manifesto-manifest-select";
+
+  const refreshButton = document.createElement("button");
+  refreshButton.type = "button";
+  refreshButton.className = "secondary manifesto-examples-refresh";
+  refreshButton.textContent = "↻";
+  refreshButton.dataset.i18nTitle = "manifesto.refreshExamples";
+  refreshButton.title = t$1("manifesto.refreshExamples", "Refresh the example list");
+  refreshButton.dataset.i18nAriaLabel = "manifesto.refreshExamples";
+  refreshButton.setAttribute("aria-label", refreshButton.title);
+
+  const fill = () => {
+    if (!select.isConnected && select.options.length) {
+      exampleDropdownFills.delete(fill);
+      return;
+    }
+    const selected = select.value;
+    const items = [...fixedOptions, ...pickExamples(getExampleManifests()).map(exampleManifestOption)]
+      .filter((item) => item?.url);
+    select.textContent = "";
+    const option = (item) => {
+      const opt = document.createElement("option");
+      opt.value = item.url;
+      opt.textContent = item.name;
+      if (item.i18n) opt.dataset.i18n = item.i18n;
+      return opt;
+    };
+    groupExampleOptions(items).forEach(({ group, items: run }) => {
+      if (!group) {
+        run.forEach((item) => select.appendChild(option(item)));
+        return;
+      }
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = group.name;
+      run.forEach((item) => optgroup.appendChild(option(item)));
+      select.appendChild(optgroup);
+    });
+    if (selected && items.some((item) => item.url === selected)) select.value = selected;
+  };
+  exampleDropdownFills.add(fill);
+
+  const refresh = async ({ notify = false } = {}) => {
+    refreshButton.disabled = true;
+    const { updated } = await refreshExampleManifests();
+    refreshButton.disabled = false;
+    if (!select.isConnected) return;
+    if (updated) fill();
+    if (notify && !updated) toastHelper("exampleListRefreshFailed", "warning");
+  };
+
+  refreshButton.addEventListener("click", () => refresh({ notify: true }));
+
+  fill();
+  group.append(label, select, refreshButton);
+
+  // add on the top
+  document.querySelector("#form-manifesto-content").prepend(group);
+  refresh();
+}
+
+function createIIIFDropdown(iiifConfigURL) {
+  createExampleManifestDropdown({
+    labelKey: "iiif.manifest",
+    labelFallback: "IIIF manifest",
+    fixedOptions: [{ url: iiifConfigURL.url, name: iiifConfigURL.name }],
+    // AIM3D manifests are IIIF manifests too (setupManifesto tells them apart).
+    pickExamples: ({ iiif, aim3d }) => [...iiif, ...aim3d.filter((manifest) => manifest.inIIIFSelect)],
+  });
+}
+
+function createManifestSourceSwitch(activeType = "iiif") {
+  const group = document.createElement("div");
+  group.className = "form-manifesto-group manifesto-source-group";
+
+  const label = document.createElement("label");
+  label.className = "form-manifesto-label";
+  label.textContent = t$1("manifesto.source", "Manifest type");
+  label.dataset.i18n = "manifesto.source";
+
+  const switchLabel = document.createElement("label");
+  switchLabel.className = "manifesto-source-switch";
+  switchLabel.htmlFor = "manifesto-source-switch";
+  switchLabel.innerHTML = `
+    <span>IIIF</span>
+    <input
+      id="manifesto-source-switch"
+      type="checkbox"
+      role="switch"
+      data-i18n-aria-label="manifesto.source"
+      aria-label="${escapeHtml$1(t$1("manifesto.source", "Manifest type"))}"
+      ${activeType === "aim3if" ? "checked" : ""}
+    >
+    <span class="manifesto-source-track" aria-hidden="true"></span>
+    <span>AIM3D</span>
+  `;
+
+  group.append(label, switchLabel);
+  document.querySelector("#form-manifesto-content")?.prepend(group);
+}
+
+function createAIM3IFDropdown(url) {
+  createExampleManifestDropdown({
+    labelKey: "aim3if.modelConfig",
+    labelFallback: "Model configuration",
+    fixedOptions: [{ url, i18n: "aim3if.optionDefault", name: t$1("aim3if.optionDefault", "Default configuration") }],
+    pickExamples: ({ aim3d }) => aim3d,
+  });
+}
+
+function getManifestoFormConfig() {
+  return core.CONFIG?.viewer?.manifestoForm || {};
+}
+
+function getInitialManifestoPosition() {
+  const position = getManifestoFormConfig().position || {};
+  return {
+    x: parseFloatParam(position.x) ?? 0,
+    y: parseFloatParam(position.y) ?? 0,
+  };
+}
+
+function setStoredManifestoPosition(x, y) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.position = {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function setStoredManifestoSize(width, height) {
+  core.CONFIG ??= {};
+  core.CONFIG.viewer ??= {};
+  core.CONFIG.viewer.manifestoForm ??= {};
+  core.CONFIG.viewer.manifestoForm.size = {
+    width: Number.isFinite(width) ? width : null,
+    height: Number.isFinite(height) ? height : null,
+  };
+}
+
+// Space kept between the form and the browser window's edges.
+const MANIFESTO_VIEWPORT_GUTTER = 16;
+// Window listeners of the current form - createManifestUI() rebuilds it.
+let manifestoFormListeners = null;
+
+// Makes #form-manifesto draggable (via its header) and resizable, and keeps
+// both in sync with core.CONFIG.viewer.manifestoForm - mirrors the pattern
+// core.editorToolbar already uses for its own position (see
+// initializeEditorToolbarDrag() in editor-toolbar.js), adapted for a
+// normal-flow panel instead of an absolutely-positioned one.
+function initializeManifestoFormDrag(formContainer, handle) {
+  manifestoFormListeners?.abort();
+  manifestoFormListeners = new AbortController();
+  const { signal } = manifestoFormListeners;
+
+  const initialPosition = getInitialManifestoPosition();
+  let currentX = initialPosition.x;
+  let currentY = initialPosition.y;
+
+  const applyPosition = () => {
+    formContainer.style.transform = (currentX || currentY)
+      ? `translate3d(${currentX}px, ${currentY}px, 0)`
+      : "";
+    setStoredManifestoPosition(currentX, currentY);
+  };
+
+  // Resizing (native, "resize: both") may make the form wider than the
+  // viewer, but never wider or taller than the browser window - it would
+  // otherwise stretch the page itself.
+  const applySizeLimits = () => {
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    formContainer.style.maxWidth = `${Math.max(viewportWidth - 2 * MANIFESTO_VIEWPORT_GUTTER, 280)}px`;
+    formContainer.style.maxHeight = `${Math.max(window.innerHeight - 2 * MANIFESTO_VIEWPORT_GUTTER, 120)}px`;
+  };
+
+  const clampPosition = (x, y) => {
+    // x=0 is the in-flow rest position (centered by "margin: auto", or
+    // starting at the host's left edge once wider than it); keep both edges
+    // inside the browser window.
+    const rect = formContainer.getBoundingClientRect();
+    const restLeft = rect.left - currentX;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const minX = MANIFESTO_VIEWPORT_GUTTER - restLeft;
+    const maxX = viewportWidth - MANIFESTO_VIEWPORT_GUTTER - rect.width - restLeft;
+
+    return {
+      x: maxX < minX ? minX : Math.min(Math.max(x, minX), maxX),
+      // Never move above its natural in-flow position (y < 0) - it already
+      // sits directly below the viewer (see the appendChild call below),
+      // so this alone guarantees dragging can never put it back over the
+      // model, regardless of how the panel is later resized.
+      y: Math.max(y, 0),
+    };
+  };
+
+  const reclamp = () => {
+    applySizeLimits();
+    const next = clampPosition(currentX, currentY);
+    if (next.x === currentX && next.y === currentY) return;
+    currentX = next.x;
+    currentY = next.y;
+    applyPosition();
+  };
+
+  applySizeLimits();
+  applyPosition();
+
+  let dragState = null;
+
+  const onPointerMove = (event) => {
+    if (!dragState) return;
+    const dx = event.clientX - dragState.startX;
+    const dy = event.clientY - dragState.startY;
+    const next = clampPosition(dragState.originX + dx, dragState.originY + dy);
+    currentX = next.x;
+    currentY = next.y;
+    applyPosition();
+  };
+
+  const stopDrag = () => {
+    if (!dragState) return;
+    dragState = null;
+    formContainer.classList.remove("form-manifesto-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+  };
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) return; // don't hijack the collapse button
+    dragState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: currentX,
+      originY: currentY,
+    };
+    formContainer.classList.add("form-manifesto-dragging");
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", stopDrag);
+  });
+
+  // Resizing itself is native CSS (see "#form-manifesto { resize: both }"
+  // in viewer/css/external-sources.css) - no custom handle needed. A
+  // ResizeObserver still fires for a user dragging that native handle, so
+  // it's enough to persist the result into config.
+  const initialSize = getManifestoFormConfig().size || {};
+  const initialWidth = parseFloatParam(initialSize.width);
+  const initialHeight = parseFloatParam(initialSize.height);
+  if (initialWidth != null) formContainer.style.width = `${initialWidth}px`;
+  if (initialHeight != null) formContainer.style.height = `${initialHeight}px`;
+
+  let isFirstResizeObservation = true;
+  const resizeObserver = new ResizeObserver((entries) => {
+    // Skip the observer's own initial firing (on observe()) so it doesn't
+    // immediately overwrite a configured size with the pre-resize default.
+    if (isFirstResizeObservation) {
+      isFirstResizeObservation = false;
+      return;
+    }
+    const entry = entries[0];
+    if (!entry) return;
+    setStoredManifestoSize(
+      Math.round(entry.contentRect.width),
+      Math.round(entry.contentRect.height)
+    );
+    // Growing from the right edge must not push it out of the window.
+    reclamp();
+  });
+  resizeObserver.observe(formContainer);
+  signal.addEventListener("abort", () => resizeObserver.disconnect());
+
+  // The browser window or the viewer (moved/resized) changing size moves the
+  // form's rest position - keep it on screen.
+  window.addEventListener("resize", reclamp, { signal });
+  const host = core.viewerWrapper || core.container || formContainer.parentElement;
+  if (host) {
+    const hostObserver = new ResizeObserver(() => reclamp());
+    hostObserver.observe(host);
+    signal.addEventListener("abort", () => hostObserver.disconnect());
+  }
+}
+
+function createManifestUI(type = "iiif") {
+  const formContainer = document.createElement("div");
+  const className = type === "iiif" ? "IIIF" : "AIM3IF";
+  const titleKey = type === "iiif" ? "iiif" : "aim3if";
+  formContainer.id = `form-manifesto`;
+  // Expanded by default - collapsing is still available via the toggle
+  // button below (a user choice to save is worth keeping), but it no longer
+  // needs to default to collapsed just to stay out of the model's way: see
+  // the appendChild call at the bottom of this function, which now places
+  // this in normal document flow below the viewer instead of as a
+  // position: fixed overlay on top of it.
+
+  /* header */
+  const header = document.createElement("div");
+  header.className = `form-manifesto-header`;
+  header.innerHTML = `
+    <span class="form-manifesto-drag-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="14" height="14" focusable="false">
+        <circle cx="9" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="6" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="12" r="1.6" fill="currentColor"/>
+        <circle cx="9" cy="18" r="1.6" fill="currentColor"/>
+        <circle cx="15" cy="18" r="1.6" fill="currentColor"/>
+      </svg>
+    </span>
+    <span class="title" data-i18n="${titleKey}.loader">${escapeHtml$1(t$1(`${titleKey}.loader`, `${className} Loader`))}</span>
+    <div class="tools">
+      <button type="button" id="manifesto-toggle-collapse" data-i18n-title="${titleKey}.collapse" title="${escapeHtml$1(t$1(`${titleKey}.collapse`, `Collapse`))}">▾</button>
+    </div>
+  `;
+
+  formContainer.appendChild(header);
+
+  /* content */
+  const content = document.createElement("div");
+  content.className = `form-manifesto-content`;
+  content.id = `form-manifesto-content`;
+  content.innerHTML = `
+    <div class="form-manifesto-group">
+      <input type="text" id="manifesto-manifest-url" data-i18n-placeholder="${titleKey}.manifestUrlPlaceholder" placeholder="${escapeHtml$1(t$1(`${titleKey}.manifestUrlPlaceholder`, `https://example.org/manifesto/manifest.json`))}">
+      <button class="primary" id="load-manifesto-from-url" data-i18n="${titleKey}.loadFromUrl">${escapeHtml$1(t$1(`${titleKey}.loadFromUrl`, `Load from URL`))}</button>
+    </div>
+
+    <div class="form-manifesto-group column">
+      <div class="manifesto-view-toolbar">
+        <div class="manifesto-view-toggle" role="group">
+          <button type="button" id="manifesto-view-tree" aria-pressed="false" data-i18n="manifesto.treeView">${escapeHtml$1(t$1("manifesto.treeView", "Tree"))}</button>
+          <button type="button" id="manifesto-view-json" aria-pressed="true" data-i18n="manifesto.jsonView">${escapeHtml$1(t$1("manifesto.jsonView", "JSON"))}</button>
+        </div>
+        <button type="button" id="manifesto-tree-expand" class="manifesto-tree-tool" data-i18n="manifesto.expandAll" hidden>${escapeHtml$1(t$1("manifesto.expandAll", "Expand all"))}</button>
+        <button type="button" id="manifesto-tree-collapse" class="manifesto-tree-tool" data-i18n="manifesto.collapseAll" hidden>${escapeHtml$1(t$1("manifesto.collapseAll", "Collapse all"))}</button>
+      </div>
+      <div id="manifesto-manifest-tree" class="manifesto-manifest-tree" hidden></div>
+      <textarea id="manifesto-manifest-text" rows="8" data-i18n-placeholder="${titleKey}.manifestTextPlaceholder" placeholder="${escapeHtml$1(t$1(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
+      <div class="actions">
+        <button class="secondary" id="load-manifesto-from-text" data-i18n="${titleKey}.loadFromText">${escapeHtml$1(t$1(`${titleKey}.loadFromText`, `Load from Text`))}</button>
+      </div>
+    </div>
+
+    <div class="form-manifesto-group column manifesto-retarget">
+      <label class="form-manifesto-label" for="manifesto-retarget-url" data-i18n="manifesto.retargetTitle">${escapeHtml$1(t$1("manifesto.retargetTitle", "Use these settings with another model"))}</label>
+      <p class="manifesto-retarget-hint" data-i18n="manifesto.retargetHint">${escapeHtml$1(t$1("manifesto.retargetHint", "Lights, rendering and shading stay; annotations, thumbnails, the timeline and the section planes belong to the current model and are left out."))}</p>
+      <div class="manifesto-retarget-row">
+        <input type="text" id="manifesto-retarget-url" list="manifesto-retarget-models" data-i18n-placeholder="manifesto.retargetPlaceholder" placeholder="${escapeHtml$1(t$1("manifesto.retargetPlaceholder", "Model URL (GLB, glTF, OBJ, ...)"))}">
+        <datalist id="manifesto-retarget-models"></datalist>
+        <button class="primary" type="button" id="manifesto-retarget-apply" data-i18n="manifesto.retargetApply">${escapeHtml$1(t$1("manifesto.retargetApply", "Apply"))}</button>
+      </div>
+      <label class="manifesto-retarget-option">
+        <input type="checkbox" id="manifesto-retarget-camera">
+        <span data-i18n="manifesto.retargetKeepCamera">${escapeHtml$1(t$1("manifesto.retargetKeepCamera", "Keep the camera"))}</span>
+      </label>
+    </div>
+  `;
+
+  formContainer.appendChild(content);
+
+  // Appended into the viewer's own wrapper (same host core.editorToolbar
+  // and #credits already use - see getEditorToolbarHost() in
+  // editor-toolbar.js and the appendChild call in main.js), not
+  // document.body: #form-manifesto is normal-flow now (see
+  // viewer/css/external-sources.css), so this renders it as a block below
+  // the viewer instead of a position: fixed overlay on top of it.
+  (core.viewerWrapper || core.container || document.body).appendChild(formContainer);
+
+  initializeManifestoFormDrag(formContainer, header);
+  showManifestInForm = attachManifestTreeEditor();
+}
+
+// Shows a manifest in the form's tree/JSON views; replaced by
+// createManifestUI() with one bound to the current form.
+let showManifestInForm = () => {};
+
+function displayManifestInForm(manifestJson) {
+  showManifestInForm(manifestJson);
+}
+
 function attachLocalizationTheme(viewer) {
   Object.assign(viewer, {
     getStoredTheme() {
@@ -9706,6 +11609,8 @@ function attachLocalizationTheme(viewer) {
         node.setAttribute("aria-label", t$1(node.dataset.i18nAriaLabel, node.getAttribute("aria-label") || ""));
       });
       relocalizeManifestTree();
+      // Example names given per language, and the groups' names.
+      relocalizeExampleManifestDropdowns();
     },
 
     updateMetadataPanelLabels() {
@@ -10368,8 +12273,8 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "0a1192a9" ;
-const BUILD = "test" ;
+const BUILD_ID$2 = "497d69a5" ;
+const BUILD = "dev" ;
 
 let initPromise = null;
 
@@ -10419,8 +12324,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "0a1192a9" ;
-const BUILD_TIME$1 = "2026-10-12T08:01:25.535Z" ;
+const BUILD_ID$1 = "497d69a5" ;
+const BUILD_TIME$1 = "2026-10-12T08:50:30.045Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -16925,19 +18830,6 @@ function isModelBody(body) {
     && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
 }
 
-// Media type of a model file, from its extension (null when unknown).
-const MODEL_FORMATS = {
-  glb: "model/gltf-binary",
-  gltf: "model/gltf+json",
-  obj: "model/obj",
-  stl: "model/stl",
-  usdz: "model/vnd.usdz+zip",
-};
-function modelFormatOf(url) {
-  const extension = String(url || "").split(/[?#]/)[0].split(".").pop().toLowerCase();
-  return MODEL_FORMATS[extension] || null;
-}
-
 function modelUrlOf(body) {
   return resolveBody(body).resource?.id || null;
 }
@@ -22830,7 +24722,7 @@ function contrastColor(hex) {
 // Filter key of the objects no annotation assesses.
 const UNASSESSED = "__unassessed__";
 
-function escapeHtml$1(value) {
+function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]
   ));
@@ -23147,11 +25039,11 @@ function attachCertainty(Viewer) {
         ? certaintyText(scale.label, core.currentLanguage || "en")
         : t$1("certainty.legendTitle", "Level of Certainty (LoC)");
       const filter = Viewer.certaintyFilter;
-      const filterTitle = escapeHtml$1(t$1("certainty.filter", "Show only this level (click again to undo)"));
+      const filterTitle = escapeHtml(t$1("certainty.filter", "Show only this level (click again to undo)"));
       // A swatch is a toggle button of the filter; the picked ones ringed,
       // the rows left out dimmed.
       const swatch = (key, color, text) => `
-            <button type="button" class="certainty-legend__swatch${filter?.has(key) ? " is-active" : ""}" data-filter="${escapeHtml$1(key)}" aria-pressed="${filter?.has(key) === true}" title="${filterTitle}" style="background:${color};color:${contrastColor(color)}">${escapeHtml$1(text)}</button>`;
+            <button type="button" class="certainty-legend__swatch${filter?.has(key) ? " is-active" : ""}" data-filter="${escapeHtml(key)}" aria-pressed="${filter?.has(key) === true}" title="${filterTitle}" style="background:${color};color:${contrastColor(color)}">${escapeHtml(text)}</button>`;
       const rowClass = (key) => (filter && !filter.has(key) ? " is-filtered-out" : "");
       // Select none while everything shows, select all otherwise.
       const selectAll = !Viewer.isEveryCertaintyLevelShown();
@@ -23162,29 +25054,29 @@ function attachCertainty(Viewer) {
         const range = certaintyLevelRange(scale, index);
         const count = counts.get(level.code) || 0;
         return `
-          <li class="certainty-legend__row${rowClass(level.code)}" data-code="${escapeHtml$1(level.code)}">${swatch(level.code, level.color, level.symbol || level.code)}
-            <span class="certainty-legend__code">${escapeHtml$1(level.code)}</span>
-            <span class="certainty-legend__label">${escapeHtml$1(Viewer.getCertaintyLevelLabel(level))}</span>
-            <span class="certainty-legend__range">${escapeHtml$1(range)}</span>
-            <span class="certainty-legend__count" title="${escapeHtml$1(t$1("certainty.assessedCount", "Assessed objects"))}">${count}</span>
+          <li class="certainty-legend__row${rowClass(level.code)}" data-code="${escapeHtml(level.code)}">${swatch(level.code, level.color, level.symbol || level.code)}
+            <span class="certainty-legend__code">${escapeHtml(level.code)}</span>
+            <span class="certainty-legend__label">${escapeHtml(Viewer.getCertaintyLevelLabel(level))}</span>
+            <span class="certainty-legend__range">${escapeHtml(range)}</span>
+            <span class="certainty-legend__count" title="${escapeHtml(t$1("certainty.assessedCount", "Assessed objects"))}">${count}</span>
           </li>`;
       }).join("");
       const closeLabel = t$1("certainty.hideView", "Hide Level of Certainty");
       legend.innerHTML = `
         <div class="certainty-legend__header">
-          <h4 class="certainty-legend__title">${escapeHtml$1(title)}</h4>
-          <button type="button" class="certainty-legend__select-all" data-select="${selectAll ? "all" : "none"}">${escapeHtml$1(selectLabel)}</button>
-          <button type="button" class="certainty-legend__close" aria-label="${escapeHtml$1(closeLabel)}" title="${escapeHtml$1(closeLabel)}">&times;</button>
+          <h4 class="certainty-legend__title">${escapeHtml(title)}</h4>
+          <button type="button" class="certainty-legend__select-all" data-select="${selectAll ? "all" : "none"}">${escapeHtml(selectLabel)}</button>
+          <button type="button" class="certainty-legend__close" aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">&times;</button>
         </div>
         <ul class="certainty-legend__levels">
           ${rows}
           <li class="certainty-legend__row certainty-legend__row--unassessed${rowClass(UNASSESSED)}">${swatch(UNASSESSED, scale.unassessedColor, "–")}
             <span class="certainty-legend__code"></span>
-            <span class="certainty-legend__label">${escapeHtml$1(t$1("certainty.unassessed", "Not assessed"))}</span>
+            <span class="certainty-legend__label">${escapeHtml(t$1("certainty.unassessed", "Not assessed"))}</span>
           </li>
         </ul>
         <label class="certainty-legend__opacity">
-          <span>${escapeHtml$1(t$1("certainty.opacity", "Overlay opacity"))}</span>
+          <span>${escapeHtml(t$1("certainty.opacity", "Overlay opacity"))}</span>
           <input type="range" min="0" max="100" step="5" value="${Math.round(scale.opacity * 100)}" />
           <output>${Math.round(scale.opacity * 100)}%</output>
         </label>`;
@@ -23446,7 +25338,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-D_MP6TMH.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-C5Yb4jzc.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DHyE3DEu.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -26311,1282 +28203,6 @@ function syncFlowSpace(container) {
   placeholder.style.height = `${Math.max(0, Math.round(containerBottom - placeholderTop))}px`;
 }
 
-// Below this distance (px) from its default glued corner, drag movement is
-// absorbed rather than moved - the panel only actually detaches from the
-// viewer frame's edge past a deliberate drag, instead of on the first pixel.
-const METADATA_GLUE_THRESHOLD = 28;
-
-// How close to the card's bottom-right corner a pointerdown has to land to
-// count as grabbing the native resize grip (see isPointerInResizeCorner()).
-const METADATA_RESIZE_HOTSPOT = 18;
-
-let metadataResizeObserver = null;
-let metadataHostResizeObserver = null;
-let metadataNativeResizeActive = false;
-let metadataNativeResizeReleaseTimer = null;
-
-let modelSettingsResetState = null;
-
-function captureModelSettingsResetState(object) {
-  const objects = Array.isArray(object) ? object : [object];
-
-  modelSettingsResetState = {
-    object,
-    setupIndex: core.objectsConfig?.setupIndex,
-    transforms: objects.map((model) => ({
-      model,
-      position: model.position.clone(),
-      rotation: model.rotation.clone(),
-      scale: model.scale.clone(),
-    })),
-  };
-}
-
-// Progressive loading swaps the preview model for the full one in place
-// (see loaders.js): point the reset state at the new object, keeping the
-// transform captured for the preview.
-function replaceModelSettingsResetObject(previousObject, nextObject) {
-  if (!modelSettingsResetState || modelSettingsResetState.object !== previousObject) return;
-  modelSettingsResetState.object = nextObject;
-  modelSettingsResetState.transforms.forEach((entry) => {
-    if (entry.model === previousObject) entry.model = nextObject;
-  });
-}
-
-// Rebuilds the hierarchy submenu and the vertex/face counts shown in the
-// metadata panel for a swapped-in model, without re-running the camera and
-// metadata setup of handleMetadataResponse().
-function refreshModelHierarchyAndStats(object) {
-  const stats = { vertices: 0, faces: 0 };
-  Viewer.clearHierarchySubmenu();
-  const root = Array.isArray(object) ? object[0] : object;
-  root?.traverse?.((child) => {
-    if (child.isPoints) stats.vertices += fetchMetadata(child, "vertices");
-    if (!child.isMesh) return;
-    stats.vertices += fetchMetadata(child, "vertices");
-    stats.faces += fetchMetadata(child, "faces");
-    if (child.name === "") child.name = "Mesh";
-    Viewer.addHierarchySubmenuItem(truncateString(child.name, 35), child.id);
-  });
-  ["vertices", "faces"].forEach((key) => {
-    core.metadataContainer?.querySelectorAll?.(`[data-metadata-count="${key}"]`).forEach((node) => {
-      node.dataset.count = String(stats[key]);
-    });
-  });
-  updateMetadataCounts(core.metadataContainer);
-  return stats;
-}
-
-// A count in the viewer's language (108 315, 108,315, 108.315).
-function formatMetadataCount(value) {
-  const count = Number(value);
-  if (!Number.isFinite(count)) return String(value ?? "");
-  try {
-    return new Intl.NumberFormat(core.currentLanguage || "en", { maximumFractionDigits: 0 }).format(count);
-  } catch (_error) {
-    return String(Math.round(count));
-  }
-}
-
-// Writes the counts ([data-metadata-count] with data-count) of the metadata
-// card in the viewer's language: the stat tiles and the header's summary.
-function updateMetadataCounts(root = core.metadataContainer) {
-  if (!root) return;
-  root.querySelectorAll("[data-metadata-count]").forEach((node) => {
-    node.textContent = formatMetadataCount(node.dataset.count);
-  });
-  const summary = root.querySelector(".metadata-toggle-summary");
-  if (summary) {
-    summary.textContent = t$1("metadata.summary", {
-      format: summary.dataset.format || "",
-      vertices: formatMetadataCount(summary.dataset.vertices),
-    }, "{format} · {vertices} vertices");
-  }
-}
-
-async function resetModelSettings() {
-  if (!modelSettingsResetState?.object) return;
-
-  modelSettingsResetState.transforms.forEach(({ model, position, rotation, scale }) => {
-    model.position.copy(position);
-    model.rotation.copy(rotation);
-    model.scale.copy(scale);
-    model.updateMatrixWorld(true);
-  });
-
-  if (typeof modelSettingsResetState.setupIndex !== "undefined" && core.objectsConfig) {
-    core.objectsConfig.setupIndex = modelSettingsResetState.setupIndex;
-  }
-
-  window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
-  await handleMetadataResponse(null, { vertices: 0, faces: 0 }, modelSettingsResetState.object);
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function buildMetadataRow(label, value) {
-  if (!label || typeof value === "undefined" || value === null || value === "") {
-    return "";
-  }
-
-  return (
-    '<div class="metadata-row">' +
-      '<span class="metadata-label">' + escapeHtml(label) + '</span>' +
-      '<span class="metadata-value">' + escapeHtml(value) + '</span>' +
-    '</div>'
-  );
-}
-
-/**
- * Formats WissKI metadata labels and values for display.
- */
-function addWissKIMetadata(label, value) {
-  if (typeof label !== "undefined" && typeof value !== "undefined") {
-    var _str = "";
-    label = label.replace("wisski_path_3d_model__", "");
-    switch (label) {
-      case "title":
-        _str = t$1("metadata.title", "Title");
-        break;
-      case "author_name":
-        _str = t$1("metadata.author", "Author");
-        break;
-      case "author_affiliation":
-        _str = t$1("metadata.authorAffiliation", "Author affiliation");
-        break;
-      case "license":
-        _str = t$1("metadata.license", "License");
-        break;
-      case "description":
-        _str = t$1("metadata.description", "Description");
-        break;
-      case "object_type":
-        _str = t$1("metadata.objectType", "Object type");
-        break;
-      case "reconstruction_authors":
-        _str = t$1("metadata.reconstructionAuthors", "Reconstruction authors");
-        break;
-      case "reconstruction_period":
-        _str = t$1("metadata.reconstructionPeriod", "Reconstruction period");
-        break;
-      default:
-        _str = "";
-        break;
-    }
-
-    if (_str !== "") {
-      return buildMetadataRow(_str, value);
-    }
-  }
-}
-
-/**
- * Expands/collapses the metadata panel.
- */
-function expandMetadata() {
-  const content = document.getElementById("metadata-content");
-  const toggle = document.getElementById("metadata-collapse");
-  const card = document.getElementById("metadata-card");
-
-  if (!content || !toggle) return;
-
-  const expanded = content.classList.toggle("expanded");
-  toggle.classList.toggle("metadata-collapsed", !expanded);
-  card?.classList.toggle("metadata-open", expanded);
-
-  // accessibility
-  toggle.setAttribute("aria-expanded", expanded);
-
-  // A manual resize (see observeMetadataResize()) sets an explicit inline
-  // width/height on the card. Left alone, that inline size would keep the
-  // collapsed card just as big as when it was expanded, with the content
-  // hidden inside empty space instead of the card actually shrinking back
-  // to the compact pill - so swap it out for the collapsed default here,
-  // and restore the stored manual size when expanding again.
-  if (card?.classList.contains("metadata-card-resized")) {
-    if (expanded) {
-      const { width, height } = getInitialMetadataSize();
-      if (width != null) card.style.width = `${width}px`;
-      if (height != null) card.style.height = `${height}px`;
-    } else {
-      card.style.width = "";
-      card.style.height = "";
-    }
-  }
-
-  if (!expanded) {
-    card?.classList.remove("metadata-card-overflowing");
-    content.querySelectorAll(".metadata-row-pinned").forEach((row) => {
-      row.classList.remove("metadata-row-pinned");
-    });
-    return;
-  }
-
-  updateMetadataOverflow();
-}
-
-function updateMetadataOverflow() {
-  const content = document.getElementById("metadata-content");
-  const card = document.getElementById("metadata-card");
-
-  if (!content || !card || !content.classList.contains("expanded")) return;
-
-  const hasOverflow = content.scrollHeight - content.clientHeight > 8;
-  card.classList.toggle("metadata-card-overflowing", hasOverflow);
-
-  content.querySelectorAll(".metadata-row").forEach((row) => {
-    const value = row.querySelector(".metadata-value");
-    if (!value) return;
-
-    const wasPinned = row.classList.contains("metadata-row-pinned");
-    row.classList.remove("metadata-row-pinned", "metadata-row-expandable");
-
-    const isExpandable = value.scrollHeight - value.clientHeight > 4;
-    row.classList.toggle("metadata-row-expandable", isExpandable);
-
-    if (wasPinned && isExpandable) {
-      row.classList.add("metadata-row-pinned");
-    }
-  });
-}
-
-function bindMetadataInteractions() {
-  if (core.metadataContainer.dataset.boundCollapse === "true") return;
-
-  core.metadataContainer.addEventListener("click", (e) => {
-    const toggle = e.target.closest("#metadata-collapse");
-    if (toggle) {
-      expandMetadata();
-      return;
-    }
-
-    const card = document.getElementById("metadata-card");
-    const content = document.getElementById("metadata-content");
-    if (!card || !content || !content.classList.contains("expanded")) return;
-
-    const row = e.target.closest(".metadata-row");
-    if (!row) return;
-
-    const willPin = !row.classList.contains("metadata-row-pinned");
-    content.querySelectorAll(".metadata-row-pinned").forEach((pinnedRow) => {
-      pinnedRow.classList.remove("metadata-row-pinned");
-    });
-    if (willPin) row.classList.add("metadata-row-pinned");
-  });
-
-  // The card is rebuilt (innerHTML) on every handleMetadataResponse() call,
-  // so its own drag handle is a fresh element each time - delegate from the
-  // container (which persists) instead of binding it directly.
-  core.metadataContainer.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".metadata-drag-handle")) {
-      startMetadataDrag(e);
-      return;
-    }
-
-    const card = e.target.closest("#metadata-card");
-    if (card && isPointerInResizeCorner(card, e.clientX, e.clientY)) {
-      beginNativeResizeTracking();
-    }
-  });
-
-  window.addEventListener("resize", updateMetadataOverflow);
-  core.metadataContainer.dataset.boundCollapse = "true";
-}
-
-function getMetadataContainerConfig() {
-  return core.CONFIG?.viewer?.metadataContainer || {};
-}
-
-function getInitialMetadataPosition() {
-  const position = getMetadataContainerConfig().position || {};
-  return {
-    x: parseFloatParam(position.x) ?? 0,
-    y: parseFloatParam(position.y) ?? 0,
-  };
-}
-
-function setStoredMetadataPosition(x, y) {
-  core.CONFIG ??= {};
-  core.CONFIG.viewer ??= {};
-  core.CONFIG.viewer.metadataContainer ??= {};
-  core.CONFIG.viewer.metadataContainer.position = {
-    x: Number.isFinite(x) ? x : 0,
-    y: Number.isFinite(y) ? y : 0,
-  };
-}
-
-function getInitialMetadataSize() {
-  const size = getMetadataContainerConfig().size || {};
-  return {
-    width: parseFloatParam(size.width),
-    height: parseFloatParam(size.height),
-  };
-}
-
-function setStoredMetadataSize(width, height) {
-  core.CONFIG ??= {};
-  core.CONFIG.viewer ??= {};
-  core.CONFIG.viewer.metadataContainer ??= {};
-  core.CONFIG.viewer.metadataContainer.size = {
-    width: Number.isFinite(width) ? width : null,
-    height: Number.isFinite(height) ? height : null,
-  };
-}
-
-function getMetadataDragHost() {
-  // Unlike editorToolbar/manifestoForm (which prefer the wrapper, since one
-  // can render outside the 3D canvas), the metadata panel is an overlay ON
-  // the model - it should stay confined to the actual viewer viewport, not
-  // the taller wrapper that can also contain e.g. the manifesto form below it.
-  return core.container || core.viewerWrapper || null;
-}
-
-function clampMetadataPosition(card, x, y) {
-  const host = getMetadataDragHost();
-  const hostRect = host?.getBoundingClientRect();
-  if (!hostRect) return { x, y };
-
-  // The card's untransformed rest position is the host's top-left corner
-  // (see #metadata-container { left: 0 } in main.css), so a translate of 0
-  // to (hostWidth - cardWidth)/(hostHeight - cardHeight) keeps it fully
-  // inside the viewer, unlike editorToolbar's looser +-hostSize clamp.
-  const maxX = Math.max(hostRect.width - card.offsetWidth, 0);
-  const maxY = Math.max(hostRect.height - card.offsetHeight, 0);
-
-  return {
-    x: Math.min(Math.max(x, 0), maxX),
-    y: Math.min(Math.max(y, 0), maxY),
-  };
-}
-
-function applyMetadataPosition(card, x, y) {
-  card.style.setProperty("--drag-x", `${x}px`);
-  card.style.setProperty("--drag-y", `${y}px`);
-  setStoredMetadataPosition(x, y);
-}
-
-function startMetadataDrag(event) {
-  if (event.button !== 0) return;
-  const card = document.getElementById("metadata-card");
-  if (!card) return;
-
-  event.preventDefault();
-
-  const origin = getInitialMetadataPosition();
-  // Only glued (resisting small drags) when still sitting exactly at the
-  // default corner position - once the user has deliberately moved it away,
-  // further drags follow the pointer 1:1 like editorToolbar's.
-  const glued = origin.x === 0 && origin.y === 0;
-  const startX = event.clientX;
-  const startY = event.clientY;
-
-  card.classList.add("metadata-dragging");
-
-  const onPointerMove = (moveEvent) => {
-    const rawDx = moveEvent.clientX - startX;
-    const rawDy = moveEvent.clientY - startY;
-
-    const dx = glued ? Math.sign(rawDx) * Math.max(Math.abs(rawDx) - METADATA_GLUE_THRESHOLD, 0) : rawDx;
-    const dy = glued ? Math.sign(rawDy) * Math.max(Math.abs(rawDy) - METADATA_GLUE_THRESHOLD, 0) : rawDy;
-
-    const next = clampMetadataPosition(card, origin.x + dx, origin.y + dy);
-    applyMetadataPosition(card, next.x, next.y);
-  };
-
-  const stopDrag = () => {
-    card.classList.remove("metadata-dragging");
-    document.removeEventListener("pointermove", onPointerMove);
-    document.removeEventListener("pointerup", stopDrag);
-    document.removeEventListener("pointercancel", stopDrag);
-  };
-
-  document.addEventListener("pointermove", onPointerMove);
-  document.addEventListener("pointerup", stopDrag);
-  document.addEventListener("pointercancel", stopDrag);
-}
-
-// The card's own width/height also change from expanding/collapsing (an
-// animated CSS transition, not a resize) and from the host ResizeObserver
-// re-clamping it - neither is a user resize. Only trust a ResizeObserver
-// firing as one while the user is actually holding the native grip down.
-function isPointerInResizeCorner(card, clientX, clientY) {
-  const rect = card.getBoundingClientRect();
-  return (
-    clientX >= rect.right - METADATA_RESIZE_HOTSPOT && clientX <= rect.right + 4 &&
-    clientY >= rect.bottom - METADATA_RESIZE_HOTSPOT && clientY <= rect.bottom + 4
-  );
-}
-
-function beginNativeResizeTracking() {
-  metadataNativeResizeActive = true;
-  clearTimeout(metadataNativeResizeReleaseTimer);
-
-  const release = () => {
-    // A short grace period so the ResizeObserver entry for the drag's final
-    // frame (delivered asynchronously after pointerup) still lands while
-    // tracking is considered active.
-    metadataNativeResizeReleaseTimer = setTimeout(() => {
-      metadataNativeResizeActive = false;
-    }, 100);
-    document.removeEventListener("pointerup", release);
-    document.removeEventListener("pointercancel", release);
-  };
-  document.addEventListener("pointerup", release);
-  document.addEventListener("pointercancel", release);
-}
-
-// Resize itself is native CSS (see "#metadata-card.metadata-open { resize:
-// both }" in main.css, enabled only while expanded) - a ResizeObserver just
-// persists the result and keeps it from growing past the viewer's edge,
-// mirroring initializeManifestoFormDrag()'s resize handling below.
-function observeMetadataResize(card) {
-  metadataResizeObserver?.disconnect();
-
-  let isFirstObservation = true;
-  metadataResizeObserver = new ResizeObserver((entries) => {
-    if (isFirstObservation) {
-      isFirstObservation = false;
-      return;
-    }
-    if (!metadataNativeResizeActive) return;
-
-    const entry = entries[0];
-    if (!entry) return;
-
-    const host = getMetadataDragHost();
-    const hostRect = host?.getBoundingClientRect();
-    const { x, y } = getInitialMetadataPosition();
-
-    let width = entry.contentRect.width;
-    let height = entry.contentRect.height;
-
-    if (hostRect) {
-      const maxWidth = Math.max(hostRect.width - x, 160);
-      const maxHeight = Math.max(hostRect.height - y, 60);
-      if (width > maxWidth) {
-        width = maxWidth;
-        card.style.width = `${width}px`;
-      }
-      if (height > maxHeight) {
-        height = maxHeight;
-        card.style.height = `${height}px`;
-      }
-    }
-
-    card.classList.add("metadata-card-resized");
-    setStoredMetadataSize(Math.round(width), Math.round(height));
-  });
-  metadataResizeObserver.observe(card);
-}
-
-// Keep the stored position valid if the viewer itself is resized, mirroring
-// initializeEditorToolbarDrag()'s own host ResizeObserver in editor-toolbar.js.
-function observeMetadataHost(card) {
-  const host = getMetadataDragHost();
-  metadataHostResizeObserver?.disconnect();
-  if (!host) return;
-
-  metadataHostResizeObserver = new ResizeObserver(() => {
-    const { x, y } = getInitialMetadataPosition();
-    const next = clampMetadataPosition(card, x, y);
-    applyMetadataPosition(card, next.x, next.y);
-  });
-  metadataHostResizeObserver.observe(host);
-}
-
-function initializeMetadataDragAndResize() {
-  const card = document.getElementById("metadata-card");
-  if (!card) return;
-
-  if (core.container && getComputedStyle(core.container).position === "static") {
-    core.container.style.position = "relative";
-  }
-
-  const { x, y } = getInitialMetadataPosition();
-  applyMetadataPosition(card, x, y);
-
-  const { width, height } = getInitialMetadataSize();
-  const hasStoredSize = width != null || height != null;
-  card.classList.toggle("metadata-card-resized", hasStoredSize);
-  // The card is always (re)built collapsed (see the HTML template in
-  // handleMetadataResponse()) - only apply a previously stored manual size
-  // once it's actually expanded again (see expandMetadata()), or a freshly
-  // rebuilt card would immediately show a large collapsed box with its
-  // content hidden inside empty space.
-  if (hasStoredSize && card.classList.contains("metadata-open")) {
-    if (width != null) card.style.width = `${width}px`;
-    if (height != null) card.style.height = `${height}px`;
-  }
-
-  observeMetadataResize(card);
-  observeMetadataHost(card);
-}
-
-/**
- * Appends metadata HTML to the DOM.
- */
-// The address of the manifest the model came from, or null: the URL it was
-// loaded from, else its id when that is a web address (a manifest given as
-// text has no other).
-function currentManifestUrl() {
-  const manifest = window.Viewer?.currentManifest;
-  if (!manifest) return null;
-  const source = manifest.source;
-  if (manifest.type !== "text" && typeof source === "string" && !source.trim().startsWith("{")) {
-    try {
-      return new URL(source, window.location.href).href;
-    } catch {
-      return null;
-    }
-  }
-  const id = manifest.json?.id || manifest.json?.["@id"];
-  return typeof id === "string" && /^https?:\/\//.test(id) ? id : null;
-}
-
-function appendMetadata(
-  metadataContent
-) {
-  core.metadataContainer.innerHTML = metadataContent;
-
-  if (!core.container.contains(core.metadataContainer)) {
-    core.container.appendChild(core.metadataContainer);
-  }
-}
-
-async function fetchEntityMetadata() {
-  if (!core.CONFIG.entity.metadata.sourceType || core.CONFIG.entity.metadata.url === "") {
-    return "";
-  }
-
-  const entityComponent = core.CONFIG.entity.id == null ? "" : encodeURIComponent(core.CONFIG.entity.id);
-  console.log("Fetching entity metadata for ID:", entityComponent);
-  if (!entityComponent) {
-    console.warn("Entity ID is missing or invalid. Skipping metadata fetch.");
-    return "";
-  }
-  const metadataUrl = core.CONFIG.entity.metadata.url.replace(/\/$/, "") + "/" + entityComponent;
-
-  try {
-    const response = await fetch(metadataUrl, { cache: "no-cache" });
-
-    if (!response.ok) {
-      console.warn("Metadata request failed with status:", response.status);
-      return "";
-    }
-
-    const responseText = await response.text();
-
-    try {
-      const jsonData = JSON.parse(responseText);
-      const record = Array.isArray(jsonData) ? jsonData[0] : jsonData;
-
-      if (!record || typeof record !== "object") {
-        return "";
-      }
-
-      console.log("Processing JSON metadata:", record);
-
-      const jsonFieldMap = {
-        title: "title",
-        reconstruction_authors: "author_name",
-        reconstruction_authors_affiliation: "author_affiliation",
-        reconstruction_license: "license",
-        reconstruction_time_frame: "reconstruction_period",
-        object_description: "description",
-        object_type: "object_type",
-      };
-
-      let entityMetadataContent = "";
-      for (const [jsonField, metadataLabel] of Object.entries(jsonFieldMap)) {
-        if (record[jsonField]) {
-          const fetchedValue = addWissKIMetadata(metadataLabel, record[jsonField]);
-          if (typeof fetchedValue !== "undefined") {
-            entityMetadataContent += fetchedValue;
-          }
-        }
-      }
-
-      return entityMetadataContent;
-    } catch (_jsonError) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(responseText, "application/xml");
-
-      if (doc.documentElement.tagName === "parsererror") {
-        console.error("XML parsing error:", doc.documentElement.textContent);
-        return "";
-      }
-
-      let entityMetadataContent = "";
-      if (doc.documentElement.childNodes.length > 0) {
-        var data = doc.documentElement.childNodes[0].childNodes;
-        if (data !== undefined) {
-          for (var i = 0; i < data.length; i++) {
-            var fetchedValue = addWissKIMetadata(data[i].tagName, data[i].textContent);
-            if (typeof fetchedValue !== "undefined") {
-              entityMetadataContent += fetchedValue;
-            }
-          }
-        }
-      }
-
-      return entityMetadataContent;
-    }
-  } catch (error) {
-    console.error("Error processing metadata:", error);
-    return "";
-  }
-}
-
-function fetchMetadata(_object, _type) {
-  if (!_object?.geometry) return 0;
-
-  const indexedCount = _object.geometry.index?.count;
-  const positionCount = _object.geometry.attributes?.position?.count ?? 0;
-
-  switch (_type) {
-    case "vertices":
-      return positionCount;
-    case "faces":
-      if (_object.isPoints || _object.isLine) return 0;
-      return (indexedCount ?? positionCount) / 3;
-    default:
-      return 0;
-  }
-}
-/**
- * Handles metadata response and builds the metadata UI.
- */
-async function handleMetadataResponse(
-  data,
-  metadata,
-  object,
-) {
-  Viewer.clearHierarchySubmenu();
-  if (Array.isArray(object)) {
-    setupObject(object[0], data);
-    await setupCamera(object[0], data);
-  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
-    setupObject(object, data);
-    object.traverse(function (child) {
-      // Point clouds (e.g. LAS/LAZ, wrapped in a Group) have points but no faces.
-      if (child.isPoints) metadata["vertices"] += fetchMetadata(child, "vertices");
-      if (child.isMesh) {
-        metadata["vertices"] += fetchMetadata(child, "vertices");
-        metadata["faces"] += fetchMetadata(child, "faces");
-        if (child.name === "") child.name = "Mesh";
-        var shortChildName = truncateString(child.name, 35);
-        
-        Viewer.addHierarchySubmenuItem(shortChildName, child.id);
-        
-        child.traverse(function (children) {
-          if (children.isMesh && children.name !== child.name) {
-            if (children.name === "") children.name = "ChildrenMesh";
-            var shortChildrenName = truncateString(children.name, 35);
-            Viewer.addHierarchySubmenuItem(shortChildrenName, children.id);
-          }
-        });
-      }
-    });
-    await setupCamera(object, data);
-  } else {
-    setupObject(object, data);
-    await setupCamera(object, data);
-    metadata["vertices"] += fetchMetadata(object, "vertices");
-    metadata["faces"] += fetchMetadata(object, "faces");
-    if (object.name === "") {
-      Viewer.addHierarchySubmenuItem("Mesh", object.id);
-      object.name = object.id;
-    } else {
-      Viewer.addHierarchySubmenuItem(object.name, object.id);
-    }
-  }
-
-  if (!core.metadataContainer) {
-    core.metadataContainer = document.createElement("div");
-    core.metadataContainer.id = "metadata-container";
-  }
-  core.metadataContainer.setAttribute("data-viewer-theme", core.container?.closest(".viewer-wrapper")?.getAttribute("data-viewer-theme") || "dark");
-
-  // Header: the file and a one-line summary; open, the counts as tiles, then
-  // the entity's own metadata as a list.
-  const fileName = `${core.fileObject.basename}.${core.fileObject.extension}`;
-  const fileFormat = String(core.fileObject.extension || "").toUpperCase();
-  const statTile = (key, fallback) =>
-    '<div class="metadata-stat">' +
-      '<span class="metadata-stat-value" data-metadata-count="' + key + '" data-count="' + escapeHtml(metadata[key]) + '">' +
-        escapeHtml(formatMetadataCount(metadata[key])) +
-      '</span>' +
-      '<span class="metadata-stat-label" data-i18n-key="metadata.' + key + '">' + escapeHtml(t$1(`metadata.${key}`, fallback)) + '</span>' +
-    '</div>';
-
-  // A model from a IIIF (or AIM3D) manifest: the IIIF icon, linking to the
-  // manifest. The community's drag-and-drop convention: dropped on another
-  // IIIF viewer (Mirador, Universal Viewer) it opens the same manifest there.
-  const manifestUrl = currentManifestUrl();
-  const iiifLink = manifestUrl
-    ? '<a class="metadata-iiif" href="' + escapeHtml(manifestUrl) + '" target="_blank" rel="noopener"' +
-        ' title="' + escapeHtml(t$1("metadata.iiifManifest", "IIIF manifest: drag it into another IIIF viewer, or open it")) + '">' +
-        '<img src="' + escapeHtml(`${core.DFG_ASSETS || "assets"}/img/logo/iiif.png`) + '" alt="IIIF" width="22" height="20">' +
-      '</a>'
-    : '';
-
-  var metadataContent =
-    '<div id="metadata-card"' + (iiifLink ? ' class="metadata-has-iiif"' : '') + '>' +
-      '<div class="metadata-drag-handle" title="' + escapeHtml(t$1("metadata.move", "Move")) + '"></div>' +
-      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content"' +
-        ' aria-label="' + escapeHtml(t$1("metadata.modelDetails", "Model details")) + ': ' + escapeHtml(fileName) + '">' +
-        '<span class="metadata-toggle-copy">' +
-          '<span class="metadata-toggle-title" title="' + escapeHtml(fileName) + '">' + escapeHtml(fileName) + '</span>' +
-          '<span class="metadata-toggle-summary" data-format="' + escapeHtml(fileFormat) + '" data-vertices="' + escapeHtml(metadata["vertices"]) + '">' +
-            escapeHtml(t$1("metadata.summary", { format: fileFormat, vertices: formatMetadataCount(metadata["vertices"]) }, "{format} · {vertices} vertices")) +
-          '</span>' +
-        '</span>' +
-        '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
-      '</button>' +
-      iiifLink +
-      '<div id="metadata-content" class="metadata-content">' +
-        '<div class="metadata-stats">' +
-          statTile("vertices", "Vertices") +
-          statTile("faces", "Faces") +
-        '</div>';
-  metadataContent += await fetchEntityMetadata();
-
-  if (!core.downloadModel) {
-    if (core.downloadModelElement) {
-      core.downloadModelElement.hidden = true;
-      core.downloadModelElement.removeAttribute("href");
-    }
-  } else {
-    const c_path = core.fileObject.path;
-    if (core.loadedFile !== "") {
-      core.fileObject.filename = core.fileObject.filename.replace(core.fileObject.orgExtension, core.fileObject.extension);
-    }
-
-    if (core.downloadModelElement) {
-      core.downloadModelElement.href = `${encodeURI(c_path + core.fileObject.filename)}`;
-      core.downloadModelElement.setAttribute("download", core.fileObject.filename);
-      core.downloadModelElement.hidden = true;
-    }
-    window.Viewer?.updateDownloadMenuEntryLabel?.();    
-  }
-
-  if (core.viewEntity) {
-    core.viewEntity.hidden = true;
-    core.viewEntity.removeAttribute("data-embed-url");
-  }
-  if (window.Viewer?.shareView) {
-    window.Viewer.shareView.hidden = true;
-    window.Viewer.shareView.removeAttribute("data-share-url");
-  }
-
-  if (core.viewEntity && (core.CONFIG?.entity?.id || core.fileObject?.originalPath)) {
-    const sharePayload = window.Viewer?.getSharePayload?.();
-    if (sharePayload?.url) {
-      core.viewEntity.setAttribute("data-embed-url", sharePayload.url);
-      window.Viewer?.shareView?.setAttribute("data-share-url", sharePayload.url);
-      if (window.Viewer?.shareView) {
-        window.Viewer.shareView.hidden = false;
-      }
-    }
-    window.Viewer?.updateShareMenuEntryState?.();
-    window.Viewer?.updateEmbedMenuEntryState?.();
-    core.viewEntity.hidden = false;
-  }
-  metadataContent +=
-      '</div>' +  // #metadata-content
-    '</div>';  
-  appendMetadata(metadataContent);
-  bindMetadataInteractions();
-  initializeMetadataDragAndResize();
-  requestAnimationFrame(updateMetadataOverflow);
-}
-
-async function loadMetadataData(metadataUrl) {
-  if (metadataUrl === null || metadataUrl === '') {
-    console.log("No metadata found due to null or empty metadata URL", metadataUrl);
-    return null;
-  }
-
-  try {
-    if (core.isLocalPreview) {
-      return null;
-    }
-    const response = await fetch(metadataUrl, { cache: "no-cache" });
-
-    if (response.status === 404) {
-      toastHelper("settingsNotFound", "info", {
-        filename: core.fileObject.filename
-      });
-      return null;
-    }
-
-    toastHelper("settingsFound", "success", {
-      filename: core.fileObject.filename
-    });
-    return response.json();
-  } catch (error) {
-    toastHelper("metadataFetchError", "error", {
-      error: error.message
-    });
-    return null;
-  }
-}
-
-async function traverseObject (object) {
-  if (Array.isArray(object)) {
-    // Keep relative transforms between parts; centering each element separately
-    // collapses multi-part models into overlapping geometry.
-    object.forEach((obj) => {
-      obj.updateMatrixWorld(true);
-    });
-    await setupCamera(object, null);
-  } else if (object.name === "Scene" || object.children.length > 0 || object.type == "Mesh") {
-    setupObject(object, null);
-    await setupCamera(object, null);
-  } else {
-    setupObject(object, null);
-    await setupCamera(object, null);
-  }
-}
-
-async function presentationMode (object) {
-  if (core.PRESENTATION_MODE) {
-    traverseObject(object);
-  } else { return; }
-}
-
-/**
- * Fetches settings and metadata for the loaded model.
- */
-async function fetchSettings(object) {
-  var metadata = { vertices: 0, faces: 0 };
-  let metadataUrl = '';
-
-  captureModelSettingsResetState(object);
-  clearIfcProperties();
-
-  // Skip metadata fetch for blob URLs (drag & drop files)
-  if (core.fileObject.filename.startsWith('blob:')) {
-    console.log("Skipping metadata fetch for local file");
-  } else if (core.CONFIG.metadataUrl && core.fileObject.uri && core.fileObject.filename) {
-    const metadataPrefix = new URL(core.CONFIG.metadataUrl).href.replace(/\/+$/, '') || '';
-    // core.fileObject.uri can be a relative path (e.g. a manifest's own model
-    // URL resolved against the current page) - resolve it against the page
-    // instead of assuming it's already absolute, or this throws.
-    let normalizedUri = new URL(core.fileObject.uri, document.baseURI).href.replace(/\/+$/, '');
-
-    if (normalizedUri.startsWith(metadataPrefix)) {
-      normalizedUri = normalizedUri.slice(metadataPrefix.length);
-    }
-
-    normalizedUri = normalizedUri.replace(/^\/+/, '');
-    const metadataBase = new URL(core.CONFIG.metadataUrl);
-    const fileUri = new URL(core.fileObject.uri, document.baseURI);
-
-    const filePath = fileUri.pathname.replace(/^\/+|\/+$/g, '');
-
-    metadataUrl = new URL(
-      `/${filePath}/metadata/${core.fileObject.filename}_viewer.json`,
-      metadataBase
-    ).href;
-    console.log("Fetched metadata from:", metadataUrl);
-  } else {
-    console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
-  }
-
-  if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
-    console.log("Fetching IIIF metadata from ", core.objectsConfig);
-    await handleMetadataResponse( core.CONFIG.model, metadata, object);
-  }
-  else if (metadataUrl) {
-    console.log("Loading metadata from URL:", metadataUrl);
-    if (core.CONFIG.entity.proxyPath !== undefined || core.isLightweight) {
-      metadataUrl = core.getProxyPath(metadataUrl, core.CONFIG);
-      const data = await loadMetadataData(metadataUrl);
-      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object);
-    } else {
-      const data = await loadMetadataData(metadataUrl);
-      if (data !== null) window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
-      await handleMetadataResponse(data, metadata, object);
-    }
-  } else {
-    window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
-    await handleMetadataResponse(null, metadata, object);
-  }
-}
-
-// The example manifests (example-manifests.js) as the first options of the
-// manifest form's dropdown; reloaded whenever the form is built and on its
-// "Refresh" button. `fixedOptions` come first (the default manifest).
-function createExampleManifestDropdown({ labelKey, labelFallback, fixedOptions, pickExamples }) {
-  const group = document.createElement("div");
-  group.className = "form-manifesto-group";
-
-  const label = document.createElement("label");
-  label.textContent = t$1(labelKey, labelFallback);
-  label.dataset.i18n = labelKey;
-  label.className = "form-manifesto-label";
-
-  const select = document.createElement("select");
-  select.id = "manifesto-manifest-select";
-  select.name = "manifesto-manifest-select";
-
-  const refreshButton = document.createElement("button");
-  refreshButton.type = "button";
-  refreshButton.className = "secondary manifesto-examples-refresh";
-  refreshButton.textContent = "↻";
-  refreshButton.dataset.i18nTitle = "manifesto.refreshExamples";
-  refreshButton.title = t$1("manifesto.refreshExamples", "Refresh the example list");
-  refreshButton.dataset.i18nAriaLabel = "manifesto.refreshExamples";
-  refreshButton.setAttribute("aria-label", refreshButton.title);
-
-  const fill = () => {
-    const selected = select.value;
-    const items = [...fixedOptions, ...pickExamples(getExampleManifests()).map(exampleManifestOption)]
-      .filter((item) => item?.url);
-    select.textContent = "";
-    items.forEach((item) => {
-      const opt = document.createElement("option");
-      opt.value = item.url;
-      opt.textContent = item.name;
-      if (item.i18n) opt.dataset.i18n = item.i18n;
-      select.appendChild(opt);
-    });
-    if (selected && items.some((item) => item.url === selected)) select.value = selected;
-  };
-
-  const refresh = async ({ notify = false } = {}) => {
-    refreshButton.disabled = true;
-    const { updated } = await refreshExampleManifests();
-    refreshButton.disabled = false;
-    if (!select.isConnected) return;
-    if (updated) fill();
-    if (notify && !updated) toastHelper("exampleListRefreshFailed", "warning");
-  };
-
-  refreshButton.addEventListener("click", () => refresh({ notify: true }));
-
-  fill();
-  group.append(label, select, refreshButton);
-
-  // add on the top
-  document.querySelector("#form-manifesto-content").prepend(group);
-  refresh();
-}
-
-function createIIIFDropdown(iiifConfigURL) {
-  createExampleManifestDropdown({
-    labelKey: "iiif.manifest",
-    labelFallback: "IIIF manifest",
-    fixedOptions: [{ url: iiifConfigURL.url, name: iiifConfigURL.name }],
-    // AIM3D manifests are IIIF manifests too (setupManifesto tells them apart).
-    pickExamples: ({ iiif, aim3d }) => [...iiif, ...aim3d.filter((manifest) => manifest.inIIIFSelect)],
-  });
-}
-
-function createManifestSourceSwitch(activeType = "iiif") {
-  const group = document.createElement("div");
-  group.className = "form-manifesto-group manifesto-source-group";
-
-  const label = document.createElement("label");
-  label.className = "form-manifesto-label";
-  label.textContent = t$1("manifesto.source", "Manifest type");
-  label.dataset.i18n = "manifesto.source";
-
-  const switchLabel = document.createElement("label");
-  switchLabel.className = "manifesto-source-switch";
-  switchLabel.htmlFor = "manifesto-source-switch";
-  switchLabel.innerHTML = `
-    <span>IIIF</span>
-    <input
-      id="manifesto-source-switch"
-      type="checkbox"
-      role="switch"
-      data-i18n-aria-label="manifesto.source"
-      aria-label="${escapeHtml(t$1("manifesto.source", "Manifest type"))}"
-      ${activeType === "aim3if" ? "checked" : ""}
-    >
-    <span class="manifesto-source-track" aria-hidden="true"></span>
-    <span>AIM3D</span>
-  `;
-
-  group.append(label, switchLabel);
-  document.querySelector("#form-manifesto-content")?.prepend(group);
-}
-
-function createAIM3IFDropdown(url) {
-  createExampleManifestDropdown({
-    labelKey: "aim3if.modelConfig",
-    labelFallback: "Model configuration",
-    fixedOptions: [{ url, i18n: "aim3if.optionDefault", name: t$1("aim3if.optionDefault", "Default configuration") }],
-    pickExamples: ({ aim3d }) => aim3d,
-  });
-}
-
-function getManifestoFormConfig() {
-  return core.CONFIG?.viewer?.manifestoForm || {};
-}
-
-function getInitialManifestoPosition() {
-  const position = getManifestoFormConfig().position || {};
-  return {
-    x: parseFloatParam(position.x) ?? 0,
-    y: parseFloatParam(position.y) ?? 0,
-  };
-}
-
-function setStoredManifestoPosition(x, y) {
-  core.CONFIG ??= {};
-  core.CONFIG.viewer ??= {};
-  core.CONFIG.viewer.manifestoForm ??= {};
-  core.CONFIG.viewer.manifestoForm.position = {
-    x: Number.isFinite(x) ? x : 0,
-    y: Number.isFinite(y) ? y : 0,
-  };
-}
-
-function setStoredManifestoSize(width, height) {
-  core.CONFIG ??= {};
-  core.CONFIG.viewer ??= {};
-  core.CONFIG.viewer.manifestoForm ??= {};
-  core.CONFIG.viewer.manifestoForm.size = {
-    width: Number.isFinite(width) ? width : null,
-    height: Number.isFinite(height) ? height : null,
-  };
-}
-
-// Space kept between the form and the browser window's edges.
-const MANIFESTO_VIEWPORT_GUTTER = 16;
-// Window listeners of the current form - createManifestUI() rebuilds it.
-let manifestoFormListeners = null;
-
-// Makes #form-manifesto draggable (via its header) and resizable, and keeps
-// both in sync with core.CONFIG.viewer.manifestoForm - mirrors the pattern
-// core.editorToolbar already uses for its own position (see
-// initializeEditorToolbarDrag() in editor-toolbar.js), adapted for a
-// normal-flow panel instead of an absolutely-positioned one.
-function initializeManifestoFormDrag(formContainer, handle) {
-  manifestoFormListeners?.abort();
-  manifestoFormListeners = new AbortController();
-  const { signal } = manifestoFormListeners;
-
-  const initialPosition = getInitialManifestoPosition();
-  let currentX = initialPosition.x;
-  let currentY = initialPosition.y;
-
-  const applyPosition = () => {
-    formContainer.style.transform = (currentX || currentY)
-      ? `translate3d(${currentX}px, ${currentY}px, 0)`
-      : "";
-    setStoredManifestoPosition(currentX, currentY);
-  };
-
-  // Resizing (native, "resize: both") may make the form wider than the
-  // viewer, but never wider or taller than the browser window - it would
-  // otherwise stretch the page itself.
-  const applySizeLimits = () => {
-    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    formContainer.style.maxWidth = `${Math.max(viewportWidth - 2 * MANIFESTO_VIEWPORT_GUTTER, 280)}px`;
-    formContainer.style.maxHeight = `${Math.max(window.innerHeight - 2 * MANIFESTO_VIEWPORT_GUTTER, 120)}px`;
-  };
-
-  const clampPosition = (x, y) => {
-    // x=0 is the in-flow rest position (centered by "margin: auto", or
-    // starting at the host's left edge once wider than it); keep both edges
-    // inside the browser window.
-    const rect = formContainer.getBoundingClientRect();
-    const restLeft = rect.left - currentX;
-    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    const minX = MANIFESTO_VIEWPORT_GUTTER - restLeft;
-    const maxX = viewportWidth - MANIFESTO_VIEWPORT_GUTTER - rect.width - restLeft;
-
-    return {
-      x: maxX < minX ? minX : Math.min(Math.max(x, minX), maxX),
-      // Never move above its natural in-flow position (y < 0) - it already
-      // sits directly below the viewer (see the appendChild call below),
-      // so this alone guarantees dragging can never put it back over the
-      // model, regardless of how the panel is later resized.
-      y: Math.max(y, 0),
-    };
-  };
-
-  const reclamp = () => {
-    applySizeLimits();
-    const next = clampPosition(currentX, currentY);
-    if (next.x === currentX && next.y === currentY) return;
-    currentX = next.x;
-    currentY = next.y;
-    applyPosition();
-  };
-
-  applySizeLimits();
-  applyPosition();
-
-  let dragState = null;
-
-  const onPointerMove = (event) => {
-    if (!dragState) return;
-    const dx = event.clientX - dragState.startX;
-    const dy = event.clientY - dragState.startY;
-    const next = clampPosition(dragState.originX + dx, dragState.originY + dy);
-    currentX = next.x;
-    currentY = next.y;
-    applyPosition();
-  };
-
-  const stopDrag = () => {
-    if (!dragState) return;
-    dragState = null;
-    formContainer.classList.remove("form-manifesto-dragging");
-    document.removeEventListener("pointermove", onPointerMove);
-    document.removeEventListener("pointerup", stopDrag);
-  };
-
-  handle.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("button")) return; // don't hijack the collapse button
-    dragState = {
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: currentX,
-      originY: currentY,
-    };
-    formContainer.classList.add("form-manifesto-dragging");
-    document.addEventListener("pointermove", onPointerMove);
-    document.addEventListener("pointerup", stopDrag);
-  });
-
-  // Resizing itself is native CSS (see "#form-manifesto { resize: both }"
-  // in viewer/css/external-sources.css) - no custom handle needed. A
-  // ResizeObserver still fires for a user dragging that native handle, so
-  // it's enough to persist the result into config.
-  const initialSize = getManifestoFormConfig().size || {};
-  const initialWidth = parseFloatParam(initialSize.width);
-  const initialHeight = parseFloatParam(initialSize.height);
-  if (initialWidth != null) formContainer.style.width = `${initialWidth}px`;
-  if (initialHeight != null) formContainer.style.height = `${initialHeight}px`;
-
-  let isFirstResizeObservation = true;
-  const resizeObserver = new ResizeObserver((entries) => {
-    // Skip the observer's own initial firing (on observe()) so it doesn't
-    // immediately overwrite a configured size with the pre-resize default.
-    if (isFirstResizeObservation) {
-      isFirstResizeObservation = false;
-      return;
-    }
-    const entry = entries[0];
-    if (!entry) return;
-    setStoredManifestoSize(
-      Math.round(entry.contentRect.width),
-      Math.round(entry.contentRect.height)
-    );
-    // Growing from the right edge must not push it out of the window.
-    reclamp();
-  });
-  resizeObserver.observe(formContainer);
-  signal.addEventListener("abort", () => resizeObserver.disconnect());
-
-  // The browser window or the viewer (moved/resized) changing size moves the
-  // form's rest position - keep it on screen.
-  window.addEventListener("resize", reclamp, { signal });
-  const host = core.viewerWrapper || core.container || formContainer.parentElement;
-  if (host) {
-    const hostObserver = new ResizeObserver(() => reclamp());
-    hostObserver.observe(host);
-    signal.addEventListener("abort", () => hostObserver.disconnect());
-  }
-}
-
-function createManifestUI(type = "iiif") {
-  const formContainer = document.createElement("div");
-  const className = type === "iiif" ? "IIIF" : "AIM3IF";
-  const titleKey = type === "iiif" ? "iiif" : "aim3if";
-  formContainer.id = `form-manifesto`;
-  // Expanded by default - collapsing is still available via the toggle
-  // button below (a user choice to save is worth keeping), but it no longer
-  // needs to default to collapsed just to stay out of the model's way: see
-  // the appendChild call at the bottom of this function, which now places
-  // this in normal document flow below the viewer instead of as a
-  // position: fixed overlay on top of it.
-
-  /* header */
-  const header = document.createElement("div");
-  header.className = `form-manifesto-header`;
-  header.innerHTML = `
-    <span class="form-manifesto-drag-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="14" height="14" focusable="false">
-        <circle cx="9" cy="6" r="1.6" fill="currentColor"/>
-        <circle cx="15" cy="6" r="1.6" fill="currentColor"/>
-        <circle cx="9" cy="12" r="1.6" fill="currentColor"/>
-        <circle cx="15" cy="12" r="1.6" fill="currentColor"/>
-        <circle cx="9" cy="18" r="1.6" fill="currentColor"/>
-        <circle cx="15" cy="18" r="1.6" fill="currentColor"/>
-      </svg>
-    </span>
-    <span class="title" data-i18n="${titleKey}.loader">${escapeHtml(t$1(`${titleKey}.loader`, `${className} Loader`))}</span>
-    <div class="tools">
-      <button type="button" id="manifesto-toggle-collapse" data-i18n-title="${titleKey}.collapse" title="${escapeHtml(t$1(`${titleKey}.collapse`, `Collapse`))}">▾</button>
-    </div>
-  `;
-
-  formContainer.appendChild(header);
-
-  /* content */
-  const content = document.createElement("div");
-  content.className = `form-manifesto-content`;
-  content.id = `form-manifesto-content`;
-  content.innerHTML = `
-    <div class="form-manifesto-group">
-      <input type="text" id="manifesto-manifest-url" data-i18n-placeholder="${titleKey}.manifestUrlPlaceholder" placeholder="${escapeHtml(t$1(`${titleKey}.manifestUrlPlaceholder`, `https://example.org/manifesto/manifest.json`))}">
-      <button class="primary" id="load-manifesto-from-url" data-i18n="${titleKey}.loadFromUrl">${escapeHtml(t$1(`${titleKey}.loadFromUrl`, `Load from URL`))}</button>
-    </div>
-
-    <div class="form-manifesto-group column">
-      <div class="manifesto-view-toolbar">
-        <div class="manifesto-view-toggle" role="group">
-          <button type="button" id="manifesto-view-tree" aria-pressed="false" data-i18n="manifesto.treeView">${escapeHtml(t$1("manifesto.treeView", "Tree"))}</button>
-          <button type="button" id="manifesto-view-json" aria-pressed="true" data-i18n="manifesto.jsonView">${escapeHtml(t$1("manifesto.jsonView", "JSON"))}</button>
-        </div>
-        <button type="button" id="manifesto-tree-expand" class="manifesto-tree-tool" data-i18n="manifesto.expandAll" hidden>${escapeHtml(t$1("manifesto.expandAll", "Expand all"))}</button>
-        <button type="button" id="manifesto-tree-collapse" class="manifesto-tree-tool" data-i18n="manifesto.collapseAll" hidden>${escapeHtml(t$1("manifesto.collapseAll", "Collapse all"))}</button>
-      </div>
-      <div id="manifesto-manifest-tree" class="manifesto-manifest-tree" hidden></div>
-      <textarea id="manifesto-manifest-text" rows="8" data-i18n-placeholder="${titleKey}.manifestTextPlaceholder" placeholder="${escapeHtml(t$1(`${titleKey}.manifestTextPlaceholder`, `Paste ${className} manifest JSON here...`))}"></textarea>
-      <div class="actions">
-        <button class="secondary" id="load-manifesto-from-text" data-i18n="${titleKey}.loadFromText">${escapeHtml(t$1(`${titleKey}.loadFromText`, `Load from Text`))}</button>
-      </div>
-    </div>
-  `;
-
-  formContainer.appendChild(content);
-
-  // Appended into the viewer's own wrapper (same host core.editorToolbar
-  // and #credits already use - see getEditorToolbarHost() in
-  // editor-toolbar.js and the appendChild call in main.js), not
-  // document.body: #form-manifesto is normal-flow now (see
-  // viewer/css/external-sources.css), so this renders it as a block below
-  // the viewer instead of a position: fixed overlay on top of it.
-  (core.viewerWrapper || core.container || document.body).appendChild(formContainer);
-
-  initializeManifestoFormDrag(formContainer, header);
-  showManifestInForm = attachManifestTreeEditor();
-}
-
-// Shows a manifest in the form's tree/JSON views; replaced by
-// createManifestUI() with one bound to the current form.
-let showManifestInForm = () => {};
-
-function displayManifestInForm(manifestJson) {
-  showManifestInForm(manifestJson);
-}
-
 // The app only: the first time it starts, the buttons worth knowing about
 // pulse one after another - models on the device, the repository, then the
 // rest of the tools. A tap on the pulsing button (or its time running out)
@@ -27657,7 +28273,7 @@ const loadLWOLoader = async () => (await import('./three-CcXsnZni.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DaGIrRE_.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aW; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-rHb-U9mO.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DoftncFx.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aX; })).HDRLoader;
 
 var outlineClipping;
@@ -27795,6 +28411,9 @@ async function swapInFullModel(previewRoot, fullRoot) {
   window.Viewer?.disposeObjectResources?.(previewRoot);
   // Face indices of annotations refer to the full model's triangles.
   window.Viewer?.refreshAnnotationPOIs?.();
+  // The look set on the preview (a manifest's shading mode, wireframe, the
+  // Level of Certainty view) goes on with the full model.
+  window.Viewer?.applyShadingMode?.();
   markEnvironmentMaterialsDirty(fullRoot);
   return true;
 }
@@ -27835,7 +28454,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "test";
+const ENV_BUILD = "dev";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -36173,8 +36792,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "0a1192a9" ;
-const BUILD_TIME = "2026-10-12T08:01:25.535Z" ;
+const BUILD_ID = "497d69a5" ;
+const BUILD_TIME = "2026-10-12T08:50:30.045Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -36412,7 +37031,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "" ;
+const SOURCE = "IIIF" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
@@ -37915,9 +38534,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    if (!core.CONFIG.entity.metadata.sourceType) {
+    {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -39668,6 +40287,57 @@ const Viewer$1 = {
         });
       }
     });
+
+    Viewer$1.bindManifestRetarget(type);
+  },
+
+  // The manifest form's "Use these settings with another model": the viewer's
+  // current state (manifest-retarget.js keeps the look, drops what belongs to
+  // the model) for the URL entered, loaded and shown in the form's text
+  // field. The URL field suggests the example models.
+  bindManifestRetarget(type) {
+    const input = document.getElementById("manifesto-retarget-url");
+    const button = document.getElementById("manifesto-retarget-apply");
+    const suggestions = document.getElementById("manifesto-retarget-models");
+    if (!input || !button) return;
+    if (suggestions) {
+      suggestions.textContent = "";
+      getExampleModels().forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.url;
+        option.label = typeof entry.name === "string" ? entry.name : (entry.name?.[core.currentLanguage] || entry.name?.en || "");
+        suggestions.appendChild(option);
+      });
+    }
+    Viewer$1.bindEventListener(button, "click", async () => {
+      const modelUrl = input.value.trim();
+      if (!modelUrl) {
+        input.style.border = "2px solid red";
+        showToast("manifesto.retargetInvalidUrl", "warning");
+        return;
+      }
+      input.style.border = "";
+      const current = core.fileObject?.originalPath ? Viewer$1.build3IFManifest() : null;
+      const manifest = current && retargetManifest(current, modelUrl, {
+        keepCamera: document.getElementById("manifesto-retarget-camera")?.checked === true,
+      });
+      if (!manifest) {
+        showToast("manifesto.retargetNoModel", "warning");
+        return;
+      }
+      const text = JSON.stringify(manifest, null, 2);
+      try {
+        button.disabled = true;
+        core.objectsConfig.setupIndex = 0;
+        // Shown in the form's tree/JSON views by setupManifesto.
+        await Viewer$1.setupManifesto(text, "text", type);
+        showToast("manifesto.retargetDone", "success", { model: modelUrl.split(/[?#]/)[0].split("/").pop() });
+      } catch (error) {
+        Viewer$1.reportError(error, { context: "Error applying the manifest settings to another model" });
+      } finally {
+        button.disabled = false;
+      }
+    });
   },
 
   isUrlFlexible(string) {
@@ -40474,4 +41144,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-BN76ZwIa.js.map
+//# sourceMappingURL=main-BwcdENQq.js.map

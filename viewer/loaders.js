@@ -181,6 +181,9 @@ async function swapInFullModel(previewRoot, fullRoot) {
   window.Viewer?.disposeObjectResources?.(previewRoot);
   // Face indices of annotations refer to the full model's triangles.
   window.Viewer?.refreshAnnotationPOIs?.();
+  // The look set on the preview (a manifest's shading mode, wireframe, the
+  // Level of Certainty view) goes on with the full model.
+  window.Viewer?.applyShadingMode?.();
   markEnvironmentMaterialsDirty(fullRoot);
   return true;
 }

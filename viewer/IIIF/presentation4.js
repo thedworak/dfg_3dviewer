@@ -1082,17 +1082,7 @@ export function isModelBody(body) {
 }
 
 // Media type of a model file, from its extension (null when unknown).
-const MODEL_FORMATS = {
-  glb: "model/gltf-binary",
-  gltf: "model/gltf+json",
-  obj: "model/obj",
-  stl: "model/stl",
-  usdz: "model/vnd.usdz+zip",
-};
-export function modelFormatOf(url) {
-  const extension = String(url || "").split(/[?#]/)[0].split(".").pop().toLowerCase();
-  return MODEL_FORMATS[extension] || null;
-}
+export { modelFormatOf } from "./model-formats.js";
 
 export function modelUrlOf(body) {
   return resolveBody(body).resource?.id || null;

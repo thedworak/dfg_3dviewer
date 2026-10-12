@@ -247,6 +247,45 @@
   background: #dee2e6;
 }
 
+/* "Use these settings with another model" (metadata.js, main.js):
+   a title, what is kept, the URL with Apply, and the camera option. */
+#form-manifesto .manifesto-retarget {
+  gap: 6px;
+  flex: 0 0 auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(164, 151, 132, 0.24);
+}
+
+#form-manifesto .manifesto-retarget .form-manifesto-label {
+  align-self: flex-start;
+  font-weight: 600;
+  white-space: normal;
+}
+
+.manifesto-retarget-hint {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.manifesto-retarget-row {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.manifesto-retarget-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.manifesto-retarget-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
 /* Text area actions */
 #form-manifesto .actions {
   display: flex;
@@ -697,6 +736,31 @@ body[data-viewer-theme="dark"] #example-model-picker {
   #example-model-picker option::checkmark {
     display: none;
   }
+
+  /* An example from the site, not in the app (example-models.js): a globe,
+     as in the examples panel; greyed out without network. */
+  #example-model-picker option[data-online] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #example-model-picker option[data-online]::after {
+    content: "";
+    flex: none;
+    width: 12px;
+    height: 12px;
+    margin-left: auto;
+    background-color: currentColor;
+    opacity: 0.6;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  #example-model-picker option:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
 
 /* Touch screens (Android) draw an overlay scrollbar that only shows while
@@ -937,3 +1001,8 @@ body[data-viewer-theme="dark"] #example-model-picker {
 #form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-value:focus { background: #2a2d33; }
 #form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree details > summary:hover,
 #form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree .mt-value:hover { background: rgba(147, 180, 255, .1); }
+
+#form-manifesto .manifesto-retarget-option input {
+  padding: 0;
+  margin: 0;
+}

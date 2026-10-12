@@ -15,6 +15,15 @@ function getGalleryHost(Viewer, mainElement) {
   );
 }
 
+// A viewer turned into a movable window (ui/window-controls.js, a manifest's
+// viewer.window) leaves a placeholder where it stood: the gallery goes before
+// that, so it stays above the viewer - and the placeholder stays right
+// before the window, where window-controls.js resizes it.
+function galleryAnchor(host) {
+  const previous = host?.previousElementSibling;
+  return previous?.classList.contains("viewer-window-placeholder") ? previous : host;
+}
+
 function removeExistingGalleryDom() {
   const imageList = document.getElementById("image-list");
   (imageList?.closest(".image-list-scroller") || imageList)?.remove();
@@ -497,7 +506,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     imageList.childNodes.length > 0 &&
     getGalleryHost(Viewer, mainElement)
   ) {
-    const galleryHost = getGalleryHost(Viewer, mainElement);
+    const galleryHost = galleryAnchor(getGalleryHost(Viewer, mainElement));
     galleryHost.insertAdjacentElement("beforebegin", modalGallery);
     galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
   }

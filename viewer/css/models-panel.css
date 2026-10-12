@@ -444,6 +444,58 @@ body[data-viewer-theme="dark"] #planButton {
   margin-top: 0;
 }
 
+/* A model's manifests, folded under its name (example-manifests.js groups);
+   open, the rows are indented, so they read as its variants. */
+.examples-panel-group {
+  margin: 6px 0;
+}
+
+.examples-panel-subheading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.examples-panel-subheading::-webkit-details-marker {
+  display: none;
+}
+
+.examples-panel-subheading::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.examples-panel-group[open] > .examples-panel-subheading::before {
+  transform: rotate(45deg);
+}
+
+.examples-panel-count {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.examples-panel-group > .models-panel-list {
+  margin: 6px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--viewer-panel-text) 15%, transparent);
+}
+
 .examples-panel-list .models-panel-item:disabled {
   opacity: 0.45;
   cursor: not-allowed;

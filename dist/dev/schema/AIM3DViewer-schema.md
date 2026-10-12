@@ -15,6 +15,7 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
     "lights": [],
     "rakingLight": {},
     "timeline": {},
+    "thumbnails": [],
     "modelTransform": {}
   }
 }
@@ -310,9 +311,10 @@ around it into each other, so jumps and playback run smoothly.
   - `interpolate` (default): a year between two stages blends them in proportion, e.g. 1795 shows 1790 and 1810 half and half. Suits gradual change (weathering, growth)
   - `step`: the last stage reached is shown as it is; changing stage fades over `transitionDuration`. Suits building phases
 - `transitionDuration`: seconds a jump to another year (or a `step` fade) takes, `>= 0` (default `0.8`)
-- `playback.autoplay`, `playback.loop`: start playing on open, start over after the end (default `false`)
+- `playback.autoplay`: start playing on open (default `false`)
+- `playback.loop`: start over after the end (default `true`)
 - `playback.yearsPerSecond`: playback speed (default: the whole axis in 24 seconds)
-- `playback.speed`: multiple of `yearsPerSecond`, set in the panel (0.25× to 3×) and exported with the manifest (default `1`)
+- `playback.speed`: multiple of `yearsPerSecond`, set in the panel (0.25× to 3×) and exported with the manifest (default `0.5`)
 - `playback.pauseAtEvents`: seconds held on each `documented` stage while playing (default `1.5`)
 - `showPanel`: `false` hides the panel; the model stays at `year` (a fixed point in time, e.g. for an embed)
 - `stages[]`:
@@ -344,6 +346,26 @@ Fading draws the earlier stage as it is and the later one over it,
 transparent. Stages that share the geometry (the same building with other
 textures or vertex colours) blend cleanly; stages with different geometry
 cross over, the earlier one leaving at the end of the fade.
+
+## `AIM3DViewer.thumbnails`
+
+Renders of the model shown in the thumbnail gallery, in this order. The list
+may have any length. Each entry is a URL or an object with `src` and an
+optional `label` (a string or a language map, used as the image's alt text).
+
+```json
+[
+  "./examples/gallery/tempietto/Tempietto_side0.png",
+  { "src": "./examples/gallery/tempietto/Tempietto_top.png", "label": { "en": ["Top view"], "pl": ["Widok z góry"] } }
+]
+```
+
+- Relative URLs (`./...`) resolve like the manifest's model URLs.
+- A manifest without `thumbnails` (or with an empty list) shows the viewer's
+  generic placeholder images, never the renders of a previous manifest.
+- An image that fails to load is replaced by a generic placeholder.
+
+See [tempietto-aim3d-thumbnails.json](./examples/tempietto-aim3d-thumbnails.json).
 
 ## `AIM3DViewer.certainty`
 

@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validation.js';
+import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 
 const defaultModel = '/examples/box.stl';
 const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ';
@@ -729,6 +730,30 @@ test('progressive loading shows the preview first and swaps in the full compress
   expect(scene.errors).toBe(0);
 });
 
+test('progressive loading: the shading mode set on the preview stays on the full model', async ({ page }) => {
+  // The full model arrives late, so the mode is set while the preview shows.
+  await page.route('**/examples/compressed.glb', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await openViewer(page, '/examples/compressed.glb');
+  await waitForModel(page);
+  expect(await page.evaluate(() => window.viewer.fullModelLoaded)).toBe(false);
+  await page.evaluate(() => window.Viewer.setShadingMode('clay'));
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+
+  const shaded = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const meshes = [];
+    root.traverse((child) => { if (child.isMesh) meshes.push(Boolean(child.userData.__shadingMaterials)); });
+    return { isPreview: root.userData?.isPreviewModel === true, mode: window.Viewer.shadingMode, meshes };
+  });
+  expect(shaded.isPreview).toBe(false);
+  expect(shaded.mode).toBe('clay');
+  expect(shaded.meshes.length).toBeGreaterThan(0);
+  expect(shaded.meshes.every(Boolean)).toBe(true);
+});
+
 test('preview=0 skips the progressive preview', async ({ page }) => {
   const requests = [];
   page.on('request', (request) => {
@@ -893,6 +918,29 @@ test('manifest thumbnails: the gallery shows the manifest\'s own renders, generi
   await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-aim3d-local.json', 'url', 'aim3if'));
   await expect.poll(async () => (await gallery()).every(({ src }) => src.includes('explora4d-placeholder-'))).toBe(true);
   expect((await gallery()).length).toBe(9);
+});
+
+test('manifest thumbnails stay above the viewer when the manifest makes it a movable window', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(async () => {
+    const manifest = await (await fetch('./manifests/tempietto-aim3d-thumbnails.json')).json();
+    manifest.AIM3DViewer.viewer.window = { position: { x: 40, y: 260 }, size: { width: 640, height: 420 } };
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text', 'aim3if');
+  });
+  await expect(page.locator('#image-list img')).toHaveCount(5);
+  const layout = await page.evaluate(() => {
+    const container = document.getElementById('DFG_3DViewer');
+    const placeholder = container.previousElementSibling;
+    const gallery = document.getElementById('image-list').closest('.image-list-scroller');
+    return {
+      placeholder: placeholder?.classList.contains('viewer-window-placeholder'),
+      // The gallery first, then where the viewer stood, then the window.
+      galleryFirst: Boolean(gallery.compareDocumentPosition(placeholder) & Node.DOCUMENT_POSITION_FOLLOWING),
+      above: gallery.getBoundingClientRect().bottom <= placeholder.getBoundingClientRect().top + 1,
+    };
+  });
+  expect(layout).toEqual({ placeholder: true, galleryFirst: true, above: true });
 });
 
 test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments round-trip', async ({ page }) => {
@@ -1278,6 +1326,38 @@ test('4D timeline: plays in a loop at 0.5× unless the manifest says otherwise',
   const own = await state();
   expect(own).toMatchObject({ loop: false, speed: 2, select: '2' });
   expect(own.exported).toMatchObject({ loop: false, speed: 2 });
+});
+
+test('a manifest\'s settings for another model: the look stays, what belongs to the model goes', () => {
+  const source = JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-tour.json', 'utf8'));
+  // As exported from a page where the viewer was a movable window.
+  source.AIM3DViewer.viewer.window = { position: { x: 40, y: 80 }, size: { width: 900, height: 600 } };
+  const model = 'https://example.org/models/Other.glb';
+  const result = retargetManifest(source, model);
+  expect(validateAIM3DManifest(result).errors).toEqual([]);
+  expect(JSON.stringify(result)).not.toContain('Tempietto.glb');
+
+  // Only the model changes in the scene; the ids follow it.
+  const [scene] = result.items;
+  expect(scene.id).toBe(`${model}/scene`);
+  const models = scene.items.flatMap((page) => page.items).filter((annotation) => annotation.body?.type === 'Model');
+  expect(models.map((annotation) => annotation.body)).toEqual([{ id: model, type: 'Model', format: 'model/gltf-binary' }]);
+  expect(result.label).toEqual({ en: ['Other.glb'] });
+  // The old model's annotations, thumbnails and pose go; the look stays.
+  expect(scene.annotations.every((page) => page.items.length === 0)).toBe(true);
+  const block = result.AIM3DViewer;
+  expect(block.camera).toBeUndefined();
+  expect(block.thumbnails).toBeUndefined();
+  expect(block.modelTransform.position).toBeUndefined();
+  expect(block.viewer.window).toBeUndefined();
+  expect(block.lights).toEqual(source.AIM3DViewer.lights);
+  expect(block.viewer.rendering).toEqual(source.AIM3DViewer.viewer.rendering);
+  expect(block.viewer.environmentMap).toEqual(source.AIM3DViewer.viewer.environmentMap);
+  // The camera stays when asked; the source is left as it was.
+  expect(retargetManifest(source, model, { keepCamera: true }).AIM3DViewer.camera).toEqual(source.AIM3DViewer.camera);
+  expect(JSON.stringify(source)).toContain('Tempietto.glb');
+  // Nothing to take the settings from without a model.
+  expect(retargetManifest({ type: 'Manifest', items: [] }, model)).toBeNull();
 });
 
 test('example manifests: all valid, and the scan views open as written (shading, ambient occlusion, raking light, custom shader)', async ({ page }) => {
@@ -2089,11 +2169,39 @@ test('example model list: fetched from examples/index.json, so a new example nee
   await page.context().setOffline(false);
   await expect(elsewhere).toBeEnabled();
 
-  // Names follow the language; the list is kept for the next start.
+  // Names follow the language. A web viewer keeps no list (only the app
+  // does): a kept one could be another deployment's.
   await page.evaluate(() => window.Viewer.selectLanguage('pl'));
   await expect(select.locator('option[value="./examples/box.glb"]')).toHaveText('Nowy przykład');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('dfg3dviewer-example-models')).models.length))
-    .toBe(list.models.length);
+  expect(await page.evaluate(() => localStorage.getItem('dfg3dviewer-example-models'))).toBeNull();
+});
+
+test('example manifests: one folded group per model, its manifests named by what they change', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => {
+    window.Viewer.createExamplesPanel();
+    window.Viewer.examplesPanel.hidden = false;
+    window.Viewer.renderExamplesList();
+  });
+  const panel = page.locator('#examplesPanel');
+  const groups = panel.locator('details.examples-panel-group');
+  await expect(groups.locator('summary > span:first-child')).toHaveText(['Tempietto', 'Wolpa Synagogue', 'ExPlora4D showcase']);
+  await expect(panel.locator('details[data-group="aim3d:showcase"] .examples-panel-count')).toHaveText('12');
+  // Folded at first; open, only the variants under the model's name.
+  const wolpa = panel.locator('details[data-group="aim3d:wolpa"]');
+  await expect(wolpa.locator('li').first()).toBeHidden();
+  await wolpa.locator('summary').click();
+  await expect(wolpa.locator('.models-panel-item-name').first()).toHaveText('Default view');
+  await expect(wolpa.locator('.models-panel-item-name', { hasText: 'Golden hour, ACES' })).toBeVisible();
+  // Without a group: the full name, not folded.
+  await expect(panel.locator('.models-panel-item-name', { hasText: 'Box configuration' })).toBeVisible();
+
+  // The open group stays open; names follow the language.
+  await page.evaluate(() => window.Viewer.selectLanguage('pl'));
+  await page.evaluate(() => window.Viewer.renderExamplesList());
+  await expect(wolpa.locator('summary > span:first-child')).toHaveText('Synagoga w Wołpie');
+  await expect(wolpa).toHaveAttribute('open', '');
 });
 
 test('panel windows: opening one closes the other, a click on the background closes it, a drag does not', async ({ page }) => {

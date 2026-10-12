@@ -1,0 +1,231 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/gltf/ExPlora4D_showCase.glb/manifest-contours.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Showcase - custom shader: height bands, contour every 10 cm"
+    ],
+    "pl": [
+      "Showcase - własny shader: pasy wysokości, warstwica co 10 cm"
+    ],
+    "de": [
+      "Showcase - eigener Shader: Höhenbänder, Höhenlinie alle 10 cm"
+    ]
+  },
+  "summary": {
+    "en": [
+      "A test scene for lighting, materials and shading: PBR spheres, material extensions, colour charts, relief, transparency, emitters and 1 m scale bars."
+    ],
+    "pl": [
+      "Scena testowa oświetlenia, materiałów i cieniowania: sfery PBR, rozszerzenia materiałów, wzorniki kolorów, relief, przezroczystość, emitery i podziałki 1 m."
+    ],
+    "de": [
+      "Eine Testszene für Licht, Materialien und Schattierung: PBR-Kugeln, Materialerweiterungen, Farbtafeln, Relief, Transparenz, Leuchtkörper und 1-m-Maßstäbe."
+    ]
+  },
+  "items": [
+    {
+      "id": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/gltf/ExPlora4D_showCase.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "ExPlora4D showcase"
+        ]
+      },
+      "items": [
+        {
+          "id": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/gltf/ExPlora4D_showCase.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/gltf/ExPlora4D_showCase.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/gltf/ExPlora4D_showCase.glb",
+                "type": "Model",
+                "format": "model/gltf-binary"
+              },
+              "target": {
+                "id": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/gltf/ExPlora4D_showCase.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/gltf/ExPlora4D_showCase.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-12T00:00:00.000Z",
+    "camera": {
+      "position": [
+        1.3,
+        2.6,
+        6
+      ],
+      "target": [
+        -0.2,
+        0.6,
+        -0.6
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 7.06,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 0,
+        "preset": "neutral",
+        "enabled": false
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "none",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": true,
+          "antialias": "msaa"
+        }
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0.5
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          6,
+          10,
+          8
+        ],
+        "target": [
+          0,
+          0.5,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 2.2
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          10,
+          0
+        ],
+        "color": "#ffffff",
+        "groundColor": "#7a8a90",
+        "intensity": 0.4
+      }
+    ],
+    "thumbnails": [
+      {
+        "src": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side0.png",
+        "label": {
+          "en": [
+            "Front"
+          ],
+          "pl": [
+            "Przód"
+          ],
+          "de": [
+            "Vorderseite"
+          ]
+        }
+      },
+      "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side45.png",
+      "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side90.png",
+      "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side135.png",
+      {
+        "src": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side180.png",
+        "label": {
+          "en": [
+            "Back"
+          ],
+          "pl": [
+            "Tył"
+          ],
+          "de": [
+            "Rückseite"
+          ]
+        }
+      },
+      "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side225.png",
+      "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side270.png",
+      "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_side315.png",
+      {
+        "src": "https://explora4d.eu/viewer/files/1c15a19aef5e4c5a9a74057061401002/views/ExPlora4D_showCase_top.png",
+        "label": {
+          "en": [
+            "Top view"
+          ],
+          "pl": [
+            "Widok z góry"
+          ],
+          "de": [
+            "Draufsicht"
+          ]
+        }
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "custom",
+      "customShader": {
+        "vertexShader": "#include <clipping_planes_pars_vertex>\nvarying vec3 vNormal;\nvarying float vHeight;\n\nvoid main() {\n  vNormal = normalize(normalMatrix * normal);\n  vec4 worldPosition = modelMatrix * vec4(position, 1.0);\n  vHeight = worldPosition.y;\n  vec4 mvPosition = viewMatrix * worldPosition;\n  gl_Position = projectionMatrix * mvPosition;\n  #include <clipping_planes_vertex>\n}\n",
+        "fragmentShader": "#include <clipping_planes_pars_fragment>\nvarying vec3 vNormal;\nvarying float vHeight;\n\nvoid main() {\n  #include <clipping_planes_fragment>\n  float t = clamp(vHeight / 2.4, 0.0, 1.0);\n  vec3 low = vec3(0.16, 0.34, 0.62);\n  vec3 mid = vec3(0.93, 0.86, 0.62);\n  vec3 high = vec3(0.78, 0.25, 0.18);\n  vec3 band = t < 0.5 ? mix(low, mid, t * 2.0) : mix(mid, high, t * 2.0 - 1.0);\n  // A dark line every 10 cm, as wide on screen at any distance.\n  float d = abs(fract(vHeight / 0.1 + 0.5) - 0.5) / fwidth(vHeight / 0.1);\n  float line = 1.0 - clamp(d - 0.5, 0.0, 1.0);\n  float light = 0.55 + 0.45 * max(dot(normalize(vNormal), normalize(vec3(0.3, 0.8, 0.5))), 0.0);\n  gl_FragColor = vec4(mix(band * light, vec3(0.08), line * 0.8), 1.0);\n}\n"
+      }
+    }
+  },
+  "modified": "2026-10-12T00:00:00.000Z"
+}

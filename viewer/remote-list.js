@@ -3,16 +3,19 @@ import { isOnline } from "./connectivity.js";
 
 // A list the viewer fetches at runtime so it can change without a new build
 // (or app release): the example manifests (example-manifests.js) and the
-// example models (example-models.js). The last list fetched is kept on the
-// device; without a connection (or when the fetch fails) that one is used,
-// else the copy bundled at build time.
+// example models (example-models.js). Without a connection (or when the
+// fetch fails) the copy bundled at build time is used - in the app, the last
+// list fetched, kept on the device (keep). A web viewer keeps none: its
+// bundled copy is as new as the site, and a kept list could be another
+// deployment's.
 //
 // normalize(data) turns the fetched JSON into the list in use, or null when
 // it is not one (the list in use then stays).
 const FETCH_TIMEOUT_MS = 8000;
 
-export function createRemoteList({ name, cacheKey, defaultData, url, normalize }) {
+export function createRemoteList({ name, cacheKey, keep = true, defaultData, url, normalize }) {
   function readCache() {
+    if (!keep) return null;
     try {
       return normalize(JSON.parse(window.localStorage.getItem(cacheKey) || "null"));
     } catch {
@@ -21,6 +24,7 @@ export function createRemoteList({ name, cacheKey, defaultData, url, normalize }
   }
 
   function writeCache(data) {
+    if (!keep) return;
     try {
       window.localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch {

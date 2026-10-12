@@ -40,6 +40,7 @@ function normalizeList(data) {
 const list = createRemoteList({
   name: "Example models",
   cacheKey: "dfg3dviewer-example-models",
+  keep: IS_MOBILE_BUILD,
   defaultData: DEFAULT_LIST,
   url: listUrl,
   normalize: normalizeList,

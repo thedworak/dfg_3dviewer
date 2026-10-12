@@ -36,6 +36,7 @@ window.viewer = {
 
 import { core, setCore } from './core.js';
 import { initConnectivity, isOnline, onConnectivityChange } from './connectivity.js';
+import { retargetManifest } from './manifesto/retarget-manifest.js';
 import { getExampleModels, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';
 import { initRemote, isAppBuild } from './remote.js';
 import { initAppEarly, initAppSettings, attachAppUi, hideAppSplash } from './app-hooks.js';
@@ -3421,6 +3422,57 @@ export const Viewer = {
         Viewer.reportError(err, {
           context: `Error loading ${className} manifest`,
         });
+      }
+    });
+
+    Viewer.bindManifestRetarget(type);
+  },
+
+  // The manifest form's "Use these settings with another model": the viewer's
+  // current state (manifest-retarget.js keeps the look, drops what belongs to
+  // the model) for the URL entered, loaded and shown in the form's text
+  // field. The URL field suggests the example models.
+  bindManifestRetarget(type) {
+    const input = document.getElementById("manifesto-retarget-url");
+    const button = document.getElementById("manifesto-retarget-apply");
+    const suggestions = document.getElementById("manifesto-retarget-models");
+    if (!input || !button) return;
+    if (suggestions) {
+      suggestions.textContent = "";
+      getExampleModels().forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.url;
+        option.label = typeof entry.name === "string" ? entry.name : (entry.name?.[core.currentLanguage] || entry.name?.en || "");
+        suggestions.appendChild(option);
+      });
+    }
+    Viewer.bindEventListener(button, "click", async () => {
+      const modelUrl = input.value.trim();
+      if (!modelUrl) {
+        input.style.border = "2px solid red";
+        showToast("manifesto.retargetInvalidUrl", "warning");
+        return;
+      }
+      input.style.border = "";
+      const current = core.fileObject?.originalPath ? Viewer.build3IFManifest() : null;
+      const manifest = current && retargetManifest(current, modelUrl, {
+        keepCamera: document.getElementById("manifesto-retarget-camera")?.checked === true,
+      });
+      if (!manifest) {
+        showToast("manifesto.retargetNoModel", "warning");
+        return;
+      }
+      const text = JSON.stringify(manifest, null, 2);
+      try {
+        button.disabled = true;
+        core.objectsConfig.setupIndex = 0;
+        // Shown in the form's tree/JSON views by setupManifesto.
+        await Viewer.setupManifesto(text, "text", type);
+        showToast("manifesto.retargetDone", "success", { model: modelUrl.split(/[?#]/)[0].split("/").pop() });
+      } catch (error) {
+        Viewer.reportError(error, { context: "Error applying the manifest settings to another model" });
+      } finally {
+        button.disabled = false;
       }
     });
   },
