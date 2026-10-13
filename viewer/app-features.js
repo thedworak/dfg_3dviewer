@@ -17,3 +17,10 @@ export function isFeatureGatingEnabled() {
 export function extraRequestHeaders() {
   return {};
 }
+
+// Toolbar tools only the app has (AR, video, motion look - see the app's
+// version): { key, group, svg, label(), onClick(), pressed, isActive(),
+// primary }. Added before the help group of the editor toolbar.
+export function appToolbarTools() {
+  return [];
+}

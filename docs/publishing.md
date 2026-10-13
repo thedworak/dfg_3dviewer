@@ -44,7 +44,7 @@ Also check the profile manifest (`VIEWER_PROFILE`, `docker/profiles/*.manifest.j
 
 The worker sends `Cache-Control: public, max-age=2592000, s-maxage=2592000` for `/files/` (converted models, never changed under their URL), but Cloudflare caches only its default list of extensions - `.png` and `.js` are on it, `.glb`, `.gltf`, `.json`, `.ifc` and the other model formats are not, so every model download reaches the server (`cf-cache-status: DYNAMIC`). Add a Cache Rule (*Caching > Cache Rules*) for each viewer host:
 
-- *When*: `Hostname` in your viewer hosts **and** `URI Path` starts with `/files/`
+- *When*: `Hostname` in your viewer hosts **and** `URI Path` starts with `/files/` - and with `/<prefix>/files/` for every viewer served under a path (`/viewer/files/`, ...): the app and the manifests request models at the repository address plus `/files/`
 - *Then*: **Eligible for cache**, Edge TTL **Use cache-control header if present**, Browser TTL **Respect origin**
 
 Purging on delete and on "Render preview" keeps working (`worker/cloudflare.py`). Check: the second `curl -sI https://<host>/files/<job>/gltf/<model>.glb` shows `cf-cache-status: HIT`. `/api/` stays uncached (`no-store`).

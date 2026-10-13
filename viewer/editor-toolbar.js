@@ -8,6 +8,7 @@ import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
+import { appToolbarTools } from "./app-features.js";
 
 const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
 
@@ -1278,6 +1279,12 @@ export function createEditorToolbar(viewer) {
     );
   }
 
+  // The app's own tools (app-features.js); none on the web.
+  viewer.appToolbarTools = appToolbarTools(viewer);
+  if (viewer.appToolbarTools.length) {
+    tools.splice(tools.findIndex((tool) => tool.group === "help"), 0, ...viewer.appToolbarTools);
+  }
+
   if (!isBugReportEnabled()) {
     tools.splice(tools.findIndex((tool) => tool.key === "reportBug"), 1);
   }
@@ -1325,7 +1332,7 @@ export function createEditorToolbar(viewer) {
       button.setAttribute("aria-label", label);
     }
     button.innerHTML = `
-      <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(tool.icon)}</span>
+      <span class="viewer-editor-tool_icon" aria-hidden="true">${tool.svg || getEditorToolbarIcon(tool.icon)}</span>
       <span class="viewer-editor-tool_sr"></span>
     `;
     if (tool.key === "moveToolbar") {
@@ -2202,6 +2209,7 @@ export function updateEditorToolbarLabels(viewer) {
     pointCloud: t("pointCloud.toggle", "Point cloud settings"),
     help: t("shortcuts.helpButtonAria", "Show usage hints"),
     reportBug: t("bugReport.button", "Report a bug"),
+    ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.label?.()])),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -2419,6 +2427,7 @@ export function updateEditorToolbarState(viewer) {
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
+    ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.isActive?.() === true])),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
