@@ -529,7 +529,7 @@ canvas {
 }
 
 .model-loader__track {
-  height: 2px;
+  height: 3px;
   background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
@@ -548,12 +548,14 @@ canvas {
 }
 
 .model-loader__percent {
-  padding: 2px 6px;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 45%, transparent);
   border-radius: 999px;
-  color: color-mix(in srgb, currentColor 72%, transparent);
-  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)) 70%, transparent);
-  font-size: 10px;
-  font-weight: 500;
+  color: currentColor;
+  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)) 88%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
@@ -1916,10 +1918,26 @@ html[data-viewer-theme="light"],
   opacity: 0.85;
 }
 
+/* Kept in view at the bottom of the scrolling panel, so Save stays tappable
+   on phones while the keyboard is open. */
 .annotation-dialog__actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 1;
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  margin: 0 -14px -14px;
+  padding: 10px 14px 14px;
+  background: var(--viewer-panel-bg);
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+@media (pointer: coarse) {
+  .annotation-dialog__actions button {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
 }
 
 /* Bug report form (bug-report.js); the panel and form reuse the annotation

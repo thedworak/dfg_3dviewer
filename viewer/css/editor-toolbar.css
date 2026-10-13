@@ -214,14 +214,16 @@
   content: counter(toolbar-load) "%";
   right: 16px;
   bottom: calc(100% + 8px);
-  padding: 3px 9px;
-  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 45%, transparent);
+  padding: 4px 11px;
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 70%, transparent);
   border-radius: 999px;
   color: var(--viewer-panel-text);
-  background: color-mix(in srgb, var(--viewer-panel-bg) 92%, transparent);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-  font-size: 12px;
-  font-weight: 600;
+  background: color-mix(in srgb, var(--viewer-panel-bg) 96%, transparent);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.26),
+    0 0 8px color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 30%, transparent);
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;

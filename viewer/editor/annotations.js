@@ -601,7 +601,7 @@ export function attachAnnotations(Viewer) {
           <form id="annotationDialogForm" class="annotation-dialog__form">
             <label>
               <span>Title</span>
-              <input id="annotationTitleInput" name="title" type="text" maxlength="120" required />
+              <input id="annotationTitleInput" name="title" type="text" maxlength="120" enterkeyhint="done" required />
             </label>
             <label>
               <span>Description</span>
@@ -667,6 +667,10 @@ export function attachAnnotations(Viewer) {
       this.bindEventListener(window, "resize", () => this.updateAnnotationDialogBounds());
       this.bindEventListener(window, "scroll", () => this.updateAnnotationDialogBounds(), true);
       this.bindEventListener(document, "fullscreenchange", () => this.updateAnnotationDialogBounds());
+      if (window.visualViewport) {
+        this.bindEventListener(window.visualViewport, "resize", () => this.updateAnnotationDialogBounds());
+        this.bindEventListener(window.visualViewport, "scroll", () => this.updateAnnotationDialogBounds());
+      }
     },
 
     // The scale's levels (code, symbol, name) in the dialog's LoC field.
@@ -734,10 +738,18 @@ export function attachAnnotations(Viewer) {
         core.container?.getBoundingClientRect?.();
       if (!targetRect) return;
 
-      const left = Math.max(0, Math.round(targetRect.left));
-      const top = Math.max(0, Math.round(targetRect.top));
-      const width = Math.max(0, Math.round(targetRect.width));
-      const height = Math.max(0, Math.round(targetRect.height));
+      // On phones the on-screen keyboard shrinks the visual viewport; keep
+      // the dialog (and its Save button) inside what is still visible.
+      const vv = window.visualViewport;
+      const viewTop = vv ? vv.offsetTop : 0;
+      const viewLeft = vv ? vv.offsetLeft : 0;
+      const viewBottom = vv ? viewTop + vv.height : window.innerHeight;
+      const viewRight = vv ? viewLeft + vv.width : window.innerWidth;
+
+      const left = Math.round(Math.max(0, viewLeft, targetRect.left));
+      const top = Math.round(Math.max(0, viewTop, targetRect.top));
+      const width = Math.max(0, Math.round(Math.min(targetRect.right, viewRight) - left));
+      const height = Math.max(0, Math.round(Math.min(targetRect.bottom, viewBottom) - top));
 
       this.annotationDialog.style.left = `${left}px`;
       this.annotationDialog.style.top = `${top}px`;
