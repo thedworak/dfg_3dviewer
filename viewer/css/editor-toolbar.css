@@ -37,7 +37,7 @@
   overflow-x: hidden;
   overflow-y: visible;
   overflow: visible;
-  border-radius: 18px;
+  border-radius: 14px;
   border: 1px solid var(--viewer-panel-border);
   background: color-mix(in srgb, var(--viewer-panel-bg) 92%, transparent);
   box-shadow: var(--viewer-panel-shadow);
@@ -222,6 +222,7 @@
   box-shadow:
     0 4px 14px rgba(0, 0, 0, 0.26),
     0 0 8px color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 30%, transparent);
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.4;

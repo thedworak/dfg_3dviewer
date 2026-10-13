@@ -148,8 +148,9 @@ canvas {
   max-width: calc(100% - 88px);
   position: absolute;
   left: 50%;
-  bottom: var(--viewer-notice-safe-bottom);
+  bottom: calc(var(--viewer-notice-safe-bottom) + var(--viewer-notice-loading-offset, 0px));
   transform: translateX(-50%);
+  transition: bottom 300ms ease;
   /* Above the panel windows (99999) and the upload overlay (100000), so
      errors raised from inside a panel (e.g. plans, account link) stay visible. */
   z-index: 100001;
@@ -174,6 +175,13 @@ canvas {
     (var(--viewer-toolbar-height) * clamp(0.62, calc((100vw - 48px) / var(--viewer-toolbar-max-width)), 0.9)) +
     8px
   );
+}
+
+/* While the model loads, the percentage badge sits just above the toolbar
+   (editor-toolbar.css); lift the notices over it so "model loaded" does not
+   cover it. data-loading stays on through the "complete" fade-out. */
+.mainContainer:has(#viewerEditorToolbar[data-loading]) #viewerNoticeContainer {
+  --viewer-notice-loading-offset: 40px;
 }
 
 #viewerNoticeContainer.viewer-notice-container--sandbox {
@@ -505,7 +513,7 @@ canvas {
   position: relative;
   display: block;
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.92));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
   opacity: 1;
   transition: opacity 600ms ease;
 }
@@ -529,7 +537,7 @@ canvas {
 }
 
 .model-loader__track {
-  height: 2px;
+  height: 3px;
   background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
@@ -548,12 +556,14 @@ canvas {
 }
 
 .model-loader__percent {
-  padding: 2px 6px;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 45%, transparent);
   border-radius: 999px;
-  color: color-mix(in srgb, currentColor 72%, transparent);
-  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)) 70%, transparent);
-  font-size: 10px;
-  font-weight: 500;
+  color: currentColor;
+  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)) 88%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
@@ -1916,10 +1926,26 @@ html[data-viewer-theme="light"],
   opacity: 0.85;
 }
 
+/* Kept in view at the bottom of the scrolling panel, so Save stays tappable
+   on phones while the keyboard is open. */
 .annotation-dialog__actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 1;
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  margin: 0 -14px -14px;
+  padding: 10px 14px 14px;
+  background: var(--viewer-panel-bg);
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+@media (pointer: coarse) {
+  .annotation-dialog__actions button {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
 }
 
 /* Bug report form (bug-report.js); the panel and form reuse the annotation

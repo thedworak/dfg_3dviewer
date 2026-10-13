@@ -2860,6 +2860,13 @@ function extraRequestHeaders() {
   return {};
 }
 
+// Toolbar tools only the app has (AR, video, motion look - see the app's
+// version): { key, group, svg, label(), onClick(), pressed, isActive(),
+// primary }. Added before the help group of the editor toolbar.
+function appToolbarTools() {
+  return [];
+}
+
 // The repository the viewer talks to (worker API, converted models). A normal
 // page is served by that repository, so everything stays same-origin. The app
 // build is served from inside the app package
@@ -7118,11 +7125,13 @@ function attachModelsPanel(Viewer) {
     // A model converted from IFC has its properties in metadata/<name>_ifc.json.
     // The app opens repository models from a downloaded File (blob: URL), so it
     // fetches that file here instead of the loader. Null when there is none.
+    // /files/ never changes under its URL (worker/server.py, _serve_file), so
+    // the WebView's and Cloudflare's copies are used (no cache: "no-store").
     async fetchIfcProperties(job) {
       const url = ifcPropertiesUrlForModel(remoteAssetUrl(job.modelUrl));
       if (!url) return null;
       try {
-        const response = await fetch(url, { cache: "no-store" });
+        const response = await fetch(url);
         if (!response.ok) return null;
         const data = await response.json();
         return data?.elements ? data : null;
@@ -7293,7 +7302,7 @@ function attachModelsPanel(Viewer) {
       const controller = new AbortController();
       const timer = window.setTimeout(() => controller.abort(), 8000);
       try {
-        const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
+        const response = await fetch(url, { signal: controller.signal });
         return response.ok;
       } catch {
         return false;
@@ -7306,13 +7315,15 @@ function attachModelsPanel(Viewer) {
     // App, single-file models: the whole file is downloaded (progress in
     // the loader card) before the current model is cleared, so a connection
     // lost half-way leaves the scene as it was. Returns a File, or null.
+    // Cacheable like fetchIfcProperties: opening the same model again comes
+    // from the WebView's cache, a first open from Cloudflare's.
     async downloadRemoteModel(job) {
       if (!isOnline()) return null;
       const fileName = decodeURIComponent(String(job.modelUrl).split(/[?#]/)[0].split("/").pop());
       core.circle?.show?.();
       core.circle?.set?.(0, 100);
       try {
-        const response = await fetch(remoteAssetUrl(job.modelUrl), { cache: "no-store" });
+        const response = await fetch(remoteAssetUrl(job.modelUrl));
         if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
         const total = Number(response.headers.get("content-length")) || 0;
         const reader = response.body.getReader();
@@ -12273,7 +12284,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "497d69a5" ;
+const BUILD_ID$2 = "40465dc1" ;
 const BUILD = "dev" ;
 
 let initPromise = null;
@@ -12324,8 +12335,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "497d69a5" ;
-const BUILD_TIME$1 = "2026-10-12T08:50:30.045Z" ;
+const BUILD_ID$1 = "40465dc1" ;
+const BUILD_TIME$1 = "2026-10-13T07:50:02.922Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -13903,6 +13914,12 @@ function createEditorToolbar(viewer) {
     );
   }
 
+  // The app's own tools (app-features.js); none on the web.
+  viewer.appToolbarTools = appToolbarTools();
+  if (viewer.appToolbarTools.length) {
+    tools.splice(tools.findIndex((tool) => tool.group === "help"), 0, ...viewer.appToolbarTools);
+  }
+
   if (!isBugReportEnabled()) {
     tools.splice(tools.findIndex((tool) => tool.key === "reportBug"), 1);
   }
@@ -13950,7 +13967,7 @@ function createEditorToolbar(viewer) {
       button.setAttribute("aria-label", label);
     }
     button.innerHTML = `
-      <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(tool.icon)}</span>
+      <span class="viewer-editor-tool_icon" aria-hidden="true">${tool.svg || getEditorToolbarIcon(tool.icon)}</span>
       <span class="viewer-editor-tool_sr"></span>
     `;
     if (tool.key === "moveToolbar") {
@@ -14827,6 +14844,7 @@ function updateEditorToolbarLabels(viewer) {
     pointCloud: t$1("pointCloud.toggle", "Point cloud settings"),
     help: t$1("shortcuts.helpButtonAria", "Show usage hints"),
     reportBug: t$1("bugReport.button", "Report a bug"),
+    ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.label?.()])),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -15044,6 +15062,7 @@ function updateEditorToolbarState(viewer) {
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
+    ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.isActive?.() === true])),
   };
 
   Object.entries(viewer.editorToolbarButtons).forEach(([key, button]) => {
@@ -19401,7 +19420,7 @@ function attachAnnotations(Viewer) {
           <form id="annotationDialogForm" class="annotation-dialog__form">
             <label>
               <span>Title</span>
-              <input id="annotationTitleInput" name="title" type="text" maxlength="120" required />
+              <input id="annotationTitleInput" name="title" type="text" maxlength="120" enterkeyhint="done" required />
             </label>
             <label>
               <span>Description</span>
@@ -19467,6 +19486,10 @@ function attachAnnotations(Viewer) {
       this.bindEventListener(window, "resize", () => this.updateAnnotationDialogBounds());
       this.bindEventListener(window, "scroll", () => this.updateAnnotationDialogBounds(), true);
       this.bindEventListener(document, "fullscreenchange", () => this.updateAnnotationDialogBounds());
+      if (window.visualViewport) {
+        this.bindEventListener(window.visualViewport, "resize", () => this.updateAnnotationDialogBounds());
+        this.bindEventListener(window.visualViewport, "scroll", () => this.updateAnnotationDialogBounds());
+      }
     },
 
     // The scale's levels (code, symbol, name) in the dialog's LoC field.
@@ -19534,10 +19557,18 @@ function attachAnnotations(Viewer) {
         core.container?.getBoundingClientRect?.();
       if (!targetRect) return;
 
-      const left = Math.max(0, Math.round(targetRect.left));
-      const top = Math.max(0, Math.round(targetRect.top));
-      const width = Math.max(0, Math.round(targetRect.width));
-      const height = Math.max(0, Math.round(targetRect.height));
+      // On phones the on-screen keyboard shrinks the visual viewport; keep
+      // the dialog (and its Save button) inside what is still visible.
+      const vv = window.visualViewport;
+      const viewTop = vv ? vv.offsetTop : 0;
+      const viewLeft = vv ? vv.offsetLeft : 0;
+      const viewBottom = vv ? viewTop + vv.height : window.innerHeight;
+      const viewRight = vv ? viewLeft + vv.width : window.innerWidth;
+
+      const left = Math.round(Math.max(0, viewLeft, targetRect.left));
+      const top = Math.round(Math.max(0, viewTop, targetRect.top));
+      const width = Math.max(0, Math.round(Math.min(targetRect.right, viewRight) - left));
+      const height = Math.max(0, Math.round(Math.min(targetRect.bottom, viewBottom) - top));
 
       this.annotationDialog.style.left = `${left}px`;
       this.annotationDialog.style.top = `${top}px`;
@@ -25338,7 +25369,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-D_MP6TMH.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DHyE3DEu.js');
+const loadTilesPlugins = () => import('./index.three-plugins-B3hhMHi1.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -28273,7 +28304,7 @@ const loadLWOLoader = async () => (await import('./three-CcXsnZni.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DaGIrRE_.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aW; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DoftncFx.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DeqilZSz.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aX; })).HDRLoader;
 
 var outlineClipping;
@@ -36792,8 +36823,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "497d69a5" ;
-const BUILD_TIME = "2026-10-12T08:50:30.045Z" ;
+const BUILD_ID = "40465dc1" ;
+const BUILD_TIME = "2026-10-13T07:50:02.922Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -41144,4 +41175,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-BwcdENQq.js.map
+//# sourceMappingURL=main-DZaJA0x-.js.map

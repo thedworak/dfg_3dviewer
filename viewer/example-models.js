@@ -4,8 +4,8 @@ import { configuredUrl, createRemoteList, isRelativeUrl, listSite, localizedName
 import DEFAULT_LIST from "./examples/index.json";
 
 // The example models of the "Load example model" select (main.js). The list
-// is fetched at runtime (remote-list.js) - at start and on the refresh button
-// next to the select - from viewer.exampleModelsUrl (viewer-settings.json), so
+// is fetched at runtime (remote-list.js; when: main.js's watchExampleModelList)
+// from viewer.exampleModelsUrl (viewer-settings.json), so
 // a new example needs no new build or app release. The bundled copy is
 // examples/index.json, the same file published at <site>/examples/index.json.
 //

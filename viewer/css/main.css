@@ -148,8 +148,9 @@ canvas {
   max-width: calc(100% - 88px);
   position: absolute;
   left: 50%;
-  bottom: var(--viewer-notice-safe-bottom);
+  bottom: calc(var(--viewer-notice-safe-bottom) + var(--viewer-notice-loading-offset, 0px));
   transform: translateX(-50%);
+  transition: bottom 300ms ease;
   /* Above the panel windows (99999) and the upload overlay (100000), so
      errors raised from inside a panel (e.g. plans, account link) stay visible. */
   z-index: 100001;
@@ -174,6 +175,13 @@ canvas {
     (var(--viewer-toolbar-height) * clamp(0.62, calc((100vw - 48px) / var(--viewer-toolbar-max-width)), 0.9)) +
     8px
   );
+}
+
+/* While the model loads, the percentage badge sits just above the toolbar
+   (editor-toolbar.css); lift the notices over it so "model loaded" does not
+   cover it. data-loading stays on through the "complete" fade-out. */
+.mainContainer:has(#viewerEditorToolbar[data-loading]) #viewerNoticeContainer {
+  --viewer-notice-loading-offset: 40px;
 }
 
 #viewerNoticeContainer.viewer-notice-container--sandbox {
@@ -505,7 +513,7 @@ canvas {
   position: relative;
   display: block;
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.92));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
   opacity: 1;
   transition: opacity 600ms ease;
 }
