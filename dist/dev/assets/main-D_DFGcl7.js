@@ -2759,8 +2759,8 @@ var DEFAULT_LIST$1 = {
 };
 
 // The example models of the "Load example model" select (main.js). The list
-// is fetched at runtime (remote-list.js) - at start and on the refresh button
-// next to the select - from viewer.exampleModelsUrl (viewer-settings.json), so
+// is fetched at runtime (remote-list.js; when: main.js's watchExampleModelList)
+// from viewer.exampleModelsUrl (viewer-settings.json), so
 // a new example needs no new build or app release. The bundled copy is
 // examples/index.json, the same file published at <site>/examples/index.json.
 //
@@ -12284,7 +12284,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "40465dc1" ;
+const BUILD_ID$2 = "4e276a6d" ;
 const BUILD = "dev" ;
 
 let initPromise = null;
@@ -12335,8 +12335,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "40465dc1" ;
-const BUILD_TIME$1 = "2026-10-13T07:50:02.922Z" ;
+const BUILD_ID$1 = "4e276a6d" ;
+const BUILD_TIME$1 = "2026-10-13T08:38:18.882Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -25369,7 +25369,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-D_MP6TMH.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-B3hhMHi1.js');
+const loadTilesPlugins = () => import('./index.three-plugins-Buedf0Ce.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -28304,7 +28304,7 @@ const loadLWOLoader = async () => (await import('./three-CcXsnZni.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DaGIrRE_.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aW; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DeqilZSz.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-zJQqW6nn.js')).buildLasPointCloud;
 const loadHDRLoader = async () => (await import('./three-CcXsnZni.js').then(function (n) { return n.aX; })).HDRLoader;
 
 var outlineClipping;
@@ -36823,8 +36823,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "40465dc1" ;
-const BUILD_TIME = "2026-10-13T07:50:02.922Z" ;
+const BUILD_ID = "4e276a6d" ;
+const BUILD_TIME = "2026-10-13T08:38:18.882Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -41175,4 +41175,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { Viewer$1 as V, core as c, decompressSync as d, expectWebGL as e, getDefaultExportFromNamespaceIfNotNamed as g };
-//# sourceMappingURL=main-DZaJA0x-.js.map
+//# sourceMappingURL=main-CqwS8aOA.js.map

@@ -201,10 +201,10 @@
   padding: 2.5px;
   border-radius: inherit;
   background: conic-gradient(
-    var(--viewer-loader-accent, #7dd3fc) calc(var(--toolbar-load-progress) * 1%),
+    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
     color-mix(in srgb, var(--viewer-panel-text) 18%, transparent) 0
   );
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 55%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 55%, transparent));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -215,13 +215,13 @@
   right: 16px;
   bottom: calc(100% + 8px);
   padding: 4px 11px;
-  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 70%, transparent);
   border-radius: 999px;
   color: var(--viewer-panel-text);
   background: color-mix(in srgb, var(--viewer-panel-bg) 96%, transparent);
   box-shadow:
     0 4px 14px rgba(0, 0, 0, 0.26),
-    0 0 8px color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 30%, transparent);
+    0 0 8px color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 30%, transparent);
   font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 14px;
   font-weight: 700;
@@ -239,7 +239,7 @@
 }
 
 #viewerEditorToolbar[data-loading="complete"]::after {
-  color: var(--viewer-loader-accent, #7dd3fc);
+  color: var(--viewer-loader-accent, #e9b264);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -686,21 +686,19 @@
   white-space: nowrap;
 }
 
-.viewer-editor-tool_submenu-button.is-active {
-  background: rgba(92, 185, 255, 0.16);
-  border-color: rgba(92, 185, 255, 0.4);
-  color: #8fd3ff;
-}
-
+/* Active: the blue fill inside a frame of the brand's gold, with a faint
+   gold glow. */
+.viewer-editor-tool_submenu-button.is-active,
 .viewer-editor-tool.is-active {
   background: rgba(92, 185, 255, 0.16);
-  border-color: rgba(92, 185, 255, 0.4);
+  border-color: color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 80%, transparent);
   color: #8fd3ff;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 30%, transparent);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-tool.is-active {
   background: rgba(64, 125, 180, 0.12);
-  border-color: rgba(64, 125, 180, 0.3);
+  border-color: color-mix(in srgb, var(--viewer-brand-gold, #a8701f) 70%, transparent);
   color: #315f86;
 }
 
@@ -940,6 +938,7 @@
 }
 
 .viewer-editor-hierarchy-item.is-active .viewer-editor-hierarchy-submenu-label::before {
+  background: var(--viewer-brand-gold, #e9b264);
   opacity: 1;
 }
 
@@ -1350,6 +1349,7 @@
 .language-dropdown-item.active::before {
   content: "✓ ";
   margin-right: 4px;
+  color: var(--viewer-brand-gold, #e9b264);
 }
 
 .language-dropdown-item-english::before {

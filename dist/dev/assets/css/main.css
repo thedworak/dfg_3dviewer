@@ -557,7 +557,7 @@ canvas {
 
 .model-loader__percent {
   padding: 3px 9px;
-  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #7dd3fc) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 45%, transparent);
   border-radius: 999px;
   color: currentColor;
   background: color-mix(in srgb, var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)) 88%, transparent);
@@ -891,7 +891,7 @@ html[data-viewer-theme="light"],
   --viewer-panel-border: rgba(255, 255, 255, 0.12);
   --viewer-panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
-  --viewer-loader-accent: var(--viewer-brand-blue);
+  --viewer-loader-accent: var(--viewer-brand-gold);
   --viewer-gui-bg: rgba(43, 49, 61, 0.9);
   --viewer-gui-title-bg: rgba(43, 49, 61, 0.9);
   --viewer-gui-title-hover-bg: rgba(25, 29, 36, 0.9);
@@ -935,7 +935,7 @@ html[data-viewer-theme="light"],
   --viewer-panel-border: rgba(164, 151, 132, 0.28);
   --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
   --viewer-panel-text: rgba(37, 33, 28, 0.92);
-  --viewer-loader-accent: var(--viewer-brand-blue);
+  --viewer-loader-accent: var(--viewer-brand-gold);
   --viewer-gui-bg: rgba(249, 246, 240, 0.96);
   --viewer-gui-title-bg: rgba(243, 238, 230, 0.98);
   --viewer-gui-title-hover-bg: rgba(236, 230, 220, 0.98);
