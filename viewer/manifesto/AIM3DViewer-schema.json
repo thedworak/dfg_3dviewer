@@ -249,8 +249,8 @@
           "type": "object",
           "properties": {
             "enabled": { "type": "boolean" },
-            "date": { "type": "string", "pattern": "^(-?\\d{1,4}-)?\\d{1,2}-\\d{1,2}$", "description": "\"MM-DD\", or \"YYYY-MM-DD\" (the year is the timeline's while followTimeline is on)." },
-            "time": { "type": "string", "pattern": "^\\d{1,2}:\\d{2}$", "description": "Local time, \"HH:MM\" (default 15:00)." },
+            "date": { "type": "string", "pattern": "^(-?\\d{1,4}-)?\\d{1,2}-\\d{1,2}$", "description": "\"MM-DD\", or \"YYYY-MM-DD\" (the year is the timeline's while followTimeline is on; default: today at the model's place)." },
+            "time": { "type": "string", "pattern": "^\\d{1,2}:\\d{2}$", "description": "Local time, \"HH:MM\" (default: the time now at the model's place)." },
             "followTimeline": { "type": "boolean", "description": "Take the year from the 4D timeline (default true)." },
             "animate": { "type": "boolean", "description": "Play the day on open (default false)." }
           },

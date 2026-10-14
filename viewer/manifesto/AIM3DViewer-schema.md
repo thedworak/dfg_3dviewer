@@ -423,7 +423,7 @@ timeline the year is the timeline's, so a building is lit as in its own time.
 - `location.latitude`, `location.longitude` (required): degrees, north and east positive
 - `location.north`: where north lies in the scene - degrees clockwise from -Z, seen from above (default `0`: north is -Z, east +X). The model's up is +Y
 - `location.utcOffset`: hours the local time is ahead of UTC (default: the longitude / 15, rounded - local mean time)
-- `sun.date`: `"MM-DD"`, or `"YYYY-MM-DD"`; `sun.time`: local `"HH:MM"` (default `06-21`, `15:00`)
+- `sun.date`: `"MM-DD"`, or `"YYYY-MM-DD"`; `sun.time`: local `"HH:MM"` (default: the day and time now, at the model's place)
 - `sun.followTimeline`: take the year from the timeline (default `true`); without a timeline the date's year is used
 - `sun.animate`: play the day on open (default `false`)
 

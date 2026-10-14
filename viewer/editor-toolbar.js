@@ -198,6 +198,8 @@ function getRenderingMenuLabels() {
     renderingToneMappingNone: t("gui.toneMappingNone", "None"),
     renderingExposure: t("gui.exposure", "Exposure"),
     renderingPostprocessing: t("gui.postprocessing", "Post-processing"),
+    renderingAo: t("gui.ambientOcclusion", "Ambient occlusion"),
+    renderingAoIntensity: t("gui.ambientOcclusionIntensity", "Ambient occlusion strength"),
     renderingAntialias: t("gui.antialiasing", "Anti-aliasing"),
     renderingAntialiasMsaa: "MSAA",
     renderingAntialiasSmaa: "SMAA",
@@ -2337,6 +2339,14 @@ export function updateEditorToolbarLabels(viewer) {
       environmentMapStyleSunny: t("gui.environmentMapSunny", "Sunny"),
       environmentMapStyleStudio: t("gui.environmentMapStudio", "Studio"),
       environmentMapStyleGoldenHour: t("gui.environmentMapGoldenHour", "Golden Hour"),
+      lightSun: t("sun.title", "Sun and shadows"),
+      lightSunToggle: t("sun.title", "Sun and shadows"),
+      lightSunPlay: t("sun.play", "Play the day"),
+      lightRaking: t("gui.rakingLight", "Raking light"),
+      lightRakingToggle: t("gui.rakingLight", "Raking light"),
+      lightRakingDirection: t("gui.rakingLightDirection", "Direction"),
+      lightRakingHeight: t("gui.rakingLightHeight", "Height above the surface"),
+      lightRakingSweep: t("gui.rakingLightSweep", "Sweep around"),
       ...getRenderingMenuLabels(),
     };
     Object.entries(viewer.lightsSubmenuButtons).forEach(([key, button]) => {

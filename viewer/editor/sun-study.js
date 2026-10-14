@@ -36,7 +36,19 @@ const PLAY_SPEED = 60;
 const SHADOW_MAP_SIZE = 2048;
 
 export const DEFAULT_LOCATION = Object.freeze({ latitude: 50, longitude: 10, north: 0 });
-export const SUN_DEFAULTS = Object.freeze({ month: 6, day: 21, minutes: 15 * 60, followTimeline: true });
+export const SUN_DEFAULTS = Object.freeze({ followTimeline: true });
+
+// The day and hour now at a place `utcOffset` hours ahead of UTC: the sun's
+// default, unless a manifest or the panel gives another.
+export function sunNow(utcOffset = 0, now = Date.now()) {
+  const local = new Date(now + utcOffset * 3600000);
+  return {
+    year: local.getUTCFullYear(),
+    month: local.getUTCMonth() + 1,
+    day: local.getUTCDate(),
+    minutes: local.getUTCHours() * 60 + local.getUTCMinutes(),
+  };
+}
 
 const horizonColor = new THREE.Color(0xffb36b);
 const noonColor = new THREE.Color(0xfff6e8);
@@ -139,14 +151,14 @@ export function attachSunStudy(Viewer) {
       longitude: DEFAULT_LOCATION.longitude,
       north: DEFAULT_LOCATION.north,
       utcOffset: null,
-      year: new Date().getFullYear(),
-      month: SUN_DEFAULTS.month,
-      day: SUN_DEFAULTS.day,
-      minutes: SUN_DEFAULTS.minutes,
+      ...sunNow(Math.round(DEFAULT_LOCATION.longitude / 15)),
       followTimeline: SUN_DEFAULTS.followTimeline,
       playing: false,
       // A place set by a manifest or by hand (exported).
       locationSet: false,
+      // A day or hour set by a manifest, by hand or by playing the day;
+      // until then the sun is switched on at the time it is at the place.
+      dateSet: false,
     },
     sunObjects: null,
 
@@ -192,15 +204,22 @@ export function attachSunStudy(Viewer) {
         state.month = date.month;
         state.day = date.day;
         if (date.year != null) state.year = date.year;
+        state.dateSet = true;
       }
       ["year", "month", "day"].forEach((key) => {
         const value = finite(options[key]);
-        if (value != null) state[key] = Math.round(value);
+        if (value != null) {
+          state[key] = Math.round(value);
+          state.dateSet = true;
+        }
       });
       state.month = Math.min(Math.max(state.month, 1), 12);
       state.day = Math.min(Math.max(state.day, 1), 31);
       const minutes = typeof options.time === "string" ? parseSunTime(options.time) : finite(options.minutes);
-      if (minutes != null) state.minutes = Math.min(Math.max(minutes, 0), 1440);
+      if (minutes != null) {
+        state.minutes = Math.min(Math.max(minutes, 0), 1440);
+        state.dateSet = true;
+      }
       const latitude = finite(options.latitude);
       const longitude = finite(options.longitude);
       if (latitude != null) {
@@ -222,11 +241,14 @@ export function attachSunStudy(Viewer) {
 
     playSunDay(playing = !Viewer.sunStudy.playing) {
       Viewer.sunStudy.playing = playing === true && Viewer.sunStudy.enabled;
+      if (Viewer.sunStudy.playing) Viewer.sunStudy.dateSet = true;
       Viewer.syncSunPanel(true);
     },
 
     enableSunStudy() {
       if (!core.scene) return;
+      const state = Viewer.sunStudy;
+      if (!state.dateSet) Object.assign(state, sunNow(Viewer.getSunUtcOffset()));
       // Both dim the other lights: one at a time.
       Viewer.setRakingLight?.(false);
       const dimmed = [];
@@ -565,9 +587,8 @@ export function attachSunStudy(Viewer) {
         Viewer.setSunStudy(false);
         return isPlainObject(location);
       }
-      state.month = SUN_DEFAULTS.month;
-      state.day = SUN_DEFAULTS.day;
-      state.minutes = SUN_DEFAULTS.minutes;
+      // What the manifest leaves out is now, at its place.
+      Object.assign(state, sunNow(Viewer.getSunUtcOffset()), { dateSet: false });
       state.followTimeline = sun.followTimeline !== false;
       Viewer.setSunOptions({ date: sun.date, time: sun.time });
       Viewer.setSunStudy(true);

@@ -174,7 +174,7 @@ Historical photos over the model, each with the camera it was taken from (`AIM3D
 Sun and shadows (*Lights > Sun and shadows*): the sun at the model's place (`AIM3DViewer.location`) on a day and hour (`AIM3DViewer.sun`), casting shadows; the year is the 4D timeline's. Example manifest: `manifesto/examples/tempietto-aim3d-sun.json`.
 
 - `Viewer.setSunStudy(enabled)`
-  - Switch the sun on (the other lights and the environment dimmed to a sky light, the shadow map on, the raking light off) or off.
+  - Switch the sun on (at the day and hour it is now at the place, until a manifest, the panel or playing the day sets them; the other lights and the environment dimmed to a sky light, the shadow map on, the raking light off) or off.
 
 - `Viewer.setSunOptions({ date, time, minutes, year, month, day, latitude, longitude, north, utcOffset, followTimeline })` / `Viewer.playSunDay(playing)`
   - Change the day, the hour or the place; play the day (an hour a second).

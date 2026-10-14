@@ -3154,6 +3154,60 @@ test('raking light grazes the view with the other lights dimmed, sweeps, and goe
   await expect(page.locator('button[data-tool="lightRakingToggle"]')).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('sun and shadows: switched on at the day and hour it is now at the place, unless set', async ({ page }) => {
+  // 10:30 UTC; the default place (10° E) is an hour ahead.
+  await page.clock.setFixedTime(new Date('2026-03-20T10:30:00Z'));
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const when = () => page.evaluate(() => {
+    const { year, month, day, minutes } = window.Viewer.sunStudy;
+    return { year, month, day, minutes };
+  });
+
+  await page.evaluate(() => document.querySelector<HTMLElement>('button[data-tool="lightSunToggle"]')?.click());
+  await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(true);
+  expect(await when()).toEqual({ year: 2026, month: 3, day: 20, minutes: 11 * 60 + 30 });
+
+  // A time set by hand stays through switching off and on.
+  await page.evaluate(() => {
+    window.Viewer.setSunOptions({ time: '17:00' });
+    window.Viewer.setSunStudy(false);
+    window.Viewer.setSunStudy(true);
+  });
+  expect((await when()).minutes).toBe(17 * 60);
+
+  // A manifest's place without a time: now there (UTC+2), on its day.
+  await page.evaluate(() => window.Viewer.apply3IFManifestSun(
+    { latitude: 41.9, longitude: 12.47, utcOffset: 2 },
+    { enabled: true, date: '06-21', followTimeline: false },
+  ));
+  expect(await when()).toEqual({ year: 2026, month: 6, day: 21, minutes: 12 * 60 + 30 });
+});
+
+test('lights and rendering menus: every entry labelled, also after switching the language', async ({ page }) => {
+  await openViewer(page, '/examples/compressed.glb');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  // A label missing from the relabelling falls back to the button's key.
+  const unlabelled = () => page.evaluate(() => Object.entries(window.Viewer.lightsSubmenuButtons)
+    .filter(([key, button]) => button.getAttribute('title') === key)
+    .map(([key]) => key));
+  const label = (key) => page.locator(`button[data-tool="${key}"]`).first();
+
+  expect(await unlabelled()).toEqual([]);
+  await expect(label('lightRaking')).toHaveAttribute('title', 'Raking light');
+  await expect(label('lightSunPlay')).toHaveAttribute('title', 'Play the day');
+
+  await page.evaluate(() => {
+    document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
+    document.querySelector<HTMLElement>('.language-dropdown-item-polish')?.click();
+  });
+  await expect(label('lightRaking')).toHaveAttribute('title', 'Światło skośne');
+  await expect(label('lightRakingSweep')).toHaveAttribute('title', 'Obracaj dookoła');
+  await expect(label('lightSun')).toHaveAttribute('title', 'Słońce i cienie');
+  await expect(label('renderingAo')).toHaveAttribute('title', 'Okluzja otoczenia (AO)');
+  expect(await unlabelled()).toEqual([]);
+});
+
 test('custom shader: the default one compiles with section planes and vertex colours, a broken one is reported', async ({ page }) => {
   await openViewer(page, '/examples/compressed.glb');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
