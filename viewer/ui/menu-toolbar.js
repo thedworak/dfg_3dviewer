@@ -65,7 +65,7 @@ const CATEGORIES = [
     more: true,
     label: () => t("menus.device", "Device"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11 18.5h2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["deviceVideo", "deviceMotion"],
+    tools: ["deviceVideo"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
   // and theme, first.
@@ -87,8 +87,12 @@ const MORE = {
 // Always at hand, outside the menus: the model's transform modes, then the
 // view.
 const NAV_TRANSFORM = ["orbit", "move", "rotate", "scale"];
-const NAV_VIEW = ["resetCamera", "fullScreen", "immersive", "deviceAr"];
+const NAV_VIEW = ["resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
+// What the phone itself adds - AR in the room (the app's, else the
+// browser's WebXR) and looking round by moving it: shown apart, and on a
+// phone set off from the rest.
+const DEVICE_TOOLS = ["deviceAr", "immersive", "deviceMotion"];
 // Not in the menus layout (none at the moment).
 export const MENU_SKIPPED_TOOLS = [];
 
@@ -165,13 +169,20 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   NAV_VIEW.forEach((key) => {
     if (buttons[key]) nav.appendChild(buttons[key]);
   });
+  const device = el("div", "viewer-menus_device");
+  DEVICE_TOOLS.forEach((key) => {
+    const button = buttons[key];
+    if (!button) return;
+    button.classList.add(key === "deviceMotion" ? "viewer-menus_device-motion" : "viewer-menus_device-ar");
+    device.appendChild(button);
+  });
   // In each menu in the order it lists them, the unknown ones last.
   const rank = (key) => {
     const category = categoryOf(key);
     return category ? category.tools.indexOf(key) : Number.MAX_SAFE_INTEGER;
   };
   Object.entries(buttons)
-    .filter(([key]) => !NAV_TOOLS.includes(key) && key !== "moveToolbar")
+    .filter(([key]) => !NAV_TOOLS.includes(key) && !DEVICE_TOOLS.includes(key) && key !== "moveToolbar")
     .sort(([a], [b]) => rank(a) - rank(b))
     .forEach(([key, button]) => {
       const category = categoryOf(key) || CATEGORIES.find((entry) => entry.id === "settings");
@@ -208,11 +219,11 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   addTab(MORE);
   Object.values(groups).forEach(({ group, count }) => { group.hidden = count === 0; });
 
-  dock.append(nav, tabs);
+  dock.append(nav, device, tabs);
   toolbar.append(dock, panel);
 
   const state = { open: null, mode: null };
-  viewer.menuToolbar = { toolbar, dock, nav, tabs, panel, title, close, groups, tabButtons, state, categories: CATEGORIES, more: MORE };
+  viewer.menuToolbar = { toolbar, dock, nav, device, tabs, panel, title, close, groups, tabButtons, state, categories: CATEGORIES, more: MORE };
 
   // The menus a tab shows: one, or everything marked `more` under "More".
   const menusFor = (id) => (id === "more"
@@ -318,7 +329,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   };
   const measureTabs = () => {
     const rects = new Map();
-    [...tabs.children, ...nav.children].forEach((node) => {
+    [...tabs.children, ...nav.children, ...device.children].forEach((node) => {
       if (node.offsetParent) rects.set(node, node.getBoundingClientRect());
     });
     return rects;
@@ -517,6 +528,10 @@ export function menuToolbarBottomEdge(toolbar) {
   // On a phone the navigation stands in a row above the tabs.
   const nav = dock.querySelector(":scope > .viewer-menus_nav");
   if (mode === "bar" && nav) top = Math.min(top, nav.getBoundingClientRect().top);
+  // And the AR and motion buttons above it, when there are any.
+  const device = dock.querySelector(":scope > .viewer-menus_device");
+  const deviceRect = device?.getBoundingClientRect();
+  if (mode === "bar" && deviceRect?.height) top = Math.min(top, deviceRect.top);
   // A desktop bar moved away from the bottom leaves the notices where they are.
   const host = toolbar.parentElement?.getBoundingClientRect();
   if (mode === "desktop" && host && host.bottom - rect.bottom > 80) return null;

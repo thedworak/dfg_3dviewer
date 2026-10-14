@@ -3295,10 +3295,25 @@ test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once
   // other tests run).
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'no-preference' });
   const page = await context.newPage();
+  // A phone browser with AR (WebXR).
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'xr', {
+      configurable: true,
+      value: { isSessionSupported: async (mode) => mode === 'immersive-ar', requestSession: async () => { throw new Error('no device'); } },
+    });
+  });
   await openViewer(page, '/examples/tempietto/Tempietto.glb', 'ui=menus');
   await waitForModel(page);
   const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
   await expect(toolbar).toHaveAttribute('data-mode', 'bar');
+
+  // AR set off on the right, above the navigation row.
+  const ar = toolbar.locator('.viewer-menus_device > [data-tool="immersive"]');
+  await expect(ar).toBeVisible();
+  const [arBox, navBox] = await Promise.all([ar.boundingBox(), toolbar.locator('.viewer-menus_nav').boundingBox()]);
+  expect(arBox.y + arBox.height).toBeLessThan(navBox.y);
+  expect(arBox.x + arBox.width).toBeGreaterThan(390 - 20);
+  expect(await ar.evaluate((el) => getComputedStyle(el, '::after').content)).toBe('"AR"');
   await expect(toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label')).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'More']);
 
   // "More": the rest, under headings.

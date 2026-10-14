@@ -78,6 +78,28 @@
   background: var(--viewer-panel-border);
 }
 
+/* AR and motion look (what the phone adds). On a desktop: icons after the
+   navigation; none shown, no group. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_device {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_device:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_device {
+  padding-right: 6px;
+  border-right: 1px solid var(--viewer-panel-border);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_device > .viewer-editor-tool {
+  width: 40px;
+  height: 40px;
+}
+
 /* The main menu lives in Settings: no cog of its own. */
 #viewerEditorToolbar.viewer-menus > .viewer-menus_cog {
   display: none;
@@ -682,6 +704,85 @@
 
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_panel .viewer-editor-tool::after {
   font-size: 15px;
+}
+
+/* ---- Phones: AR and motion look, set off on the right ---- */
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device {
+  position: absolute;
+  align-items: center;
+  gap: 10px;
+  transition: opacity 0.25s ease;
+}
+
+/* AR: the phone's headline feature, an accent pill with its name. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar {
+  width: auto;
+  height: 48px;
+  gap: 8px;
+  padding: 0 18px 0 14px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--viewer-menus-accent);
+  color: #15191d;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar::after {
+  content: "AR";
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar .viewer-editor-tool_icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.is-active {
+  background: color-mix(in srgb, var(--viewer-menus-accent) 80%, #ffffff);
+  color: #15191d;
+}
+
+/* Motion look: a round button, lit while on. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-motion {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 50%;
+  background: var(--viewer-menus-surface);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-motion.is-active {
+  border-color: var(--viewer-menus-accent);
+  background: color-mix(in srgb, var(--viewer-menus-accent) 24%, var(--viewer-panel-bg));
+  color: var(--viewer-menus-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--viewer-menus-accent) 25%, transparent), 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+/* Upright: on the right, above the navigation row. */
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_device {
+  right: 12px;
+  bottom: calc(100% + 76px);
+  flex-direction: column-reverse;
+  align-items: flex-end;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"].viewer-menus--open .viewer-menus_device {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* On its side: on the right under the navigation row (the axes take the
+   bottom right corner here). */
+#viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_device {
+  top: 76px;
+  left: calc(var(--viewer-menus-host-w, 800px) - 12px - env(safe-area-inset-right));
+  transform: translateX(-100%);
+  flex-direction: row;
 }
 
 /* ---- Phone upright: tabs along the bottom, a sheet above them ---- */
