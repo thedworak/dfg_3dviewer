@@ -6,6 +6,7 @@
 @import "./login-panel.css";
 @import "./ifc-properties.css";
 @import "./viewer-tools.css";
+@import "./menu-toolbar.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;

@@ -32,12 +32,18 @@ const supportedExamples = [
   { format: 'laz', path: '/examples/points.laz' },
 ];
 
+// The tests below were written for the classic toolbar; the menus
+// (ui/menu-toolbar.js) have their own tests, which ask for `ui=menus`.
+function withToolbar(query) {
+  return /(^|&)ui=/.test(query) ? query : [query, 'ui=classic'].filter(Boolean).join('&');
+}
+
 async function openViewer(page, modelPath = defaultModel, query = '') {
   await page.addInitScript(() => {
     window.__E2E__ = true;
   });
 
-  await page.goto(`/?e2eModel=${encodeURIComponent(modelPath)}${query ? `&${query}` : ''}`);
+  await page.goto(`/?e2eModel=${encodeURIComponent(modelPath)}&${withToolbar(query)}`);
   await page.waitForSelector('#MainCanvas', { state: 'attached' });
 }
 
@@ -46,7 +52,7 @@ async function openSandboxViewer(page) {
     window.__E2E__ = true;
   });
 
-  await page.goto('/?sandbox=1');
+  await page.goto('/?sandbox=1&ui=classic');
   await page.waitForSelector('#MainCanvas', { state: 'attached' });
 }
 
@@ -762,7 +768,7 @@ test('preview=0 skips the progressive preview', async ({ page }) => {
   await page.addInitScript(() => {
     window.__E2E__ = true;
   });
-  await page.goto('/?e2eModel=%2Fexamples%2Fcompressed.glb&preview=0');
+  await page.goto('/?e2eModel=%2Fexamples%2Fcompressed.glb&preview=0&ui=classic');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
   expect(requests).toEqual([]);
 });
@@ -3182,6 +3188,151 @@ test('sun and shadows: switched on at the day and hour it is now at the place, u
     { enabled: true, date: '06-21', followTimeline: false },
   ));
   expect(await when()).toEqual({ year: 2026, month: 6, day: 21, minutes: 12 * 60 + 30 });
+});
+
+test('toolbar menus on a desktop: the tools sorted into named menus, submenus opening in place', async ({ page }) => {
+  await openViewer(page, '/examples/tempietto/Tempietto.glb', 'ui=menus');
+  await waitForModel(page);
+  const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
+  await expect(toolbar).toHaveAttribute('data-mode', 'desktop');
+  const tabs = toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label');
+  await expect(tabs).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'Model', 'File', 'Settings']);
+  // Icons only; the name shows over the icon on hover, moving nothing.
+  const lookTab = toolbar.locator('.viewer-menus_tab[data-menu="look"]');
+  const lookLabel = lookTab.locator('.viewer-menus_tab-label');
+  const opacity = () => lookLabel.evaluate((el) => getComputedStyle(el).opacity);
+  expect(await opacity()).toBe('0');
+  const tabBefore = await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox();
+  await lookTab.hover();
+  await expect.poll(opacity).toBe('1');
+  expect((await lookLabel.boundingBox()).y + 5).toBeLessThan((await lookTab.boundingBox()).y);
+  expect(await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox()).toEqual(tabBefore);
+  await page.mouse.move(700, 300);
+  // At hand, outside the menus: the transform modes and the view.
+  const nav = toolbar.locator('.viewer-menus_nav > [data-tool]:visible:not(.viewer-menus_grip)');
+  await expect(nav).toHaveCount(6);
+  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'move', 'rotate', 'scale', 'resetCamera', 'fullScreen']);
+  await toolbar.locator('.viewer-menus_nav [data-tool="move"]').click();
+  expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('translate');
+  await toolbar.locator('.viewer-menus_nav [data-tool="orbit"]').click();
+
+  // Settings: the language and theme of the classic main menu, then help;
+  // its cog is gone. The projection is under Look.
+  await expect(page.locator('.viewer-menus_cog')).toBeHidden();
+
+  // The grip moves the bar, inside the viewer; moved up, a menu opens below.
+  const dock = toolbar.locator('.viewer-menus_dock');
+  const before = await dock.boundingBox();
+  // The position of the viewer settings (or 0, 0): the offset the bar starts at.
+  const start = await page.evaluate(() => window.Viewer.getCurrentEditorToolbarState().position);
+  const grip = await toolbar.locator('.viewer-menus_grip').boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + 200, grip.y - 5000, { steps: 4 });
+  await page.mouse.up();
+  const moved = await dock.boundingBox();
+  const canvas = await page.locator('#MainCanvas').boundingBox();
+  expect(moved.x).toBeGreaterThan(before.x + 150);
+  expect(moved.y).toBeGreaterThanOrEqual(canvas.y);
+  expect(moved.y).toBeLessThan(canvas.y + 10);
+  await toolbar.locator('.viewer-menus_tab[data-menu="file"]').click();
+  await toolbar.locator('.viewer-menus_panel').evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
+  expect((await toolbar.locator('.viewer-menus_panel').boundingBox()).y).toBeGreaterThan(moved.y + moved.height);
+  await page.keyboard.press('Escape');
+
+  // The position goes into the manifest, and comes back from one.
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.viewer.editorToolbar.position);
+  expect(Math.round(exported.x)).toBe(Math.round(start.x + moved.x - before.x));
+  expect(Math.round(exported.y)).toBe(Math.round(start.y + moved.y - before.y));
+  await page.evaluate(() => window.Viewer.applyEditorToolbarConfig(window.Viewer, { position: { x: 120, y: -40 } }));
+  const applied = await dock.boundingBox();
+  expect(Math.round(applied.x - before.x)).toBe(120 - start.x);
+  expect(Math.round(applied.y - before.y)).toBe(-40 - start.y);
+  // Back where it started.
+  await page.evaluate((position) => window.Viewer.applyEditorToolbarConfig(window.Viewer, { position }), start);
+  expect(await dock.boundingBox()).toEqual(before);
+  await toolbar.locator('.viewer-menus_tab[data-menu="settings"]').click();
+  const settings = toolbar.locator('.viewer-menus_group[data-category="settings"]');
+  await expect(settings.locator('#viewerLanguageMode')).toBeVisible();
+  await expect(settings.locator('#viewerThemeMode')).toBeVisible();
+  await expect(settings.locator('[data-tool="help"]')).toBeVisible();
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await expect(toolbar.locator('.viewer-menus_group[data-category="look"] > [data-tool]').first()).toHaveAttribute('data-tool', 'projection');
+  await page.keyboard.press('Escape');
+
+  // Analysis: the sun and the raking light, out of Lights.
+  await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').click();
+  const panel = toolbar.locator('.viewer-menus_panel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-menus_group.is-shown > [data-tool]:visible')).toHaveCount(4);
+  await expect(page.locator('[data-tool="lights"] [data-tool="lightSun"]')).toHaveCount(0);
+  const sunToggle = panel.locator('button[data-tool="lightSunToggle"]');
+  await expect(sunToggle).toBeHidden();
+  await panel.locator('button[data-tool="sunStudy"]').click({ position: { x: 20, y: 18 } });
+  await expect(panel.locator('button[data-tool="sunStudy"]')).toHaveAttribute('aria-expanded', 'true');
+  await sunToggle.click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(true);
+  await expect(sunToggle).toHaveAttribute('aria-pressed', 'true');
+
+  // One menu at a time; Escape closes it.
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await expect(panel.locator('.viewer-menus_group.is-shown')).toHaveAttribute('data-category', 'look');
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+
+  // The names follow the language.
+  await page.evaluate(() => {
+    document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
+    document.querySelector<HTMLElement>('.language-dropdown-item-polish')?.click();
+  });
+  await expect(tabs.first()).toHaveText('Wygląd');
+  await expect(toolbar.locator('button[data-tool="rakingLight"]')).toHaveAttribute('aria-label', 'Światło skośne');
+  expect(await page.evaluate(() => window.viewer.errors ?? [])).toEqual([]);
+});
+
+test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once turned', async ({ browser }) => {
+  // With motion: turning animates the tabs (none with reduced motion, as the
+  // other tests run).
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'no-preference' });
+  const page = await context.newPage();
+  await openViewer(page, '/examples/tempietto/Tempietto.glb', 'ui=menus');
+  await waitForModel(page);
+  const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
+  await expect(toolbar).toHaveAttribute('data-mode', 'bar');
+  await expect(toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label')).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'More']);
+
+  // "More": the rest, under headings.
+  await toolbar.locator('.viewer-menus_tab[data-menu="more"]').tap();
+  const panel = toolbar.locator('.viewer-menus_panel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-menus_group.is-shown .viewer-menus_group-title')).toHaveText(['Model', 'File', 'Settings']);
+  // The sheet stands on the tab bar, over the whole width (once slid in).
+  await panel.evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
+  const [sheet, bar] = await Promise.all([panel.boundingBox(), toolbar.locator('.viewer-menus_tabs').boundingBox()]);
+  expect(Math.round(sheet.y + sheet.height)).toBe(Math.round(bar.y));
+  expect(Math.round(sheet.width)).toBe(390);
+  await toolbar.locator('.viewer-menus_tab[data-menu="more"]').tap();
+  await expect(panel).toBeHidden();
+
+  // Turned on its side: the tabs go down the left edge, turning as they go.
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(toolbar).toHaveAttribute('data-mode', 'rail');
+  const turning = await page.evaluate(() => document.querySelector('.viewer-menus_tab-icon')?.getAnimations().length ?? 0);
+  expect(turning).toBeGreaterThan(0);
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
+  const first = await toolbar.locator('.viewer-menus_tab[data-menu="look"]').boundingBox();
+  const last = await toolbar.locator('.viewer-menus_tab[data-menu="more"]').boundingBox();
+  expect(last.y).toBeGreaterThan(first.y + 100);
+  expect(Math.abs(first.x - last.x)).toBeLessThan(2);
+  expect(first.x).toBeLessThan(20);
+  await context.close();
+});
+
+test('the classic toolbar stays a URL parameter away', async ({ page }) => {
+  await openViewer(page, '/examples/tempietto/Tempietto.glb', 'ui=classic');
+  await waitForModel(page);
+  await expect(page.locator('#viewerEditorToolbar')).not.toHaveClass(/viewer-menus/);
+  await expect(page.locator('#viewerEditorToolbar .viewer-editor-expand')).toHaveCount(1);
 });
 
 test('lights and rendering menus: every entry labelled, also after switching the language', async ({ page }) => {

@@ -6,7 +6,14 @@ import { isAppBuild } from "../remote.js";
 // moves on to the next one. Once per install: the flag is set as soon as the
 // hints start, so an app closed half-way does not show them again.
 const FIRST_RUN_KEY = "dfg3dviewer-first-run-hints";
-const TARGETS = ["#openLocalFileButton", "#browseModelsButton", "#viewerEditorToolbar .viewer-editor-expand"];
+// The last: the classic toolbar's expand button, or the menus' "More" tab
+// (ui/menu-toolbar.js) - whichever is shown.
+const TARGETS = [
+  "#openLocalFileButton",
+  "#browseModelsButton",
+  "#viewerEditorToolbar .viewer-editor-expand",
+  "#viewerEditorToolbar .viewer-menus_tab[data-menu=\"more\"]",
+];
 // After the loader card has faded out (core.circle.complete(), 4400 ms).
 const START_DELAY_MS = 4600;
 const PULSE_MS = 3600;

@@ -12616,7 +12616,7 @@ function attachModelUnits(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "ec6a67b2" ;
+const BUILD_ID$2 = "24f45b06" ;
 const BUILD = "dev" ;
 
 let initPromise = null;
@@ -12667,8 +12667,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "ec6a67b2" ;
-const BUILD_TIME$1 = "2026-10-14T08:32:16.753Z" ;
+const BUILD_ID$1 = "24f45b06" ;
+const BUILD_TIME$1 = "2026-10-14T09:28:59.202Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -28723,7 +28723,7 @@ function attachRakingLight(Viewer) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-CbtDUq_H.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-Berj4DG2.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DIRhRWl9.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -31283,7 +31283,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-BCQGYrQl.js').then(function (n) { return n.t; }), import('./rendering-webgpu-PHGJF_Jp.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-BCQGYrQl.js').then(function (n) { return n.t; }), import('./rendering-webgpu-CNqc_cYZ.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -31908,9 +31908,9 @@ const loadLWOLoader = async () => (await import('./three-CXLeLTtU.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BtMoIwTy.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-CXLeLTtU.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DNa9Da4g.js')).buildLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-ncgf6KVj.js')).buildLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-VmsI2QAm.js');
+const loadSplats = async () => import('./splats-Ynnr58vO.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -40476,8 +40476,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "ec6a67b2" ;
-const BUILD_TIME = "2026-10-14T08:32:16.753Z" ;
+const BUILD_ID = "24f45b06" ;
+const BUILD_TIME = "2026-10-14T09:28:59.202Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {

@@ -249,6 +249,20 @@ Face selection in picking mode (used to create annotations): click selects one f
   - Axes gizmo drawn in a corner of the canvas. Clicking an axis turns the camera to look along it. Hidden in presentation mode, with `hideUi`, and on canvases smaller than 320 px.
 
 
+## `viewer/ui/menu-toolbar.js`
+
+The toolbar as menus with names (Look, Analysis, Measure, Story, Model, File, Device, Settings) instead of one row of icons: the same tool buttons `editor-toolbar.js` builds, with their submenus and state, sorted into the menus; submenus open in place. The default; `?ui=classic` or `viewer.ui: "classic"` keeps the classic toolbar. The sun and the raking light (out of Lights), the comparison, the tour, the photos and the annotation and IIIF import/export (out of Annotate) are tools of their own here. The transform modes (orbit, move, rotate, scale), the camera reset, full screen and VR/AR stay at hand outside the menus; the projection is under Look, and Settings holds the language and theme of the classic main menu (its cog is not shown). Styles: `css/menu-toolbar.css`.
+
+- `isMenuToolbarEnabled(viewer)` / `buildMenuToolbar(viewer, toolbar, host, buttons)`
+  - The layout follows the viewer's size (`data-mode` on the toolbar): `desktop` (a bar in the bottom left corner, a menu opening as a panel above its name), `bar` (narrower than 700 px: five tabs along the bottom, the rest under More, a menu as a sheet) and `rail` (a touch screen on its side, up to 520 px high: the tabs down the left edge, a panel beside them). Between layouts the tabs move to their new places and turn a quarter, the way `screen.orientation` says the phone turned (not with reduced motion).
+
+- `Viewer.openToolbarMenu(id)`
+  - Opens a menu (`look`, `analysis`, ..., `more`), or closes it with `null`. Escape, a tap outside and, on a phone, a tool panel opening close it too.
+
+- `updateMenuToolbarLabels(viewer)` / `updateMenuToolbarState(viewer)`
+  - Called from `updateEditorToolbarLabels()` and `updateEditorToolbarState()`: the menus' names, and the comparison button (shown where `Viewer.canCompare()`).
+
+
 ## `viewer/editor/measurement.js`
 
 Measurement tools in the ruler button's submenu. Lengths use `viewer.measurement.modelUnitInMeters`.

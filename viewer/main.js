@@ -122,8 +122,10 @@ import {
 import { loadAIM3IFManifest, applyManifestConfig, applyManifestSettings, applyManifestBootstrapSettings, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
 import {
+  applyEditorToolbarConfig,
   attachEditorToolbar,
   createEditorToolbar,
+  getCurrentEditorToolbarState,
   getEditorToolbarIcon,
   getEditorToolbarHost,
   syncEditorToolbarSecondaryTrayWidth,
@@ -326,6 +328,16 @@ export const Viewer = {
 
   toggleToolbarExpanded() {
     return toggleEditorToolbarExpanded(this);
+  },
+
+  // The toolbar's state in a manifest (AIM3DViewer.viewer.editorToolbar):
+  // exported and applied by editor/annotations.js.
+  getCurrentEditorToolbarState() {
+    return getCurrentEditorToolbarState(this);
+  },
+
+  applyEditorToolbarConfig(viewer, toolbarConfig) {
+    return applyEditorToolbarConfig(viewer || this, toolbarConfig);
   },
 
   syncEditorToolbarSecondaryTrayWidth() {
@@ -2100,16 +2112,25 @@ export const Viewer = {
     const parentRect = core.container.getBoundingClientRect();
 
     const bottom = parentRect.bottom - canvasRect.bottom + 12 || 24;
+    // The menus (ui/menu-toolbar.js) place themselves from the canvas's
+    // bottom edge: a phone's tab bar stands right on it.
+    const placeToolbar = () => {
+      if (!core.editorToolbar) return;
+      if (core.editorToolbar.classList.contains("viewer-menus")) {
+        core.editorToolbar.style.bottom = "";
+        core.editorToolbar.style.setProperty("--viewer-canvas-bottom", `${bottom - 12}px`);
+      } else {
+        core.editorToolbar.style.bottom = `${bottom}px`;
+      }
+    };
 
     if (isFullscreen) {
       core.mainCanvas.style.width = "100vw";
       // dvh: the visible height, below a mobile browser's address bar.
       core.mainCanvas.style.height = "100dvh";
-      core.editorToolbar.style.bottom = `${bottom}px`;
+      placeToolbar();
     } else {
-      if (core.editorToolbar) {
-        core.editorToolbar.style.bottom = `${bottom}px`;
-      }
+      placeToolbar();
       if (Viewer.creditsWrapper) {
         // #credits is a normal-flow block below core.container (see
         // viewer/css/credits.css and the appendChild call in this file) -

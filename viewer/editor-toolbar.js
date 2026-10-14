@@ -9,6 +9,15 @@ import { MODEL_UNITS } from "./editor/model-units.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
 import { appToolbarTools } from "./app-features.js";
+import {
+  buildMenuToolbar,
+  isMenuToolbar,
+  isMenuToolbarEnabled,
+  MENU_SKIPPED_TOOLS,
+  menuToolbarBottomEdge,
+  updateMenuToolbarLabels,
+  updateMenuToolbarState,
+} from "./ui/menu-toolbar.js";
 
 const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
 
@@ -98,6 +107,7 @@ export function getEditorToolbarIcon(icon) {
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
     pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
     reportBug: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5a4 4 0 0 1 8 0V14a4 4 0 0 1-8 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M20 11h-4M8 15.5l-3 2M16 15.5l3 2M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    compare: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 10l-2 2 2 2M16 10l2 2-2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
   };
 
@@ -143,6 +153,14 @@ export function syncNoticeAboveToolbar() {
   const toolbar = core.editorToolbar;
   if (!notice) return;
   const parent = notice.offsetParent;
+  // The menus (ui/menu-toolbar.js): above the bar along the bottom, on any
+  // screen - its names reach the middle, where the notices are.
+  if (toolbar && parent && isMenuToolbar(toolbar)) {
+    const edge = menuToolbarBottomEdge(toolbar);
+    if (edge == null) notice.style.removeProperty("--viewer-notice-safe-bottom");
+    else notice.style.setProperty("--viewer-notice-safe-bottom", `${Math.max(8, Math.round(parent.getBoundingClientRect().bottom - edge + 10))}px`);
+    return;
+  }
   if (!toolbar || !parent || !window.matchMedia(PHONE_TOOLBAR_QUERY).matches) {
     notice.style.removeProperty("--viewer-notice-safe-bottom");
     return;
@@ -390,7 +408,7 @@ function syncToolbarExpandOffset(viewer, toolbar = core.editorToolbar) {
   toolbar.style.setProperty("--viewer-toolbar-expand-shift", shift);
 }
 
-function setStoredToolbarPosition(viewer, x, y, options = {}) {
+export function setStoredToolbarPosition(viewer, x, y, options = {}) {
   const {
     explicit = true,
     toolbarElement = null,
@@ -461,6 +479,8 @@ export function applyEditorToolbarConfig(viewer, toolbarConfig = {}) {
 
   core.editorToolbar.style.setProperty("--drag-x", `${nextPosition.x}px`);
   core.editorToolbar.style.setProperty("--drag-y", `${nextPosition.y}px`);
+  // The menus keep the same offset (from their own corner).
+  viewer.menuToolbar?.setOffset(nextPosition.x, nextPosition.y);
   core.editorToolbar.style.display = enabled ? "" : "none";
 
   if (typeof toolbarConfig.visible === "boolean") {
@@ -676,7 +696,8 @@ export function attachEditorToolbar(viewer) {
 }
 
 export function toggleToolbarExpanded(viewer) {
-  if (!core.editorToolbar) return;
+  // The menus have no tray to expand.
+  if (!core.editorToolbar || isMenuToolbar()) return;
 
   const host = getEditorToolbarHost(viewer);
   const previousRect = core.editorToolbar.getBoundingClientRect();
@@ -1319,6 +1340,27 @@ export function createEditorToolbar(viewer) {
     tools.splice(tools.findIndex((tool) => tool.key === "reportBug"), 1);
   }
 
+  // The menus layout (ui/menu-toolbar.js): the tools of the submenus that
+  // belong to other menus there stand on their own.
+  const menus = isMenuToolbarEnabled(viewer);
+  if (menus) {
+    MENU_SKIPPED_TOOLS.forEach((key) => {
+      const index = tools.findIndex((tool) => tool.key === key);
+      if (index >= 0) tools.splice(index, 1);
+    });
+    tools.push(
+      { key: "rakingLight", group: "analysis", icon: "rakingLight", onClick: () => {}, primary: false },
+      { key: "sunStudy", group: "analysis", icon: "sunStudy", onClick: () => {}, primary: false },
+      { key: "compare", group: "analysis", icon: "compare", onClick: () => viewer.toggleCompare?.(), pressed: true, primary: false },
+      { key: "annotateTour", group: "story", icon: "annotateTour", onClick: () => viewer.toggleTour(), pressed: true, primary: false },
+      { key: "annotatePhotos", group: "story", icon: "annotatePhotos", onClick: () => viewer.togglePhotosPanel(), pressed: true, primary: false },
+      { key: "annotateImport", group: "file", icon: "annotateImport", onClick: () => viewer.triggerAnnotationsXmlImport(), primary: false },
+      { key: "annotateExport", group: "file", icon: "annotateExport", onClick: () => viewer.downloadAnnotationsXmlFile(), primary: false },
+      { key: "IIIFimport", group: "file", icon: "IIIFimport", onClick: () => viewer.trigger3IFManifestImport(), primary: false },
+      { key: "IIIFexport", group: "file", icon: "IIIFexport", onClick: () => viewer.export3IFManifest(), primary: false },
+    );
+  }
+
   // A tool panel opening (touch devices, ui/tool-panel-chrome.js) folds the
   // secondary tools away, so the expanded tray does not cover the model too.
   // After the tap that opened it: bindTouchSubmenus would otherwise open the
@@ -1333,6 +1375,9 @@ export function createEditorToolbar(viewer) {
   // Shared by the Lights, Environment map and Rendering submenus.
   viewer.lightsSubmenuButtons = {};
   viewer.toneMappingPreviewCanvases = {};
+  // Tour and photos have their own buttons in the menus.
+  viewer.annotateSubmenuButtons = {};
+  const menuButtons = {};
   viewer.environmentMapPreset = viewer.environmentMapPreset || "neutral";
   viewer.shadingMode = viewer.shadingMode || "original";
 
@@ -1366,7 +1411,8 @@ export function createEditorToolbar(viewer) {
       <span class="viewer-editor-tool_sr"></span>
     `;
     if (tool.key === "moveToolbar") {
-      initializeEditorToolbarDrag(button, viewer, toolbar, getEditorToolbarHost(viewer));
+      // The menus drag the toolbar themselves (ui/menu-toolbar.js).
+      if (!menus) initializeEditorToolbarDrag(button, viewer, toolbar, getEditorToolbarHost(viewer));
     }
     else if (tool.key === "clippingPlanes") {
       button.classList.add("has-submenu");
@@ -1455,7 +1501,7 @@ export function createEditorToolbar(viewer) {
       viewer.measurementSubmenuButtons.units = unitsButton;
 
       button.appendChild(submenu);
-    } else if (tool.key === "annotate") {
+    } else if (tool.key === "annotate" && !menus) {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
       submenu.className = "viewer-editor-tool_submenu";
@@ -1468,7 +1514,6 @@ export function createEditorToolbar(viewer) {
         { key: "IIIFimport", icon: "IIIFimport", label: t("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
         { key: "IIIFexport", icon: "IIIFexport", label: t("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.export3IFManifest() },
       ];
-      viewer.annotateSubmenuButtons = {};
       submenuItems.forEach((item) => {
         const subButton = document.createElement("button");
         subButton.type = "button";
@@ -1666,7 +1711,18 @@ export function createEditorToolbar(viewer) {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
       submenu.className = "viewer-editor-tool_submenu";
-      appendLightsSubmenuItems(viewer, LIGHTS_SUBMENU_ITEMS[tool.key](viewer), submenu);
+      // In the menus the sun and the raking light are under Analysis.
+      const items = LIGHTS_SUBMENU_ITEMS[tool.key](viewer)
+        .filter((item) => !menus || (item.key !== "lightSun" && item.key !== "lightRaking"));
+      appendLightsSubmenuItems(viewer, items, submenu);
+      button.appendChild(submenu);
+    } else if (tool.key === "sunStudy" || tool.key === "rakingLight") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu";
+      const source = tool.key === "sunStudy" ? "lightSun" : "lightRaking";
+      const items = LIGHTS_SUBMENU_ITEMS.lights(viewer).find((item) => item.key === source)?.children || [];
+      appendLightsSubmenuItems(viewer, items, submenu);
       button.appendChild(submenu);
     } else if (tool.key === "background") {
       button.classList.add("has-submenu");
@@ -1891,14 +1947,18 @@ export function createEditorToolbar(viewer) {
         tool.onClick();
       }
     });
-    if (tool.primary) toolbar.appendChild(button);
+    if (menus) menuButtons[tool.key] = button;
+    else if (tool.primary) toolbar.appendChild(button);
     else secondaryTray.appendChild(button);
     viewer.editorToolbarButtons[tool.key] = button;
+    if (["annotateTour", "annotatePhotos", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"].includes(tool.key)) {
+      viewer.annotateSubmenuButtons[tool.key] = button;
+    }
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
   const actionMenuToolKeys = ["statistics", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
-  if (viewer.actionMenuPanel) {
+  if (viewer.actionMenuPanel && !menus) {
     actionMenuToolKeys.forEach((key) => {
       const button = viewer.editorToolbarButtons[key];
       if (!button) return;
@@ -1910,6 +1970,18 @@ export function createEditorToolbar(viewer) {
       button.appendChild(label);
       viewer.actionMenuPanel.appendChild(button);
     });
+  }
+
+  if (menus) {
+    const host = getEditorToolbarHost(viewer);
+    host?.appendChild(toolbar);
+    core.editorToolbar = toolbar;
+    core.editorToolbar.classList.add("editorToolbar-hidden");
+    buildMenuToolbar(viewer, toolbar, host, menuButtons);
+    viewer.updateFullscreenButtonIcon();
+    viewer.updateEditorToolbarLabels();
+    viewer.updateEditorToolbarState();
+    return;
   }
 
   toolbar.appendChild(secondaryTray);
@@ -2405,6 +2477,7 @@ export function updateEditorToolbarLabels(viewer) {
 
   core.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
   viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
+  updateMenuToolbarLabels(viewer);
 }
 
 function updateTourSubmenuState(viewer) {
@@ -2431,7 +2504,8 @@ function updateTourSubmenuState(viewer) {
 // and on phones wraps into rows - hence worked out from what is on screen.
 export function updateToolbarGroups() {
   const toolbar = core.editorToolbar;
-  if (!toolbar) return;
+  // The menus are lists: no group backgrounds.
+  if (!toolbar || isMenuToolbar(toolbar)) return;
   const expanded = toolbar.classList.contains("expanded");
   const tools = [];
   for (const child of toolbar.children) {
@@ -2507,5 +2581,6 @@ export function updateEditorToolbarState(viewer) {
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
   updateShadingSubmenuState(viewer);
+  updateMenuToolbarState(viewer);
   updateToolbarGroups();
 }
