@@ -48,7 +48,7 @@ The Docker worker additionally compresses every converted GLB with gltfpack (Mes
 
 - Blender importers (`scripts/convert.sh`): abc, dae, fbx, obj, ply, stl, wrl, x3d, usd, usda, usdc, usdz, ifc, blend, gml, glb
 - Without Blender (`scripts/convert_mesh.py`, used by the worker): step, stp, iges, igs (tessellated by OpenCASCADE, so `--tol-linear` trades detail for size), 3mf
-- Viewer-native, kept as uploaded and without thumbnails: gltf (inside a .zip with its .bin/textures), 3ds, pcd, xyz, amf, kmz, vox, lwo
+- Viewer-native, kept as uploaded and without thumbnails: gltf (inside a .zip with its .bin/textures), 3ds, pcd, xyz, amf, kmz, vox, lwo, Gaussian splats (spz, splat, ksplat, sog, and a .ply whose vertices are Gaussians)
 
 ## Minimal conversion examples
 

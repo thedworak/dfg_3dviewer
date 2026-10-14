@@ -28,6 +28,7 @@ const OUT = 'viewer/examples/tempietto';
 const NAME = 'Tempietto';
 const GENERATOR = 'ExPlora4D - scripts/build-tempietto-examples.mjs';
 const POINT_COUNT = 12000; // XYZ and PCD
+const SPLAT_COUNT = 30000; // SPLAT (Gaussian splats)
 const VOX_RESOLUTION = 48; // voxels along the longest side
 
 // Source material name -> what the writers below know.
@@ -233,7 +234,8 @@ const surfaceTriangles = meshes.flatMap((mesh) => triangles(mesh).map((tri) => {
   const ab = a.map((v, k) => b[k] - v);
   const ac = a.map((v, k) => c[k] - v);
   const cross = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]];
-  return { mesh, tri, a, b, c, area: Math.hypot(...cross) / 2 };
+  const length = Math.hypot(...cross);
+  return { mesh, tri, a, b, c, area: length / 2, normal: cross.map((v) => v / (length || 1)) };
 }));
 function pointOn(triangle, rand) {
   const r1 = Math.sqrt(rand());
@@ -242,7 +244,7 @@ function pointOn(triangle, rand) {
   const position = triangle.a.map((v, k) => wa * v + wb * triangle.b[k] + wc * triangle.c[k]);
   const uvs = triangle.mesh.uvs;
   const uv = uvs && [0, 1].map((k) => wa * uvs[triangle.tri[0] * 2 + k] + wb * uvs[triangle.tri[1] * 2 + k] + wc * uvs[triangle.tri[2] * 2 + k]);
-  return { position, color: colorAt(triangle.mesh.kind, uv) };
+  return { position, color: colorAt(triangle.mesh.kind, uv), normal: triangle.normal };
 }
 function samplePoints(list, count, seed) {
   const rand = random(seed);
@@ -810,6 +812,44 @@ DATA binary
   return Buffer.concat([Buffer.from(header, 'latin1'), data]);
 }
 
+// ---------------------------------------------------------------- SPLAT
+
+// Gaussian splats in the .splat layout (antimatter15/splat): per splat the
+// centre and the three scales (float32), RGBA and the rotation quaternion
+// (w x y z, mapped to 0..255). Each splat is a flat disc on the surface,
+// facing along the triangle's normal, about as wide as the spacing of the
+// samples. Written Y-down like the captures this format usually holds (the
+// viewer turns splats upright, see viewer/splats.js).
+function buildSplat() {
+  const rand = random(99);
+  const totalArea = surfaceTriangles.reduce((sum, t) => sum + t.area, 0);
+  const spacing = Math.sqrt(totalArea / SPLAT_COUNT);
+  const points = samplePoints(surfaceTriangles.filter((t) => t.area > 0), SPLAT_COUNT, 43);
+  const data = Buffer.alloc(points.length * 32);
+  points.forEach(({ position, color, normal }, i) => {
+    const [x, y, z] = position;
+    const [nx, ny, nz] = normal;
+    // Y-down: (x, y, z) -> (x, -y, -z).
+    const n = [nx, -ny, -nz];
+    // The rotation taking +Z to the normal.
+    const dot = n[2];
+    let q;
+    if (dot < -0.999999) q = [0, 1, 0, 0];
+    else {
+      const axis = [-n[1], n[0], 0];
+      q = [1 + dot, ...axis];
+      const length = Math.hypot(...q);
+      q = q.map((v) => v / length);
+    }
+    const o = i * 32;
+    [x, -y, -z].forEach((v, k) => data.writeFloatLE(v, o + k * 4));
+    const size = spacing * (0.55 + 0.2 * rand());
+    [size, size, size * 0.08].forEach((v, k) => data.writeFloatLE(v, o + 12 + k * 4));
+    [color[0], color[1], color[2], Math.max(color[3], 200)].forEach((v, k) => data.writeUInt8(Math.round(v), o + 24 + k));
+    q.forEach((v, k) => data.writeUInt8(Math.max(0, Math.min(255, Math.round(v * 128 + 128))), o + 28 + k));
+  });
+  return data;
+}
 // ---------------------------------------------------------------- VOX
 
 // The surface voxelised at VOX_RESOLUTION along the longest side, each voxel
@@ -1040,6 +1080,7 @@ const outputs = {
   ply: buildPLY(),
   xyz: buildXYZ(),
   pcd: buildPCD(),
+  splat: buildSplat(),
   vox: buildVOX(),
   ifc: buildIFC(),
 };

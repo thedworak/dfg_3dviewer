@@ -49,6 +49,8 @@ export function attachRakingLight(Viewer) {
 
     enableRakingLight() {
       if (!core.scene) return;
+      // Both dim the other lights: one at a time (editor/sun-study.js).
+      Viewer.setSunStudy?.(false);
       const dimmed = [];
       core.scene.traverse((object) => {
         if (!object.isLight || object.userData?.isRakingLight) return;

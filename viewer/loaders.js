@@ -25,6 +25,20 @@ export const loadIFCLoader = async () => (await import("./js/loaders/IFCLoader.j
 export const loadRoomEnvironment = async () => (await import("three/examples/jsm/environments/RoomEnvironment.js")).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
 export const loadLasPointCloud = async () => (await import("./pointcloud-las.js")).buildLasPointCloud;
+// Gaussian splats (Spark) likewise only download with the first splat file.
+export const loadSplats = async () => import("./splats.js");
+
+// True for a PLY whose vertices are Gaussians (spherical harmonics colour,
+// scales and rotations) or a PlayCanvas compressed splat PLY.
+export function isSplatPly(buffer) {
+  const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 65536));
+  const header = new TextDecoder("latin1").decode(bytes);
+  const end = header.indexOf("end_header");
+  if (!header.startsWith("ply") || end < 0) return false;
+  const text = header.slice(0, end);
+  const has = (name) => new RegExp(`\\bproperty\\s+\\w+\\s+${name}\\b`).test(text);
+  return (has("f_dc_0") && has("scale_0") && has("rot_0")) || has("packed_position");
+}
 export const loadHDRLoader = async () => (await import("three/examples/jsm/loaders/HDRLoader.js")).HDRLoader;
 
 import { core } from './core.js';
@@ -765,8 +779,20 @@ export async function loadModel() {
       }
 
       case "ply": {
+        const buffer = await loadAsync(new THREE.FileLoader().setResponseType("arraybuffer"), modelPath, onProgress);
+        // A PLY of Gaussians (3D Gaussian Splatting) is drawn as splats.
+        if (isSplatPly(buffer)) {
+          updateLoadingStage("loadingLog.preparingGeometry", 99);
+          const { buildSplatModel } = await loadSplats();
+          const object = await buildSplatModel(buffer, {
+            fileName: core.fileObject.filename,
+            name: core.fileObject.basename || "Gaussian splats",
+          });
+          await afterLoad({ object });
+          break;
+        }
         const loader = await createLoader(core.fileObject.extension.toLowerCase());
-        const geometry = await loadAsync(loader, modelPath, onProgress);
+        const geometry = loader.parse(buffer);
         if (!geometry.getAttribute?.("normal")) {
           geometry.computeVertexNormals();
         }
@@ -827,6 +853,21 @@ export async function loadModel() {
         object.position.set(0, 0, 0);
         object.castShadow = true;
         object.receiveShadow = true;
+        await afterLoad({ object });
+        break;
+      }
+
+      case "spz":
+      case "splat":
+      case "ksplat":
+      case "sog": {
+        const buffer = await loadAsync(new THREE.FileLoader().setResponseType("arraybuffer"), modelPath, onProgress);
+        updateLoadingStage("loadingLog.preparingGeometry", 99);
+        const { buildSplatModel } = await loadSplats();
+        const object = await buildSplatModel(buffer, {
+          fileName: core.fileObject.filename,
+          name: core.fileObject.basename || "Gaussian splats",
+        });
         await afterLoad({ object });
         break;
       }

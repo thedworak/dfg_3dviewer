@@ -54,6 +54,9 @@ export function attachAnimations(Viewer) {
       // A 4D timeline (timeline.js) drives its stages itself: the clip that
       // only switches them is left out of the player.
       Viewer.setupTimeline?.(object);
+      // Reconstruction variants and the comparison view (editor/compare.js),
+      // which can also compare the timeline's stages.
+      Viewer.setupVariants?.(object);
       const entries = collectClips(object).filter(({ clip }) => !Viewer.isTimelineClip?.(clip));
       if (!entries.length) return;
 

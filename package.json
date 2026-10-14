@@ -75,6 +75,7 @@
     "@loaders.gl/las": "^4.5.4",
     "@rollup/plugin-alias": "^6.0.0",
     "@sentry/browser": "^11.6.0",
+    "@sparkjsdev/spark": "2.2.0",
     "fflate": "^0.8.3",
     "jquery": "^4.0.0",
     "lru-cache": "^11.5.3",

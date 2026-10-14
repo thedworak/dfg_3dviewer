@@ -86,6 +86,7 @@ The topics below used to live in this file; they now have their own page in [`do
 | Potree 2 (`metadata.json`) | ✅ ¹⁰ | – |
 | LAS / LAZ (point clouds) | ✅ ¹² | 3D Tiles ¹¹ |
 | E57 (point clouds) | – | 3D Tiles ¹¹ |
+| Gaussian splats: SPZ / SPLAT / KSPLAT / SOG, PLY of splats | ✅ ¹³ | – |
 
 > - ¹ via Blender (`scripts/convert.sh`)
 > - ² via `IfcConvert` (+ metadata export, see below)
@@ -99,6 +100,7 @@ The topics below used to live in this file; they now have their own page in [`do
 > - ¹⁰ streamed level of detail via `3d-tiles-renderer`
 > - ¹¹ converted to a streamed 3D Tiles tileset via `py3dtiles` (standalone worker); a PLY without faces is treated the same way
 > - ¹² loaded directly (loaders.gl + laz-perf), thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming
+> - ¹³ drawn with Spark (sparkjs.dev), downloaded with the first splat file; a PLY is read as splats when its vertices carry Gaussians (`f_dc_0`, `scale_0`, `rot_0`), and the worker keeps such a PLY as uploaded
 >
 > Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/NRRD/GCode/BVH (not general model formats).
 
@@ -120,7 +122,7 @@ There is also a pre-configured complete workflow to handle more file formats and
 
 ## Features
 
-- 3D file formats read directly: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, PCD, JSON, 3DS, glTF/GLB, USD/USDA/USDC/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO;
+- 3D file formats read directly: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, PCD, JSON, 3DS, glTF/GLB, USD/USDA/USDC/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, Gaussian splats (SPZ, SPLAT, KSPLAT, SOG, PLY);
 - streamed level-of-detail models: 3D Tiles (`tileset.json` - b3dm, i3dm, pnts, glb; meshes and point clouds) and Potree 2 point clouds (`metadata.json`), with adaptive point size and Eye-Dome Lighting;
 - compressed glTF (Draco, Meshopt, KTX2/Basis textures) and progressive loading: a lightweight preview is shown first, then swapped for the full model (the Docker worker optimizes converted models with gltfpack);
 - compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, WRL, X3D, USD/USDA/USDC/USDZ, GLB, GLTF; the standalone worker additionally converts STEP/STP, IGES/IGS and 3MF (see [Server-side conversion and rendering](docs/conversion-pipeline.md));
@@ -133,7 +135,12 @@ There is also a pre-configured complete workflow to handle more file formats and
 - saving/loading custom object's position, scale, rotation, lights, camera
 - gallery generation and embedded preview UI
 - face picking, ruler measurement, clipping planes, and material editing
+- 4D timeline, reconstruction variants (alternative hypotheses, each with its Level of Certainty) and a comparison view of two variants or two years: a swipe divider or side by side
 - view object's hierarchy and select groups by name
+- historical photos laid over the model from the camera they were taken from (faded or swiped), lined up by hand and kept in the manifest
+- sun and shadows: the sun of the model's place on any day and hour, in the year of the 4D timeline
+- VR and AR in the browser (WebXR): walk around the model at real size in a headset, or put it on a table or the floor through a phone; AR Quick Look on iPhone and iPad
+- Gaussian splats (3D Gaussian Splatting captures) next to meshes: framed, measured and shown in VR/AR like any model
 - fullscreen support and screenshot/thumbnail generation
 - Drupal/WissKI integration hooks
 - adding watermark

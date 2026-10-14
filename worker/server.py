@@ -24,7 +24,8 @@ Accepted uploads (see the *_FORMATS sets below): Blender importers via
 scripts/convert.sh (abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend
 gml glb), STEP/IGES/3MF via scripts/convert_mesh.py (step stp iges igs 3mf), and
 formats the viewer reads itself, stored as uploaded without thumbnails (gltf 3ds
-pcd xyz amf kmz vox lwo), plus .zip/.rar/.tar/.xz/.gz archives of any of these.
+pcd xyz amf kmz vox lwo, and Gaussian splats: spz splat ksplat sog, and a .ply
+of splats), plus .zip/.rar/.tar/.xz/.gz archives of any of these.
 
 This process is single-node and keeps in-flight job state (progress/status
 messages) in memory only, so that is lost on restart - it is meant for
@@ -115,7 +116,7 @@ MESH_CONVERT_FORMATS = {"step", "stp", "iges", "igs", "3mf"}
 # served as-is. No GLB is produced and, since thumbnails are rendered from a
 # GLB by Blender, no thumbnails either. ("gltf" is only useful inside a .zip
 # together with its .bin/textures, which stay next to it in the job folder.)
-VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo"}
+VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo", "spz", "splat", "ksplat", "sog"}
 # Point clouds become a streamed 3D Tiles tileset (worker/pointcloud.py);
 # a .ply without faces joins them at run time (is_point_cloud()).
 POINTCLOUD_FORMATS = pointcloud.POINTCLOUD_FORMATS
@@ -260,7 +261,10 @@ def scan_job(job_id: str, job_dir: Path):
         # Viewer-native formats are served as uploaded (no GLB exists).
         native = [
             p for p in sorted(job_root.rglob("*"))
-            if p.is_file() and p.suffix.lower().lstrip(".") in VIEWER_NATIVE_FORMATS
+            if p.is_file() and (
+                p.suffix.lower().lstrip(".") in VIEWER_NATIVE_FORMATS
+                or (p.suffix.lower() == ".ply" and pointcloud.is_gaussian_splat_ply(p))
+            )
         ]
         if not native:
             return None
@@ -497,7 +501,8 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
             )
             return
 
-        if ext in VIEWER_NATIVE_FORMATS:
+        # A PLY of Gaussian splats is drawn by the viewer as it is.
+        if ext in VIEWER_NATIVE_FORMATS or (ext == "ply" and pointcloud.is_gaussian_splat_ply(work_path)):
             # Nothing to convert or render: the viewer reads this format itself.
             set_job(
                 job_id,

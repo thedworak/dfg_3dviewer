@@ -137,6 +137,10 @@ export function attachLocalizationTheme(viewer) {
       this.updateAnimationPlayerLabels?.();
       this.updateTourLabels?.();
       this.updateTimelineLabels?.();
+      this.updateVariantsLabels?.();
+      this.updatePhotosLabels?.();
+      this.updateSunLabels?.();
+      this.updateXRLabels?.();
       this.syncPointCloudPanel?.();
       this.renderUploadLimits?.();
       this.updateClippingGuiLabels?.();

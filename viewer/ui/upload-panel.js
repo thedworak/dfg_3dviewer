@@ -17,6 +17,7 @@ const SUPPORTED_EXTENSIONS = [
   "step", "stp", "iges", "igs", "3mf",
   "gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo",
   "las", "laz", "e57",
+  "spz", "splat", "ksplat", "sog",
   "zip",
 ];
 

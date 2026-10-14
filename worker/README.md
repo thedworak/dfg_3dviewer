@@ -170,7 +170,7 @@ needing the tag.
   first file part wins). Accepts, plus `.zip` archives containing one of them:
   - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
-  - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`
+  - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
   - point clouds converted to a streamed 3D Tiles tileset (`modelUrl` ends in `tiles/<name>/tileset.json`), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:

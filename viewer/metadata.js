@@ -674,6 +674,8 @@ export async function handleMetadataResponse(
     object.traverse(function (child) {
       // Point clouds (e.g. LAS/LAZ, wrapped in a Group) have points but no faces.
       if (child.isPoints) metadata["vertices"] += fetchMetadata(child, "vertices");
+      // Gaussian splats (splats.js): each splat counts as a point.
+      if (Number.isFinite(child.userData?.gaussianSplats?.count)) metadata["vertices"] += child.userData.gaussianSplats.count;
       if (child.isMesh) {
         metadata["vertices"] += fetchMetadata(child, "vertices");
         metadata["faces"] += fetchMetadata(child, "faces");

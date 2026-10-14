@@ -252,7 +252,8 @@ export function renderToneMappingPreviews(canvases) {
 // Draws one frame of the main scene to the canvas.
 export function renderFrame(renderer = core.renderer) {
   if (!renderer || !core.scene || !core.camera) return;
-  if (!composer) {
+  // The XR session draws to its own layer, past the composer's targets.
+  if (!composer || renderer.xr?.isPresenting) {
     renderer.render(core.scene, core.camera);
     return;
   }

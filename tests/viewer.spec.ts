@@ -5,7 +5,7 @@ import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validatio
 import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
 const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
 const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
@@ -1326,6 +1326,555 @@ test('4D timeline: plays in a loop at 0.5× unless the manifest says otherwise',
   const own = await state();
   expect(own).toMatchObject({ loop: false, speed: 2, select: '2' });
   expect(own.exported).toMatchObject({ loop: false, speed: 2 });
+});
+
+test('reconstruction variants: one shown at a time, compared by a swipe or side by side, with timeline years too, and round-trip', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const open = (url) => page.evaluate(async (url) => {
+    const manifest = await (await fetch(url)).json();
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  }, url);
+  await open('/manifests/tempietto-aim3d-variants.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.variantsState, null, { timeout: 60_000 });
+
+  const visible = () => page.evaluate(() => {
+    const root = window.Viewer.variantsRoots[0];
+    const shown = (name) => root.getObjectByName(name)?.visible;
+    return { roof: shown('Roof_Hypothesis'), column: shown('Column_4_Reconstructed'), stump: shown('Column_4_Stump'), cella: shown('Cella') };
+  });
+
+  // The manifest's active variant: its nodes shown, the other's hidden, the rest as it is.
+  expect(await page.evaluate(() => window.Viewer.variantsState.items.map((item) => [item.id, item.objects.length]))).toEqual([['roofed', 3], ['open', 2]]);
+  expect(await visible()).toEqual({ roof: true, column: true, stump: false, cella: true });
+  // The panel: one radio per variant, its Level of Certainty as a badge.
+  await expect(page.locator('#viewerVariants .viewer-variants_item')).toHaveCount(2);
+  await expect(page.locator('#viewerVariants .viewer-variants_item.is-active')).toHaveAttribute('data-variant', 'roofed');
+  await expect(page.locator('#viewerVariants .viewer-variants_badge').first()).toHaveText(/^D/);
+  await page.locator('#viewerVariants [data-variant="open"]').click();
+  expect(await visible()).toEqual({ roof: false, column: false, stump: true, cella: true });
+
+  // The manifest opens the comparison: both sides drawn every frame, the
+  // scene left as the panel shows it in between.
+  expect(await page.evaluate(() => window.Viewer.getCompareForExport())).toEqual({
+    mode: 'swipe', left: { variant: 'roofed' }, right: { variant: 'open' }, position: 0.5,
+  });
+  await expect(page.locator('#viewerCompare')).toBeVisible();
+  const drawn = await page.evaluate(() => new Promise((resolve) => {
+    const viewer = window.Viewer;
+    const original = viewer.applyCompareSide;
+    const sides = [];
+    viewer.applyCompareSide = (side) => {
+      sides.push(JSON.stringify(side));
+      return original(side);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      viewer.applyCompareSide = original;
+      resolve(sides.slice(-2));
+    }));
+  }));
+  expect(drawn).toEqual(['{"variant":"roofed"}', '{"variant":"open"}']);
+  expect(await visible()).toEqual({ roof: false, column: false, stump: true, cella: true });
+
+  // The divider follows the keyboard; the mode switches to side by side.
+  await page.locator('.viewer-compare_handle').focus();
+  await page.keyboard.press('ArrowLeft');
+  expect(await page.evaluate(() => window.Viewer.compareState.position)).toBeCloseTo(0.48, 5);
+  await page.locator('.viewer-compare_mode').click();
+  expect(await page.evaluate(() => window.Viewer.compareState.mode)).toBe('split');
+  expect((await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.compare)).position).toBeUndefined();
+
+  // Round-trip: the variants and the comparison come back from an export.
+  await page.evaluate(() => window.Viewer.setCompareMode('swipe'));
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+  expect(manifest.AIM3DViewer.variants.active).toBe('open');
+  expect(manifest.AIM3DViewer.variants.items.map((item) => item.nodes)).toEqual([
+    ['Roof_Hypothesis', 'Column_4_Reconstructed', 'Glazing'],
+    ['Column_4_Stump', 'Fallen_Drum'],
+  ]);
+  await page.locator('.viewer-compare_close').click();
+  await expect(page.locator('#viewerCompare')).toHaveCount(0);
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.compare)).toBeUndefined();
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  expect(await page.evaluate(() => [window.Viewer.variantsState.active, window.Viewer.isComparing()])).toEqual(['open', true]);
+
+  // Invalid manifests are reported.
+  const broken = structuredClone(manifest);
+  broken.AIM3DViewer.variants.active = 'missing';
+  broken.AIM3DViewer.compare = { mode: 'overlay', left: {} };
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual([
+    '$.AIM3DViewer.variants.active',
+    '$.AIM3DViewer.compare.mode',
+    '$.AIM3DViewer.compare.left',
+  ]);
+
+  // Two years of the timeline: the stage of each year drawn on its side,
+  // the year shown left as it is.
+  await page.evaluate(() => window.Viewer.disposeVariants());
+  await open('/manifests/tempietto-aim3d-4d.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.timelineState, null, { timeout: 60_000 });
+  await page.evaluate(() => {
+    window.Viewer.pauseTimeline();
+    window.Viewer.setTimelineYear(1520, { immediate: true });
+  });
+  expect(await page.evaluate(() => window.Viewer.hasVariants())).toBe(false);
+  await page.locator('.viewer-timeline_compare').click();
+  expect(await page.evaluate(() => window.Viewer.getCompareForExport())).toMatchObject({ left: { year: 1520 }, right: { year: 2024 } });
+  await expect(page.locator('.viewer-timeline_compare')).toHaveAttribute('aria-pressed', 'true');
+  // A year between stages shows the last stage reached.
+  expect(await page.evaluate(() => window.Viewer.resolveCompareSide('1900').side)).toEqual({ year: 1783 });
+  const stageNodes = await page.evaluate(() => new Promise((resolve) => {
+    const viewer = window.Viewer;
+    const original = viewer.renderCompareFrame;
+    const seen = [];
+    viewer.renderCompareFrame = (renderFrame) => original((...args) => {
+      seen.push(viewer.timelineState.visualStages.map((stage) => stage.objects.some((object) => object.visible)));
+      return renderFrame(...args);
+    });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      viewer.renderCompareFrame = original;
+      resolve(seen.slice(-2));
+    }));
+  }));
+  const stages = await page.evaluate(() => window.Viewer.timelineState.visualStages.map((stage) => stage.year));
+  expect(stageNodes[0][stages.indexOf(1520)]).toBe(true);
+  expect(stageNodes[1][stages.indexOf(2024)]).toBe(true);
+  expect(await page.evaluate(() => window.Viewer.getTimelineYear())).toBe(1520);
+  await page.locator('.viewer-timeline_compare').click();
+  expect(await page.evaluate(() => window.Viewer.isComparing())).toBe(false);
+});
+
+test('historical photos: opened from their camera over the model, faded or swiped, aligned, added and round-trip', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await page.evaluate(async () => {
+    const manifest = await (await fetch('/manifests/tempietto-aim3d-photos.json')).json();
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.timelineState && window.Viewer.getPhotos().length, null, { timeout: 60_000 });
+
+  // The manifest's photos are listed; opening one flies to its camera and
+  // sets the timeline to its year.
+  await expect(page.locator('#viewerPhotos .viewer-photos_item')).toHaveCount(1);
+  await page.locator('#viewerPhotos [data-photo="veduta-1783"]').click();
+  await page.waitForFunction(() => document.querySelector('.viewer-photo-overlay_image')?.naturalWidth > 0);
+  const opened = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const frame = document.querySelector('.viewer-photo-overlay_frame').getBoundingClientRect();
+    const canvas = document.querySelector('#MainCanvas').getBoundingClientRect();
+    return {
+      position: viewer.camera.position.toArray().map((v) => Math.round(v * 100) / 100),
+      fov: viewer.camera.fov,
+      year: viewer.timelineState.targetYear,
+      away: document.querySelector('#viewerPhotoOverlay').classList.contains('is-away'),
+      opacity: document.querySelector('.viewer-photo-overlay_image').style.opacity,
+      heightMatches: Math.abs(frame.height - canvas.height) < 1.5,
+      aspect: Math.round((frame.width / frame.height) * 100) / 100,
+      centered: Math.abs((frame.left + frame.width / 2) - (canvas.left + canvas.width / 2)) < 1.5,
+    };
+  });
+  expect(opened).toEqual({ position: [7.5, 2.2, 9.5], fov: 38, year: 1783, away: false, opacity: '0.6', heightMatches: true, aspect: 1.33, centered: true });
+
+  // Moving the camera hides the photo until its view is restored.
+  await page.evaluate(() => {
+    window.Viewer.camera.position.x += 3;
+    window.Viewer.controls.update();
+  });
+  await expect(page.locator('#viewerPhotoOverlay')).toHaveClass(/is-away/);
+  await page.locator('#viewerPhotos .viewer-photos_button', { hasText: /photo's view/ }).click();
+  await expect(page.locator('#viewerPhotoOverlay')).not.toHaveClass(/is-away/);
+
+  // The divider cuts the photo instead of fading it.
+  await page.evaluate(() => window.Viewer.setPhotoSwipe(true, 0.5));
+  expect(await page.evaluate(() => document.querySelector('.viewer-photo-overlay_frame').style.clipPath)).toMatch(/^inset\(0px [\d.]+px 0px 0px\)$/);
+  await page.evaluate(() => window.Viewer.setPhotoSwipe(false));
+
+  // Aligning: the photo stays while the camera moves; lens and tilt saved with the view.
+  await page.locator('#viewerPhotos .viewer-photos_button', { hasText: 'Align' }).click();
+  await page.evaluate(() => {
+    window.Viewer.camera.position.y += 0.5;
+    window.Viewer.controls.update();
+    window.Viewer.setPhotoFov(36);
+    window.Viewer.setPhotoRoll(1.5);
+  });
+  await expect(page.locator('#viewerPhotoOverlay')).not.toHaveClass(/is-away/);
+  await expect(page.locator('.viewer-photo-overlay_frame')).toHaveAttribute('style', /rotate\(1\.5deg\)/);
+  await page.locator('#viewerPhotos .viewer-photos_button', { hasText: 'Save view' }).click();
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(validateAIM3DManifest(exported).errors).toEqual([]);
+  expect(exported.AIM3DViewer.photos).toEqual([expect.objectContaining({
+    id: 'veduta-1783',
+    src: './examples/tempietto/photos/Tempietto_1783.webp',
+    year: 1783,
+    view: { position: [7.5, 2.7, 9.5], target: [0, 2.3, 0], fov: 36, roll: 1.5 },
+  })]);
+
+  // A photo added by URL is taken from the current view and aligned next; a
+  // IIIF Image API info.json asks the service for the image.
+  await page.locator('#viewerPhotos .viewer-photos_add-title').click();
+  await page.locator('#viewerPhotos input[name="url"]').fill('/examples/tempietto/photos/Tempietto_1783.webp');
+  await page.locator('#viewerPhotos input[type="number"]').fill('1520');
+  await page.locator('#viewerPhotos .viewer-photos_add button[type="submit"]').click();
+  expect(await page.evaluate(() => [window.Viewer.getPhotos().length, window.Viewer.photosState.aligning, window.Viewer.getOpenPhoto().year])).toEqual([2, true, 1520]);
+  const iiif = await page.evaluate(() => window.Viewer.addPhoto({ src: 'https://iiif.example.org/iiif/3/photo-17/info.json', open: false }).src);
+  expect(iiif).toBe('https://iiif.example.org/iiif/3/photo-17/full/!2000,2000/0/default.jpg');
+
+  // Round-trip: the photos come back from the export; a file has no URL to export.
+  await page.evaluate(() => window.Viewer.addPhoto({ file: new File(['x'], 'local.jpg', { type: 'image/jpeg' }), open: false }));
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.photos.map((photo) => photo.id)).toEqual(['veduta-1783', 'photo-2', 'photo-3']);
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  expect(await page.evaluate(() => window.Viewer.getPhotos().map((photo) => [photo.id, photo.view?.fov ?? null]))).toEqual([
+    ['veduta-1783', 36], ['photo-2', 36], ['photo-3', 36],
+  ]);
+  expect(await page.evaluate(() => document.querySelector('#viewerPhotoOverlay'))).toBeNull();
+
+  const broken = structuredClone(manifest);
+  broken.AIM3DViewer.photos = [{ label: 'no image' }, { src: 'a.jpg', view: { position: [0, 0], target: [0, 0, 0], fov: 200 } }];
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual([
+    '$.AIM3DViewer.photos[0]',
+    '$.AIM3DViewer.photos[1].view.position',
+    '$.AIM3DViewer.photos[1].view.fov',
+  ]);
+
+  // The toolbar opens and closes the panel; a new model takes its photos away.
+  await page.evaluate(() => window.Viewer.togglePhotosPanel(false));
+  await expect(page.locator('#viewerPhotos')).toHaveCount(0);
+  await page.evaluate(() => document.querySelector('[data-tool="annotatePhotos"]').click());
+  await expect(page.locator('#viewerPhotos')).toBeVisible();
+  await page.evaluate(() => window.Viewer.resetLoadedModelState());
+  expect(await page.evaluate(() => window.Viewer.getPhotos().length)).toBe(0);
+});
+
+test('sun and shadows: the sun of a place, day and hour, the year of the timeline, the other lights dimmed, and round-trip', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await page.evaluate(async () => {
+    const manifest = await (await fetch('/manifests/tempietto-aim3d-sun.json')).json();
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.timelineState && window.Viewer.sunStudy.enabled, null, { timeout: 60_000 });
+
+  const sun = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    const light = window.viewer.scene.getObjectByName('sun-light');
+    const direction = light ? light.position.clone().sub(light.target.position).normalize() : null;
+    const position = viewer.getSunPosition();
+    return {
+      year: viewer.getSunYear(),
+      elevation: Math.round(position.elevation),
+      azimuth: Math.round(position.azimuth),
+      visible: light?.visible ?? null,
+      up: direction ? Math.round(direction.y * 100) / 100 : null,
+      shadows: window.viewer.renderer?.shadowMap?.enabled ?? null,
+      castShadow: light?.castShadow ?? null,
+      readout: document.querySelector('#viewerSun .viewer-sun_readout')?.textContent || '',
+    };
+  });
+
+  // Rome, a summer evening in the timeline's first year: low in the west-northwest.
+  const evening = await sun();
+  expect(evening).toMatchObject({ year: 1520, visible: true, castShadow: true, shadows: true });
+  expect(evening.azimuth).toBeGreaterThan(280);
+  expect(evening.azimuth).toBeLessThan(300);
+  expect(evening.elevation).toBeGreaterThan(8);
+  expect(evening.elevation).toBeLessThan(20);
+  expect(evening.readout).toMatch(/sunrise 04:\d\d, sunset 19:\d\d/);
+  await expect(page.locator('#viewerSun')).toBeVisible();
+
+  // Noon: high in the south; the light comes from above.
+  await page.evaluate(() => window.Viewer.setSunOptions({ time: '12:15' }));
+  const noon = await sun();
+  expect(noon.elevation).toBeGreaterThan(68);
+  expect(noon.elevation).toBeLessThan(74);
+  expect(Math.abs(noon.azimuth - 180)).toBeLessThan(15);
+  expect(noon.up).toBeGreaterThan(0.9);
+  // Night: no sun.
+  await page.evaluate(() => window.Viewer.setSunOptions({ time: '23:30' }));
+  expect(await sun()).toMatchObject({ visible: false, readout: expect.stringMatching(/below the horizon/) });
+
+  // The year follows the timeline, unless told not to.
+  await page.evaluate(() => {
+    window.Viewer.pauseTimeline();
+    window.Viewer.setTimelineYear(2024, { immediate: true });
+  });
+  expect((await sun()).year).toBe(2024);
+  await page.evaluate(() => window.Viewer.setSunOptions({ followTimeline: false, date: '1900-12-21', time: '12:00' }));
+  const winter = await sun();
+  expect(winter.year).toBe(1900);
+  expect(winter.elevation).toBeGreaterThan(20);
+  expect(winter.elevation).toBeLessThan(28);
+
+  // Round-trip: the place and the sun come back from an export.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+  expect(manifest.AIM3DViewer.location).toEqual({ latitude: 41.8894, longitude: 12.4702, north: 30, utcOffset: 1 });
+  expect(manifest.AIM3DViewer.sun).toEqual({ enabled: true, date: '1900-12-21', time: '12:00', followTimeline: false });
+  await page.evaluate(() => window.Viewer.setSunStudy(false));
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.sun)).toBeUndefined();
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  expect(await sun()).toMatchObject({ year: 1900, elevation: winter.elevation, visible: true });
+
+  // The other lights are dimmed while it is on and come back after; the
+  // raking light takes over from it.
+  const intensities = () => page.evaluate(() => {
+    const values = [];
+    window.viewer.scene.traverse((object) => {
+      if (object.isLight && !object.userData?.isSunLight && !object.userData?.isRakingLight) values.push(Math.round(object.intensity * 1000) / 1000);
+    });
+    return values;
+  });
+  const dimmed = await intensities();
+  await page.evaluate(() => window.Viewer.setRakingLight(true));
+  expect(await page.evaluate(() => [window.Viewer.sunStudy.enabled, window.Viewer.rakingLight.enabled])).toEqual([false, true]);
+  await page.evaluate(() => window.Viewer.setRakingLight(false));
+  const restored = await intensities();
+  expect(restored.length).toBe(dimmed.length);
+  expect(restored.some((value, index) => value > dimmed[index])).toBe(true);
+  expect(await page.evaluate(() => window.viewer.renderer.shadowMap.enabled)).toBe(false);
+  await expect(page.locator('#viewerSun')).toHaveCount(0);
+
+  const broken = structuredClone(manifest);
+  broken.AIM3DViewer.location = { latitude: 95, longitude: 12 };
+  broken.AIM3DViewer.sun = { date: '13-40', time: '25:00' };
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual([
+    '$.AIM3DViewer.location.latitude',
+    '$.AIM3DViewer.sun.date',
+    '$.AIM3DViewer.sun.time',
+  ]);
+});
+
+test('VR and AR: offered when the browser has them, the viewer placed at real size or on a table, and the view restored when a session fails', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    const calls = [];
+    (window as any).__xrCalls = calls;
+    (window as any).__xrMode = 'reject';
+    class FakeSession extends EventTarget {
+      enabledFeatures = ['local-floor'];
+      renderState = {};
+      ended = false;
+      async end() {
+        if (this.ended) return;
+        this.ended = true;
+        this.dispatchEvent(new Event('end'));
+      }
+      async updateRenderState() {}
+      async requestReferenceSpace() { throw new Error('no space'); }
+      requestAnimationFrame() { return 0; }
+      cancelAnimationFrame() {}
+    }
+    Object.defineProperty(navigator, 'xr', {
+      configurable: true,
+      value: {
+        isSessionSupported: async (mode) => mode === 'immersive-vr' || mode === 'immersive-ar',
+        requestSession: async (mode, options) => {
+          calls.push({ mode, features: options?.optionalFeatures || [], overlay: !!options?.domOverlay?.root });
+          if ((window as any).__xrMode === 'reject') throw new DOMException('Not now', 'NotAllowedError');
+          return new FakeSession();
+        },
+        addEventListener() {},
+        removeEventListener() {},
+      },
+    });
+    const supports = DOMTokenList.prototype.supports;
+    DOMTokenList.prototype.supports = function (token) {
+      return token === 'ar' ? true : supports.call(this, token);
+    };
+    const click = HTMLAnchorElement.prototype.click;
+    (window as any).__quickLook = [];
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.rel === 'ar') {
+        (window as any).__quickLook.push({ href: this.href, image: !!this.querySelector('img'), download: this.download });
+        return;
+      }
+      return click.call(this);
+    };
+  });
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+
+  await waitForCameraIdle(page);
+  const toggle = page.locator('button[data-tool="immersive"]');
+  await page.waitForFunction(() => window.Viewer.xr.checked === true);
+  expect(await page.evaluate(() => window.Viewer.xr.support)).toEqual({ vr: true, ar: true, quickLook: true });
+  await expect(toggle).not.toBeHidden();
+  await page.evaluate(() => window.Viewer.toggleXRPanel(true));
+  const panel = page.locator('#viewerXR');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('[data-xr="vr"]')).toHaveText('View in VR');
+  await expect(panel.locator('[data-xr="ar"]')).toHaveText('View in AR');
+  await expect(panel.locator('[data-xr="quickLook"]')).toHaveText('Open in AR Quick Look');
+
+  // Placement: real size in VR (scene units per metre), the model fitted
+  // to a table in AR, facing the model from the camera's side.
+  const placement = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const mpu = viewer.getDistanceMeasurementScaleMeters();
+    const vr = viewer.getXRPlacement('vr');
+    viewer.setXRArScale('table');
+    const table = viewer.getXRPlacement('ar');
+    viewer.setXRArScale('real');
+    const real = viewer.getXRPlacement('ar');
+    viewer.setXRArScale('table');
+    const camera = window.Viewer.camera.position;
+    const toCamera = Math.atan2(camera.x, camera.z);
+    return { mpu, vrScale: vr.scale, tableScale: table.scale, realScale: real.scale, vrTurn: vr.rotationY, toCamera };
+  });
+  expect(placement.vrScale).toBeCloseTo(1 / placement.mpu, 6);
+  expect(placement.realScale).toBeCloseTo(1 / placement.mpu, 6);
+  expect(placement.tableScale).not.toBeCloseTo(placement.realScale, 3);
+  expect(Math.abs(Math.sin(placement.vrTurn - placement.toCamera))).toBeLessThan(0.2);
+
+  // A refused session leaves everything as it was.
+  const before = await page.evaluate(() => window.Viewer.camera.position.toArray());
+  await panel.locator('[data-xr="vr"]').click();
+  await page.waitForFunction(() => (window as any).__xrCalls.length === 1);
+  expect(await page.evaluate(() => (window as any).__xrCalls[0])).toMatchObject({ mode: 'immersive-vr', features: expect.arrayContaining(['local-floor']) });
+  await page.waitForFunction(() => window.viewer?.toasts?.some((text) => text.includes('VR or AR could not be started.')));
+
+  // A session that fails to start (no real headset here) hands the camera
+  // back, with the window's render loop running again.
+  await page.evaluate(() => { (window as any).__xrMode = 'fake'; });
+  await panel.locator('[data-xr="ar"]').click();
+  await page.waitForFunction(() => (window as any).__xrCalls.length === 2 && !window.Viewer.xr.starting);
+  const after = await page.evaluate(async () => {
+    const frames = window.viewer.renderer.info.render.frame;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return {
+      call: (window as any).__xrCalls[1],
+      presenting: window.Viewer.isXRPresenting(),
+      parent: window.Viewer.camera.parent === null || window.Viewer.camera.parent?.isScene === true,
+      rig: !!window.viewer.scene.getObjectByName('xr-rig'),
+      position: window.Viewer.camera.position.toArray(),
+      background: window.viewer.scene.background !== null,
+      grid: window.Viewer.xr.saved === null,
+      controls: window.Viewer.controls.enabled,
+      xrEnabled: window.viewer.renderer.xr.enabled,
+      framesRunning: window.viewer.renderer.info.render.frame > frames,
+    };
+  });
+  expect(after.call).toMatchObject({ mode: 'immersive-ar', overlay: true, features: expect.arrayContaining(['dom-overlay']) });
+  expect(after).toMatchObject({ presenting: false, parent: true, rig: false, grid: true, controls: true, xrEnabled: false, framesRunning: true });
+  after.position.forEach((value, index) => expect(value).toBeCloseTo(before[index], 4));
+
+  // AR Quick Look: the model as USDZ, handed over by a link holding an image.
+  const usdz = await page.evaluate(async () => {
+    const blob = await window.Viewer.exportUSDZ();
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    return { size: blob.size, type: blob.type, zip: String.fromCharCode(bytes[0], bytes[1]) };
+  });
+  expect(usdz).toMatchObject({ type: 'model/vnd.usdz+zip', zip: 'PK' });
+  expect(usdz.size).toBeGreaterThan(200);
+  await panel.locator('[data-xr="quickLook"]').click();
+  await page.waitForFunction(() => (window as any).__quickLook.length === 1);
+  expect(await page.evaluate(() => (window as any).__quickLook[0])).toMatchObject({ image: true, href: expect.stringMatching(/^blob:/), download: expect.stringMatching(/\.usdz$/) });
+
+  // Polish labels.
+  await page.evaluate(() => {
+    document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
+    document.querySelector<HTMLElement>('.language-dropdown-item-polish')?.click();
+  });
+  await expect(panel.locator('[data-xr="vr"]')).toHaveText('Zobacz w VR');
+});
+
+// Share of the canvas the splats cover: the pixels that change when Spark's
+// renderer is hidden, drawn and read back in one go (the drawing buffer is
+// not kept between frames).
+async function splatPixelShare(page) {
+  return page.evaluate(() => {
+    const renderer = window.viewer.renderer;
+    const scene = window.viewer.scene;
+    const camera = window.Viewer.camera;
+    const gl = renderer.getContext();
+    const { drawingBufferWidth: width, drawingBufferHeight: height } = gl;
+    const read = () => {
+      renderer.render(scene, camera);
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      return pixels;
+    };
+    // Spark draws every splat of the scene in one mesh, its renderer.
+    const spark = scene.getObjectByName('spark-renderer');
+    const shown = read();
+    spark.visible = false;
+    const hidden = read();
+    spark.visible = true;
+    let changed = 0;
+    for (let i = 0; i < shown.length; i += 4) {
+      if (Math.abs(shown[i] - hidden[i]) + Math.abs(shown[i + 1] - hidden[i + 1]) + Math.abs(shown[i + 2] - hidden[i + 2]) > 30) changed += 1;
+    }
+    return changed / (width * height);
+  });
+}
+
+test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, upright and framed like any model', async ({ page }) => {
+  test.setTimeout(90_000);
+  await openViewer(page, '/examples/tempietto/Tempietto.splat');
+  await waitForCameraIdle(page);
+
+  const info = await page.evaluate(() => {
+    const root = window.Viewer.mainObject[0];
+    const mesh = root.children.find((child) => child.userData.isGaussianSplats);
+    root.updateMatrixWorld(true);
+    // Stored Y down, turned upright (half a turn about X), standing on the grid.
+    const world = mesh.matrixWorld;
+    const ys = [];
+    mesh.forEachSplat((index, center) => { ys.push(center.clone().applyMatrix4(world).y); });
+    const min = Math.min(...ys);
+    const max = Math.max(...ys);
+    const spark = window.viewer.scene.getObjectByName('spark-renderer');
+    return {
+      group: root.userData.isGaussianSplats === true,
+      count: mesh.userData.gaussianSplats.count,
+      format: mesh.userData.gaussianSplats.format,
+      spark: !!spark,
+      upright: mesh.quaternion.toArray().map((v) => Math.round(v * 1000) / 1000),
+      height: max - min,
+      ground: min,
+    };
+  });
+  expect(info).toMatchObject({ group: true, count: 30000, format: 'splat', spark: true });
+  expect(info.upright).toEqual([1, 0, 0, 0]);
+  expect(info.height).toBeGreaterThan(3);
+  expect(Math.abs(info.ground)).toBeLessThan(info.height * 0.05);
+  // Framed and measured like any model: the bounds hold the splats.
+  const bounds = await page.evaluate(() => {
+    const root = window.Viewer.mainObject[0];
+    const geometry = root.children[0].geometry;
+    return geometry ? { hasBox: !!geometry.boundingBox, vertices: geometry.getAttribute('position').count } : null;
+  });
+  expect(bounds).toEqual({ hasBox: true, vertices: 8 });
+  expect(await splatPixelShare(page)).toBeGreaterThan(0.02);
+
+  // A PLY of Gaussians (here 600 in a ring) is told apart from a mesh PLY.
+  const count = 600;
+  const properties = ['x', 'y', 'z', 'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity', 'scale_0', 'scale_1', 'scale_2', 'rot_0', 'rot_1', 'rot_2', 'rot_3'];
+  const header = `ply\nformat binary_little_endian 1.0\nelement vertex ${count}\n${properties.map((name) => `property float ${name}`).join('\n')}\nend_header\n`;
+  const body = Buffer.alloc(count * properties.length * 4);
+  for (let i = 0; i < count; i += 1) {
+    const angle = (i / count) * Math.PI * 2;
+    const values = [Math.cos(angle), -0.5 * (i % 3), Math.sin(angle), 1.2, -0.4, -0.4, 4, -3.5, -3.5, -3.5, 1, 0, 0, 0];
+    values.forEach((value, k) => body.writeFloatLE(value, (i * properties.length + k) * 4));
+  }
+  const ply = Buffer.concat([Buffer.from(header, 'latin1'), body]);
+  await page.route('**/examples/virtual/ring.ply', (route) => route.fulfill({ contentType: 'application/octet-stream', body: ply }));
+  await openViewer(page, '/examples/virtual/ring.ply');
+  await waitForCameraIdle(page);
+  const ring = await page.evaluate(() => {
+    const root = window.Viewer.mainObject[0];
+    const mesh = root.children.find((child) => child.userData.isGaussianSplats);
+    return { count: mesh?.userData.gaussianSplats.count ?? null, format: mesh?.userData.gaussianSplats.format ?? null };
+  });
+  expect(ring).toEqual({ count, format: 'ply' });
+  expect(await splatPixelShare(page)).toBeGreaterThan(0.005);
 });
 
 test('a manifest\'s settings for another model: the look stays, what belongs to the model goes', () => {

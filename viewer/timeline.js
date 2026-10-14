@@ -46,6 +46,7 @@ const ICONS = {
   next: svgIcon('<rect x="16.5" y="5" width="2.5" height="14" rx="1"/><path d="M5 5.8v12.4a.8.8 0 0 0 1.24.67l8.56-6.2a.8.8 0 0 0 0-1.34L6.24 5.13A.8.8 0 0 0 5 5.8Z"/>'),
   play: svgIcon('<path d="M7 4.9v14.2a.9.9 0 0 0 1.37.77l11.2-7.1a.9.9 0 0 0 0-1.54L8.37 4.13A.9.9 0 0 0 7 4.9Z"/>'),
   pause: svgIcon('<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'),
+  compare: svgIcon('<path d="M11 3h2v18h-2z"/><path d="M4 6h5v2H6v8h3v2H4zM15 6h5v12h-5v-2h3V8h-3z"/>'),
 };
 
 // Original material state while a material is drawn as the fading stage.
@@ -226,6 +227,30 @@ function buildTimeline(roots, manifestConfig) {
     initialYear: Number.isFinite(config.year) ? config.year : null,
     fromManifest: Boolean(manifestConfig && Array.isArray(config.stages) && config.stages.length),
   };
+}
+
+// Shows the `base` stage, `overlay` faded in over it by `alpha`, hides the
+// rest. A node in several stages takes the strongest role: base, overlay,
+// hidden.
+function applyStageRoles(state, base, overlay, alpha) {
+  const objectRoles = new Map();
+  const meshRoles = new Map();
+  const rank = { hidden: 0, overlay: 1, base: 2 };
+  const assign = (map, item, role) => {
+    if (!map.has(item) || rank[role] > rank[map.get(item)]) map.set(item, role);
+  };
+  state.visualStages.forEach((stage, index) => {
+    const role = index === base ? "base" : index === overlay ? "overlay" : "hidden";
+    stage.objects.forEach((object) => assign(objectRoles, object, role));
+    stage.meshes.forEach((mesh) => assign(meshRoles, mesh, role));
+  });
+  objectRoles.forEach((role, object) => {
+    object.visible = role !== "hidden";
+  });
+  meshRoles.forEach((role, mesh) => {
+    if (role === "overlay") setFading(mesh, alpha);
+    else restoreMaterials(mesh);
+  });
 }
 
 function clampYear(state, year) {
@@ -462,26 +487,23 @@ export function attachTimeline(Viewer) {
       // have swapped them meanwhile.
       if (!force && key === state.shownKey && overlay < 0) return;
       state.shownKey = key;
+      applyStageRoles(state, base, overlay, alpha);
+    },
 
-      // A node in several stages takes the strongest role: base, overlay, hidden.
-      const objectRoles = new Map();
-      const meshRoles = new Map();
-      const rank = { hidden: 0, overlay: 1, base: 2 };
-      const assign = (map, item, role) => {
-        if (!map.has(item) || rank[role] > rank[map.get(item)]) map.set(item, role);
-      };
-      state.visualStages.forEach((stage, index) => {
-        const role = index === base ? "base" : index === overlay ? "overlay" : "hidden";
-        stage.objects.forEach((object) => assign(objectRoles, object, role));
-        stage.meshes.forEach((mesh) => assign(meshRoles, mesh, role));
+    // The model as it was in `year`, the last stage reached, without fading
+    // and without touching the year shown: one side of the comparison view
+    // (editor/compare.js) is drawn so, then renderTimelineStages(0, { force:
+    // true }) puts the shown year back.
+    showTimelineStagesAt(year) {
+      const state = Viewer.timelineState;
+      if (!state || !state.visualStages.length || !Number.isFinite(Number(year))) return false;
+      let index = 0;
+      state.visualStages.forEach((stage, i) => {
+        if (stage.year <= Number(year) + EPSILON) index = i;
       });
-      objectRoles.forEach((role, object) => {
-        object.visible = role !== "hidden";
-      });
-      meshRoles.forEach((role, mesh) => {
-        if (role === "overlay") setFading(mesh, alpha);
-        else restoreMaterials(mesh);
-      });
+      state.shownKey = "";
+      applyStageRoles(state, index, -1, 0);
+      return true;
     },
 
     // The point shown in the card: the last one reached.
@@ -517,9 +539,14 @@ export function attachTimeline(Viewer) {
       const infoButton = el("button", "viewer-timeline_icon-button viewer-timeline_info-toggle", "i");
       infoButton.type = "button";
       infoButton.hidden = !readText(state.description);
+      // Two years side by side (editor/compare.js).
+      const compareButton = el("button", "viewer-timeline_icon-button viewer-timeline_compare");
+      compareButton.type = "button";
+      compareButton.innerHTML = ICONS.compare;
+      compareButton.hidden = state.visualStages.length < 2 || typeof Viewer.toggleCompare !== "function";
       const collapseButton = el("button", "viewer-timeline_icon-button viewer-timeline_collapse");
       collapseButton.type = "button";
-      header.append(title, year, infoButton, collapseButton);
+      header.append(title, year, infoButton, compareButton, collapseButton);
 
       const body = el("div", "viewer-timeline_body");
       const info = el("p", "viewer-timeline_info");
@@ -644,10 +671,19 @@ export function attachTimeline(Viewer) {
         panel.classList.toggle("is-collapsed");
         Viewer.updateTimelineLabels();
       });
+      // The first and the last stage, or the variants when the model has them.
+      compareButton.addEventListener("click", () => {
+        if (Viewer.isComparing?.()) Viewer.closeCompare();
+        else {
+          const stages = state.visualStages;
+          Viewer.openCompare({ left: { year: stages[0].year }, right: { year: stages[stages.length - 1].year } });
+        }
+        Viewer.syncTimelinePanel(true);
+      });
 
       getViewerSideStack()?.append(panel);
       state.ui = {
-        panel, title, year, info, infoButton, collapseButton, range, progress, markerNodes,
+        panel, title, year, info, infoButton, compareButton, collapseButton, range, progress, markerNodes,
         prevButton, playButton, nextButton, speedSelect, legend, badge, stageYear, stageLabel, stageDescription, stageSource,
         shownYear: null, shownStage: null, shownPlaying: null,
       };
@@ -665,6 +701,8 @@ export function attachTimeline(Viewer) {
       ui.info.textContent = readText(state.description);
       ui.infoButton.title = t("timeline.about", "About this timeline");
       ui.infoButton.setAttribute("aria-label", ui.infoButton.title);
+      ui.compareButton.title = t("compare.years", "Compare two years");
+      ui.compareButton.setAttribute("aria-label", ui.compareButton.title);
       const collapsed = ui.panel.classList.contains("is-collapsed");
       ui.collapseButton.textContent = collapsed ? "▾" : "▴";
       ui.collapseButton.title = collapsed ? t("timeline.expand", "Show timeline") : t("timeline.collapse", "Hide timeline");
@@ -697,6 +735,13 @@ export function attachTimeline(Viewer) {
       const state = Viewer.timelineState;
       const ui = state?.ui;
       if (!ui) return;
+
+      const comparing = Viewer.isComparing?.() === true;
+      if (force || ui.shownComparing !== comparing) {
+        ui.shownComparing = comparing;
+        ui.compareButton.classList.toggle("is-active", comparing);
+        ui.compareButton.setAttribute("aria-pressed", comparing ? "true" : "false");
+      }
 
       if (force || ui.shownPlaying !== state.playing) {
         ui.shownPlaying = state.playing;

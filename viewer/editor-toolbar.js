@@ -33,6 +33,7 @@ export function getEditorToolbarIcon(icon) {
     shadingClay: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18c0-4 2.5-6 4-9 1-2 2-4 3-4s2 2 3 4c1.5 3 4 5 4 9z" fill="currentColor" opacity="0.25"/><path d="M5 18c0-4 2.5-6 4-9 1-2 2-4 3-4s2 2 3 4c1.5 3 4 5 4 9zM4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>',
     shadingMatcap: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" opacity="0.2"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 10a5.5 5.5 0 0 1 5-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M15 18.5a7 7 0 0 0 3.5-4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/></svg>',
     shadingNormals: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17c4-4 12-4 16 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7.5 14.5 6 9m6 4V6.5m4.5 8L18 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="m4.6 10.6 1.3-1.8 1.9 1.1M10.3 8.2 12 6.3l1.7 1.9M16.2 9.9l1.9-1.1 1.3 1.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    sunStudy: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="currentColor"/><path d="M9 1.5v2M9 12.5v2M2.5 8h2M13.5 8h2M4.4 3.4l1.4 1.4M12.2 11.2l1.4 1.4M4.4 12.6l1.4-1.4M12.2 4.8l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 20h13l-4-6-3 3-2-2z" fill="currentColor" opacity="0.55"/></svg>',
     rakingLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 19c1-2 2-2 3 0s2 2 3 0 2-2 3 0 2 2 3 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="7" r="2.2" fill="currentColor"/><path d="M8 8.5 19 13M8 10.5 15 15.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.7"/></svg>',
     rakingDirection: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.5 2.5"/><circle cx="17.7" cy="6.3" r="2.3" fill="currentColor"/><path d="M12 12l4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     rakingHeight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6 19a10 10 0 0 1 3-7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M6 19 17 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="18.5" cy="7.5" r="2" fill="currentColor"/></svg>',
@@ -55,6 +56,7 @@ export function getEditorToolbarIcon(icon) {
     save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v5h8M9 18h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     mainMenu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     advancedEditor: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 17h16M14 7h6M4 12h6M12 12h8M8 5v4M16 10v4M10 15v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    immersive: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h13A2.5 2.5 0 0 1 21 8.5v6a2.5 2.5 0 0 1-2.5 2.5h-3.2l-1.8-2.6a1.8 1.8 0 0 0-3 0L8.7 17H5.5A2.5 2.5 0 0 1 3 14.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8" cy="11.5" r="1.7" fill="currentColor"/><circle cx="16" cy="11.5" r="1.7" fill="currentColor"/></svg>',
     fullScreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5M4 4v5M20 4h-5M20 4v5M4 20h5M4 20v-5M20 20h-5M20 20v-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     displayHelperX: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8 8 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     displayHelperY: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7 12 13 17 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 13v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -71,6 +73,7 @@ export function getEditorToolbarIcon(icon) {
     annotate: '<svg viewBox="0 0 24 24" aria-hidden="true"> <path d="M5 5h14v10H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/> <path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> </svg>',
     annotateAdd: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 8v5M9.5 10.5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     annotateImport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.8v7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.8 12 14l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    annotatePhotos: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m3 16 5-5 4 4 3-3 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="16" cy="9" r="1.6" fill="currentColor"/></svg>',
     annotateTour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 7.2v5.6l4.6-2.8z" fill="currentColor"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
@@ -882,7 +885,8 @@ function appendLightsSubmenuItems(viewer, items, container) {
       item.key === "lightTargetTransformTarget" ||
       item.key.startsWith("environmentMap") ||
       item.key.startsWith("rendering") ||
-      item.key.startsWith("lightRaking")
+      item.key.startsWith("lightRaking") ||
+      item.key.startsWith("lightSun")
     ) {
       viewer.lightsSubmenuButtons[item.key] = subButton;
     }
@@ -1062,6 +1066,29 @@ const LIGHTS_SUBMENU_ITEMS = {
   ],
   lights: (viewer) => [
     {
+      key: "lightSun",
+      icon: "sunStudy",
+      label: t("sun.title", "Sun and shadows"),
+      children: [
+        {
+          key: "lightSunToggle",
+          icon: "sunStudy",
+          label: t("sun.title", "Sun and shadows"),
+          type: "toggle",
+          value: () => viewer.sunStudy.enabled,
+          onChange: (enabled) => viewer.setSunStudy(enabled),
+        },
+        {
+          key: "lightSunPlay",
+          icon: "rakingSweep",
+          label: t("sun.play", "Play the day"),
+          type: "toggle",
+          value: () => viewer.sunStudy.playing,
+          onChange: (playing) => viewer.playSunDay(playing),
+        },
+      ],
+    },
+    {
       key: "lightRaking",
       icon: "rakingLight",
       label: t("gui.rakingLight", "Raking light"),
@@ -1236,6 +1263,7 @@ export function createEditorToolbar(viewer) {
     // Shown only while a point cloud is loaded (updateEditorToolbarState):
     // opens its settings window (editor/point-cloud-panel.js).
     { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
+    { key: "immersive", group: "display", icon: "immersive", onClick: () => viewer.toggleXRPanel?.(), pressed: true, primary: true },
     { key: "fullScreen", group: "display", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     // Camera and view.
     { key: "resetCamera", group: "view", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
@@ -1432,6 +1460,7 @@ export function createEditorToolbar(viewer) {
       const submenuItems = [
         { key: "annotateAdd", icon: "annotateAdd", label: t("gui.annotateAdd", "Add Annotation"), onClick: () => viewer.openAnnotationDialogWithAutoPicking() },
         { key: "annotateTour", icon: "annotateTour", label: t("tour.start", "Start guided tour"), onClick: () => viewer.toggleTour() },
+        { key: "annotatePhotos", icon: "annotatePhotos", label: t("gui.annotatePhotos", "Historical photos"), onClick: () => viewer.togglePhotosPanel() },
         { key: "annotateImport", icon: "annotateImport", label: t("gui.annotateImport", "Import Annotations"), onClick: () => viewer.triggerAnnotationsXmlImport() },
         { key: "annotateExport", icon: "annotateExport", label: t("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
         { key: "IIIFimport", icon: "IIIFimport", label: t("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
@@ -2072,6 +2101,9 @@ export function updateLightsSubmenuState(viewer) {
   };
   syncToggle(viewer.lightsSubmenuButtons.renderingAo, rendering.postprocessing.ao);
   syncToggle(viewer.lightsSubmenuButtons.lightRakingToggle, viewer.rakingLight?.enabled === true);
+  syncToggle(viewer.lightsSubmenuButtons.lightSunToggle, viewer.sunStudy?.enabled === true);
+  syncToggle(viewer.lightsSubmenuButtons.lightSunPlay, viewer.sunStudy?.playing === true);
+  viewer.lightsSubmenuButtons.lightSunPlay?.classList.toggle("is-disabled", !viewer.sunStudy?.enabled);
   syncToggle(viewer.lightsSubmenuButtons.lightRakingSweep, viewer.rakingLight?.sweep === true);
   viewer.lightsSubmenuButtons.lightRakingDirection?.classList.toggle("is-disabled", !viewer.rakingLight?.enabled);
   viewer.lightsSubmenuButtons.lightRakingHeight?.classList.toggle("is-disabled", !viewer.rakingLight?.enabled);
@@ -2207,6 +2239,7 @@ export function updateEditorToolbarLabels(viewer) {
       : t("gui.expand", "Expand toolbar"),
     download: t("gui.download", "Download model"),
     pointCloud: t("pointCloud.toggle", "Point cloud settings"),
+    immersive: t("xr.toggle", "View in VR or AR"),
     help: t("shortcuts.helpButtonAria", "Show usage hints"),
     reportBug: t("bugReport.button", "Report a bug"),
     ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.label?.()])),
@@ -2263,6 +2296,7 @@ export function updateEditorToolbarLabels(viewer) {
       annotateTour: viewer.isTourActive?.()
         ? t("tour.stop", "Stop guided tour")
         : t("tour.start", "Start guided tour"),
+      annotatePhotos: t("gui.annotatePhotos", "Historical photos"),
       annotateImport: t("gui.importAnnotationsXml", "Import Annotations"),
       annotateExport: t("gui.exportAnnotationsXml", "Export Annotations"),
       IIIFimport: t("gui.IIIFimport", "Import 3IF"),
@@ -2369,6 +2403,12 @@ function updateTourSubmenuState(viewer) {
   button.setAttribute("aria-pressed", active ? "true" : "false");
   button.setAttribute("title", label);
   button.setAttribute("aria-label", label);
+  const photos = viewer.annotateSubmenuButtons?.annotatePhotos;
+  if (photos) {
+    const open = viewer.isPhotosPanelOpen?.() === true;
+    photos.classList.toggle("is-active", open);
+    photos.setAttribute("aria-pressed", open ? "true" : "false");
+  }
 }
 
 // Groups of tools (data-group) share a faint background: every shown tool
@@ -2426,6 +2466,7 @@ export function updateEditorToolbarState(viewer) {
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
+    immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,
     help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
     ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.isActive?.() === true])),
   };
@@ -2442,6 +2483,8 @@ export function updateEditorToolbarState(viewer) {
 
   const pointCloudButton = viewer.editorToolbarButtons.pointCloud;
   if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
+  const immersiveButton = viewer.editorToolbarButtons.immersive;
+  if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
 
   updateHierarchySubmenuState(viewer);
   updateClippingPlanesSubmenuState(viewer);

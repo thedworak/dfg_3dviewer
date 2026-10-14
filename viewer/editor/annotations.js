@@ -1568,8 +1568,19 @@ export function attachAnnotations(Viewer) {
           // The raking light, while it is on.
           rakingLight: this.getRakingLightForExport?.(),
 
+          // Where the model stands, and the sun while it is on.
+          location: this.getLocationForExport?.(),
+          sun: this.getSunForExport?.(),
+
           // The 4D timeline: its stages and the year shown.
           timeline: this.getTimelineForExport?.(),
+
+          // Reconstruction variants, and the comparison view while open.
+          variants: this.getVariantsForExport?.(),
+          compare: this.getCompareForExport?.(),
+
+          // Historical photos with the views they were taken from.
+          photos: this.getPhotosForExport?.(),
 
           modelTransform: {
             position:
@@ -2151,6 +2162,7 @@ export function attachAnnotations(Viewer) {
       // The raking light dims the lights and the environment the manifest
       // is about to set: off first, on again (if the manifest has it) after.
       this.setRakingLight?.(false);
+      this.setSunStudy?.(false);
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
         const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
@@ -2159,7 +2171,10 @@ export function attachAnnotations(Viewer) {
         const appliedLights = this.apply3IFManifestLights(aim3dConfig.lights);
         const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
         const appliedRakingLight = this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
+        const appliedSun = this.apply3IFManifestSun?.(aim3dConfig.location, aim3dConfig.sun) === true;
         const appliedTimeline = this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
+        const appliedVariants = this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
+        const appliedPhotos = this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
 
         appliedAIM3DConfig = [
           appliedCamera,
@@ -2169,7 +2184,10 @@ export function attachAnnotations(Viewer) {
           appliedLights,
           appliedModelTransform,
           appliedRakingLight,
+          appliedSun,
           appliedTimeline,
+          appliedVariants,
+          appliedPhotos,
         ].some(Boolean);
       }
 

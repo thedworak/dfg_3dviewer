@@ -64,6 +64,10 @@ import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
 import { attachAnimations } from "./animations.js";
 import { attachTimeline } from "./timeline.js";
+import { attachCompare } from "./editor/compare.js";
+import { attachPhotoOverlay } from "./editor/photo-overlay.js";
+import { attachSunStudy } from "./editor/sun-study.js";
+import { attachWebXR } from "./editor/webxr.js";
 import { attachTour } from "./editor/tour.js";
 import { attachAnnotationSpread } from "./editor/annotation-spread.js";
 import { attachAnnotationStack } from "./editor/annotation-stack.js";
@@ -1309,6 +1313,8 @@ export const Viewer = {
       if (!node || typeof node !== "object") return;
       node.geometry?.dispose?.();
       Viewer.disposeMaterial(node.material);
+      // Gaussian splats (splats.js) hold their own GPU textures.
+      if (node.userData?.isGaussianSplats) node.dispose?.();
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -1350,6 +1356,8 @@ export const Viewer = {
 
   resetLoadedModelState() {
     Viewer.disposeAnimations();
+    Viewer.disposeVariants();
+    Viewer.disposePhotos();
     Viewer.disposeTimeline();
     Viewer.stopTour();
     // Rebuilt for the new model's annotations while still switched on.
@@ -1357,6 +1365,11 @@ export const Viewer = {
     Viewer.disposeAnnotationStack();
     Viewer.disposeCertaintyView();
     Viewer.disposeRakingLight();
+    Viewer.disposeSunStudy();
+    // Spark's splat renderer (splats.js) comes back with the next splat model.
+    core.sparkRenderer?.removeFromParent();
+    core.sparkRenderer?.dispose?.();
+    core.sparkRenderer = null;
     // The next model comes with its own materials: shown as they are.
     Viewer.shadingMode = "original";
     Viewer.updateShadingSubmenuState?.();
@@ -1852,6 +1865,8 @@ export const Viewer = {
       await Viewer.mainLoadModel();
     }*/
     Viewer.animate();
+    // Shows the VR / AR button once the browser says it can.
+    Viewer.checkXRSupport();
   },
 
   normalizeDrupalFilesPath(path) {
@@ -2337,7 +2352,8 @@ export const Viewer = {
   },
 
   animate: (time) => {
-    requestAnimationFrame(Viewer.animate);
+    // In VR or AR the session gives the frames (editor/webxr.js).
+    if (!core.renderer?.xr?.isPresenting && !Viewer.xr?.session) requestAnimationFrame(Viewer.animate);
     // THREE.Timer only advances on update(); without it getDelta() stays 0.
     Viewer.clock.update(time);
     const delta = Viewer.clock.getDelta();
@@ -2364,7 +2380,7 @@ export const Viewer = {
       // =========================
       Viewer.updateHandAnimation(time);
 
-      core.controls?.update();
+      if (!Viewer.xr?.session) core.controls?.update();
 
       if (Viewer.textMesh !== null) {
         Viewer.textMesh.lookAt(core.camera.position);
@@ -2382,7 +2398,8 @@ export const Viewer = {
       Viewer.updateAnnotationPOITooltipPosition();
       Viewer.updateMeasurementLabels();
     }
-    if (!core.GESTURE?.active || core.PRESENTATION_MODE) {
+    // In VR or AR the headset moves the camera, not the orbit controls.
+    if ((!core.GESTURE?.active || core.PRESENTATION_MODE) && !Viewer.xr?.session) {
       core.controls?.update();
     }
 
@@ -2396,7 +2413,9 @@ export const Viewer = {
     // =========================
     
     Viewer.updateTour(time);
+    Viewer.updatePhotoOverlay(time);
     Viewer.updateRakingLight(delta);
+    Viewer.updateSunStudy(delta);
     Viewer.updateTimeline(delta);
     Viewer.updateAnnotationSpread();
     Viewer.updateAnnotationStack();
@@ -2407,7 +2426,8 @@ export const Viewer = {
       Viewer.updateAnimationTimeline();
     }
 
-    renderFrame();
+    // The comparison view (editor/compare.js) draws its two sides itself.
+    if (!Viewer.renderCompareFrame(renderFrame)) renderFrame();
     Viewer.renderViewHelper(delta);
     core.stats?.update();
   },
@@ -4239,6 +4259,10 @@ attachModelUnits(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);
 attachTimeline(Viewer);
+attachCompare(Viewer);
+attachPhotoOverlay(Viewer);
+attachSunStudy(Viewer);
+attachWebXR(Viewer);
 attachTour(Viewer);
 attachAnnotationSpread(Viewer);
 attachAnnotationStack(Viewer);

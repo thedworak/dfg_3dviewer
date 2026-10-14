@@ -113,11 +113,100 @@ Playback of animation clips shipped with the model (glTF/GLB, FBX, DAE, KMZ, thr
 - `Viewer.playTimeline()` / `Viewer.pauseTimeline()` / `Viewer.toggleTimelinePlayback()`
   - Playback, held on `documented` stages. The `K` key toggles it when the model has no animation clips.
 
+- `Viewer.showTimelineStagesAt(year)`
+  - Show the stage of `year` without fading and without changing the year shown (one side of the comparison view); `renderTimelineStages(0, { force: true })` puts the shown year back.
+
 - `Viewer.apply3IFManifestTimeline(config)` / `Viewer.getTimelineForExport()`
   - Manifest import and export of `AIM3DViewer.timeline`.
 
 - `Viewer.disposeTimeline()`
   - Restore the stage nodes and materials and remove the panel. Called when a model is unloaded.
+
+
+## `viewer/editor/compare.js`
+
+Reconstruction variants and the comparison view. Variants are alternative hypotheses of the same object, each a set of model nodes; one is shown at a time. The comparison view draws the scene twice per frame, each side showing a variant or a year of the 4D timeline, split by a divider (`swipe`) or side by side (`split`). Variants come from the model (glTF scene extras `variants`, or node extras `variant`) and/or the manifest (`AIM3DViewer.variants`, `AIM3DViewer.compare`, see `manifesto/AIM3DViewer-schema.md`). Example manifest: `manifesto/examples/tempietto-aim3d-variants.json`.
+
+- `Viewer.setupVariants(object)`
+  - Read the variants of `object`, show the active one and build the panel; open the comparison the manifest or URL asks for. Called by `setupModelAnimations()` after `setupTimeline()`.
+
+- `Viewer.setActiveVariant(id)` / `Viewer.getActiveVariant()`
+  - Show another variant / the variant shown.
+
+- `Viewer.openCompare({ mode, left, right, position })` / `Viewer.closeCompare()` / `Viewer.toggleCompare()`
+  - Open or close the comparison; a side is `{ variant }`, `{ year }`, or a bare id or year. The timeline panel's compare button opens its first and last stage.
+
+- `Viewer.setCompareMode(mode)` / `Viewer.setCompareSide("left" | "right", side)` / `Viewer.setComparePosition(share)`
+  - Change the comparison while it is open.
+
+- `Viewer.renderCompareFrame(renderFrame)`
+  - Draw both sides (scissor or half viewports); called by `animate()` instead of `renderFrame()`, returns `false` when nothing is compared.
+
+- `Viewer.apply3IFManifestVariants(variants, compare)` / `Viewer.getVariantsForExport()` / `Viewer.getCompareForExport()`
+  - Manifest import and export.
+
+- `Viewer.disposeVariants()`
+  - Show all variant nodes again and remove the panel and the comparison. Called when a model is unloaded.
+
+
+## `viewer/editor/photo-overlay.js`
+
+Historical photos over the model, each with the camera it was taken from (`AIM3DViewer.photos`, see `manifesto/AIM3DViewer-schema.md`). The panel opens from *Annotations > Historical photos*. Example manifest: `manifesto/examples/tempietto-aim3d-photos.json`.
+
+- `Viewer.openPhoto(id, { fly })` / `Viewer.closePhoto()`
+  - Fly to the photo's view, set the timeline to its `year` and lay the photo over the canvas (fitted to the canvas height, which the vertical field of view spans). Moving the camera hides it until `Viewer.flyToPhotoView()`.
+
+- `Viewer.setPhotoOpacity(value)` / `Viewer.setPhotoSwipe(enabled, position)`
+  - Fade the photo in, or cut it by a divider instead.
+
+- `Viewer.setPhotoAligning(enabled)` / `Viewer.setPhotoFov(fov)` / `Viewer.setPhotoRoll(degrees)` / `Viewer.savePhotoView()`
+  - Line a photo up by hand: the photo stays while the camera moves; the lens and the tilt are matched, then the pose is saved as its view.
+
+- `Viewer.addPhoto({ src | service | file, label, year })` / `Viewer.removePhoto(id)`
+  - Add a photo taken from the current view (a IIIF Image API `info.json` or `service` is asked for the image at up to 2000 px), then align it. Photos from a file are not exported.
+
+- `Viewer.togglePhotosPanel(open)` / `Viewer.apply3IFManifestPhotos(list)` / `Viewer.getPhotosForExport()` / `Viewer.disposePhotos()`
+  - Panel, manifest import and export, clean-up when a model is unloaded.
+
+
+## `viewer/editor/sun-study.js`
+
+Sun and shadows (*Lights > Sun and shadows*): the sun at the model's place (`AIM3DViewer.location`) on a day and hour (`AIM3DViewer.sun`), casting shadows; the year is the 4D timeline's. Example manifest: `manifesto/examples/tempietto-aim3d-sun.json`.
+
+- `Viewer.setSunStudy(enabled)`
+  - Switch the sun on (the other lights and the environment dimmed to a sky light, the shadow map on, the raking light off) or off.
+
+- `Viewer.setSunOptions({ date, time, minutes, year, month, day, latitude, longitude, north, utcOffset, followTimeline })` / `Viewer.playSunDay(playing)`
+  - Change the day, the hour or the place; play the day (an hour a second).
+
+- `Viewer.getSunPosition()` / `Viewer.getSunYear()`
+  - The sun's `{ elevation, azimuth }` in degrees (azimuth from north, clockwise) and the year it is computed for.
+
+- `Viewer.apply3IFManifestSun(location, sun)` / `Viewer.getLocationForExport()` / `Viewer.getSunForExport()` / `Viewer.disposeSunStudy()`
+  - Manifest import and export; switched off when a model is unloaded.
+
+- `solarPosition(timestamp, latitude, longitude)`, `sunriseSunset(...)`, `sunDirection(position, north)` (module exports)
+  - The astronomy: the Astronomical Almanac's low-precision solar position, good to a fraction of a degree.
+
+
+## `viewer/editor/webxr.js`
+
+VR and AR in the browser (the toolbar's headset button, shown when the browser offers one of them). VR stands the viewer on the model's ground, where the camera was, at real size (the model unit); a controller's trigger teleports to the spot on the ground it points at. AR shows the model in the room, on a table (0.6 m) or at real size, without the background and the grid. On iPhone and iPad (no WebXR) the model is exported to USDZ, in metres, for AR Quick Look.
+
+- `Viewer.checkXRSupport()` / `Viewer.isXRAvailable()`
+  - Ask the browser for `immersive-vr`, `immersive-ar` and AR Quick Look; resolves to `{ vr, ar, quickLook }`.
+
+- `Viewer.startXR("vr" | "ar")` / `Viewer.stopXR()` / `Viewer.isXRPresenting()` / `Viewer.getXRMode()`
+  - Start or end a session. The camera goes into a rig scaled to scene units per metre; the session drives the render loop, and post-processing, the comparison view and the view helper step aside. Everything is put back when it ends, or when it fails to start.
+
+- `Viewer.getXRPlacement(mode)` / `Viewer.setXRArScale("table" | "real")`
+  - Where the viewer stands: `{ position, rotationY, scale, ground }`.
+
+- `Viewer.exportUSDZ()` / `Viewer.openQuickLook()`
+  - The models as a USDZ Blob, standing on the floor; opened through a `rel="ar"` link.
+
+- `Viewer.toggleXRPanel(open)` / `Viewer.isXRPanelOpen()`
+  - The panel with the VR, AR and Quick Look buttons.
 
 
 ## `viewer/editor/tour.js`
@@ -260,6 +349,16 @@ Direct LAS/LAZ loading (drag and drop, `?model=scan.laz`), without server conver
   - Thins to `viewer.pointCloud.maxPoints` using the point count from the LAS header (toast `pointCloudThinned`).
   - Colours: RGB when present, else intensity, else a height ramp. Z-up is turned to Y-up; points are drawn at a fixed screen size.
 - `readLasPointCount(buffer)` — point count from a LAS 1.0-1.4 header.
+
+
+## `viewer/splats.js`
+
+Gaussian splats (3D Gaussian Splatting captures: `.spz`, `.splat`, `.ksplat`, `.sog`, and a `.ply` whose vertices are Gaussians), drawn with [Spark](https://sparkjs.dev) together with the meshes of the scene, in VR and AR too. Loaded on demand by `loaders.js`, so Spark (WebAssembly and workers embedded) only downloads with the first splat file. Example: `examples/tempietto/Tempietto.splat` (built by `scripts/build-tempietto-examples.mjs`).
+
+- `buildSplatModel(buffer, { fileName, name, upright })`
+  - A group holding the `SplatMesh`, turned upright (captures are stored Y down). The mesh gets a geometry with the corners of its bounds, so framing, the grid and measurements see it; `userData.gaussianSplats` holds `{ count, format }`.
+  - Adds Spark's renderer (`core.sparkRenderer`, `spark-renderer` in the scene) once; `resetLoadedModelState()` removes it.
+- `isSplatPly(buffer)` (in `loaders.js`) — tells a PLY of Gaussians (`f_dc_0`, `scale_0`, `rot_0`, or a compressed `packed_position`) from a mesh or point PLY.
 
 
 ## `viewer/editor/point-cloud-panel.js`

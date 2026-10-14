@@ -31,6 +31,7 @@ This is the current built runtime entry pattern. The viewer reads the `3d` attri
 - `preview` — `0` skips the progressive-loading preview; a URL loads that file as the preview
 - `tour` — `1` starts the guided tour through the model's annotations; `tourAutoplay` — `1` advances steps automatically; `tourStep` — step to start at (1-based); `tourInterval` — seconds per step while autoplaying
 - `viewHelper` — `0` hides the axes gizmo
+- `variant` — id of the reconstruction variant shown; `compare` — `swipe` or `split` opens the comparison view; `compareLeft`, `compareRight` — what each side shows: a variant id or a timeline year
 - `clip` — active section planes, e.g. `xy`; `clipConst` — their plane constants `x,y,z`; `clipFlip` — axes whose kept side is flipped, e.g. `y`; `clipOutline` — `0` hides the section fill
 
 Example:

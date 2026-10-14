@@ -33,8 +33,7 @@ POINTCLOUD_TIMEOUT = int(os.environ.get("WORKER_POINTCLOUD_TIMEOUT", "3600"))
 POINTCLOUD_FORMATS = {"las", "laz", "e57"}
 
 
-def is_point_cloud_ply(path: Path) -> bool:
-    """True for a PLY without faces (header "element face 0" or no face element)."""
+def read_ply_header(path: Path) -> str:
     try:
         with open(path, "rb") as handle:
             header = b""
@@ -44,9 +43,30 @@ def is_point_cloud_ply(path: Path) -> bool:
                     break
                 header += line
     except OSError:
+        return ""
+    return header.decode("latin-1")
+
+
+def is_gaussian_splat_ply(path: Path) -> bool:
+    """True for a PLY of Gaussian splats (3D Gaussian Splatting: f_dc_*, scale_*,
+    rot_* per vertex, or a PlayCanvas compressed PLY). The viewer draws these
+    itself (viewer/splats.js), so they are kept as uploaded."""
+    properties = set()
+    for line in read_ply_header(path).splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0] == "property":
+            properties.add(parts[-1])
+    return {"f_dc_0", "scale_0", "rot_0"} <= properties or "packed_position" in properties
+
+
+def is_point_cloud_ply(path: Path) -> bool:
+    """True for a PLY without faces (header "element face 0" or no face element),
+    other than Gaussian splats."""
+    header = read_ply_header(path)
+    if not header or is_gaussian_splat_ply(path):
         return False
     vertices = faces = 0
-    for line in header.decode("latin-1").splitlines():
+    for line in header.splitlines():
         parts = line.split()
         if len(parts) == 3 and parts[0] == "element":
             if parts[1] == "vertex":

@@ -57,7 +57,7 @@ export function attachViewHelper(Viewer) {
     // Called from the render loop after the scene has been drawn.
     renderViewHelper(delta) {
       const helper = Viewer.viewHelper;
-      if (!helper) return;
+      if (!helper || core.renderer?.xr?.isPresenting) return;
       // setCameraProjection() swaps core.camera, so rebind every frame.
       helper.camera = core.camera;
       if (core.controls?.target) helper.center.copy(core.controls.target);

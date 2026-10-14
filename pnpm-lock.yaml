@@ -187,6 +187,9 @@ importers:
       '@sentry/browser':
         specifier: ^11.6.0
         version: 11.6.0
+      '@sparkjsdev/spark':
+        specifier: 2.2.0
+        version: 2.2.0(three@0.186.1)
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
@@ -1300,6 +1303,11 @@ packages:
   '@sentry/replay@11.6.0':
     resolution: {integrity: sha512-cJyPYnF6QJA8ADRfAW06YoU7EVIebtWezBOCU9Vag5+W1VLBkXEvH7C4LbeMUiDmrqw92sumq06NgqipIxA7BA==}
     engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
+
+  '@sparkjsdev/spark@2.2.0':
+    resolution: {integrity: sha512-wf5F2YAmPXnjm20/MgXYer9FQTXz2JOCo05HwxFkaD7Guk9rHVPIwdJ6fq0oF9ME0heMvYj+TxS6DTrucvy6KA==}
+    peerDependencies:
+      three: '>=0.180.0'
 
   '@swc/core-darwin-arm64@1.16.18':
     resolution: {integrity: sha512-ozgiCHyFDCwfXzTnaLR+i8WxEyt06GTudn9rPh08vj+u3Z8vMvt5Pi8T+BikyNXm7y++h6UMdqsnJuWrV+tk2A==}
@@ -3604,6 +3612,11 @@ snapshots:
     dependencies:
       '@sentry/browser-utils': 11.6.0
       '@sentry/core': 11.6.0
+
+  '@sparkjsdev/spark@2.2.0(three@0.186.1)':
+    dependencies:
+      fflate: 0.8.3
+      three: 0.186.1
 
   '@swc/core-darwin-arm64@1.16.18':
     optional: true

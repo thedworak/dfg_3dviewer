@@ -13,6 +13,8 @@ const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat
 // Keep in sync with TIMELINE_TRANSITIONS / TIMELINE_STAGE_TYPES in viewer/timeline.js.
 const TIMELINE_TRANSITIONS = ["interpolate", "step"];
 const TIMELINE_STAGE_TYPES = ["documented", "modelled"];
+// Keep in sync with COMPARE_MODES in viewer/editor/compare.js.
+const COMPARE_MODES = ["swipe", "split"];
 
 function isPlainObject(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
@@ -486,6 +488,156 @@ function validateTimeline(timeline, path, errors) {
   });
 }
 
+// AIM3DViewer.variants (editor/compare.js): reconstruction variants.
+function validateVariants(variants, path, errors) {
+  if (!isPlainObject(variants)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  ["enabled", "showPanel"].forEach((key) => {
+    if (variants[key] !== undefined) validateBoolean(variants[key], `${path}.${key}`, errors);
+  });
+  if (variants.label !== undefined) validateLanguageMap(variants.label, `${path}.label`, errors);
+  if (variants.description !== undefined) validateLanguageMap(variants.description, `${path}.description`, errors);
+  if (variants.active !== undefined) validateString(variants.active, `${path}.active`, errors);
+  if (variants.items === undefined) return;
+  if (!Array.isArray(variants.items)) {
+    pushError(errors, `${path}.items`, "must be an array");
+    return;
+  }
+  const ids = new Set();
+  variants.items.forEach((item, index) => {
+    const itemPath = `${path}.items[${index}]`;
+    if (!isPlainObject(item)) {
+      pushError(errors, itemPath, "must be an object");
+      return;
+    }
+    validateString(item.id, `${itemPath}.id`, errors);
+    if (isString(item.id)) {
+      if (ids.has(item.id)) pushError(errors, `${itemPath}.id`, "must be unique");
+      ids.add(item.id);
+    }
+    ["label", "description", "source"].forEach((key) => {
+      if (item[key] !== undefined) validateLanguageMap(item[key], `${itemPath}.${key}`, errors);
+    });
+    if (item.certainty !== undefined) validateNumber(item.certainty, `${itemPath}.certainty`, errors);
+    if (item.nodes !== undefined && !(Array.isArray(item.nodes) && item.nodes.every(isString))) {
+      pushError(errors, `${itemPath}.nodes`, "must be an array of node names");
+    }
+  });
+  if (isString(variants.active) && ids.size && !ids.has(variants.active)) {
+    pushError(errors, `${path}.active`, "must be the id of one of the items");
+  }
+}
+
+// AIM3DViewer.compare (editor/compare.js): the comparison view.
+function validateCompare(compare, path, errors) {
+  if (!isPlainObject(compare)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (compare.enabled !== undefined) validateBoolean(compare.enabled, `${path}.enabled`, errors);
+  if (compare.mode !== undefined) validateEnum(compare.mode, COMPARE_MODES, `${path}.mode`, errors);
+  if (compare.position !== undefined && (!isFiniteNumber(compare.position) || compare.position < 0 || compare.position > 1)) {
+    pushError(errors, `${path}.position`, "must be a number from 0 to 1");
+  }
+  ["left", "right"].forEach((key) => {
+    const side = compare[key];
+    if (side === undefined) return;
+    const sidePath = `${path}.${key}`;
+    if (!isPlainObject(side)) {
+      pushError(errors, sidePath, "must be an object with a variant or a year");
+      return;
+    }
+    if (side.variant !== undefined) validateString(side.variant, `${sidePath}.variant`, errors);
+    if (side.year !== undefined) validateNumber(side.year, `${sidePath}.year`, errors);
+    if (side.variant === undefined && side.year === undefined) pushError(errors, sidePath, "must have a variant or a year");
+  });
+}
+
+// AIM3DViewer.photos (editor/photo-overlay.js): historical photos and the
+// views they were taken from.
+function validatePhotos(photos, path, errors) {
+  if (!Array.isArray(photos)) {
+    pushError(errors, path, "must be an array");
+    return;
+  }
+  const ids = new Set();
+  photos.forEach((photo, index) => {
+    const photoPath = `${path}[${index}]`;
+    if (!isPlainObject(photo)) {
+      pushError(errors, photoPath, "must be an object");
+      return;
+    }
+    const service = typeof photo.service === "string" || isPlainObject(photo.service);
+    if (!isString(photo.src) && !service) pushError(errors, photoPath, "must have a src or a IIIF Image API service");
+    if (photo.src !== undefined) validateString(photo.src, `${photoPath}.src`, errors);
+    if (photo.id !== undefined) {
+      validateString(photo.id, `${photoPath}.id`, errors);
+      if (ids.has(photo.id)) pushError(errors, `${photoPath}.id`, "must be unique");
+      ids.add(photo.id);
+    }
+    ["label", "description", "source"].forEach((key) => {
+      if (photo[key] !== undefined) validateLanguageMap(photo[key], `${photoPath}.${key}`, errors);
+    });
+    if (photo.year !== undefined) validateNumber(photo.year, `${photoPath}.year`, errors);
+    if (photo.opacity !== undefined && (!isFiniteNumber(photo.opacity) || photo.opacity < 0 || photo.opacity > 1)) {
+      pushError(errors, `${photoPath}.opacity`, "must be a number from 0 to 1");
+    }
+    if (photo.view === undefined) return;
+    const view = photo.view;
+    if (!isPlainObject(view)) {
+      pushError(errors, `${photoPath}.view`, "must be an object");
+      return;
+    }
+    ["position", "target"].forEach((key) => {
+      const value = view[key];
+      if (!(Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber))) {
+        pushError(errors, `${photoPath}.view.${key}`, "must be an array of 3 numbers");
+      }
+    });
+    if (view.fov !== undefined && (!isFiniteNumber(view.fov) || view.fov <= 0 || view.fov >= 180)) {
+      pushError(errors, `${photoPath}.view.fov`, "must be a number between 0 and 180");
+    }
+    if (view.roll !== undefined) validateNumber(view.roll, `${photoPath}.view.roll`, errors);
+  });
+}
+
+// AIM3DViewer.location (editor/sun-study.js): where the model stands.
+function validateLocation(location, path, errors) {
+  if (!isPlainObject(location)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (!isFiniteNumber(location.latitude) || location.latitude < -90 || location.latitude > 90) {
+    pushError(errors, `${path}.latitude`, "must be a number from -90 to 90");
+  }
+  if (!isFiniteNumber(location.longitude) || location.longitude < -180 || location.longitude > 180) {
+    pushError(errors, `${path}.longitude`, "must be a number from -180 to 180");
+  }
+  if (location.north !== undefined) validateNumber(location.north, `${path}.north`, errors);
+  if (location.utcOffset !== undefined && (!isFiniteNumber(location.utcOffset) || location.utcOffset < -14 || location.utcOffset > 14)) {
+    pushError(errors, `${path}.utcOffset`, "must be a number of hours from -14 to 14");
+  }
+}
+
+// AIM3DViewer.sun (editor/sun-study.js): the sun on a day and hour.
+function validateSun(sun, path, errors) {
+  if (!isPlainObject(sun)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  ["enabled", "followTimeline", "animate"].forEach((key) => {
+    if (sun[key] !== undefined) validateBoolean(sun[key], `${path}.${key}`, errors);
+  });
+  if (sun.date !== undefined && !(isString(sun.date) && /^(-?\d{1,4}-)?(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/.test(sun.date.trim()))) {
+    pushError(errors, `${path}.date`, 'must be "MM-DD" or "YYYY-MM-DD"');
+  }
+  if (sun.time !== undefined && !(isString(sun.time) && /^([01]?\d|2[0-3]):[0-5]\d$|^24:00$/.test(sun.time.trim()))) {
+    pushError(errors, `${path}.time`, 'must be "HH:MM"');
+  }
+}
+
 function validateAIM3DViewerBlock(block, path, errors) {
   if (!isPlainObject(block)) {
     pushError(errors, path, "must be an object");
@@ -507,6 +659,11 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.clipping !== undefined) validateClipping(block.clipping, `${path}.clipping`, errors);
   if (block.rakingLight !== undefined) validateRakingLight(block.rakingLight, `${path}.rakingLight`, errors);
   if (block.timeline !== undefined) validateTimeline(block.timeline, `${path}.timeline`, errors);
+  if (block.variants !== undefined) validateVariants(block.variants, `${path}.variants`, errors);
+  if (block.compare !== undefined) validateCompare(block.compare, `${path}.compare`, errors);
+  if (block.photos !== undefined) validatePhotos(block.photos, `${path}.photos`, errors);
+  if (block.location !== undefined) validateLocation(block.location, `${path}.location`, errors);
+  if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
