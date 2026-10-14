@@ -691,4 +691,4 @@ class VectorTile {
 }
 
 export { VectorTile, VectorTileFeature, VectorTileLayer, classifyRings };
-//# sourceMappingURL=index-C8YsshEV.js.map
+//# sourceMappingURL=index-DmPg7kYg.js.map

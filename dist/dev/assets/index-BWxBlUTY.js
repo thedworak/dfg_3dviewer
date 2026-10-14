@@ -828,4 +828,4 @@ function writeUtf8(buf, str, pos) {
 }
 
 export { Pbf as default };
-//# sourceMappingURL=index-CUrL110z.js.map
+//# sourceMappingURL=index-M9Nne4NF.js.map

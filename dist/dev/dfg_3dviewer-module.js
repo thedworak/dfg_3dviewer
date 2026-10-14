@@ -1,3 +1,3 @@
-export { V as Viewer, e as expectWebGL } from './assets/main-D_DFGcl7.js';
-import './assets/three-CcXsnZni.js';
+export { V as Viewer, e as expectWebGL } from './assets/main-BlF_dsXR.js';
+import './assets/three-CXLeLTtU.js';
 //# sourceMappingURL=main-DciFbH3V.js.map

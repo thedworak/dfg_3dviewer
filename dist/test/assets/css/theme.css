@@ -47,9 +47,10 @@
 #ultra-loader-bar {
   width: 0%;
   height: 100%;
-  /* The app icon's light blue into its gold (--viewer-brand-* in main.css). */
-  background: linear-gradient(90deg, #7db6de, #e9b264);
-  box-shadow: 0 0 8px rgba(125, 182, 222, 0.6);
+  /* The app icon's gold (--viewer-brand-gold in main.css), like the
+     toolbar's loading ring. */
+  background: #e9b264;
+  box-shadow: 0 0 8px rgba(233, 178, 100, 0.6);
   transition: width .35s ease;
 }
 
