@@ -22,7 +22,10 @@ function iiifCreditHtml() {
 function poweredByHtml() {
   const parts = [BUILD_ID, formatBuildTime(BUILD_TIME)].filter(Boolean);
   const build = parts.length ? ` (${parts.join(", ")})` : "";
-  const text = `Powered by three.js r${THREE.REVISION}${build}`;
+  // The renderer, when it is not the default one (renderer-backend.js).
+  const backend = core.rendererBackend !== "webgpu" ? ""
+    : core.rendererDevice === "webgl2" ? " · WebGPU renderer (WebGL 2)" : " · WebGPU";
+  const text = `Powered by three.js r${THREE.REVISION}${backend}${build}`;
   const title = BUILD_TIME ? ` title="Build ${BUILD_ID || ""} ${BUILD_TIME}"` : "";
   return `<span class="credits-item"><a href="https://threejs.org" target="_blank" rel="noopener noreferrer" class="credits-link"${title}>${text}</a></span>`;
 }

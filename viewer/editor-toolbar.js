@@ -2053,6 +2053,9 @@ export function updateShadingSubmenuState(viewer) {
   Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
     button?.classList.toggle("is-active", key === activeMode);
   });
+  // GLSL needs the WebGL renderer (renderer-backend.js).
+  const custom = viewer.shadingSubmenuButtons.custom;
+  if (custom) custom.hidden = core.rendererBackend === "webgpu";
 }
 
 export function updateLightsSubmenuState(viewer) {

@@ -100,12 +100,15 @@ export function getRenderingSettings() {
   return cloneSettings(core.rendering || RENDERING_DEFAULTS);
 }
 
+// The WebGPU renderer's pipeline (rendering-webgpu.js), loaded with it.
+const webgpuRendering = () => (core.rendererBackend === "webgpu" ? core.webgpuRendering : null);
+
 export function isPostProcessingActive() {
-  return composer !== null;
+  return webgpuRendering() ? webgpuRendering().isWebGPUPipelineActive() : composer !== null;
 }
 
 export function isAmbientOcclusionActive() {
-  return aoPass !== null;
+  return webgpuRendering() ? webgpuRendering().isWebGPUAmbientOcclusionActive() : aoPass !== null;
 }
 
 function disposeComposer() {
@@ -165,6 +168,10 @@ export function applyRenderingSettings(patch = {}) {
   renderer.toneMappingExposure = settings.exposure;
 
   const { enabled, antialias, ao, aoIntensity } = settings.postprocessing;
+  if (webgpuRendering()) {
+    webgpuRendering().applyWebGPURendering(renderer, settings.postprocessing);
+    return settings;
+  }
   if (!enabled && !ao) {
     disposeComposer();
   } else if (composerAntialias !== antialias || composerAo !== ao) {
@@ -198,6 +205,12 @@ const previewPasses = new Map();
 export function renderToneMappingPreviews(canvases) {
   const renderer = core.renderer;
   if (!renderer || !core.scene || !core.camera) return false;
+  // Not drawn with WebGPU (no synchronous read back): the menu lists the
+  // modes by name.
+  if (webgpuRendering()) {
+    Object.values(canvases).forEach((canvas) => { if (canvas) canvas.hidden = true; });
+    return false;
+  }
   renderer.getSize(canvasSize);
   if (!canvasSize.x || !canvasSize.y) return false;
 
@@ -252,6 +265,10 @@ export function renderToneMappingPreviews(canvases) {
 // Draws one frame of the main scene to the canvas.
 export function renderFrame(renderer = core.renderer) {
   if (!renderer || !core.scene || !core.camera) return;
+  if (webgpuRendering()) {
+    webgpuRendering().renderWebGPUFrame(renderer);
+    return;
+  }
   // The XR session draws to its own layer, past the composer's targets.
   if (!composer || renderer.xr?.isPresenting) {
     renderer.render(core.scene, core.camera);

@@ -39,6 +39,8 @@ export default defineConfig({
         '--use-gl=angle',
         '--use-angle=swiftshader',
         '--enable-webgl',
+        // WebGPU for the ?renderer=webgpu tests (SwiftShader without a GPU).
+        '--enable-unsafe-webgpu',
         '--enable-unsafe-swiftshader',
         '--ignore-gpu-blocklist',
         '--disable-gpu-driver-bug-workarounds',

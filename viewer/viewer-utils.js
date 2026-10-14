@@ -59,6 +59,20 @@ export const updateActiveClippingPlanes = () => {
     node.children?.forEach(visit);
   };
   visit(core.scene);
+  // The WebGPU renderer clips by group, not by material: the models and the
+  // section fill become clipping groups (three's ClippingGroup, by its
+  // flags) sharing the active planes.
+  if (core.rendererBackend === "webgpu") {
+    const groups = [...(core.mainObject || []).flat(), core.outlineClipping];
+    groups.forEach((group) => {
+      if (!group?.isObject3D) return;
+      group.isClippingGroup = true;
+      group.enabled = true;
+      group.clipIntersection = false;
+      group.clipShadows = true;
+      group.clippingPlanes = core.activeClippingPlanes;
+    });
+  }
   if (core.outlineClipping) {
     core.outlineClipping.traverse?.((child) => {
       if (child.material) {

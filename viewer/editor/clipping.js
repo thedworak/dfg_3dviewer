@@ -59,12 +59,15 @@ function createAxisVisual(axis) {
   );
   quad.userData.clippingAxis = axis;
 
-  const border = new THREE.LineLoop(
+  // A Line back to its start rather than a LineLoop, which the WebGPU
+  // renderer does not draw.
+  const border = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(-0.5, -0.5, 0),
       new THREE.Vector3(0.5, -0.5, 0),
       new THREE.Vector3(0.5, 0.5, 0),
       new THREE.Vector3(-0.5, 0.5, 0),
+      new THREE.Vector3(-0.5, -0.5, 0),
     ]),
     new THREE.LineBasicMaterial({ color: AXIS_COLORS[axis], transparent: true, opacity: 0.85, depthTest: false })
   );

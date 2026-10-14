@@ -80,6 +80,7 @@ import { attachPicking } from "./editor/picking.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachModelUnits } from "./editor/model-units.js";
+import { createWebGLRenderer, shouldTryWebGPU, tryCreateWebGPURenderer } from "./renderer-backend.js";
 import { captureAndUploadThumbnail, generateAllThumbnails } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
@@ -241,6 +242,24 @@ export const Viewer = {
 
         get ambientOcclusion() {
           return isAmbientOcclusionActive();
+        },
+
+        // "webgl" or "webgpu" (renderer-backend.js).
+        get rendererBackend() {
+          return core.rendererBackend;
+        },
+
+        get rendererDevice() {
+          return core.rendererDevice ?? (core.rendererBackend === "webgl" ? "webgl2" : null);
+        },
+
+        // The current view as a data URL; with WebGPU read back from a
+        // target (the canvas cannot always be copied).
+        async captureFrame() {
+          const canvas = core.rendererBackend === "webgpu"
+            ? await core.webgpuRendering.captureWebGPUFrame(core.renderer, core.renderer.domElement.width, core.renderer.domElement.height)
+            : (renderFrame(), core.renderer.domElement);
+          return canvas.toDataURL("image/png");
         },
       };
     } else {
@@ -3599,22 +3618,31 @@ export const Viewer = {
       // Store in core
       setCore('cameraLight', Viewer.cameraLight);      
 
+      const rendererOptions = {
+        antialias: true,
+        logarithmicDepthBuffer: true,
+        colorManagement: true,
+        sortObjects: true,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance",
+        alpha: true
+      };
+      // WebGPU only when asked for (renderer-backend.js); the WebGL renderer
+      // is made without waiting, as before.
+      const webgpuRenderer = shouldTryWebGPU(core.fileObject?.filename)
+        ? await tryCreateWebGPURenderer(rendererOptions)
+        : null;
       try {
-        core.renderer = new THREE.WebGLRenderer({
-          antialias: true,
-          logarithmicDepthBuffer: true,
-          colorManagement: true,
-          sortObjects: true,
-          preserveDrawingBuffer: true,
-          powerPreference: "high-performance",
-          alpha: true
-        });
+        core.renderer = webgpuRenderer || createWebGLRenderer(rendererOptions);
       } catch (err) {
         console.warn("WebGL context could not be created:", err);
         showToast("toasts.webglUnavailable", "error", { duration: 10000 });
         return;
       }
-      
+      // MainInit asks for VR / AR without waiting for the renderer: asked
+      // again, as WebXR runs on the WebGL renderer only (editor/webxr.js).
+      if (webgpuRenderer) Viewer.checkXRSupport();
+
       core.renderer.localClippingEnabled = true;
 
       setCore('renderer', core.renderer);

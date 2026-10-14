@@ -79,15 +79,25 @@ function withCaptureCanvas(capture) {
 
 // Renders the current camera view and snapshots the canvas. toBlob copies
 // the canvas when called, so it has to run in the same task as the render.
-function renderToBlob(viewer) {
-  // Through the post-processing chain when it is on, like the live canvas.
-  renderFrame();
+function canvasToPng(canvas) {
   return new Promise((resolve, reject) => {
-    viewer.mainCanvas.toBlob((blob) => {
+    canvas.toBlob((blob) => {
       if (blob instanceof Blob && blob.size > 0 && blob.type === "image/png") resolve(blob);
       else reject(new Error("Failed to capture the canvas"));
     }, "image/png");
   });
+}
+
+function renderToBlob(viewer) {
+  // WebGPU: drawn into a target and read back (rendering-webgpu.js); the
+  // drawing is queued now, at the capture size, the reading follows.
+  if (core.rendererBackend === "webgpu" && core.webgpuRendering) {
+    const { width, height } = core.renderer.domElement;
+    return core.webgpuRendering.captureWebGPUFrame(core.renderer, width, height).then(canvasToPng);
+  }
+  // Through the post-processing chain when it is on, like the live canvas.
+  renderFrame();
+  return canvasToPng(viewer.mainCanvas);
 }
 
 async function uploadThumbnail(blob, view = "side45") {

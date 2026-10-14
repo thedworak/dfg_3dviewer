@@ -50,6 +50,7 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.pointCloud.maxPoints` — LAS/LAZ files opened directly are thinned to about this many points (default `5000000`); convert larger scans with the worker for full-resolution streaming
 - `viewer.pointCloud.colorMode` — initial colouring of directly opened point clouds: `rgb`, `intensity`, `height` or `classification` (when the file carries it); changeable in the point cloud panel
 - `viewer.pointCloud.pointSize` — point size in screen pixels for directly opened LAS/LAZ files (default `2`)
+- `viewer.renderer` — `webgl` (default), `webgpu` or `auto`: three's WebGPU renderer where the browser has WebGPU, for mesh models; point clouds and Gaussian splats, and browsers without WebGPU, keep the WebGL renderer. `?renderer=webgl|webgpu|auto` in the page URL overrides it (for trying it out). With WebGPU, post-processing and ambient occlusion are a TSL pipeline (SMAA and FXAA use multisampling there), and the custom GLSL scan view, the tone mapping previews and WebXR are left out; see `viewer/renderer-backend.js`. For tests, `&webgpuBackend=webgl2` runs the WebGPU renderer on its WebGL 2 backend
 - `viewer.tiles.errorTarget` — screen-space error in pixels for 3D Tiles / Potree models (default `6`; lower loads more detail)
 - `viewer.tiles.pointShape` — `square`, `round` (default) or `sphere` for point clouds
 - `viewer.tiles.edlStrength` — Eye-Dome Lighting strength for point clouds (default `0.4`; `0` turns it off)

@@ -72,7 +72,13 @@ export function attachWebXR(Viewer) {
           return false;
         }
       };
-      const [vr, ar] = await Promise.all([ask(SESSION_TYPES.vr), ask(SESSION_TYPES.ar)]);
+      const [vrOffered, arOffered] = await Promise.all([ask(SESSION_TYPES.vr), ask(SESSION_TYPES.ar)]);
+      // three's WebXR runs on its WebGL renderer only (renderer-backend.js);
+      // Quick Look is an export and works with either. Read after the
+      // answer: the renderer may have been chosen meanwhile.
+      const webgl = core.rendererBackend !== "webgpu";
+      const vr = webgl && vrOffered;
+      const ar = webgl && arOffered;
       let quickLook = false;
       try {
         quickLook = document.createElement("a").relList?.supports?.("ar") === true;

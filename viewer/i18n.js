@@ -498,6 +498,8 @@ export const VIEWER_I18N = {
       disabled: "disabled"
     },
     toasts: {
+      webglOnlyModel: "Point clouds and Gaussian splats need the WebGL renderer: open the viewer without ?renderer=webgpu.",
+      webglOnlyFeature: "{feature} needs the WebGL renderer.",
       pointCloudThinned: "Large point cloud: showing {loaded} of {total} points. Convert it with the worker for full-resolution streaming.",
       tiledAnnotationBlocked: "Annotations are not available for streamed (3D Tiles / Potree) models.",
       fullModelLoaded: "Full-quality model loaded.",
@@ -1355,6 +1357,8 @@ export const VIEWER_I18N = {
       disabled: "wyłączony"
     },
     toasts: {
+      webglOnlyModel: "Chmury punktów i splaty gaussowskie wymagają renderera WebGL: otwórz viewer bez ?renderer=webgpu.",
+      webglOnlyFeature: "{feature} wymaga renderera WebGL.",
       pointCloudThinned: "Duża chmura punktów: wyświetlono {loaded} z {total} punktów. Przekonwertuj ją przez workera, aby strumieniować pełną rozdzielczość.",
       tiledAnnotationBlocked: "Adnotacje nie są dostępne dla modeli strumieniowanych (3D Tiles / Potree).",
       fullModelLoaded: "Załadowano model w pełnej jakości.",
@@ -2211,6 +2215,8 @@ export const VIEWER_I18N = {
       disabled: "deaktiviert"
     },
     toasts: {
+      webglOnlyModel: "Punktwolken und Gaussian Splats benötigen den WebGL-Renderer: den Viewer ohne ?renderer=webgpu öffnen.",
+      webglOnlyFeature: "{feature} benötigt den WebGL-Renderer.",
       pointCloudThinned: "Große Punktwolke: {loaded} von {total} Punkten angezeigt. Für Streaming in voller Auflösung mit dem Worker konvertieren.",
       tiledAnnotationBlocked: "Anmerkungen sind für gestreamte Modelle (3D Tiles / Potree) nicht verfügbar.",
       fullModelLoaded: "Modell in voller Qualität geladen.",

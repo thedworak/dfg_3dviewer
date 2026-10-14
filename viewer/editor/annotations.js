@@ -467,8 +467,10 @@ export function attachAnnotations(Viewer) {
         // A comment on a region (IIIF WktSelector): its outline too.
         const polygon = this.getAnnotationEntryPolygonWorld(entry);
         if (polygon) {
-          const outline = new THREE.LineLoop(
-            new THREE.BufferGeometry().setFromPoints(polygon),
+          // Closed by repeating its first point: the WebGPU renderer draws
+          // no LineLoop.
+          const outline = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([...polygon, polygon[0]]),
             new THREE.LineBasicMaterial({ color: 0xffb000, depthTest: false, transparent: true })
           );
           outline.name = "annotation-region";

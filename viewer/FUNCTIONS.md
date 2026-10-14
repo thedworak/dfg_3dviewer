@@ -361,6 +361,20 @@ Gaussian splats (3D Gaussian Splatting captures: `.spz`, `.splat`, `.ksplat`, `.
 - `isSplatPly(buffer)` (in `loaders.js`) — tells a PLY of Gaussians (`f_dc_0`, `scale_0`, `rot_0`, or a compressed `packed_position`) from a mesh or point PLY.
 
 
+## `viewer/renderer-backend.js` and `viewer/rendering-webgpu.js`
+
+The renderer, chosen once when the viewer starts: three's WebGLRenderer (default) or, with `viewer.renderer` / `?renderer=` set to `webgpu` or `auto`, its WebGPURenderer - only where `navigator.gpu` exists and the model is not a point cloud or splat scene (`modelNeedsWebGL()`: WebGPU has no point size, Spark needs WebGL). `core.rendererBackend` is `"webgl"` or `"webgpu"`; `core.rendererDevice` says what the WebGPU renderer runs on (`"webgl2"` with `&webgpuBackend=webgl2`, for tests).
+
+With WebGPU:
+- the loaders' materials are converted to node materials by three; the dimmed direct specular light that `setupSingleMaterial()` patches into the WebGL shaders comes from a lighting model registered for MeshStandard/MeshPhysical materials;
+- `applyWebGPURendering()` builds a TSL `RenderPipeline` for post-processing and ambient occlusion (GTAONode on a normal/depth pre-pass, applied to the indirect light); SMAA and FXAA use multisampling;
+- section planes clip through clipping groups (the model roots and the section fill get ClippingGroup's flags, `updateActiveClippingPlanes()`);
+- `captureWebGPUFrame()` reads the view back from a render target - thumbnails and `window.viewer.captureFrame()` use it - and `createFaceIdMaterial()` draws the ID buffer of the area selection, read back asynchronously (`pickVisibleFacesInRect()` then returns a promise);
+- left out, with a message: the custom GLSL scan view, the tone mapping previews, WebXR (AR Quick Look stays, `editor/webxr.js`), and opening point clouds or splats (they need the viewer opened with WebGL).
+
+Closed lines are `Line`s back to their first point: the WebGPU renderer draws no `LineLoop`.
+
+
 ## `viewer/editor/point-cloud-panel.js`
 
 Point cloud panel, shown in the side stack when the model is a point cloud (hidden in presentation mode and with `hideUi`).

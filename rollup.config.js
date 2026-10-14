@@ -439,6 +439,13 @@ export default {
     sourcemapFileNames: 'assets/[name]-[hash].js.map',
     format: 'es',
     manualChunks(id) {
+      // The WebGPU renderer, TSL and its effects (?renderer=webgpu,
+      // viewer/renderer-backend.js) in a chunk of their own: the default
+      // WebGL viewer never downloads them. three.core.js, which both builds
+      // share, stays in "three".
+      if (/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?three\/(build\/three\.(webgpu|tsl)|examples\/jsm\/tsl\/)/.test(id)) {
+        return "three-webgpu";
+      }
       if (id.includes("node_modules/three")) {
         return "three";
       }

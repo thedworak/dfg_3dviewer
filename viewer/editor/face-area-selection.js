@@ -53,6 +53,84 @@ function isWorldVisible(object) {
   return true;
 }
 
+// Every visible face once, from the two ID buffers.
+function decodeHits(meshes, objectPixels, facePixels) {
+  const seen = new Set();
+  const hits = [];
+  for (let offset = 0; offset < objectPixels.length; offset += 4) {
+    const objectId = decodeId(objectPixels, offset);
+    if (!objectId) continue;
+    const faceId = decodeId(facePixels, offset);
+    if (!faceId) continue;
+    const key = objectId * 16777216 + faceId;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const mesh = meshes[objectId - 1];
+    if (mesh) hits.push({ object: mesh, faceIndex: faceId - 1 });
+  }
+  return hits;
+}
+
+// The same two passes with the WebGPU renderer: node materials
+// (rendering-webgpu.js), both drawn now - while the camera has the
+// rectangle's view offset - and read back afterwards.
+async function pickVisibleFacesWebGPU(Viewer, meshes, { x0, y0, width, height, canvasRect, bufferWidth, bufferHeight }) {
+  const renderer = core.renderer;
+  const camera = core.camera;
+  const { createFaceIdMaterial, createIdTarget } = core.webgpuRendering;
+  const scenes = [new THREE.Scene(), new THREE.Scene()];
+  const materials = [];
+  meshes.forEach((mesh, index) => {
+    const pickGeometry = Viewer.getFacePickGeometry(mesh.geometry);
+    if (!pickGeometry) return;
+    const sourceMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    mesh.updateWorldMatrix(true, false);
+    [false, true].forEach((encodeFace, pass) => {
+      const material = createFaceIdMaterial({
+        objectId: index + 1,
+        encodeFace,
+        side: sourceMaterial?.side ?? THREE.FrontSide,
+        clippingPlanes: sourceMaterial?.clippingPlanes || null,
+      });
+      materials.push(material);
+      const proxy = new THREE.Mesh(pickGeometry, material);
+      proxy.matrixAutoUpdate = false;
+      proxy.matrixWorldAutoUpdate = false;
+      proxy.matrix.copy(mesh.matrixWorld);
+      proxy.matrixWorld.copy(mesh.matrixWorld);
+      proxy.frustumCulled = false;
+      scenes[pass].add(proxy);
+    });
+  });
+
+  const targets = [createIdTarget(bufferWidth, bufferHeight), createIdTarget(bufferWidth, bufferHeight)];
+  const previousTarget = renderer.getRenderTarget();
+  const previousClearColor = renderer.getClearColor(new THREE.Color());
+  const previousClearAlpha = renderer.getClearAlpha();
+  camera.setViewOffset(canvasRect.width, canvasRect.height, x0, y0, width, height);
+  try {
+    renderer.setClearColor(0x000000, 0);
+    scenes.forEach((scene, pass) => {
+      renderer.setRenderTarget(targets[pass]);
+      renderer.clear(true, true, true);
+      renderer.render(scene, camera);
+    });
+  } finally {
+    camera.clearViewOffset();
+    renderer.setRenderTarget(previousTarget);
+    renderer.setClearColor(previousClearColor, previousClearAlpha);
+  }
+  try {
+    const [objectPixels, facePixels] = await Promise.all(
+      targets.map((target) => renderer.readRenderTargetPixelsAsync(target, 0, 0, bufferWidth, bufferHeight))
+    );
+    return decodeHits(meshes, objectPixels, facePixels);
+  } finally {
+    targets.forEach((target) => target.dispose());
+    materials.forEach((material) => material.dispose());
+  }
+}
+
 export function attachFaceAreaSelection(Viewer) {
   Object.assign(Viewer, {
     faceAreaSelection: null,
@@ -115,7 +193,8 @@ export function attachFaceAreaSelection(Viewer) {
         Math.max(state.startX, state.endX),
         Math.max(state.startY, state.endY)
       );
-      Viewer.applyFaceSelection(hits, { subtract: state.subtract });
+      // A promise with the WebGPU renderer.
+      Promise.resolve(hits).then((list) => Viewer.applyFaceSelection(list, { subtract: state.subtract }));
     },
 
     endFaceAreaSelection() {
@@ -188,7 +267,8 @@ export function attachFaceAreaSelection(Viewer) {
     },
 
     // Faces ({ object, faceIndex }) visible inside a rectangle given in
-    // client (CSS) pixels.
+    // client (CSS) pixels. With the WebGPU renderer the pixels come back
+    // later: a promise of the same list.
     pickVisibleFacesInRect(left, top, right, bottom) {
       const renderer = core.renderer;
       const camera = core.camera;
@@ -210,6 +290,10 @@ export function attachFaceAreaSelection(Viewer) {
       const scale = Math.min(renderer.getPixelRatio(), MAX_BUFFER_SIDE / Math.max(width, height));
       const bufferWidth = Math.max(1, Math.round(width * scale));
       const bufferHeight = Math.max(1, Math.round(height * scale));
+
+      if (core.rendererBackend === "webgpu" && core.webgpuRendering) {
+        return pickVisibleFacesWebGPU(Viewer, meshes, { x0, y0, width, height, canvasRect, bufferWidth, bufferHeight });
+      }
 
       const pickScene = new THREE.Scene();
       const materials = [];
@@ -272,20 +356,7 @@ export function attachFaceAreaSelection(Viewer) {
         materials.forEach((material) => material.dispose());
       }
 
-      const seen = new Set();
-      const hits = [];
-      for (let offset = 0; offset < objectPixels.length; offset += 4) {
-        const objectId = decodeId(objectPixels, offset);
-        if (!objectId) continue;
-        const faceId = decodeId(facePixels, offset);
-        if (!faceId) continue;
-        const key = objectId * 16777216 + faceId;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const mesh = meshes[objectId - 1];
-        if (mesh) hits.push({ object: mesh, faceIndex: faceId - 1 });
-      }
-      return hits;
+      return decodeHits(meshes, objectPixels, facePixels);
     },
   });
 }

@@ -65,10 +65,12 @@ function createPoints(points) {
   return object;
 }
 
+// A closed one runs back to its first point (a LineLoop is not drawn by the
+// WebGPU renderer).
 function createLine(points, { closed = false, color = COLORS.line } = {}) {
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const geometry = new THREE.BufferGeometry().setFromPoints(closed && points.length > 2 ? [...points, points[0]] : points);
   const material = new THREE.LineBasicMaterial({ ...overlayMaterialProps(), color });
-  const object = closed ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material);
+  const object = new THREE.Line(geometry, material);
   object.renderOrder = 1000;
   return object;
 }

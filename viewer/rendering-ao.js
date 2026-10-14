@@ -16,8 +16,8 @@ import { core } from "./core.js";
 // - Radius and thickness are in world units: a share of the model's size.
 
 // Share of the model's largest side (core.gridSize).
-const AO_RADIUS = 0.035;
-const AO_THICKNESS = 0.07;
+export const AO_RADIUS = 0.035;
+export const AO_THICKNESS = 0.07;
 
 function createNormalDepthMaterial() {
   const stripLogDepth = (source) => source.replace(/#include <logdepthbuf_[a-z_]+>/g, "");

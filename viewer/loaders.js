@@ -53,6 +53,7 @@ import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 import { t } from "./i18n-utils.js";
 import { detectTiledFormat, loadTiledModel } from "./tiles.js";
 import { detectFileUnit } from "./editor/model-units.js";
+import { modelNeedsWebGL } from "./renderer-backend.js";
 import { maybeShowFirstRunHints } from "./ui/first-run-hints.js";
 import { hideAppSplash, onAppModelLoaded } from "./app-hooks.js";
 
@@ -441,7 +442,9 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
   // Initialize cache for this preset if not exists
   if (!environmentTextureCache[preset]) {
     environmentTextureCache[preset] = (async () => {
-      const pmrem = new THREE.PMREMGenerator(renderer);
+      // The WebGPU renderer has a PMREM generator of its own (renderer-backend.js).
+      const PMREMGenerator = core.rendererBackend === "webgpu" ? core.threeWebGPU.PMREMGenerator : THREE.PMREMGenerator;
+      const pmrem = new PMREMGenerator(renderer);
       try {
         if (preset === "studio") {
           // Studio uses RoomEnvironment
@@ -763,6 +766,12 @@ export async function loadModel() {
   }
 
   try {
+    // Point clouds and Gaussian splats need the WebGL renderer, chosen when
+    // the viewer started (renderer-backend.js).
+    if (core.rendererBackend === "webgpu" && modelNeedsWebGL(core.fileObject.filename)) {
+      toastHelper("webglOnlyModel", "error", { duration: 10000 });
+      throw new Error(`${core.fileObject.filename} needs the WebGL renderer (open the viewer with ?renderer=webgl)`);
+    }
     switch (core.fileObject.extension.toLowerCase()) {
       case "obj": {
         const object = await loadOBJWithMTL();

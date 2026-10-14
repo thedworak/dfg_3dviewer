@@ -270,6 +270,11 @@ export function attachShadingEditor(Viewer) {
 
     setShadingMode(mode, options = {}) {
       if (!SHADING_MODES.includes(mode)) return;
+      // GLSL: the WebGL renderer's only (renderer-backend.js).
+      if (mode === "custom" && core.rendererBackend === "webgpu") {
+        if (options.silent !== true) toastHelper("webglOnlyFeature", "warning", { feature: t("gui.shadingCustom", "Custom shader") });
+        return;
+      }
 
       this.shadingMode = mode;
       if (mode === "custom") {

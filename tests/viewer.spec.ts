@@ -32,12 +32,12 @@ const supportedExamples = [
   { format: 'laz', path: '/examples/points.laz' },
 ];
 
-async function openViewer(page, modelPath = defaultModel) {
+async function openViewer(page, modelPath = defaultModel, query = '') {
   await page.addInitScript(() => {
     window.__E2E__ = true;
   });
 
-  await page.goto(`/?e2eModel=${encodeURIComponent(modelPath)}`);
+  await page.goto(`/?e2eModel=${encodeURIComponent(modelPath)}${query ? `&${query}` : ''}`);
   await page.waitForSelector('#MainCanvas', { state: 'attached' });
 }
 
@@ -848,6 +848,170 @@ test('LAZ point clouds load directly, re-centred in double precision', async ({ 
   expect(cloud.size[0]).toBeLessThan(32);
   expect(cloud.centerX).toBe(0);
   expect(cloud.minY).toBe(0);
+});
+
+// The current view (window.viewer.captureFrame) as counts: pixels the model
+// covers, their mean brightness.
+async function frameStats(page) {
+  return page.evaluate(async () => {
+    const url = await window.viewer.captureFrame();
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let covered = 0;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 200) continue;
+      covered++;
+      sum += data[i] + data[i + 1] + data[i + 2];
+    }
+    return { covered, mean: covered ? sum / covered / 3 : 0 };
+  });
+}
+
+test('WebGPU renderer (on its WebGL 2 backend): materials, ambient occlusion, scan views, section planes, area selection', async ({ page }) => {
+  test.setTimeout(90_000);
+  // A browser offering VR and AR, to see the WebGPU renderer turn them down.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'xr', {
+      configurable: true,
+      value: { isSessionSupported: async () => true, requestSession: async () => { throw new Error('no device'); } },
+    });
+  });
+  await openViewer(page, '/examples/tempietto/Tempietto.glb', 'renderer=webgpu&webgpuBackend=webgl2');
+  await waitForCameraIdle(page);
+  expect(await page.evaluate(() => [window.viewer.rendererBackend, window.viewer.rendererDevice])).toEqual(['webgpu', 'webgl2']);
+  await expect(page.locator('#credits')).toContainText('WebGPU renderer (WebGL 2)');
+
+  const base = await frameStats(page);
+  expect(base.covered).toBeGreaterThan(5000);
+
+  // Ambient occlusion: a TSL pipeline, darker in the creases.
+  const clickTool = (key) => page.evaluate((tool) => document.querySelector(`button[data-tool="${tool}"]`).click(), key);
+  await clickTool('renderingAo');
+  await expect.poll(() => page.evaluate(() => [window.viewer.ambientOcclusion, window.viewer.postProcessing])).toEqual([true, true]);
+  const occluded = await frameStats(page);
+  expect(occluded.mean).toBeLessThan(base.mean - 1);
+  await clickTool('renderingAo');
+  await expect.poll(() => page.evaluate(() => window.viewer.postProcessing)).toBe(false);
+
+  // Scan views are node materials too; the GLSL one is the WebGL renderer's.
+  await page.evaluate(() => window.Viewer.setShadingMode('clay', { silent: true }));
+  expect((await frameStats(page)).mean).toBeGreaterThan(base.mean + 10);
+  await page.evaluate(() => window.Viewer.setShadingMode('custom'));
+  expect(await page.evaluate(() => window.Viewer.shadingMode)).toBe('clay');
+  await expect(page.locator('button[data-tool="shading-custom"]')).toBeHidden();
+  await page.evaluate(() => window.Viewer.setShadingMode('original', { silent: true }));
+
+  // Section planes clip the model through clipping groups.
+  await page.evaluate(() => {
+    window.Viewer.toggleClippingPlanesPanel();
+    window.Viewer.setClippingAxisPosition('x', 0);
+  });
+  await expect.poll(async () => (await frameStats(page)).covered, { timeout: 30_000 }).toBeLessThan(base.covered * 0.8);
+  await page.evaluate(() => window.Viewer.toggleClippingPlanesPanel());
+
+  // Area selection through the ID buffer, read back asynchronously.
+  const faces = await page.evaluate(async () => {
+    const rect = document.getElementById('MainCanvas').getBoundingClientRect();
+    const hits = await window.Viewer.pickVisibleFacesInRect(
+      rect.left + rect.width * 0.3, rect.top + rect.height * 0.2,
+      rect.left + rect.width * 0.7, rect.top + rect.height * 0.8
+    );
+    return { count: hits.length, faceIndices: hits.every((hit) => Number.isInteger(hit.faceIndex)) };
+  });
+  expect(faces.count).toBeGreaterThan(50);
+  expect(faces.faceIndices).toBe(true);
+
+  // WebXR runs on the WebGL renderer only.
+  await expect.poll(() => page.evaluate(() => window.Viewer.xr.checked && window.Viewer.xr.support)).toMatchObject({ vr: false, ar: false });
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+// On SwiftShader (no GPU) WebGPU renders on the CPU, slowly enough to
+// starve the tests running next to it: opt in with WEBGPU_TESTS=1. The test
+// above covers the same code on the WebGPU renderer's WebGL 2 backend.
+test('WebGPU renderer on a WebGPU device', async ({ page }) => {
+  test.skip(process.env.WEBGPU_TESTS !== '1', 'set WEBGPU_TESTS=1 to run on a WebGPU device');
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    // Headless SwiftShader loses the device once a WebGPU canvas presents:
+    // the canvas frames go to a plain texture, and the frames are paced
+    // (nothing else paces them without presentation).
+    if (!navigator.gpu) return;
+    window.requestAnimationFrame = (callback) => setTimeout(() => callback(performance.now()), 150);
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+      if (type !== 'webgpu') return getContext.call(this, type, ...rest);
+      const canvas = this;
+      let config = null;
+      let texture = null;
+      return {
+        canvas,
+        configure(value) { config = value; },
+        unconfigure() { config = null; texture?.destroy(); texture = null; },
+        getConfiguration() { return config; },
+        getCurrentTexture() {
+          const width = Math.max(1, canvas.width);
+          const height = Math.max(1, canvas.height);
+          if (!texture || texture.width !== width || texture.height !== height) {
+            texture?.destroy();
+            texture = config.device.createTexture({
+              size: [width, height],
+              format: config.format,
+              usage: config.usage ?? (GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC),
+            });
+          }
+          return texture;
+        },
+      };
+    };
+  });
+  await page.setViewportSize({ width: 480, height: 400 });
+  await openViewer(page, '/examples/tempietto/Tempietto.glb', 'renderer=webgpu');
+  await page.waitForFunction(() => window.viewer?.rendererBackend !== undefined, null, { timeout: 30_000 });
+  test.skip(await page.evaluate(() => window.viewer.rendererBackend) !== 'webgpu', 'no WebGPU adapter in this browser');
+  await waitForCameraIdle(page);
+  expect(await page.evaluate(() => window.viewer.rendererDevice)).toBe('webgpu');
+  await expect(page.locator('#credits')).toContainText('· WebGPU');
+
+  const base = await frameStats(page);
+  expect(base.covered).toBeGreaterThan(5000);
+  await page.evaluate(() => document.querySelector('button[data-tool="renderingAo"]').click());
+  await expect.poll(() => page.evaluate(() => window.viewer.ambientOcclusion)).toBe(true);
+  expect((await frameStats(page)).mean).toBeLessThan(base.mean - 1);
+  await page.evaluate(() => document.querySelector('button[data-tool="renderingAo"]').click());
+  await page.evaluate(() => {
+    window.Viewer.toggleClippingPlanesPanel();
+    window.Viewer.setClippingAxisPosition('x', 0);
+  });
+  // Software WebGPU is slow: a frame read back can take seconds.
+  await expect.poll(async () => (await frameStats(page)).covered, { timeout: 45_000 }).toBeLessThan(base.covered * 0.8);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('renderer choice: WebGL by default, WebGPU on request, WebGL for point clouds and splats', async ({ page }) => {
+  await openViewer(page, '/examples/tempietto/Tempietto.glb');
+  await waitForModel(page);
+  expect(await page.evaluate(() => window.viewer.rendererBackend)).toBe('webgl');
+  await expect(page.locator('#credits')).not.toContainText('WebGPU');
+
+  // A splat scene keeps WebGL even when WebGPU is asked for.
+  await openViewer(page, '/examples/tempietto/Tempietto.splat', 'renderer=webgpu&webgpuBackend=webgl2');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.viewer.rendererBackend)).toBe('webgl');
+
+  // Without WebGPU in the browser: WebGL.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'gpu', { configurable: true, value: undefined }));
+  await openViewer(page, '/examples/tempietto/Tempietto.glb', 'renderer=webgpu');
+  await waitForModel(page);
+  expect(await page.evaluate(() => window.viewer.rendererBackend)).toBe('webgl');
 });
 
 test('point cloud panel changes colours, shape and size, and only appears for point clouds', async ({ page }) => {
