@@ -735,6 +735,30 @@
   letter-spacing: 0.04em;
 }
 
+/* Locked by the plan: the name stays (::after is the lock elsewhere, see
+   main.css), and the lock goes to ::before, dark on the accent. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::after {
+  position: static;
+  width: auto;
+  height: auto;
+  background: none;
+  -webkit-mask: none;
+  mask: none;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::before {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 11px;
+  height: 11px;
+  background-color: #15191d;
+  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
+  mask: var(--plan-lock-mask) center / contain no-repeat;
+  pointer-events: none;
+}
+
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar .viewer-editor-tool_icon svg {
   width: 22px;
   height: 22px;
