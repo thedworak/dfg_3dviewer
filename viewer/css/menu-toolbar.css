@@ -847,21 +847,53 @@
   right: 0;
   bottom: 100%;
   max-height: calc(var(--viewer-menus-host-h, 700px) * 0.62);
+  /* Its height, when dragged, the whole sheet's. */
+  box-sizing: border-box;
   border-bottom: 0;
   border-radius: 18px 18px 0 0;
   animation: viewer-menus-sheet 0.28s cubic-bezier(0.2, 0.85, 0.25, 1);
 }
 
-/* The sheet's grip. */
-#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_panel::before {
-  content: "";
-  align-self: center;
+/* The sheet's grip: it and the header drag the sheet lower or taller
+   (menu-toolbar.js), so the touch is theirs, not the page's. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_sheet-grip {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_sheet-grip {
+  display: block;
+  position: relative;
+  align-self: stretch;
   flex: 0 0 auto;
+  height: 16px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_sheet-grip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8px;
   width: 40px;
   height: 4px;
-  margin-top: 8px;
   border-radius: 2px;
+  transform: translateX(-50%);
   background: color-mix(in srgb, var(--viewer-panel-text) 25%, transparent);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_panel-header {
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_close {
+  cursor: pointer;
+}
+
+#viewerEditorToolbar.viewer-menus--resizing .viewer-menus_panel {
+  animation: none;
+  user-select: none;
 }
 
 @keyframes viewer-menus-sheet {

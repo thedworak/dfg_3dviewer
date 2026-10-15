@@ -3280,11 +3280,12 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();
 
-  // The names follow the language.
-  await page.evaluate(() => {
-    document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
-    document.querySelector<HTMLElement>('.language-dropdown-item-polish')?.click();
-  });
+  // The names follow the language, chosen in Settings (its list stays open
+  // there, out of the action menu).
+  await toolbar.locator('.viewer-menus_tab[data-menu="settings"]').click();
+  await toolbar.locator('#viewerLanguageMode').click();
+  await expect(toolbar.locator('#viewerLanguageModeDropdown')).toBeVisible();
+  await toolbar.locator('.language-dropdown-item-polish').click();
   await expect(tabs.first()).toHaveText('Wygląd');
   await expect(toolbar.locator('button[data-tool="rakingLight"]')).toHaveAttribute('aria-label', 'Światło skośne');
   expect(await page.evaluate(() => window.viewer.errors ?? [])).toEqual([]);
@@ -3326,7 +3327,24 @@ test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once
   const [sheet, bar] = await Promise.all([panel.boundingBox(), toolbar.locator('.viewer-menus_tabs').boundingBox()]);
   expect(Math.round(sheet.y + sheet.height)).toBe(Math.round(bar.y));
   expect(Math.round(sheet.width)).toBe(390);
+  // Its grip makes it lower, kept so when it opens again; dragged right
+  // down, it closes.
+  const dragGrip = async (dy) => {
+    const grip = await toolbar.locator('.viewer-menus_sheet-grip').boundingBox();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2 + dy, { steps: 5 });
+    await page.mouse.up();
+  };
+  await dragGrip(120);
+  const lower = await panel.boundingBox();
+  expect(Math.round(lower.height)).toBe(Math.round(sheet.height - 120));
+  expect(Math.round(lower.y + lower.height)).toBe(Math.round(bar.y));
   await toolbar.locator('.viewer-menus_tab[data-menu="more"]').tap();
+  await expect(panel).toBeHidden();
+  await toolbar.locator('.viewer-menus_tab[data-menu="more"]').tap();
+  await expect.poll(async () => Math.round((await panel.boundingBox()).height)).toBe(Math.round(lower.height));
+  await dragGrip(lower.height);
   await expect(panel).toBeHidden();
 
   // Turned on its side: the tabs go down the left edge, turning as they go.

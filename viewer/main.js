@@ -3866,8 +3866,11 @@ export const Viewer = {
         Viewer.applyLanguage({ persist: false });
         //Viewer.bindEventListener(Viewer.downloadModelElement, "click", () => Viewer.closeActionMenu());
         Viewer.bindEventListener(document, "click", (event) => {
+          // The menus layout moves the panel (language, theme) out of the
+          // action menu into its Settings menu.
           if (
             !Viewer.actionMenu?.contains(event.target) &&
+            !Viewer.actionMenuPanel?.contains(event.target) &&
             !Viewer.embedConfiguratorPanel?.contains(event.target)
           ) {
             Viewer.closeActionMenu();

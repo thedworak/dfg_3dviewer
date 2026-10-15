@@ -148,8 +148,11 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   const close = el("button", "viewer-menus_close", { type: "button" });
   close.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   header.append(title, close);
+  // The sheet's grip (phone upright): dragged, with the header, to make the
+  // sheet lower or taller, or down to close it.
+  const sheetGrip = el("div", "viewer-menus_sheet-grip", { "aria-hidden": "true" });
   const body = el("div", "viewer-menus_panel-body");
-  panel.append(header, body);
+  panel.append(sheetGrip, header, body);
 
   const groups = {};
   CATEGORIES.forEach((category) => {
@@ -222,7 +225,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   dock.append(nav, device, tabs);
   toolbar.append(dock, panel);
 
-  const state = { open: null, mode: null };
+  const state = { open: null, mode: null, sheetHeight: null };
   viewer.menuToolbar = { toolbar, dock, nav, device, tabs, panel, title, close, groups, tabButtons, state, categories: CATEGORIES, more: MORE };
 
   // The menus a tab shows: one, or everything marked `more` under "More".
@@ -250,6 +253,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
       title.textContent = category?.label() || "";
       panel.setAttribute("aria-label", title.textContent);
       placePanel();
+      showSheetHeight();
       body.scrollTop = 0;
     }
     syncNoticeAboveToolbar();
@@ -289,6 +293,56 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   });
   panel.querySelectorAll(".has-submenu").forEach((row) => row.setAttribute("aria-expanded", "false"));
 
+  // The sheet's height, as last dragged (kept while the viewer is open).
+  const SHEET_MIN = 140;
+  const sheetMax = () => Math.max(SHEET_MIN, host.getBoundingClientRect().height * 0.9 - dock.getBoundingClientRect().height);
+  function showSheetHeight() {
+    if (state.mode !== "bar" || !state.sheetHeight) {
+      panel.style.removeProperty("height");
+      panel.style.removeProperty("max-height");
+      return;
+    }
+    panel.style.height = `${Math.round(Math.min(Math.max(state.sheetHeight, SHEET_MIN), sheetMax()))}px`;
+    panel.style.maxHeight = "none";
+  }
+  const sheet = { start: null };
+  viewer.bindEventListener(panel, "pointerdown", (event) => {
+    if (state.mode !== "bar" || event.button !== 0) return;
+    if (!sheetGrip.contains(event.target) && (!header.contains(event.target) || close.contains(event.target))) return;
+    event.preventDefault();
+    sheet.start = { y: event.clientY, height: panel.getBoundingClientRect().height, moved: false };
+    toolbar.classList.add("viewer-menus--resizing");
+    panel.setPointerCapture?.(event.pointerId);
+  });
+  viewer.bindEventListener(panel, "pointermove", (event) => {
+    if (!sheet.start) return;
+    const dy = event.clientY - sheet.start.y;
+    if (Math.abs(dy) > 4) sheet.start.moved = true;
+    // Below the least height it follows the finger, on its way to closing.
+    const height = Math.min(Math.max(sheet.start.height - dy, 40), sheetMax());
+    panel.style.height = `${Math.round(height)}px`;
+    panel.style.maxHeight = "none";
+  });
+  const endSheetDrag = () => {
+    if (!sheet.start) return;
+    const { moved } = sheet.start;
+    sheet.start = null;
+    toolbar.classList.remove("viewer-menus--resizing");
+    if (!moved) {
+      showSheetHeight();
+      return;
+    }
+    const height = panel.getBoundingClientRect().height;
+    if (height < SHEET_MIN - 30) {
+      openMenu(null);
+      return;
+    }
+    state.sheetHeight = height;
+    showSheetHeight();
+  };
+  viewer.bindEventListener(panel, "pointerup", endSheetDrag);
+  viewer.bindEventListener(panel, "pointercancel", endSheetDrag);
+
   viewer.bindEventListener(close, "click", (event) => {
     event.stopPropagation();
     openMenu(null);
@@ -323,6 +377,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     toolbar.dataset.mode = mode;
     if (state.open === "more" && mode === "desktop") openMenu(null);
     placePanel();
+    showSheetHeight();
     if (before) turnTabs(before, previous, mode);
     if (mode === "desktop") requestAnimationFrame(() => keepInside());
     syncNoticeAboveToolbar();
