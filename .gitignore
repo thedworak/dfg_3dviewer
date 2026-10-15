@@ -57,3 +57,6 @@ __pycache__/
 
 # large generated test data (scripts/generate-pointcloud-lod.py) - not shipped
 /viewer/test-data/
+
+# macOS Finder metadata
+.DS_Store
