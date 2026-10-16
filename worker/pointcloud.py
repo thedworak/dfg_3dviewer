@@ -269,6 +269,8 @@ def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: st
         converter_input = intermediate
 
     if fmt == "potree":
+        # Its full path: PotreeConverter resolves its own folder from argv[0]
+        # against the working directory and aborts when run by name alone.
         converter = shutil.which(POTREE_CONVERTER)
         if not converter:
             raise RuntimeError(f"PotreeConverter ({POTREE_CONVERTER}) is not installed")

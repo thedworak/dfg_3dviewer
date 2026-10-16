@@ -112,7 +112,10 @@ ARG POTREECONVERTER_VERSION=2.1.1
 # liblaszip.so, next to the binary and finds it through a RUNPATH into the
 # build directory - which is removed. So the library is installed to
 # /usr/local/lib as well (ldconfig): the version the converter was compiled
-# against, not Ubuntu's liblaszip.
+# against, not Ubuntu's liblaszip. It finds its own folder from argv[0]
+# against the working directory, so it is always run by its full path
+# (`PotreeConverter --help` by name, from /, aborts: "cannot make canonical
+# path [/PotreeConverter]").
 RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ make libtbb-dev libtbb12 \
     && curl -fsSL "https://github.com/potree/PotreeConverter/archive/refs/tags/${POTREECONVERTER_VERSION}.tar.gz" | tar -xz -C /tmp \
     && cmake -S "/tmp/PotreeConverter-${POTREECONVERTER_VERSION}" -B /tmp/potree-build \
@@ -125,7 +128,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ make 
     && apt-get purge -y cmake g++ make libtbb-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
-    && PotreeConverter --help > /dev/null
+    && /usr/local/bin/PotreeConverter --help > /dev/null
 
 # Runtime defaults that do not depend on the code.
 ENV SPATH=/app
