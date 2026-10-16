@@ -1,4 +1,4 @@
-import { decodeLasUrl } from './pointcloud-las-decode-BVUXliaT.js';
+import { decodeLasUrl } from './pointcloud-las-decode-Ie91ZEyo.js';
 import './_commonjsHelpers-B1ynBD_6.js';
 
 // Web Worker for LAS / LAZ point clouds (started by pointcloud-las.js): the

@@ -1,4 +1,4 @@
-import { c as core } from './main-B8vyhixZ.js';
+import { c as core } from './main-DcXoShGT.js';
 import { g4 as THREE } from './three-DVpUZZAE.js';
 import './_commonjsHelpers-B1ynBD_6.js';
 
@@ -42,7 +42,7 @@ function startDecoder(request, onMessage) {
     worker = null;
     onMessage({ type: "decoder", name: "main-thread" });
     try {
-      const { decodeLasUrl } = await import('./pointcloud-las-decode-BVUXliaT.js');
+      const { decodeLasUrl } = await import('./pointcloud-las-decode-Ie91ZEyo.js');
       await decodeLasUrl(request.url, {
         ...request,
         emit: (message) => {
@@ -56,7 +56,7 @@ function startDecoder(request, onMessage) {
   };
 
   try {
-    worker = new Worker(new URL(new URL('pointcloud-las-worker-D5b_Spic.js', import.meta.url).href), { type: "module" });
+    worker = new Worker(new URL(new URL('pointcloud-las-worker-5NUy5OTb.js', import.meta.url).href), { type: "module" });
   } catch {
     worker = null;
   }

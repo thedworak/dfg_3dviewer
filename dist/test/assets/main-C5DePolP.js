@@ -713,6 +713,10 @@ const VIEWER_I18N = {
       pointCloudLoaded: "Point cloud loaded: {count} points.",
       pointCloudIncomplete: "The point cloud did not load completely; showing the points that arrived.",
       tiledAnnotationBlocked: "Annotations are not available for streamed (3D Tiles / Potree) models.",
+      pointAnnotationHint: "Click a point of the point cloud to annotate it.",
+      profileStart: "Click the first end of the profile line on the point cloud.",
+      profileSecond: "Now click the second end.",
+      profileTooShort: "The two ends lie above each other; click two points apart.",
       fullModelLoaded: "Full-quality model loaded.",
       fullModelLoadError: "Could not load the full-quality model; showing the preview.",
       previewAnnotationBlocked: "Annotations can be added once the full-quality model has loaded.",
@@ -858,6 +862,34 @@ const VIEWER_I18N = {
         square: "Square",
         round: "Round",
         sphere: "Sphere",
+      },
+      classesTitle: "Classes",
+      classOther: "Class {value}",
+      profile: "Profile",
+      drawProfile: "Draw profile",
+      cancelProfile: "Cancel",
+      clearProfile: "Clear profile",
+      profileWidth: "Profile width {value}",
+      classNames: {
+        0: "Never classified",
+        1: "Unclassified",
+        2: "Ground",
+        3: "Low vegetation",
+        4: "Medium vegetation",
+        5: "High vegetation",
+        6: "Building",
+        7: "Low point (noise)",
+        8: "Model key point",
+        9: "Water",
+        10: "Rail",
+        11: "Road surface",
+        12: "Overlap",
+        13: "Wire guard",
+        14: "Wire conductor",
+        15: "Transmission tower",
+        16: "Wire insulator",
+        17: "Bridge deck",
+        18: "High noise",
       },
       colorModes: {
         rgb: "RGB",
@@ -1612,6 +1644,10 @@ const VIEWER_I18N = {
       pointCloudLoaded: "Załadowano chmurę punktów: {count} punktów.",
       pointCloudIncomplete: "Chmura punktów nie załadowała się w całości; wyświetlono punkty, które dotarły.",
       tiledAnnotationBlocked: "Adnotacje nie są dostępne dla modeli strumieniowanych (3D Tiles / Potree).",
+      pointAnnotationHint: "Kliknij punkt chmury, aby dodać do niego adnotację.",
+      profileStart: "Kliknij na chmurze pierwszy koniec linii profilu.",
+      profileSecond: "Teraz kliknij drugi koniec.",
+      profileTooShort: "Oba końce leżą jeden nad drugim; kliknij dwa odległe punkty.",
       fullModelLoaded: "Załadowano model w pełnej jakości.",
       fullModelLoadError: "Nie udało się załadować modelu w pełnej jakości; wyświetlany jest podgląd.",
       previewAnnotationBlocked: "Adnotacje można dodać po załadowaniu modelu w pełnej jakości.",
@@ -1757,6 +1793,34 @@ const VIEWER_I18N = {
         square: "Kwadrat",
         round: "Koło",
         sphere: "Kula",
+      },
+      classesTitle: "Klasy",
+      classOther: "Klasa {value}",
+      profile: "Profil",
+      drawProfile: "Rysuj profil",
+      cancelProfile: "Anuluj",
+      clearProfile: "Usuń profil",
+      profileWidth: "Szerokość profilu {value}",
+      classNames: {
+        0: "Nigdy niesklasyfikowane",
+        1: "Niesklasyfikowane",
+        2: "Grunt",
+        3: "Niska roślinność",
+        4: "Średnia roślinność",
+        5: "Wysoka roślinność",
+        6: "Budynek",
+        7: "Niski punkt (szum)",
+        8: "Punkt kluczowy modelu",
+        9: "Woda",
+        10: "Tory",
+        11: "Nawierzchnia drogi",
+        12: "Nakładanie",
+        13: "Linka odgromowa",
+        14: "Przewód",
+        15: "Słup energetyczny",
+        16: "Izolator",
+        17: "Pomost mostu",
+        18: "Wysoki szum",
       },
       colorModes: {
         rgb: "RGB",
@@ -2510,6 +2574,10 @@ const VIEWER_I18N = {
       pointCloudLoaded: "Punktwolke geladen: {count} Punkte.",
       pointCloudIncomplete: "Die Punktwolke wurde nicht vollständig geladen; die eingetroffenen Punkte werden angezeigt.",
       tiledAnnotationBlocked: "Anmerkungen sind für gestreamte Modelle (3D Tiles / Potree) nicht verfügbar.",
+      pointAnnotationHint: "Klicken Sie auf einen Punkt der Punktwolke, um ihn zu annotieren.",
+      profileStart: "Klicken Sie auf der Punktwolke das erste Ende der Profillinie an.",
+      profileSecond: "Jetzt das zweite Ende anklicken.",
+      profileTooShort: "Beide Enden liegen übereinander; klicken Sie zwei entfernte Punkte an.",
       fullModelLoaded: "Modell in voller Qualität geladen.",
       fullModelLoadError: "Das Modell in voller Qualität konnte nicht geladen werden; die Vorschau wird angezeigt.",
       previewAnnotationBlocked: "Anmerkungen können hinzugefügt werden, sobald das Modell in voller Qualität geladen ist.",
@@ -2655,6 +2723,34 @@ const VIEWER_I18N = {
         square: "Quadrat",
         round: "Rund",
         sphere: "Kugel",
+      },
+      classesTitle: "Klassen",
+      classOther: "Klasse {value}",
+      profile: "Profil",
+      drawProfile: "Profil zeichnen",
+      cancelProfile: "Abbrechen",
+      clearProfile: "Profil entfernen",
+      profileWidth: "Profilbreite {value}",
+      classNames: {
+        0: "Nie klassifiziert",
+        1: "Unklassifiziert",
+        2: "Boden",
+        3: "Niedrige Vegetation",
+        4: "Mittlere Vegetation",
+        5: "Hohe Vegetation",
+        6: "Gebäude",
+        7: "Tiefer Punkt (Rauschen)",
+        8: "Modell-Schlüsselpunkt",
+        9: "Wasser",
+        10: "Schiene",
+        11: "Straßenoberfläche",
+        12: "Überlappung",
+        13: "Erdseil",
+        14: "Leiterseil",
+        15: "Mast",
+        16: "Isolator",
+        17: "Brückendeck",
+        18: "Hohes Rauschen",
       },
       colorModes: {
         rgb: "RGB",
@@ -8616,7 +8712,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DHhdNdHD.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-D9fqXNqL.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DtWjGkhI.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9261,7 +9357,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-CldW_vY1.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-owfrjW6o.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -9390,9 +9486,9 @@ const loadLWOLoader = async () => (await import('./three-DVpUZZAE.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DEYEu7o2.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DVpUZZAE.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DqzefRxU.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-C2lQLOly.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-BFcMQ_eU.js');
+const loadSplats = async () => import('./splats-2kbsGOyg.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -14502,7 +14598,7 @@ function renderFrame(renderer = core.renderer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "8960c2df" ;
+const BUILD_ID$2 = "e55d4126" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -14553,8 +14649,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "8960c2df" ;
-const BUILD_TIME$1 = "2026-10-16T09:25:29.373Z" ;
+const BUILD_ID$1 = "e55d4126" ;
+const BUILD_TIME$1 = "2026-10-16T09:44:32.078Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -22915,6 +23011,9 @@ function attachAnnotations(Viewer) {
     // Annotations store face indices of the full model; the progressive
     // preview (loaders.js) has different triangles.
     isPreviewModelActive() {
+      // Point annotations on a point cloud are anchored by position, which
+      // stays valid whatever the level of detail.
+      if (this.pointCloudState?.kind === "tiles") return false;
       if (core.tiledModel) {
         // Streamed tiles swap their meshes with the level of detail, so
         // face indices would not stay valid.
@@ -22990,6 +23089,17 @@ function attachAnnotations(Viewer) {
 
     openAnnotationDialogWithAutoPicking() {
       if (this.isPreviewModelActive()) return;
+      // Point clouds have no faces: a click on a point opens the dialog
+      // (picking.js -> startPointAnnotationAt).
+      if (this.pointCloudState) {
+        this.pickingMode = true;
+        this.RULER_MODE = false;
+        this.updateDistanceMeasurementControllerLabel();
+        this.updatePickingModeControllerLabel();
+        this.updatePickingControlsVisibility();
+        toastHelper("pointAnnotationHint", "info");
+        return;
+      }
       if (!this.pickingMode) {
         this.pickingMode = true;
         this.RULER_MODE = false;
@@ -23010,9 +23120,36 @@ function attachAnnotations(Viewer) {
       this.openAnnotationDialog();
     },
 
+    // A new point annotation at a point of a point cloud (world space): the
+    // dialog opens for it, and saving adds it (savePointAnnotationFromDialog).
+    startPointAnnotationAt(worldPoint) {
+      if (this.isPreviewModelActive()) return false;
+      const root = this.resolveObjectByTargetId(POINT_ANNOTATION_ROOT);
+      if (!root || !worldPoint) return false;
+      root.updateMatrixWorld(true);
+      const local = root.worldToLocal(worldPoint.clone());
+      const id = `anno-point-${Date.now()}`;
+      this.pendingPointAnnotation = { id, targetId: POINT_ANNOTATION_ROOT, point: local.toArray() };
+      this.buildAnnotationDialog();
+      if (!this.annotationDialog) return false;
+      this.annotationEditingPointId = id;
+      this.annotationTargetFaceKeys = [];
+      this.annotationDialogTitleInput.value = "";
+      this.annotationDialogDescriptionInput.value = "";
+      this.syncAnnotationDialogSaveView([]);
+      this.syncAnnotationDialogCertainty([], { point: true });
+      this.updateAnnotationDialogBounds();
+      this.annotationDialog.hidden = false;
+      this.closeAnnotationPOITooltip();
+      this.closeActionMenu();
+      this.annotationDialogTitleInput?.focus();
+      return true;
+    },
+
     closeAnnotationDialog() {
       if (!this.annotationDialog) return;
       this.annotationDialog.hidden = true;
+      this.pendingPointAnnotation = null;
       this.annotationEditingPointId = "";
       this.annotationTargetFaceKeys = [];
       this.annotationBatchGroupId = "";
@@ -23125,12 +23262,19 @@ function attachAnnotations(Viewer) {
     },
 
     savePointAnnotationFromDialog(id) {
-      const entry = this.annotationEntries.find((item) => String(item.id) === id);
+      let entry = this.annotationEntries.find((item) => String(item.id) === id);
       const title = String(this.annotationDialogTitleInput?.value || "").trim();
       if (!title) {
         toastHelper("titleRequired", "warning");
         this.annotationDialogTitleInput?.focus();
         return;
+      }
+      const pending = this.pendingPointAnnotation;
+      if (!entry && pending?.id === id) {
+        // New, from a click on a point cloud (startPointAnnotationAt).
+        const nowIso = new Date().toISOString();
+        entry = { ...pending, createdAt: nowIso };
+        this.annotationEntries.push(entry);
       }
       if (entry) {
         this.setAnnotationEntryText(entry, title, String(this.annotationDialogDescriptionInput?.value || "").trim());
@@ -32544,6 +32688,928 @@ function attachClipping(Viewer) {
   });
 }
 
+/**
+ * PointsMaterial that draws points at a world space size with optional shapes and eye dome
+ * lighting. `size` is the world space point spacing.
+ *
+ * Octree data sets can additionally size each point by the deepest active node containing it,
+ * found by walking a hierarchy texture in the vertex shader, which halves the spacing per level
+ * below the root. Enable it by assigning `uActiveNodes`, `uNodeSize` and `uNodeMinOffset`.
+ *
+ * All the properties below can be adjusted after construction.
+ * @param {Object} [params] PointsMaterial parameters plus the properties below.
+ * @param {('square'|'round'|'sphere')} [params.pointShape='round'] Sprite shape. Spheres write bulged depth so overlapping points intersect, at a fill rate cost.
+ * @param {number} [params.minPointSize=2] Smallest projected point size in pixels.
+ * @param {number} [params.edlStrength=0] Eye dome lighting falloff rate. Zero compiles the effect out.
+ * @param {number} [params.edlRadius=1.4] Radius of the eye dome lighting neighbor ring in pixels.
+ * @param {('none'|'node'|'depth'|'tile')} [params.debugColorMode='none'] Color points by the node they are sized by, that node's depth, or the tile they came from.
+ * @private
+ */
+class PointCloudMaterial extends PointsMaterial {
+
+	get isPointCloudMaterial() {
+
+		return true;
+
+	}
+
+	get activeNodes() {
+
+		return this.uniforms.uActiveNodes.value;
+
+	}
+
+	// the lod walk compiles out entirely when no hierarchy texture is assigned
+	set activeNodes( value ) {
+
+		const wasSet = this.uniforms.uActiveNodes.value !== null;
+		this.uniforms.uActiveNodes.value = value;
+		if ( wasSet !== ( value !== null ) ) this._updateDefines();
+
+	}
+
+	get pointShape() {
+
+		return this._pointShape;
+
+	}
+
+	set pointShape( value ) {
+
+		if ( value !== this._pointShape ) {
+
+			this._pointShape = value;
+			this._updateDefines();
+
+		}
+
+	}
+
+	get minPointSize() {
+
+		return this.uniforms.uMinPointSize.value;
+
+	}
+
+	set minPointSize( value ) {
+
+		this.uniforms.uMinPointSize.value = value;
+
+	}
+
+	get edlStrength() {
+
+		return this.uniforms.uEdlStrength.value;
+
+	}
+
+	// zero compiles the effect out rather than scaling it to nothing
+	set edlStrength( value ) {
+
+		const wasEnabled = this.uniforms.uEdlStrength.value > 0;
+		this.uniforms.uEdlStrength.value = value;
+		if ( wasEnabled !== value > 0 ) this._updateDefines();
+
+	}
+
+	get edlRadius() {
+
+		return this.uniforms.uEdlRadius.value;
+
+	}
+
+	set edlRadius( value ) {
+
+		this.uniforms.uEdlRadius.value = value;
+
+	}
+
+	get debugColorMode() {
+
+		return this._debugColorMode;
+
+	}
+
+	set debugColorMode( value ) {
+
+		if ( value !== this._debugColorMode ) {
+
+			this._debugColorMode = value;
+			this._updateDefines();
+
+		}
+
+	}
+
+	constructor( params = {} ) {
+
+		const {
+			pointShape = 'round',
+			minPointSize = 2,
+			debugColorMode = 'none',
+			edlStrength = 0,
+			edlRadius = 1.4,
+			...rest
+		} = params;
+
+		super( rest );
+
+		this._pointShape = pointShape;
+		this._debugColorMode = debugColorMode;
+
+		this.defines = {};
+		this.uniforms = {
+			uActiveNodes: { value: null },
+			uNodeSize: { value: 1 },
+			uNodeMinOffset: { value: new Vector3() },
+			uMinPointSize: { value: minPointSize },
+			uTileId: { value: 0 },
+
+			uEdlTexture: { value: null },
+			uEdlResolution: { value: new Vector2( 1, 1 ) },
+			uEdlStrength: { value: edlStrength },
+			uEdlRadius: { value: edlRadius },
+			uEdlDepthPass: { value: false },
+		};
+
+		this._updateDefines();
+
+		this.onBeforeCompile = shader => {
+
+			Object.assign( shader.uniforms, this.uniforms );
+
+			shader.vertexShader = shader.vertexShader
+				.replace(
+					'uniform float size;',
+					/* glsl */`
+						uniform float size;
+						uniform float uMinPointSize;
+
+						varying vec3 vViewPosition;
+						varying float vRadius;
+						varying float vNodeId;
+						varying float vDepth;
+						varying float vLogDepth;
+
+						#ifdef LOD_SIZING
+
+						uniform usampler2D uActiveNodes;
+						uniform float uNodeSize;
+						uniform vec3 uNodeMinOffset;
+
+						// number of set bits below the given bit index
+						uint numberOfOnes( uint mask, int index ) {
+
+							uint bitsBelow = mask & ( ( 1u << uint( index ) ) - 1u );
+							uint count = 0u;
+							for ( int i = 0; i < 8; i ++ ) {
+
+								count += ( bitsBelow >> uint( i ) ) & 1u;
+
+							}
+
+							return count;
+
+						}
+
+						// Walks the hierarchy texture, returning the deepest active depth (x), an id
+						// for that node (y) and its lod offset (z). The id comes from the octant
+						// path so it stays stable as the texture is re-encoded. Adapted from
+						// "getLOD" in potree's pointcloud.vs.
+						vec3 getActiveDepth( vec3 posInNode ) {
+
+							int textureWidth = textureSize( uActiveNodes, 0 ).x;
+							vec3 offset = vec3( 0.0 );
+							int nodeIndex = 0;
+							uint nodePath = 0u;
+							float lodOffset = 0.0;
+							int depth = 0;
+							for ( ; depth < 20; depth ++ ) {
+
+								uvec4 value = texelFetch( uActiveNodes, ivec2( nodeIndex % textureWidth, nodeIndex / textureWidth ), 0 );
+
+								// octant of the current node containing the point
+								float nodeSize = uNodeSize / pow( 2.0, float( depth ) );
+								vec3 index3d = floor( ( posInNode - offset ) / nodeSize + 0.5 );
+								int octant = int( 4.0 * index3d.x + 2.0 * index3d.y + index3d.z );
+								uint octantMask = 1u << uint( octant );
+
+								// stop when the octant holds no active child
+								uint childMask = value.r;
+								if ( ( childMask & octantMask ) == 0u ) {
+
+									lodOffset = float( value.a ) / 10.0 - 10.0;
+									break;
+
+								}
+
+								// child texel: the first child offset plus the active siblings below it
+								nodeIndex += int( value.g * 256u + value.b + numberOfOnes( childMask, octant ) );
+								offset += nodeSize * 0.5 * index3d;
+
+								// offset by one so trailing zeroes still change the id
+								nodePath = nodePath * 8u + uint( octant ) + 1u;
+
+							}
+
+							// kept under 2^24 so the id survives the trip through a float varying
+							return vec3( float( depth ), float( nodePath % 16777216u ), lodOffset );
+
+						}
+
+						#endif
+					`
+				)
+				.replace(
+					'#include <logdepthbuf_vertex>',
+					/* glsl */`
+						vec3 activeResult = vec3( 0.0 );
+						#ifdef LOD_SIZING
+
+							activeResult = getActiveDepth( position + uNodeMinOffset );
+
+						#endif
+
+						float worldSize = size / pow( 2.0, activeResult.x + activeResult.z );
+
+						// three's "scale" omits the 1 / tan( fov / 2 ) term, so its attenuation is
+						// not world scale. The projection y scale restores it, as potree does.
+						// Orthographic projections have no distance falloff at all.
+						float projFactor = scale * projectionMatrix[ 1 ][ 1 ];
+						if ( isPerspectiveMatrix( projectionMatrix ) ) {
+
+							projFactor /= - mvPosition.z;
+
+						}
+
+						gl_PointSize = worldSize * projFactor;
+						gl_PointSize = max( gl_PointSize, uMinPointSize );
+
+						vViewPosition = mvPosition.xyz;
+						vNodeId = activeResult.y;
+						vDepth = activeResult.x;
+
+						// half the world size the sprite covers, including the pixel clamp
+						vRadius = 0.5 * gl_PointSize / projFactor;
+						vLogDepth = log2( - mvPosition.z );
+
+						#include <logdepthbuf_vertex>
+					`
+				);
+
+			shader.fragmentShader = shader.fragmentShader
+				.replace(
+					'uniform float opacity;',
+					/* glsl */`
+					uniform float opacity;
+					uniform mat4 projectionMatrix;
+					uniform float uTileId;
+
+					varying vec3 vViewPosition;
+					varying float vRadius;
+					varying float vNodeId;
+					varying float vDepth;
+					varying float vLogDepth;
+
+					#ifdef EDL_ENABLED
+
+						uniform sampler2D uEdlTexture;
+						uniform vec2 uEdlResolution;
+						uniform float uEdlStrength;
+						uniform float uEdlRadius;
+						uniform bool uEdlDepthPass;
+
+						// Darken by how far this point sits behind a ring of neighbors in the
+						// pre-pass target. Adapted from potree's "edl.fs".
+						float edlShade( float logDepth ) {
+
+							vec2 uv = gl_FragCoord.xy / uEdlResolution;
+							vec2 uvRadius = uEdlRadius / uEdlResolution;
+
+							float sum = 0.0;
+							for ( int i = 0; i < 8; i ++ ) {
+
+								float angle = 6.2831853 * float( i ) / 8.0;
+								vec2 offset = uvRadius * vec2( cos( angle ), sin( angle ) );
+								float neighborDepth = texture2D( uEdlTexture, uv + offset ).r;
+
+								// zero means nothing was drawn there, so it contributes nothing
+								if ( neighborDepth != 0.0 ) {
+
+									sum += max( 0.0, logDepth - neighborDepth );
+
+								}
+
+							}
+
+							return exp( - ( sum / 8.0 ) * 300.0 * uEdlStrength );
+
+						}
+
+					#endif
+
+					// spread sequential ids into visually distinct colors
+					vec3 idToColor( float id ) {
+
+						return vec3(
+							fract( sin( id * 12.9898 ) * 43758.5453 ),
+							fract( sin( id * 78.2330 ) * 12543.2341 ),
+							fract( sin( id * 3.7010 ) * 26445.3450 )
+						);
+
+					}
+					`
+				)
+				.replace(
+					'#include <color_fragment>',
+					/* glsl */`
+					#include <color_fragment>
+
+					#ifdef DEBUG_NODE_COLORS
+
+						diffuseColor.rgb = idToColor( vNodeId + 1.0 );
+
+					#endif
+
+					// the tile the point came from, rather than the node it is sized by
+					#ifdef DEBUG_TILE_COLORS
+
+						diffuseColor.rgb = idToColor( uTileId + 1.0 );
+
+					#endif
+
+					// one hue per level
+					#ifdef DEBUG_DEPTH_COLORS
+
+						float hue = vDepth / 8.0;
+						diffuseColor.rgb = clamp( abs( fract( hue + vec3( 0.0, 2.0 / 3.0, 1.0 / 3.0 ) ) * 6.0 - 3.0 ) - 1.0, 0.0, 1.0 );
+
+					#endif
+					`
+				)
+				.replace(
+					'#include <colorspace_fragment>',
+					/* glsl */`
+					#include <colorspace_fragment>
+
+					#ifdef EDL_ENABLED
+
+						// shade after the color space conversion so the falloff lands on the
+						// encoded color, as potree's post process does
+						gl_FragColor.rgb *= edlShade( vLogDepth );
+
+					#endif
+					`
+				)
+				.replace(
+					'#include <clipping_planes_fragment>',
+					/* glsl */`
+					#include <clipping_planes_fragment>
+
+					#if defined( ROUND_POINTS ) || defined( SPHERE_POINTS )
+
+						vec2 pointOffset = gl_PointCoord * 2.0 - 1.0;
+
+					#endif
+
+					#ifdef ROUND_POINTS
+
+						// discard the sprite corners so points draw as circles
+						if ( dot( pointOffset, pointOffset ) > 1.0 ) discard;
+
+					#endif
+
+					#ifdef SPHERE_POINTS
+
+						// Intersect the view ray with the point's sphere and write that depth so
+						// overlapping points meet as solid spheres rather than flat discs. The
+						// fragment sits on the sprite plane, at the point's depth, so perspective
+						// rays run from the eye through it and orthographic rays run from it.
+						bool isPerspective = isPerspectiveMatrix( projectionMatrix );
+						vec3 spritePosition = vViewPosition + vec3( pointOffset * vRadius, 0.0 );
+						vec3 rayOrigin = isPerspective ? vec3( 0.0 ) : spritePosition;
+						vec3 rayDirection = isPerspective ? normalize( spritePosition ) : vec3( 0.0, 0.0, - 1.0 );
+
+						vec3 centerOffset = rayOrigin - vViewPosition;
+						float halfB = dot( centerOffset, rayDirection );
+						float disc = halfB * halfB - dot( centerOffset, centerOffset ) + vRadius * vRadius;
+						if ( disc < 0.0 ) discard;
+
+						vec3 hitPosition = rayOrigin + rayDirection * ( - halfB - sqrt( disc ) );
+						vec4 clipPosition = projectionMatrix * vec4( hitPosition, 1.0 );
+						gl_FragDepth = ( clipPosition.z / clipPosition.w ) * 0.5 + 0.5;
+
+					#endif
+
+					#ifdef EDL_ENABLED
+
+						// the pre-pass only needs the log depth, so return before the color work
+						if ( uEdlDepthPass ) {
+
+							gl_FragColor = vec4( vLogDepth, 0.0, 0.0, 1.0 );
+							return;
+
+						}
+
+					#endif
+					`
+				);
+
+		};
+
+	}
+
+	_updateDefines() {
+
+		const defines = {};
+		if ( this.uniforms.uActiveNodes.value !== null ) defines.LOD_SIZING = '';
+		if ( this.uniforms.uEdlStrength.value > 0 ) defines.EDL_ENABLED = '';
+		if ( this._pointShape === 'round' ) defines.ROUND_POINTS = '';
+		if ( this._pointShape === 'sphere' ) defines.SPHERE_POINTS = '';
+		if ( this._debugColorMode === 'node' ) defines.DEBUG_NODE_COLORS = '';
+		if ( this._debugColorMode === 'depth' ) defines.DEBUG_DEPTH_COLORS = '';
+		if ( this._debugColorMode === 'tile' ) defines.DEBUG_TILE_COLORS = '';
+
+		this.defines = defines;
+		this.needsUpdate = true;
+
+	}
+
+}
+
+// Display of directly loaded point clouds (LAS, LAZ, XYZ, PCD - THREE.Points
+// in the scene), used by the point cloud panel (editor/point-cloud-panel.js):
+//
+//   colours    by RGB, intensity, height or classification, chosen in the
+//              shader by a uniform: switching never rewrites the buffers
+//   size       "adaptive": in world units, from the cloud's estimated point
+//              spacing, so points close the gaps between them at any
+//              distance; "fixed": in screen pixels
+//   EDL        Eye-Dome Lighting: a depth pre-pass of the cloud, against which
+//              each point is shaded by how far it sits behind its neighbours
+//   filters    classes switched off and a profile slab (a vertical slice
+//              along a line) hide points in the vertex shader - for the
+//              view, the EDL pre-pass and GPU picking alike
+//   picking    a pass that writes each point's id instead of its colour
+//              (pointcloud-picking.js)
+
+const COLOR_MODES = { rgb: 0, intensity: 1, height: 2, classification: 3 };
+
+// ASPRS LAS standard classes (LAS 1.4, table 17).
+const CLASSIFICATION_COLORS = {
+  0: 0x9e9e9e, 1: 0xbdbdbd, 2: 0xa1784f, 3: 0xb5e28c, 4: 0x6fbf4a, 5: 0x2e7d32,
+  6: 0xe8743b, 7: 0xd500f9, 8: 0x7e57c2, 9: 0x2f80ed, 10: 0x795548, 11: 0x616161,
+  12: 0xfdd835, 13: 0xffb300, 14: 0xffca28, 15: 0x8d6e63, 16: 0x90a4ae, 17: 0x5c6bc0,
+  18: 0xff1744,
+};
+const CLASS_SLOTS$1 = 32;
+const OTHER_CLASS_COLOR = 0xeeeeee;
+
+// World size of a point in "adaptive" mode, in point spacings: a little over
+// one, so neighbouring points overlap rather than leave hairline gaps.
+const ADAPTIVE_SPACING_FACTOR = 1.4;
+
+const COLOR_VERTEX_DECLARATIONS = /* glsl */`
+  attribute float intensity;
+  attribute float classification;
+  uniform int uColorMode;
+  uniform vec2 uIntensityRange;
+  uniform vec2 uHeightRange;
+  uniform vec3 uClassColors[ ${CLASS_SLOTS$1} ];
+  uniform vec3 uOtherClassColor;
+  uniform float uClassVisible[ ${CLASS_SLOTS$1} ];
+  uniform float uOtherClassVisible;
+  uniform bool uProfileEnabled;
+  uniform vec4 uProfilePlane;
+  uniform float uProfileHalfWidth;
+  uniform vec3 uProfileAxis;
+  uniform vec2 uProfileRange;
+  flat varying float vPickHigh;
+  flat varying float vPickLow;
+
+  vec3 pcHslToRgb( float h, float s, float l ) {
+    vec3 rgb = clamp( abs( mod( h * 6.0 + vec3( 0.0, 4.0, 2.0 ), 6.0 ) - 3.0 ) - 1.0, 0.0, 1.0 );
+    return l + s * ( rgb - 0.5 ) * ( 1.0 - abs( 2.0 * l - 1.0 ) );
+  }
+`;
+
+// After three's color_vertex (vColor = the colour attribute): the other
+// modes replace it. The same ramps the CPU colouring used before.
+const COLOR_VERTEX_MAIN = /* glsl */`
+  #if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )
+    if ( uColorMode == 1 ) {
+      float span = max( uIntensityRange.y - uIntensityRange.x, 1e-6 );
+      float t = clamp( ( intensity - uIntensityRange.x ) / span, 0.0, 1.0 );
+      vColor.rgb = vec3( ( 40.0 + t * 215.0 ) / 255.0 );
+    } else if ( uColorMode == 2 ) {
+      // World height (Y), whatever the file's own up axis was.
+      float y = ( modelMatrix * vec4( position, 1.0 ) ).y;
+      float span = max( uHeightRange.y - uHeightRange.x, 1e-6 );
+      float t = clamp( ( y - uHeightRange.x ) / span, 0.0, 1.0 );
+      // Blue (low) through green to red (high).
+      vColor.rgb = pcHslToRgb( ( 1.0 - t ) * 0.66, 0.85, 0.5 );
+    } else if ( uColorMode == 3 ) {
+      int index = int( classification + 0.5 );
+      vColor.rgb = index < ${CLASS_SLOTS$1} ? uClassColors[ index ] : uOtherClassColor;
+    }
+  #endif
+`;
+
+// At the end of the vertex shader: hidden points go outside the clip volume
+// (drawn nowhere, picked never); the point's index for the picking pass.
+const FILTER_VERTEX_MAIN = /* glsl */`
+  int pcClass = int( classification + 0.5 );
+  float pcVisible = pcClass < ${CLASS_SLOTS$1} ? uClassVisible[ pcClass ] : uOtherClassVisible;
+  bool pcHidden = pcVisible < 0.5;
+  if ( uProfileEnabled ) {
+    vec3 pcWorld = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
+    float pcAlong = dot( uProfileAxis, pcWorld );
+    pcHidden = pcHidden
+      || abs( dot( uProfilePlane.xyz, pcWorld ) - uProfilePlane.w ) > uProfileHalfWidth
+      || pcAlong < uProfileRange.x || pcAlong > uProfileRange.y;
+  }
+  if ( pcHidden ) {
+    gl_Position = vec4( 2.0, 2.0, 2.0, 1.0 );
+    gl_PointSize = 0.0;
+  }
+  vPickHigh = floor( float( gl_VertexID ) / 65536.0 );
+  vPickLow = float( gl_VertexID ) - vPickHigh * 65536.0;
+`;
+
+const PICK_FRAGMENT_DECLARATIONS = /* glsl */`
+  uniform bool uPickingPass;
+  uniform float uPickId;
+  flat varying float vPickHigh;
+  flat varying float vPickLow;
+`;
+
+// Last in the fragment shader: object id and point index instead of colour.
+const PICK_FRAGMENT_MAIN = /* glsl */`
+  if ( uPickingPass ) gl_FragColor = vec4( uPickId, vPickHigh, vPickLow, 1.0 );
+`;
+
+// On for all clouds at once while pointcloud-picking.js renders its pass.
+const PICKING_PASS = { value: false };
+
+function createColorUniforms() {
+  const classColors = Array.from({ length: CLASS_SLOTS$1 }, (_, index) =>
+    new THREE.Color(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR));
+  return {
+    uColorMode: { value: COLOR_MODES.rgb },
+    uIntensityRange: { value: new THREE.Vector2(0, 1) },
+    uHeightRange: { value: new THREE.Vector2(0, 1) },
+    uClassColors: { value: classColors },
+    uOtherClassColor: { value: new THREE.Color(OTHER_CLASS_COLOR) },
+    uClassVisible: { value: new Array(CLASS_SLOTS$1).fill(1) },
+    uOtherClassVisible: { value: 1 },
+    uProfileEnabled: { value: false },
+    uProfilePlane: { value: new THREE.Vector4(1, 0, 0, 0) },
+    uProfileHalfWidth: { value: 1 },
+    uProfileAxis: { value: new THREE.Vector3(0, 0, 1) },
+    uProfileRange: { value: new THREE.Vector2(-Infinity, Infinity) },
+  };
+}
+
+// Adds the colour modes to a PointCloudMaterial (once). colorUniforms may be
+// shared: the tiles of a streamed cloud all use the panel's one set, so a
+// mode switch is a single uniform change.
+function addColorModes(material, colorUniforms) {
+  if (material.userData.colorModes) return material;
+  material.userData.colorModes = colorUniforms;
+  // Per material: the picking pass tells the objects apart by it.
+  const pickId = { value: 0 };
+  Object.assign(material.uniforms, colorUniforms, { uPickId: pickId, uPickingPass: PICKING_PASS });
+  const injectEffects = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    injectEffects.call(material, shader, renderer);
+    Object.assign(shader.uniforms, colorUniforms, { uPickId: pickId, uPickingPass: PICKING_PASS });
+    shader.vertexShader = shader.vertexShader
+      .replace("uniform float size;", `uniform float size;\n${COLOR_VERTEX_DECLARATIONS}`)
+      .replace("#include <color_vertex>", `#include <color_vertex>\n${COLOR_VERTEX_MAIN}`)
+      .replace(/}\s*$/, `${FILTER_VERTEX_MAIN}\n}`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace("uniform float opacity;", `uniform float opacity;\n${PICK_FRAGMENT_DECLARATIONS}`)
+      .replace(/}\s*$/, `${PICK_FRAGMENT_MAIN}\n}`);
+  };
+  material.needsUpdate = true;
+  return material;
+}
+
+function createMaterial(params, colorUniforms = null) {
+  const material = new PointCloudMaterial(params);
+  return colorUniforms ? addColorModes(material, colorUniforms) : material;
+}
+
+// The cloud's material as a PointCloudMaterial with GPU colour modes (once;
+// later calls return it). Keeps the colours, opacity and clipping planes of
+// the material it replaces.
+function preparePointCloudMaterial(points) {
+  if (points.material?.isPointCloudMaterial && points.material.userData.colorModes) return points.material;
+  const previous = points.material;
+  const params = {
+    vertexColors: Boolean(points.geometry.getAttribute("color")) || previous?.vertexColors === true,
+    size: 0,
+    minPointSize: previous?.size || 2,
+    transparent: previous?.transparent === true,
+    opacity: previous?.opacity ?? 1,
+    pointShape: "square",
+  };
+  if (previous?.color) params.color = previous.color;
+  const material = createMaterial(params, createColorUniforms());
+  material.clippingPlanes = previous?.clippingPlanes ?? null;
+  material.clipIntersection = previous?.clipIntersection ?? false;
+  points.material = material;
+  previous?.dispose?.();
+  attachEdlPass(points);
+  return material;
+}
+
+function setPointColorMode(points, mode) {
+  const material = preparePointCloudMaterial(points);
+  const uniforms = material.uniforms;
+  uniforms.uColorMode.value = COLOR_MODES[mode] ?? COLOR_MODES.rgb;
+  if (mode === "intensity") {
+    const intensity = points.geometry.getAttribute("intensity");
+    let max = 0;
+    for (let i = 0; i < (intensity?.count ?? 0); i += 1) max = Math.max(max, intensity.getX(i));
+    uniforms.uIntensityRange.value.set(0, max || 1);
+  } else if (mode === "height") {
+    const box = new THREE.Box3().setFromObject(points);
+    uniforms.uHeightRange.value.set(box.min.y, box.max.y);
+  }
+}
+
+// Average distance between neighbouring points, assuming they sample
+// surfaces (scans): the area of the occupied cells of a coarse grid over the
+// cloud, shared out among the points. Sampled, so a few ms for millions.
+function estimatePointSpacing(geometry) {
+  const position = geometry.getAttribute("position");
+  const count = position?.count ?? 0;
+  if (!count) return 0;
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  const box = geometry.boundingBox;
+  const size = box.getSize(new THREE.Vector3());
+  const diagonal = size.length();
+  if (!(diagonal > 0)) return 0;
+  const cell = diagonal / 64;
+  const cells = size.clone().divideScalar(cell).floor().addScalar(1);
+  const stride = Math.max(1, Math.floor(count / 300_000));
+  const occupied = new Set();
+  for (let i = 0; i < count; i += stride) {
+    const x = Math.min(cells.x - 1, Math.floor((position.getX(i) - box.min.x) / cell));
+    const y = Math.min(cells.y - 1, Math.floor((position.getY(i) - box.min.y) / cell));
+    const z = Math.min(cells.z - 1, Math.floor((position.getZ(i) - box.min.z) / cell));
+    occupied.add(x + cells.x * (y + cells.y * z));
+  }
+  return Math.sqrt((occupied.size * cell * cell) / count);
+}
+
+// sizeMode "adaptive": world size from the point spacing (in the cloud's own
+// units; the object's scale applies on top), never under 1 px; "fixed":
+// pixels.
+function setPointSize(points, { sizeMode, scale, pixels }) {
+  const material = preparePointCloudMaterial(points);
+  const spacing = points.userData.pointSpacing ??= estimatePointSpacing(points.geometry);
+  if (sizeMode === "adaptive" && spacing > 0) {
+    material.size = spacing * ADAPTIVE_SPACING_FACTOR * scale;
+    material.minPointSize = 1;
+  } else {
+    material.size = 0;
+    material.minPointSize = pixels * scale;
+  }
+}
+
+// --- Eye-Dome Lighting ---------------------------------------------------
+//
+// Before the cloud is drawn (its onBeforeRender), it is drawn once more into
+// a float target holding log depth, with a material of its own: the main
+// material then reads that target. A separate material because three keeps
+// the uniforms of the material it drew last - the main one must be "new"
+// to it again after the pre-pass. Adapted from PointCloudEffectsPlugin.
+
+const drawingBufferSize = new THREE.Vector2();
+const clearColor$1 = new THREE.Color();
+let edlTarget = null;
+let edlPassActive = false;
+
+function getEdlTarget(renderer) {
+  edlTarget ??= new THREE.WebGLRenderTarget(1, 1, {
+    format: THREE.RedFormat,
+    type: THREE.FloatType,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+  });
+  renderer.getDrawingBufferSize(drawingBufferSize);
+  if (edlTarget.width !== drawingBufferSize.x || edlTarget.height !== drawingBufferSize.y) {
+    edlTarget.setSize(drawingBufferSize.x, drawingBufferSize.y);
+  }
+  return edlTarget;
+}
+
+function attachEdlPass(points) {
+  const group = new THREE.Group();
+  // The world matrices are up to date from the render in progress.
+  group.matrixWorldAutoUpdate = false;
+  let depthMaterial = null;
+
+  points.onBeforeRender = (renderer, _scene, camera) => {
+    const material = points.material;
+    if (edlPassActive || PICKING_PASS.value || !material?.isPointCloudMaterial || material.edlStrength <= 0) return;
+    if (!renderer.isWebGLRenderer || renderer.xr?.isPresenting) return;
+
+    // With the cloud's filters (classes, profile), so hidden points cast no edges.
+    depthMaterial ??= createMaterial({ size: 0 }, material.userData.colorModes);
+    depthMaterial.pointShape = material.pointShape;
+    depthMaterial.size = material.size;
+    depthMaterial.minPointSize = material.minPointSize;
+    depthMaterial.edlStrength = material.edlStrength;
+    depthMaterial.clippingPlanes = material.clippingPlanes;
+    depthMaterial.clipIntersection = material.clipIntersection;
+    depthMaterial.uniforms.uEdlDepthPass.value = true;
+
+    const target = getEdlTarget(renderer);
+    const previousTarget = renderer.getRenderTarget();
+    const previousAlpha = renderer.getClearAlpha();
+    renderer.getClearColor(clearColor$1);
+
+    edlPassActive = true;
+    points.material = depthMaterial;
+    group.children.length = 0;
+    group.children.push(points);
+    try {
+      renderer.setRenderTarget(target);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear();
+      renderer.render(group, camera);
+    } finally {
+      group.children.length = 0;
+      points.material = material;
+      renderer.setRenderTarget(previousTarget);
+      renderer.setClearColor(clearColor$1, previousAlpha);
+      edlPassActive = false;
+    }
+
+    material.uniforms.uEdlTexture.value = target.texture;
+    material.uniforms.uEdlResolution.value.set(target.width, target.height);
+    material.uniforms.uEdlRadius.value = 1.4 * renderer.getPixelRatio();
+    material.uniforms.uEdlDepthPass.value = false;
+  };
+}
+
+function setPointEdl(points, strength) {
+  preparePointCloudMaterial(points).edlStrength = strength;
+}
+
+// GPU picking of point clouds: the point under the cursor, exactly as drawn.
+//
+// The clouds are drawn once more into a float target, only in a small square
+// around the cursor (scissor), with every point writing its object id and
+// index instead of its colour (the picking pass of pointcloud-material.js).
+// Reading those few pixels back gives the nearest visible point: its size
+// and shape, the profile slab, hidden classes and clipping planes all count,
+// as they do on screen. A raycast instead tests every point of the cloud on
+// the CPU (tens of ms for millions) against a fixed distance in world units.
+//
+// Clouds take part once their material has the colour modes
+// (preparePointCloudMaterial / addColorModes); setPointRaycastSkipped then
+// keeps the CPU raycast off them while the GPU picks.
+
+const PICK_RADIUS_CSS_PX = 6;
+
+let target = null;
+let supported = null;
+const clearColor = new THREE.Color();
+const group = new THREE.Group();
+group.matrixWorldAutoUpdate = false;
+let skipPointRaycast = false;
+
+// Points take no part in a raycast while the picking module picks them.
+function setPointRaycastSkipped(points) {
+  if (points.userData.gpuPicked) return;
+  points.userData.gpuPicked = true;
+  points.raycast = function raycast(raycaster, intersects) {
+    if (skipPointRaycast) return;
+    THREE.Points.prototype.raycast.call(this, raycaster, intersects);
+  };
+}
+
+function isGpuPickingSupported(renderer) {
+  if (supported === null) {
+    supported = Boolean(renderer?.isWebGLRenderer && renderer.capabilities?.isWebGL2
+      && renderer.extensions?.has?.("EXT_color_buffer_float"));
+  }
+  return supported;
+}
+
+function collectPickablePoints(roots) {
+  const points = [];
+  roots.forEach((root) => root?.traverseVisible?.((child) => {
+    if (child.isPoints && child.material?.userData?.colorModes && child.material.uniforms?.uPickId) {
+      points.push(child);
+    }
+  }));
+  return points;
+}
+
+// Runs a raycast with the GPU-picked clouds left out (they are picked here).
+function withoutPointRaycast(callback) {
+  skipPointRaycast = true;
+  try {
+    return callback();
+  } finally {
+    skipPointRaycast = false;
+  }
+}
+
+// The point of the clouds under roots nearest the cursor (ndc: -1..1, as for
+// a Raycaster), or null if there is none there; undefined when the renderer
+// cannot pick on the GPU (then raycast). Returns a Raycaster-like hit:
+// { point (world), object, index, distance, isPointCloudHit }.
+function pickPointCloud({ renderer, camera, roots, ndc }) {
+  if (!isGpuPickingSupported(renderer)) return undefined;
+  const points = collectPickablePoints(roots);
+  if (!points.length) return null;
+
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  if (!target) {
+    target = new THREE.WebGLRenderTarget(size.x, size.y, {
+      type: THREE.FloatType,
+      format: THREE.RGBAFormat,
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+    });
+  } else if (target.width !== size.x || target.height !== size.y) {
+    target.setSize(size.x, size.y);
+  }
+
+  const radius = Math.max(1, Math.round(PICK_RADIUS_CSS_PX * renderer.getPixelRatio()));
+  const cx = Math.round(((ndc.x + 1) / 2) * size.x);
+  const cy = Math.round(((ndc.y + 1) / 2) * size.y);
+  const x0 = Math.max(0, cx - radius);
+  const y0 = Math.max(0, cy - radius);
+  const width = Math.min(size.x, cx + radius + 1) - x0;
+  const height = Math.min(size.y, cy + radius + 1) - y0;
+  if (width <= 0 || height <= 0) return null;
+
+  points.forEach((object, index) => {
+    object.material.uniforms.uPickId.value = index + 1;
+  });
+
+  const previousTarget = renderer.getRenderTarget();
+  const previousAlpha = renderer.getClearAlpha();
+  const previousXr = renderer.xr?.enabled;
+  renderer.getClearColor(clearColor);
+  const pixels = new Float32Array(width * height * 4);
+  PICKING_PASS.value = true;
+  group.children.length = 0;
+  group.children.push(...points);
+  try {
+    if (renderer.xr) renderer.xr.enabled = false;
+    target.scissor.set(x0, y0, width, height);
+    target.scissorTest = true;
+    renderer.setRenderTarget(target);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    renderer.render(group, camera);
+    renderer.readRenderTargetPixels(target, x0, y0, width, height, pixels);
+  } finally {
+    group.children.length = 0;
+    PICKING_PASS.value = false;
+    if (renderer.xr) renderer.xr.enabled = previousXr;
+    renderer.setRenderTarget(previousTarget);
+    renderer.setClearColor(clearColor, previousAlpha);
+  }
+
+  // The nearest written pixel to the cursor.
+  let best = -1;
+  let bestDistance = Infinity;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      if (pixels[offset] < 0.5) continue;
+      const distance = (x0 + x - cx) ** 2 + (y0 + y - cy) ** 2;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = offset;
+      }
+    }
+  }
+  if (best < 0) return null;
+
+  const object = points[Math.round(pixels[best]) - 1];
+  const index = Math.round(pixels[best + 1]) * 65536 + Math.round(pixels[best + 2]);
+  const position = object?.geometry.getAttribute("position");
+  if (!position || index >= position.count) return null;
+  const point = new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(object.matrixWorld);
+  return {
+    point,
+    object,
+    index,
+    distance: camera.position.distanceTo(point),
+    isPointCloudHit: true,
+  };
+}
+
 function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
   targetVector.x =
     ((clientX - Viewer.mainCanvas.getBoundingClientRect().left) /
@@ -32559,7 +33625,25 @@ function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
     1;
 }
 
+// Point clouds are picked on the GPU (pointcloud-picking.js), meshes by the
+// raycast; the nearer hit wins.
 function getPrimaryModelIntersection(Viewer, pointerVector) {
+  const pointHit = Viewer.pointCloudState
+    ? pickPointCloud({
+      renderer: core.renderer,
+      camera: core.camera,
+      roots: (core.mainObject || []).flat(),
+      ndc: pointerVector,
+    })
+    : undefined;
+  if (pointHit === undefined) return raycastModel(Viewer, pointerVector);
+  const meshHit = withoutPointRaycast(() => raycastModel(Viewer, pointerVector));
+  if (!pointHit) return meshHit;
+  if (!meshHit) return pointHit;
+  return meshHit.distance < pointHit.distance ? meshHit : pointHit;
+}
+
+function raycastModel(Viewer, pointerVector) {
   Viewer.raycaster.setFromCamera(pointerVector, core.camera);
   let intersects = [];
 
@@ -32612,6 +33696,15 @@ function attachPicking(Viewer) {
       const pointer = new THREE.Vector2();
       getNormalizedPointerPosition(Viewer, clientX, clientY, pointer);
       return !getPoiHit(Viewer, pointer);
+    },
+
+    // The model point under a page position: { point (world), object, ...},
+    // a point cloud's point (isPointCloudHit, index) or a mesh's raycast
+    // hit; null over empty space.
+    pickModelAt(clientX, clientY) {
+      const pointer = new THREE.Vector2();
+      getNormalizedPointerPosition(Viewer, clientX, clientY, pointer);
+      return getPrimaryModelIntersection(Viewer, pointer);
     },
 
     focusCameraAt(clientX, clientY) {
@@ -33176,6 +34269,13 @@ function attachPicking(Viewer) {
 
       if (Viewer.handleViewHelperClick(e)) return;
 
+      // Drawing a point cloud profile: its two ends (point-cloud-panel.js).
+      if (Viewer.isPointCloudProfilePicking?.()) {
+        const hit = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);
+        if (hit) Viewer.addPointCloudProfilePoint(hit.point);
+        return;
+      }
+
       if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
         const poiHit = getPoiHit(Viewer, Viewer.onUpPosition);
         if (poiHit?.object) {
@@ -33197,6 +34297,9 @@ function attachPicking(Viewer) {
 
         if (Viewer.RULER_MODE) {
           Viewer.buildRuler(primaryIntersection);
+        } else if (Viewer.pickingMode && primaryIntersection.isPointCloudHit) {
+          // Points have no faces: a point annotation where it was clicked.
+          Viewer.startPointAnnotationAt?.(primaryIntersection.point);
         } else if (Viewer.pickingMode) {
           // Ctrl/Cmd + click adds or removes a face; Shift + click is kept
           // for compatibility (Shift + drag selects an area, see
@@ -33238,7 +34341,9 @@ function attachPicking(Viewer) {
         }
       }
 
-      if (Viewer.pickingMode) {
+      // Face hover highlight; point clouds have no faces (and are picked on
+      // the GPU, which is not for every pointer move).
+      if (Viewer.pickingMode && !Viewer.pointCloudState) {
         const primaryIntersection = getPrimaryModelIntersection(Viewer, Viewer.pointer);
         if (primaryIntersection) {
           Viewer.pickFaces(primaryIntersection);
@@ -33610,712 +34715,376 @@ function attachFaceAreaSelection(Viewer) {
   });
 }
 
-/**
- * PointsMaterial that draws points at a world space size with optional shapes and eye dome
- * lighting. `size` is the world space point spacing.
- *
- * Octree data sets can additionally size each point by the deepest active node containing it,
- * found by walking a hierarchy texture in the vertex shader, which halves the spacing per level
- * below the root. Enable it by assigning `uActiveNodes`, `uNodeSize` and `uNodeMinOffset`.
- *
- * All the properties below can be adjusted after construction.
- * @param {Object} [params] PointsMaterial parameters plus the properties below.
- * @param {('square'|'round'|'sphere')} [params.pointShape='round'] Sprite shape. Spheres write bulged depth so overlapping points intersect, at a fill rate cost.
- * @param {number} [params.minPointSize=2] Smallest projected point size in pixels.
- * @param {number} [params.edlStrength=0] Eye dome lighting falloff rate. Zero compiles the effect out.
- * @param {number} [params.edlRadius=1.4] Radius of the eye dome lighting neighbor ring in pixels.
- * @param {('none'|'node'|'depth'|'tile')} [params.debugColorMode='none'] Color points by the node they are sized by, that node's depth, or the tile they came from.
- * @private
- */
-class PointCloudMaterial extends PointsMaterial {
-
-	get isPointCloudMaterial() {
-
-		return true;
-
-	}
-
-	get activeNodes() {
-
-		return this.uniforms.uActiveNodes.value;
-
-	}
-
-	// the lod walk compiles out entirely when no hierarchy texture is assigned
-	set activeNodes( value ) {
-
-		const wasSet = this.uniforms.uActiveNodes.value !== null;
-		this.uniforms.uActiveNodes.value = value;
-		if ( wasSet !== ( value !== null ) ) this._updateDefines();
-
-	}
-
-	get pointShape() {
-
-		return this._pointShape;
-
-	}
-
-	set pointShape( value ) {
-
-		if ( value !== this._pointShape ) {
-
-			this._pointShape = value;
-			this._updateDefines();
-
-		}
-
-	}
-
-	get minPointSize() {
-
-		return this.uniforms.uMinPointSize.value;
-
-	}
-
-	set minPointSize( value ) {
-
-		this.uniforms.uMinPointSize.value = value;
-
-	}
-
-	get edlStrength() {
-
-		return this.uniforms.uEdlStrength.value;
-
-	}
-
-	// zero compiles the effect out rather than scaling it to nothing
-	set edlStrength( value ) {
-
-		const wasEnabled = this.uniforms.uEdlStrength.value > 0;
-		this.uniforms.uEdlStrength.value = value;
-		if ( wasEnabled !== value > 0 ) this._updateDefines();
-
-	}
-
-	get edlRadius() {
-
-		return this.uniforms.uEdlRadius.value;
-
-	}
-
-	set edlRadius( value ) {
-
-		this.uniforms.uEdlRadius.value = value;
-
-	}
-
-	get debugColorMode() {
-
-		return this._debugColorMode;
-
-	}
-
-	set debugColorMode( value ) {
-
-		if ( value !== this._debugColorMode ) {
-
-			this._debugColorMode = value;
-			this._updateDefines();
-
-		}
-
-	}
-
-	constructor( params = {} ) {
-
-		const {
-			pointShape = 'round',
-			minPointSize = 2,
-			debugColorMode = 'none',
-			edlStrength = 0,
-			edlRadius = 1.4,
-			...rest
-		} = params;
-
-		super( rest );
-
-		this._pointShape = pointShape;
-		this._debugColorMode = debugColorMode;
-
-		this.defines = {};
-		this.uniforms = {
-			uActiveNodes: { value: null },
-			uNodeSize: { value: 1 },
-			uNodeMinOffset: { value: new Vector3() },
-			uMinPointSize: { value: minPointSize },
-			uTileId: { value: 0 },
-
-			uEdlTexture: { value: null },
-			uEdlResolution: { value: new Vector2( 1, 1 ) },
-			uEdlStrength: { value: edlStrength },
-			uEdlRadius: { value: edlRadius },
-			uEdlDepthPass: { value: false },
-		};
-
-		this._updateDefines();
-
-		this.onBeforeCompile = shader => {
-
-			Object.assign( shader.uniforms, this.uniforms );
-
-			shader.vertexShader = shader.vertexShader
-				.replace(
-					'uniform float size;',
-					/* glsl */`
-						uniform float size;
-						uniform float uMinPointSize;
-
-						varying vec3 vViewPosition;
-						varying float vRadius;
-						varying float vNodeId;
-						varying float vDepth;
-						varying float vLogDepth;
-
-						#ifdef LOD_SIZING
-
-						uniform usampler2D uActiveNodes;
-						uniform float uNodeSize;
-						uniform vec3 uNodeMinOffset;
-
-						// number of set bits below the given bit index
-						uint numberOfOnes( uint mask, int index ) {
-
-							uint bitsBelow = mask & ( ( 1u << uint( index ) ) - 1u );
-							uint count = 0u;
-							for ( int i = 0; i < 8; i ++ ) {
-
-								count += ( bitsBelow >> uint( i ) ) & 1u;
-
-							}
-
-							return count;
-
-						}
-
-						// Walks the hierarchy texture, returning the deepest active depth (x), an id
-						// for that node (y) and its lod offset (z). The id comes from the octant
-						// path so it stays stable as the texture is re-encoded. Adapted from
-						// "getLOD" in potree's pointcloud.vs.
-						vec3 getActiveDepth( vec3 posInNode ) {
-
-							int textureWidth = textureSize( uActiveNodes, 0 ).x;
-							vec3 offset = vec3( 0.0 );
-							int nodeIndex = 0;
-							uint nodePath = 0u;
-							float lodOffset = 0.0;
-							int depth = 0;
-							for ( ; depth < 20; depth ++ ) {
-
-								uvec4 value = texelFetch( uActiveNodes, ivec2( nodeIndex % textureWidth, nodeIndex / textureWidth ), 0 );
-
-								// octant of the current node containing the point
-								float nodeSize = uNodeSize / pow( 2.0, float( depth ) );
-								vec3 index3d = floor( ( posInNode - offset ) / nodeSize + 0.5 );
-								int octant = int( 4.0 * index3d.x + 2.0 * index3d.y + index3d.z );
-								uint octantMask = 1u << uint( octant );
-
-								// stop when the octant holds no active child
-								uint childMask = value.r;
-								if ( ( childMask & octantMask ) == 0u ) {
-
-									lodOffset = float( value.a ) / 10.0 - 10.0;
-									break;
-
-								}
-
-								// child texel: the first child offset plus the active siblings below it
-								nodeIndex += int( value.g * 256u + value.b + numberOfOnes( childMask, octant ) );
-								offset += nodeSize * 0.5 * index3d;
-
-								// offset by one so trailing zeroes still change the id
-								nodePath = nodePath * 8u + uint( octant ) + 1u;
-
-							}
-
-							// kept under 2^24 so the id survives the trip through a float varying
-							return vec3( float( depth ), float( nodePath % 16777216u ), lodOffset );
-
-						}
-
-						#endif
-					`
-				)
-				.replace(
-					'#include <logdepthbuf_vertex>',
-					/* glsl */`
-						vec3 activeResult = vec3( 0.0 );
-						#ifdef LOD_SIZING
-
-							activeResult = getActiveDepth( position + uNodeMinOffset );
-
-						#endif
-
-						float worldSize = size / pow( 2.0, activeResult.x + activeResult.z );
-
-						// three's "scale" omits the 1 / tan( fov / 2 ) term, so its attenuation is
-						// not world scale. The projection y scale restores it, as potree does.
-						// Orthographic projections have no distance falloff at all.
-						float projFactor = scale * projectionMatrix[ 1 ][ 1 ];
-						if ( isPerspectiveMatrix( projectionMatrix ) ) {
-
-							projFactor /= - mvPosition.z;
-
-						}
-
-						gl_PointSize = worldSize * projFactor;
-						gl_PointSize = max( gl_PointSize, uMinPointSize );
-
-						vViewPosition = mvPosition.xyz;
-						vNodeId = activeResult.y;
-						vDepth = activeResult.x;
-
-						// half the world size the sprite covers, including the pixel clamp
-						vRadius = 0.5 * gl_PointSize / projFactor;
-						vLogDepth = log2( - mvPosition.z );
-
-						#include <logdepthbuf_vertex>
-					`
-				);
-
-			shader.fragmentShader = shader.fragmentShader
-				.replace(
-					'uniform float opacity;',
-					/* glsl */`
-					uniform float opacity;
-					uniform mat4 projectionMatrix;
-					uniform float uTileId;
-
-					varying vec3 vViewPosition;
-					varying float vRadius;
-					varying float vNodeId;
-					varying float vDepth;
-					varying float vLogDepth;
-
-					#ifdef EDL_ENABLED
-
-						uniform sampler2D uEdlTexture;
-						uniform vec2 uEdlResolution;
-						uniform float uEdlStrength;
-						uniform float uEdlRadius;
-						uniform bool uEdlDepthPass;
-
-						// Darken by how far this point sits behind a ring of neighbors in the
-						// pre-pass target. Adapted from potree's "edl.fs".
-						float edlShade( float logDepth ) {
-
-							vec2 uv = gl_FragCoord.xy / uEdlResolution;
-							vec2 uvRadius = uEdlRadius / uEdlResolution;
-
-							float sum = 0.0;
-							for ( int i = 0; i < 8; i ++ ) {
-
-								float angle = 6.2831853 * float( i ) / 8.0;
-								vec2 offset = uvRadius * vec2( cos( angle ), sin( angle ) );
-								float neighborDepth = texture2D( uEdlTexture, uv + offset ).r;
-
-								// zero means nothing was drawn there, so it contributes nothing
-								if ( neighborDepth != 0.0 ) {
-
-									sum += max( 0.0, logDepth - neighborDepth );
-
-								}
-
-							}
-
-							return exp( - ( sum / 8.0 ) * 300.0 * uEdlStrength );
-
-						}
-
-					#endif
-
-					// spread sequential ids into visually distinct colors
-					vec3 idToColor( float id ) {
-
-						return vec3(
-							fract( sin( id * 12.9898 ) * 43758.5453 ),
-							fract( sin( id * 78.2330 ) * 12543.2341 ),
-							fract( sin( id * 3.7010 ) * 26445.3450 )
-						);
-
-					}
-					`
-				)
-				.replace(
-					'#include <color_fragment>',
-					/* glsl */`
-					#include <color_fragment>
-
-					#ifdef DEBUG_NODE_COLORS
-
-						diffuseColor.rgb = idToColor( vNodeId + 1.0 );
-
-					#endif
-
-					// the tile the point came from, rather than the node it is sized by
-					#ifdef DEBUG_TILE_COLORS
-
-						diffuseColor.rgb = idToColor( uTileId + 1.0 );
-
-					#endif
-
-					// one hue per level
-					#ifdef DEBUG_DEPTH_COLORS
-
-						float hue = vDepth / 8.0;
-						diffuseColor.rgb = clamp( abs( fract( hue + vec3( 0.0, 2.0 / 3.0, 1.0 / 3.0 ) ) * 6.0 - 3.0 ) - 1.0, 0.0, 1.0 );
-
-					#endif
-					`
-				)
-				.replace(
-					'#include <colorspace_fragment>',
-					/* glsl */`
-					#include <colorspace_fragment>
-
-					#ifdef EDL_ENABLED
-
-						// shade after the color space conversion so the falloff lands on the
-						// encoded color, as potree's post process does
-						gl_FragColor.rgb *= edlShade( vLogDepth );
-
-					#endif
-					`
-				)
-				.replace(
-					'#include <clipping_planes_fragment>',
-					/* glsl */`
-					#include <clipping_planes_fragment>
-
-					#if defined( ROUND_POINTS ) || defined( SPHERE_POINTS )
-
-						vec2 pointOffset = gl_PointCoord * 2.0 - 1.0;
-
-					#endif
-
-					#ifdef ROUND_POINTS
-
-						// discard the sprite corners so points draw as circles
-						if ( dot( pointOffset, pointOffset ) > 1.0 ) discard;
-
-					#endif
-
-					#ifdef SPHERE_POINTS
-
-						// Intersect the view ray with the point's sphere and write that depth so
-						// overlapping points meet as solid spheres rather than flat discs. The
-						// fragment sits on the sprite plane, at the point's depth, so perspective
-						// rays run from the eye through it and orthographic rays run from it.
-						bool isPerspective = isPerspectiveMatrix( projectionMatrix );
-						vec3 spritePosition = vViewPosition + vec3( pointOffset * vRadius, 0.0 );
-						vec3 rayOrigin = isPerspective ? vec3( 0.0 ) : spritePosition;
-						vec3 rayDirection = isPerspective ? normalize( spritePosition ) : vec3( 0.0, 0.0, - 1.0 );
-
-						vec3 centerOffset = rayOrigin - vViewPosition;
-						float halfB = dot( centerOffset, rayDirection );
-						float disc = halfB * halfB - dot( centerOffset, centerOffset ) + vRadius * vRadius;
-						if ( disc < 0.0 ) discard;
-
-						vec3 hitPosition = rayOrigin + rayDirection * ( - halfB - sqrt( disc ) );
-						vec4 clipPosition = projectionMatrix * vec4( hitPosition, 1.0 );
-						gl_FragDepth = ( clipPosition.z / clipPosition.w ) * 0.5 + 0.5;
-
-					#endif
-
-					#ifdef EDL_ENABLED
-
-						// the pre-pass only needs the log depth, so return before the color work
-						if ( uEdlDepthPass ) {
-
-							gl_FragColor = vec4( vLogDepth, 0.0, 0.0, 1.0 );
-							return;
-
-						}
-
-					#endif
-					`
-				);
-
-		};
-
-	}
-
-	_updateDefines() {
-
-		const defines = {};
-		if ( this.uniforms.uActiveNodes.value !== null ) defines.LOD_SIZING = '';
-		if ( this.uniforms.uEdlStrength.value > 0 ) defines.EDL_ENABLED = '';
-		if ( this._pointShape === 'round' ) defines.ROUND_POINTS = '';
-		if ( this._pointShape === 'sphere' ) defines.SPHERE_POINTS = '';
-		if ( this._debugColorMode === 'node' ) defines.DEBUG_NODE_COLORS = '';
-		if ( this._debugColorMode === 'depth' ) defines.DEBUG_DEPTH_COLORS = '';
-		if ( this._debugColorMode === 'tile' ) defines.DEBUG_TILE_COLORS = '';
-
-		this.defines = defines;
-		this.needsUpdate = true;
-
-	}
-
-}
-
-// Display of directly loaded point clouds (LAS, LAZ, XYZ, PCD - THREE.Points
-// in the scene), used by the point cloud panel (editor/point-cloud-panel.js):
+// Point cloud tools in the point cloud panel (point-cloud-panel.js):
 //
-//   colours    by RGB, intensity, height or classification, chosen in the
-//              shader by a uniform: switching never rewrites the buffers
-//   size       "adaptive": in world units, from the cloud's estimated point
-//              spacing, so points close the gaps between them at any
-//              distance; "fixed": in screen pixels
-//   EDL        Eye-Dome Lighting: a depth pre-pass of the cloud, against which
-//              each point is shaded by how far it sits behind its neighbours
+//   classes   a check box per ASPRS class present in the cloud: hidden
+//             classes drop out of the view, the Eye-Dome Lighting and GPU
+//             picking (uClassVisible, pointcloud-material.js)
+//   profile   two clicks on the cloud draw a line; only a vertical slab of
+//             points along it stays (width adjustable), seen from the side
+//             with an orthographic camera - a cross-section to measure on
+//
+// Both work through the shader uniforms of the cloud: one set for a streamed
+// cloud (all its tiles), one per THREE.Points for a directly loaded one.
 
-const COLOR_MODES = { rgb: 0, intensity: 1, height: 2, classification: 3 };
-
-// ASPRS LAS standard classes (LAS 1.4, table 17).
-const CLASSIFICATION_COLORS = {
-  0: 0x9e9e9e, 1: 0xbdbdbd, 2: 0xa1784f, 3: 0xb5e28c, 4: 0x6fbf4a, 5: 0x2e7d32,
-  6: 0xe8743b, 7: 0xd500f9, 8: 0x7e57c2, 9: 0x2f80ed, 10: 0x795548, 11: 0x616161,
-  12: 0xfdd835, 13: 0xffb300, 14: 0xffca28, 15: 0x8d6e63, 16: 0x90a4ae, 17: 0x5c6bc0,
-  18: 0xff1744,
-};
 const CLASS_SLOTS = 32;
-const OTHER_CLASS_COLOR = 0xeeeeee;
+const UP = new THREE.Vector3(0, 1, 0);
+const PROFILE_COLOR = 0xff3b30;
 
-// World size of a point in "adaptive" mode, in point spacings: a little over
-// one, so neighbouring points overlap rather than leave hairline gaps.
-const ADAPTIVE_SPACING_FACTOR = 1.4;
-
-const COLOR_VERTEX_DECLARATIONS = /* glsl */`
-  attribute float intensity;
-  attribute float classification;
-  uniform int uColorMode;
-  uniform vec2 uIntensityRange;
-  uniform vec2 uHeightRange;
-  uniform vec3 uClassColors[ ${CLASS_SLOTS} ];
-  uniform vec3 uOtherClassColor;
-
-  vec3 pcHslToRgb( float h, float s, float l ) {
-    vec3 rgb = clamp( abs( mod( h * 6.0 + vec3( 0.0, 4.0, 2.0 ), 6.0 ) - 3.0 ) - 1.0, 0.0, 1.0 );
-    return l + s * ( rgb - 0.5 ) * ( 1.0 - abs( 2.0 * l - 1.0 ) );
-  }
-`;
-
-// After three's color_vertex (vColor = the colour attribute): the other
-// modes replace it. The same ramps the CPU colouring used before.
-const COLOR_VERTEX_MAIN = /* glsl */`
-  #if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )
-    if ( uColorMode == 1 ) {
-      float span = max( uIntensityRange.y - uIntensityRange.x, 1e-6 );
-      float t = clamp( ( intensity - uIntensityRange.x ) / span, 0.0, 1.0 );
-      vColor.rgb = vec3( ( 40.0 + t * 215.0 ) / 255.0 );
-    } else if ( uColorMode == 2 ) {
-      // World height (Y), whatever the file's own up axis was.
-      float y = ( modelMatrix * vec4( position, 1.0 ) ).y;
-      float span = max( uHeightRange.y - uHeightRange.x, 1e-6 );
-      float t = clamp( ( y - uHeightRange.x ) / span, 0.0, 1.0 );
-      // Blue (low) through green to red (high).
-      vColor.rgb = pcHslToRgb( ( 1.0 - t ) * 0.66, 0.85, 0.5 );
-    } else if ( uColorMode == 3 ) {
-      int index = int( classification + 0.5 );
-      vColor.rgb = index < ${CLASS_SLOTS} ? uClassColors[ index ] : uOtherClassColor;
-    }
-  #endif
-`;
-
-function createColorUniforms() {
-  const classColors = Array.from({ length: CLASS_SLOTS }, (_, index) =>
-    new THREE.Color(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR));
-  return {
-    uColorMode: { value: COLOR_MODES.rgb },
-    uIntensityRange: { value: new THREE.Vector2(0, 1) },
-    uHeightRange: { value: new THREE.Vector2(0, 1) },
-    uClassColors: { value: classColors },
-    uOtherClassColor: { value: new THREE.Color(OTHER_CLASS_COLOR) },
-  };
+function colorSwatch(classId) {
+  const hex = CLASSIFICATION_COLORS[classId] ?? 0xeeeeee;
+  return `#${hex.toString(16).padStart(6, "0")}`;
 }
 
-// Adds the colour modes to a PointCloudMaterial (once). colorUniforms may be
-// shared: the tiles of a streamed cloud all use the panel's one set, so a
-// mode switch is a single uniform change.
-function addColorModes(material, colorUniforms) {
-  if (material.userData.colorModes) return material;
-  material.userData.colorModes = colorUniforms;
-  Object.assign(material.uniforms, colorUniforms);
-  const injectEffects = material.onBeforeCompile;
-  material.onBeforeCompile = (shader, renderer) => {
-    injectEffects.call(material, shader, renderer);
-    Object.assign(shader.uniforms, colorUniforms);
-    shader.vertexShader = shader.vertexShader
-      .replace("uniform float size;", `uniform float size;\n${COLOR_VERTEX_DECLARATIONS}`)
-      .replace("#include <color_vertex>", `#include <color_vertex>\n${COLOR_VERTEX_MAIN}`);
-  };
-  material.needsUpdate = true;
-  return material;
-}
+function attachPointCloudTools(Viewer) {
+  Object.assign(Viewer, {
+    // The colour/filter uniform sets of the current cloud.
+    getPointCloudUniformSets() {
+      const state = Viewer.pointCloudState;
+      if (!state) return [];
+      if (state.kind === "tiles") return [state.colorUniforms];
+      return state.points.map((object) => object.material?.userData?.colorModes).filter(Boolean);
+    },
 
-function createMaterial(params, colorUniforms = null) {
-  const material = new PointCloudMaterial(params);
-  return colorUniforms ? addColorModes(material, colorUniforms) : material;
-}
+    // ---- Classes ---------------------------------------------------------
 
-// The cloud's material as a PointCloudMaterial with GPU colour modes (once;
-// later calls return it). Keeps the colours, opacity and clipping planes of
-// the material it replaces.
-function preparePointCloudMaterial(points) {
-  if (points.material?.isPointCloudMaterial && points.material.userData.colorModes) return points.material;
-  const previous = points.material;
-  const params = {
-    vertexColors: Boolean(points.geometry.getAttribute("color")) || previous?.vertexColors === true,
-    size: 0,
-    minPointSize: previous?.size || 2,
-    transparent: previous?.transparent === true,
-    opacity: previous?.opacity ?? 1,
-    pointShape: "square",
-  };
-  if (previous?.color) params.color = previous.color;
-  const material = createMaterial(params, createColorUniforms());
-  material.clippingPlanes = previous?.clippingPlanes ?? null;
-  material.clipIntersection = previous?.clipIntersection ?? false;
-  points.material = material;
-  previous?.dispose?.();
-  attachEdlPass(points);
-  return material;
-}
+    // Classes of a direct cloud with their point counts.
+    countPointClasses(points) {
+      const counts = new Map();
+      points.forEach((object) => {
+        const attribute = object.geometry.getAttribute("classification");
+        if (!attribute) return;
+        const values = attribute.array;
+        const local = new Uint32Array(256);
+        for (let i = 0; i < attribute.count; i += 1) local[values[i] & 255] += 1;
+        local.forEach((count, classId) => {
+          if (count) counts.set(classId, (counts.get(classId) || 0) + count);
+        });
+      });
+      return counts;
+    },
 
-function setPointColorMode(points, mode) {
-  const material = preparePointCloudMaterial(points);
-  const uniforms = material.uniforms;
-  uniforms.uColorMode.value = COLOR_MODES[mode] ?? COLOR_MODES.rgb;
-  if (mode === "intensity") {
-    const intensity = points.geometry.getAttribute("intensity");
-    let max = 0;
-    for (let i = 0; i < (intensity?.count ?? 0); i += 1) max = Math.max(max, intensity.getX(i));
-    uniforms.uIntensityRange.value.set(0, max || 1);
-  } else if (mode === "height") {
-    const box = new THREE.Box3().setFromObject(points);
-    uniforms.uHeightRange.value.set(box.min.y, box.max.y);
-  }
-}
+    // Streamed clouds: classes become known as tiles load.
+    notePointClassesOfTile(scene) {
+      const state = Viewer.pointCloudState;
+      if (!state || state.kind !== "tiles") return;
+      let added = false;
+      scene.traverse((child) => {
+        const attribute = child.isPoints ? child.geometry.getAttribute("classification") : null;
+        if (!attribute) return;
+        const values = attribute.array;
+        for (let i = 0; i < attribute.count; i += 1) {
+          if (!state.classes.has(values[i])) {
+            state.classes.set(values[i], 0);
+            added = true;
+          }
+        }
+      });
+      if (added) Viewer.renderPointCloudClassList();
+    },
 
-// Average distance between neighbouring points, assuming they sample
-// surfaces (scans): the area of the occupied cells of a coarse grid over the
-// cloud, shared out among the points. Sampled, so a few ms for millions.
-function estimatePointSpacing(geometry) {
-  const position = geometry.getAttribute("position");
-  const count = position?.count ?? 0;
-  if (!count) return 0;
-  if (!geometry.boundingBox) geometry.computeBoundingBox();
-  const box = geometry.boundingBox;
-  const size = box.getSize(new THREE.Vector3());
-  const diagonal = size.length();
-  if (!(diagonal > 0)) return 0;
-  const cell = diagonal / 64;
-  const cells = size.clone().divideScalar(cell).floor().addScalar(1);
-  const stride = Math.max(1, Math.floor(count / 300_000));
-  const occupied = new Set();
-  for (let i = 0; i < count; i += stride) {
-    const x = Math.min(cells.x - 1, Math.floor((position.getX(i) - box.min.x) / cell));
-    const y = Math.min(cells.y - 1, Math.floor((position.getY(i) - box.min.y) / cell));
-    const z = Math.min(cells.z - 1, Math.floor((position.getZ(i) - box.min.z) / cell));
-    occupied.add(x + cells.x * (y + cells.y * z));
-  }
-  return Math.sqrt((occupied.size * cell * cell) / count);
-}
+    setPointCloudClassVisible(classId, visible) {
+      const state = Viewer.pointCloudState;
+      if (!state) return;
+      if (visible) state.hiddenClasses.delete(classId);
+      else state.hiddenClasses.add(classId);
+      Viewer.applyPointCloudClassVisibility();
+      Viewer.renderPointCloudClassList();
+    },
 
-// sizeMode "adaptive": world size from the point spacing (in the cloud's own
-// units; the object's scale applies on top), never under 1 px; "fixed":
-// pixels.
-function setPointSize(points, { sizeMode, scale, pixels }) {
-  const material = preparePointCloudMaterial(points);
-  const spacing = points.userData.pointSpacing ??= estimatePointSpacing(points.geometry);
-  if (sizeMode === "adaptive" && spacing > 0) {
-    material.size = spacing * ADAPTIVE_SPACING_FACTOR * scale;
-    material.minPointSize = 1;
-  } else {
-    material.size = 0;
-    material.minPointSize = pixels * scale;
-  }
-}
+    applyPointCloudClassVisibility() {
+      const state = Viewer.pointCloudState;
+      if (!state) return;
+      const hiddenOther = [...state.hiddenClasses].some((classId) => classId >= CLASS_SLOTS);
+      Viewer.getPointCloudUniformSets().forEach((uniforms) => {
+        for (let classId = 0; classId < CLASS_SLOTS; classId += 1) {
+          uniforms.uClassVisible.value[classId] = state.hiddenClasses.has(classId) ? 0 : 1;
+        }
+        uniforms.uOtherClassVisible.value = hiddenOther ? 0 : 1;
+      });
+    },
 
-// --- Eye-Dome Lighting ---------------------------------------------------
-//
-// Before the cloud is drawn (its onBeforeRender), it is drawn once more into
-// a float target holding log depth, with a material of its own: the main
-// material then reads that target. A separate material because three keeps
-// the uniforms of the material it drew last - the main one must be "new"
-// to it again after the pre-pass. Adapted from PointCloudEffectsPlugin.
+    // ---- Profile ---------------------------------------------------------
 
-const drawingBufferSize = new THREE.Vector2();
-const clearColor = new THREE.Color();
-let edlTarget = null;
-let edlPassActive = false;
+    isPointCloudProfilePicking() {
+      return Array.isArray(Viewer.pointCloudState?.profilePicking);
+    },
 
-function getEdlTarget(renderer) {
-  edlTarget ??= new THREE.WebGLRenderTarget(1, 1, {
-    format: THREE.RedFormat,
-    type: THREE.FloatType,
-    minFilter: THREE.NearestFilter,
-    magFilter: THREE.NearestFilter,
+    startPointCloudProfile() {
+      const state = Viewer.pointCloudState;
+      if (!state) return;
+      Viewer.clearPointCloudProfile({ keepProjection: true });
+      state.profilePicking = [];
+      // Clicks go to the profile, not to the ruler or annotations.
+      Viewer.RULER_MODE = false;
+      Viewer.pickingMode = false;
+      Viewer.updateDistanceMeasurementControllerLabel?.();
+      Viewer.updatePickingModeControllerLabel?.();
+      toastHelper("profileStart", "info");
+      Viewer.syncPointCloudPanel();
+    },
+
+    cancelPointCloudProfile() {
+      const state = Viewer.pointCloudState;
+      if (!state) return;
+      state.profilePicking = null;
+      Viewer.syncPointCloudPanel();
+    },
+
+    addPointCloudProfilePoint(point) {
+      const state = Viewer.pointCloudState;
+      if (!state?.profilePicking) return;
+      state.profilePicking.push(point.clone());
+      if (state.profilePicking.length === 1) {
+        toastHelper("profileSecond", "info");
+        return;
+      }
+      const [a, b] = state.profilePicking;
+      state.profilePicking = null;
+      Viewer.setPointCloudProfile(a, b);
+    },
+
+    getPointCloudBox() {
+      const state = Viewer.pointCloudState;
+      if (!state) return null;
+      if (state.kind === "tiles") return getTiledModelBox();
+      const box = new THREE.Box3();
+      state.points.forEach((object) => box.union(new THREE.Box3().setFromObject(object)));
+      return box.isEmpty() ? null : box;
+    },
+
+    // A profile along a -> b (world space): a vertical slab, its width
+    // across the line; points outside are hidden.
+    setPointCloudProfile(a, b, { width = null, view = true } = {}) {
+      const state = Viewer.pointCloudState;
+      if (!state) return false;
+      const direction = b.clone().sub(a);
+      direction.addScaledVector(UP, -direction.dot(UP));
+      if (direction.lengthSq() < 1e-12) {
+        toastHelper("profileTooShort", "warning");
+        return false;
+      }
+      direction.normalize();
+      const normal = new THREE.Vector3().crossVectors(UP, direction).normalize();
+      const box = Viewer.getPointCloudBox();
+      const diagonal = box ? box.getSize(new THREE.Vector3()).length() : a.distanceTo(b);
+      const spacing = state.points[0]?.userData?.pointSpacing || 0;
+      const defaultWidth = Math.max(spacing * 4, diagonal * 0.004);
+      state.profile = {
+        a: a.clone(),
+        b: b.clone(),
+        normal,
+        direction,
+        diagonal,
+        width: width ?? state.profile?.width ?? defaultWidth,
+        projectionBefore: state.profile?.projectionBefore
+          ?? (core.camera?.isOrthographicCamera ? "orthographic" : "perspective"),
+      };
+      Viewer.applyPointCloudProfile();
+      Viewer.drawPointCloudProfileLine();
+      if (view) Viewer.viewPointCloudProfile();
+      Viewer.syncPointCloudPanel();
+      return true;
+    },
+
+    applyPointCloudProfile() {
+      const state = Viewer.pointCloudState;
+      const profile = state?.profile;
+      Viewer.getPointCloudUniformSets().forEach((uniforms) => {
+        uniforms.uProfileEnabled.value = Boolean(profile);
+        if (!profile) return;
+        uniforms.uProfilePlane.value.set(profile.normal.x, profile.normal.y, profile.normal.z, profile.normal.dot(profile.a));
+        uniforms.uProfileHalfWidth.value = profile.width / 2;
+        uniforms.uProfileAxis.value.copy(profile.direction);
+        const from = profile.direction.dot(profile.a);
+        const to = profile.direction.dot(profile.b);
+        uniforms.uProfileRange.value.set(Math.min(from, to), Math.max(from, to));
+      });
+    },
+
+    setPointCloudProfileWidth(width) {
+      const profile = Viewer.pointCloudState?.profile;
+      if (!profile || !(width > 0)) return;
+      profile.width = width;
+      Viewer.applyPointCloudProfile();
+      Viewer.syncPointCloudPanel();
+    },
+
+    // The profile line on the cloud (not pickable, drawn on top).
+    drawPointCloudProfileLine() {
+      const state = Viewer.pointCloudState;
+      Viewer.removePointCloudProfileLine();
+      if (!state?.profile || !core.scene) return;
+      const geometry = new THREE.BufferGeometry().setFromPoints([state.profile.a, state.profile.b]);
+      const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({
+        color: PROFILE_COLOR,
+        depthTest: false,
+        transparent: true,
+      }));
+      line.name = "point-cloud-profile";
+      line.renderOrder = 999;
+      line.raycast = () => {};
+      line.userData.isPointCloudProfile = true;
+      core.scene.add(line);
+      state.profileLine = line;
+    },
+
+    removePointCloudProfileLine() {
+      const line = Viewer.pointCloudState?.profileLine;
+      if (!line) return;
+      line.removeFromParent();
+      line.geometry.dispose();
+      line.material.dispose();
+      Viewer.pointCloudState.profileLine = null;
+    },
+
+    // Side view of the slab: orthographic, square to it, the line filling
+    // the width of the view, from the side the camera was on.
+    viewPointCloudProfile() {
+      const profile = Viewer.pointCloudState?.profile;
+      if (!profile || !core.camera || !core.controls) return;
+      Viewer.setCameraProjection?.("orthographic");
+      const box = Viewer.getPointCloudBox();
+      const center = profile.a.clone().add(profile.b).multiplyScalar(0.5);
+      if (box) center.y = (box.min.y + box.max.y) / 2;
+      const side = core.camera.position.clone().sub(center).dot(profile.normal) < 0 ? -1 : 1;
+      const camera = core.camera;
+      camera.up.copy(UP);
+      camera.position.copy(center).addScaledVector(profile.normal, side * Math.max(profile.diagonal, 1e-3));
+      core.controls.target.copy(center);
+      camera.lookAt(center);
+      // The line's length across, the cloud's height up: whichever fills the view first.
+      const length = Math.abs(profile.direction.dot(profile.b) - profile.direction.dot(profile.a));
+      const height = box ? box.max.y - box.min.y : 0;
+      const frustumWidth = camera.right - camera.left;
+      const frustumHeight = camera.top - camera.bottom;
+      if (camera.isOrthographicCamera && frustumWidth > 0 && frustumHeight > 0 && length > 0) {
+        camera.zoom = Math.min(frustumWidth / (length * 1.15), height > 0 ? frustumHeight / (height * 1.15) : Infinity);
+      }
+      camera.updateProjectionMatrix();
+      core.cameraLight?.position?.copy?.(camera.position);
+      const distance = camera.position.distanceTo(center);
+      if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
+      core.controls.update();
+    },
+
+    clearPointCloudProfile({ keepProjection = false } = {}) {
+      const state = Viewer.pointCloudState;
+      if (!state) return;
+      const profile = state.profile;
+      state.profile = null;
+      state.profilePicking = null;
+      Viewer.applyPointCloudProfile();
+      Viewer.removePointCloudProfileLine();
+      if (profile && !keepProjection && profile.projectionBefore === "perspective") {
+        Viewer.setCameraProjection?.("perspective");
+      }
+      Viewer.syncPointCloudPanel();
+    },
+
+    // ---- Panel rows --------------------------------------------------------
+
+    // Profile and classes rows, added to the panel's body (createPointCloudPanel).
+    buildPointCloudToolRows(body) {
+      const state = Viewer.pointCloudState;
+      const ui = {};
+
+      ui.profileRow = document.createElement("div");
+      ui.profileRow.className = "viewer-pointcloud-panel_row viewer-pointcloud-panel_profile";
+      ui.profileLabel = document.createElement("span");
+      ui.profileButton = document.createElement("button");
+      ui.profileButton.type = "button";
+      ui.profileButton.className = "viewer-pointcloud-panel_button";
+      ui.profileButton.addEventListener("click", () => {
+        if (Viewer.isPointCloudProfilePicking()) Viewer.cancelPointCloudProfile();
+        else if (state.profile) Viewer.clearPointCloudProfile();
+        else Viewer.startPointCloudProfile();
+      });
+      ui.profileRow.append(ui.profileLabel, ui.profileButton);
+      body.appendChild(ui.profileRow);
+
+      // Width: log scale from 1/2000 to 1/5 of the cloud's diagonal.
+      ui.widthRow = document.createElement("label");
+      ui.widthRow.className = "viewer-pointcloud-panel_row";
+      ui.widthLabel = document.createElement("span");
+      ui.width = document.createElement("input");
+      ui.width.type = "range";
+      ui.width.min = "0";
+      ui.width.max = "100";
+      ui.width.addEventListener("input", () => {
+        const diagonal = state.profile?.diagonal;
+        if (!diagonal) return;
+        Viewer.setPointCloudProfileWidth((diagonal / 2000) * Math.pow(400, Number(ui.width.value) / 100));
+      });
+      ui.widthRow.append(ui.widthLabel, ui.width);
+      body.appendChild(ui.widthRow);
+
+      ui.classes = document.createElement("fieldset");
+      ui.classes.className = "viewer-pointcloud-panel_classes";
+      ui.classesLegend = document.createElement("legend");
+      ui.classList = document.createElement("div");
+      ui.classList.className = "viewer-pointcloud-panel_class-list";
+      ui.classes.append(ui.classesLegend, ui.classList);
+      body.appendChild(ui.classes);
+
+      state.toolsUi = ui;
+      Viewer.renderPointCloudClassList();
+      return ui;
+    },
+
+    renderPointCloudClassList() {
+      const state = Viewer.pointCloudState;
+      const ui = state?.toolsUi;
+      if (!ui) return;
+      const classes = [...state.classes.keys()].sort((a, b) => a - b);
+      ui.classes.hidden = classes.length < 2;
+      ui.classesLegend.textContent = t$1("pointCloud.classesTitle", "Classes");
+      ui.classList.replaceChildren(...classes.map((classId) => {
+        const row = document.createElement("label");
+        row.className = "viewer-pointcloud-panel_class";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = !state.hiddenClasses.has(classId);
+        box.dataset.classId = String(classId);
+        box.addEventListener("change", () => Viewer.setPointCloudClassVisible(classId, box.checked));
+        const swatch = document.createElement("span");
+        swatch.className = "viewer-pointcloud-panel_swatch";
+        swatch.style.background = colorSwatch(classId);
+        const name = document.createElement("span");
+        const count = state.classes.get(classId);
+        // ASPRS names for the standard classes, a number for the others.
+        const named = t$1(`pointCloud.classNames.${classId}`, { value: classId }, "\u0000");
+        const label = named !== "\u0000" ? named : t$1("pointCloud.classOther", { value: classId }, "Class {value}");
+        name.textContent = count ? `${label} (${count.toLocaleString()})` : label;
+        row.append(box, swatch, name);
+        return row;
+      }));
+    },
+
+    syncPointCloudToolRows() {
+      const state = Viewer.pointCloudState;
+      const ui = state?.toolsUi;
+      if (!ui) return;
+      const picking = Viewer.isPointCloudProfilePicking();
+      ui.profileLabel.textContent = t$1("pointCloud.profile", "Profile");
+      ui.profileButton.textContent = picking
+        ? t$1("pointCloud.cancelProfile", "Cancel")
+        : state.profile
+          ? t$1("pointCloud.clearProfile", "Clear profile")
+          : t$1("pointCloud.drawProfile", "Draw profile");
+      ui.profileButton.setAttribute("aria-pressed", picking || state.profile ? "true" : "false");
+      ui.widthRow.hidden = !state.profile;
+      if (state.profile) {
+        const width = state.profile.width;
+        const formatted = Viewer.formatLength?.(width)?.text || width.toFixed(3);
+        ui.widthLabel.textContent = t$1("pointCloud.profileWidth", { value: formatted }, "Profile width {value}");
+        if (document.activeElement !== ui.width) {
+          ui.width.value = String(Math.round((Math.log((width * 2000) / state.profile.diagonal) / Math.log(400)) * 100));
+        }
+      }
+      Viewer.renderPointCloudClassList();
+    },
   });
-  renderer.getDrawingBufferSize(drawingBufferSize);
-  if (edlTarget.width !== drawingBufferSize.x || edlTarget.height !== drawingBufferSize.y) {
-    edlTarget.setSize(drawingBufferSize.x, drawingBufferSize.y);
-  }
-  return edlTarget;
-}
-
-function attachEdlPass(points) {
-  const group = new THREE.Group();
-  // The world matrices are up to date from the render in progress.
-  group.matrixWorldAutoUpdate = false;
-  let depthMaterial = null;
-
-  points.onBeforeRender = (renderer, _scene, camera) => {
-    const material = points.material;
-    if (edlPassActive || !material?.isPointCloudMaterial || material.edlStrength <= 0) return;
-    if (!renderer.isWebGLRenderer || renderer.xr?.isPresenting) return;
-
-    depthMaterial ??= createMaterial({ size: 0 });
-    depthMaterial.pointShape = material.pointShape;
-    depthMaterial.size = material.size;
-    depthMaterial.minPointSize = material.minPointSize;
-    depthMaterial.edlStrength = material.edlStrength;
-    depthMaterial.clippingPlanes = material.clippingPlanes;
-    depthMaterial.clipIntersection = material.clipIntersection;
-    depthMaterial.uniforms.uEdlDepthPass.value = true;
-
-    const target = getEdlTarget(renderer);
-    const previousTarget = renderer.getRenderTarget();
-    const previousAlpha = renderer.getClearAlpha();
-    renderer.getClearColor(clearColor);
-
-    edlPassActive = true;
-    points.material = depthMaterial;
-    group.children.length = 0;
-    group.children.push(points);
-    try {
-      renderer.setRenderTarget(target);
-      renderer.setClearColor(0x000000, 0);
-      renderer.clear();
-      renderer.render(group, camera);
-    } finally {
-      group.children.length = 0;
-      points.material = material;
-      renderer.setRenderTarget(previousTarget);
-      renderer.setClearColor(clearColor, previousAlpha);
-      edlPassActive = false;
-    }
-
-    material.uniforms.uEdlTexture.value = target.texture;
-    material.uniforms.uEdlResolution.value.set(target.width, target.height);
-    material.uniforms.uEdlRadius.value = 1.4 * renderer.getPixelRatio();
-    material.uniforms.uEdlDepthPass.value = false;
-  };
-}
-
-function setPointEdl(points, strength) {
-  preparePointCloudMaterial(points).edlStrength = strength;
 }
 
 // Point cloud display controls, shown when the loaded model is a point cloud:
@@ -34399,6 +35168,14 @@ function attachPointCloudPanel(Viewer) {
         hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
         // Streamed clouds: the colour uniforms all tiles share.
         colorUniforms: isTiled ? createColorUniforms() : null,
+        // Classes present (id -> point count; streamed: found as tiles load)
+        // and those switched off; the profile (point-cloud-tools.js).
+        classes: isTiled ? new Map() : Viewer.countPointClasses(points),
+        hiddenClasses: new Set(),
+        profile: null,
+        profilePicking: null,
+        profileLine: null,
+        toolsUi: null,
         ui: null,
       };
       Viewer.pointCloudState = state;
@@ -34413,13 +35190,20 @@ function attachPointCloudPanel(Viewer) {
           // else viewer.pointCloud.pointSize (XYZ / PCD sizes are in other units).
           object.userData.basePixelSize ??= object.material.sizeAttenuation === false ? object.material.size : pixels;
           preparePointCloudMaterial(object);
+          // Picked on the GPU (pointcloud-picking.js), not by the raycast.
+          setPointRaycastSkipped(object);
         });
         Viewer.applyDirectPointSize();
         Viewer.setPointCloudShape(state.shape);
         Viewer.setPointCloudEdl(state.edl);
         Viewer.setPointCloudColorMode(state.colorMode);
       }
-      if (isTiled && state.colorMode !== modes[0]) Viewer.setPointCloudColorMode(state.colorMode);
+      if (isTiled) {
+        // Tiles already loaded get the colour modes, filters and picking too.
+        const group = getActiveTiles()?.group;
+        if (group) Viewer.applyPointCloudSettingsToTile(group);
+        if (state.colorMode !== modes[0]) Viewer.setPointCloudColorMode(state.colorMode);
+      }
       Viewer.createPointCloudPanel();
       Viewer.updateEditorToolbarState?.();
       return true;
@@ -34444,6 +35228,7 @@ function attachPointCloudPanel(Viewer) {
 
     disposePointCloudControls() {
       const hadState = Boolean(Viewer.pointCloudState);
+      Viewer.removePointCloudProfileLine?.();
       Viewer.pointCloudState?.ui?.root.remove();
       Viewer.pointCloudState = null;
       if (hadState) Viewer.updateEditorToolbarState?.();
@@ -34493,7 +35278,10 @@ function attachPointCloudPanel(Viewer) {
       if (!state || state.kind !== "tiles") return;
       scene.traverse((child) => {
         if (!child.isPoints) return;
-        if (child.material?.isPointCloudMaterial) addColorModes(child.material, state.colorUniforms);
+        if (child.material?.isPointCloudMaterial) {
+          addColorModes(child.material, state.colorUniforms);
+          setPointRaycastSkipped(child);
+        }
         child.userData.baseMaterialSize ??= child.material.size;
         child.material.size = child.userData.baseMaterialSize * state.size;
         const tileId = child.material.uniforms?.uTileId;
@@ -34501,6 +35289,7 @@ function attachPointCloudPanel(Viewer) {
           tileId.value = child.userData.tileDepth;
         }
       });
+      Viewer.notePointClassesOfTile(scene);
     },
 
     setPointCloudSize(size) {
@@ -34660,6 +35449,8 @@ function attachPointCloudPanel(Viewer) {
         edlLabel = makeRow("edl", edl);
       }
 
+      Viewer.buildPointCloudToolRows(body);
+
       const summary = document.createElement("p");
       summary.className = "viewer-pointcloud-panel_summary";
       body.appendChild(summary);
@@ -34710,6 +35501,8 @@ function attachPointCloudPanel(Viewer) {
         if (document.activeElement !== ui.edl) ui.edl.value = String(Math.round(state.edl * 100));
       }
 
+      Viewer.syncPointCloudToolRows();
+
       const info = state.points[0]?.userData?.pointCloud;
       if (state.kind === "tiles") {
         ui.summary.textContent = t$1("pointCloud.streamed", "Streamed: detail loads as you zoom in.");
@@ -34723,6 +35516,7 @@ function attachPointCloudPanel(Viewer) {
       }
     },
   });
+  attachPointCloudTools(Viewer);
 }
 
 const WORKER_ENDPOINT = "/api/model/thumbnail";
@@ -42747,8 +43541,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "8960c2df" ;
-const BUILD_TIME = "2026-10-16T09:25:29.373Z" ;
+const BUILD_ID = "e55d4126" ;
+const BUILD_TIME = "2026-10-16T09:44:32.078Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -47137,4 +47931,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-GdbJokz0.js.map
+//# sourceMappingURL=main-Dc-EdokA.js.map

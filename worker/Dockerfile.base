@@ -107,12 +107,20 @@ RUN pip3 install --no-cache-dir --break-system-packages "py3dtiles[las]" "laspy[
 # afterwards and only the TBB runtime stays. CMAKE_POLICY_VERSION_MINIMUM
 # lets newer CMake (4.x) configure its bundled laszip/brotli.
 ARG POTREECONVERTER_VERSION=2.1.1
+#
+# PotreeConverter builds its bundled LASzip (3.4.1) as a shared library,
+# liblaszip.so, next to the binary and finds it through a RUNPATH into the
+# build directory - which is removed. So the library is installed to
+# /usr/local/lib as well (ldconfig): the version the converter was compiled
+# against, not Ubuntu's liblaszip.
 RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ make libtbb-dev libtbb12 \
     && curl -fsSL "https://github.com/potree/PotreeConverter/archive/refs/tags/${POTREECONVERTER_VERSION}.tar.gz" | tar -xz -C /tmp \
     && cmake -S "/tmp/PotreeConverter-${POTREECONVERTER_VERSION}" -B /tmp/potree-build \
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     && cmake --build /tmp/potree-build -j"$(nproc)" \
     && install -m 755 /tmp/potree-build/PotreeConverter /usr/local/bin/PotreeConverter \
+    && install -m 644 /tmp/potree-build/liblaszip.so /usr/local/lib/liblaszip.so \
+    && ldconfig \
     && rm -rf /tmp/PotreeConverter-* /tmp/potree-build \
     && apt-get purge -y cmake g++ make libtbb-dev \
     && apt-get autoremove -y \

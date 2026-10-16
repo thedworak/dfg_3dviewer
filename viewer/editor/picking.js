@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { hasIfcProperties, showIfcProperties, closeIfcPanel } from "../ifc-properties.js";
 import THREE from "../init.js";
 import TWEEN from "three/examples/jsm/libs/tween.module.js";
+import { pickPointCloud, withoutPointRaycast } from "../pointcloud-picking.js";
 
 function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
   targetVector.x =
@@ -18,7 +19,25 @@ function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
     1;
 }
 
+// Point clouds are picked on the GPU (pointcloud-picking.js), meshes by the
+// raycast; the nearer hit wins.
 function getPrimaryModelIntersection(Viewer, pointerVector) {
+  const pointHit = Viewer.pointCloudState
+    ? pickPointCloud({
+      renderer: core.renderer,
+      camera: core.camera,
+      roots: (core.mainObject || []).flat(),
+      ndc: pointerVector,
+    })
+    : undefined;
+  if (pointHit === undefined) return raycastModel(Viewer, pointerVector);
+  const meshHit = withoutPointRaycast(() => raycastModel(Viewer, pointerVector));
+  if (!pointHit) return meshHit;
+  if (!meshHit) return pointHit;
+  return meshHit.distance < pointHit.distance ? meshHit : pointHit;
+}
+
+function raycastModel(Viewer, pointerVector) {
   Viewer.raycaster.setFromCamera(pointerVector, core.camera);
   let intersects = [];
 
@@ -71,6 +90,15 @@ export function attachPicking(Viewer) {
       const pointer = new THREE.Vector2();
       getNormalizedPointerPosition(Viewer, clientX, clientY, pointer);
       return !getPoiHit(Viewer, pointer);
+    },
+
+    // The model point under a page position: { point (world), object, ...},
+    // a point cloud's point (isPointCloudHit, index) or a mesh's raycast
+    // hit; null over empty space.
+    pickModelAt(clientX, clientY) {
+      const pointer = new THREE.Vector2();
+      getNormalizedPointerPosition(Viewer, clientX, clientY, pointer);
+      return getPrimaryModelIntersection(Viewer, pointer);
     },
 
     focusCameraAt(clientX, clientY) {
@@ -635,6 +663,13 @@ export function attachPicking(Viewer) {
 
       if (Viewer.handleViewHelperClick(e)) return;
 
+      // Drawing a point cloud profile: its two ends (point-cloud-panel.js).
+      if (Viewer.isPointCloudProfilePicking?.()) {
+        const hit = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);
+        if (hit) Viewer.addPointCloudProfilePoint(hit.point);
+        return;
+      }
+
       if (!Viewer.pickingMode && !Viewer.RULER_MODE) {
         const poiHit = getPoiHit(Viewer, Viewer.onUpPosition);
         if (poiHit?.object) {
@@ -656,6 +691,9 @@ export function attachPicking(Viewer) {
 
         if (Viewer.RULER_MODE) {
           Viewer.buildRuler(primaryIntersection);
+        } else if (Viewer.pickingMode && primaryIntersection.isPointCloudHit) {
+          // Points have no faces: a point annotation where it was clicked.
+          Viewer.startPointAnnotationAt?.(primaryIntersection.point);
         } else if (Viewer.pickingMode) {
           // Ctrl/Cmd + click adds or removes a face; Shift + click is kept
           // for compatibility (Shift + drag selects an area, see
@@ -697,7 +735,9 @@ export function attachPicking(Viewer) {
         }
       }
 
-      if (Viewer.pickingMode) {
+      // Face hover highlight; point clouds have no faces (and are picked on
+      // the GPU, which is not for every pointer move).
+      if (Viewer.pickingMode && !Viewer.pointCloudState) {
         const primaryIntersection = getPrimaryModelIntersection(Viewer, Viewer.pointer);
         if (primaryIntersection) {
           Viewer.pickFaces(primaryIntersection);

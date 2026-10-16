@@ -231,11 +231,14 @@ Guided tour through the model's annotations, in marker order. Each step flies th
 
 ## `viewer/editor/face-area-selection.js`
 
+Point clouds have no faces: in picking mode a click on a cloud (`openAnnotationDialogWithAutoPicking()` turns it on and says so) opens the annotation dialog for a **point annotation** at the picked point (`Viewer.startPointAnnotationAt(worldPoint)` in `editor/annotations.js`), stored like the point annotations of IIIF manifests: `{ targetId: "m0:root", point: [x, y, z] }` in the model root's space. Being anchored by position, they also work on streamed (Potree / 3D Tiles) clouds.
+
 Face selection in picking mode (used to create annotations): click selects one face, Ctrl/Cmd + click adds or removes a face (Shift + click still works), Shift + drag selects every face visible inside the rectangle, Ctrl/Cmd + Shift + drag removes them. Enter opens the annotation dialog for the selection, Esc clears it.
 
 - `Viewer.pickVisibleFacesInRect(left, top, right, bottom)`
   - Faces (`{ object, faceIndex }`) visible inside a rectangle in client pixels. Renders the rectangle into an off-screen ID buffer (mesh index, then triangle index), so occluded and back faces are skipped and section planes are respected.
 
+- `Viewer.pickModelAt(clientX, clientY)` (`editor/picking.js`) — the model point under a page position (point clouds picked on the GPU, meshes by raycast), or `null`
 - `Viewer.applyFaceSelection(hits, { subtract })` (`editor/picking.js`)
   - Adds faces to the selection, or removes them with `subtract`.
 
@@ -423,10 +426,24 @@ Closed lines are `Line`s back to their first point: the WebGPU renderer draws no
 
 Point cloud panel, shown in the side stack when the model is a point cloud (hidden in presentation mode and with `hideUi`).
 
-- `Viewer.setupPointCloudControls(root)` — called after a model is added (and after a progressive swap); builds the panel when `root` contains `THREE.Points` or is a streamed cloud.
-- Direct clouds (LAS/LAZ/XYZ/PCD): `setPointCloudSize(factor)` (×0.25-×4 of the loaded size), `setPointCloudShape('square'|'round')` (round via a `ROUND_POINTS` define), `setPointCloudColorMode('rgb'|'intensity'|'height'|'classification')` — recoloured on the CPU from the geometry's attributes; the file's RGB is kept to restore it. Classification uses the ASPRS LAS palette.
-- Streamed clouds (3D Tiles, Potree): size (material size, Potree `pointScale`, minimum pixel size), shape incl. `sphere`, `setPointCloudEdl(0..1)` and colour `rgb` or `tile` (level-of-detail colours; 3D Tiles tiles get their tree depth as the id). `applyPointCloudSettingsToTile(scene)` applies the settings to tiles loaded later.
+- `Viewer.setupPointCloudControls(root)` — called after a model is added (and after a progressive swap, and once a LAS/LAZ cloud has all its points); builds the panel when `root` contains `THREE.Points` or is a streamed cloud.
+- Direct clouds (LAS/LAZ/XYZ/PCD): `setPointCloudSize(factor)` (×0.25-×4), `setPointCloudSizeMode('adaptive'|'fixed')`, `setPointCloudShape('square'|'round'|'sphere')`, `setPointCloudEdl(0..1)`, `setPointCloudColorMode('rgb'|'intensity'|'height'|'classification')` — all shader uniforms of `pointcloud-material.js`, one set per `THREE.Points`.
+- Streamed clouds (3D Tiles, Potree): size (material size, Potree `pointScale`, minimum pixel size), shape, `setPointCloudEdl(0..1)`, colour `rgb`, `intensity` / `classification` (Potree clouds that carry them), `height` or `tile` (level-of-detail colours; 3D Tiles tiles get their tree depth as the id) — one set of colour/filter uniforms shared by all tiles (`state.colorUniforms`). `applyPointCloudSettingsToTile(scene)` applies the settings (and GPU picking) to tiles loaded now and later.
+- The profile and classes rows come from `point-cloud-tools.js`.
 
+## `viewer/editor/point-cloud-tools.js`
+
+Point cloud tools in the panel, working through the cloud's shader uniforms (`Viewer.getPointCloudUniformSets()`), so the view, the Eye-Dome Lighting pre-pass and GPU picking all see the same points.
+
+- Classes: a check box per class present (`state.classes`: id -> count for a direct cloud, counted from the `classification` attribute; for a streamed cloud collected as tiles load, `notePointClassesOfTile(scene)`), with the ASPRS name and colour. `setPointCloudClassVisible(classId, visible)` — `uClassVisible[0..31]` (`uOtherClassVisible` for 32-255); hidden points are moved out of the clip volume in the vertex shader. Shown when there are at least two classes.
+- Profile (cross-section): `startPointCloudProfile()` — the next two clicks on the cloud (`picking.js` -> `addPointCloudProfilePoint`) are the ends of a line; `setPointCloudProfile(a, b, { width, view })` — only a vertical slab along the line stays (`uProfilePlane`, `uProfileHalfWidth`, `uProfileAxis`, `uProfileRange`), the line is drawn on the cloud, and `viewPointCloudProfile()` turns to an orthographic view square to the slab, fitting the line's length and the cloud's height. `setPointCloudProfileWidth(width)` (panel: log scale from 1/2000 to 1/5 of the cloud's diagonal; default 4 point spacings, at least 0.4 % of the diagonal); `clearPointCloudProfile()` removes it and goes back to the perspective view if that was on before. Measurements on the slab use the same GPU picking.
+
+## `viewer/pointcloud-picking.js`
+
+GPU picking of point clouds: the point under the cursor, exactly as drawn. Used by `editor/picking.js` (`getPrimaryModelIntersection`: ruler, annotations, double-tap focus, profile clicks) whenever a point cloud is loaded.
+
+- `pickPointCloud({ renderer, camera, roots, ndc })` — draws the clouds once more into a float target (`RGBA32F`, the drawing buffer's size), scissored to a square of ±6 CSS px around the cursor, every point writing its object id and its index (`gl_VertexID`) instead of its colour (`PICKING_PASS` in `pointcloud-material.js`); reads those pixels and returns the point nearest the cursor as a Raycaster-like hit `{ point, object, index, distance, isPointCloudHit }`, `null` over empty space, `undefined` without float render targets (then the raycast picks points as before). Point size and shape, hidden classes, the profile slab and clipping planes all count. Clouds take part once their material has the colour modes.
+- `setPointRaycastSkipped(points)` / `withoutPointRaycast(callback)` — the CPU raycast leaves such clouds out while meshes are raycast next to them; the nearer of the two hits wins. The raycast tests every point against a distance in world units (`Raycaster.params.Points.threshold`, 1 by default) - on a 100 000-point scan it returned a point 1.8 m from the one under the cursor.
 
 ## `viewer/metadata.js`
 

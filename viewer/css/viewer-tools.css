@@ -1370,6 +1370,70 @@
   opacity: 0.7;
 }
 
+/* Profile and classes (editor/point-cloud-tools.js). */
+.viewer-pointcloud-panel_row[hidden],
+.viewer-pointcloud-panel_classes[hidden] {
+  display: none;
+}
+
+.viewer-pointcloud-panel_profile {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.viewer-pointcloud-panel_button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-pointcloud-panel_button[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, #3d6a91);
+  color: #fff;
+}
+
+.viewer-pointcloud-panel_classes {
+  margin: 0;
+  padding: 6px 8px 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.viewer-pointcloud-panel_classes legend {
+  padding: 0 4px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.viewer-pointcloud-panel_class-list {
+  display: grid;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.viewer-pointcloud-panel_class {
+  display: grid;
+  grid-template-columns: auto 12px 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.viewer-pointcloud-panel_swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
 /* Comparison view (editor/compare.js): two variants or two years of the
    timeline, split by a divider over the canvas or side by side. */
 .viewer-timeline_compare.is-active {

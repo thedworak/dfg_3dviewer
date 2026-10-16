@@ -16,6 +16,11 @@ import { PointCloudMaterial } from "3d-tiles-renderer/src/three/plugins/pointclo
 //              distance; "fixed": in screen pixels
 //   EDL        Eye-Dome Lighting: a depth pre-pass of the cloud, against which
 //              each point is shaded by how far it sits behind its neighbours
+//   filters    classes switched off and a profile slab (a vertical slice
+//              along a line) hide points in the vertex shader - for the
+//              view, the EDL pre-pass and GPU picking alike
+//   picking    a pass that writes each point's id instead of its colour
+//              (pointcloud-picking.js)
 
 export const COLOR_MODES = { rgb: 0, intensity: 1, height: 2, classification: 3 };
 
@@ -41,6 +46,15 @@ const COLOR_VERTEX_DECLARATIONS = /* glsl */`
   uniform vec2 uHeightRange;
   uniform vec3 uClassColors[ ${CLASS_SLOTS} ];
   uniform vec3 uOtherClassColor;
+  uniform float uClassVisible[ ${CLASS_SLOTS} ];
+  uniform float uOtherClassVisible;
+  uniform bool uProfileEnabled;
+  uniform vec4 uProfilePlane;
+  uniform float uProfileHalfWidth;
+  uniform vec3 uProfileAxis;
+  uniform vec2 uProfileRange;
+  flat varying float vPickHigh;
+  flat varying float vPickLow;
 
   vec3 pcHslToRgb( float h, float s, float l ) {
     vec3 rgb = clamp( abs( mod( h * 6.0 + vec3( 0.0, 4.0, 2.0 ), 6.0 ) - 3.0 ) - 1.0, 0.0, 1.0 );
@@ -70,6 +84,42 @@ const COLOR_VERTEX_MAIN = /* glsl */`
   #endif
 `;
 
+// At the end of the vertex shader: hidden points go outside the clip volume
+// (drawn nowhere, picked never); the point's index for the picking pass.
+const FILTER_VERTEX_MAIN = /* glsl */`
+  int pcClass = int( classification + 0.5 );
+  float pcVisible = pcClass < ${CLASS_SLOTS} ? uClassVisible[ pcClass ] : uOtherClassVisible;
+  bool pcHidden = pcVisible < 0.5;
+  if ( uProfileEnabled ) {
+    vec3 pcWorld = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
+    float pcAlong = dot( uProfileAxis, pcWorld );
+    pcHidden = pcHidden
+      || abs( dot( uProfilePlane.xyz, pcWorld ) - uProfilePlane.w ) > uProfileHalfWidth
+      || pcAlong < uProfileRange.x || pcAlong > uProfileRange.y;
+  }
+  if ( pcHidden ) {
+    gl_Position = vec4( 2.0, 2.0, 2.0, 1.0 );
+    gl_PointSize = 0.0;
+  }
+  vPickHigh = floor( float( gl_VertexID ) / 65536.0 );
+  vPickLow = float( gl_VertexID ) - vPickHigh * 65536.0;
+`;
+
+const PICK_FRAGMENT_DECLARATIONS = /* glsl */`
+  uniform bool uPickingPass;
+  uniform float uPickId;
+  flat varying float vPickHigh;
+  flat varying float vPickLow;
+`;
+
+// Last in the fragment shader: object id and point index instead of colour.
+const PICK_FRAGMENT_MAIN = /* glsl */`
+  if ( uPickingPass ) gl_FragColor = vec4( uPickId, vPickHigh, vPickLow, 1.0 );
+`;
+
+// On for all clouds at once while pointcloud-picking.js renders its pass.
+export const PICKING_PASS = { value: false };
+
 export function createColorUniforms() {
   const classColors = Array.from({ length: CLASS_SLOTS }, (_, index) =>
     new THREE.Color(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR));
@@ -79,6 +129,13 @@ export function createColorUniforms() {
     uHeightRange: { value: new THREE.Vector2(0, 1) },
     uClassColors: { value: classColors },
     uOtherClassColor: { value: new THREE.Color(OTHER_CLASS_COLOR) },
+    uClassVisible: { value: new Array(CLASS_SLOTS).fill(1) },
+    uOtherClassVisible: { value: 1 },
+    uProfileEnabled: { value: false },
+    uProfilePlane: { value: new THREE.Vector4(1, 0, 0, 0) },
+    uProfileHalfWidth: { value: 1 },
+    uProfileAxis: { value: new THREE.Vector3(0, 0, 1) },
+    uProfileRange: { value: new THREE.Vector2(-Infinity, Infinity) },
   };
 }
 
@@ -88,14 +145,20 @@ export function createColorUniforms() {
 export function addColorModes(material, colorUniforms) {
   if (material.userData.colorModes) return material;
   material.userData.colorModes = colorUniforms;
-  Object.assign(material.uniforms, colorUniforms);
+  // Per material: the picking pass tells the objects apart by it.
+  const pickId = { value: 0 };
+  Object.assign(material.uniforms, colorUniforms, { uPickId: pickId, uPickingPass: PICKING_PASS });
   const injectEffects = material.onBeforeCompile;
   material.onBeforeCompile = (shader, renderer) => {
     injectEffects.call(material, shader, renderer);
-    Object.assign(shader.uniforms, colorUniforms);
+    Object.assign(shader.uniforms, colorUniforms, { uPickId: pickId, uPickingPass: PICKING_PASS });
     shader.vertexShader = shader.vertexShader
       .replace("uniform float size;", `uniform float size;\n${COLOR_VERTEX_DECLARATIONS}`)
-      .replace("#include <color_vertex>", `#include <color_vertex>\n${COLOR_VERTEX_MAIN}`);
+      .replace("#include <color_vertex>", `#include <color_vertex>\n${COLOR_VERTEX_MAIN}`)
+      .replace(/}\s*$/, `${FILTER_VERTEX_MAIN}\n}`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace("uniform float opacity;", `uniform float opacity;\n${PICK_FRAGMENT_DECLARATIONS}`)
+      .replace(/}\s*$/, `${PICK_FRAGMENT_MAIN}\n}`);
   };
   material.needsUpdate = true;
   return material;
@@ -220,10 +283,11 @@ function attachEdlPass(points) {
 
   points.onBeforeRender = (renderer, _scene, camera) => {
     const material = points.material;
-    if (edlPassActive || !material?.isPointCloudMaterial || material.edlStrength <= 0) return;
+    if (edlPassActive || PICKING_PASS.value || !material?.isPointCloudMaterial || material.edlStrength <= 0) return;
     if (!renderer.isWebGLRenderer || renderer.xr?.isPresenting) return;
 
-    depthMaterial ??= createMaterial({ size: 0 });
+    // With the cloud's filters (classes, profile), so hidden points cast no edges.
+    depthMaterial ??= createMaterial({ size: 0 }, material.userData.colorModes);
     depthMaterial.pointShape = material.pointShape;
     depthMaterial.size = material.size;
     depthMaterial.minPointSize = material.minPointSize;

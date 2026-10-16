@@ -762,6 +762,9 @@ export function attachAnnotations(Viewer) {
     // Annotations store face indices of the full model; the progressive
     // preview (loaders.js) has different triangles.
     isPreviewModelActive() {
+      // Point annotations on a point cloud are anchored by position, which
+      // stays valid whatever the level of detail.
+      if (this.pointCloudState?.kind === "tiles") return false;
       if (core.tiledModel) {
         // Streamed tiles swap their meshes with the level of detail, so
         // face indices would not stay valid.
@@ -837,6 +840,17 @@ export function attachAnnotations(Viewer) {
 
     openAnnotationDialogWithAutoPicking() {
       if (this.isPreviewModelActive()) return;
+      // Point clouds have no faces: a click on a point opens the dialog
+      // (picking.js -> startPointAnnotationAt).
+      if (this.pointCloudState) {
+        this.pickingMode = true;
+        this.RULER_MODE = false;
+        this.updateDistanceMeasurementControllerLabel();
+        this.updatePickingModeControllerLabel();
+        this.updatePickingControlsVisibility();
+        toastHelper("pointAnnotationHint", "info");
+        return;
+      }
       if (!this.pickingMode) {
         this.pickingMode = true;
         this.RULER_MODE = false;
@@ -857,9 +871,36 @@ export function attachAnnotations(Viewer) {
       this.openAnnotationDialog();
     },
 
+    // A new point annotation at a point of a point cloud (world space): the
+    // dialog opens for it, and saving adds it (savePointAnnotationFromDialog).
+    startPointAnnotationAt(worldPoint) {
+      if (this.isPreviewModelActive()) return false;
+      const root = this.resolveObjectByTargetId(POINT_ANNOTATION_ROOT);
+      if (!root || !worldPoint) return false;
+      root.updateMatrixWorld(true);
+      const local = root.worldToLocal(worldPoint.clone());
+      const id = `anno-point-${Date.now()}`;
+      this.pendingPointAnnotation = { id, targetId: POINT_ANNOTATION_ROOT, point: local.toArray() };
+      this.buildAnnotationDialog();
+      if (!this.annotationDialog) return false;
+      this.annotationEditingPointId = id;
+      this.annotationTargetFaceKeys = [];
+      this.annotationDialogTitleInput.value = "";
+      this.annotationDialogDescriptionInput.value = "";
+      this.syncAnnotationDialogSaveView([]);
+      this.syncAnnotationDialogCertainty([], { point: true });
+      this.updateAnnotationDialogBounds();
+      this.annotationDialog.hidden = false;
+      this.closeAnnotationPOITooltip();
+      this.closeActionMenu();
+      this.annotationDialogTitleInput?.focus();
+      return true;
+    },
+
     closeAnnotationDialog() {
       if (!this.annotationDialog) return;
       this.annotationDialog.hidden = true;
+      this.pendingPointAnnotation = null;
       this.annotationEditingPointId = "";
       this.annotationTargetFaceKeys = [];
       this.annotationBatchGroupId = "";
@@ -972,12 +1013,19 @@ export function attachAnnotations(Viewer) {
     },
 
     savePointAnnotationFromDialog(id) {
-      const entry = this.annotationEntries.find((item) => String(item.id) === id);
+      let entry = this.annotationEntries.find((item) => String(item.id) === id);
       const title = String(this.annotationDialogTitleInput?.value || "").trim();
       if (!title) {
         toastHelper("titleRequired", "warning");
         this.annotationDialogTitleInput?.focus();
         return;
+      }
+      const pending = this.pendingPointAnnotation;
+      if (!entry && pending?.id === id) {
+        // New, from a click on a point cloud (startPointAnnotationAt).
+        const nowIso = new Date().toISOString();
+        entry = { ...pending, createdAt: nowIso };
+        this.annotationEntries.push(entry);
       }
       if (entry) {
         this.setAnnotationEntryText(entry, title, String(this.annotationDialogDescriptionInput?.value || "").trim());

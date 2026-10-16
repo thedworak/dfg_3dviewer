@@ -53,6 +53,18 @@ Why Potree 2 rather than COPC: COPC (Cloud Optimized Point Cloud - one LAZ file 
 
 While the converter runs, the viewer already shows a **quick preview**: the worker first writes a random subsample of about a million points, shuffled, as `tiles/<name>.preview.las`, and the job status reports it as `previewUrl`. The upload panel (`viewer/ui/upload-panel.js`) loads it like any LAS file (direct loading, above) - because the points are in random order, the first batch already shows the whole object and later batches make it denser - with a "Preview · building the full point cloud..." badge. When the job is `ready`, the streamed tiles replace the preview. `WORKER_POINTCLOUD_PREVIEW_POINTS` sets the size (`0`: no preview).
 
+## Tools
+
+In the point cloud panel, for directly loaded and streamed clouds alike:
+
+- **Classes** - a check box per ASPRS class in the cloud (Ground, Building, Vegetation ... with their colours and, for a loaded file, point counts). Switched-off classes disappear from the view, the Eye-Dome Lighting and picking - e.g. to measure a building without the vegetation in front of it.
+- **Profile** (cross-section) - "Draw profile", then two clicks on the cloud: only a vertical slab of points along that line stays, seen from the side in an orthographic view. The slab's width is adjustable; measurements on it give heights and distances in the section. "Clear profile" brings the whole cloud back.
+
+And for the viewer's other tools:
+
+- **Picking on the GPU** - the ruler, annotations, double-tap focus and the profile get the point that is drawn under the cursor, found by drawing the clouds once more in a small square around it with each point's id as its colour. The raycast it replaces tested every point on the CPU against a fixed distance in world units, which on large scans was slow and often picked a point well away from the cursor.
+- **Point annotations** - with annotations on (picking mode), a click on a point cloud opens the annotation dialog for that point. They are stored as point annotations in the model root's space (as IIIF point annotations are), so they work on streamed clouds too, where face annotations are not possible.
+
 ## Roadmap
 
 Planned improvements for very large point clouds, in this order:
@@ -61,5 +73,5 @@ Planned improvements for very large point clouds, in this order:
 2. **Quick preview before the full conversion** - *done* (this page, "Streamed point clouds").
 3. **Display: GPU colouring, adaptive point size, Eye-Dome Lighting for directly loaded clouds** - *done* (this page, "Direct loading").
 4. **Output format and delivery: Potree 2 by default (intensity, classification), range requests, gzip, ETags, nginx slices** - *done* (this page, "Streamed point clouds").
-5. **Tools**: cross-sections and profiles, filtering by classification, GPU picking for measurements and annotations on points.
+5. **Tools: profiles (cross-sections), class filter, GPU picking, point annotations** - *done* (this page, "Tools").
 6. **Experimental**: point rasterization in WebGPU compute shaders (hundreds of millions of points).

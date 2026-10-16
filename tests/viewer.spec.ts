@@ -978,6 +978,132 @@ test('Potree 2 clouds stream by range requests, with intensity, height and class
   expect(tiles.shared).toBe(true);
   expect(tiles.colorMode).toBe(3);
   expect(tiles.classes).toEqual([2, 6]);
+
+  // Tiles are picked on the GPU too, and building points (6) can be hidden.
+  await waitForCameraIdle(page);
+  const hit = await pickAtCanvasCenter(page);
+  expect(hit?.isPointCloudHit).toBe(true);
+  await expect(panel.locator('.viewer-pointcloud-panel_class input')).toHaveCount(2);
+  await panel.locator('.viewer-pointcloud-panel_class input[data-class-id="6"]').uncheck();
+  expect(await page.evaluate(() => window.Viewer.pointCloudState.colorUniforms.uClassVisible.value[6])).toBe(0);
+  const groundOnly = await pickAtCanvasCenter(page);
+  expect(groundOnly === null || groundOnly.classification === 2).toBe(true);
+});
+
+// The canvas centre in page coordinates, and the model point under it.
+async function pickAtCanvasCenter(page) {
+  return page.evaluate(() => {
+    const rect = window.Viewer.mainCanvas.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const hit = window.Viewer.pickModelAt(x, y);
+    if (!hit) return null;
+    // Distance of the hit from the ray through the pixel.
+    const ndc = new THREE.Vector2(0, 0);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(ndc, window.viewer.camera);
+    return {
+      isPointCloudHit: hit.isPointCloudHit === true,
+      index: hit.index,
+      point: hit.point.toArray(),
+      classification: hit.object.geometry.getAttribute('classification')?.getX(hit.index),
+      fromRay: raycaster.ray.distanceToPoint(hit.point),
+      size: hit.object.material.size,
+    };
+  });
+}
+
+test('point clouds are picked on the GPU: the point under the cursor, classes and profile respected', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.context().route('**/examples/generated-scan.las', (route) => route.fulfill({
+    body: buildLas14(300_000),
+    contentType: 'application/octet-stream',
+  }));
+  await openViewer(page, '/examples/generated-scan.las');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  await waitForCameraIdle(page);
+
+  const hit = await pickAtCanvasCenter(page);
+  expect(hit.isPointCloudHit).toBe(true);
+  // On the ray through the pixel, within a point's own size.
+  expect(hit.fromRay).toBeLessThan(Math.max(hit.size, 0.05) * 3);
+  const visibleClass = hit.classification;
+
+  // Its class switched off: never picked again.
+  const panel = page.locator('#viewerPointCloudPanel');
+  const classes = panel.locator('.viewer-pointcloud-panel_class input');
+  await expect(classes).toHaveCount(7);
+  await panel.locator(`.viewer-pointcloud-panel_class input[data-class-id="${visibleClass}"]`).uncheck();
+  const filtered = await pickAtCanvasCenter(page);
+  expect(filtered.classification).not.toBe(visibleClass);
+  expect(await page.evaluate((id) => window.Viewer.pointCloudState.points[0].material.uniforms.uClassVisible.value[id], visibleClass)).toBe(0);
+  await panel.locator(`.viewer-pointcloud-panel_class input[data-class-id="${visibleClass}"]`).check();
+
+  // A profile across the middle: a vertical slab, seen from the side.
+  const profile = await page.evaluate(() => {
+    const box = new THREE.Box3().setFromObject(window.Viewer.pointCloudState.points[0]);
+    const center = box.getCenter(new THREE.Vector3());
+    const a = new THREE.Vector3(box.min.x, center.y, center.z);
+    const b = new THREE.Vector3(box.max.x, center.y, center.z);
+    window.Viewer.setPointCloudProfile(a, b, { width: 1 });
+    return { z: center.z, ortho: window.viewer.camera.isOrthographicCamera === true };
+  });
+  expect(profile.ortho).toBe(true);
+  await expect(panel.locator('.viewer-pointcloud-panel_profile button')).toHaveText('Clear profile');
+  // Picked where a point of the slab is drawn: a point of the slab comes back.
+  const inSlab = await page.evaluate((z) => {
+    const points = window.Viewer.pointCloudState.points[0];
+    const position = points.geometry.getAttribute('position');
+    const world = new THREE.Vector3();
+    for (let i = 0; i < position.count; i += 1) {
+      world.fromBufferAttribute(position, i).applyMatrix4(points.matrixWorld);
+      if (Math.abs(world.z - z) < 0.2) break;
+    }
+    const ndc = world.clone().project(window.viewer.camera);
+    const rect = window.Viewer.mainCanvas.getBoundingClientRect();
+    const hit = window.Viewer.pickModelAt(
+      rect.left + ((ndc.x + 1) / 2) * rect.width,
+      rect.top + ((1 - ndc.y) / 2) * rect.height,
+    );
+    return hit && { isPointCloudHit: hit.isPointCloudHit, z: hit.point.z };
+  }, profile.z);
+  expect(inSlab.isPointCloudHit).toBe(true);
+  expect(Math.abs(inSlab.z - profile.z)).toBeLessThanOrEqual(0.5 + 1e-3);
+  expect(await page.evaluate(() => window.Viewer.pointCloudState.points[0].material.uniforms.uProfileEnabled.value)).toBe(true);
+
+  await panel.locator('.viewer-pointcloud-panel_profile button').click();
+  expect(await page.evaluate(() => window.Viewer.pointCloudState.points[0].material.uniforms.uProfileEnabled.value)).toBe(false);
+});
+
+test('a click on a point cloud adds a point annotation there; the ruler measures between picked points', async ({ page }) => {
+  await openViewer(page, '/examples/points.laz');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  await waitForCameraIdle(page);
+  const canvas = page.locator('#MainCanvas');
+  const box = await canvas.boundingBox();
+
+  await page.evaluate(() => window.Viewer.openAnnotationDialogWithAutoPicking());
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.locator('#annotationDialog')).toBeVisible();
+  await page.fill('#annotationTitleInput', 'Window');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#annotationDialog')).toBeHidden();
+  const entry = await page.evaluate(() => {
+    const found = window.Viewer.annotationEntries.find((item) => item.title === 'Window');
+    return found && { point: found.point, targetId: found.targetId, markers: window.Viewer.annotationPOIMarkers.length };
+  });
+  expect(entry.targetId).toBe('m0:root');
+  expect(entry.point).toHaveLength(3);
+  expect(entry.markers).toBeGreaterThan(0);
+  await page.evaluate(() => { window.Viewer.pickingMode = false; });
+
+  // Ruler: two picked points of the cloud.
+  await page.evaluate(() => window.Viewer.toggleDistanceMeasurement());
+  await page.mouse.click(box.x + box.width * 0.45, box.y + box.height * 0.55);
+  await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.55);
+  const points = await page.evaluate(() => window.Viewer.measurementDraft?.points.length
+    ?? window.Viewer.ruler.reduce((sum, group) => sum + (group.userData.points?.length || 0), 0));
+  expect(points).toBe(2);
 });
 
 test('LAS/LAZ decoding falls back to the main thread without module workers', async ({ page }) => {
@@ -1172,7 +1298,7 @@ test('point cloud panel changes colours, shape and size, and only appears for po
   await expect(colorSelect.locator('option')).toHaveText(['RGB', 'Intensity', 'Height']);
   await expect(panel.locator('select').nth(0).locator('option')).toHaveText(['Adaptive (scan density)', 'Fixed (pixels)']);
   // Eye-Dome Lighting for directly loaded clouds too.
-  await expect(panel.locator('input[type=range]')).toHaveCount(2);
+  await expect(panel.locator('input[type=range]:visible')).toHaveCount(2);
 
   const pointsState = () => page.evaluate(() => {
     const points = window.Viewer.resolveObjectByTargetId('m0:root').children.find((child) => child.isPoints);
@@ -1221,7 +1347,7 @@ test('point cloud panel changes colours, shape and size, and only appears for po
   await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
   await expect(panel).toBeVisible();
-  await expect(panel.locator('input[type=range]')).toHaveCount(2);
+  await expect(panel.locator('input[type=range]:visible')).toHaveCount(2);
   await panel.locator('select').nth(1).selectOption('tile');
   await panel.locator('input[type=range]').nth(1).fill('0');
   const pluginState = await page.evaluate(() => {

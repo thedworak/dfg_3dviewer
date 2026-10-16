@@ -5,6 +5,8 @@ import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 import { getActiveTiles, getPointCloudPlugin, getPotreeAttributes, getTiledModelBox } from "../tiles.js";
 import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
+import { setPointRaycastSkipped } from "../pointcloud-picking.js";
+import { attachPointCloudTools } from "./point-cloud-tools.js";
 import {
   COLOR_MODES, addColorModes, createColorUniforms, preparePointCloudMaterial, setPointColorMode, setPointEdl, setPointSize,
 } from "../pointcloud-material.js";
@@ -90,6 +92,14 @@ export function attachPointCloudPanel(Viewer) {
         hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
         // Streamed clouds: the colour uniforms all tiles share.
         colorUniforms: isTiled ? createColorUniforms() : null,
+        // Classes present (id -> point count; streamed: found as tiles load)
+        // and those switched off; the profile (point-cloud-tools.js).
+        classes: isTiled ? new Map() : Viewer.countPointClasses(points),
+        hiddenClasses: new Set(),
+        profile: null,
+        profilePicking: null,
+        profileLine: null,
+        toolsUi: null,
         ui: null,
       };
       Viewer.pointCloudState = state;
@@ -104,13 +114,20 @@ export function attachPointCloudPanel(Viewer) {
           // else viewer.pointCloud.pointSize (XYZ / PCD sizes are in other units).
           object.userData.basePixelSize ??= object.material.sizeAttenuation === false ? object.material.size : pixels;
           preparePointCloudMaterial(object);
+          // Picked on the GPU (pointcloud-picking.js), not by the raycast.
+          setPointRaycastSkipped(object);
         });
         Viewer.applyDirectPointSize();
         Viewer.setPointCloudShape(state.shape);
         Viewer.setPointCloudEdl(state.edl);
         Viewer.setPointCloudColorMode(state.colorMode);
       }
-      if (isTiled && state.colorMode !== modes[0]) Viewer.setPointCloudColorMode(state.colorMode);
+      if (isTiled) {
+        // Tiles already loaded get the colour modes, filters and picking too.
+        const group = getActiveTiles()?.group;
+        if (group) Viewer.applyPointCloudSettingsToTile(group);
+        if (state.colorMode !== modes[0]) Viewer.setPointCloudColorMode(state.colorMode);
+      }
       Viewer.createPointCloudPanel();
       Viewer.updateEditorToolbarState?.();
       return true;
@@ -135,6 +152,7 @@ export function attachPointCloudPanel(Viewer) {
 
     disposePointCloudControls() {
       const hadState = Boolean(Viewer.pointCloudState);
+      Viewer.removePointCloudProfileLine?.();
       Viewer.pointCloudState?.ui?.root.remove();
       Viewer.pointCloudState = null;
       if (hadState) Viewer.updateEditorToolbarState?.();
@@ -184,7 +202,10 @@ export function attachPointCloudPanel(Viewer) {
       if (!state || state.kind !== "tiles") return;
       scene.traverse((child) => {
         if (!child.isPoints) return;
-        if (child.material?.isPointCloudMaterial) addColorModes(child.material, state.colorUniforms);
+        if (child.material?.isPointCloudMaterial) {
+          addColorModes(child.material, state.colorUniforms);
+          setPointRaycastSkipped(child);
+        }
         child.userData.baseMaterialSize ??= child.material.size;
         child.material.size = child.userData.baseMaterialSize * state.size;
         const tileId = child.material.uniforms?.uTileId;
@@ -192,6 +213,7 @@ export function attachPointCloudPanel(Viewer) {
           tileId.value = child.userData.tileDepth;
         }
       });
+      Viewer.notePointClassesOfTile(scene);
     },
 
     setPointCloudSize(size) {
@@ -351,6 +373,8 @@ export function attachPointCloudPanel(Viewer) {
         edlLabel = makeRow("edl", edl);
       }
 
+      Viewer.buildPointCloudToolRows(body);
+
       const summary = document.createElement("p");
       summary.className = "viewer-pointcloud-panel_summary";
       body.appendChild(summary);
@@ -401,6 +425,8 @@ export function attachPointCloudPanel(Viewer) {
         if (document.activeElement !== ui.edl) ui.edl.value = String(Math.round(state.edl * 100));
       }
 
+      Viewer.syncPointCloudToolRows();
+
       const info = state.points[0]?.userData?.pointCloud;
       if (state.kind === "tiles") {
         ui.summary.textContent = t("pointCloud.streamed", "Streamed: detail loads as you zoom in.");
@@ -414,4 +440,5 @@ export function attachPointCloudPanel(Viewer) {
       }
     },
   });
+  attachPointCloudTools(Viewer);
 }
