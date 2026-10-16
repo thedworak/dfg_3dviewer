@@ -108,6 +108,8 @@ export function getEditorToolbarIcon(icon) {
     pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
     reportBug: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5a4 4 0 0 1 8 0V14a4 4 0 0 1-8 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M20 11h-4M8 15.5l-3 2M16 15.5l3 2M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     compare: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 10l-2 2 2 2M16 10l2 2-2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    // The same model shaded two ways: a sphere, its right half shaded.
+    compareLook: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 4.5a7.5 7.5 0 0 1 0 15z" fill="currentColor" opacity="0.4"/><path d="M12 2.5v19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     help: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.9.4-1.5 1-1.5 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
   };
 
@@ -144,19 +146,93 @@ export function syncEditorToolbarSecondaryTrayWidth(viewer) {
 // editor-toolbar.css: the secondary tools open as a card above the toolbar.
 export const PHONE_TOOLBAR_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
 
+// The hand of the interaction hint (#handHint, centred, sweeping
+// GESTURE.handPx to each side): above whatever of the toolbar is under its
+// sweep - with the menus on a phone that is the navigation over the tabs,
+// outside the toolbar's own box - and 150px up from the bottom at least.
+export function placeHandHint() {
+  const hint = core.handHint;
+  const host = core.container;
+  if (!hint || !host) return;
+  const hostRect = host.getBoundingClientRect();
+  if (!hostRect.height) return;
+  const hintSize = hint.getBoundingClientRect().height || 48;
+  let top = hostRect.height - 150;
+
+  const toolbar = core.editorToolbar;
+  if (toolbar && !toolbar.classList.contains("editorToolbar-hidden")) {
+    const dock = isMenuToolbar(toolbar) ? toolbar.querySelector(":scope > .viewer-menus_dock") : null;
+    const parts = dock ? [dock, ...dock.children] : [toolbar];
+    const sweep = (core.GESTURE?.handPx || 55) + hintSize / 2 + 8;
+    const centre = hostRect.left + hostRect.width / 2;
+    parts.forEach((element) => {
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      if (rect.right < centre - sweep || rect.left > centre + sweep) return;
+      if (rect.top - hostRect.top < hostRect.height / 2) return;
+      top = Math.min(top, rect.top - hostRect.top - hintSize - 16);
+    });
+  }
+  // #handHint's base CSS is `inset: 0; margin: auto;` (centred): with only
+  // `top` set, the leftover `bottom: 0` over-constrains it and the margins
+  // split the space instead - so `bottom` is cleared.
+  hint.style.bottom = "auto";
+  hint.style.top = `${Math.max(Math.round(top), 8)}px`;
+}
+
+// Where the notices start at the top of a phone's viewer (px) before the
+// logo has its height: under the model details button (8px + 40px).
+const NOTICE_TOP_FALLBACK = 56;
+
 // Toasts sit at the bottom of the viewer; on phones the toolbar (and its
 // expanded card, whose height depends on how many rows it wraps into, and an
 // open submenu above that) covers that spot, so lift them above whatever of
 // it is on screen.
 export function syncNoticeAboveToolbar() {
+  // The hand hint keeps off the same toolbar.
+  placeHandHint();
   const notice = core.noticeContainer;
   const toolbar = core.editorToolbar;
   if (!notice) return;
   const parent = notice.offsetParent;
+  // The menus on a phone (tabs, rail): the bottom is full of tools (the
+  // navigation, AR, motion look) - the notices go to the top instead, the
+  // width of the viewer under the logo and the model details button.
+  const mode = toolbar && parent && isMenuToolbar(toolbar) ? toolbar.dataset.mode : null;
+  const atTop = mode === "bar" || mode === "rail";
+  notice.classList.toggle("viewer-notice-container--top", atTop);
+  if (atTop) {
+    notice.style.removeProperty("--viewer-notice-safe-bottom");
+    const parentRect = parent.getBoundingClientRect();
+    let top = NOTICE_TOP_FALLBACK;
+    // The navigation too: on a phone held sideways it stands at the top.
+    const elements = [...parent.querySelectorAll(".viewer-brand-logo, #metadata-card"), toolbar.querySelector(".viewer-menus_nav")];
+    elements.forEach((element) => {
+      if (!element) return;
+      const rect = element.getBoundingClientRect();
+      if (rect.height > 0 && rect.bottom - parentRect.top < parentRect.height / 2) {
+        top = Math.max(top, Math.round(rect.bottom - parentRect.top + 8));
+      }
+    });
+    notice.style.setProperty("--viewer-notice-top", `${top}px`);
+    const dock = toolbar.querySelector(":scope > .viewer-menus_dock");
+    if (mode === "rail" && dock) {
+      notice.style.setProperty("--viewer-notice-left", `${Math.round(dock.getBoundingClientRect().right - parentRect.left + 12)}px`);
+    } else {
+      notice.style.removeProperty("--viewer-notice-left");
+    }
+    return;
+  }
+  notice.style.removeProperty("--viewer-notice-top");
+  notice.style.removeProperty("--viewer-notice-left");
   // The menus (ui/menu-toolbar.js): above the bar along the bottom, on any
   // screen - its names reach the middle, where the notices are.
   if (toolbar && parent && isMenuToolbar(toolbar)) {
-    const edge = menuToolbarBottomEdge(toolbar);
+    let edge = menuToolbarBottomEdge(toolbar);
+    // And above the comparison's bar (editor/compare.js), which stands on it.
+    const compareBar = edge == null ? null : document.querySelector("#viewerCompare .viewer-compare_bar");
+    const compareRect = compareBar?.getBoundingClientRect();
+    if (compareRect?.height) edge = Math.min(edge, compareRect.top);
     if (edge == null) notice.style.removeProperty("--viewer-notice-safe-bottom");
     else notice.style.setProperty("--viewer-notice-safe-bottom", `${Math.max(8, Math.round(parent.getBoundingClientRect().bottom - edge + 10))}px`);
     return;
@@ -1351,7 +1427,9 @@ export function createEditorToolbar(viewer) {
     tools.push(
       { key: "rakingLight", group: "analysis", icon: "rakingLight", onClick: () => {}, primary: false },
       { key: "sunStudy", group: "analysis", icon: "sunStudy", onClick: () => {}, primary: false },
-      { key: "compare", group: "analysis", icon: "compare", onClick: () => viewer.toggleCompare?.(), pressed: true, primary: false },
+      // The comparisons lay their own bar over the model: the menu closes.
+      { key: "compare", group: "analysis", icon: "compare", onClick: () => { viewer.toggleCompare?.(); viewer.openToolbarMenu?.(null); }, pressed: true, primary: false },
+      { key: "compareLook", group: "view", icon: "compareLook", onClick: () => { viewer.toggleCompare?.({ kind: "look" }); viewer.openToolbarMenu?.(null); }, pressed: true, primary: false },
       { key: "annotateTour", group: "story", icon: "annotateTour", onClick: () => viewer.toggleTour(), pressed: true, primary: false },
       { key: "annotatePhotos", group: "story", icon: "annotatePhotos", onClick: () => viewer.togglePhotosPanel(), pressed: true, primary: false },
       { key: "annotateImport", group: "file", icon: "annotateImport", onClick: () => viewer.triggerAnnotationsXmlImport(), primary: false },

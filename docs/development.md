@@ -95,6 +95,7 @@ This repo also includes a Tauri desktop wrapper in `src-tauri/`.
 - For local preview use `npm run serve:dist` or `npm run dev:test`.
 - If you use `pack-dist`, make sure `zip` is installed on your system.
 - Drupal builds use `npm run build:drupal` or `npm run build:drupal:custom`.
+- Web Workers are written as `new Worker(new URL("./name-worker.js", import.meta.url), { type: "module" })` (file name ending in `-worker.js`): Parcel bundles that form by itself, and the `moduleWorkers()` plugin in `rollup.config.js` emits the worker as a content-hashed chunk of its own. Keep worker modules free of three.js and DOM access (see `viewer/pointcloud-las-worker.js`).
 
 ## More information
 

@@ -130,6 +130,7 @@ import {
   getEditorToolbarHost,
   syncEditorToolbarSecondaryTrayWidth,
   syncNoticeAboveToolbar,
+  placeHandHint,
   toggleToolbarExpanded as toggleEditorToolbarExpanded,
   updateClippingPlanesSubmenuState,
   updateEditorToolbarLabels as syncEditorToolbarLabels,
@@ -2207,46 +2208,7 @@ export const Viewer = {
     }
 
     // hand hint
-    if (core.handHint) {
-      // handHint is appended to core.container and positioned relative to it,
-      // so its offset must be measured against core.container's own rect
-      // (parentRect) - NOT effectiveHeight, which is the canvas's logical
-      // render size and can differ from the container's actual box (e.g. via
-      // scaleContainer or letterboxing), leading to a wrongly placed hint.
-      const containerHeight = parentRect.height || effectiveHeight;
-
-      // Default vertical offset from the container bottom, but pushed further
-      // up when the editor toolbar is visible and would otherwise sit under
-      // it - the toolbar's height/position vary (drag position, embed scale),
-      // so this is measured live rather than assumed.
-      let handHintOffset = 150;
-      if (
-        core.editorToolbar &&
-        !core.editorToolbar.classList.contains("editorToolbar-hidden")
-      ) {
-        const toolbarRect = core.editorToolbar.getBoundingClientRect();
-        const toolbarTopFromContainerTop = toolbarRect.top - parentRect.top;
-        const handHintHeight =
-          core.handHint.getBoundingClientRect().height || 48;
-        const clearanceMargin = 16;
-        const requiredOffset =
-          containerHeight -
-          toolbarTopFromContainerTop +
-          handHintHeight +
-          clearanceMargin;
-        handHintOffset = Math.max(handHintOffset, requiredOffset);
-      }
-      // #handHint's base CSS is `inset: 0; margin: auto;` (for default
-      // centering). Setting only `top` here leaves `bottom: 0` from that
-      // `inset` in place too, over-constraining the vertical position: with
-      // top/height/bottom all non-auto and auto margins, the spec splits the
-      // leftover space evenly between the margins instead of honoring `top`
-      // as-is, so the element renders noticeably off from the intended spot.
-      // Clearing `bottom` removes that over-constraint.
-      core.handHint.style.bottom = "auto";
-      core.handHint.style.top =
-        `${containerHeight - handHintOffset}px`;
-    }
+    placeHandHint();
 
     core.controls?.update();
 
@@ -2277,6 +2239,11 @@ export const Viewer = {
         e2e: false,
       });
     }
+  },
+
+  // The hand hint above the toolbar (editor-toolbar.js), for viewer-utils.js.
+  placeHandHint() {
+    placeHandHint();
   },
 
   onFullscreenChange () {

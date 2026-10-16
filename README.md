@@ -99,7 +99,7 @@ The topics below used to live in this file; they now have their own page in [`do
 > - ⁹ via OpenCASCADE (`cascadio`, standalone worker)
 > - ¹⁰ streamed level of detail via `3d-tiles-renderer`
 > - ¹¹ converted to a streamed 3D Tiles tileset via `py3dtiles` (standalone worker); a PLY without faces is treated the same way
-> - ¹² loaded directly (loaders.gl + laz-perf), thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming
+> - ¹² loaded directly in a Web Worker (LAS 1.0-1.4 all point formats, decoded while downloading; LAZ point formats 0-3 with loaders.gl + laz-perf), shown progressively and thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming - see [docs/point-clouds.md](docs/point-clouds.md)
 > - ¹³ drawn with Spark (sparkjs.dev), downloaded with the first splat file; a PLY is read as splats when its vertices carry Gaussians (`f_dc_0`, `scale_0`, `rot_0`), and the worker keeps such a PLY as uploaded
 >
 > Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/NRRD/GCode/BVH (not general model formats).
@@ -124,7 +124,7 @@ There is also a pre-configured complete workflow to handle more file formats and
 
 - 3D file formats read directly: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, PCD, JSON, 3DS, glTF/GLB, USD/USDA/USDC/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, Gaussian splats (SPZ, SPLAT, KSPLAT, SOG, PLY);
 - optional WebGPU renderer (`viewer.renderer` / `?renderer=webgpu`): node materials, ambient occlusion and post-processing as a TSL pipeline, section planes and area selection, falling back to WebGL where WebGPU (or the model) needs it;
-- streamed level-of-detail models: 3D Tiles (`tileset.json` - b3dm, i3dm, pnts, glb; meshes and point clouds) and Potree 2 point clouds (`metadata.json`), with adaptive point size and Eye-Dome Lighting;
+- streamed level-of-detail models: 3D Tiles (`tileset.json` - b3dm, i3dm, pnts, glb; meshes and point clouds) and Potree 2 point clouds (`metadata.json`), with adaptive point size and Eye-Dome Lighting - directly opened LAS/LAZ/XYZ/PCD clouds too, with colouring by RGB, intensity, height or classification on the GPU;
 - compressed glTF (Draco, Meshopt, KTX2/Basis textures) and progressive loading: a lightweight preview is shown first, then swapped for the full model (the Docker worker optimizes converted models with gltfpack);
 - compression and rendering on-the-fly: OBJ, FBX, STL, DAE, PLY, ABC, BLEND, WRL, X3D, USD/USDA/USDC/USDZ, GLB, GLTF; the standalone worker additionally converts STEP/STP, IGES/IGS and 3MF (see [Server-side conversion and rendering](docs/conversion-pipeline.md));
 - 3D viewer with orbit controls, zoom, and basic editor tools;

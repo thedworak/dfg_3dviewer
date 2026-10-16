@@ -13,8 +13,10 @@ const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat
 // Keep in sync with TIMELINE_TRANSITIONS / TIMELINE_STAGE_TYPES in viewer/timeline.js.
 const TIMELINE_TRANSITIONS = ["interpolate", "step"];
 const TIMELINE_STAGE_TYPES = ["documented", "modelled"];
-// Keep in sync with COMPARE_MODES in viewer/editor/compare.js.
+// Keep in sync with COMPARE_MODES / COMPARE_KINDS in viewer/editor/compare.js.
 const COMPARE_MODES = ["swipe", "split"];
+const COMPARE_KINDS = ["content", "look"];
+const COMPARE_LIGHTINGS = ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"];
 
 function isPlainObject(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
@@ -538,6 +540,8 @@ function validateCompare(compare, path, errors) {
   }
   if (compare.enabled !== undefined) validateBoolean(compare.enabled, `${path}.enabled`, errors);
   if (compare.mode !== undefined) validateEnum(compare.mode, COMPARE_MODES, `${path}.mode`, errors);
+  if (compare.kind !== undefined) validateEnum(compare.kind, COMPARE_KINDS, `${path}.kind`, errors);
+  const look = compare.kind === "look";
   if (compare.position !== undefined && (!isFiniteNumber(compare.position) || compare.position < 0 || compare.position > 1)) {
     pushError(errors, `${path}.position`, "must be a number from 0 to 1");
   }
@@ -546,7 +550,13 @@ function validateCompare(compare, path, errors) {
     if (side === undefined) return;
     const sidePath = `${path}.${key}`;
     if (!isPlainObject(side)) {
-      pushError(errors, sidePath, "must be an object with a variant or a year");
+      pushError(errors, sidePath, look ? "must be an object with a shading mode or a lighting" : "must be an object with a variant or a year");
+      return;
+    }
+    if (look) {
+      if (side.shading === undefined && side.lighting === undefined) pushError(errors, sidePath, "must have a shading mode or a lighting");
+      if (side.shading !== undefined) validateEnum(side.shading, SHADING_MODES, `${sidePath}.shading`, errors);
+      if (side.lighting !== undefined) validateEnum(side.lighting, COMPARE_LIGHTINGS, `${sidePath}.lighting`, errors);
       return;
     }
     if (side.variant !== undefined) validateString(side.variant, `${sidePath}.variant`, errors);

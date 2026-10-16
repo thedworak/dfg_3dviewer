@@ -306,6 +306,8 @@ Planes are dragged directly in the scene (the coloured quads) or with the slider
 
 `viewer/loaders.js` contains model loaders, environment sync logic, and loading progress/error handlers.
 
+- `showPreviewBadge(text)` / `hidePreviewBadge()` — the "Preview · ..." badge over the viewer: the progressive GLB preview while the full model downloads, and a point cloud upload's quick preview (`ui/upload-panel.js`, job status `previewUrl`) while the worker builds its tiles.
+
 - `loadDDSLoader()` / `loadMTLLoader()` / `loadOBJLoader()` / `loadFBXLoader()`
 - `loadPLYLoader()` / `loadColladaLoader()` / `loadSTLLoader()` / `loadXYZLoader()`
 - `loadTDSLoader()` / `loadPCDLoader()` / `loadGLTFLoader()` / `loadDRACOLoader()`
@@ -356,13 +358,38 @@ Streamed level-of-detail models through [3d-tiles-renderer](https://github.com/N
 
 ## `viewer/pointcloud-las.js`
 
-Direct LAS/LAZ loading (drag and drop, `?model=scan.laz`), without server conversion. Loaded on demand by `loaders.js`, so loaders.gl and laz-perf (WebAssembly embedded, nothing fetched from a CDN) only download with the first such file.
+Direct LAS/LAZ loading (drag and drop, `?model=scan.laz`), without server conversion. Loaded on demand by `loaders.js`, so loaders.gl and laz-perf (WebAssembly embedded, nothing fetched from a CDN) only download with the first such file. The file is downloaded and decoded in a Web Worker (`pointcloud-las-worker.js`) and arrives in batches of 100 000 points, so the page stays responsive and the cloud fills in while it loads.
 
-- `buildLasPointCloud(buffer, name)`
-  - Parses on the main thread with `fp64` positions and re-centres them in double precision before converting to Float32, so UTM / national-grid coordinates keep millimetre precision. The original centre is kept in `points.userData.pointCloud.originOffset`.
-  - Thins to `viewer.pointCloud.maxPoints` using the point count from the LAS header (toast `pointCloudThinned`).
-  - Colours: RGB when present, else intensity, else a height ramp. Z-up is turned to Y-up; points are drawn at a fixed screen size.
-- `readLasPointCount(buffer)` — point count from a LAS 1.0-1.4 header.
+- `loadLasPointCloud(url, { name, onProgress, compressed })`
+  - Resolves once the first batch is in with `{ object, done }`: `object` is the model root (a `Group` holding the `Points`), `done` resolves with the cloud's info when all points are in. `loaders.js` runs `afterLoad` on the first batch and sets up the point cloud panel and the stats on `done`; `window.viewer.fullModelLoaded` stays `false` (and `core.progressiveLoad` holds `{ pointCloud }`) until then.
+  - The buffers are allocated for the whole (thinned) cloud from the LAS header and filled batch by batch (`addUpdateRange`, draw range); the bounds come from the header (rounded like the Float32 positions), so camera framing and grid placement are right from the first batch. A file with fewer points than its header announces gets buffers of its real size at the end.
+  - Positions are re-centred in double precision before converting to Float32, so UTM / national-grid coordinates keep millimetre precision. The original centre is kept in `points.userData.pointCloud.originOffset`.
+  - Thins to `viewer.pointCloud.maxPoints` (every n-th point) using the point count from the LAS header (toast `pointCloudThinned`).
+  - Colours: RGB when present, else intensity, else a height ramp, decided by the first batch. Z-up is turned to Y-up; points are drawn at a fixed screen size.
+  - `points.userData.pointCloud`: `{ totalPoints, loadedPoints, skip, colorMode, originOffset, loading, decoder }` - `loading` is `true` until all points are in (the point cloud panel waits for it), `decoder` is `"worker"` or `"main-thread"`.
+  - Where a module worker cannot start (no module workers, the bundle served from another origin), the same decoder runs on the main thread. Removing the model from the scene while it loads stops the worker.
+
+## `viewer/pointcloud-material.js`
+
+Display of directly loaded point clouds (LAS, LAZ, XYZ, PCD), used by the point cloud panel. The cloud's `PointsMaterial` is replaced by 3d-tiles-renderer's `PointCloudMaterial` (the material streamed clouds get from `PointCloudEffectsPlugin`, imported through the package's `./src/*` export - not public API, check it on package updates), so both kinds draw alike.
+
+- `preparePointCloudMaterial(points)` — swaps the material once (keeps vertex colours, opacity, clipping planes) and injects the colour modes into its vertex shader; attaches the Eye-Dome Lighting pre-pass.
+- `setPointColorMode(points, mode)` — `rgb`, `intensity`, `height` (world Y) or `classification` (ASPRS colours, `CLASSIFICATION_COLORS`): a uniform (`uColorMode`) and the range uniforms; the buffers are never rewritten.
+- `setPointSize(points, { sizeMode, scale, pixels })` — `adaptive`: `material.size` in world units = spacing × 1.4 × scale, at least 1 px; `fixed`: `pixels × scale` px.
+- `estimatePointSpacing(geometry)` — average neighbour distance, assuming the points sample surfaces: the occupied cells of a 64-step grid over the cloud (from at most 300 000 sampled points) give the surface area, shared out among the points. Cached in `points.userData.pointSpacing`.
+- `setPointEdl(points, strength)` — Eye-Dome Lighting: in the cloud's `onBeforeRender` it is drawn into a float log-depth target with a separate material (three would otherwise keep the uniforms of the material it drew last), then the main material shades each point by its neighbours' depth. Skipped while `0`, in WebXR and outside WebGL.
+
+## `viewer/pointcloud-las-decode.js`
+
+The LAS/LAZ decoder shared by the worker and the main-thread fallback (no three.js, no DOM). Emits `progress`, `header`, `batch` (Float32 positions relative to the cloud's centre, Uint8 RGB, Uint16 intensity, Uint8 classification - transferred, not copied) and `done` messages.
+
+- `decodeLasUrl(url, { maxPoints, compressed, emit })` — downloads with `fetch`. Uncompressed LAS is decoded record by record while it downloads, without keeping the file in memory (so a multi-GB scan only costs the memory of the points kept), for all point formats 0-10 (LAS 1.0-1.4); the download stops once the header's point count is reached. LAZ is downloaded in full and decompressed in batches by laz-perf (point formats 0-3). `compressed: null` tells LAS from LAZ by the header (blob: URLs have no file name).
+- `decodeBuffer(buffer, { maxPoints, emit })` — the same for a file already in memory.
+- `readLasHeader(buffer)` — version, point format and record length, point count (1.4 64-bit count included), scale, offset, bounds (`null` when the header has none); `readLasPointCount(buffer)`.
+
+## `viewer/pointcloud-las-worker.js`
+
+The Web Worker entry: posts `ready` once loaded (a worker that fails before that falls back to the main thread), then runs `decodeLasUrl` for the request it is sent. Started as `new Worker(new URL("./pointcloud-las-worker.js", import.meta.url), { type: "module" })`, which Parcel bundles by itself and the `moduleWorkers()` plugin in `rollup.config.js` emits as a chunk of its own.
 
 
 ## `viewer/splats.js`

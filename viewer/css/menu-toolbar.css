@@ -42,6 +42,12 @@
   display: none;
 }
 
+/* Upright: above the navigation bar (over the tabs, 54px tall), not on it. */
+#viewerEditorToolbar.viewer-menus[data-mode="bar"][data-loading]::after {
+  right: 12px;
+  bottom: calc(100% + 72px);
+}
+
 #viewerEditorToolbar.viewer-menus[data-mode="rail"][data-loading]::after {
   right: auto;
   left: calc(100% + 12px);
@@ -78,8 +84,8 @@
   background: var(--viewer-panel-border);
 }
 
-/* AR and motion look (what the phone adds). On a desktop: icons after the
-   navigation; none shown, no group. */
+/* AR, motion look and the 360° video (what the phone adds): at the end of
+   the navigation, after a divider; none shown, neither group nor divider. */
 #viewerEditorToolbar.viewer-menus .viewer-menus_device {
   display: flex;
   align-items: center;
@@ -90,9 +96,10 @@
   display: none;
 }
 
-#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_device {
-  padding-right: 6px;
-  border-right: 1px solid var(--viewer-panel-border);
+/* Apart from the rule above: :has() cannot hold another :has(), and one
+   invalid selector drops a whole list. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_nav:not(:has(> .viewer-menus_device > :not([hidden]))) > .viewer-menus_nav-divider--device {
+  display: none;
 }
 
 #viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_device > .viewer-editor-tool {
@@ -706,62 +713,37 @@
   font-size: 15px;
 }
 
-/* ---- Phones: AR and motion look, set off on the right ---- */
+/* ---- Phones: AR, motion look and the video in the navigation bar ---- */
+
+/* A narrow phone: the buttons give up some width (not height) so the whole
+   bar fits. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav,
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav .viewer-editor-tool {
+  flex: 0 1 44px;
+  min-width: 32px;
+  width: 44px;
+  height: 44px;
+}
 
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device {
-  position: absolute;
-  align-items: center;
-  gap: 10px;
-  transition: opacity 0.25s ease;
+  flex: 0 1 auto;
 }
 
-/* AR: the phone's headline feature, an accent pill with its name. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav-divider {
+  flex-shrink: 1;
+  margin: 0 3px;
+}
+
+/* AR: the phone's headline feature, in the accent. */
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar {
-  width: auto;
-  height: 48px;
-  gap: 8px;
-  padding: 0 18px 0 14px;
-  border: 0;
-  border-radius: 24px;
+  border-radius: 10px;
   background: var(--viewer-menus-accent);
   color: #15191d;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
-}
-
-#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar::after {
-  content: "AR";
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-/* Locked by the plan: the name stays (::after is the lock elsewhere, see
-   main.css), and the lock goes to ::before, dark on the accent. */
-#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::after {
-  position: static;
-  width: auto;
-  height: auto;
-  background: none;
-  -webkit-mask: none;
-  mask: none;
-}
-
-#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::before {
-  content: "";
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 11px;
-  height: 11px;
-  background-color: #15191d;
-  -webkit-mask: var(--plan-lock-mask) center / contain no-repeat;
-  mask: var(--plan-lock-mask) center / contain no-repeat;
-  pointer-events: none;
-}
-
-#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar .viewer-editor-tool_icon svg {
-  width: 22px;
-  height: 22px;
 }
 
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.is-active {
@@ -769,44 +751,15 @@
   color: #15191d;
 }
 
-/* Motion look: a round button, lit while on. */
-#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-motion {
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--viewer-panel-border);
-  border-radius: 50%;
-  background: var(--viewer-menus-surface);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
+/* Locked by the plan: the lock dark on the accent. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::after {
+  background-color: #15191d;
 }
 
-#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-motion.is-active {
-  border-color: var(--viewer-menus-accent);
-  background: color-mix(in srgb, var(--viewer-menus-accent) 24%, var(--viewer-panel-bg));
+/* Motion look, the video: lit while on (recording). */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-tool.is-active {
+  background: color-mix(in srgb, var(--viewer-menus-accent) 24%, transparent);
   color: var(--viewer-menus-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--viewer-menus-accent) 25%, transparent), 0 6px 18px rgba(0, 0, 0, 0.22);
-}
-
-/* Upright: on the right, above the navigation row. */
-#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_device {
-  right: 12px;
-  bottom: calc(100% + 76px);
-  flex-direction: column-reverse;
-  align-items: flex-end;
-}
-
-#viewerEditorToolbar.viewer-menus[data-mode="bar"].viewer-menus--open .viewer-menus_device {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* On its side: on the right under the navigation row (the axes take the
-   bottom right corner here). */
-#viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_device {
-  top: 76px;
-  left: calc(var(--viewer-menus-host-w, 800px) - 12px - var(--viewer-menus-safe-right));
-  transform: translateX(-100%);
-  flex-direction: row;
 }
 
 /* ---- Phone upright: tabs along the bottom, a sheet above them ---- */
@@ -948,11 +901,16 @@
   min-height: 44px;
 }
 
+/* At the bottom, centred on the room right of the rail (the logo has the
+   top, the axes the bottom right corner: kept clear of them). */
 #viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_nav {
-  top: 10px;
-  left: calc(var(--viewer-menus-host-w, 800px) - 10px - var(--viewer-menus-safe-right));
-  transform: translateX(-100%);
+  --viewer-menus-room: calc(var(--viewer-menus-host-w, 800px) - var(--viewer-menus-rail) - var(--viewer-menus-safe-left) - var(--viewer-menus-safe-right));
+  top: auto;
+  bottom: 10px;
+  left: calc(var(--viewer-menus-rail) + var(--viewer-menus-safe-left) + var(--viewer-menus-room) / 2);
+  transform: translateX(-50%);
   flex-direction: row;
+  max-width: calc(var(--viewer-menus-room) - 220px);
 }
 
 #viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_panel {

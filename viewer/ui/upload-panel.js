@@ -5,6 +5,7 @@ import { t } from "../i18n-utils.js";
 import { StatusPoller } from "../status-poller.js";
 import { UltraLoader } from "../ultra-loader.js";
 import { makePanelWindow } from "./panel-window.js";
+import { hidePreviewBadge, showPreviewBadge } from "../loaders.js";
 
 // Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
 // converted without Blender, and formats the viewer reads directly (kept as
@@ -467,7 +468,7 @@ export function attachUploadPanel(Viewer) {
         UltraLoader.start([...this.processingLoadingStepKeys]);
         const poller = new StatusPoller(jobId, {
           forcePoll: true,
-          onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData),
+          onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData, jobId),
         });
         poller.start();
       } catch (error) {
@@ -482,8 +483,33 @@ export function attachUploadPanel(Viewer) {
       }
     },
 
-    async handleUploadStatusUpdate(data) {
+    // Status updates of an upload, one after the other: a point cloud's
+    // preview has to be in before the finished model replaces it.
+    handleUploadStatusUpdate(data, jobId) {
+      this.uploadStatusQueue = (this.uploadStatusQueue || Promise.resolve())
+        .then(() => this.applyUploadStatus(data, jobId))
+        .catch((error) => this.reportError(error, { context: "Upload status update failed" }));
+      return this.uploadStatusQueue;
+    },
+
+    async applyUploadStatus(data, jobId) {
       if (!data) return;
+      const finished = ["ready", "failed", "error"].includes(data.status);
+      // A point cloud's quick preview (worker/pointcloud.py) while its
+      // streamed tiles are built: shown once, replaced when they are ready.
+      if (!finished && data.previewUrl && this.uploadPreviewJob !== jobId) {
+        this.uploadPreviewJob = jobId;
+        core.autoPath = remoteAssetUrl(data.previewUrl);
+        this.resetLoadedModelState();
+        await this.mainLoadModelWrapper();
+        showPreviewBadge(t("loadingLog.pointCloudPreview", "Preview · building the full point cloud..."));
+        toastHelper("pointCloudPreview", "info");
+        return;
+      }
+      if (finished && this.uploadPreviewJob === jobId) {
+        this.uploadPreviewJob = null;
+        hidePreviewBadge();
+      }
       if (data.status === "ready" && data.modelUrl) {
         toastHelper("uploadReady", "success");
         core.autoPath = remoteAssetUrl(data.modelUrl);

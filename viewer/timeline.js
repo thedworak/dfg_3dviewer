@@ -673,7 +673,7 @@ export function attachTimeline(Viewer) {
       });
       // The first and the last stage, or the variants when the model has them.
       compareButton.addEventListener("click", () => {
-        if (Viewer.isComparing?.()) Viewer.closeCompare();
+        if (Viewer.isComparing?.("content")) Viewer.closeCompare();
         else {
           const stages = state.visualStages;
           Viewer.openCompare({ left: { year: stages[0].year }, right: { year: stages[stages.length - 1].year } });
@@ -736,7 +736,7 @@ export function attachTimeline(Viewer) {
       const ui = state?.ui;
       if (!ui) return;
 
-      const comparing = Viewer.isComparing?.() === true;
+      const comparing = Viewer.isComparing?.("content") === true;
       if (force || ui.shownComparing !== comparing) {
         ui.shownComparing = comparing;
         ui.compareButton.classList.toggle("is-active", comparing);

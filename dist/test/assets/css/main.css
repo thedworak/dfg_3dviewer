@@ -6,6 +6,7 @@
 @import "./login-panel.css";
 @import "./ifc-properties.css";
 @import "./viewer-tools.css";
+@import "./menu-toolbar.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;
@@ -182,6 +183,18 @@ canvas {
    cover it. data-loading stays on through the "complete" fade-out. */
 .mainContainer:has(#viewerEditorToolbar[data-loading]) #viewerNoticeContainer {
   --viewer-notice-loading-offset: 40px;
+}
+
+/* On a phone with the menus (syncNoticeAboveToolbar() in editor-toolbar.js):
+   at the top, across the viewer under the logo - the bottom is the tools'. */
+#viewerNoticeContainer.viewer-notice-container--top:not(.viewer-notice-container--sandbox):not(.viewer-notice-container--shortcuts) {
+  top: var(--viewer-notice-top, 56px);
+  bottom: auto;
+  left: var(--viewer-notice-left, 12px);
+  right: 12px;
+  max-width: none;
+  transform: none;
+  transition: top 300ms ease;
 }
 
 #viewerNoticeContainer.viewer-notice-container--sandbox {
@@ -1013,10 +1026,8 @@ html[data-viewer-theme="light"],
   box-shadow: var(--metadata-shadow);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  /* Draggable via .metadata-drag-handle and resizable via the native
-     bottom-right handle below (see initializeMetadataDrag()/
-     observeMetadataResize() in metadata.js) - both mirror the mechanisms
-     already used for #viewerEditorToolbar and #form-manifesto. */
+  /* Draggable via .metadata-drag-handle (startMetadataDrag() in
+     metadata.js); it is the button of #metadata-window below. */
   transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0);
   display: flex;
   flex-direction: column;
@@ -1037,19 +1048,120 @@ html[data-viewer-theme="light"],
 }
 
 #metadata-card.metadata-open {
-  width: min(320px, 32vw);
   background: var(--metadata-card-bg-open);
   border-color: var(--metadata-row-border-strong);
-  box-shadow: var(--metadata-shadow);
-  resize: both;
-  overflow: auto;
 }
 
-#metadata-card.metadata-card-resized #metadata-content.expanded {
+/* The model's details, opened from the card (metadata.js): a window that
+   grows out of it, moved by its header, resized by its corner, kept inside
+   the viewer and off the toolbar (getMetadataWindowBounds()). */
+#metadata-window {
+  position: absolute;
+  left: var(--window-x, 8px);
+  top: var(--window-y, 64px);
+  width: min(340px, calc(100% - 16px));
+  min-width: 200px;
+  min-height: 120px;
+  max-height: min(72vh, 640px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px 12px;
+  border-radius: 10px;
+  background: var(--metadata-card-bg-open);
+  border: 1px solid var(--metadata-row-border-strong);
+  box-shadow: var(--metadata-shadow);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  pointer-events: auto;
+  resize: both;
+  overflow: hidden;
+  transform-origin: var(--window-origin-x, 0px) var(--window-origin-y, 0px);
+  animation: metadata-window-in 360ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+#metadata-window[hidden] {
+  display: none;
+}
+
+#metadata-window.metadata-window-closing {
+  animation: metadata-window-out 220ms cubic-bezier(0.4, 0, 0.8, 0.4) forwards;
+  pointer-events: none;
+}
+
+@keyframes metadata-window-in {
+  from { opacity: 0; transform: scale(0.12); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes metadata-window-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(0.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #metadata-window,
+  #metadata-window.metadata-window-closing {
+    animation: none;
+  }
+}
+
+.metadata-window-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  margin: 0 -14px;
+  padding: 0 6px 0 14px;
+  border-bottom: 1px solid var(--metadata-border);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+#metadata-window.metadata-dragging .metadata-window-header {
+  cursor: grabbing;
+}
+
+.metadata-window-title {
   flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
-  overflow-y: auto;
+  min-width: 0;
+  color: var(--metadata-value-color);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-window-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--metadata-label-color);
+  cursor: pointer;
+}
+
+.metadata-window-close:hover {
+  color: var(--metadata-value-color);
+  background: color-mix(in srgb, var(--metadata-value-color) 10%, transparent);
+}
+
+.metadata-window-close:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--metadata-value-color) 40%, transparent);
+  outline-offset: 1px;
+}
+
+.metadata-window-close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .metadata-drag-handle {
@@ -1094,37 +1206,12 @@ html[data-viewer-theme="light"],
 }
 
 #metadata-content {
-  max-height: 0;
-  overflow: hidden;
-  transition:
-    max-height 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    opacity 1520ms ease,
-    transform 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    visibility 0s linear 1360ms,
-    padding 1400ms cubic-bezier(0.23, 1, 0.32, 1);
-  opacity: 0;
-  visibility: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
   position: relative;
-  transform: translateY(-1px);
-  transform-origin: top;
-  padding: 0;
-}
-
-#metadata-content.expanded {
-  max-height: min(72vh, 640px);
-  overflow: hidden;
-  opacity: 1;
-  visibility: visible;
-  margin-top: 10px;
-  padding: 10px 0 0;
-  border-top: 1px solid var(--metadata-border);
-  transform: translateY(0);
-  transition:
-    max-height 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    opacity 1520ms ease,
-    transform 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    visibility 0s linear 0s,
-    padding 1400ms cubic-bezier(0.23, 1, 0.32, 1);
+  padding-top: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .metadata-stats {
@@ -1229,7 +1316,7 @@ html[data-viewer-theme="light"],
   height: 1px;
 }
 
-#metadata-card.metadata-card-overflowing #metadata-content::after {
+#metadata-window.metadata-window-overflowing #metadata-content::after {
   content: "";
   position: absolute;
   left: 0;
@@ -2027,10 +2114,6 @@ body[data-viewer-theme="light"] #annotationPOITooltip {
     padding: 10px 12px;
   }
 
-  #metadata-card.metadata-open {
-    width: min(320px, calc(100vw - 32px));
-  }
-
   .metadata-row {
     grid-template-columns: 1fr;
     row-gap: 2px;
@@ -2422,41 +2505,11 @@ body.presentation-mode {
   }
 }
 
-/* Model details on a phone: open, a sheet along the bottom of the viewer,
-   above the toolbar - the model stays visible above it. */
-@media (max-width: 640px) {
-  #metadata-card.metadata-open {
-    position: absolute;
-    top: auto;
-    left: max(8px, env(safe-area-inset-left));
-    right: max(8px, env(safe-area-inset-right));
-    bottom: calc(var(--viewer-toolbar-height, 58px) + 26px + env(safe-area-inset-bottom));
-    width: auto !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: 55%;
-    transform: none;
-    resize: none;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    border-radius: 6px;
-  }
-
-  #metadata-card.metadata-open #metadata-content.expanded {
-    max-height: none;
-    overflow: visible;
-  }
-
-  #metadata-card.metadata-open .metadata-drag-handle {
-    display: none;
-  }
-}
-
-/* Model details on a phone, closed: a small round "i" in the corner instead
-   of the file name card, so it keeps off the model. The name stays in the
-   button's aria-label; a tap opens the sheet above. */
+/* Model details on a phone: a small round "i" in the corner instead of the
+   file name card, so it keeps off the model. The name stays in the button's
+   aria-label; a tap opens the window out of it. */
 @media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
-  #metadata-card:not(.metadata-open) {
+  #metadata-card {
     width: 40px !important;
     height: 40px !important;
     min-width: 0;
@@ -2468,12 +2521,12 @@ body.presentation-mode {
     transition: none;
   }
 
-  #metadata-card:not(.metadata-open) .metadata-drag-handle,
-  #metadata-card:not(.metadata-open) .metadata-toggle-copy {
+  #metadata-card .metadata-drag-handle,
+  #metadata-card .metadata-toggle-copy {
     display: none;
   }
 
-  #metadata-card:not(.metadata-open) #metadata-collapse {
+  #metadata-card #metadata-collapse {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2482,7 +2535,7 @@ body.presentation-mode {
     gap: 0;
   }
 
-  #metadata-card:not(.metadata-open) .metadata-toggle-chevron {
+  #metadata-card .metadata-toggle-chevron {
     width: 20px;
     height: 20px;
     border-radius: 0;
@@ -2491,7 +2544,7 @@ body.presentation-mode {
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
   }
 
-  #metadata-card:not(.metadata-open) .metadata-toggle-chevron::before {
+  #metadata-card .metadata-toggle-chevron::before {
     display: none;
   }
 }

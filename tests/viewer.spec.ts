@@ -856,6 +856,99 @@ test('LAZ point clouds load directly, re-centred in double precision', async ({ 
   expect(cloud.minY).toBe(0);
 });
 
+// An uncompressed LAS 1.4 file (point format 7) of 300 000 points: decoded
+// in the Web Worker while it downloads, in batches of 100 000.
+function buildLas14(count) {
+  const recordLength = 36;
+  const vlrBytes = 1000;
+  const pointsOffset = 375 + vlrBytes;
+  const buffer = Buffer.alloc(pointsOffset + count * recordLength);
+  buffer.write('LASF', 0, 'latin1');
+  buffer.writeUInt8(1, 24);
+  buffer.writeUInt8(4, 25);
+  buffer.writeUInt16LE(375, 94);
+  buffer.writeUInt32LE(pointsOffset, 96);
+  buffer.writeUInt8(7, 104);
+  buffer.writeUInt16LE(recordLength, 105);
+  [0.001, 0.001, 0.001].forEach((value, i) => buffer.writeDoubleLE(value, 131 + i * 8));
+  [600000, 5800000, 100].forEach((value, i) => buffer.writeDoubleLE(value, 155 + i * 8));
+  // Max / min x, y, z: 40 x 20 x 10 m.
+  [600040, 600000, 5800020, 5800000, 110, 100].forEach((value, i) => buffer.writeDoubleLE(value, 179 + i * 8));
+  buffer.writeBigUInt64LE(BigInt(count), 247);
+  for (let i = 0; i < count; i += 1) {
+    const at = pointsOffset + i * recordLength;
+    buffer.writeInt32LE((i * 397) % 40001, at);
+    buffer.writeInt32LE((i * 131) % 20001, at + 4);
+    buffer.writeInt32LE(i % 10001, at + 8);
+    buffer.writeUInt16LE(i % 4000, at + 12);
+    buffer.writeUInt8(i % 7, at + 16);
+    buffer.writeUInt16LE((i % 256) * 256, at + 30);
+    buffer.writeUInt16LE(65535, at + 32);
+  }
+  return buffer;
+}
+
+test('large LAS files are decoded in a Web Worker and fill in batch by batch', async ({ page }) => {
+  const las = buildLas14(300_000);
+  await page.context().route('**/examples/generated-scan.las', (route) => route.fulfill({
+    body: las,
+    contentType: 'application/octet-stream',
+  }));
+  await openViewer(page, '/examples/generated-scan.las');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  const cloud = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const points = root.children.find((child) => child.isPoints);
+    const box = new THREE.Box3().setFromObject(root, true);
+    const color = points.geometry.getAttribute('color').array;
+    return {
+      info: points.userData.pointCloud,
+      count: points.geometry.getAttribute('position').count,
+      size: box.getSize(new THREE.Vector3()).toArray().map(Math.round),
+      minY: Math.round(box.min.y) + 0,
+      // Point 123 457: red from its 16-bit value, full green.
+      color: Array.from(color.slice(123457 * 3, 123457 * 3 + 3)),
+      panel: Boolean(window.Viewer.pointCloudState),
+      modes: window.Viewer.pointCloudState?.modes,
+    };
+  });
+  expect(cloud.info.decoder).toBe('worker');
+  expect(cloud.info.loading).toBe(false);
+  expect(cloud.info.loadedPoints).toBe(300_000);
+  expect(cloud.info.skip).toBe(1);
+  expect(cloud.info.colorMode).toBe('rgb');
+  expect(cloud.info.originOffset).toEqual([600020, 5800010, 105]);
+  expect(cloud.count).toBe(300_000);
+  // Z-up turned to Y-up: 40 x 10 x 20 m, on the ground.
+  expect(cloud.size).toEqual([40, 10, 20]);
+  expect(cloud.minY).toBe(0);
+  expect(cloud.color).toEqual([123457 % 256, 255, 0]);
+  // The point cloud panel waits for the whole cloud.
+  expect(cloud.panel).toBe(true);
+  // Classes 0-6 in the file: colouring by class, in the shader.
+  expect(cloud.modes).toEqual(['rgb', 'intensity', 'height', 'classification']);
+  const colorMode = await page.evaluate(() => {
+    window.Viewer.setPointCloudColorMode('classification');
+    return window.Viewer.pointCloudState.points[0].material.uniforms.uColorMode.value;
+  });
+  expect(colorMode).toBe(3);
+});
+
+test('LAS/LAZ decoding falls back to the main thread without module workers', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.Worker = undefined;
+  });
+  await openViewer(page, '/examples/points.laz');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const info = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    return root.children.find((child) => child.isPoints).userData.pointCloud;
+  });
+  expect(info.decoder).toBe('main-thread');
+  expect(info.loadedPoints).toBe(100_000);
+  expect(info.loading).toBe(false);
+});
+
 // The current view (window.viewer.captureFrame) as counts: pixels the model
 // covers, their mean brightness.
 async function frameStats(page) {
@@ -1028,31 +1121,55 @@ test('point cloud panel changes colours, shape and size, and only appears for po
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
   const panel = page.locator('#viewerPointCloudPanel');
   await expect(panel).toBeVisible();
-  const colorSelect = panel.locator('select').nth(1);
+  // Size mode, shape, colour.
+  const colorSelect = panel.locator('select').nth(2);
   await expect(colorSelect.locator('option')).toHaveText(['RGB', 'Intensity', 'Height']);
+  await expect(panel.locator('select').nth(0).locator('option')).toHaveText(['Adaptive (scan density)', 'Fixed (pixels)']);
+  // Eye-Dome Lighting for directly loaded clouds too.
+  await expect(panel.locator('input[type=range]')).toHaveCount(2);
 
   const pointsState = () => page.evaluate(() => {
     const points = window.Viewer.resolveObjectByTargetId('m0:root').children.find((child) => child.isPoints);
-    const color = points.geometry.getAttribute('color').array;
+    const { material } = points;
     return {
-      firstColors: Array.from(color.slice(0, 6)),
-      round: Boolean(points.material.defines?.ROUND_POINTS !== undefined),
-      size: points.material.size,
+      firstColors: Array.from(points.geometry.getAttribute('color').array.slice(0, 6)),
+      colorMode: material.uniforms.uColorMode.value,
+      round: Boolean(material.defines?.ROUND_POINTS !== undefined),
+      size: material.size,
+      minPointSize: material.minPointSize,
+      edl: material.edlStrength,
+      spacing: points.userData.pointSpacing,
     };
   });
   const before = await pointsState();
+  // Adaptive: world units from the point spacing (centimetres in this scan).
+  expect(before.spacing).toBeGreaterThan(0.005);
+  expect(before.spacing).toBeLessThan(0.5);
+  expect(before.size).toBeGreaterThan(before.spacing);
+  expect(before.edl).toBeGreaterThan(0);
 
   await colorSelect.selectOption('height');
-  await panel.locator('select').nth(0).selectOption('round');
+  await panel.locator('select').nth(1).selectOption('round');
   await panel.locator('input[type=range]').first().fill('75');
   const after = await pointsState();
-  expect(after.firstColors).not.toEqual(before.firstColors);
+  // Colours switch in the shader: the file's own colours stay in the buffer.
+  expect(after.colorMode).toBe(2);
+  expect(after.firstColors).toEqual(before.firstColors);
   expect(after.round).toBe(true);
   expect(after.size).toBeGreaterThan(before.size * 1.5);
 
-  // Back to the file's own colours.
+  // Fixed size: pixels.
+  await panel.locator('select').nth(0).selectOption('fixed');
+  const fixed = await pointsState();
+  expect(fixed.size).toBe(0);
+  expect(fixed.minPointSize).toBeGreaterThan(2);
+
+  // Back to the file's own colours; Eye-Dome Lighting off.
   await colorSelect.selectOption('rgb');
-  expect((await pointsState()).firstColors).toEqual(before.firstColors);
+  await panel.locator('input[type=range]').nth(1).fill('0');
+  const rgb = await pointsState();
+  expect(rgb.colorMode).toBe(0);
+  expect(rgb.edl).toBe(0);
 
   // Streamed clouds: Eye-Dome Lighting and level-of-detail colours through the plugin.
   await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
@@ -2867,6 +2984,57 @@ test('upload panel shows limit usage and limit errors from the worker', async ({
   );
 });
 
+test('point cloud uploads show the worker\'s quick preview until the tiles are ready', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
+  );
+  await page.route('**/api/limits', (route) =>
+    route.fulfill({
+      json: {
+        limits: { uploadsPerHour: 20, uploadsPerDay: 100, storageMb: 0, maxModels: 5, concurrentJobs: 1 },
+        usage: { uploadsLastHour: 0, uploadsLastDay: 0, storageBytes: 0, models: 0, activeJobs: 0 },
+        maxConcurrentConversions: 2,
+      },
+    })
+  );
+  await page.route('**/api/model/create', (route) => route.fulfill({ json: { entity_id: 'pc1', status: 'started' } }));
+  let tilesReady = false;
+  await page.route('**/api/model/status/pc1', (route) => route.fulfill({
+    json: tilesReady
+      ? { status: 'ready', progress: 100, message: '', modelUrl: '/examples/tiles/wolpa-points/tileset.json', imageUrls: [] }
+      : { status: 'processing', progress: 40, message: 'Preview ready', previewUrl: '/files/pc1/tiles/scan.preview.las', imageUrls: [] },
+  }));
+  const preview = buildLas14(200_000);
+  await page.context().route('**/files/pc1/tiles/scan.preview.las', (route) => route.fulfill({
+    body: preview,
+    contentType: 'application/octet-stream',
+  }));
+
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.openUploadPanel());
+  await page.setInputFiles('#uploadPanelFileInput', {
+    name: 'scan.las',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('LASF'),
+  });
+  await page.click('#uploadPanelSubmit');
+
+  // The preview, while the worker still converts.
+  await page.waitForFunction(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    return root?.children?.some((child) => child.isPoints && child.userData.pointCloud?.loadedPoints === 200_000);
+  }, null, { timeout: 20_000 });
+  const badge = page.locator('.viewer-progressive-badge');
+  await expect(badge).toHaveText('Preview · building the full point cloud...');
+
+  // The streamed tiles replace it.
+  tilesReady = true;
+  await page.waitForFunction(() => window.Viewer.pointCloudState?.kind === 'tiles', null, { timeout: 20_000 });
+  await expect(badge).toHaveCount(0);
+});
+
 test('example model list: fetched from examples/index.json, so a new example needs no new build', async ({ page }) => {
   const list = JSON.parse(fs.readFileSync('viewer/examples/index.json', 'utf8'));
   list.models.push(
@@ -3308,13 +3476,17 @@ test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once
   const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
   await expect(toolbar).toHaveAttribute('data-mode', 'bar');
 
-  // AR set off on the right, above the navigation row.
-  const ar = toolbar.locator('.viewer-menus_device > [data-tool="immersive"]');
+  // AR at the end of the navigation bar, after a divider, the bar still
+  // inside the screen.
+  const nav = toolbar.locator('.viewer-menus_nav');
+  const ar = nav.locator('.viewer-menus_device > [data-tool="immersive"]');
   await expect(ar).toBeVisible();
-  const [arBox, navBox] = await Promise.all([ar.boundingBox(), toolbar.locator('.viewer-menus_nav').boundingBox()]);
-  expect(arBox.y + arBox.height).toBeLessThan(navBox.y);
-  expect(arBox.x + arBox.width).toBeGreaterThan(390 - 20);
-  expect(await ar.evaluate((el) => getComputedStyle(el, '::after').content)).toBe('"AR"');
+  await expect(nav.locator('.viewer-menus_nav-divider--device')).toBeVisible();
+  const [arBox, navBox] = await Promise.all([ar.boundingBox(), nav.boundingBox()]);
+  expect(arBox.y).toBeGreaterThanOrEqual(navBox.y);
+  expect(arBox.y + arBox.height).toBeLessThanOrEqual(navBox.y + navBox.height);
+  expect(navBox.x).toBeGreaterThanOrEqual(0);
+  expect(navBox.x + navBox.width).toBeLessThanOrEqual(390);
   await expect(toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label')).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'More']);
 
   // "More": the rest, under headings.
@@ -3422,4 +3594,56 @@ test('custom shader: the default one compiles with section planes and vertex col
   await nextFrames();
   expect(await page.evaluate(() => window.viewer.toasts.filter((text) => text.includes('does not compile')).length)).toBe(1);
   await page.evaluate(() => window.Viewer.setShadingMode('original', { silent: true }));
+});
+
+test('comparing the look: two shading modes and lightings, the scene as it was between frames and after', async ({ page }) => {
+  await openViewer(page, '/examples/tempietto/Tempietto.glb', 'ui=menus');
+  await waitForModel(page);
+  // Materials, lights and the environment of the scene, as a fingerprint.
+  const scene = () => page.evaluate(() => {
+    let root = window.Viewer.getShadingRootObjects()[0];
+    while (root.parent) root = root.parent;
+    const parts = [];
+    root.traverse((object) => {
+      if (object.isLight) parts.push(`${object.name}:${object.intensity.toFixed(3)}`);
+      if (object.isMesh) parts.push([object.material].flat().map((material) => material.uuid).join('+'));
+    });
+    return [parts.join(','), root.environment?.uuid ?? null, root.environmentIntensity].join('|');
+  });
+  // The default environment map loads after the model.
+  await page.waitForFunction(() => {
+    let root = window.Viewer.getShadingRootObjects()[0];
+    while (root.parent) root = root.parent;
+    return window.Viewer.environmentMapEnabled === false || root.environment != null;
+  });
+  const before = await scene();
+
+  // Its own tool in the Look menu.
+  const toolbar = page.locator('#viewerEditorToolbar');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('[data-tool="compareLook"]').click();
+  const overlay = page.locator('#viewerCompare');
+  await expect(overlay).toHaveClass(/is-look/);
+  await expect(overlay.locator('.viewer-compare_label')).toHaveText(['Original materials', 'Clay (no texture)']);
+
+  await overlay.locator('.viewer-compare_select.is-right:not(.viewer-compare_lighting)').selectOption({ label: 'Normals' });
+  await overlay.locator('.viewer-compare_lighting.is-right').selectOption('raking');
+  await overlay.locator('.viewer-compare_lighting.is-left').selectOption('noEnvironment');
+  await expect(overlay.locator('.viewer-compare_label')).toHaveText(['Original materials · No environment map', 'Normals · Raking light']);
+  expect(await page.evaluate(() => window.Viewer.getCompareForExport())).toEqual({
+    kind: 'look',
+    mode: 'swipe',
+    left: { shading: 'original', lighting: 'noEnvironment' },
+    right: { shading: 'normals', lighting: 'raking' },
+    position: 0.5,
+  });
+  // Between frames the scene is as the menus left it (but for the
+  // comparison's raking light, dark).
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect((await scene()).replace(',compare-raking-light:0.000', '')).toBe(before);
+
+  // Closed: as before, the comparison's light and materials gone.
+  await overlay.locator('.viewer-compare_close').click();
+  await expect(overlay).toHaveCount(0);
+  expect(await scene()).toBe(before);
 });

@@ -2,6 +2,10 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
+import { SHADING_MODES, shadingModeLabel } from "./shading.js";
+import { syncNoticeAboveToolbar } from "../editor-toolbar.js";
+import { loadEnvironmentTexture } from "../loaders.js";
+import { DIM_FACTOR, RAKING_INTENSITY, placeRakingLight } from "./raking-light.js";
 
 // Reconstruction variants and the comparison view.
 //
@@ -20,8 +24,40 @@ import { getViewerSideStack } from "../ui/side-stack.js";
 // the camera shared. Settings: AIM3DViewer.compare in a manifest; URL
 // overrides ?compare=swipe|split, ?compareLeft=<variant id|year>,
 // ?compareRight=..., ?variant=<id>.
+//
+// Two kinds of comparison: "content" (the variants and the timeline's
+// stages, above) and "look" - the same model shaded (editor/shading.js) and
+// lit two ways: { kind: "look" } in the manifest, ?compareKind=look, the
+// sides { shading: "clay", lighting: "raking" }, or "clay,raking" in a URL.
+// Lighting: as set, without the environment map, one of its presets, or
+// the raking light (editor/raking-light.js); each side's set on the scene
+// for that side only - an environment by swapping scene.environment, the
+// raking light by a light of the comparison's own, dark on the other side,
+// so the count of lights (and so the shaders) stays the same.
 
 export const COMPARE_MODES = ["swipe", "split"];
+export const COMPARE_KINDS = ["content", "look"];
+export const COMPARE_LIGHTINGS = ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"];
+const ENVIRONMENT_PRESETS = ["neutral", "sunny", "studio", "goldenHour"];
+
+function lightingLabel(lighting) {
+  const environment = {
+    neutral: () => t("gui.environmentMapNeutral", "Neutral"),
+    sunny: () => t("gui.environmentMapSunny", "Sunny"),
+    studio: () => t("gui.environmentMapStudio", "Studio"),
+    goldenHour: () => t("gui.environmentMapGoldenHour", "Golden hour"),
+  }[lighting];
+  if (environment) return t("compare.lightingEnvironment", { name: environment() }, "Environment: {name}");
+  if (lighting === "noEnvironment") return t("compare.lightingNoEnvironment", "No environment map");
+  if (lighting === "raking") return t("gui.rakingLight", "Raking light");
+  return t("compare.lightingCurrent", "Lighting as set");
+}
+
+// A look side's name: the shading, and the lighting unless as set.
+function lookLabel(side) {
+  const shading = shadingModeLabel(side?.shading ?? "original");
+  return side?.lighting && side.lighting !== "current" ? `${shading} · ${lightingLabel(side.lighting)}` : shading;
+}
 const DEFAULT_POSITION = 0.5;
 // The divider stays this far (share of the canvas) from the edges.
 const EDGE = 0.02;
@@ -56,6 +92,23 @@ function findObject(roots, name) {
     if (object) return object;
   }
   return null;
+}
+
+// How far up from the canvas's bottom the toolbar reaches there (px; 0 when
+// it is not along the bottom): the comparison's bar stands above it. With
+// the menus, the navigation bar floats outside the dock's own box.
+function toolbarClearance(canvasRect) {
+  const toolbar = core.editorToolbar;
+  if (!toolbar || toolbar.classList.contains("editorToolbar-hidden")) return 0;
+  const dock = toolbar.querySelector(":scope > .viewer-menus_dock");
+  let top = Infinity;
+  (dock ? [dock, ...dock.children] : [toolbar]).forEach((element) => {
+    const rect = element.getBoundingClientRect();
+    if (!rect.width || !rect.height || rect.height > rect.width) return;
+    if (rect.top - canvasRect.top < canvasRect.height / 2) return;
+    top = Math.min(top, rect.top);
+  });
+  return Number.isFinite(top) ? Math.max(0, Math.round(canvasRect.bottom - top)) : 0;
 }
 
 function clampPosition(value) {
@@ -132,10 +185,13 @@ function buildVariants(roots, manifestConfig) {
   };
 }
 
-// A side as written in manifests and URLs: { variant: id } | { year: n },
-// or a bare id / year.
+// A side as written in manifests and URLs: { variant: id } | { year: n } |
+// { shading: mode, lighting: id }, or a bare id / year / "mode,lighting".
 function normalizeSide(raw) {
   if (isPlainObject(raw)) {
+    const shading = raw.shading != null && raw.shading !== "" ? String(raw.shading) : null;
+    const lighting = raw.lighting != null && raw.lighting !== "" ? String(raw.lighting) : null;
+    if (shading || lighting) return { ...(shading ? { shading } : {}), ...(lighting ? { lighting } : {}) };
     if (raw.variant != null && raw.variant !== "") return { variant: String(raw.variant) };
     if (Number.isFinite(Number(raw.year)) && raw.year !== "" && raw.year !== null) return { year: Number(raw.year) };
     return null;
@@ -146,6 +202,7 @@ function normalizeSide(raw) {
 
 function sideKey(side) {
   if (!side) return "";
+  if (side.shading != null || side.lighting != null) return `look:${side.shading ?? ""}|${side.lighting || "current"}`;
   if (side.variant != null) return `variant:${side.variant}`;
   if (side.year != null) return `year:${side.year}`;
   return "";
@@ -217,9 +274,17 @@ export function attachCompare(Viewer) {
 
     // ---- comparison sides -----------------------------------------------------
 
-    // Everything a side can show: the variants, then the timeline's stages.
-    getCompareOptions() {
+    // Everything a side can show: the variants, then the timeline's stages;
+    // or, comparing the look, the shading modes.
+    getCompareOptions(kind = Viewer.compareState?.kind || "content") {
       const options = [];
+      if (kind === "look") {
+        if (!Viewer.getShadingRootObjects?.().length) return options;
+        (Viewer.getCompareShadingModes?.() || []).forEach((mode) => {
+          options.push({ side: { shading: mode }, label: shadingModeLabel(mode), shading: mode });
+        });
+        return options;
+      }
       Viewer.variantsState?.items.forEach((item) => {
         options.push({ side: { variant: item.id }, label: readText(item.label) || item.id, item });
       });
@@ -237,10 +302,21 @@ export function attachCompare(Viewer) {
     },
 
     // A side as an option of getCompareOptions(); null when nothing matches.
-    resolveCompareSide(raw) {
+    resolveCompareSide(raw, kind = Viewer.compareState?.kind || "content") {
       const side = normalizeSide(raw);
       if (!side) return null;
-      const options = Viewer.getCompareOptions();
+      const options = Viewer.getCompareOptions(kind);
+      if (kind === "look") {
+        const [keyShading, keyLighting] = side.key != null ? side.key.split(",").map((part) => part.trim()) : [];
+        const shown = SHADING_MODES.includes(Viewer.shadingMode) ? Viewer.shadingMode : "original";
+        const mode = side.shading ?? (keyShading || shown);
+        const lighting = side.lighting ?? (keyLighting || "current");
+        const option = options.find((entry) => entry.shading === mode);
+        if (!option || !COMPARE_LIGHTINGS.includes(lighting)) return null;
+        const resolved = { shading: mode, ...(lighting !== "current" ? { lighting } : {}) };
+        return { side: resolved, label: lookLabel(resolved), shading: mode };
+      }
+      if (side.shading != null || side.lighting != null) return null;
       if (side.key != null) {
         const byVariant = options.find((option) => option.side.variant === side.key);
         if (byVariant) return byVariant;
@@ -261,9 +337,18 @@ export function attachCompare(Viewer) {
 
     // Two different sides to start from: the manifest's, else the first and
     // the last option (two variants, or the first and last stage).
-    getDefaultCompareSides() {
-      const options = Viewer.getCompareOptions();
+    // Comparing the look: the shading shown against the original materials
+    // (or clay, when the original ones are shown).
+    getDefaultCompareSides(kind = Viewer.compareState?.kind || "content") {
+      const options = Viewer.getCompareOptions(kind);
       if (options.length < 2) return null;
+      if (kind === "look") {
+        const shown = SHADING_MODES.includes(Viewer.shadingMode) ? Viewer.shadingMode : "original";
+        const left = options.find((option) => option.shading === shown) || options[0];
+        const right = options.find((option) => option.shading === (shown === "original" ? "clay" : "original"))
+          || options.find((option) => option !== left);
+        return [left, right];
+      }
       const variants = options.filter((option) => option.item);
       if (variants.length >= 2) {
         const active = Viewer.variantsState?.active;
@@ -280,7 +365,9 @@ export function attachCompare(Viewer) {
       const config = isPlainObject(Viewer.compareManifestConfig) ? Viewer.compareManifestConfig : null;
       const mode = params.get("compare") ?? (config && config.enabled !== false ? (config.mode || "swipe") : null);
       if (!mode || mode === "0" || mode === "false" || mode === "off") return null;
+      const kind = params.get("compareKind") ?? config?.kind;
       return {
+        kind: COMPARE_KINDS.includes(kind) ? kind : "content",
         mode: COMPARE_MODES.includes(mode) ? mode : "swipe",
         left: params.get("compareLeft") ?? config?.left ?? null,
         right: params.get("compareRight") ?? config?.right ?? null,
@@ -288,28 +375,44 @@ export function attachCompare(Viewer) {
       };
     },
 
-    canCompare() {
-      return Viewer.getCompareOptions().length >= 2;
+    canCompare(kind = "content") {
+      return Viewer.getCompareOptions(kind).length >= 2;
     },
 
     // ---- comparison view ------------------------------------------------------
 
-    openCompare({ mode = "swipe", left = null, right = null, position = DEFAULT_POSITION } = {}) {
-      if (!Viewer.canCompare()) return false;
-      const defaults = Viewer.getDefaultCompareSides();
-      let leftOption = Viewer.resolveCompareSide(left) || defaults[0];
-      let rightOption = Viewer.resolveCompareSide(right) || defaults[1];
+    openCompare({ kind = "content", mode = "swipe", left = null, right = null, position = DEFAULT_POSITION } = {}) {
+      if (!COMPARE_KINDS.includes(kind)) kind = "content";
+      if (!Viewer.canCompare(kind)) return false;
+      const defaults = Viewer.getDefaultCompareSides(kind);
+      let leftOption = Viewer.resolveCompareSide(left, kind) || defaults[0];
+      let rightOption = Viewer.resolveCompareSide(right, kind) || defaults[1];
       if (sideKey(leftOption.side) === sideKey(rightOption.side)) {
-        rightOption = defaults.find((option) => sideKey(option.side) !== sideKey(leftOption.side)) || defaults[1];
+        const options = Viewer.getCompareOptions(kind);
+        rightOption = options.find((option) => sideKey(option.side) !== sideKey(leftOption.side)) || defaults[1];
       }
+      const previousKind = Viewer.compareState?.active ? Viewer.compareState.kind : null;
       if (!Viewer.compareState) Viewer.compareState = { active: false, ui: null };
       Object.assign(Viewer.compareState, {
         active: true,
+        kind,
         mode: COMPARE_MODES.includes(mode) ? mode : "swipe",
         position: clampPosition(position),
         left: leftOption.side,
         right: rightOption.side,
       });
+      // From the other kind: the panels' state back, the new kind's options.
+      if (previousKind && previousKind !== kind) {
+        if (previousKind === "content") {
+          Viewer.applyVariantVisibility();
+          Viewer.renderTimelineStages?.(0, { force: true });
+        } else {
+          Viewer.clearCompareShadingMaterials?.();
+          Viewer.disposeCompareLighting();
+        }
+        Viewer.updateCompareLabels();
+      }
+      Viewer.prepareCompareLighting();
       Viewer.createCompareOverlay();
       Viewer.syncCompareOverlay(true);
       Viewer.syncVariantsPanel();
@@ -323,24 +426,34 @@ export function attachCompare(Viewer) {
       state.active = false;
       state.ui?.root.remove();
       state.ui = null;
+      syncNoticeAboveToolbar();
       Viewer.compareState = null;
       // Back to what the panels show.
-      Viewer.applyVariantVisibility();
-      Viewer.renderTimelineStages?.(0, { force: true });
+      if (state.kind === "look") {
+        Viewer.clearCompareShadingMaterials?.();
+        Viewer.disposeCompareLighting();
+      } else {
+        Viewer.applyVariantVisibility();
+        Viewer.renderTimelineStages?.(0, { force: true });
+      }
       Viewer.syncVariantsPanel();
       Viewer.updateEditorToolbarState?.();
     },
 
+    // The comparison of options.kind: closed when open, else opened (in
+    // place of one of the other kind).
     toggleCompare(options = {}) {
-      if (Viewer.compareState?.active) {
+      if (Viewer.isComparing(options.kind || "content")) {
         Viewer.closeCompare();
         return false;
       }
       return Viewer.openCompare(options);
     },
 
-    isComparing() {
-      return Viewer.compareState?.active === true;
+    // Comparing at all, or comparing that kind.
+    isComparing(kind = null) {
+      const state = Viewer.compareState;
+      return state?.active === true && (!kind || state.kind === kind);
     },
 
     setCompareMode(mode) {
@@ -355,6 +468,7 @@ export function attachCompare(Viewer) {
       const option = Viewer.resolveCompareSide(raw);
       if (!state || !option || (which !== "left" && which !== "right")) return false;
       state[which] = option.side;
+      Viewer.prepareCompareLighting();
       Viewer.syncCompareOverlay(true);
       return true;
     },
@@ -366,8 +480,18 @@ export function attachCompare(Viewer) {
       Viewer.syncCompareOverlay();
     },
 
-    // What one side shows, set on the scene before it is drawn.
+    // What one side shows, set on the scene before it is drawn. Returns what
+    // undoes it after that side is drawn, if anything has to be.
     applyCompareSide(side) {
+      if (side?.shading != null || side?.lighting != null) {
+        const undoShading = side.shading != null ? Viewer.showShadingForCompare?.(side.shading) : null;
+        const undoLighting = Viewer.showLightingForCompare(side.lighting);
+        if (!undoShading && !undoLighting) return null;
+        return () => {
+          undoLighting?.();
+          undoShading?.();
+        };
+      }
       if (side?.variant != null) {
         Viewer.applyVariantVisibility(side.variant);
       } else {
@@ -375,6 +499,104 @@ export function attachCompare(Viewer) {
       }
       if (side?.year != null) Viewer.showTimelineStagesAt?.(side.year);
       else Viewer.renderTimelineStages?.(0, { force: true });
+      return null;
+    },
+
+    // ---- the look's lighting ---------------------------------------------------
+
+    // What the sides' lighting needs, ready before they are drawn: the
+    // environment maps (loaded once; until then that side is lit as set)
+    // and the comparison's raking light, there only while a side uses it.
+    prepareCompareLighting() {
+      const state = Viewer.compareState;
+      if (!state || state.kind !== "look" || !core.scene) return;
+      const used = new Set([state.left?.lighting, state.right?.lighting]);
+      const lighting = Viewer.compareLighting || (Viewer.compareLighting = { textures: {}, raking: null });
+      ENVIRONMENT_PRESETS.filter((preset) => used.has(preset) && !(preset in lighting.textures)).forEach((preset) => {
+        lighting.textures[preset] = null;
+        loadEnvironmentTexture(preset).then((texture) => {
+          if (Viewer.compareLighting === lighting) lighting.textures[preset] = texture;
+        }).catch((error) => console.warn("Comparison: environment map not loaded", preset, error));
+      });
+      if (used.has("raking") && !lighting.raking) {
+        const light = new THREE.DirectionalLight(0xffffff, 0);
+        light.name = "compare-raking-light";
+        const target = new THREE.Object3D();
+        light.target = target;
+        core.scene.add(light, target);
+        lighting.raking = { light, target, center: Viewer.getRakingLightCenter?.() || new THREE.Vector3() };
+      } else if (!used.has("raking") && lighting.raking) {
+        Viewer.removeCompareRakingLight();
+      }
+    },
+
+    removeCompareRakingLight() {
+      const raking = Viewer.compareLighting?.raking;
+      if (!raking) return;
+      raking.light.removeFromParent();
+      raking.target.removeFromParent();
+      raking.light.dispose();
+      Viewer.compareLighting.raking = null;
+    },
+
+    disposeCompareLighting() {
+      Viewer.removeCompareRakingLight();
+      Viewer.compareLighting = null;
+    },
+
+    // Lights one side, and returns what puts the lighting back.
+    showLightingForCompare(lighting) {
+      const scene = core.scene;
+      const objects = Viewer.compareLighting;
+      if (!lighting || lighting === "current" || !scene) return null;
+      const environment = scene.environment;
+      const intensity = scene.environmentIntensity;
+      if (lighting === "noEnvironment") {
+        scene.environment = null;
+        return () => {
+          scene.environment = environment;
+        };
+      }
+      if (ENVIRONMENT_PRESETS.includes(lighting)) {
+        const texture = objects?.textures[lighting];
+        if (!texture) return null;
+        scene.environment = texture;
+        // Switched off in the viewer: at its usual strength (dimmed under
+        // the raking light, as that dims the environment).
+        if (!environment || !intensity) {
+          scene.environmentIntensity = (core.environmentMapIntensity || 0.5) * (Viewer.rakingLight?.enabled ? DIM_FACTOR : 1);
+        }
+        return () => {
+          scene.environment = environment;
+          scene.environmentIntensity = intensity;
+        };
+      }
+      if (lighting === "raking") {
+        const raking = objects?.raking;
+        // The viewer's own raking light already on: lit as set.
+        if (!raking || Viewer.rakingLight?.enabled || !core.camera) return null;
+        placeRakingLight(raking.light, raking.target, raking.center, core.camera, Viewer.rakingLight);
+        const dimmed = [];
+        scene.traverse((object) => {
+          if (!object.isLight || object === raking.light) return;
+          dimmed.push([object, object.intensity]);
+          object.intensity *= DIM_FACTOR;
+        });
+        raking.light.intensity = RAKING_INTENSITY;
+        scene.environmentIntensity = intensity * DIM_FACTOR;
+        return () => {
+          dimmed.forEach(([light, value]) => {
+            light.intensity = value;
+          });
+          raking.light.intensity = 0;
+          scene.environmentIntensity = intensity;
+        };
+      }
+      return null;
+    },
+
+    getCompareLightingOptions() {
+      return COMPARE_LIGHTINGS.map((lighting) => ({ lighting, label: lightingLabel(lighting) }));
     },
 
     // Instead of renderFrame() while comparing (main.js animate). Returns
@@ -390,6 +612,7 @@ export function attachCompare(Viewer) {
       const width = size.x;
       const height = size.y;
       const split = state.mode === "split";
+      const content = state.kind !== "look";
       const divider = split ? Math.round(width / 2) : Math.round(width * state.position);
       const savedViewport = renderer.getViewport(new THREE.Vector4());
       const savedScissor = renderer.getScissor(new THREE.Vector4());
@@ -401,7 +624,7 @@ export function attachCompare(Viewer) {
       try {
         [["left", 0, divider], ["right", divider, width - divider]].forEach(([which, x, w]) => {
           if (w <= 0) return;
-          Viewer.applyCompareSide(state[which]);
+          const undo = Viewer.applyCompareSide(state[which]);
           renderer.setScissorTest(true);
           renderer.setScissor(x, 0, w, height);
           if (split) {
@@ -419,7 +642,11 @@ export function attachCompare(Viewer) {
           } else {
             renderer.setViewport(0, 0, width, height);
           }
-          renderFrame();
+          try {
+            renderFrame();
+          } finally {
+            undo?.();
+          }
           if (split) {
             Object.assign(camera, saved);
             camera.updateProjectionMatrix();
@@ -431,8 +658,10 @@ export function attachCompare(Viewer) {
         renderer.setViewport(savedViewport);
         // The scene stays as the panels show it between frames (picking,
         // exports, thumbnails).
-        Viewer.applyVariantVisibility();
-        Viewer.renderTimelineStages?.(0, { force: true });
+        if (content) {
+          Viewer.applyVariantVisibility();
+          Viewer.renderTimelineStages?.(0, { force: true });
+        }
       }
       Viewer.syncCompareOverlay();
       return true;
@@ -462,11 +691,14 @@ export function attachCompare(Viewer) {
       bar.setAttribute("role", "group");
       const leftSelect = el("select", "viewer-compare_select is-left");
       const rightSelect = el("select", "viewer-compare_select is-right");
+      // Comparing the look: each side's lighting, under its shading.
+      const leftLighting = el("select", "viewer-compare_select viewer-compare_lighting is-left");
+      const rightLighting = el("select", "viewer-compare_select viewer-compare_lighting is-right");
       const modeButton = el("button", "viewer-compare_mode");
       modeButton.type = "button";
       const closeButton = el("button", "viewer-compare_close", "×");
       closeButton.type = "button";
-      bar.append(leftSelect, modeButton, rightSelect, closeButton);
+      bar.append(leftSelect, leftLighting, modeButton, rightSelect, rightLighting, closeButton);
 
       const leftLabel = el("div", "viewer-compare_label is-left");
       const rightLabel = el("div", "viewer-compare_label is-right");
@@ -510,14 +742,18 @@ export function attachCompare(Viewer) {
         event.preventDefault();
       });
 
-      leftSelect.addEventListener("change", () => Viewer.setCompareSide("left", JSON.parse(leftSelect.value)));
-      rightSelect.addEventListener("change", () => Viewer.setCompareSide("right", JSON.parse(rightSelect.value)));
+      // A look side keeps its lighting when its shading changes, and back.
+      const pick = (which, value) => Viewer.setCompareSide(which, state.kind === "look" ? { ...state[which], ...value } : value);
+      leftSelect.addEventListener("change", () => pick("left", JSON.parse(leftSelect.value)));
+      rightSelect.addEventListener("change", () => pick("right", JSON.parse(rightSelect.value)));
+      leftLighting.addEventListener("change", () => pick("left", { lighting: leftLighting.value }));
+      rightLighting.addEventListener("change", () => pick("right", { lighting: rightLighting.value }));
       modeButton.addEventListener("click", () => Viewer.setCompareMode(state.mode === "swipe" ? "split" : "swipe"));
       closeButton.addEventListener("click", () => Viewer.closeCompare());
 
       core.container.append(root);
       state.ui = {
-        root, divider, handle, bar, leftSelect, rightSelect, modeButton, closeButton, leftLabel, rightLabel,
+        root, divider, handle, bar, leftSelect, rightSelect, leftLighting, rightLighting, modeButton, closeButton, leftLabel, rightLabel,
         shown: "",
       };
       Viewer.updateCompareLabels();
@@ -534,6 +770,7 @@ export function attachCompare(Viewer) {
         const groups = [
           [t("compare.variantsGroup", "Variants"), options.filter((option) => option.item)],
           [t("compare.timelineGroup", "Timeline"), options.filter((option) => option.stage)],
+          [t("compare.shadingGroup", "Shading"), options.filter((option) => option.shading)],
         ].filter(([, items]) => items.length);
         groups.forEach(([label, items]) => {
           const parent = groups.length > 1 ? document.createElement("optgroup") : select;
@@ -553,6 +790,18 @@ export function attachCompare(Viewer) {
       ui.leftSelect.setAttribute("aria-label", ui.leftSelect.title);
       ui.rightSelect.title = t("compare.right", "Right side");
       ui.rightSelect.setAttribute("aria-label", ui.rightSelect.title);
+      const lightingOptions = Viewer.getCompareLightingOptions();
+      [[ui.leftLighting, t("compare.leftLighting", "Left side: lighting")], [ui.rightLighting, t("compare.rightLighting", "Right side: lighting")]].forEach(([select, title]) => {
+        select.innerHTML = "";
+        lightingOptions.forEach(({ lighting, label }) => {
+          const node = document.createElement("option");
+          node.value = lighting;
+          node.textContent = label;
+          select.append(node);
+        });
+        select.title = title;
+        select.setAttribute("aria-label", title);
+      });
       ui.closeButton.title = t("compare.close", "Close the comparison");
       ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
       ui.handle.title = t("compare.divider", "Drag to compare (arrow keys move it)");
@@ -570,8 +819,10 @@ export function attachCompare(Viewer) {
       const canvas = core.renderer?.domElement;
       const container = core.container;
       let box = "";
+      let clearance = 0;
       if (canvas && container) {
         const canvasRect = canvas.getBoundingClientRect();
+        clearance = toolbarClearance(canvasRect);
         const containerRect = container.getBoundingClientRect();
         box = [
           canvasRect.left - containerRect.left + container.scrollLeft,
@@ -581,7 +832,7 @@ export function attachCompare(Viewer) {
         ].map((value) => Math.round(value)).join(",");
       }
       const position = state.mode === "split" ? 0.5 : state.position;
-      const key = [box, state.mode, position.toFixed(4), sideKey(state.left), sideKey(state.right), core.currentLanguage].join("|");
+      const key = [box, clearance, state.mode, position.toFixed(4), sideKey(state.left), sideKey(state.right), core.currentLanguage].join("|");
       if (!force && key === ui.shown) return;
       ui.shown = key;
 
@@ -589,13 +840,31 @@ export function attachCompare(Viewer) {
         const [left, top, width, height] = box.split(",").map(Number);
         Object.assign(ui.root.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
       }
+      // The bar (and on a phone the sides' names over it) above the toolbar,
+      // the notices above the bar.
+      if (clearance > 0) ui.root.style.setProperty("--viewer-compare-bar-bottom", `${clearance + 8}px`);
+      else ui.root.style.removeProperty("--viewer-compare-bar-bottom");
+      if (ui.clearance !== clearance) {
+        ui.clearance = clearance;
+        syncNoticeAboveToolbar();
+      }
       ui.root.classList.toggle("is-split", state.mode === "split");
       ui.divider.style.left = `${position * 100}%`;
       ui.handle.tabIndex = state.mode === "swipe" ? 0 : -1;
       ui.handle.setAttribute("aria-valuenow", String(Math.round(position * 100)));
-      ui.leftSelect.value = JSON.stringify(state.left);
-      ui.rightSelect.value = JSON.stringify(state.right);
-      const optionLabel = (side) => Viewer.getCompareOptions().find((option) => sideKey(option.side) === sideKey(side))?.label || "";
+      const look = state.kind === "look";
+      ui.root.classList.toggle("is-look", look);
+      ui.leftLighting.hidden = !look;
+      ui.rightLighting.hidden = !look;
+      ui.leftSelect.value = JSON.stringify(look ? { shading: state.left.shading } : state.left);
+      ui.rightSelect.value = JSON.stringify(look ? { shading: state.right.shading } : state.right);
+      if (look) {
+        ui.leftLighting.value = state.left.lighting || "current";
+        ui.rightLighting.value = state.right.lighting || "current";
+      }
+      const optionLabel = (side) => (look
+        ? lookLabel(side)
+        : Viewer.getCompareOptions().find((option) => sideKey(option.side) === sideKey(side))?.label || "");
       ui.leftLabel.textContent = optionLabel(state.left);
       ui.rightLabel.textContent = optionLabel(state.right);
       ui.leftLabel.style.right = state.mode === "split" ? "50%" : `${(1 - position) * 100}%`;
@@ -702,7 +971,7 @@ export function attachCompare(Viewer) {
       const state = Viewer.variantsState;
       const ui = state?.ui;
       if (!ui) return;
-      const comparing = Viewer.isComparing();
+      const comparing = Viewer.isComparing("content");
       ui.buttons.forEach(({ item, button }) => {
         const active = item.id === state.active;
         button.classList.toggle("is-active", active);
@@ -747,6 +1016,7 @@ export function attachCompare(Viewer) {
       const state = Viewer.compareState;
       if (!state?.active) return undefined;
       return {
+        ...(state.kind === "look" ? { kind: "look" } : {}),
         mode: state.mode,
         left: { ...state.left },
         right: { ...state.right },

@@ -5,18 +5,23 @@ import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 import { getActiveTiles, getPointCloudPlugin } from "../tiles.js";
 import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
+import {
+  preparePointCloudMaterial, setPointColorMode, setPointEdl, setPointSize,
+} from "../pointcloud-material.js";
 
 // Point cloud display controls, shown when the loaded model is a point cloud:
 //
 //   direct clouds (LAS, LAZ, XYZ, PCD - THREE.Points in the scene):
-//     size, square/round points, colour by RGB / intensity / height /
-//     classification (whatever the file carries), recoloured on the CPU
+//     size (adaptive - world units from the point spacing - or fixed pixels),
+//     square/round/sphere points, Eye-Dome Lighting strength, colour by RGB /
+//     intensity / height / classification (whatever the file carries),
+//     switched in the shader (pointcloud-material.js)
 //   streamed clouds (3D Tiles pnts, Potree - tiles.js):
 //     size, square/round/sphere points, Eye-Dome Lighting strength, colour by
 //     RGB or by level of detail (to see how the octree refines)
 //
-// Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape)
-// and viewer.tiles (edlStrength, pointShape).
+// Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape,
+// sizeMode, pointSize, edlStrength) and viewer.tiles (edlStrength, pointShape).
 //
 // The window opens by itself except on phones, where it would cover the
 // model; there (and everywhere) the toolbar's point cloud button, shown while
@@ -25,13 +30,8 @@ import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 const SIZE_MIN = 0.25;
 const SIZE_MAX = 4;
 
-// ASPRS LAS standard classes (LAS 1.4, table 17).
-const CLASSIFICATION_COLORS = {
-  0: 0x9e9e9e, 1: 0xbdbdbd, 2: 0xa1784f, 3: 0xb5e28c, 4: 0x6fbf4a, 5: 0x2e7d32,
-  6: 0xe8743b, 7: 0xd500f9, 8: 0x7e57c2, 9: 0x2f80ed, 10: 0x795548, 11: 0x616161,
-  12: 0xfdd835, 13: 0xffb300, 14: 0xffca28, 15: 0x8d6e63, 16: 0x90a4ae, 17: 0x5c6bc0,
-  18: 0xff1744,
-};
+const SHAPES = ["square", "round", "sphere"];
+const DEFAULT_EDL = 0.4;
 
 function sliderToSize(value) {
   // 0..100 -> 0.25..4 on a log scale, 50 = 1.
@@ -42,21 +42,7 @@ function sizeToSlider(size) {
   return Math.round((Math.log(size / SIZE_MIN) / Math.log(SIZE_MAX / SIZE_MIN)) * 100);
 }
 
-// Round sprites for plain PointsMaterial: drop the corners of the square.
-// The define is part of the program cache key, so both variants coexist.
-function applyRoundShape(material, round) {
-  if (!material.userData.roundPatched) {
-    material.userData.roundPatched = true;
-    material.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "void main() {",
-        "void main() {\n#ifdef ROUND_POINTS\n  vec2 roundCoord = gl_PointCoord - 0.5;\n  if (dot(roundCoord, roundCoord) > 0.25) discard;\n#endif"
-      );
-    };
-  }
-  material.defines = round ? { ROUND_POINTS: "" } : {};
-  material.needsUpdate = true;
-}
+const finiteOr = (value, fallback) => (Number.isFinite(Number(value)) && value !== null && value !== "" ? Number(value) : fallback);
 
 export function attachPointCloudPanel(Viewer) {
   Object.assign(Viewer, {
@@ -74,11 +60,16 @@ export function attachPointCloudPanel(Viewer) {
       const plugin = isTiled ? getPointCloudPlugin() : null;
       const potree = core.tiledModel?.format === "potree";
       if (!points.length && !potree) return false;
+      // A LAS/LAZ cloud still filling in: set up once all points are in
+      // (loaders.js), so modes and colours see the whole cloud.
+      if (points.some((object) => object.userData.pointCloud?.loading)) return false;
 
       const config = core.CONFIG?.viewer?.pointCloud || {};
       const tilesConfig = core.CONFIG?.viewer?.tiles || {};
       const modes = isTiled ? ["rgb", "tile"] : Viewer.getDirectColorModes(points);
       const preferred = config.colorMode;
+      const directShape = SHAPES.includes(config.pointShape) ? config.pointShape
+        : SHAPES.includes(tilesConfig.pointShape) ? tilesConfig.pointShape : "square";
       const state = {
         kind: isTiled ? "tiles" : "direct",
         root,
@@ -87,21 +78,32 @@ export function attachPointCloudPanel(Viewer) {
         potree,
         modes,
         size: 1,
-        shape: plugin?.pointShape || (config.pointShape === "round" ? "round" : tilesConfig.pointShape || "square"),
+        // Direct clouds: "adaptive" (world units, from the point spacing) or "fixed" (pixels).
+        sizeMode: config.sizeMode === "fixed" ? "fixed" : "adaptive",
+        shape: plugin?.pointShape || directShape,
         colorMode: modes.includes(preferred) ? preferred : modes[0],
-        edl: plugin ? plugin.edlStrength : 0,
+        edl: plugin ? plugin.edlStrength
+          : Math.min(1, Math.max(0, finiteOr(config.edlStrength, finiteOr(tilesConfig.edlStrength, DEFAULT_EDL)))),
         collapsed: false,
         hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
         ui: null,
       };
-      if (!isTiled && !["square", "round"].includes(state.shape)) state.shape = "square";
       Viewer.pointCloudState = state;
 
       points.forEach((object) => {
         object.userData.baseMaterialSize ??= object.material.size;
       });
       if (!isTiled) {
+        const pixels = finiteOr(config.pointSize, 2);
+        points.forEach((object) => {
+          // Pixels for "fixed": the size the loader gave in pixels (LAS/LAZ),
+          // else viewer.pointCloud.pointSize (XYZ / PCD sizes are in other units).
+          object.userData.basePixelSize ??= object.material.sizeAttenuation === false ? object.material.size : pixels;
+          preparePointCloudMaterial(object);
+        });
+        Viewer.applyDirectPointSize();
         Viewer.setPointCloudShape(state.shape);
+        Viewer.setPointCloudEdl(state.edl);
         Viewer.setPointCloudColorMode(state.colorMode);
       }
       Viewer.createPointCloudPanel();
@@ -181,11 +183,26 @@ export function attachPointCloudPanel(Viewer) {
         const group = getActiveTiles()?.group;
         if (group) Viewer.applyPointCloudSettingsToTile(group);
       } else {
-        state.points.forEach((object) => {
-          object.material.size = object.userData.baseMaterialSize * state.size;
-        });
+        Viewer.applyDirectPointSize();
       }
       Viewer.syncPointCloudPanel();
+    },
+
+    setPointCloudSizeMode(mode) {
+      const state = Viewer.pointCloudState;
+      if (!state || state.kind !== "direct") return;
+      state.sizeMode = mode === "fixed" ? "fixed" : "adaptive";
+      Viewer.applyDirectPointSize();
+      Viewer.syncPointCloudPanel();
+    },
+
+    applyDirectPointSize() {
+      const state = Viewer.pointCloudState;
+      state?.points.forEach((object) => setPointSize(object, {
+        sizeMode: state.sizeMode,
+        scale: state.size,
+        pixels: object.userData.basePixelSize ?? 2,
+      }));
     },
 
     setPointCloudShape(shape) {
@@ -195,16 +212,19 @@ export function attachPointCloudPanel(Viewer) {
       if (state.kind === "tiles") {
         if (state.plugin) state.plugin.pointShape = shape;
       } else {
-        state.points.forEach((object) => applyRoundShape(object.material, shape === "round"));
+        state.points.forEach((object) => {
+          preparePointCloudMaterial(object).pointShape = shape;
+        });
       }
       Viewer.syncPointCloudPanel();
     },
 
     setPointCloudEdl(strength) {
       const state = Viewer.pointCloudState;
-      if (!state?.plugin) return;
+      if (!state || (state.kind === "tiles" && !state.plugin)) return;
       state.edl = THREE.MathUtils.clamp(strength, 0, 1);
-      state.plugin.edlStrength = state.edl;
+      if (state.plugin) state.plugin.edlStrength = state.edl;
+      else state.points.forEach((object) => setPointEdl(object, state.edl));
       Viewer.syncPointCloudPanel();
     },
 
@@ -217,81 +237,9 @@ export function attachPointCloudPanel(Viewer) {
         const group = getActiveTiles()?.group;
         if (group) Viewer.applyPointCloudSettingsToTile(group);
       } else {
-        state.points.forEach((object) => Viewer.recolorPoints(object, mode));
+        state.points.forEach((object) => setPointColorMode(object, mode));
       }
       Viewer.syncPointCloudPanel();
-    },
-
-    // Rewrites the colour attribute of a direct cloud; the file's own RGB
-    // is kept aside on first use so it can be restored.
-    recolorPoints(object, mode) {
-      const geometry = object.geometry;
-      const position = geometry.getAttribute("position");
-      const count = position.count;
-      let color = geometry.getAttribute("color");
-      if (!color) {
-        color = new THREE.BufferAttribute(new Uint8Array(count * 3), 3, true);
-        geometry.setAttribute("color", color);
-        object.material.vertexColors = true;
-        object.material.needsUpdate = true;
-      }
-      if (!object.userData.originalColors && color.array) {
-        object.userData.originalColors = color.array.slice();
-      }
-      const target = color.array;
-      const isNormalizedBytes = target instanceof Uint8Array;
-      const write = (index, r, g, b) => {
-        if (isNormalizedBytes) {
-          target[index * 3] = r;
-          target[index * 3 + 1] = g;
-          target[index * 3 + 2] = b;
-        } else {
-          target[index * 3] = r / 255;
-          target[index * 3 + 1] = g / 255;
-          target[index * 3 + 2] = b / 255;
-        }
-      };
-
-      if (mode === "rgb" && object.userData.originalColors) {
-        target.set(object.userData.originalColors);
-      } else if (mode === "intensity") {
-        const intensity = geometry.getAttribute("intensity");
-        let max = 0;
-        for (let i = 0; i < count; i += 1) max = Math.max(max, intensity.getX(i));
-        for (let i = 0; i < count; i += 1) {
-          const value = Math.round(40 + (max > 0 ? intensity.getX(i) / max : 0) * 215);
-          write(i, value, value, value);
-        }
-      } else if (mode === "classification") {
-        const classification = geometry.getAttribute("classification");
-        const swatch = new THREE.Color();
-        for (let i = 0; i < count; i += 1) {
-          swatch.setHex(CLASSIFICATION_COLORS[classification.getX(i)] ?? 0xeeeeee);
-          write(i, swatch.r * 255, swatch.g * 255, swatch.b * 255);
-        }
-      } else {
-        // Height: world Y, whatever the file's own up axis was.
-        object.updateMatrixWorld(true);
-        const elements = object.matrixWorld.elements;
-        const heights = new Float32Array(count);
-        let minY = Infinity;
-        let maxY = -Infinity;
-        for (let i = 0; i < count; i += 1) {
-          const y = elements[1] * position.getX(i) + elements[5] * position.getY(i)
-            + elements[9] * position.getZ(i) + elements[13];
-          heights[i] = y;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        }
-        const range = maxY - minY || 1;
-        const swatch = new THREE.Color();
-        for (let i = 0; i < count; i += 1) {
-          // Blue (low) through green to red (high).
-          swatch.setHSL((1 - (heights[i] - minY) / range) * 0.66, 0.85, 0.5);
-          write(i, swatch.r * 255, swatch.g * 255, swatch.b * 255);
-        }
-      }
-      color.needsUpdate = true;
     },
 
     createPointCloudPanel() {
@@ -339,9 +287,17 @@ export function attachPointCloudPanel(Viewer) {
       size.addEventListener("input", () => Viewer.setPointCloudSize(sliderToSize(size.value)));
       const sizeLabel = makeRow("size", size);
 
+      let sizeMode = null;
+      let sizeModeLabel = null;
+      if (state.kind === "direct") {
+        sizeMode = document.createElement("select");
+        ["adaptive", "fixed"].forEach((value) => sizeMode.appendChild(new Option(value, value)));
+        sizeMode.addEventListener("change", () => Viewer.setPointCloudSizeMode(sizeMode.value));
+        sizeModeLabel = makeRow("sizeMode", sizeMode);
+      }
+
       const shape = document.createElement("select");
-      const shapes = state.kind === "tiles" ? ["square", "round", "sphere"] : ["square", "round"];
-      shapes.forEach((value) => shape.appendChild(new Option(value, value)));
+      SHAPES.forEach((value) => shape.appendChild(new Option(value, value)));
       shape.addEventListener("change", () => Viewer.setPointCloudShape(shape.value));
       const shapeLabel = makeRow("shape", shape);
 
@@ -353,7 +309,7 @@ export function attachPointCloudPanel(Viewer) {
 
       let edl = null;
       let edlLabel = null;
-      if (state.plugin) {
+      if (state.plugin || state.kind === "direct") {
         edl = document.createElement("input");
         edl.type = "range";
         edl.min = "0";
@@ -369,7 +325,7 @@ export function attachPointCloudPanel(Viewer) {
       root.append(header, body);
       stack.appendChild(root);
       state.ui = {
-        root, title, collapse, body, size, sizeLabel, shape, shapeLabel, color, colorLabel, edl, edlLabel, summary,
+        root, title, collapse, body, size, sizeLabel, sizeMode, sizeModeLabel, shape, shapeLabel, color, colorLabel, edl, edlLabel, summary,
       };
       Viewer.syncPointCloudPanel();
     },
@@ -390,6 +346,13 @@ export function attachPointCloudPanel(Viewer) {
 
       ui.sizeLabel.textContent = t("pointCloud.size", { value: state.size.toFixed(2).replace(/\.?0+$/, "") }, "Point size ×{value}");
       if (document.activeElement !== ui.size) ui.size.value = String(sizeToSlider(state.size));
+      if (ui.sizeMode) {
+        ui.sizeModeLabel.textContent = t("pointCloud.sizeMode", "Size");
+        Array.from(ui.sizeMode.options).forEach((option) => {
+          option.textContent = t(`pointCloud.sizeModes.${option.value}`, option.value);
+        });
+        ui.sizeMode.value = state.sizeMode;
+      }
       ui.shapeLabel.textContent = t("pointCloud.shape", "Shape");
       Array.from(ui.shape.options).forEach((option) => {
         option.textContent = t(`pointCloud.shapes.${option.value}`, option.value);

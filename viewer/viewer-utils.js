@@ -702,6 +702,7 @@ export function markViewerUsed() {
 
   if (core.handHint == null) return;
   core.handHint.hidden = false;
+  window.Viewer?.placeHandHint?.();
   core.handHint.classList.add("hand-drag-animate");
 }
 

@@ -9,15 +9,32 @@ import { core } from "../core.js";
 // angle above the surface facing the camera (low = grazing). The sweep
 // turns it round the view.
 
-const RAKING_INTENSITY = 3.5;
+export const RAKING_INTENSITY = 3.5;
 // What the other lights and the environment keep while it is on.
-const DIM_FACTOR = 0.12;
+export const DIM_FACTOR = 0.12;
 // Degrees per second while sweeping.
 const SWEEP_SPEED = 40;
 
 export const RAKING_LIGHT_DEFAULTS = Object.freeze({ direction: 135, height: 12, sweep: false });
 
 const viewDirection = new THREE.Vector3();
+
+// Puts `light` (aiming at `target`) at the angles of `state` round `center`,
+// relative to the camera's view (also the comparison's, editor/compare.js).
+export function placeRakingLight(light, target, center, camera, state) {
+  const direction = THREE.MathUtils.degToRad(state.direction);
+  const height = THREE.MathUtils.degToRad(state.height);
+  // In camera space: x right, y up, z towards the viewer.
+  viewDirection.set(
+    Math.cos(height) * Math.cos(direction),
+    Math.cos(height) * Math.sin(direction),
+    Math.sin(height)
+  ).applyQuaternion(camera.quaternion);
+  const distance = Math.max(core.gridSize || 1, 0.001) * 2;
+  target.position.copy(center);
+  light.position.copy(center).addScaledVector(viewDirection, distance);
+  target.updateMatrixWorld();
+}
 
 export function attachRakingLight(Viewer) {
   Object.assign(Viewer, {
@@ -114,18 +131,7 @@ export function attachRakingLight(Viewer) {
         state.direction = (state.direction + SWEEP_SPEED * delta) % 360;
         Viewer.syncRakingLightDirectionControl?.();
       }
-      const direction = THREE.MathUtils.degToRad(state.direction);
-      const height = THREE.MathUtils.degToRad(state.height);
-      // In camera space: x right, y up, z towards the viewer.
-      viewDirection.set(
-        Math.cos(height) * Math.cos(direction),
-        Math.cos(height) * Math.sin(direction),
-        Math.sin(height)
-      ).applyQuaternion(camera.quaternion);
-      const distance = Math.max(core.gridSize || 1, 0.001) * 2;
-      objects.target.position.copy(objects.center);
-      objects.light.position.copy(objects.center).addScaledVector(viewDirection, distance);
-      objects.target.updateMatrixWorld();
+      placeRakingLight(objects.light, objects.target, objects.center, camera, state);
     },
 
     // The Direction slider follows the sweep.

@@ -8,7 +8,8 @@ existing Drupal endpoints (src/Controller/ModelController.php) so a client
 could talk to either backend interchangeably:
 
   POST /api/model/create        multipart file upload -> {entity_id, status}
-  GET  /api/model/status/<id>   -> {progress, status, message, ...}
+  GET  /api/model/status/<id>   -> {progress, status, message, modelUrl,
+                                    previewUrl (point clouds, while converting), ...}
   GET  /api/jobs                -> {jobs: [...]} previously converted models
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
@@ -490,6 +491,14 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                 tileset = pointcloud.convert_to_tiles(
                     work_path, tiles_dir, job_root / "tiles" / (work_path.stem + ".work"),
                     log_prefix=f"[job {job_id}]",
+                    # A quick preview the viewer shows while the tiles are built.
+                    preview=pointcloud.preview_path_for(tiles_dir),
+                    on_preview=lambda preview: set_job(
+                        job_id,
+                        progress=40,
+                        message="Preview ready, building streamed point cloud tiles...",
+                        preview_url=f"/files/{job_id}/{preview.relative_to(job_root)}",
+                    ),
                 )
             set_job(
                 job_id,
@@ -887,6 +896,8 @@ class Handler(BaseHTTPRequestHandler):
                 "status": job["status"],
                 "message": job["message"],
                 "modelUrl": job.get("model_url"),
+                # A point cloud's quick preview (LAS) while its tiles are built.
+                "previewUrl": job.get("preview_url"),
                 "imageUrls": job.get("image_urls", []),
             })
             return

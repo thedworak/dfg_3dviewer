@@ -10,6 +10,24 @@ import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
 export const DEFAULT_SHADING_MODE = "original";
 
+// The modes' names, in the viewer's language (the shading menu, the
+// comparison of editor/compare.js).
+export function shadingModeLabel(mode) {
+  const labels = {
+    original: () => t("gui.shadingOriginal", "Original materials"),
+    standard: () => t("gui.shadingStandard", "Standard (PBR)"),
+    phong: () => t("gui.shadingPhong", "Phong"),
+    lambert: () => t("gui.shadingLambert", "Lambert"),
+    toon: () => t("gui.shadingToon", "Toon"),
+    clay: () => t("gui.shadingClay", "Clay (no texture)"),
+    matcap: () => t("gui.shadingMatcap", "Matcap (studio clay)"),
+    flat: () => t("gui.shadingFlat", "Flat shading (show faces)"),
+    normals: () => t("gui.shadingNormals", "Normals"),
+    custom: () => t("gui.shadingCustom", "Custom shader"),
+  };
+  return labels[mode]?.() ?? String(mode);
+}
+
 // Untextured clay: a warm light grey, matte.
 const CLAY_COLOR = 0xc9c2b6;
 
@@ -213,6 +231,8 @@ export function attachShadingEditor(Viewer) {
     applyShadingMode() {
       const roots = this.getShadingRootObjects();
       if (!roots.length) return;
+      // The comparison's materials were made from the previous state.
+      this.clearCompareShadingMaterials();
 
       // The Level of Certainty overlays are meshes too: shade the model
       // without them, then lay them again.
@@ -266,6 +286,74 @@ export function attachShadingEditor(Viewer) {
         });
       });
       if (certaintyView) this.applyCertaintyView?.();
+    },
+
+    // ---- the comparison (editor/compare.js) ----------------------------------
+
+    // The modes a comparison can show: the custom shader once there is one
+    // (and only with WebGL, see setShadingMode).
+    getCompareShadingModes() {
+      return SHADING_MODES.filter((mode) => mode !== "custom" || (
+        core.rendererBackend !== "webgpu" && Boolean(this.customFragmentShader)
+      ));
+    },
+
+    // Shows `mode` on the model for one side of a comparison, and returns
+    // what puts the shown materials back (called after that side is drawn).
+    // Each mode's materials are made once per mesh and kept, so the two
+    // sides swap them every frame without building or compiling anything.
+    showShadingForCompare(mode) {
+      const current = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : DEFAULT_SHADING_MODE;
+      if (!SHADING_MODES.includes(mode) || mode === current) return null;
+      const roots = this.getShadingRootObjects();
+      const shown = [];
+      roots.forEach((root) => root.traverse((child) => {
+        if (!child.isMesh || !child.material || child.userData.isCertaintyOverlay) return;
+        if (!child.userData.__shadingBaseMaterials) {
+          child.userData.__shadingBaseMaterials = Array.isArray(child.material)
+            ? child.material.slice()
+            : [child.material];
+        }
+        let cache = child.userData.__compareShadingMaterials;
+        if (!cache) {
+          cache = new Map();
+          child.userData.__compareShadingMaterials = cache;
+        }
+        let materials = cache.get(mode);
+        if (!materials) {
+          const base = child.userData.__shadingBaseMaterials;
+          if (mode === "original") {
+            materials = base;
+          } else {
+            const customShader = mode === "custom"
+              ? { vertexShader: this.customVertexShader, fragmentShader: this.customFragmentShader }
+              : null;
+            materials = base.map((material) => buildMaterialForMode(material, mode, customShader));
+            materials.forEach((material) => {
+              material.wireframe = core.wireframeMode || false;
+              material.needsUpdate = true;
+            });
+          }
+          cache.set(mode, materials);
+        }
+        shown.push([child, child.material]);
+        child.material = Array.isArray(child.material) ? materials : materials[0];
+      }));
+      return () => shown.forEach(([child, material]) => {
+        child.material = material;
+      });
+    },
+
+    // Releases the comparison's materials (the originals are kept).
+    clearCompareShadingMaterials() {
+      this.getShadingRootObjects().forEach((root) => root.traverse((child) => {
+        const cache = child.userData?.__compareShadingMaterials;
+        if (!cache) return;
+        cache.forEach((materials, mode) => {
+          if (mode !== "original") materials.forEach((material) => material.dispose());
+        });
+        child.userData.__compareShadingMaterials = null;
+      }));
     },
 
     setShadingMode(mode, options = {}) {

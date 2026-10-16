@@ -14,9 +14,16 @@ of downloading millions of points at once:
 Output: <input dir>/tiles/<name>/tileset.json. No thumbnails are rendered for
 point clouds (Blender renders meshes).
 
+Before the tiles, a quick preview is written next to them,
+<input dir>/tiles/<name>.preview.las: a random subsample of the cloud in
+random order, uncompressed. The viewer shows it while py3dtiles runs - it
+decodes LAS while downloading, and since the points are shuffled the first
+100 000 already show the whole object, the rest only make it denser.
+
 Configuration (environment):
   WORKER_POINTCLOUD_JOBS  parallel py3dtiles workers (default: number of CPUs, at most 8)
   WORKER_POINTCLOUD_TIMEOUT  seconds per conversion (default 3600)
+  WORKER_POINTCLOUD_PREVIEW_POINTS  points in the preview (default 1000000; 0: no preview)
 
 Also usable on its own: python3 pointcloud.py scan.e57 out_dir
 """
@@ -29,6 +36,7 @@ from pathlib import Path
 
 POINTCLOUD_JOBS = int(os.environ.get("WORKER_POINTCLOUD_JOBS", str(min(os.cpu_count() or 1, 8))))
 POINTCLOUD_TIMEOUT = int(os.environ.get("WORKER_POINTCLOUD_TIMEOUT", "3600"))
+POINTCLOUD_PREVIEW_POINTS = int(os.environ.get("WORKER_POINTCLOUD_PREVIEW_POINTS", "1000000"))
 
 POINTCLOUD_FORMATS = {"las", "laz", "e57"}
 
@@ -169,9 +177,54 @@ def e57_to_las(source: Path, target: Path) -> int:
     return write_las(target, xyz, rgb, intensity)
 
 
-def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: str = "") -> Path:
+def write_preview(source: Path, target: Path, max_points: int = POINTCLOUD_PREVIEW_POINTS, seed: int = 0) -> int:
+    """Writes a random subsample of the LAS/LAZ file source (about max_points,
+    all of them for a smaller cloud) to target as uncompressed LAS, in random
+    order; returns the number of points. Read in chunks, so the source may be
+    larger than memory. Keeps the standard dimensions of the point format
+    (position, intensity, classification, colour ...), not extra bytes."""
+    import laspy
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    with laspy.open(source) as reader:
+        total = reader.header.point_count
+        fraction = min(1.0, max_points / total) if total else 1.0
+        point_format = laspy.PointFormat(reader.header.point_format.id)
+        dtype = point_format.dtype()
+        parts = []
+        for chunk in reader.chunk_iterator(2_000_000):
+            array = chunk.array
+            if fraction < 1.0:
+                array = array[rng.random(len(array)) < fraction]
+            part = np.zeros(len(array), dtype=dtype)
+            for name in dtype.names:
+                part[name] = array[name]
+            parts.append(part)
+        points = np.concatenate(parts) if parts else np.zeros(0, dtype=dtype)
+        points = points[rng.permutation(len(points))][:max_points]
+
+        header = laspy.LasHeader(point_format=point_format, version=reader.header.version)
+        header.scales = reader.header.scales
+        header.offsets = reader.header.offsets
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(target.name + ".tmp")
+        # Bounds and counts in the header are filled in by the writer.
+        with laspy.open(partial, mode="w", header=header) as writer:
+            writer.write_points(laspy.PackedPointRecord(points, point_format))
+        # Published only once complete: the viewer may fetch it right away.
+        partial.replace(target)
+    return len(points)
+
+
+def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: str = "",
+                     preview: Path = None, on_preview=None) -> Path:
     """Converts a point cloud to a 3D Tiles tileset in out_dir; returns the
-    path of its tileset.json. work_dir holds intermediate files."""
+    path of its tileset.json. work_dir holds intermediate files.
+
+    With preview (a .las path), a quick preview is written there first (see
+    write_preview) and on_preview(preview) is called once it exists; a
+    preview that fails is only logged."""
     source, out_dir, work_dir = Path(source).resolve(), Path(out_dir).resolve(), Path(work_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     ext = source.suffix.lower().lstrip(".")
@@ -191,6 +244,15 @@ def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: st
     py3dtiles = shutil.which("py3dtiles")
     if not py3dtiles:
         raise RuntimeError("py3dtiles is not installed")
+
+    if preview is not None and POINTCLOUD_PREVIEW_POINTS > 0:
+        try:
+            count = write_preview(py3dtiles_input, Path(preview))
+            print(f"{log_prefix} preview {Path(preview).name}: {count} points", file=sys.stderr)
+            if on_preview is not None:
+                on_preview(Path(preview))
+        except Exception as exc:  # noqa: BLE001 - the preview is optional
+            print(f"{log_prefix} preview failed: {exc}", file=sys.stderr)
     shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.parent.mkdir(parents=True, exist_ok=True)
     # --disable-processpool: Docker's default /dev/shm (64 MB) is too small for
@@ -221,11 +283,19 @@ def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: st
     return tileset
 
 
+def preview_path_for(out_dir: Path) -> Path:
+    """tiles/<name>/ -> tiles/<name>.preview.las"""
+    return Path(out_dir).parent / (Path(out_dir).name + ".preview.las")
+
+
 def main(argv) -> None:
     if len(argv) != 2:
         sys.exit("usage: pointcloud.py <scan.las|laz|e57|ply> <out_dir>")
     source, out_dir = Path(argv[0]), Path(argv[1])
-    tileset = convert_to_tiles(source, out_dir, out_dir.parent / (out_dir.name + ".work"), log_prefix="[pointcloud]")
+    tileset = convert_to_tiles(
+        source, out_dir, out_dir.parent / (out_dir.name + ".work"), log_prefix="[pointcloud]",
+        preview=preview_path_for(out_dir),
+    )
     print(f"tileset: {tileset}")
 
 

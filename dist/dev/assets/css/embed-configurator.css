@@ -204,10 +204,6 @@
   width: min(240px, 30vw);
 }
 
-.viewer-embed-page #metadata-card.metadata-open {
-  width: min(320px, 42vw);
-}
-
 @media (max-width: 640px) {
   .embed-config-layout {
     grid-template-columns: 1fr;

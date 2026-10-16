@@ -219,6 +219,7 @@ export function attachAnnotationSpread(Viewer) {
       const obstacles = [
         ...(core.container?.querySelectorAll?.(":scope > .viewer-side-stack > *") || []),
         document.getElementById("metadata-card"),
+        document.getElementById("metadata-window"),
         core.editorToolbar,
       ];
       obstacles.forEach((element) => {

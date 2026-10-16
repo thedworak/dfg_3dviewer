@@ -249,8 +249,8 @@
           "type": "object",
           "properties": {
             "enabled": { "type": "boolean" },
-            "date": { "type": "string", "pattern": "^(-?\\d{1,4}-)?\\d{1,2}-\\d{1,2}$", "description": "\"MM-DD\", or \"YYYY-MM-DD\" (the year is the timeline's while followTimeline is on)." },
-            "time": { "type": "string", "pattern": "^\\d{1,2}:\\d{2}$", "description": "Local time, \"HH:MM\" (default 15:00)." },
+            "date": { "type": "string", "pattern": "^(-?\\d{1,4}-)?\\d{1,2}-\\d{1,2}$", "description": "\"MM-DD\", or \"YYYY-MM-DD\" (the year is the timeline's while followTimeline is on; default: today at the model's place)." },
+            "time": { "type": "string", "pattern": "^\\d{1,2}:\\d{2}$", "description": "Local time, \"HH:MM\" (default: the time now at the model's place)." },
             "followTimeline": { "type": "boolean", "description": "Take the year from the 4D timeline (default true)." },
             "animate": { "type": "boolean", "description": "Play the day on open (default false)." }
           },
@@ -447,18 +447,21 @@
     },
     "compareSide": {
       "type": "object",
-      "anyOf": [{ "required": ["variant"] }, { "required": ["year"] }],
+      "anyOf": [{ "required": ["variant"] }, { "required": ["year"] }, { "required": ["shading"] }, { "required": ["lighting"] }],
       "properties": {
         "variant": { "type": "string", "description": "Id of a variant." },
-        "year": { "type": "number", "description": "A year of the timeline: the last stage reached is shown." }
+        "year": { "type": "number", "description": "A year of the timeline: the last stage reached is shown." },
+        "shading": { "enum": ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"], "description": "A shading mode (kind \"look\")." },
+        "lighting": { "enum": ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"], "description": "The lighting (kind \"look\"): as set, without the environment map, an environment preset, or the raking light." }
       },
       "additionalProperties": true
     },
     "compare": {
-      "description": "Comparison view, open when the manifest loads: two variants or two years of the timeline, split by a divider (swipe) or side by side (split).",
+      "description": "Comparison view, open when the manifest loads: two variants or two years of the timeline, or (kind \"look\") the model shaded and lit two ways, split by a divider (swipe) or side by side (split).",
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean", "description": "false: no comparison on open (default true)." },
+        "kind": { "enum": ["content", "look"], "description": "content: variants or years (default); look: shading and lighting." },
         "mode": { "enum": ["swipe", "split"], "description": "swipe: one view split by a divider (default); split: two halves side by side." },
         "position": { "type": "number", "minimum": 0, "maximum": 1, "description": "Divider position across the canvas in swipe mode (default 0.5)." },
         "left": { "$ref": "#/$defs/compareSide" },

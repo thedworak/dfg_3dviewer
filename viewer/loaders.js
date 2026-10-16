@@ -23,8 +23,8 @@ export const loadVOXBuildMesh = async () => (await import("three/examples/jsm/lo
 export const loadLWOLoader = async () => (await import("three/examples/jsm/loaders/LWOLoader.js")).LWOLoader;
 export const loadIFCLoader = async () => (await import("./js/loaders/IFCLoader.js")).IFCLoader;
 export const loadRoomEnvironment = async () => (await import("three/examples/jsm/environments/RoomEnvironment.js")).RoomEnvironment;
-// LAS/LAZ parsing (loaders.gl + laz-perf) only downloads with the first such file.
-export const loadLasPointCloud = async () => (await import("./pointcloud-las.js")).buildLasPointCloud;
+// LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
+export const loadLasPointCloud = async () => (await import("./pointcloud-las.js")).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
 export const loadSplats = async () => import("./splats.js");
 
@@ -136,7 +136,9 @@ async function resolvePreviewModelUrl(rawModelPath) {
   }
 }
 
-function showProgressiveBadge(percent) {
+// The "Preview · ..." badge over the viewer, for a model shown while a
+// better one loads or is still being built (also used by upload-panel.js).
+export function showPreviewBadge(text) {
   if (!core.container) return;
   let badge = core.container.querySelector(':scope > .viewer-progressive-badge');
   if (!badge) {
@@ -145,14 +147,20 @@ function showProgressiveBadge(percent) {
     badge.setAttribute('role', 'status');
     core.container.appendChild(badge);
   }
-  badge.textContent = Number.isFinite(percent)
-    ? t('loadingLog.fullQualityProgress', { percent }, 'Preview · loading full quality {percent}%')
-    : t('loadingLog.fullQuality', 'Preview · loading full quality...');
+  badge.textContent = text;
 }
 
-function hideProgressiveBadge() {
+export function hidePreviewBadge() {
   core.container?.querySelector(':scope > .viewer-progressive-badge')?.remove();
 }
+
+function showProgressiveBadge(percent) {
+  showPreviewBadge(Number.isFinite(percent)
+    ? t('loadingLog.fullQualityProgress', { percent }, 'Preview · loading full quality {percent}%')
+    : t('loadingLog.fullQuality', 'Preview · loading full quality...'));
+}
+
+const hideProgressiveBadge = hidePreviewBadge;
 
 // Replaces the preview root with the full model: same root transform (which
 // fetchSettings/metadata applied to the preview), fresh materials setup,
@@ -479,6 +487,17 @@ function getEnvironmentTexture(renderer) {
   return getEnvironmentTextureForPreset(renderer, "neutral");
 }
 
+// A preset's environment texture (made once, cached), without switching the
+// scene to it: the comparison (editor/compare.js) shows it on one side only.
+export function loadEnvironmentTexture(preset) {
+  if (!core.scene || !core.renderer) return Promise.resolve(null);
+  // getEnvironmentTextureForPreset sets the scene's intensity; kept as it was.
+  const intensity = core.scene.environmentIntensity;
+  const texture = getEnvironmentTextureForPreset(core.renderer, preset);
+  core.scene.environmentIntensity = intensity;
+  return texture;
+}
+
 function markEnvironmentMaterialsDirty(root) {
   root?.traverse?.((child) => {
     const materials = child?.material
@@ -521,8 +540,37 @@ function reportLoadError(error, context = "") {
   return message;
 }
 
+// A directly loaded LAS/LAZ cloud (pointcloud-las.js) once all its points
+// are in: the point cloud panel (it waits for the whole cloud), the stats.
+function finishPointCloudLoading(root, done) {
+  done
+    .then((info) => {
+      if (!root.parent) return;
+      window.Viewer?.setupPointCloudControls?.(root);
+      refreshModelHierarchyAndStats(root);
+      toastHelper("pointCloudLoaded", "success", { count: info.loadedPoints.toLocaleString() });
+    })
+    .catch((error) => {
+      if (!root.parent) return;
+      // A broken download: the points that came in stay.
+      root.traverse((child) => {
+        if (child.userData.pointCloud) child.userData.pointCloud.loading = false;
+      });
+      window.Viewer?.setupPointCloudControls?.(root);
+      reportViewerError(error, { context: "Point cloud loading stopped", consoleLabel: "Viewer load error:" });
+      toastHelper("pointCloudIncomplete", "warning");
+    })
+    .finally(() => {
+      if (core.progressiveLoad?.pointCloud !== root) return;
+      core.progressiveLoad = null;
+      window.viewer.fullModelLoaded = true;
+    });
+}
+
 export async function loadModel() {
   core.loadingLog?.start?.();
+  // A point cloud still filling in belongs to the model being replaced.
+  if (core.progressiveLoad?.pointCloud) core.progressiveLoad = null;
   let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
   if (core.CONFIG.entity.proxyPath !== undefined && !core.fileObject.filename.startsWith('blob:')) {
     modelPath = core.getProxyPath(modelPath, core.CONFIG, core.fileObject);
@@ -883,19 +931,31 @@ export async function loadModel() {
 
       case "las":
       case "laz": {
-        const loader = new THREE.FileLoader().setResponseType("arraybuffer");
-        const buffer = await loadAsync(loader, modelPath, onProgress);
+        const loadLas = await loadLasPointCloud();
+        // The download bar covers the time to the first points; after that
+        // the cloud visibly fills in on its own.
+        let firstBatchIn = false;
+        const { object, done } = await loadLas(new URL(modelPath, window.location.href).href, {
+          name: core.fileObject.basename || "Point cloud",
+          compressed: core.fileObject.extension.toLowerCase() === "laz" ? true : null,
+          onProgress: (progress) => {
+            if (!firstBatchIn) onProgress(progress);
+          },
+        });
+        firstBatchIn = true;
         updateLoadingStage("loadingLog.preparingGeometry", 99);
-        const buildLasPointCloud = await loadLasPointCloud();
-        const object = buildLasPointCloud(buffer, core.fileObject.basename || "Point cloud");
-        const info = object.children[0]?.userData?.pointCloud;
-        if (info && info.skip > 1) {
+        const info = object.children[0].userData.pointCloud;
+        if (info.skip > 1) {
           toastHelper("pointCloudThinned", "info", {
-            loaded: info.loadedPoints.toLocaleString(),
+            loaded: Math.ceil(info.totalPoints / info.skip).toLocaleString(),
             total: info.totalPoints.toLocaleString(),
           });
         }
+        window.viewer.fullModelLoaded = false;
+        core.progressiveLoad = { pointCloud: object };
         await afterLoad({ object });
+        // Not awaited: the viewer is usable while the rest of the points arrive.
+        finishPointCloudLoading(object, done);
         break;
       }
 

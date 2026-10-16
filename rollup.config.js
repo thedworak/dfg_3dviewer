@@ -207,6 +207,28 @@ function removeStaleChunks() {
   };
 }
 
+// Module workers: `new Worker(new URL("./x-worker.js", import.meta.url),
+// { type: "module" })` (the form Parcel's dev server bundles as well). The
+// worker file becomes a chunk of its own - content-hashed like the others,
+// sharing chunks with the page - and the URL points at it.
+function moduleWorkers() {
+  const pattern = /new URL\((["'])(\.{1,2}\/[^"']+-worker\.js)\1,\s*import\.meta\.url\)/g;
+  return {
+    name: 'module-workers',
+    async transform(code, id) {
+      if (!code.includes('-worker.js') || !code.includes('import.meta.url')) return null;
+      let result = code;
+      for (const match of code.matchAll(pattern)) {
+        const resolved = await this.resolve(match[2], id);
+        if (!resolved) this.error(`Worker not found: ${match[2]} (from ${id})`);
+        const ref = this.emitFile({ type: 'chunk', id: resolved.id, name: path.basename(match[2], '.js') });
+        result = result.replace(match[0], `new URL(import.meta.ROLLUP_FILE_URL_${ref})`);
+      }
+      return result === code ? null : { code: result, map: null };
+    },
+  };
+}
+
 const buildContext = { envBuild, outDistDir, production, appBuild };
 
 function copyBuildAssets() {
@@ -418,6 +440,7 @@ export default {
       publicPath: 'assets/'
     }),
 
+    moduleWorkers(),
     copyBuildAssets(),
     removeStaleChunks(),
 

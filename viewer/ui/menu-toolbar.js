@@ -26,7 +26,7 @@ const CATEGORIES = [
     id: "look",
     label: () => t("menus.look", "Look"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["projection", "lights", "environmentMap", "shading", "wireframe", "materials", "background", "rendering", "resetSettings"],
+    tools: ["projection", "lights", "environmentMap", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
   },
   {
     id: "analysis",
@@ -60,13 +60,6 @@ const CATEGORIES = [
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
     tools: ["preview", "download", "save", "generateThumbnails", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"],
   },
-  {
-    id: "device",
-    more: true,
-    label: () => t("menus.device", "Device"),
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11 18.5h2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["deviceVideo"],
-  },
   // With what the classic toolbar's main menu (the cog) held: language
   // and theme, first.
   {
@@ -90,9 +83,9 @@ const NAV_TRANSFORM = ["orbit", "move", "rotate", "scale"];
 const NAV_VIEW = ["resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
 // What the phone itself adds - AR in the room (the app's, else the
-// browser's WebXR) and looking round by moving it: shown apart, and on a
-// phone set off from the rest.
-const DEVICE_TOOLS = ["deviceAr", "immersive", "deviceMotion"];
+// browser's WebXR), looking round by moving it and the 360° video: at the
+// end of the navigation bar, after a divider.
+const DEVICE_TOOLS = ["deviceAr", "immersive", "deviceMotion", "deviceVideo"];
 // Not in the menus layout (none at the moment).
 export const MENU_SKIPPED_TOOLS = [];
 
@@ -176,7 +169,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   DEVICE_TOOLS.forEach((key) => {
     const button = buttons[key];
     if (!button) return;
-    button.classList.add(key === "deviceMotion" ? "viewer-menus_device-motion" : "viewer-menus_device-ar");
+    button.classList.add(key === "deviceAr" || key === "immersive" ? "viewer-menus_device-ar" : "viewer-menus_device-tool");
     device.appendChild(button);
   });
   // In each menu in the order it lists them, the unknown ones last.
@@ -222,7 +215,8 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   addTab(MORE);
   Object.values(groups).forEach(({ group, count }) => { group.hidden = count === 0; });
 
-  dock.append(nav, device, tabs);
+  nav.append(el("span", "viewer-menus_nav-divider viewer-menus_nav-divider--device", { "aria-hidden": "true" }), device);
+  dock.append(nav, tabs);
   toolbar.append(dock, panel);
 
   const state = { open: null, mode: null, sheetHeight: null };
@@ -534,7 +528,8 @@ export function updateMenuToolbarLabels(viewer) {
   const labels = {
     sunStudy: t("sun.title", "Sun and shadows"),
     rakingLight: t("gui.rakingLight", "Raking light"),
-    compare: viewer.isComparing?.() ? t("compare.close", "Close the comparison") : t("compare.open", "Compare two variants side by side"),
+    compare: viewer.isComparing?.("content") ? t("compare.close", "Close the comparison") : t("compare.open", "Compare two variants side by side"),
+    compareLook: viewer.isComparing?.("look") ? t("compare.close", "Close the comparison") : t("compare.openLook", "Compare two shading modes or lightings side by side"),
     annotatePhotos: t("gui.annotatePhotos", "Historical photos"),
     annotateImport: t("gui.annotateImport", "Import Annotations"),
     annotateExport: t("gui.annotateExport", "Export Annotations"),
@@ -549,19 +544,21 @@ export function updateMenuToolbarLabels(viewer) {
   });
 }
 
-// What only the menus need of the toolbar's state: the comparison (shown
-// where the model has variants or a timeline to compare).
+// What only the menus need of the toolbar's state: the comparisons (of the
+// content, shown where the model has variants or a timeline to compare; of
+// the look, once there is a model).
 export function updateMenuToolbarState(viewer) {
   const menus = viewer.menuToolbar;
   if (!menus) return;
   viewer.editorToolbarButtons?.moveToolbar?.classList.remove("is-active");
-  const compare = viewer.editorToolbarButtons?.compare;
-  if (compare) {
-    compare.hidden = viewer.canCompare?.() !== true;
-    const active = viewer.isComparing?.() === true;
-    compare.classList.toggle("is-active", active);
-    compare.setAttribute("aria-pressed", active ? "true" : "false");
-  }
+  [["compare", "content"], ["compareLook", "look"]].forEach(([key, kind]) => {
+    const button = viewer.editorToolbarButtons?.[key];
+    if (!button) return;
+    button.hidden = viewer.canCompare?.(kind) !== true;
+    const active = viewer.isComparing?.(kind) === true;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
   ["sunStudy", "rakingLight"].forEach((key) => {
     const button = viewer.editorToolbarButtons?.[key];
     if (!button) return;
@@ -583,10 +580,6 @@ export function menuToolbarBottomEdge(toolbar) {
   // On a phone the navigation stands in a row above the tabs.
   const nav = dock.querySelector(":scope > .viewer-menus_nav");
   if (mode === "bar" && nav) top = Math.min(top, nav.getBoundingClientRect().top);
-  // And the AR and motion buttons above it, when there are any.
-  const device = dock.querySelector(":scope > .viewer-menus_device");
-  const deviceRect = device?.getBoundingClientRect();
-  if (mode === "bar" && deviceRect?.height) top = Math.min(top, deviceRect.top);
   // A desktop bar moved away from the bottom leaves the notices where they are.
   const host = toolbar.parentElement?.getBoundingClientRect();
   if (mode === "desktop" && host && host.bottom - rect.bottom > 80) return null;

@@ -12,14 +12,20 @@ import { exampleManifestOption, getExampleManifests, groupExampleOptions, refres
 // viewer frame's edge past a deliberate drag, instead of on the first pixel.
 const METADATA_GLUE_THRESHOLD = 28;
 
-// How close to the card's bottom-right corner a pointerdown has to land to
+// How close to the window's bottom-right corner a pointerdown has to land to
 // count as grabbing the native resize grip (see isPointerInResizeCorner()).
 const METADATA_RESIZE_HOTSPOT = 18;
+
+// The metadata window's distance (px) from the viewer's edges and the toolbar.
+const METADATA_WINDOW_MARGIN = 8;
 
 let metadataResizeObserver = null;
 let metadataHostResizeObserver = null;
 let metadataNativeResizeActive = false;
 let metadataNativeResizeReleaseTimer = null;
+// Where the metadata window was dragged to (host px), kept while the viewer
+// is open; null: just below the card.
+let metadataWindowPosition = null;
 
 let modelSettingsResetState = null;
 
@@ -184,58 +190,79 @@ export function addWissKIMetadata(label, value) {
 }
 
 /**
- * Expands/collapses the metadata panel.
+ * Opens/closes the metadata window (the card is its button).
  */
 export function expandMetadata() {
-  const content = document.getElementById("metadata-content");
+  const win = document.getElementById("metadata-window");
+  if (!win) return;
+  setMetadataWindowOpen(win.hidden || win.classList.contains("metadata-window-closing"));
+}
+
+function setMetadataWindowOpen(open) {
+  const win = document.getElementById("metadata-window");
   const toggle = document.getElementById("metadata-collapse");
   const card = document.getElementById("metadata-card");
+  if (!win || !toggle) return;
 
-  if (!content || !toggle) return;
+  toggle.classList.toggle("metadata-collapsed", !open);
+  toggle.setAttribute("aria-expanded", String(open));
+  card?.classList.toggle("metadata-open", open);
 
-  const expanded = content.classList.toggle("expanded");
-  toggle.classList.toggle("metadata-collapsed", !expanded);
-  card?.classList.toggle("metadata-open", expanded);
-
-  // accessibility
-  toggle.setAttribute("aria-expanded", expanded);
-
-  // A manual resize (see observeMetadataResize()) sets an explicit inline
-  // width/height on the card. Left alone, that inline size would keep the
-  // collapsed card just as big as when it was expanded, with the content
-  // hidden inside empty space instead of the card actually shrinking back
-  // to the compact pill - so swap it out for the collapsed default here,
-  // and restore the stored manual size when expanding again.
-  if (card?.classList.contains("metadata-card-resized")) {
-    if (expanded) {
-      const { width, height } = getInitialMetadataSize();
-      if (width != null) card.style.width = `${width}px`;
-      if (height != null) card.style.height = `${height}px`;
-    } else {
-      card.style.width = "";
-      card.style.height = "";
-    }
-  }
-
-  if (!expanded) {
-    card?.classList.remove("metadata-card-overflowing");
-    content.querySelectorAll(".metadata-row-pinned").forEach((row) => {
-      row.classList.remove("metadata-row-pinned");
-    });
+  if (!open) {
+    if (win.hidden) return;
+    // It shrinks back into the card, then hides (at once without the
+    // animation, e.g. with reduced motion).
+    const hide = () => {
+      if (!win.classList.contains("metadata-window-closing")) return;
+      win.classList.remove("metadata-window-closing", "metadata-window-overflowing");
+      win.hidden = true;
+      win.querySelectorAll(".metadata-row-pinned").forEach((row) => {
+        row.classList.remove("metadata-row-pinned");
+      });
+    };
+    setMetadataWindowOrigin(win);
+    win.classList.add("metadata-window-closing");
+    if (getComputedStyle(win).animationName === "none") hide();
+    else win.addEventListener("animationend", hide, { once: true });
     return;
   }
 
+  win.classList.remove("metadata-window-closing");
+  win.hidden = false;
+  const { width, height } = getInitialMetadataSize();
+  if (width != null) win.style.width = `${width}px`;
+  if (height != null) win.style.height = `${height}px`;
+  placeMetadataWindow(win, metadataWindowPosition);
+  // Grows out of the card: the animation restarted from its centre.
+  setMetadataWindowOrigin(win);
+  win.style.animation = "none";
+  void win.offsetWidth;
+  win.style.removeProperty("animation");
   updateMetadataOverflow();
 }
 
-function updateMetadataOverflow() {
-  const content = document.getElementById("metadata-content");
+// The window's animations (main.css) scale from the card's centre, wherever
+// the two are.
+function setMetadataWindowOrigin(win) {
   const card = document.getElementById("metadata-card");
+  if (!card) return;
+  const cardRect = card.getBoundingClientRect();
+  const x = (parseFloat(win.style.getPropertyValue("--window-x")) || 0);
+  const y = (parseFloat(win.style.getPropertyValue("--window-y")) || 0);
+  const host = getMetadataDragHost()?.getBoundingClientRect();
+  if (!host) return;
+  win.style.setProperty("--window-origin-x", `${cardRect.left + cardRect.width / 2 - host.left - x}px`);
+  win.style.setProperty("--window-origin-y", `${cardRect.top + cardRect.height / 2 - host.top - y}px`);
+}
 
-  if (!content || !card || !content.classList.contains("expanded")) return;
+function updateMetadataOverflow() {
+  const win = document.getElementById("metadata-window");
+  const content = document.getElementById("metadata-content");
+
+  if (!win || !content || win.hidden) return;
 
   const hasOverflow = content.scrollHeight - content.clientHeight > 8;
-  card.classList.toggle("metadata-card-overflowing", hasOverflow);
+  win.classList.toggle("metadata-window-overflowing", hasOverflow);
 
   content.querySelectorAll(".metadata-row").forEach((row) => {
     const value = row.querySelector(".metadata-value");
@@ -257,18 +284,19 @@ function bindMetadataInteractions() {
   if (core.metadataContainer.dataset.boundCollapse === "true") return;
 
   core.metadataContainer.addEventListener("click", (e) => {
-    const toggle = e.target.closest("#metadata-collapse");
-    if (toggle) {
-      expandMetadata(e);
+    if (e.target.closest("#metadata-collapse")) {
+      expandMetadata();
+      return;
+    }
+    if (e.target.closest(".metadata-window-close")) {
+      setMetadataWindowOpen(false);
+      document.getElementById("metadata-collapse")?.focus();
       return;
     }
 
-    const card = document.getElementById("metadata-card");
     const content = document.getElementById("metadata-content");
-    if (!card || !content || !content.classList.contains("expanded")) return;
-
     const row = e.target.closest(".metadata-row");
-    if (!row) return;
+    if (!content || !row || !content.contains(row)) return;
 
     const willPin = !row.classList.contains("metadata-row-pinned");
     content.querySelectorAll(".metadata-row-pinned").forEach((pinnedRow) => {
@@ -277,17 +305,28 @@ function bindMetadataInteractions() {
     if (willPin) row.classList.add("metadata-row-pinned");
   });
 
-  // The card is rebuilt (innerHTML) on every handleMetadataResponse() call,
-  // so its own drag handle is a fresh element each time - delegate from the
-  // container (which persists) instead of binding it directly.
+  core.metadataContainer.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !e.target.closest("#metadata-window")) return;
+    e.stopPropagation();
+    setMetadataWindowOpen(false);
+    document.getElementById("metadata-collapse")?.focus();
+  });
+
+  // The card and the window are rebuilt (innerHTML) on every
+  // handleMetadataResponse() call, so their drag handles are fresh elements
+  // each time - delegate from the container (which persists) instead.
   core.metadataContainer.addEventListener("pointerdown", (e) => {
     if (e.target.closest(".metadata-drag-handle")) {
       startMetadataDrag(e);
       return;
     }
+    if (e.target.closest(".metadata-window-header") && !e.target.closest(".metadata-window-close")) {
+      startMetadataWindowDrag(e);
+      return;
+    }
 
-    const card = e.target.closest("#metadata-card");
-    if (card && isPointerInResizeCorner(card, e.clientX, e.clientY)) {
+    const win = e.target.closest("#metadata-window");
+    if (win && isPointerInResizeCorner(win, e.clientX, e.clientY)) {
       beginNativeResizeTracking();
     }
   });
@@ -318,6 +357,7 @@ function setStoredMetadataPosition(x, y) {
   };
 }
 
+// The stored size is the window's (the card itself is not resizable).
 function getInitialMetadataSize() {
   const size = getMetadataContainerConfig().size || {};
   return {
@@ -408,12 +448,118 @@ function startMetadataDrag(event) {
   document.addEventListener("pointercancel", stopDrag);
 }
 
-// The card's own width/height also change from expanding/collapsing (an
-// animated CSS transition, not a resize) and from the host ResizeObserver
-// re-clamping it - neither is a user resize. Only trust a ResizeObserver
-// firing as one while the user is actually holding the native grip down.
-function isPointerInResizeCorner(card, clientX, clientY) {
-  const rect = card.getBoundingClientRect();
+// The window's room in the viewer (host coordinates): the viewer less the
+// toolbar's side of it - along the bottom (desktop bar, phone tabs) the
+// window stays above it, down the left edge (phone rail) beside it.
+function getMetadataWindowBounds() {
+  const host = getMetadataDragHost();
+  const hostRect = host?.getBoundingClientRect();
+  if (!hostRect) return null;
+
+  const bounds = {
+    left: METADATA_WINDOW_MARGIN,
+    top: METADATA_WINDOW_MARGIN,
+    right: hostRect.width - METADATA_WINDOW_MARGIN,
+    bottom: hostRect.height - METADATA_WINDOW_MARGIN,
+  };
+
+  const toolbar = core.editorToolbar;
+  if (toolbar && host.contains(toolbar) && !toolbar.classList.contains("editorToolbar-hidden")) {
+    // The menus' dock and what floats beside it (on a phone the navigation
+    // bar, outside the dock's own box), each part for itself: a tall one
+    // (the rail) keeps the window beside it, a wide one above or below it.
+    const dock = toolbar.querySelector(":scope > .viewer-menus_dock") || toolbar;
+    [dock, ...dock.children].forEach((element) => {
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const x0 = rect.left - hostRect.left;
+      const x1 = rect.right - hostRect.left;
+      const y0 = rect.top - hostRect.top;
+      const y1 = rect.bottom - hostRect.top;
+      if (rect.height > rect.width) {
+        if (x1 <= hostRect.width / 2) bounds.left = Math.max(bounds.left, x1 + METADATA_WINDOW_MARGIN);
+        else bounds.right = Math.min(bounds.right, x0 - METADATA_WINDOW_MARGIN);
+      } else if (y0 >= hostRect.height / 2) {
+        bounds.bottom = Math.min(bounds.bottom, y0 - METADATA_WINDOW_MARGIN);
+      } else {
+        bounds.top = Math.max(bounds.top, y1 + METADATA_WINDOW_MARGIN);
+      }
+    });
+  }
+  return bounds;
+}
+
+// Puts the window at (x, y), or just below the card, kept inside its room:
+// narrower and lower when the room is.
+function placeMetadataWindow(win, position = null) {
+  const bounds = getMetadataWindowBounds();
+  if (!bounds) return;
+
+  const roomWidth = Math.max(bounds.right - bounds.left, 160);
+  const roomHeight = Math.max(bounds.bottom - bounds.top, 120);
+  win.style.maxWidth = `${roomWidth}px`;
+  win.style.maxHeight = `${roomHeight}px`;
+
+  let { x, y } = position || {};
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    const card = document.getElementById("metadata-card");
+    const host = getMetadataDragHost();
+    const cardRect = card?.getBoundingClientRect();
+    const hostRect = host?.getBoundingClientRect();
+    x = cardRect && hostRect ? cardRect.left - hostRect.left : bounds.left;
+    y = cardRect && hostRect ? cardRect.bottom - hostRect.top + METADATA_WINDOW_MARGIN : bounds.top;
+  }
+
+  const maxX = Math.max(bounds.right - win.offsetWidth, bounds.left);
+  const maxY = Math.max(bounds.bottom - win.offsetHeight, bounds.top);
+  x = Math.min(Math.max(x, bounds.left), maxX);
+  y = Math.min(Math.max(y, bounds.top), maxY);
+
+  win.style.setProperty("--window-x", `${x}px`);
+  win.style.setProperty("--window-y", `${y}px`);
+  if (position) metadataWindowPosition = { x, y };
+}
+
+function startMetadataWindowDrag(event) {
+  if (event.button !== 0) return;
+  const win = document.getElementById("metadata-window");
+  if (!win) return;
+
+  event.preventDefault();
+
+  const origin = {
+    x: parseFloat(win.style.getPropertyValue("--window-x")) || 0,
+    y: parseFloat(win.style.getPropertyValue("--window-y")) || 0,
+  };
+  const startX = event.clientX;
+  const startY = event.clientY;
+
+  win.classList.add("metadata-dragging");
+
+  const onPointerMove = (moveEvent) => {
+    placeMetadataWindow(win, {
+      x: origin.x + moveEvent.clientX - startX,
+      y: origin.y + moveEvent.clientY - startY,
+    });
+  };
+
+  const stopDrag = () => {
+    win.classList.remove("metadata-dragging");
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", stopDrag);
+    document.removeEventListener("pointercancel", stopDrag);
+  };
+
+  document.addEventListener("pointermove", onPointerMove);
+  document.addEventListener("pointerup", stopDrag);
+  document.addEventListener("pointercancel", stopDrag);
+}
+
+// The window's own size also changes from the room shrinking (max-width/
+// max-height) - not a user resize. Only trust a ResizeObserver firing as one
+// while the user is actually holding the native grip down.
+function isPointerInResizeCorner(element, clientX, clientY) {
+  const rect = element.getBoundingClientRect();
   return (
     clientX >= rect.right - METADATA_RESIZE_HOTSPOT && clientX <= rect.right + 4 &&
     clientY >= rect.bottom - METADATA_RESIZE_HOTSPOT && clientY <= rect.bottom + 4
@@ -438,53 +584,23 @@ function beginNativeResizeTracking() {
   document.addEventListener("pointercancel", release);
 }
 
-// Resize itself is native CSS (see "#metadata-card.metadata-open { resize:
-// both }" in main.css, enabled only while expanded) - a ResizeObserver just
-// persists the result and keeps it from growing past the viewer's edge,
-// mirroring initializeManifestoFormDrag()'s resize handling below.
-function observeMetadataResize(card) {
+// Resize itself is native CSS ("#metadata-window { resize: both }" in
+// main.css, its room capping it through max-width/max-height) - a
+// ResizeObserver just persists the result.
+function observeMetadataResize(win) {
   metadataResizeObserver?.disconnect();
 
-  let isFirstObservation = true;
-  metadataResizeObserver = new ResizeObserver((entries) => {
-    if (isFirstObservation) {
-      isFirstObservation = false;
-      return;
-    }
-    if (!metadataNativeResizeActive) return;
-
-    const entry = entries[0];
-    if (!entry) return;
-
-    const host = getMetadataDragHost();
-    const hostRect = host?.getBoundingClientRect();
-    const { x, y } = getInitialMetadataPosition();
-
-    let width = entry.contentRect.width;
-    let height = entry.contentRect.height;
-
-    if (hostRect) {
-      const maxWidth = Math.max(hostRect.width - x, 160);
-      const maxHeight = Math.max(hostRect.height - y, 60);
-      if (width > maxWidth) {
-        width = maxWidth;
-        card.style.width = `${width}px`;
-      }
-      if (height > maxHeight) {
-        height = maxHeight;
-        card.style.height = `${height}px`;
-      }
-    }
-
-    card.classList.add("metadata-card-resized");
-    setStoredMetadataSize(Math.round(width), Math.round(height));
+  metadataResizeObserver = new ResizeObserver(() => {
+    if (!metadataNativeResizeActive || win.hidden) return;
+    setStoredMetadataSize(Math.round(win.offsetWidth), Math.round(win.offsetHeight));
+    updateMetadataOverflow();
   });
-  metadataResizeObserver.observe(card);
+  metadataResizeObserver.observe(win);
 }
 
-// Keep the stored position valid if the viewer itself is resized, mirroring
-// initializeEditorToolbarDrag()'s own host ResizeObserver in editor-toolbar.js.
-function observeMetadataHost(card) {
+// Keep the card and the window inside the viewer (and the window off the
+// toolbar) when the viewer is resized or the toolbar changes its layout.
+function observeMetadataHost(card, win) {
   const host = getMetadataDragHost();
   metadataHostResizeObserver?.disconnect();
   if (!host) return;
@@ -493,12 +609,18 @@ function observeMetadataHost(card) {
     const { x, y } = getInitialMetadataPosition();
     const next = clampMetadataPosition(card, x, y);
     applyMetadataPosition(card, next.x, next.y);
+    if (win && !win.hidden) {
+      placeMetadataWindow(win, metadataWindowPosition);
+      updateMetadataOverflow();
+    }
   });
   metadataHostResizeObserver.observe(host);
+  if (core.editorToolbar) metadataHostResizeObserver.observe(core.editorToolbar);
 }
 
 function initializeMetadataDragAndResize() {
   const card = document.getElementById("metadata-card");
+  const win = document.getElementById("metadata-window");
   if (!card) return;
 
   if (core.container && getComputedStyle(core.container).position === "static") {
@@ -508,21 +630,8 @@ function initializeMetadataDragAndResize() {
   const { x, y } = getInitialMetadataPosition();
   applyMetadataPosition(card, x, y);
 
-  const { width, height } = getInitialMetadataSize();
-  const hasStoredSize = width != null || height != null;
-  card.classList.toggle("metadata-card-resized", hasStoredSize);
-  // The card is always (re)built collapsed (see the HTML template in
-  // handleMetadataResponse()) - only apply a previously stored manual size
-  // once it's actually expanded again (see expandMetadata()), or a freshly
-  // rebuilt card would immediately show a large collapsed box with its
-  // content hidden inside empty space.
-  if (hasStoredSize && card.classList.contains("metadata-open")) {
-    if (width != null) card.style.width = `${width}px`;
-    if (height != null) card.style.height = `${height}px`;
-  }
-
-  observeMetadataResize(card);
-  observeMetadataHost(card);
+  if (win) observeMetadataResize(win);
+  observeMetadataHost(card, win);
 }
 
 /**
@@ -739,7 +848,7 @@ export async function handleMetadataResponse(
   var metadataContent =
     '<div id="metadata-card"' + (iiifLink ? ' class="metadata-has-iiif"' : '') + '>' +
       '<div class="metadata-drag-handle" title="' + escapeHtml(t("metadata.move", "Move")) + '"></div>' +
-      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-content"' +
+      '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-window"' +
         ' aria-label="' + escapeHtml(t("metadata.modelDetails", "Model details")) + ': ' + escapeHtml(fileName) + '">' +
         '<span class="metadata-toggle-copy">' +
           '<span class="metadata-toggle-title" title="' + escapeHtml(fileName) + '">' + escapeHtml(fileName) + '</span>' +
@@ -750,6 +859,14 @@ export async function handleMetadataResponse(
         '<span class="metadata-toggle-chevron" aria-hidden="true"></span>' +
       '</button>' +
       iiifLink +
+    '</div>' +
+    '<div id="metadata-window" role="dialog" aria-labelledby="metadata-window-title" hidden>' +
+      '<div class="metadata-window-header" title="' + escapeHtml(t("metadata.move", "Move")) + '">' +
+        '<span id="metadata-window-title" class="metadata-window-title" data-i18n-key="metadata.modelDetails">' + escapeHtml(t("metadata.modelDetails", "Model details")) + '</span>' +
+        '<button class="metadata-window-close" type="button" aria-label="' + escapeHtml(t("metadata.close", "Close")) + '" title="' + escapeHtml(t("metadata.close", "Close")) + '">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
+        '</button>' +
+      '</div>' +
       '<div id="metadata-content" class="metadata-content">' +
         '<div class="metadata-stats">' +
           statTile("vertices", "Vertices") +
@@ -800,7 +917,7 @@ export async function handleMetadataResponse(
   }
   metadataContent +=
       '</div>' +  // #metadata-content
-    '</div>';  
+    '</div>';  // #metadata-window
   appendMetadata(metadataContent);
   bindMetadataInteractions();
   initializeMetadataDragAndResize();

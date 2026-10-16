@@ -192,6 +192,9 @@ needing the tag.
   `status` values follow the same vocabulary `viewer/status-poller.js`
   already knows how to render: `queued` (waiting for a free conversion
   slot), `preparing`, `processing`, `rendering`, `ready`, `failed`.
+  While a point cloud is converted, `previewUrl` points at its quick preview
+  (`/files/<id>/tiles/<name>.preview.las`) as soon as that exists - see
+  "Point clouds" below; `null` otherwise.
 - `POST /api/model/create-from-url` - JSON `{"url": "https://.../model.glb"}`:
   the worker downloads the file (`remote_fetch.py`) and converts it like an
   upload (same formats, `WORKER_MAX_UPLOAD_BYTES`, limits and login). Only
@@ -240,6 +243,7 @@ Set via environment variables on the `worker` container (see
 | `WORKER_RENDER_DEVICE`     | `CPU`          | `CPU`, `GPU`, or `AUTO` - see below       |
 | `WORKER_POINTCLOUD_JOBS`   | CPUs (max 8)   | Parallel py3dtiles workers for point clouds |
 | `WORKER_POINTCLOUD_TIMEOUT` | `3600`        | Seconds before a point cloud conversion is killed |
+| `WORKER_POINTCLOUD_PREVIEW_POINTS` | `1000000` | Points in a point cloud's quick preview; `0` disables it |
 | `WORKER_OPTIMIZE`          | `auto`         | gltfpack step (see "GLB optimization"): `auto` = on when `gltfpack` is installed (it is in the image), `true`, `false` |
 | `WORKER_TEXTURE_FORMAT`    | `ktx2`         | `ktx2` (Basis Universal), `webp` or `keep` |
 | `WORKER_PREVIEW_RATIO`     | `0.1`          | Triangle ratio of the progressive-loading preview; `0` disables previews |
@@ -286,9 +290,11 @@ After conversion, `worker/optimize.py` runs [gltfpack](https://github.com/zeux/m
 
 - LAZ is decompressed with `laspy` + `lazrs` first (py3dtiles would need the external LAStools `laszip`); E57 scans are merged with their poses applied (`pye57`), keeping colour and intensity; PLY point clouds are read with `trimesh`.
 - Coordinates are kept as they are (no reprojection); the viewer centres the cloud and turns Z-up to Y-up.
+- **Quick preview**: before py3dtiles starts, a random subsample of the cloud (`WORKER_POINTCLOUD_PREVIEW_POINTS`, default 1 million) is written to `tiles/<name>.preview.las` - uncompressed and in random order, with the standard dimensions of the point format (position, intensity, classification, colour). The job status then carries `previewUrl`, and the viewer's upload panel shows the preview while the tiles are built: it decodes LAS while downloading, and since the points are shuffled, the first 100 000 already show the whole object. When the job is `ready`, the tiles replace it. The preview is written in chunks (larger-than-memory clouds are fine) and takes well under a second for a few million points; a failed preview is only logged. It stays next to the tiles.
 - py3dtiles runs with `--disable-processpool`, since Docker's default 64 MB `/dev/shm` is too small for its shared-memory pool.
 - Standalone: `python3 worker/pointcloud.py scan.e57 out_dir` (needs `py3dtiles`, `laspy[lazrs]`, `pye57`, `trimesh`).
 - Example: 600,000 coloured points (LAS, LAZ or E57) convert in about 2 s.
+- LAS/LAZ files can also be opened in the viewer directly, without conversion (decoded in a Web Worker, thinned above `viewer.pointCloud.maxPoints`) - see [docs/point-clouds.md](../docs/point-clouds.md).
 
 ### Upload limits
 
