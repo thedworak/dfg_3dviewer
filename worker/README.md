@@ -73,7 +73,7 @@ API from outside the viewer (curl, scripts, etc).
 
 The worker image is split in two so that code changes do not reinstall Blender:
 
-- `worker/Dockerfile.base` - Ubuntu, system packages, Python libraries (trimesh, cascadio, ifcopenshell, ...), Blender and gltfpack. Built by the `worker-base` service in `docker-compose.yml`, which is never started (`scale: 0`).
+- `worker/Dockerfile.base` - Ubuntu, system packages, Python libraries (trimesh, cascadio, ifcopenshell, py3dtiles, ...), Blender, gltfpack and PotreeConverter (built from source). Built by the `worker-base` service in `docker-compose.yml`, which is never started (`scale: 0`).
 - `worker/Dockerfile` - `FROM worker-base` (the service's image, passed in through `additional_contexts`), adds only `scripts/` and `worker/*.py`.
 
 `docker compose build` / `up --build` builds the base first. The first time that downloads Blender; afterwards every base layer comes from the local build cache, so a code change only rebuilds the thin worker layer. Editing `Dockerfile.base` invalidates just the layers from the edit onwards - no tags to bump.
@@ -171,7 +171,7 @@ needing the tag.
   - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
-  - point clouds converted to a streamed 3D Tiles tileset (`modelUrl` ends in `tiles/<name>/tileset.json`), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
+  - point clouds converted to a streamed octree (`modelUrl` ends in `tiles/<name>/metadata.json` for Potree 2, `tiles/<name>/tileset.json` for 3D Tiles), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
   ```json
@@ -241,9 +241,12 @@ Set via environment variables on the `worker` container (see
 | `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.sh call is killed|
 | `WORKER_RENDER_TIMEOUT`    | `900`          | Seconds before a render.sh call is killed |
 | `WORKER_RENDER_DEVICE`     | `CPU`          | `CPU`, `GPU`, or `AUTO` - see below       |
-| `WORKER_POINTCLOUD_JOBS`   | CPUs (max 8)   | Parallel py3dtiles workers for point clouds |
+| `WORKER_POINTCLOUD_JOBS`   | CPUs (max 8)   | Parallel py3dtiles workers for point clouds (PotreeConverter uses all cores) |
 | `WORKER_POINTCLOUD_TIMEOUT` | `3600`        | Seconds before a point cloud conversion is killed |
 | `WORKER_POINTCLOUD_PREVIEW_POINTS` | `1000000` | Points in a point cloud's quick preview; `0` disables it |
+| `WORKER_POINTCLOUD_FORMAT` | `auto`          | `potree` (PotreeConverter), `3dtiles` (py3dtiles) or `auto`: Potree when installed |
+| `WORKER_POTREE_CONVERTER`  | `PotreeConverter` | PotreeConverter executable (name on `PATH` or a path) |
+| `WORKER_GZIP_MAX_BYTES`    | `268435456`    | Largest file served gzip-compressed (`static_files.py`); `0` turns compression off |
 | `WORKER_OPTIMIZE`          | `auto`         | gltfpack step (see "GLB optimization"): `auto` = on when `gltfpack` is installed (it is in the image), `true`, `false` |
 | `WORKER_TEXTURE_FORMAT`    | `ktx2`         | `ktx2` (Basis Universal), `webp` or `keep` |
 | `WORKER_PREVIEW_RATIO`     | `0.1`          | Triangle ratio of the progressive-loading preview; `0` disables previews |
@@ -286,15 +289,35 @@ After conversion, `worker/optimize.py` runs [gltfpack](https://github.com/zeux/m
 
 ### Point clouds
 
-`worker/pointcloud.py` turns LAS, LAZ, E57 and face-less PLY uploads into a 3D Tiles tileset (pnts octree) with [py3dtiles](https://py3dtiles.org), which the viewer streams level by level (`viewer/tiles.js`) - only the points the current view needs are downloaded.
+`worker/pointcloud.py` turns LAS, LAZ, E57 and face-less PLY uploads into a level-of-detail octree that the viewer streams node by node (`viewer/tiles.js`) - only the points the current view needs are downloaded. Two output formats (`WORKER_POINTCLOUD_FORMAT`):
 
-- LAZ is decompressed with `laspy` + `lazrs` first (py3dtiles would need the external LAStools `laszip`); E57 scans are merged with their poses applied (`pye57`), keeping colour and intensity; PLY point clouds are read with `trimesh`.
-- Coordinates are kept as they are (no reprojection); the viewer centres the cloud and turns Z-up to Y-up.
-- **Quick preview**: before py3dtiles starts, a random subsample of the cloud (`WORKER_POINTCLOUD_PREVIEW_POINTS`, default 1 million) is written to `tiles/<name>.preview.las` - uncompressed and in random order, with the standard dimensions of the point format (position, intensity, classification, colour). The job status then carries `previewUrl`, and the viewer's upload panel shows the preview while the tiles are built: it decodes LAS while downloading, and since the points are shuffled, the first 100 000 already show the whole object. When the job is `ready`, the tiles replace it. The preview is written in chunks (larger-than-memory clouds are fine) and takes well under a second for a few million points; a failed preview is only logged. It stays next to the tiles.
+| | Potree 2 (default in the image) | 3D Tiles |
+| --- | --- | --- |
+| Converter | [PotreeConverter](https://github.com/potree/PotreeConverter) 2.1.1 (C++, built in `Dockerfile.base`) | [py3dtiles](https://py3dtiles.org) |
+| Output | `tiles/<name>/metadata.json`, `hierarchy.bin`, `octree.bin` - three files | `tiles/<name>/tileset.json` + one `.pnts` per node |
+| Kept per point | position, colour, intensity, classification, returns, point source | position, colour |
+| Viewer reads | `octree.bin` by HTTP range requests | one file per node |
+| Example (100 000 points) | about 1 s | about 2 s for 600 000 |
+
+`auto` (default) uses PotreeConverter when it is installed and falls back to py3dtiles otherwise. Three files instead of thousands keep the file system and backups light, and the viewer's point cloud panel can colour Potree clouds by intensity and classification too.
+
+- Inputs: PotreeConverter reads LAS and LAZ itself; for py3dtiles LAZ is decompressed with `laspy` + `lazrs` first (py3dtiles would need the external LAStools `laszip`). E57 scans are merged with their poses applied (`pye57`), keeping colour and intensity; PLY point clouds are read with `trimesh` - both to an intermediate LAS for either converter.
+- Coordinates are kept as they are (no reprojection); the viewer centres the cloud and turns Z-up to Y-up. Projected coordinates (UTM, Gauss-Krüger: millions of metres) are told apart from Earth-centred ones by the viewer (`viewer.tiles.georeferenced`).
+- Potree nodes are stored uncompressed (`--encoding DEFAULT`): the viewer's Potree loader reads no BROTLI nodes. Transfers are compressed by the server (below) where it helps.
+- **Quick preview**: before the converter starts, a random subsample of the cloud (`WORKER_POINTCLOUD_PREVIEW_POINTS`, default 1 million) is written to `tiles/<name>.preview.las` - uncompressed and in random order, with the standard dimensions of the point format (position, intensity, classification, colour). The job status then carries `previewUrl`, and the viewer's upload panel shows the preview while the octree is built: it decodes LAS while downloading, and since the points are shuffled, the first 100 000 already show the whole object. When the job is `ready`, the streamed cloud replaces it. The preview is written in chunks (larger-than-memory clouds are fine) and takes well under a second for a few million points; a failed preview is only logged. It stays next to the tiles.
 - py3dtiles runs with `--disable-processpool`, since Docker's default 64 MB `/dev/shm` is too small for its shared-memory pool.
-- Standalone: `python3 worker/pointcloud.py scan.e57 out_dir` (needs `py3dtiles`, `laspy[lazrs]`, `pye57`, `trimesh`).
-- Example: 600,000 coloured points (LAS, LAZ or E57) convert in about 2 s.
+- Standalone: `python3 worker/pointcloud.py scan.e57 out_dir` (needs `PotreeConverter` or `py3dtiles`, `laspy[lazrs]`, `pye57`, `trimesh`); `WORKER_POINTCLOUD_FORMAT=3dtiles` for 3D Tiles.
 - LAS/LAZ files can also be opened in the viewer directly, without conversion (decoded in a Web Worker, thinned above `viewer.pointCloud.maxPoints`) - see [docs/point-clouds.md](../docs/point-clouds.md).
+
+### Serving converted files
+
+`GET`/`HEAD /files/<id>/<path>` (`worker/static_files.py`):
+
+- **Range requests** (one range per request): `206 Partial Content` with `Content-Range`, `416` when out of bounds - Potree clouds are read this way, and large downloads can resume. CORS lets the viewer send `Range` and read `Content-Range`.
+- Files go out in 1 MB pieces, never read into memory whole.
+- `ETag` and `Last-Modified`; `If-None-Match` / `If-Modified-Since` answer `304`. Cached for 30 days (browsers, Cloudflare); job ids are random, so a URL never changes content.
+- **gzip** for formats that are not compressed already (JSON, LAS, `.pnts`/`.b3dm`, OBJ, PLY, STL, IFC, Potree's `hierarchy.bin` ...) when the client accepts it and asks for the whole file. The compressed copy (`<file>.gz`, next to it) is made in the background on the first request - which still gets the plain file, so nobody waits - and used from then on; files that shrink by less than 10 % are marked (`<file>.nogz`) and not tried again. Example: a 1-million-point preview LAS of 2.6 MB goes out as 1.1 MB. `WORKER_GZIP_MAX_BYTES` (default 256 MB, `0` = off) caps the size compressed. Range requests, GLB, LAZ, PNG and Potree's `octree.bin` are sent as they are.
+- Behind the viewer's nginx (`docker/nginx.conf`), `/files/` responses are cached; `octree.bin` is fetched and cached in 1 MB slices, so a range request never waits for nginx to copy the whole file first. Cloudflare caches files up to its size limit (512 MB on the free plan) and answers ranges from them; a larger `octree.bin` is passed through to the origin.
 
 ### Upload limits
 

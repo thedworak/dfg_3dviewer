@@ -8616,7 +8616,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DHhdNdHD.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-CgGLED4p.js');
+const loadTilesPlugins = () => import('./index.three-plugins-D9fqXNqL.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -8693,7 +8693,9 @@ function disposeTiles() {
 // Settings (viewer-settings.json -> viewer.tiles): errorTarget (screen-space
 // error in px, default 6; lower = more detail), pointShape (square | round |
 // sphere), edlStrength (Eye-Dome Lighting, default 0.4; 0 disables it),
-// pointScale (Potree point size factor, default 1).
+// pointScale (Potree point size factor, default 1), georeferenced (true:
+// Earth-centred, laid flat on the globe; false: local / projected, Z up;
+// unset: guessed - see isGeocentric).
 function getTilesOptions() {
   const config = core.CONFIG?.viewer?.tiles || {};
   const number = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
@@ -8702,7 +8704,78 @@ function getTilesOptions() {
     pointShape: ["square", "round", "sphere"].includes(config.pointShape) ? config.pointShape : "round",
     edlStrength: number(config.edlStrength, 0.4),
     pointScale: number(config.pointScale, 1),
+    georeferenced: typeof config.georeferenced === "boolean" ? config.georeferenced : null,
   };
+}
+
+// PotreeLoader decodes position, colour and intensity; classification is
+// added here from the same point records, for the point cloud panel's
+// "Classification" colours. Positions are untouched, so it stays in step
+// with the loader whatever its version.
+function decodePotreeClassification(loader) {
+  if (!loader?.parsePointData) return;
+  const parse = loader.parsePointData.bind(loader);
+  loader.parsePointData = (buffer, ...args) => {
+    const result = parse(buffer, ...args);
+    let stride = 0;
+    let offset = -1;
+    (loader.metadata?.attributes || []).forEach((attribute) => {
+      if (attribute.name === "classification" && attribute.size === 1) offset = stride;
+      stride += attribute.size;
+    });
+    if (offset < 0 || !stride) return result;
+    const count = Math.floor(buffer.byteLength / stride);
+    const bytes = new Uint8Array(buffer);
+    const classes = new Uint8Array(count);
+    for (let i = 0; i < count; i += 1) classes[i] = bytes[i * stride + offset];
+    result.geometry.setAttribute("classification", new THREE.BufferAttribute(classes, 1));
+    return result;
+  };
+}
+
+// Attributes a Potree cloud carries, from its metadata.json: name -> { min, max }.
+function getPotreeAttributes() {
+  const metadata = core.tiledModel?.format === "potree" ? pointCloudPlugin?.loader?.metadata : null;
+  const result = {};
+  (metadata?.attributes || []).forEach((attribute) => {
+    result[attribute.name] = { min: attribute.min, max: attribute.max };
+  });
+  return result;
+}
+
+// The whole tileset's box in world space (not only the tiles loaded now).
+function getTiledModelBox() {
+  if (!boundsProxy) return null;
+  boundsProxy.updateWorldMatrix(true, false);
+  const box = new THREE.Box3().setFromBufferAttribute(boundsProxy.geometry.getAttribute("position"));
+  return box.applyMatrix4(boundsProxy.matrixWorld);
+}
+
+// Whether a tileset is in Earth-centred coordinates (ECEF, e.g. photogrammetry
+// from Cesium ion), to be laid flat at its place on the globe. 3d-tiles-renderer's
+// ReorientationPlugin assumes so for any centre farther than half the Earth's
+// radius from the origin - which projected coordinates are too: UTM or
+// Gauss-Krüger scans (point clouds from PotreeConverter or py3dtiles) have
+// northings of millions of metres, and were tilted by the Earth's curvature
+// at the wrong place. A point on the globe has |z| = R sin(latitude), so z
+// near 0 only within ~10 km of the equator; in a projected system z is the
+// height. viewer.tiles.georeferenced: true / false overrides the guess.
+function isGeocentric(tiles, setting) {
+  if (setting === true || setting === false) return setting;
+  const sphere = new THREE.Sphere();
+  if (!tiles.getBoundingSphere(sphere)) return false;
+  const minRadius = Math.min(...tiles.ellipsoid.radius);
+  return sphere.center.length() > minRadius * 0.5 && Math.abs(sphere.center.z) >= 10_000;
+}
+
+// What ReorientationPlugin does for a local tileset: Z up (3D Tiles, Potree)
+// turned to three.js' Y up, and the centre moved to the origin.
+function orientLocalTileset(tiles) {
+  const sphere = new THREE.Sphere();
+  tiles.getBoundingSphere(sphere);
+  const group = tiles.group;
+  group.rotation.set(-Math.PI / 2, 0, 0);
+  group.position.copy(sphere.center).applyEuler(group.rotation).multiplyScalar(-1);
 }
 
 // Creates the renderer for a tileset or Potree cloud, waits for the first
@@ -8740,6 +8813,7 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
       edlStrength: options.edlStrength,
     });
   tiles.registerPlugin(pointCloudPlugin);
+  if (format === "potree") decodePotreeClassification(pointCloudPlugin.loader);
 
   tiles.addEventListener("load-model", ({ scene, tile }) => {
     // Level in the tile tree, for the point cloud panel's "detail levels" colours.
@@ -8789,13 +8863,17 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
     pump();
   });
 
-  // Registered only now so that it orients the group right away (its init
+  // ReorientationPlugin, registered only now so that it orients the group right away (its init
   // runs immediately once the root is loaded) and never later, after
   // afterLoad has centred the model: georeferenced tilesets (ECEF, thousands
   // of km from the origin) are moved to the origin with local "up" along +Y;
   // local ones are turned from the Z-up convention of 3D Tiles and Potree to
   // three.js' Y-up. afterLoad keeps this transform for tiled models.
-  tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
+  if (isGeocentric(tiles, options.georeferenced)) {
+    tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
+  } else {
+    orientLocalTileset(tiles);
+  }
 
   addTilesetBounds(tiles);
   tiles.group.updateMatrixWorld(true);
@@ -9183,7 +9261,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-BF5FIn7q.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-CldW_vY1.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -9312,9 +9390,9 @@ const loadLWOLoader = async () => (await import('./three-DVpUZZAE.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DEYEu7o2.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DVpUZZAE.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BpTNqyQ7.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DqzefRxU.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-BckLJwGY.js');
+const loadSplats = async () => import('./splats-BFcMQ_eU.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -14424,7 +14502,7 @@ function renderFrame(renderer = core.renderer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "256b902e" ;
+const BUILD_ID$2 = "8960c2df" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -14475,8 +14553,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "256b902e" ;
-const BUILD_TIME$1 = "2026-10-16T09:06:18.039Z" ;
+const BUILD_ID$1 = "8960c2df" ;
+const BUILD_TIME$1 = "2026-10-16T09:25:29.373Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -34057,9 +34135,12 @@ function createColorUniforms() {
   };
 }
 
-function createMaterial(params, colorUniforms = null) {
-  const material = new PointCloudMaterial(params);
-  if (!colorUniforms) return material;
+// Adds the colour modes to a PointCloudMaterial (once). colorUniforms may be
+// shared: the tiles of a streamed cloud all use the panel's one set, so a
+// mode switch is a single uniform change.
+function addColorModes(material, colorUniforms) {
+  if (material.userData.colorModes) return material;
+  material.userData.colorModes = colorUniforms;
   Object.assign(material.uniforms, colorUniforms);
   const injectEffects = material.onBeforeCompile;
   material.onBeforeCompile = (shader, renderer) => {
@@ -34069,14 +34150,20 @@ function createMaterial(params, colorUniforms = null) {
       .replace("uniform float size;", `uniform float size;\n${COLOR_VERTEX_DECLARATIONS}`)
       .replace("#include <color_vertex>", `#include <color_vertex>\n${COLOR_VERTEX_MAIN}`);
   };
+  material.needsUpdate = true;
   return material;
+}
+
+function createMaterial(params, colorUniforms = null) {
+  const material = new PointCloudMaterial(params);
+  return colorUniforms ? addColorModes(material, colorUniforms) : material;
 }
 
 // The cloud's material as a PointCloudMaterial with GPU colour modes (once;
 // later calls return it). Keeps the colours, opacity and clipping planes of
 // the material it replaces.
 function preparePointCloudMaterial(points) {
-  if (points.material?.isPointCloudMaterial && points.material.uniforms.uColorMode) return points.material;
+  if (points.material?.isPointCloudMaterial && points.material.userData.colorModes) return points.material;
   const previous = points.material;
   const params = {
     vertexColors: Boolean(points.geometry.getAttribute("color")) || previous?.vertexColors === true,
@@ -34240,7 +34327,9 @@ function setPointEdl(points, strength) {
 //     switched in the shader (pointcloud-material.js)
 //   streamed clouds (3D Tiles pnts, Potree - tiles.js):
 //     size, square/round/sphere points, Eye-Dome Lighting strength, colour by
-//     RGB or by level of detail (to see how the octree refines)
+//     RGB, height, intensity and classification (Potree clouds that carry
+//     them) - one set of uniforms shared by all tiles - or by level of
+//     detail (to see how the octree refines)
 //
 // Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape,
 // sizeMode, pointSize, edlStrength) and viewer.tiles (edlStrength, pointShape).
@@ -34288,7 +34377,7 @@ function attachPointCloudPanel(Viewer) {
 
       const config = core.CONFIG?.viewer?.pointCloud || {};
       const tilesConfig = core.CONFIG?.viewer?.tiles || {};
-      const modes = isTiled ? ["rgb", "tile"] : Viewer.getDirectColorModes(points);
+      const modes = isTiled ? Viewer.getTiledColorModes(potree) : Viewer.getDirectColorModes(points);
       const preferred = config.colorMode;
       const directShape = SHAPES.includes(config.pointShape) ? config.pointShape
         : SHAPES.includes(tilesConfig.pointShape) ? tilesConfig.pointShape : "square";
@@ -34308,6 +34397,8 @@ function attachPointCloudPanel(Viewer) {
           : Math.min(1, Math.max(0, finiteOr(config.edlStrength, finiteOr(tilesConfig.edlStrength, DEFAULT_EDL)))),
         collapsed: false,
         hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
+        // Streamed clouds: the colour uniforms all tiles share.
+        colorUniforms: isTiled ? createColorUniforms() : null,
         ui: null,
       };
       Viewer.pointCloudState = state;
@@ -34328,9 +34419,27 @@ function attachPointCloudPanel(Viewer) {
         Viewer.setPointCloudEdl(state.edl);
         Viewer.setPointCloudColorMode(state.colorMode);
       }
+      if (isTiled && state.colorMode !== modes[0]) Viewer.setPointCloudColorMode(state.colorMode);
       Viewer.createPointCloudPanel();
       Viewer.updateEditorToolbarState?.();
       return true;
+    },
+
+    // Colour modes of a streamed cloud: height always, intensity and
+    // classification when a Potree cloud carries them (3D Tiles pnts content
+    // from py3dtiles has neither as vertex attributes).
+    getTiledColorModes(potree) {
+      const modes = ["rgb"];
+      const attributes = potree ? getPotreeAttributes() : {};
+      const varies = (name) => {
+        const { min, max } = attributes[name] || {};
+        return Array.isArray(min) && Array.isArray(max) && max[0] > min[0];
+      };
+      if (varies("intensity")) modes.push("intensity");
+      modes.push("height");
+      if (varies("classification")) modes.push("classification");
+      modes.push("tile");
+      return modes;
     },
 
     disposePointCloudControls() {
@@ -34384,6 +34493,7 @@ function attachPointCloudPanel(Viewer) {
       if (!state || state.kind !== "tiles") return;
       scene.traverse((child) => {
         if (!child.isPoints) return;
+        if (child.material?.isPointCloudMaterial) addColorModes(child.material, state.colorUniforms);
         child.userData.baseMaterialSize ??= child.material.size;
         child.material.size = child.userData.baseMaterialSize * state.size;
         const tileId = child.material.uniforms?.uTileId;
@@ -34456,6 +34566,16 @@ function attachPointCloudPanel(Viewer) {
       state.colorMode = mode;
       if (state.kind === "tiles") {
         if (state.plugin) state.plugin.debugColorMode = mode === "tile" ? "tile" : "none";
+        const uniforms = state.colorUniforms;
+        uniforms.uColorMode.value = COLOR_MODES[mode] ?? COLOR_MODES.rgb;
+        if (mode === "height") {
+          const box = getTiledModelBox();
+          if (box) uniforms.uHeightRange.value.set(box.min.y, box.max.y);
+        } else if (mode === "intensity") {
+          // PotreeLoader scales intensity to 0..1.
+          const { min, max } = getPotreeAttributes().intensity || {};
+          uniforms.uIntensityRange.value.set((min?.[0] ?? 0) / 65535, (max?.[0] ?? 65535) / 65535);
+        }
         const group = getActiveTiles()?.group;
         if (group) Viewer.applyPointCloudSettingsToTile(group);
       } else {
@@ -42627,8 +42747,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "256b902e" ;
-const BUILD_TIME = "2026-10-16T09:06:18.039Z" ;
+const BUILD_ID = "8960c2df" ;
+const BUILD_TIME = "2026-10-16T09:25:29.373Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -47017,4 +47137,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-BR8va0be.js.map
+//# sourceMappingURL=main-GdbJokz0.js.map

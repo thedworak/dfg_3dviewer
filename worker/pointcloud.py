@@ -1,18 +1,27 @@
-"""Point clouds -> streamed 3D Tiles, for the standalone worker.
+"""Point clouds -> streamed octrees, for the standalone worker.
 
-Uploaded scans are turned into a 3D Tiles tileset (pnts octree) with
-py3dtiles, which the viewer streams level by level (viewer/tiles.js) instead
-of downloading millions of points at once:
+Uploaded scans are turned into a level-of-detail octree that the viewer
+streams node by node (viewer/tiles.js) instead of downloading millions of
+points at once, in one of two formats:
 
+  Potree 2   (default when PotreeConverter is installed - it is in the
+             Docker image) three files: metadata.json, hierarchy.bin and
+             octree.bin, which the viewer reads by HTTP range requests (see
+             static_files.py). Keeps intensity, classification, returns and
+             colour; fast (C++). Output: tiles/<name>/metadata.json
+  3D Tiles   py3dtiles: a tileset.json with one .pnts file per node
+             (positions and colour). Output: tiles/<name>/tileset.json
+
+Inputs:
   .las        converted directly
-  .laz        decompressed to LAS first (laspy + lazrs; py3dtiles would need
-              the external LAStools "laszip" for it)
+  .laz        read directly by PotreeConverter; for py3dtiles decompressed
+              to LAS first (laspy + lazrs; py3dtiles would need the external
+              LAStools "laszip" for it)
   .e57        every scan, with its pose applied, merged into one LAS (pye57)
   .ply        only when it has no faces (a point cloud), converted to LAS
               with trimesh; meshes still go through Blender
 
-Output: <input dir>/tiles/<name>/tileset.json. No thumbnails are rendered for
-point clouds (Blender renders meshes).
+No thumbnails are rendered for point clouds (Blender renders meshes).
 
 Before the tiles, a quick preview is written next to them,
 <input dir>/tiles/<name>.preview.las: a random subsample of the cloud in
@@ -21,6 +30,9 @@ decodes LAS while downloading, and since the points are shuffled the first
 100 000 already show the whole object, the rest only make it denser.
 
 Configuration (environment):
+  WORKER_POINTCLOUD_FORMAT  auto (default: potree when PotreeConverter is
+                            found, else 3dtiles), potree or 3dtiles
+  WORKER_POTREE_CONVERTER   the PotreeConverter executable (default: PotreeConverter on PATH)
   WORKER_POINTCLOUD_JOBS  parallel py3dtiles workers (default: number of CPUs, at most 8)
   WORKER_POINTCLOUD_TIMEOUT  seconds per conversion (default 3600)
   WORKER_POINTCLOUD_PREVIEW_POINTS  points in the preview (default 1000000; 0: no preview)
@@ -37,6 +49,19 @@ from pathlib import Path
 POINTCLOUD_JOBS = int(os.environ.get("WORKER_POINTCLOUD_JOBS", str(min(os.cpu_count() or 1, 8))))
 POINTCLOUD_TIMEOUT = int(os.environ.get("WORKER_POINTCLOUD_TIMEOUT", "3600"))
 POINTCLOUD_PREVIEW_POINTS = int(os.environ.get("WORKER_POINTCLOUD_PREVIEW_POINTS", "1000000"))
+POINTCLOUD_FORMAT = os.environ.get("WORKER_POINTCLOUD_FORMAT", "auto").strip().lower()
+POTREE_CONVERTER = os.environ.get("WORKER_POTREE_CONVERTER", "PotreeConverter")
+
+
+def output_format() -> str:
+    """"potree" or "3dtiles", from WORKER_POINTCLOUD_FORMAT and what is installed."""
+    if POINTCLOUD_FORMAT == "3dtiles":
+        return "3dtiles"
+    if shutil.which(POTREE_CONVERTER):
+        return "potree"
+    if POINTCLOUD_FORMAT == "potree":
+        raise RuntimeError(f"PotreeConverter ({POTREE_CONVERTER}) is not installed")
+    return "3dtiles"
 
 POINTCLOUD_FORMATS = {"las", "laz", "e57"}
 
@@ -218,69 +243,84 @@ def write_preview(source: Path, target: Path, max_points: int = POINTCLOUD_PREVI
 
 
 def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: str = "",
-                     preview: Path = None, on_preview=None) -> Path:
-    """Converts a point cloud to a 3D Tiles tileset in out_dir; returns the
-    path of its tileset.json. work_dir holds intermediate files.
+                     preview: Path = None, on_preview=None, fmt: str = None) -> Path:
+    """Converts a point cloud to a streamed octree in out_dir (fmt: "potree"
+    or "3dtiles", by default output_format()); returns the path of its entry
+    file - metadata.json or tileset.json. work_dir holds intermediate files.
 
     With preview (a .las path), a quick preview is written there first (see
     write_preview) and on_preview(preview) is called once it exists; a
     preview that fails is only logged."""
+    fmt = fmt or output_format()
     source, out_dir, work_dir = Path(source).resolve(), Path(out_dir).resolve(), Path(work_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     ext = source.suffix.lower().lstrip(".")
-    py3dtiles_input = source
+    converter_input = source
     intermediate = None
-    if ext == "laz":
+    if ext == "laz" and fmt == "3dtiles":
         intermediate = work_dir / (source.stem + ".las")
         print(f"{log_prefix} decompressing LAZ -> {intermediate.name}", file=sys.stderr)
         laz_to_las(source, intermediate)
-        py3dtiles_input = intermediate
+        converter_input = intermediate
     elif ext in ("e57", "ply"):
         intermediate = work_dir / (source.stem + ".las")
         count = (e57_to_las if ext == "e57" else ply_to_las)(source, intermediate)
         print(f"{log_prefix} {ext.upper()} -> {intermediate.name}: {count} points", file=sys.stderr)
-        py3dtiles_input = intermediate
+        converter_input = intermediate
 
-    py3dtiles = shutil.which("py3dtiles")
-    if not py3dtiles:
-        raise RuntimeError("py3dtiles is not installed")
+    if fmt == "potree":
+        converter = shutil.which(POTREE_CONVERTER)
+        if not converter:
+            raise RuntimeError(f"PotreeConverter ({POTREE_CONVERTER}) is not installed")
+        # Default (uncompressed) encoding: the viewer's Potree loader reads
+        # no BROTLI nodes. Poisson-disk sampling (the default) for the levels.
+        command = [converter, str(converter_input), "-o", str(out_dir)]
+        entry_name, tool = "metadata.json", "PotreeConverter"
+    else:
+        py3dtiles = shutil.which("py3dtiles")
+        if not py3dtiles:
+            raise RuntimeError("py3dtiles is not installed")
+        # --disable-processpool: Docker's default /dev/shm (64 MB) is too small for
+        # py3dtiles' shared-memory pool; conversion still runs in parallel workers.
+        command = [
+            py3dtiles, "convert", str(converter_input), "--out", str(out_dir), "--overwrite",
+            "--jobs", str(POINTCLOUD_JOBS), "--disable-processpool",
+        ]
+        entry_name, tool = "tileset.json", "py3dtiles"
 
     if preview is not None and POINTCLOUD_PREVIEW_POINTS > 0:
         try:
-            count = write_preview(py3dtiles_input, Path(preview))
+            count = write_preview(converter_input, Path(preview))
             print(f"{log_prefix} preview {Path(preview).name}: {count} points", file=sys.stderr)
             if on_preview is not None:
                 on_preview(Path(preview))
         except Exception as exc:  # noqa: BLE001 - the preview is optional
             print(f"{log_prefix} preview failed: {exc}", file=sys.stderr)
+
     shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.parent.mkdir(parents=True, exist_ok=True)
-    # --disable-processpool: Docker's default /dev/shm (64 MB) is too small for
-    # py3dtiles' shared-memory pool; conversion still runs in parallel workers.
-    command = [
-        py3dtiles, "convert", str(py3dtiles_input), "--out", str(out_dir), "--overwrite",
-        "--jobs", str(POINTCLOUD_JOBS), "--disable-processpool",
-    ]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=POINTCLOUD_TIMEOUT, cwd=work_dir)
     finally:
         if intermediate is not None:
             intermediate.unlink(missing_ok=True)
     print(
-        f"{log_prefix} py3dtiles exit={result.returncode}:\n"
+        f"{log_prefix} {tool} exit={result.returncode}:\n"
         f"--- stdout ---\n{result.stdout[-4000:]}\n--- stderr ---\n{result.stderr[-4000:]}",
         file=sys.stderr,
     )
-    tileset = out_dir / "tileset.json"
-    if result.returncode != 0 or not tileset.is_file():
+    entry = out_dir / entry_name
+    if result.returncode != 0 or not entry.is_file():
         detail = (result.stderr.strip() or result.stdout.strip())[-300:]
-        raise RuntimeError(f"py3dtiles failed (exit={result.returncode}): {detail}")
+        raise RuntimeError(f"{tool} failed (exit={result.returncode}): {detail}")
     shutil.rmtree(out_dir / "tmp", ignore_errors=True)
+    # PotreeConverter's log names the server's paths; it is not served.
+    (out_dir / "log.txt").unlink(missing_ok=True)
     try:
         work_dir.rmdir()  # only when empty
     except OSError:
         pass
-    return tileset
+    return entry
 
 
 def preview_path_for(out_dir: Path) -> Path:
@@ -290,13 +330,13 @@ def preview_path_for(out_dir: Path) -> Path:
 
 def main(argv) -> None:
     if len(argv) != 2:
-        sys.exit("usage: pointcloud.py <scan.las|laz|e57|ply> <out_dir>")
+        sys.exit("usage: pointcloud.py <scan.las|laz|e57|ply> <out_dir>   (WORKER_POINTCLOUD_FORMAT=potree|3dtiles)")
     source, out_dir = Path(argv[0]), Path(argv[1])
     tileset = convert_to_tiles(
         source, out_dir, out_dir.parent / (out_dir.name + ".work"), log_prefix="[pointcloud]",
         preview=preview_path_for(out_dir),
     )
-    print(f"tileset: {tileset}")
+    print(f"entry: {tileset}")
 
 
 if __name__ == "__main__":

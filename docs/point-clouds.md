@@ -38,11 +38,20 @@ While a LAS/LAZ file is still loading, points are drawn at a fixed pixel size; t
 
 Settings: `viewer.pointCloud.maxPoints`, `colorMode`, `sizeMode`, `pointSize`, `pointShape`, `edlStrength` - see [viewer-settings.md](viewer-settings.md).
 
-## Streamed point clouds (3D Tiles / Potree 2)
+## Streamed point clouds (Potree 2 / 3D Tiles)
 
-Uploaded scans are converted by the worker to a 3D Tiles tileset (`pnts` octree) - see "Point clouds" in [worker/README.md](../worker/README.md). Potree 2 output (`metadata.json`, from PotreeConverter 2) is read as well. `viewer/tiles.js` streams them with 3d-tiles-renderer, with Eye-Dome Lighting, round/sphere points and level-of-detail colours in the point cloud panel. Settings: `viewer.tiles.*`.
+Uploaded scans are converted by the worker to a level-of-detail octree - see "Point clouds" in [worker/README.md](../worker/README.md):
 
-While py3dtiles runs, the viewer already shows a **quick preview**: the worker first writes a random subsample of about a million points, shuffled, as `tiles/<name>.preview.las`, and the job status reports it as `previewUrl`. The upload panel (`viewer/ui/upload-panel.js`) loads it like any LAS file (direct loading, above) - because the points are in random order, the first batch already shows the whole object and later batches make it denser - with a "Preview · building the full point cloud..." badge. When the job is `ready`, the streamed tiles replace the preview. `WORKER_POINTCLOUD_PREVIEW_POINTS` sets the size (`0`: no preview).
+- **Potree 2** (default, PotreeConverter): three files - `metadata.json`, `hierarchy.bin`, `octree.bin`. The viewer reads each node from `octree.bin` with an HTTP range request, so the server must answer ranges: the worker does (`worker/static_files.py`), the viewer's nginx caches `octree.bin` in 1 MB slices, and the test server (`scripts/serve-dist.js`) handles them too. Intensity and classification are kept, and the point cloud panel colours by them.
+- **3D Tiles** (py3dtiles, `WORKER_POINTCLOUD_FORMAT=3dtiles` or when PotreeConverter is missing): `tileset.json` + one `.pnts` per node; position and colour only.
+
+`viewer/tiles.js` streams both with 3d-tiles-renderer. Colours (point cloud panel): RGB, height, intensity and classification (Potree clouds that carry them - `metadata.json` lists each attribute's range), and "detail levels" to see how the octree refines; one set of shader uniforms is shared by all tiles. Also Eye-Dome Lighting and round/sphere points. Scans in projected coordinates (UTM, Gauss-Krüger) are oriented Z-up like local ones, not mistaken for Earth-centred tilesets. Settings: `viewer.tiles.*`. Example: `examples/potree/scan/metadata.json`.
+
+**Delivery.** Converted files are served with byte ranges, ETags (304 on revalidation), 30-day caching, and gzip for formats that are not compressed already (JSON, LAS, `.pnts`, Potree's hierarchy - compressed once in the background, see the worker README). Cloudflare caches them in front.
+
+Why Potree 2 rather than COPC: COPC (Cloud Optimized Point Cloud - one LAZ file with an octree, read by ranges) would be the better archive format, but needs a LAZ chunk decoder and an octree renderer of its own in the viewer, while Potree 2 is read by the 3d-tiles-renderer plugin the viewer already uses, with the same range-request delivery. COPC stays an option for later (e.g. as a download next to the Potree output).
+
+While the converter runs, the viewer already shows a **quick preview**: the worker first writes a random subsample of about a million points, shuffled, as `tiles/<name>.preview.las`, and the job status reports it as `previewUrl`. The upload panel (`viewer/ui/upload-panel.js`) loads it like any LAS file (direct loading, above) - because the points are in random order, the first batch already shows the whole object and later batches make it denser - with a "Preview · building the full point cloud..." badge. When the job is `ready`, the streamed tiles replace the preview. `WORKER_POINTCLOUD_PREVIEW_POINTS` sets the size (`0`: no preview).
 
 ## Roadmap
 
@@ -51,6 +60,6 @@ Planned improvements for very large point clouds, in this order:
 1. **Decoding in a Web Worker, progressive display** - *done* (this page, "Direct loading").
 2. **Quick preview before the full conversion** - *done* (this page, "Streamed point clouds").
 3. **Display: GPU colouring, adaptive point size, Eye-Dome Lighting for directly loaded clouds** - *done* (this page, "Direct loading").
-4. **Output format and delivery**: COPC (Cloud Optimized Point Cloud, one LAZ file read with HTTP range requests) or PotreeConverter 2 instead of py3dtiles, keeping intensity and classification; precompressed files, immutable caching and a CDN.
+4. **Output format and delivery: Potree 2 by default (intensity, classification), range requests, gzip, ETags, nginx slices** - *done* (this page, "Streamed point clouds").
 5. **Tools**: cross-sections and profiles, filtering by classification, GPU picking for measurements and annotations on points.
 6. **Experimental**: point rasterization in WebGPU compute shaders (hundreds of millions of points).

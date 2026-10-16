@@ -92,7 +92,9 @@ export function disposeTiles() {
 // Settings (viewer-settings.json -> viewer.tiles): errorTarget (screen-space
 // error in px, default 6; lower = more detail), pointShape (square | round |
 // sphere), edlStrength (Eye-Dome Lighting, default 0.4; 0 disables it),
-// pointScale (Potree point size factor, default 1).
+// pointScale (Potree point size factor, default 1), georeferenced (true:
+// Earth-centred, laid flat on the globe; false: local / projected, Z up;
+// unset: guessed - see isGeocentric).
 function getTilesOptions() {
   const config = core.CONFIG?.viewer?.tiles || {};
   const number = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
@@ -101,7 +103,78 @@ function getTilesOptions() {
     pointShape: ["square", "round", "sphere"].includes(config.pointShape) ? config.pointShape : "round",
     edlStrength: number(config.edlStrength, 0.4),
     pointScale: number(config.pointScale, 1),
+    georeferenced: typeof config.georeferenced === "boolean" ? config.georeferenced : null,
   };
+}
+
+// PotreeLoader decodes position, colour and intensity; classification is
+// added here from the same point records, for the point cloud panel's
+// "Classification" colours. Positions are untouched, so it stays in step
+// with the loader whatever its version.
+function decodePotreeClassification(loader) {
+  if (!loader?.parsePointData) return;
+  const parse = loader.parsePointData.bind(loader);
+  loader.parsePointData = (buffer, ...args) => {
+    const result = parse(buffer, ...args);
+    let stride = 0;
+    let offset = -1;
+    (loader.metadata?.attributes || []).forEach((attribute) => {
+      if (attribute.name === "classification" && attribute.size === 1) offset = stride;
+      stride += attribute.size;
+    });
+    if (offset < 0 || !stride) return result;
+    const count = Math.floor(buffer.byteLength / stride);
+    const bytes = new Uint8Array(buffer);
+    const classes = new Uint8Array(count);
+    for (let i = 0; i < count; i += 1) classes[i] = bytes[i * stride + offset];
+    result.geometry.setAttribute("classification", new THREE.BufferAttribute(classes, 1));
+    return result;
+  };
+}
+
+// Attributes a Potree cloud carries, from its metadata.json: name -> { min, max }.
+export function getPotreeAttributes() {
+  const metadata = core.tiledModel?.format === "potree" ? pointCloudPlugin?.loader?.metadata : null;
+  const result = {};
+  (metadata?.attributes || []).forEach((attribute) => {
+    result[attribute.name] = { min: attribute.min, max: attribute.max };
+  });
+  return result;
+}
+
+// The whole tileset's box in world space (not only the tiles loaded now).
+export function getTiledModelBox() {
+  if (!boundsProxy) return null;
+  boundsProxy.updateWorldMatrix(true, false);
+  const box = new THREE.Box3().setFromBufferAttribute(boundsProxy.geometry.getAttribute("position"));
+  return box.applyMatrix4(boundsProxy.matrixWorld);
+}
+
+// Whether a tileset is in Earth-centred coordinates (ECEF, e.g. photogrammetry
+// from Cesium ion), to be laid flat at its place on the globe. 3d-tiles-renderer's
+// ReorientationPlugin assumes so for any centre farther than half the Earth's
+// radius from the origin - which projected coordinates are too: UTM or
+// Gauss-Krüger scans (point clouds from PotreeConverter or py3dtiles) have
+// northings of millions of metres, and were tilted by the Earth's curvature
+// at the wrong place. A point on the globe has |z| = R sin(latitude), so z
+// near 0 only within ~10 km of the equator; in a projected system z is the
+// height. viewer.tiles.georeferenced: true / false overrides the guess.
+function isGeocentric(tiles, setting) {
+  if (setting === true || setting === false) return setting;
+  const sphere = new THREE.Sphere();
+  if (!tiles.getBoundingSphere(sphere)) return false;
+  const minRadius = Math.min(...tiles.ellipsoid.radius);
+  return sphere.center.length() > minRadius * 0.5 && Math.abs(sphere.center.z) >= 10_000;
+}
+
+// What ReorientationPlugin does for a local tileset: Z up (3D Tiles, Potree)
+// turned to three.js' Y up, and the centre moved to the origin.
+function orientLocalTileset(tiles) {
+  const sphere = new THREE.Sphere();
+  tiles.getBoundingSphere(sphere);
+  const group = tiles.group;
+  group.rotation.set(-Math.PI / 2, 0, 0);
+  group.position.copy(sphere.center).applyEuler(group.rotation).multiplyScalar(-1);
 }
 
 // Creates the renderer for a tileset or Potree cloud, waits for the first
@@ -139,6 +212,7 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
       edlStrength: options.edlStrength,
     });
   tiles.registerPlugin(pointCloudPlugin);
+  if (format === "potree") decodePotreeClassification(pointCloudPlugin.loader);
 
   tiles.addEventListener("load-model", ({ scene, tile }) => {
     // Level in the tile tree, for the point cloud panel's "detail levels" colours.
@@ -188,13 +262,17 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
     pump();
   });
 
-  // Registered only now so that it orients the group right away (its init
+  // ReorientationPlugin, registered only now so that it orients the group right away (its init
   // runs immediately once the root is loaded) and never later, after
   // afterLoad has centred the model: georeferenced tilesets (ECEF, thousands
   // of km from the origin) are moved to the origin with local "up" along +Y;
   // local ones are turned from the Z-up convention of 3D Tiles and Potree to
   // three.js' Y-up. afterLoad keeps this transform for tiled models.
-  tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
+  if (isGeocentric(tiles, options.georeferenced)) {
+    tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
+  } else {
+    orientLocalTileset(tiles);
+  }
 
   addTilesetBounds(tiles);
   tiles.group.updateMatrixWorld(true);

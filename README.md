@@ -84,8 +84,8 @@ The topics below used to live in this file; they now have their own page in [`do
 | IGES / IGS | – | ✅ ⁹ |
 | 3D Tiles (`tileset.json`) | ✅ ¹⁰ | – |
 | Potree 2 (`metadata.json`) | ✅ ¹⁰ | – |
-| LAS / LAZ (point clouds) | ✅ ¹² | 3D Tiles ¹¹ |
-| E57 (point clouds) | – | 3D Tiles ¹¹ |
+| LAS / LAZ (point clouds) | ✅ ¹² | Potree 2 / 3D Tiles ¹¹ |
+| E57 (point clouds) | – | Potree 2 / 3D Tiles ¹¹ |
 | Gaussian splats: SPZ / SPLAT / KSPLAT / SOG, PLY of splats | ✅ ¹³ | – |
 
 > - ¹ via Blender (`scripts/convert.sh`)
@@ -98,7 +98,7 @@ The topics below used to live in this file; they now have their own page in [`do
 > - ⁸ in progress
 > - ⁹ via OpenCASCADE (`cascadio`, standalone worker)
 > - ¹⁰ streamed level of detail via `3d-tiles-renderer`
-> - ¹¹ converted to a streamed 3D Tiles tileset via `py3dtiles` (standalone worker); a PLY without faces is treated the same way
+> - ¹¹ converted to a streamed octree by the standalone worker: Potree 2 via PotreeConverter (default; keeps intensity and classification, read by HTTP range requests) or 3D Tiles via `py3dtiles`; a PLY without faces is treated the same way
 > - ¹² loaded directly in a Web Worker (LAS 1.0-1.4 all point formats, decoded while downloading; LAZ point formats 0-3 with loaders.gl + laz-perf), shown progressively and thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming - see [docs/point-clouds.md](docs/point-clouds.md)
 > - ¹³ drawn with Spark (sparkjs.dev), downloaded with the first splat file; a PLY is read as splats when its vertices carry Gaussians (`f_dc_0`, `scale_0`, `rot_0`), and the worker keeps such a PLY as uploaded
 >

@@ -934,6 +934,52 @@ test('large LAS files are decoded in a Web Worker and fill in batch by batch', a
   expect(colorMode).toBe(3);
 });
 
+// examples/potree/scan: 30 000 points of points.laz through PotreeConverter
+// 2.1.1, classified ground (2) / building (6) by height.
+test('Potree 2 clouds stream by range requests, with intensity, height and classification colours', async ({ page }) => {
+  const ranges = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/octree.bin')) ranges.push(request.headers().range);
+  });
+  await openViewer(page, '/examples/potree/scan/metadata.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  await page.waitForFunction(() => window.Viewer.pointCloudState?.kind === 'tiles', null, { timeout: 20_000 });
+  expect(ranges.length).toBeGreaterThan(0);
+  expect(ranges.every((range) => /^bytes=\d+-\d+$/.test(range))).toBe(true);
+
+  const panel = page.locator('#viewerPointCloudPanel');
+  const colorSelect = panel.locator('select').nth(1);
+  await expect(colorSelect.locator('option')).toHaveText(['RGB', 'Intensity', 'Height', 'Classification', 'Detail levels']);
+  await colorSelect.selectOption('classification');
+  const tiles = await page.evaluate(() => {
+    const points = [];
+    window.Viewer.pointCloudState.root.traverse((child) => {
+      if (child.isPoints) points.push(child);
+    });
+    const classes = new Set();
+    points.forEach((object) => object.geometry.getAttribute('classification')?.array.forEach((value) => classes.add(value)));
+    return {
+      count: points.length,
+      // One set of colour uniforms for all tiles.
+      shared: points.every((object) => object.material.uniforms.uColorMode === points[0].material.uniforms.uColorMode),
+      colorMode: points[0].material.uniforms.uColorMode.value,
+      classes: [...classes].sort(),
+      // Extent of the points loaded (Potree's own bounds are a cube).
+      size: points.reduce((box, object) => box.union(new THREE.Box3().setFromObject(object, true)), new THREE.Box3())
+        .getSize(new THREE.Vector3()).toArray(),
+    };
+  });
+  expect(tiles.count).toBeGreaterThan(0);
+  // UTM coordinates (~5.5 million m north) are not mistaken for Earth-centred
+  // ones: Z-up turned to Y-up, the house ~19 m high, not tilted on its side.
+  expect(tiles.size[1]).toBeGreaterThan(15);
+  expect(tiles.size[1]).toBeLessThan(22);
+  expect(tiles.size[0]).toBeGreaterThan(25);
+  expect(tiles.shared).toBe(true);
+  expect(tiles.colorMode).toBe(3);
+  expect(tiles.classes).toEqual([2, 6]);
+});
+
 test('LAS/LAZ decoding falls back to the main thread without module workers', async ({ page }) => {
   await page.addInitScript(() => {
     window.Worker = undefined;

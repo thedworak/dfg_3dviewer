@@ -99,6 +99,26 @@ ENV GALLIUM_DRIVER=llvmpipe
 RUN pip3 install --no-cache-dir --break-system-packages "py3dtiles[las]" "laspy[lazrs]" pye57 \
     && py3dtiles --help > /dev/null
 
+# Point clouds -> Potree 2 (worker/pointcloud.py's default when it is here):
+# PotreeConverter writes an octree in three files (metadata.json,
+# hierarchy.bin, octree.bin) that the viewer reads node by node with HTTP
+# range requests, keeping intensity and classification. There is no Linux
+# release binary, so it is built from source; the compiler goes again
+# afterwards and only the TBB runtime stays. CMAKE_POLICY_VERSION_MINIMUM
+# lets newer CMake (4.x) configure its bundled laszip/brotli.
+ARG POTREECONVERTER_VERSION=2.1.1
+RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ make libtbb-dev libtbb12 \
+    && curl -fsSL "https://github.com/potree/PotreeConverter/archive/refs/tags/${POTREECONVERTER_VERSION}.tar.gz" | tar -xz -C /tmp \
+    && cmake -S "/tmp/PotreeConverter-${POTREECONVERTER_VERSION}" -B /tmp/potree-build \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    && cmake --build /tmp/potree-build -j"$(nproc)" \
+    && install -m 755 /tmp/potree-build/PotreeConverter /usr/local/bin/PotreeConverter \
+    && rm -rf /tmp/PotreeConverter-* /tmp/potree-build \
+    && apt-get purge -y cmake g++ make libtbb-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && PotreeConverter --help > /dev/null
+
 # Runtime defaults that do not depend on the code.
 ENV SPATH=/app
 ENV BLENDER_BIN=blender

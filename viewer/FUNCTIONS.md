@@ -353,6 +353,8 @@ Streamed level-of-detail models through [3d-tiles-renderer](https://github.com/N
   - Creates the `TilesRenderer` with the viewer's glTF decoders (Draco, Meshopt, KTX2), `ReorientationPlugin` (georeferenced tilesets moved to the origin; local ones turned from Z-up to Y-up), `PotreePlugin` or `PointCloudEffectsPlugin` (Eye-Dome Lighting, point shape). Resolves with the tiles group once the first tiles are in; `loaders.js` then runs the normal `afterLoad` on it.
   - Adds an invisible `Object3D` carrying a box geometry of the whole tileset, so centring, camera framing and dimensions use the full extent rather than the coarse root tiles.
 - `updateTiles()` — called from the render loop; `disposeTiles()` — on model reset.
+- Orientation: `isGeocentric()` decides between 3d-tiles-renderer's `ReorientationPlugin` (Earth-centred tilesets, laid flat at their place on the globe) and `orientLocalTileset()` (Z up turned to Y up, centred). The plugin alone took any centre farther than half the Earth's radius for ECEF, which tilted scans in UTM / Gauss-Krüger coordinates; now the centre must also be more than 10 km off the equatorial plane (`viewer.tiles.georeferenced` overrides).
+- Potree: `decodePotreeClassification(loader)` adds the `classification` attribute PotreeLoader does not decode; `getPotreeAttributes()` — the cloud's attributes with their min/max from `metadata.json` (the point cloud panel offers intensity / classification colours by them); `getTiledModelBox()` — the whole tileset's world box (height colours).
 - Annotations are not offered for tiled models (their meshes change with the level of detail); measurements work on the tiles currently loaded.
 
 
@@ -377,6 +379,7 @@ Display of directly loaded point clouds (LAS, LAZ, XYZ, PCD), used by the point 
 - `setPointColorMode(points, mode)` — `rgb`, `intensity`, `height` (world Y) or `classification` (ASPRS colours, `CLASSIFICATION_COLORS`): a uniform (`uColorMode`) and the range uniforms; the buffers are never rewritten.
 - `setPointSize(points, { sizeMode, scale, pixels })` — `adaptive`: `material.size` in world units = spacing × 1.4 × scale, at least 1 px; `fixed`: `pixels × scale` px.
 - `estimatePointSpacing(geometry)` — average neighbour distance, assuming the points sample surfaces: the occupied cells of a 64-step grid over the cloud (from at most 300 000 sampled points) give the surface area, shared out among the points. Cached in `points.userData.pointSpacing`.
+- `addColorModes(material, colorUniforms)` / `createColorUniforms()` — the same colour modes on another `PointCloudMaterial`: the point cloud panel adds them to every tile of a streamed cloud, all sharing one set of uniforms, so a mode switch is a single uniform change.
 - `setPointEdl(points, strength)` — Eye-Dome Lighting: in the cloud's `onBeforeRender` it is drawn into a float log-depth target with a separate material (three would otherwise keep the uniforms of the material it drew last), then the main material shades each point by its neighbours' depth. Skipped while `0`, in WebXR and outside WebGL.
 
 ## `viewer/pointcloud-las-decode.js`

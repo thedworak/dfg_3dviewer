@@ -3,10 +3,10 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
-import { getActiveTiles, getPointCloudPlugin } from "../tiles.js";
+import { getActiveTiles, getPointCloudPlugin, getPotreeAttributes, getTiledModelBox } from "../tiles.js";
 import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 import {
-  preparePointCloudMaterial, setPointColorMode, setPointEdl, setPointSize,
+  COLOR_MODES, addColorModes, createColorUniforms, preparePointCloudMaterial, setPointColorMode, setPointEdl, setPointSize,
 } from "../pointcloud-material.js";
 
 // Point cloud display controls, shown when the loaded model is a point cloud:
@@ -18,7 +18,9 @@ import {
 //     switched in the shader (pointcloud-material.js)
 //   streamed clouds (3D Tiles pnts, Potree - tiles.js):
 //     size, square/round/sphere points, Eye-Dome Lighting strength, colour by
-//     RGB or by level of detail (to see how the octree refines)
+//     RGB, height, intensity and classification (Potree clouds that carry
+//     them) - one set of uniforms shared by all tiles - or by level of
+//     detail (to see how the octree refines)
 //
 // Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape,
 // sizeMode, pointSize, edlStrength) and viewer.tiles (edlStrength, pointShape).
@@ -66,7 +68,7 @@ export function attachPointCloudPanel(Viewer) {
 
       const config = core.CONFIG?.viewer?.pointCloud || {};
       const tilesConfig = core.CONFIG?.viewer?.tiles || {};
-      const modes = isTiled ? ["rgb", "tile"] : Viewer.getDirectColorModes(points);
+      const modes = isTiled ? Viewer.getTiledColorModes(potree) : Viewer.getDirectColorModes(points);
       const preferred = config.colorMode;
       const directShape = SHAPES.includes(config.pointShape) ? config.pointShape
         : SHAPES.includes(tilesConfig.pointShape) ? tilesConfig.pointShape : "square";
@@ -86,6 +88,8 @@ export function attachPointCloudPanel(Viewer) {
           : Math.min(1, Math.max(0, finiteOr(config.edlStrength, finiteOr(tilesConfig.edlStrength, DEFAULT_EDL)))),
         collapsed: false,
         hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
+        // Streamed clouds: the colour uniforms all tiles share.
+        colorUniforms: isTiled ? createColorUniforms() : null,
         ui: null,
       };
       Viewer.pointCloudState = state;
@@ -106,9 +110,27 @@ export function attachPointCloudPanel(Viewer) {
         Viewer.setPointCloudEdl(state.edl);
         Viewer.setPointCloudColorMode(state.colorMode);
       }
+      if (isTiled && state.colorMode !== modes[0]) Viewer.setPointCloudColorMode(state.colorMode);
       Viewer.createPointCloudPanel();
       Viewer.updateEditorToolbarState?.();
       return true;
+    },
+
+    // Colour modes of a streamed cloud: height always, intensity and
+    // classification when a Potree cloud carries them (3D Tiles pnts content
+    // from py3dtiles has neither as vertex attributes).
+    getTiledColorModes(potree) {
+      const modes = ["rgb"];
+      const attributes = potree ? getPotreeAttributes() : {};
+      const varies = (name) => {
+        const { min, max } = attributes[name] || {};
+        return Array.isArray(min) && Array.isArray(max) && max[0] > min[0];
+      };
+      if (varies("intensity")) modes.push("intensity");
+      modes.push("height");
+      if (varies("classification")) modes.push("classification");
+      modes.push("tile");
+      return modes;
     },
 
     disposePointCloudControls() {
@@ -162,6 +184,7 @@ export function attachPointCloudPanel(Viewer) {
       if (!state || state.kind !== "tiles") return;
       scene.traverse((child) => {
         if (!child.isPoints) return;
+        if (child.material?.isPointCloudMaterial) addColorModes(child.material, state.colorUniforms);
         child.userData.baseMaterialSize ??= child.material.size;
         child.material.size = child.userData.baseMaterialSize * state.size;
         const tileId = child.material.uniforms?.uTileId;
@@ -234,6 +257,16 @@ export function attachPointCloudPanel(Viewer) {
       state.colorMode = mode;
       if (state.kind === "tiles") {
         if (state.plugin) state.plugin.debugColorMode = mode === "tile" ? "tile" : "none";
+        const uniforms = state.colorUniforms;
+        uniforms.uColorMode.value = COLOR_MODES[mode] ?? COLOR_MODES.rgb;
+        if (mode === "height") {
+          const box = getTiledModelBox();
+          if (box) uniforms.uHeightRange.value.set(box.min.y, box.max.y);
+        } else if (mode === "intensity") {
+          // PotreeLoader scales intensity to 0..1.
+          const { min, max } = getPotreeAttributes().intensity || {};
+          uniforms.uIntensityRange.value.set((min?.[0] ?? 0) / 65535, (max?.[0] ?? 65535) / 65535);
+        }
         const group = getActiveTiles()?.group;
         if (group) Viewer.applyPointCloudSettingsToTile(group);
       } else {

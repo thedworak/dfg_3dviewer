@@ -58,6 +58,7 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.tiles.pointShape` — `square`, `round` (default) or `sphere` for point clouds
 - `viewer.tiles.edlStrength` — Eye-Dome Lighting strength for point clouds (default `0.4`; `0` turns it off)
 - `viewer.tiles.pointScale` — point size factor for Potree clouds (default `1`)
+- `viewer.tiles.georeferenced` — `true`: the tileset is in Earth-centred coordinates (ECEF, e.g. photogrammetry from Cesium ion) and is laid flat at its place on the globe; `false`: local or projected coordinates (UTM, Gauss-Krüger), Z up. Unset (default): guessed - Earth-centred only when the centre is far from the origin *and* more than 10 km off the equatorial plane, so scans in projected systems (northings of millions of metres) are no longer tilted
 - `viewer.tour.autostart` — start the guided tour through the model's annotations once they are loaded (default `false`)
 - `viewer.tour.autoplay` — advance tour steps automatically (default `false`)
 - `viewer.tour.stepDuration` — seconds spent on each step while autoplaying (default `6`)

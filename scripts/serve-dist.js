@@ -36,8 +36,29 @@ const server = http.createServer((req, res) => {
 
       const ext = path.extname(safePath).toLowerCase()
       res.setHeader('Content-Type', mime[ext] || 'application/octet-stream')
-      res.setHeader('Content-Length', stats.size)
-      const stream = fs.createReadStream(safePath)
+      res.setHeader('Accept-Ranges', 'bytes')
+      // One byte range ("bytes=a-b", "bytes=a-", "bytes=-n"), as Potree 2
+      // clouds read octree.bin node by node (like worker/static_files.py).
+      let start = 0
+      let end = stats.size - 1
+      const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '')
+      if (range && (range[1] || range[2])) {
+        if (range[1]) {
+          start = Number(range[1])
+          if (range[2]) end = Math.min(Number(range[2]), end)
+        } else {
+          start = Math.max(0, stats.size - Number(range[2]))
+        }
+        if (start > end || start >= stats.size) {
+          res.statusCode = 416
+          res.setHeader('Content-Range', `bytes */${stats.size}`)
+          return res.end()
+        }
+        res.statusCode = 206
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${stats.size}`)
+      }
+      res.setHeader('Content-Length', end - start + 1)
+      const stream = fs.createReadStream(safePath, { start, end })
       stream.pipe(res)
       stream.on('error', () => {
         res.statusCode = 500

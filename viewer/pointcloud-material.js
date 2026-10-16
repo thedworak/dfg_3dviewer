@@ -70,7 +70,7 @@ const COLOR_VERTEX_MAIN = /* glsl */`
   #endif
 `;
 
-function createColorUniforms() {
+export function createColorUniforms() {
   const classColors = Array.from({ length: CLASS_SLOTS }, (_, index) =>
     new THREE.Color(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR));
   return {
@@ -82,9 +82,12 @@ function createColorUniforms() {
   };
 }
 
-function createMaterial(params, colorUniforms = null) {
-  const material = new PointCloudMaterial(params);
-  if (!colorUniforms) return material;
+// Adds the colour modes to a PointCloudMaterial (once). colorUniforms may be
+// shared: the tiles of a streamed cloud all use the panel's one set, so a
+// mode switch is a single uniform change.
+export function addColorModes(material, colorUniforms) {
+  if (material.userData.colorModes) return material;
+  material.userData.colorModes = colorUniforms;
   Object.assign(material.uniforms, colorUniforms);
   const injectEffects = material.onBeforeCompile;
   material.onBeforeCompile = (shader, renderer) => {
@@ -94,14 +97,20 @@ function createMaterial(params, colorUniforms = null) {
       .replace("uniform float size;", `uniform float size;\n${COLOR_VERTEX_DECLARATIONS}`)
       .replace("#include <color_vertex>", `#include <color_vertex>\n${COLOR_VERTEX_MAIN}`);
   };
+  material.needsUpdate = true;
   return material;
+}
+
+function createMaterial(params, colorUniforms = null) {
+  const material = new PointCloudMaterial(params);
+  return colorUniforms ? addColorModes(material, colorUniforms) : material;
 }
 
 // The cloud's material as a PointCloudMaterial with GPU colour modes (once;
 // later calls return it). Keeps the colours, opacity and clipping planes of
 // the material it replaces.
 export function preparePointCloudMaterial(points) {
-  if (points.material?.isPointCloudMaterial && points.material.uniforms.uColorMode) return points.material;
+  if (points.material?.isPointCloudMaterial && points.material.userData.colorModes) return points.material;
   const previous = points.material;
   const params = {
     vertexColors: Boolean(points.geometry.getAttribute("color")) || previous?.vertexColors === true,

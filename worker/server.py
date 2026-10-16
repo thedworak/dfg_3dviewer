@@ -18,7 +18,8 @@ could talk to either backend interchangeably:
   POST /api/app/link|sync|unlink  an app's plan on an account (only with an
                                   entitlements module, see below)
   POST /api/admin/users/<u>/plan  a plan granted by an admin (auth.py)
-  GET  /files/<id>/<path>       static access to converted output
+  GET  /files/<id>/<path>       static access to converted output (HEAD too;
+                                byte ranges, gzip, ETag - static_files.py)
   GET  /healthz                 liveness check
 
 Accepted uploads (see the *_FORMATS sets below): Blender importers via
@@ -57,6 +58,7 @@ import mailer
 import optimize
 import remote_fetch
 import pointcloud
+import static_files
 from auth import APP_TIERS, AuthError, AuthStore
 try:
     # Plans sold by an app built on the viewer: an optional module next to
@@ -255,8 +257,8 @@ def scan_job(job_id: str, job_dir: Path):
             (p for p in glb_candidates if "gltf" in p.relative_to(job_root).parts),
             glb_candidates[0],
         )
-    elif (tilesets := sorted(job_root.glob("tiles/*/tileset.json"))):
-        # A point cloud converted to 3D Tiles (worker/pointcloud.py).
+    elif (tilesets := sorted([*job_root.glob("tiles/*/metadata.json"), *job_root.glob("tiles/*/tileset.json")])):
+        # A point cloud converted to Potree 2 or 3D Tiles (worker/pointcloud.py).
         glb_path = tilesets[0]
     else:
         # Viewer-native formats are served as uploaded (no GLB exists).
@@ -488,6 +490,7 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                 on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
             ):
                 set_job(job_id, status="processing", progress=25, message="Building streamed point cloud tiles...")
+                # Potree 2 (metadata.json) or 3D Tiles (tileset.json), see pointcloud.py.
                 tileset = pointcloud.convert_to_tiles(
                     work_path, tiles_dir, job_root / "tiles" / (work_path.stem + ".work"),
                     log_prefix=f"[job {job_id}]",
@@ -504,7 +507,11 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                 job_id,
                 status="ready",
                 progress=100,
-                message="Point cloud converted to 3D Tiles (no thumbnails)",
+                message=(
+                    "Point cloud converted to Potree 2 (no thumbnails)"
+                    if tileset.name == "metadata.json"
+                    else "Point cloud converted to 3D Tiles (no thumbnails)"
+                ),
                 model_url=f"/files/{job_id}/{tileset.relative_to(job_root)}",
                 image_urls=[],
             )
@@ -874,8 +881,19 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-App-User-Id, Authorization")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
+        # Range: Potree clouds read octree.bin by ranges (static_files.py).
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-App-User-Id, Authorization, Range, If-None-Match")
+        self.end_headers()
+
+    def do_HEAD(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
+        if match:
+            self._serve_file(match.group(1), match.group(2), head=True)
+            return
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def do_GET(self) -> None:
@@ -1172,10 +1190,14 @@ class Handler(BaseHTTPRequestHandler):
         cloudflare.purge_paths_async([plain_url], self.headers.get("Host", ""))
         self._send_json(200, {"message": f"Thumbnail saved ({len(image)} bytes)", "imageUrl": image_url})
 
-    def _serve_file(self, job_id: str, rel_path: str) -> None:
+    def _serve_file(self, job_id: str, rel_path: str, head: bool = False) -> None:
         job_root = (JOBS_DIR / job_id / "input").resolve()
         target = (job_root / rel_path).resolve()
-        if not str(target).startswith(str(job_root) + os.sep) or not target.is_file():
+        if (
+            not str(target).startswith(str(job_root) + os.sep)
+            or not target.is_file()
+            or static_files.is_derived_file(target)
+        ):
             self._send_json(404, {"error": "not found"})
             return
 
@@ -1190,28 +1212,14 @@ class Handler(BaseHTTPRequestHandler):
             cache_control = "public, max-age=300, s-maxage=2592000"
         else:
             cache_control = "public, max-age=2592000, s-maxage=2592000"
-        last_modified = formatdate(target.stat().st_mtime, usegmt=True)
         headers = {
             "Cache-Control": cache_control,
-            "Last-Modified": last_modified,
+            "Last-Modified": formatdate(target.stat().st_mtime, usegmt=True),
             "Access-Control-Allow-Origin": "*",
         }
-        if self.headers.get("If-Modified-Since") == last_modified:
-            self.send_response(304)
-            for name, value in headers.items():
-                self.send_header(name, value)
-            self.end_headers()
-            return
-
         content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
-        data = target.read_bytes()
-        self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(data)))
-        for name, value in headers.items():
-            self.send_header(name, value)
-        self.end_headers()
-        self.wfile.write(data)
+        # Ranges (Potree's octree.bin), gzip, ETag: see static_files.py.
+        static_files.send_file(self, target, content_type, headers, head=head)
 
 
 def admin_cli(args) -> None:

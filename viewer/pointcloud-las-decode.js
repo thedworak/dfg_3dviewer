@@ -213,6 +213,11 @@ class LasStreamDecoder {
     return Boolean(this.header) && (this.record >= this.header.pointCount || this.batcher.full);
   }
 
+  // Size of the file up to its last point record (from the header), or 0.
+  get expectedBytes() {
+    return this.header ? this.header.pointsOffset + this.header.pointCount * this.header.recordLength : 0;
+  }
+
   push(chunk) {
     if (!this.header) {
       this.headerBytes.push(chunk);
@@ -351,7 +356,10 @@ function isLazName(url) {
 export async function decodeLasUrl(url, { maxPoints, compressed = null, emit }) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`HTTP ${response.status} while loading the point cloud`);
-  const total = Number(response.headers.get("content-length")) || 0;
+  // A compressed response (gzip from the worker, static_files.py) counts
+  // compressed bytes in Content-Length: the LAS header tells the real size.
+  const encoded = Boolean(response.headers.get("content-encoding"));
+  const total = encoded ? 0 : Number(response.headers.get("content-length")) || 0;
   const reader = response.body?.getReader();
   if (!reader) {
     const buffer = await response.arrayBuffer();
@@ -367,7 +375,7 @@ export async function decodeLasUrl(url, { maxPoints, compressed = null, emit }) 
     const { done, value } = await reader.read();
     if (done) break;
     loaded += value.byteLength;
-    emit({ type: "progress", loaded, total: Math.max(total, loaded) });
+    emit({ type: "progress", loaded, total: Math.max(total || stream?.expectedBytes || 0, loaded) });
     if (isLaz === null) {
       // Told by the header's point format byte.
       chunks.push(value);
