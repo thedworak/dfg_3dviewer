@@ -14,6 +14,10 @@ FROM worker-base
 
 WORKDIR /app
 
+# The Claude API SDK for the optional AI assistance (worker/ai.py, off unless
+# WORKER_AI_ENABLED=true). A layer of its own, so the base image stays as is.
+RUN pip3 install --no-cache-dir --break-system-packages "anthropic>=1.15,<2"
+
 COPY scripts/ /app/scripts/
 # scripts/.env (if present) carries absolute paths from whichever host last
 # edited it - the worker configures SPATH/BLENDER_BIN via container ENV

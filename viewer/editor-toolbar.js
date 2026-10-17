@@ -90,6 +90,7 @@ export function getEditorToolbarIcon(icon) {
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+    ifcQuery: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-4 6 4v11z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M18.5 2.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" fill="currentColor"/></svg>',
     validationReport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7.5 5H5v16h14V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     credits: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.8 9.4a3.6 3.6 0 1 0 0 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -1388,6 +1389,9 @@ export function createEditorToolbar(viewer) {
     { key: "statistics", group: "inspect", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     // Is the model ready to publish (ui/validation-report.js).
     { key: "validationReport", group: "inspect", icon: "validationReport", onClick: () => viewer.toggleValidationReport(), pressed: true, primary: false },
+    // Questions about a building model, answered by the AI assistant from
+    // its IFC properties (ai/ifc-query.js); shown only when it can be used.
+    { key: "ifcQuery", group: "inspect", icon: "ifcQuery", onClick: () => viewer.toggleIfcQuery(), pressed: true, primary: false },
     // Help.
     { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
     { key: "help", group: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
@@ -2399,6 +2403,7 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("gui.hideCredits", "Hide credits")
       : t("gui.showCredits", "Show credits"),
     validationReport: t("gui.validationReport", "Validation report"),
+    ifcQuery: t("ai.ifc.toggle", "Ask the building model (AI)"),
     expand: viewer.isToolbarExpanded
       ? t("gui.collapse", "Collapse toolbar")
       : t("gui.expand", "Expand toolbar"),
@@ -2639,6 +2644,7 @@ export function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     credits: Boolean(viewer.creditsWrapper && !viewer.creditsWrapper.hidden),
     validationReport: viewer.isValidationReportOpen?.() === true,
+    ifcQuery: viewer.isIfcQueryOpen?.() === true,
     wireframe: viewer.wireframeMode === true,
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,
     download: false,
@@ -2662,6 +2668,8 @@ export function updateEditorToolbarState(viewer) {
   if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
+  const ifcQueryButton = viewer.editorToolbarButtons.ifcQuery;
+  if (ifcQueryButton) ifcQueryButton.hidden = !viewer.isIfcQueryAvailable?.();
   const creditsButton = viewer.editorToolbarButtons.credits;
   if (creditsButton) creditsButton.hidden = !viewer.creditsWrapper;
 

@@ -921,7 +921,10 @@ export function attachCompare(Viewer) {
       const description = el("p", "viewer-variants_description");
       const source = el("p", "viewer-variants_source");
       card.append(description, source);
-      body.append(info, list, card);
+      // The AI comparison and paradata review (ai/variants-review.js).
+      const ai = el("div", "viewer-variants_ai");
+      ai.hidden = true;
+      body.append(info, list, card, ai);
       panel.append(header, body);
 
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
@@ -935,6 +938,7 @@ export function attachCompare(Viewer) {
 
       getViewerSideStack()?.append(panel);
       state.ui = { panel, title, info, compareButton, collapseButton, buttons, description, source };
+      Viewer.attachVariantsAI?.(ai);
       Viewer.updateVariantsLabels();
     },
 
@@ -963,6 +967,7 @@ export function attachCompare(Viewer) {
           }
         });
         Viewer.syncVariantsPanel();
+        Viewer.renderVariantsAI?.();
       }
       Viewer.updateCompareLabels();
     },
@@ -1045,6 +1050,7 @@ export function attachCompare(Viewer) {
         }));
         state.ui?.panel.remove();
       }
+      Viewer.variantsAIContainer = null;
       Viewer.variantsState = null;
       if (!keepConfig) {
         Viewer.variantsManifestConfig = null;

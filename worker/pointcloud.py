@@ -36,6 +36,9 @@ Configuration (environment):
   WORKER_POINTCLOUD_JOBS  parallel py3dtiles workers (default: number of CPUs, at most 8)
   WORKER_POINTCLOUD_TIMEOUT  seconds per conversion (default 3600)
   WORKER_POINTCLOUD_PREVIEW_POINTS  points in the preview (default 1000000; 0: no preview)
+  WORKER_POINTCLOUD_CLASSIFY  off (default) | auto | always - classify the
+                            points before tiling (ground, vegetation, buildings,
+                            noise), see classify.py
 
 Also usable on its own: python3 pointcloud.py scan.e57 out_dir
 """
@@ -45,6 +48,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import classify
 
 POINTCLOUD_JOBS = int(os.environ.get("WORKER_POINTCLOUD_JOBS", str(min(os.cpu_count() or 1, 8))))
 POINTCLOUD_TIMEOUT = int(os.environ.get("WORKER_POINTCLOUD_TIMEOUT", "3600"))
@@ -243,14 +248,18 @@ def write_preview(source: Path, target: Path, max_points: int = POINTCLOUD_PREVI
 
 
 def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: str = "",
-                     preview: Path = None, on_preview=None, fmt: str = None) -> Path:
+                     preview: Path = None, on_preview=None, fmt: str = None, on_classify=None) -> Path:
     """Converts a point cloud to a streamed octree in out_dir (fmt: "potree"
     or "3dtiles", by default output_format()); returns the path of its entry
     file - metadata.json or tileset.json. work_dir holds intermediate files.
 
     With preview (a .las path), a quick preview is written there first (see
     write_preview) and on_preview(preview) is called once it exists; a
-    preview that fails is only logged."""
+    preview that fails is only logged.
+
+    With WORKER_POINTCLOUD_CLASSIFY on, the points are classified first
+    (classify.py; on_classify() is called when that starts) and the tiles
+    carry the classes."""
     fmt = fmt or output_format()
     source, out_dir, work_dir = Path(source).resolve(), Path(out_dir).resolve(), Path(work_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -299,13 +308,29 @@ def convert_to_tiles(source: Path, out_dir: Path, work_dir: Path, log_prefix: st
         except Exception as exc:  # noqa: BLE001 - the preview is optional
             print(f"{log_prefix} preview failed: {exc}", file=sys.stderr)
 
-    shutil.rmtree(out_dir, ignore_errors=True)
+    # After the preview, which stays unclassified: the viewer shows it
+    # while the points are classified and tiled.
+    # Only Potree 2 keeps the classes; py3dtiles writes position and colour.
     out_dir.parent.mkdir(parents=True, exist_ok=True)
+    classified = None
+    if fmt == "potree":
+        classified = classify.maybe_classify(
+            converter_input, work_dir, out_dir.parent / (out_dir.name + ".classification.json"),
+            log_prefix=log_prefix, on_start=on_classify,
+        )
+    elif classify.mode() != "off":
+        print(f"{log_prefix} classification skipped: 3D Tiles output keeps no classes", file=sys.stderr)
+    if classified is not None:
+        command[command.index(str(converter_input))] = str(classified)
+
+    shutil.rmtree(out_dir, ignore_errors=True)
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=POINTCLOUD_TIMEOUT, cwd=work_dir)
     finally:
         if intermediate is not None:
             intermediate.unlink(missing_ok=True)
+        if classified is not None:
+            classified.unlink(missing_ok=True)
     print(
         f"{log_prefix} {tool} exit={result.returncode}:\n"
         f"--- stdout ---\n{result.stdout[-4000:]}\n--- stderr ---\n{result.stderr[-4000:]}",

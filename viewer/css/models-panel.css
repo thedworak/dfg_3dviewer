@@ -426,6 +426,12 @@ body[data-viewer-theme="dark"] #planButton {
   color: #fff;
 }
 
+.plan-badge[data-tier="enterprise"] {
+  border-color: transparent;
+  background: linear-gradient(90deg, #1f2937, #b8860b);
+  color: #fff;
+}
+
 /* The repository address without the Business plan: shown locked, a tap
    opens the plans panel (ui/models-panel.js). */
 .models-panel-repository[data-locked="true"] label {

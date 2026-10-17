@@ -65,7 +65,8 @@ const LIMIT_FIELDS = [
 
 // The account's plan (worker/auth.py effective_app_plan) as a small icon, coloured like the
 // .plan-badge elsewhere: an outlined star (Free), a star (Pro), a gem
-// (Business). The name stays in its tooltip and accessible label.
+// (Business), a crown (Enterprise). The name stays in its tooltip and
+// accessible label.
 const PLAN_ICONS = {
   free: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
   pro: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/>',
@@ -74,6 +75,9 @@ const PLAN_ICONS = {
     '<stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#db2777"/></linearGradient></defs>' +
     '<path d="M7 4h10l4 5-9 11L3 9z" fill="url(#adminPlanBusiness)"/>' +
     '<path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1" stroke-linejoin="round"/>',
+  enterprise:
+    '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" fill="#b8860b"/>' +
+    '<path d="M5 19h14" stroke="#7a5a00" stroke-width="1.6" stroke-linecap="round"/>',
 };
 
 function createPlanIcon(tier) {
@@ -85,7 +89,7 @@ function createPlanIcon(tier) {
   return icon;
 }
 
-const PLAN_RANK = { business: 3, pro: 2, free: 1 };
+const PLAN_RANK = { enterprise: 4, business: 3, pro: 2, free: 1 };
 
 const lastUploadOf = (models) => models.reduce((latest, job) => Math.max(latest, job.createdAt || 0), 0);
 
@@ -430,7 +434,8 @@ export function attachAdminPanel(Viewer) {
       tierText.textContent = t("adminPanel.planGrantLabel", "Granted plan");
       const tierSelect = document.createElement("select");
       tierSelect.appendChild(new Option(t("adminPanel.planNone", "None (only what was bought)"), ""));
-      ["pro", "business"].forEach((tier) => tierSelect.appendChild(new Option(t(`plans.${tier}`, tier), tier)));
+      // Enterprise is only granted here (price agreed individually).
+      ["pro", "business", "enterprise"].forEach((tier) => tierSelect.appendChild(new Option(t(`plans.${tier}`, tier), tier)));
       tierSelect.value = grant?.tier && grant.tier !== "free" ? grant.tier : "";
       tierField.append(tierText, tierSelect);
 
@@ -521,12 +526,12 @@ export function attachAdminPanel(Viewer) {
 
       const overrides = user.limits || {};
       // Accounts with the app's Business plan start from its limits.
-      const isBusiness = user.plan?.tier === "business" && this.adminBusinessLimits;
+      const isBusiness = ["business", "enterprise"].includes(user.plan?.tier) && this.adminBusinessLimits;
       const defaults = (isBusiness ? this.adminBusinessLimits : this.adminDefaultLimits) || {};
       if (isBusiness && user.role !== "admin") {
         const note = document.createElement("p");
         note.className = "admin-users-limits-note";
-        note.textContent = t("adminPanel.limitsBusiness", "Business plan: its limits are the defaults here.");
+        note.textContent = t("adminPanel.limitsBusiness", "Business or Enterprise plan: the Business limits are the defaults here.");
         form.appendChild(note);
       }
       const inputs = {};

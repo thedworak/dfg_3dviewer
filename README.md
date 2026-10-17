@@ -51,6 +51,7 @@ The topics below used to live in this file; they now have their own page in [`do
 - [Using/embedding the viewer](docs/embedding.md) — embed markup, `embed.html` parameters
 - [Publishing to production](docs/publishing.md) — what must be set before a release
 - [Bug reports and error tracking](docs/error-tracking.md) — the "Report a bug" button, self-hosted GlitchTip
+- [AI assistance](docs/ai.md) — optional Claude API help: validation explained, IFC questions, variants and paradata review, point cloud classification
 - [`viewer/FUNCTIONS.md`](viewer/FUNCTIONS.md) — runtime function reference
 - [`worker/README.md`](worker/README.md) — standalone conversion worker's API contract/configuration
 

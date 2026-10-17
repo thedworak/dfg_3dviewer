@@ -32,7 +32,7 @@ const CATEGORIES = [
     id: "analysis",
     label: () => t("menus.analysis", "Analysis"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6 19c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5l7 6M5 9l4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty", "compare"],
+    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty", "compare", "ifcQuery"],
   },
   {
     id: "measure",

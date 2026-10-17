@@ -28,12 +28,28 @@ export function hasIfcProperties() {
   return ifcData !== null || liveModel !== null;
 }
 
+// The converted model's properties (<name>_ifc.json), or null - also null
+// for a directly loaded .ifc, whose properties are only read per element.
+export function getIfcData() {
+  return ifcData;
+}
+
+// Fired on document when the properties of the shown model change (loaded
+// or cleared), for tools built on them (ai/ifc-query.js).
+export const IFC_PROPERTIES_EVENT = "viewer:ifc-properties";
+
+function notifyIfcChange() {
+  document.dispatchEvent(new CustomEvent(IFC_PROPERTIES_EVENT, { detail: { available: ifcData !== null } }));
+}
+
 export function clearIfcProperties() {
   showAllHidden();
+  const had = ifcData !== null;
   ifcData = null;
   liveModel = null;
   liveRequest++;
   closeIfcPanel();
+  if (had) notifyIfcChange();
 }
 
 export function setPendingIfcProperties(data) {
@@ -46,6 +62,7 @@ export async function loadIfcProperties(url) {
   clearIfcProperties();
   if (pending) {
     ifcData = pending;
+    notifyIfcChange();
     return;
   }
   if (!url) return;
@@ -53,7 +70,10 @@ export async function loadIfcProperties(url) {
     const response = await fetch(url, { cache: "no-cache" });
     if (!response.ok) return; // not an IFC-derived model: silently skip
     const data = await response.json();
-    if (data && data.elements) ifcData = data;
+    if (data && data.elements) {
+      ifcData = data;
+      notifyIfcChange();
+    }
   } catch (error) {
     console.warn("[ifc-properties] could not load", url, error);
   }

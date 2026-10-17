@@ -38,6 +38,7 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.gallery.imageId` — optional gallery image ID selector
 - `viewer.background` — CSS background string for viewer canvas
 - `viewer.performanceMode` — performance mode config object
+- `viewer.ai` — `false` hides the AI assistance even when the worker offers it (see [AI assistance](ai.md)); default: shown when the worker has it on
 - `viewer.errorTracking` — GlitchTip DSN and options for bug reports and automatic error reports (`dsn`, `environment`, `autoCapture`, `sampleRate`); see [error-tracking.md](error-tracking.md)
 - `viewer.bugReport` — the toolbar's "Report a bug" button: `enabled` (default `true`), `url` (issue tracker used when `errorTracking` is not set)
 - `viewer.measurement.modelUnitInMeters` — conversion ratio from model units to meters - the fallback only: a unit chosen in the measurement menu (remembered per model), a IIIF Scene `spatialScale` / AIM3DViewer `units`, and the file's own unit (FBX, 3MF, AMF, USD, COLLADA) come first; see `viewer/editor/model-units.js`

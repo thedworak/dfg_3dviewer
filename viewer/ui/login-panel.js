@@ -266,6 +266,7 @@ export function attachLoginPanel(Viewer) {
         if (action === "logout") setSessionToken("");
       }
       await this.refreshAuthState();
+      this.refreshAIConfig?.();
       if (this.plansPanel?.hidden === false) this.renderPlansPanel?.();
       // Delete permissions in the models panel depend on who's logged in;
       // refresh it too if it's already open.
