@@ -46,6 +46,7 @@ features report themselves as unavailable.
 import hashlib
 import json
 import os
+import sys
 import threading
 import time
 from collections import OrderedDict
@@ -278,8 +279,11 @@ def ask(system: str, prompt: str, schema: dict, effort: str = "medium", max_toke
         raise AIError(503, f"The AI service failed ({exc.status_code}).", "ai_upstream")
     except anthropic.APITimeoutError:
         raise AIError(503, "The AI answer took too long. Try again or ask a narrower question.", "ai_timeout")
-    except anthropic.APIConnectionError:
-        raise AIError(503, "The AI service could not be reached.", "ai_unreachable")
+    except anthropic.APIConnectionError as exc:
+        # The cause (DNS, TLS, refused connection, proxy) is what an admin needs.
+        cause = exc.__cause__ or exc
+        print(f"[ai] connection to the Claude API failed: {cause!r}", file=sys.stderr)
+        raise AIError(503, f"The AI service could not be reached ({type(cause).__name__}).", "ai_unreachable")
 
     if response.stop_reason == "refusal":
         raise AIError(422, "The AI declined to answer this request.", "ai_refusal")
