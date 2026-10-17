@@ -116,6 +116,18 @@ class AskTests(unittest.TestCase):
             ai.ifc_query("b", IFC_SUMMARY)
         self.assertEqual(cut.exception.code, "ai_truncated")
 
+    def test_timeout(self):
+        request = SimpleNamespace(method="POST", url="https://api.anthropic.com")
+
+        def slow(**_):
+            raise anthropic.APITimeoutError(request)
+
+        ai.set_client(SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=slow))))
+        with self.assertRaises(ai.AIError) as late:
+            ai.ifc_query("doors", IFC_SUMMARY)
+        self.assertEqual(late.exception.code, "ai_timeout")
+        self.assertEqual(late.exception.status, 504)
+
     def test_input_checks(self):
         ai.set_client(fake_client()[0])
         with self.assertRaises(ai.AIError):
@@ -264,6 +276,13 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(body["action"], "highlight")
         status, body = self.request("/api/ai/ifc-query", {"question": "", "schema": IFC_SUMMARY})
         self.assertEqual(status, 400)
+
+    def test_unexpected_error_answers_json(self):
+        broken = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=lambda **_: 1 / 0)))
+        ai.set_client(broken)
+        status, body = self.request("/api/ai/ifc-query", {"question": "doors", "schema": IFC_SUMMARY})
+        self.assertEqual(status, 500)
+        self.assertEqual(body["code"], "ai_internal")
 
     def test_disabled(self):
         os.environ["WORKER_AI_ENABLED"] = "false"

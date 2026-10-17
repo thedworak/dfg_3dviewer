@@ -218,7 +218,10 @@ def client():
     global _client
     with _client_lock:
         if _client is None:
-            _client = anthropic.Anthropic(timeout=float(_env_int("WORKER_AI_TIMEOUT", 120)), max_retries=2)
+            # One attempt within WORKER_AI_TIMEOUT: retries would outlast the
+            # proxies in front of the worker (docker/nginx.conf, Cloudflare's
+            # 100 s), which then answer the viewer with an HTML 504.
+            _client = anthropic.Anthropic(timeout=float(_env_int("WORKER_AI_TIMEOUT", 90)), max_retries=0)
         return _client
 
 
@@ -260,6 +263,8 @@ def ask(system: str, prompt: str, schema: dict, effort: str = "medium", max_toke
         raise AIError(502, f"The AI service did not accept the request: {exc.message}", "ai_bad_request")
     except anthropic.APIStatusError as exc:
         raise AIError(502, f"The AI service failed ({exc.status_code}).", "ai_upstream")
+    except anthropic.APITimeoutError:
+        raise AIError(504, "The AI answer took too long. Try again or ask a narrower question.", "ai_timeout")
     except anthropic.APIConnectionError:
         raise AIError(504, "The AI service could not be reached.", "ai_unreachable")
 

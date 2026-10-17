@@ -52,6 +52,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import uuid
 import zipfile
 from email.utils import formatdate
@@ -794,8 +795,14 @@ class Handler(BaseHTTPRequestHandler):
                 ai.RATE_LIMITER.check(key)
                 answer = ai.describe_variants(data, lang)
         except ai.AIError as exc:
+            if exc.status >= 500:
+                print(f"[ai] {feature}: {exc.code}: {exc.message}", file=sys.stderr)
             retry = getattr(exc, "retry_after", 0)
             self._send_json(exc.status, exc.payload(), headers={"Retry-After": str(retry)} if retry else None)
+            return
+        except Exception as exc:  # noqa: BLE001 - an answer instead of a dropped connection
+            traceback.print_exc()
+            self._send_json(500, {"error": f"The AI request failed on the server ({type(exc).__name__}).", "code": "ai_internal"})
             return
         self._send_json(200, answer)
 

@@ -86,9 +86,12 @@ export async function aiRequest(path, body = {}) {
     data = null;
   }
   if (!response.ok) {
+    // Without JSON the answer came from a proxy in front of the worker.
     const message = response.status === 429
       ? t("ai.rateLimited", "AI request limit reached. Try again later.")
-      : data?.error || t("ai.failed", "The AI assistant could not answer.");
+      : data?.error || ([504, 524].includes(response.status)
+        ? t("ai.timeout", "The AI answer took too long. Try again or ask a narrower question.")
+        : `${t("ai.failed", "The AI assistant could not answer.")} (HTTP ${response.status})`);
     throw new AIRequestError(message, response.status, data?.code || "");
   }
   return data || {};

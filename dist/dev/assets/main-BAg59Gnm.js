@@ -737,6 +737,7 @@ const VIEWER_I18N = {
       thinking: "The AI assistant is looking at it...",
       offline: "The AI assistant could not be reached.",
       failed: "The AI assistant could not answer.",
+      timeout: "The AI answer took too long. Try again or ask a narrower question.",
       rateLimited: "AI request limit reached. Try again later.",
       locked: "Available with the Business plan",
       validation: {
@@ -1783,6 +1784,7 @@ const VIEWER_I18N = {
       thinking: "Asystent AI analizuje...",
       offline: "Nie udało się połączyć z asystentem AI.",
       failed: "Asystent AI nie mógł odpowiedzieć.",
+      timeout: "Odpowiedź AI trwała zbyt długo. Spróbuj ponownie lub zadaj węższe pytanie.",
       rateLimited: "Osiągnięto limit zapytań AI. Spróbuj później.",
       locked: "Dostępne w planie Business",
       validation: {
@@ -2862,6 +2864,7 @@ const VIEWER_I18N = {
       thinking: "Der KI-Assistent sieht es sich an...",
       offline: "Der KI-Assistent ist nicht erreichbar.",
       failed: "Der KI-Assistent konnte nicht antworten.",
+      timeout: "Die KI-Antwort hat zu lange gedauert. Erneut versuchen oder enger fragen.",
       rateLimited: "KI-Anfragelimit erreicht. Bitte später erneut versuchen.",
       locked: "Im Business-Tarif verfügbar",
       validation: {
@@ -9325,7 +9328,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DHhdNdHD.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-B62scDuY.js');
+const loadTilesPlugins = () => import('./index.three-plugins-CqbZd1fF.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9983,7 +9986,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-CAY4mkkR.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-DRiqdghx.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -10112,9 +10115,9 @@ const loadLWOLoader = async () => (await import('./three-DVpUZZAE.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DEYEu7o2.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DVpUZZAE.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BChEJK2Y.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-ewxEsp2s.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-xacOC5Qw.js');
+const loadSplats = async () => import('./splats-ey_fdF0x.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -15306,9 +15309,12 @@ async function aiRequest(path, body = {}) {
     data = null;
   }
   if (!response.ok) {
+    // Without JSON the answer came from a proxy in front of the worker.
     const message = response.status === 429
       ? t$1("ai.rateLimited", "AI request limit reached. Try again later.")
-      : data?.error || t$1("ai.failed", "The AI assistant could not answer.");
+      : data?.error || ([504, 524].includes(response.status)
+        ? t$1("ai.timeout", "The AI answer took too long. Try again or ask a narrower question.")
+        : `${t$1("ai.failed", "The AI assistant could not answer.")} (HTTP ${response.status})`);
     throw new AIRequestError(message, response.status, data?.code || "");
   }
   return data || {};
@@ -18663,7 +18669,7 @@ function renderFrame(renderer = core.renderer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "e8c660a" ;
+const BUILD_ID$2 = "b518d59" ;
 const BUILD = "dev" ;
 
 let initPromise = null;
@@ -18714,8 +18720,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "e8c660a" ;
-const BUILD_TIME$1 = "2026-10-17T18:46:28.810Z" ;
+const BUILD_ID$1 = "b518d59" ;
+const BUILD_TIME$1 = "2026-10-17T19:30:24.886Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -46756,8 +46762,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "e8c660a" ;
-const BUILD_TIME = "2026-10-17T18:46:28.810Z" ;
+const BUILD_ID = "b518d59" ;
+const BUILD_TIME = "2026-10-17T19:30:24.886Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -51200,4 +51206,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-5iQ3BcMM.js.map
+//# sourceMappingURL=main-BRRPaoKA.js.map

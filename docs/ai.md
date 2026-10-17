@@ -29,7 +29,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 | `WORKER_AI_FEATURES` | all | Comma-separated subset of `validation`, `ifc-query`, `variants`. |
 | `WORKER_AI_ACCESS` | `business` | Who may use it: `business` (the **Business and Enterprise** plans: accounts with either plan, and the app's Business subscribers, who have no account), `users` (anyone logged in), `all`, `admin`. Admins always may. A self-hosted server without plans sets `all` or `users`. |
 | `WORKER_AI_REQUESTS_PER_HOUR` | `30` | Per caller (account, else IP), rolling hour, in memory. `0` = unlimited. |
-| `WORKER_AI_TIMEOUT` | `120` | Seconds per request. |
+| `WORKER_AI_TIMEOUT` | `90` | Seconds per request, one attempt. Keep it under the proxies' limits: `docker/nginx.conf` waits 100 s on `/api/ai/`, Cloudflare 100 s. |
 | `WORKER_AI_FALLBACKS` | `true` | Server-side refusal fallback of the Claude API (beta `server-side-fallback-2026-07-01`). |
 
 The worker image installs the `anthropic` package. Running `worker/server.py` outside Docker requires `pip install "anthropic>=1.15,<2"`. Without the package, the features report themselves as off.
