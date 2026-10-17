@@ -24,6 +24,10 @@ const envSubDir = (typeof __ENV_SUBDIR__ !== 'undefined') ? __ENV_SUBDIR__ : "ma
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
 
+// ?gldebug=1: on-screen WebGL / console diagnostics (phones). First, so it
+// sees the console messages of everything after it.
+installDebugOverlay();
+
 window.viewer = {
   ready: false,
   modelLoaded: false,
@@ -35,6 +39,7 @@ window.viewer = {
 };
 
 import { core, setCore } from './core.js';
+import { installDebugOverlay } from './debug-overlay.js';
 import { initConnectivity, isOnline, onConnectivityChange } from './connectivity.js';
 import { retargetManifest } from './manifesto/retarget-manifest.js';
 import { getExampleModels, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';

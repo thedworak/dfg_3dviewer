@@ -44,9 +44,12 @@ const COLOR_VERTEX_DECLARATIONS = /* glsl */`
   uniform int uColorMode;
   uniform vec2 uIntensityRange;
   uniform vec2 uHeightRange;
-  uniform vec3 uClassColors[ ${CLASS_SLOTS} ];
+  // Class colours as a ${CLASS_SLOTS}x1 texture and visibility as a bit mask,
+  // not uniform arrays indexed per vertex, which some mobile drivers
+  // (Adreno) are known to get wrong - points vanished on Android phones.
+  uniform highp sampler2D uClassColorTexture;
   uniform vec3 uOtherClassColor;
-  uniform float uClassVisible[ ${CLASS_SLOTS} ];
+  uniform highp uint uClassHiddenMask;
   uniform float uOtherClassVisible;
   uniform bool uProfileEnabled;
   uniform vec4 uProfilePlane;
@@ -79,7 +82,9 @@ const COLOR_VERTEX_MAIN = /* glsl */`
       vColor.rgb = pcHslToRgb( ( 1.0 - t ) * 0.66, 0.85, 0.5 );
     } else if ( uColorMode == 3 ) {
       int index = int( classification + 0.5 );
-      vColor.rgb = index < ${CLASS_SLOTS} ? uClassColors[ index ] : uOtherClassColor;
+      vColor.rgb = index >= 0 && index < ${CLASS_SLOTS}
+        ? texelFetch( uClassColorTexture, ivec2( index, 0 ), 0 ).rgb
+        : uOtherClassColor;
     }
   #endif
 `;
@@ -88,8 +93,9 @@ const COLOR_VERTEX_MAIN = /* glsl */`
 // (drawn nowhere, picked never); the point's index for the picking pass.
 const FILTER_VERTEX_MAIN = /* glsl */`
   int pcClass = int( classification + 0.5 );
-  float pcVisible = pcClass < ${CLASS_SLOTS} ? uClassVisible[ pcClass ] : uOtherClassVisible;
-  bool pcHidden = pcVisible < 0.5;
+  bool pcHidden = pcClass >= 0 && pcClass < ${CLASS_SLOTS}
+    ? ( ( uClassHiddenMask >> uint( pcClass ) ) & 1u ) != 0u
+    : uOtherClassVisible < 0.5;
   if ( uProfileEnabled ) {
     vec3 pcWorld = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
     float pcAlong = dot( uProfileAxis, pcWorld );
@@ -121,15 +127,23 @@ const PICK_FRAGMENT_MAIN = /* glsl */`
 export const PICKING_PASS = { value: false };
 
 export function createColorUniforms() {
-  const classColors = Array.from({ length: CLASS_SLOTS }, (_, index) =>
-    new THREE.Color(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR));
+  const color = new THREE.Color();
+  const classColors = new Uint8Array(CLASS_SLOTS * 4);
+  for (let index = 0; index < CLASS_SLOTS; index += 1) {
+    // In the working (linear) colour space, like the uniform colours before.
+    color.setHex(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR);
+    classColors.set([color.r * 255, color.g * 255, color.b * 255, 255].map(Math.round), index * 4);
+  }
+  const classColorTexture = new THREE.DataTexture(classColors, CLASS_SLOTS, 1);
+  classColorTexture.needsUpdate = true;
   return {
     uColorMode: { value: COLOR_MODES.rgb },
     uIntensityRange: { value: new THREE.Vector2(0, 1) },
     uHeightRange: { value: new THREE.Vector2(0, 1) },
-    uClassColors: { value: classColors },
+    uClassColorTexture: { value: classColorTexture },
     uOtherClassColor: { value: new THREE.Color(OTHER_CLASS_COLOR) },
-    uClassVisible: { value: new Array(CLASS_SLOTS).fill(1) },
+    // Bit n set: class n hidden.
+    uClassHiddenMask: { value: 0 },
     uOtherClassVisible: { value: 1 },
     uProfileEnabled: { value: false },
     uProfilePlane: { value: new THREE.Vector4(1, 0, 0, 0) },

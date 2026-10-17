@@ -25,6 +25,7 @@
     {"url": "./examples/WolpaSynagogue-progressive.glb", "name": "Wolpa Synagogue (progressive, Meshopt + KTX2)"},
     {"url": "./examples/tiles/wolpa-points/tileset.json", "name": "Wolpa Synagogue (point cloud, 3D Tiles)"},
     {"url": "./examples/points.laz", "name": "Point cloud (LAZ, UTM coordinates)"},
+    {"url": "./examples/potree/scan/metadata.json", "name": "Point cloud (Potree 2, classified)", "app": false},
     {"url": "./examples/animated.glb", "name": "Animated GLB"}
   ]
 }

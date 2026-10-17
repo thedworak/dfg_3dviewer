@@ -44,6 +44,131 @@ const setCore = (key, value) => {
     core[key] = value;
 };
 
+// On-screen diagnostics for devices without developer tools at hand (phones):
+// ?gldebug=1 shows the GPU, its WebGL limits, the console's errors and
+// warnings (three.js shader errors among them) and the camera and point
+// cloud state, refreshed every second - for a screenshot. Off by default;
+// nothing below runs without the parameter.
+
+const ENABLED = new URLSearchParams(window.location.search).has("gldebug");
+const MAX_MESSAGES = 12;
+const messages = [];
+
+function remember(level, args) {
+  const text = args
+    .map((arg) => (arg instanceof Error ? `${arg.message}` : typeof arg === "object" ? safeJson(arg) : String(arg)))
+    .join(" ")
+    // three's shader errors carry the whole numbered source: the error lines suffice.
+    .split("\n")
+    .filter((line, index) => index < 2 || /ERROR|error|warning/i.test(line))
+    .join("\n")
+    .slice(0, 400);
+  messages.push(`${level}: ${text}`);
+  if (messages.length > MAX_MESSAGES) messages.shift();
+}
+
+function safeJson(value) {
+  try {
+    return JSON.stringify(value).slice(0, 200);
+  } catch {
+    return String(value);
+  }
+}
+
+function webglInfo() {
+  const gl = core.renderer?.getContext?.();
+  if (!gl?.getParameter) return ["WebGL: none"];
+  const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+  const highp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+  const pointRange = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
+  return [
+    `GPU: ${debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`,
+    `WebGL2: ${typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext}`
+      + ` float RT: ${Boolean(gl.getExtension("EXT_color_buffer_float"))}`
+      + ` half RT: ${Boolean(gl.getExtension("EXT_color_buffer_half_float"))}`,
+    `point size: ${pointRange ? `${pointRange[0]}-${pointRange[1]}` : "?"}`
+      + ` frag highp: ${highp?.precision ?? 0}`
+      + ` vert uniforms: ${gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)}`,
+    `buffer: ${gl.drawingBufferWidth}x${gl.drawingBufferHeight} dpr ${window.devicePixelRatio}`
+      + ` lost: ${gl.isContextLost()}`,
+  ];
+}
+
+function sceneInfo() {
+  const camera = core.camera;
+  if (!camera) return ["camera: none"];
+  const round = (vector) => vector.toArray().map((value) => Number(value.toFixed(2))).join(", ");
+  const lines = [
+    `camera: ${round(camera.position)} near ${camera.near.toFixed(3)} far ${camera.far.toFixed(1)}`,
+    `target: ${core.controls?.target ? round(core.controls.target) : "?"}`
+      + ` hint: ${core.handHint ? !core.handHint.hidden : "-"} gesture: ${Boolean(core.GESTURE?.active)}`,
+  ];
+  let clouds = 0;
+  let drawn = 0;
+  const materials = new Set();
+  core.scene?.traverse((child) => {
+    if (!child.isPoints) return;
+    clouds += 1;
+    if (child.visible) {
+      const count = child.geometry.getAttribute("position")?.count || 0;
+      drawn += Math.min(count, child.geometry.drawRange.count);
+    }
+    const material = child.material;
+    materials.add(`${material?.type}${material?.isPointCloudMaterial ? ` size ${Number(material.size).toFixed(3)}`
+      + ` min ${material.minPointSize} edl ${material.edlStrength} ${material.pointShape}` : ""}`);
+  });
+  lines.push(`points: ${clouds} objects, ${drawn} points`);
+  materials.forEach((material) => lines.push(`material: ${material}`));
+  const info = core.renderer?.info;
+  if (info) lines.push(`render: ${info.render.calls} calls, ${info.render.points} points, ${info.programs?.length ?? "?"} programs`);
+  return lines;
+}
+
+function render(panel) {
+  panel.textContent = [...webglInfo(), ...sceneInfo(), "--- console ---", ...messages].join("\n");
+}
+
+// Called first thing in main.js (a bare import would be tree-shaken).
+function installDebugOverlay() {
+  if (!ENABLED) return;
+  ["error", "warn"].forEach((level) => {
+    const original = console[level].bind(console);
+    console[level] = (...args) => {
+      remember(level, args);
+      original(...args);
+    };
+  });
+  window.addEventListener("error", (event) => remember("error", [event.error || event.message]));
+  window.addEventListener("unhandledrejection", (event) => remember("rejection", [event.reason]));
+
+  const panel = document.createElement("pre");
+  panel.id = "glDebugOverlay";
+  Object.assign(panel.style, {
+    position: "fixed",
+    left: "4px",
+    right: "4px",
+    top: "4px",
+    zIndex: "100000",
+    maxHeight: "60vh",
+    overflow: "auto",
+    margin: "0",
+    padding: "6px",
+    font: "10px/1.3 monospace",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    color: "#e6ffe6",
+    background: "rgba(0, 0, 0, 0.75)",
+    pointerEvents: "none",
+  });
+  const attach = () => {
+    document.body.appendChild(panel);
+    render(panel);
+    setInterval(() => render(panel), 1000);
+  };
+  if (document.body) attach();
+  else window.addEventListener("DOMContentLoaded", attach);
+}
+
 // Online/offline state for the app build (and any page that loses its
 // connection). core.isOnline mirrors navigator.onLine, and body.viewer-offline
 // lets CSS hide controls that need a server (upload, sign-in, model browser).
@@ -3218,6 +3343,11 @@ var models = [
 		name: "Point cloud (LAZ, UTM coordinates)"
 	},
 	{
+		url: "./examples/potree/scan/metadata.json",
+		name: "Point cloud (Potree 2, classified)",
+		app: false
+	},
+	{
 		url: "./examples/animated.glb",
 		name: "Animated GLB"
 	}
@@ -3240,7 +3370,7 @@ var DEFAULT_LIST$1 = {
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
-const IS_MOBILE_BUILD$1 = "test" === "mobile";
+const IS_MOBILE_BUILD$1 = "dev" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -7194,7 +7324,7 @@ var DEFAULT_LIST = {
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const IS_MOBILE_BUILD = "test" === "mobile";
+const IS_MOBILE_BUILD = "dev" === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
 const DEFAULT_URL = "./manifests/index.json";
@@ -8712,7 +8842,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DHhdNdHD.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DtWjGkhI.js');
+const loadTilesPlugins = () => import('./index.three-plugins-CdTu4qPk.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -8922,6 +9052,28 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
   core.tiledModel = { format, tiles };
   core.scene.add(tiles.group);
 
+  // Oriented as soon as the root (with its bounding volume) is in, before any
+  // content is requested: tiles are only loaded when the camera sees them,
+  // and a cloud left where its coordinates put it (UTM, millions of metres
+  // from the origin) is out of sight of the camera of the previous model -
+  // nothing would ever load. ReorientationPlugin, registered only now, orients
+  // the group right away (its init runs immediately once the root is loaded)
+  // and never later, after afterLoad has centred the model: georeferenced
+  // tilesets (ECEF, thousands of km from the origin) are moved to the origin
+  // with local "up" along +Y; local ones are turned from the Z-up convention
+  // of 3D Tiles and Potree to three.js' Y-up. afterLoad keeps this transform
+  // for tiled models.
+  let oriented = false;
+  const orient = () => {
+    oriented = true;
+    if (isGeocentric(tiles, options.georeferenced)) {
+      tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
+    } else {
+      orientLocalTileset(tiles);
+    }
+    tiles.group.updateMatrixWorld(true);
+  };
+
   // Wait - checking state every frame rather than relying on the order of
   // the renderer's events, which varies with machine speed - until the root
   // tileset (with its bounding volume) and a first batch of content are in.
@@ -8948,8 +9100,11 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
     // Nothing loads until the renderer is updated with a camera.
     const pump = () => {
       if (settled || activeTiles !== tiles) return;
+      if (tiles.root?.engineData?.boundingVolume && !oriented) {
+        orient();
+        onProgress?.(50);
+      }
       updateTiles();
-      if (tiles.root?.engineData?.boundingVolume) onProgress?.(50);
       const ready = tiles.root?.engineData?.boundingVolume
         && (firstBatchDone || tiles.loadProgress === 1)
         && hasTileContent(tiles.group);
@@ -8958,18 +9113,6 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
     };
     pump();
   });
-
-  // ReorientationPlugin, registered only now so that it orients the group right away (its init
-  // runs immediately once the root is loaded) and never later, after
-  // afterLoad has centred the model: georeferenced tilesets (ECEF, thousands
-  // of km from the origin) are moved to the origin with local "up" along +Y;
-  // local ones are turned from the Z-up convention of 3D Tiles and Potree to
-  // three.js' Y-up. afterLoad keeps this transform for tiled models.
-  if (isGeocentric(tiles, options.georeferenced)) {
-    tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
-  } else {
-    orientLocalTileset(tiles);
-  }
 
   addTilesetBounds(tiles);
   tiles.group.updateMatrixWorld(true);
@@ -9357,7 +9500,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-owfrjW6o.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-D1a1Vmxv.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -9486,9 +9629,9 @@ const loadLWOLoader = async () => (await import('./three-DVpUZZAE.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DEYEu7o2.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DVpUZZAE.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-C2lQLOly.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-D5Ksq2EZ.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-2kbsGOyg.js');
+const loadSplats = async () => import('./splats-Df_N9dy7.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -9689,7 +9832,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "test";
+const ENV_BUILD = "dev";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -10044,8 +10187,12 @@ async function loadModel() {
         object.scale.set(1, 1, 1);
         object.updateMatrixWorld(true);
       }
-      core.handHint.hidden = true;
     }
+    // Stops the hint's sweep of the previous model, for tiled models too:
+    // it orbits the camera around the pose it started from, and while it
+    // runs the camera's fly-in to the new model is held - a streamed cloud
+    // was left seen from the old model's close-up.
+    if (!core.PRESENTATION_MODE && core.handHint) core.handHint.hidden = true;
 
     window.viewer.modelLoaded = true;
     updateLoadingStage("loadingLog.preparingGeometry", 99);
@@ -11260,7 +11407,7 @@ function removeExistingGalleryDom() {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "dev") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -14598,8 +14745,8 @@ function renderFrame(renderer = core.renderer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "e55d4126" ;
-const BUILD = "test" ;
+const BUILD_ID$2 = "526be86" ;
+const BUILD = "dev" ;
 
 let initPromise = null;
 
@@ -14649,8 +14796,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "e55d4126" ;
-const BUILD_TIME$1 = "2026-10-16T09:44:32.078Z" ;
+const BUILD_ID$1 = "526be86" ;
+const BUILD_TIME$1 = "2026-10-16T19:56:23.937Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -33175,9 +33322,12 @@ const COLOR_VERTEX_DECLARATIONS = /* glsl */`
   uniform int uColorMode;
   uniform vec2 uIntensityRange;
   uniform vec2 uHeightRange;
-  uniform vec3 uClassColors[ ${CLASS_SLOTS$1} ];
+  // Class colours as a ${CLASS_SLOTS$1}x1 texture and visibility as a bit mask,
+  // not uniform arrays indexed per vertex, which some mobile drivers
+  // (Adreno) are known to get wrong - points vanished on Android phones.
+  uniform highp sampler2D uClassColorTexture;
   uniform vec3 uOtherClassColor;
-  uniform float uClassVisible[ ${CLASS_SLOTS$1} ];
+  uniform highp uint uClassHiddenMask;
   uniform float uOtherClassVisible;
   uniform bool uProfileEnabled;
   uniform vec4 uProfilePlane;
@@ -33210,7 +33360,9 @@ const COLOR_VERTEX_MAIN = /* glsl */`
       vColor.rgb = pcHslToRgb( ( 1.0 - t ) * 0.66, 0.85, 0.5 );
     } else if ( uColorMode == 3 ) {
       int index = int( classification + 0.5 );
-      vColor.rgb = index < ${CLASS_SLOTS$1} ? uClassColors[ index ] : uOtherClassColor;
+      vColor.rgb = index >= 0 && index < ${CLASS_SLOTS$1}
+        ? texelFetch( uClassColorTexture, ivec2( index, 0 ), 0 ).rgb
+        : uOtherClassColor;
     }
   #endif
 `;
@@ -33219,8 +33371,9 @@ const COLOR_VERTEX_MAIN = /* glsl */`
 // (drawn nowhere, picked never); the point's index for the picking pass.
 const FILTER_VERTEX_MAIN = /* glsl */`
   int pcClass = int( classification + 0.5 );
-  float pcVisible = pcClass < ${CLASS_SLOTS$1} ? uClassVisible[ pcClass ] : uOtherClassVisible;
-  bool pcHidden = pcVisible < 0.5;
+  bool pcHidden = pcClass >= 0 && pcClass < ${CLASS_SLOTS$1}
+    ? ( ( uClassHiddenMask >> uint( pcClass ) ) & 1u ) != 0u
+    : uOtherClassVisible < 0.5;
   if ( uProfileEnabled ) {
     vec3 pcWorld = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
     float pcAlong = dot( uProfileAxis, pcWorld );
@@ -33252,15 +33405,23 @@ const PICK_FRAGMENT_MAIN = /* glsl */`
 const PICKING_PASS = { value: false };
 
 function createColorUniforms() {
-  const classColors = Array.from({ length: CLASS_SLOTS$1 }, (_, index) =>
-    new THREE.Color(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR));
+  const color = new THREE.Color();
+  const classColors = new Uint8Array(CLASS_SLOTS$1 * 4);
+  for (let index = 0; index < CLASS_SLOTS$1; index += 1) {
+    // In the working (linear) colour space, like the uniform colours before.
+    color.setHex(CLASSIFICATION_COLORS[index] ?? OTHER_CLASS_COLOR);
+    classColors.set([color.r * 255, color.g * 255, color.b * 255, 255].map(Math.round), index * 4);
+  }
+  const classColorTexture = new THREE.DataTexture(classColors, CLASS_SLOTS$1, 1);
+  classColorTexture.needsUpdate = true;
   return {
     uColorMode: { value: COLOR_MODES.rgb },
     uIntensityRange: { value: new THREE.Vector2(0, 1) },
     uHeightRange: { value: new THREE.Vector2(0, 1) },
-    uClassColors: { value: classColors },
+    uClassColorTexture: { value: classColorTexture },
     uOtherClassColor: { value: new THREE.Color(OTHER_CLASS_COLOR) },
-    uClassVisible: { value: new Array(CLASS_SLOTS$1).fill(1) },
+    // Bit n set: class n hidden.
+    uClassHiddenMask: { value: 0 },
     uOtherClassVisible: { value: 1 },
     uProfileEnabled: { value: false },
     uProfilePlane: { value: new THREE.Vector4(1, 0, 0, 0) },
@@ -34719,7 +34880,7 @@ function attachFaceAreaSelection(Viewer) {
 //
 //   classes   a check box per ASPRS class present in the cloud: hidden
 //             classes drop out of the view, the Eye-Dome Lighting and GPU
-//             picking (uClassVisible, pointcloud-material.js)
+//             picking (uClassHiddenMask, pointcloud-material.js)
 //   profile   two clicks on the cloud draw a line; only a vertical slab of
 //             points along it stays (width adjustable), seen from the side
 //             with an orthographic camera - a cross-section to measure on
@@ -34797,9 +34958,12 @@ function attachPointCloudTools(Viewer) {
       if (!state) return;
       const hiddenOther = [...state.hiddenClasses].some((classId) => classId >= CLASS_SLOTS);
       Viewer.getPointCloudUniformSets().forEach((uniforms) => {
-        for (let classId = 0; classId < CLASS_SLOTS; classId += 1) {
-          uniforms.uClassVisible.value[classId] = state.hiddenClasses.has(classId) ? 0 : 1;
-        }
+        let mask = 0;
+        state.hiddenClasses.forEach((classId) => {
+          if (classId < CLASS_SLOTS) mask |= 1 << classId;
+        });
+        // Unsigned: class 31 sets the sign bit of a JS integer.
+        uniforms.uClassHiddenMask.value = mask >>> 0;
         uniforms.uOtherClassVisible.value = hiddenOther ? 0 : 1;
       });
     },
@@ -43541,8 +43705,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "e55d4126" ;
-const BUILD_TIME = "2026-10-16T09:44:32.078Z" ;
+const BUILD_ID = "526be86" ;
+const BUILD_TIME = "2026-10-16T19:56:23.937Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -43783,10 +43947,14 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "" ;
+const SOURCE = "IIIF" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
+
+// ?gldebug=1: on-screen WebGL / console diagnostics (phones). First, so it
+// sees the console messages of everything after it.
+installDebugOverlay();
 
 window.viewer = {
   ready: false,
@@ -45323,9 +45491,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    if (!core.CONFIG.entity.metadata.sourceType) {
+    {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -47931,4 +48099,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-Dc-EdokA.js.map
+//# sourceMappingURL=main-D40eyg1i.js.map

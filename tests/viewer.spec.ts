@@ -985,7 +985,7 @@ test('Potree 2 clouds stream by range requests, with intensity, height and class
   expect(hit?.isPointCloudHit).toBe(true);
   await expect(panel.locator('.viewer-pointcloud-panel_class input')).toHaveCount(2);
   await panel.locator('.viewer-pointcloud-panel_class input[data-class-id="6"]').uncheck();
-  expect(await page.evaluate(() => window.Viewer.pointCloudState.colorUniforms.uClassVisible.value[6])).toBe(0);
+  expect(await page.evaluate(() => (window.Viewer.pointCloudState.colorUniforms.uClassHiddenMask.value >>> 6) & 1)).toBe(1);
   const groundOnly = await pickAtCanvasCenter(page);
   expect(groundOnly === null || groundOnly.classification === 2).toBe(true);
 });
@@ -1036,7 +1036,7 @@ test('point clouds are picked on the GPU: the point under the cursor, classes an
   await panel.locator(`.viewer-pointcloud-panel_class input[data-class-id="${visibleClass}"]`).uncheck();
   const filtered = await pickAtCanvasCenter(page);
   expect(filtered.classification).not.toBe(visibleClass);
-  expect(await page.evaluate((id) => window.Viewer.pointCloudState.points[0].material.uniforms.uClassVisible.value[id], visibleClass)).toBe(0);
+  expect(await page.evaluate((id) => (window.Viewer.pointCloudState.points[0].material.uniforms.uClassHiddenMask.value >>> id) & 1, visibleClass)).toBe(1);
   await panel.locator(`.viewer-pointcloud-panel_class input[data-class-id="${visibleClass}"]`).check();
 
   // A profile across the middle: a vertical slab, seen from the side.

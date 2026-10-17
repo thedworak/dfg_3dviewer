@@ -225,6 +225,28 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
   core.tiledModel = { format, tiles };
   core.scene.add(tiles.group);
 
+  // Oriented as soon as the root (with its bounding volume) is in, before any
+  // content is requested: tiles are only loaded when the camera sees them,
+  // and a cloud left where its coordinates put it (UTM, millions of metres
+  // from the origin) is out of sight of the camera of the previous model -
+  // nothing would ever load. ReorientationPlugin, registered only now, orients
+  // the group right away (its init runs immediately once the root is loaded)
+  // and never later, after afterLoad has centred the model: georeferenced
+  // tilesets (ECEF, thousands of km from the origin) are moved to the origin
+  // with local "up" along +Y; local ones are turned from the Z-up convention
+  // of 3D Tiles and Potree to three.js' Y-up. afterLoad keeps this transform
+  // for tiled models.
+  let oriented = false;
+  const orient = () => {
+    oriented = true;
+    if (isGeocentric(tiles, options.georeferenced)) {
+      tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
+    } else {
+      orientLocalTileset(tiles);
+    }
+    tiles.group.updateMatrixWorld(true);
+  };
+
   // Wait - checking state every frame rather than relying on the order of
   // the renderer's events, which varies with machine speed - until the root
   // tileset (with its bounding volume) and a first batch of content are in.
@@ -251,8 +273,11 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
     // Nothing loads until the renderer is updated with a camera.
     const pump = () => {
       if (settled || activeTiles !== tiles) return;
+      if (tiles.root?.engineData?.boundingVolume && !oriented) {
+        orient();
+        onProgress?.(50);
+      }
       updateTiles();
-      if (tiles.root?.engineData?.boundingVolume) onProgress?.(50);
       const ready = tiles.root?.engineData?.boundingVolume
         && (firstBatchDone || tiles.loadProgress === 1)
         && hasTileContent(tiles.group);
@@ -261,18 +286,6 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
     };
     pump();
   });
-
-  // ReorientationPlugin, registered only now so that it orients the group right away (its init
-  // runs immediately once the root is loaded) and never later, after
-  // afterLoad has centred the model: georeferenced tilesets (ECEF, thousands
-  // of km from the origin) are moved to the origin with local "up" along +Y;
-  // local ones are turned from the Z-up convention of 3D Tiles and Potree to
-  // three.js' Y-up. afterLoad keeps this transform for tiled models.
-  if (isGeocentric(tiles, options.georeferenced)) {
-    tiles.registerPlugin(new plugins.ReorientationPlugin({ up: "+z", recenter: true }));
-  } else {
-    orientLocalTileset(tiles);
-  }
 
   addTilesetBounds(tiles);
   tiles.group.updateMatrixWorld(true);

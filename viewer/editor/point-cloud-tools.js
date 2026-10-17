@@ -9,7 +9,7 @@ import { CLASSIFICATION_COLORS } from "../pointcloud-material.js";
 //
 //   classes   a check box per ASPRS class present in the cloud: hidden
 //             classes drop out of the view, the Eye-Dome Lighting and GPU
-//             picking (uClassVisible, pointcloud-material.js)
+//             picking (uClassHiddenMask, pointcloud-material.js)
 //   profile   two clicks on the cloud draw a line; only a vertical slab of
 //             points along it stays (width adjustable), seen from the side
 //             with an orthographic camera - a cross-section to measure on
@@ -87,9 +87,12 @@ export function attachPointCloudTools(Viewer) {
       if (!state) return;
       const hiddenOther = [...state.hiddenClasses].some((classId) => classId >= CLASS_SLOTS);
       Viewer.getPointCloudUniformSets().forEach((uniforms) => {
-        for (let classId = 0; classId < CLASS_SLOTS; classId += 1) {
-          uniforms.uClassVisible.value[classId] = state.hiddenClasses.has(classId) ? 0 : 1;
-        }
+        let mask = 0;
+        state.hiddenClasses.forEach((classId) => {
+          if (classId < CLASS_SLOTS) mask |= 1 << classId;
+        });
+        // Unsigned: class 31 sets the sign bit of a JS integer.
+        uniforms.uClassHiddenMask.value = mask >>> 0;
         uniforms.uOtherClassVisible.value = hiddenOther ? 0 : 1;
       });
     },

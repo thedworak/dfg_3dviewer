@@ -621,8 +621,12 @@ export async function loadModel() {
         object.scale.set(1, 1, 1);
         object.updateMatrixWorld(true);
       }
-      core.handHint.hidden = true;
     }
+    // Stops the hint's sweep of the previous model, for tiled models too:
+    // it orbits the camera around the pose it started from, and while it
+    // runs the camera's fly-in to the new model is held - a streamed cloud
+    // was left seen from the old model's close-up.
+    if (!core.PRESENTATION_MODE && core.handHint) core.handHint.hidden = true;
 
     window.viewer.modelLoaded = true;
     updateLoadingStage("loadingLog.preparingGeometry", 99);

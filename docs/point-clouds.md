@@ -65,6 +65,16 @@ And for the viewer's other tools:
 - **Picking on the GPU** - the ruler, annotations, double-tap focus and the profile get the point that is drawn under the cursor, found by drawing the clouds once more in a small square around it with each point's id as its colour. The raycast it replaces tested every point on the CPU against a fixed distance in world units, which on large scans was slow and often picked a point well away from the cursor.
 - **Point annotations** - with annotations on (picking mode), a click on a point cloud opens the annotation dialog for that point. They are stored as point annotations in the model root's space (as IIIF point annotations are), so they work on streamed clouds too, where face annotations are not possible.
 
+## Large examples
+
+A scan of hundreds of millions of points should not go into the repository: everything under `viewer/examples` is copied into every build (dev, test, prod, Drupal) and the example picker offers it. Convert it and serve it from outside instead:
+
+1. **Convert** - upload it through the viewer's upload panel (the worker writes the quick preview and the Potree 2 octree, and the job's `modelUrl` is the `metadata.json`), or by hand: `WORKER_POINTCLOUD_PREVIEW_POINTS=0 python3 worker/pointcloud.py scan.laz out/<name>` (needs PotreeConverter, see the worker README).
+2. **Serve** - any server that answers HTTP range requests and allows CORS for `Range` (the worker's `/files/` does; plain nginx or a CDN bucket does too). Check with `curl -sI -H "Range: bytes=0-99" <url>/octree.bin`: it must answer `206 Partial Content`.
+3. **Link** - `https://<viewer>/?model=<url of metadata.json>` opens it. To offer it in the example picker, add it to `viewer/examples/index.json` with its absolute URL (`"app": false`: the app bundles only local examples).
+
+`examples/potree/scan` is a small one in the repository (30 000 points of `points.laz`, classified ground / building by height), used by the tests.
+
 ## Roadmap
 
 Planned improvements for very large point clouds, in this order:
