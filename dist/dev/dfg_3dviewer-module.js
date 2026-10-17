@@ -1,4 +1,4 @@
-export { V as Viewer, e as expectWebGL } from './assets/main-BF7_McOA.js';
+export { V as Viewer, e as expectWebGL } from './assets/main-84_xDSIL.js';
 import './assets/three-DVpUZZAE.js';
 import './assets/_commonjsHelpers-B1ynBD_6.js';
 //# sourceMappingURL=main-h_whFwFS.js.map

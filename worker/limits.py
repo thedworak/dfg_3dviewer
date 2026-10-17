@@ -74,10 +74,15 @@ def business_limits() -> dict:
     }
 
 
+# Plans with the Business limits: Enterprise starts from them too, the
+# individually agreed values going into the account's own overrides.
+BUSINESS_TIERS = ("business", "enterprise")
+
+
 def is_business_account(user) -> bool:
-    """The account has the app's Business plan linked and not lapsed (the
+    """The account has the Business or Enterprise plan, not lapsed (the
     "plan" that auth.py adds to its user dicts)."""
-    return bool(user) and (user.get("plan") or {}).get("tier") == "business"
+    return bool(user) and (user.get("plan") or {}).get("tier") in BUSINESS_TIERS
 
 
 def normalize_overrides(raw) -> dict:

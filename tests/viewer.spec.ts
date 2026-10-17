@@ -4,6 +4,7 @@ import fs from 'fs';
 import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validation.js';
 import { inspectAIM3DManifest, manifestFeatureIcons } from '../viewer/manifesto/manifest-inspection.js';
 import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
+import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 
 const defaultModel = '/examples/box.stl';
 const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG';
@@ -4007,6 +4008,228 @@ test('validation report: X/Y passed, rows with their issues, the worker check of
   // The worker's list: the model check as an icon in the row's caption.
   await page.evaluate(() => window.Viewer.openModelsPanel());
   await expect(page.locator('#modelsPanel .model-check-icon')).toHaveAttribute('data-status', 'error');
+});
+
+test('AI: the validation report explained in plain language when the worker offers it', async ({ page }) => {
+  test.setTimeout(120_000);
+  const jobId = 'ai1b2c3';
+  const modelReport = {
+    file: { name: 'box.glb', format: 'glb', bytes: 1948 },
+    status: 'warning',
+    summary: { errors: 0, warnings: 1 },
+    validator: { available: true, version: '2.0.0', issues: [{ code: 'UNUSED_OBJECT', level: 'warning', count: 2, message: 'This object may be unused.', pointers: ['/textures/0'] }] },
+    stats: { totalTriangleCount: 12 },
+    bounds: { size: [1, 1, 1], unit: 'm' },
+    checks: [],
+  };
+  const requests = [];
+  await page.route(`**/files/${jobId}/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
+  await page.route(`**/api/model/validation/${jobId}`, (route) => route.fulfill({ json: modelReport }));
+  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['validation', 'ifc-query', 'variants'], model: 'claude-opus-5-5' } }));
+  await page.route(`**/api/ai/validation/${jobId}`, (route) => {
+    requests.push(route.request().postDataJSON());
+    return route.fulfill({ json: {
+      headline: 'The model can be published.',
+      summary: 'One unused texture; nothing a viewer would notice.',
+      findings: [{ level: 'warning', title: 'Unused texture', explanation: 'It makes the file larger.', fix: 'Remove it in Blender before exporting.', codes: ['UNUSED_OBJECT'] }],
+      model: 'claude-opus-5-5',
+    } });
+  });
+  await openViewer(page, `/files/${jobId}/box.glb`);
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+
+  await page.evaluate(() => window.Viewer.toggleValidationReport());
+  const panel = page.locator('#validationReportPanel');
+  const button = panel.locator('.validation-report-ai .ai-button');
+  await expect(button).toBeVisible();
+  // Nothing is sent before the button.
+  expect(requests).toHaveLength(0);
+  await button.click();
+  const answer = panel.locator('.validation-report-ai');
+  await expect(answer.locator('.ai-headline')).toHaveText('The model can be published.');
+  await expect(answer.locator('.ai-findings li[data-level="warning"]')).toContainText('Remove it in Blender');
+  await expect(answer.locator('.ai-disclaimer')).toContainText('claude-opus-5-5');
+  expect(requests[0].lang).toBe('en');
+});
+
+test('AI: nothing is offered when the worker has no AI endpoint', async ({ page }) => {
+  test.setTimeout(120_000);
+  const jobId = 'noai123';
+  await page.route(`**/files/${jobId}/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
+  await page.route(`**/api/model/validation/${jobId}`, (route) => route.fulfill({ json: { status: 'ok', validator: { issues: [] }, checks: [] } }));
+  await page.route('**/api/ai/config', (route) => route.fulfill({ status: 404, json: { error: 'not found' } }));
+  await openViewer(page, `/files/${jobId}/box.glb`);
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+  await page.evaluate(() => window.Viewer.toggleValidationReport());
+  await expect(page.locator('#validationReportPanel .validation-report-summary')).toBeVisible();
+  await expect(page.locator('#validationReportPanel .ai-button')).toHaveCount(0);
+});
+
+// A converted IFC model's properties (scripts/ifc_metadata.py): the box's
+// node "Cube" is a wall; the other elements have no geometry in box.glb.
+const ifcTestData = {
+  schema: 'IFC4',
+  project: { guid: 'P', name: 'Test house' },
+  tree: { guid: 'P', type: 'IfcProject', name: 'Test house', children: [
+    { guid: 'B', type: 'IfcBuilding', name: 'House', children: [
+      { guid: 'S1', type: 'IfcBuildingStorey', name: 'Level 1', children: [{ guid: 'Cube', type: 'IfcWall' }, { guid: 'W2', type: 'IfcWallStandardCase' }, { guid: 'D1', type: 'IfcDoor' }] },
+      { guid: 'S2', type: 'IfcBuildingStorey', name: 'Level 2', children: [{ guid: 'W3', type: 'IfcWall' }, { guid: 'SL', type: 'IfcSlab' }] },
+    ] },
+  ] },
+  elements: {
+    P: { type: 'IfcProject', name: 'Test house' },
+    B: { type: 'IfcBuilding', name: 'House' },
+    S1: { type: 'IfcBuildingStorey', name: 'Level 1' },
+    S2: { type: 'IfcBuildingStorey', name: 'Level 2' },
+    Cube: { type: 'IfcWall', name: 'Wall A', material: 'Brick', psets: { Pset_WallCommon: { id: 1, LoadBearing: true, IsExternal: true }, Qto_WallBaseQuantities: { NetSideArea: 12.5 } } },
+    W2: { type: 'IfcWallStandardCase', name: 'Wall B', material: 'Brick', psets: { Pset_WallCommon: { LoadBearing: '.F.' }, Qto_WallBaseQuantities: { NetSideArea: 7.5 } } },
+    W3: { type: 'IfcWall', name: 'Wall C', material: 'Concrete', psets: { Pset_WallCommon: { LoadBearing: true } } },
+    D1: { type: 'IfcDoor', name: 'Door', psets: { Pset_DoorCommon: { FireRating: 'EI30' } } },
+    SL: { type: 'IfcSlab', name: 'Slab', psets: { Qto_SlabBaseQuantities: { NetArea: 48 } } },
+    WT: { type: 'IfcWallType', name: 'Brick wall type' },
+  },
+};
+
+test('AI: IFC questions - the summary sent and the filter run on the data', () => {
+  const summary = buildIfcSummary(ifcTestData);
+  expect(summary.classes).toEqual({ IfcWall: 2, IfcWallStandardCase: 1, IfcDoor: 1, IfcSlab: 1, IfcBuilding: 1, IfcBuildingStorey: 2 });
+  expect(summary.storeys).toEqual(['Level 1', 'Level 2']);
+  expect(summary.psets.Pset_WallCommon.properties.LoadBearing).toMatchObject({ type: 'boolean', samples: [true, false] });
+  expect(summary.psets.Pset_WallCommon.properties.id).toBeUndefined();
+  expect(summary.psets.Qto_WallBaseQuantities.properties.NetSideArea).toMatchObject({ type: 'number', min: 7.5, max: 12.5 });
+  // Only names, types and samples - no GlobalIds.
+  expect(JSON.stringify(summary)).not.toContain('Cube');
+
+  const walls = { match: 'all', conditions: [{ field: 'type', op: 'eq', value: 'IfcWall', pset: null, property: null }], aggregate: { kind: 'sum', pset: 'Qto_WallBaseQuantities', property: 'NetSideArea', unit: 'm2' } };
+  const all = runIfcFilter(ifcTestData, walls);
+  // IfcWallStandardCase counts as a wall.
+  expect(all.guids.sort()).toEqual(['Cube', 'W2', 'W3']);
+  expect(all.aggregate).toMatchObject({ kind: 'sum', value: 20, counted: 2, missing: 1, unit: 'm2' });
+
+  const loadBearing = runIfcFilter(ifcTestData, { match: 'all', aggregate: { kind: 'count' }, conditions: [
+    { field: 'type', op: 'eq', value: 'IfcWall', pset: null, property: null },
+    { field: 'property', pset: 'Pset_WallCommon', property: 'LoadBearing', op: 'true', value: null },
+    { field: 'storey', op: 'eq', value: 'level 1', pset: null, property: null },
+  ] });
+  expect(loadBearing.guids).toEqual(['Cube']);
+  expect(loadBearing.aggregate).toEqual({ kind: 'count', value: 1 });
+
+  const anyPset = runIfcFilter(ifcTestData, { match: 'any', conditions: [
+    { field: 'property', pset: null, property: 'FireRating', op: 'contains', value: 'ei' },
+    { field: 'property', pset: null, property: 'NetArea', op: 'gte', value: '40' },
+  ] });
+  expect(anyPset.guids.sort()).toEqual(['D1', 'SL']);
+  // Storeys only when asked for.
+  expect(runIfcFilter(ifcTestData, { match: 'all', conditions: [{ field: 'type', op: 'eq', value: 'IfcBuildingStorey' }] }).guids).toEqual(['S1', 'S2']);
+  expect(runIfcFilter(ifcTestData, { match: 'all', conditions: [{ field: 'name', op: 'contains', value: 'e' }] }).guids).not.toContain('S1');
+});
+
+test('AI: IFC question panel - asks the worker, runs the filter, highlights and hides', async ({ page }) => {
+  test.setTimeout(120_000);
+  const jobId = 'ifcjob1';
+  const asked = [];
+  await page.route(`**/files/${jobId}/gltf/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
+  await page.route(`**/files/${jobId}/metadata/box_ifc.json`, (route) => route.fulfill({ json: ifcTestData }));
+  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['ifc-query'], model: 'claude-opus-5-5' } }));
+  await page.route('**/api/ai/ifc-query', (route) => {
+    asked.push(route.request().postDataJSON());
+    return route.fulfill({ json: {
+      understood: true,
+      interpretation: 'Load-bearing walls',
+      match: 'all',
+      conditions: [
+        { field: 'type', pset: null, property: null, op: 'eq', value: 'IfcWall' },
+        { field: 'property', pset: 'Pset_WallCommon', property: 'LoadBearing', op: 'true', value: null },
+      ],
+      aggregate: { kind: 'sum', pset: 'Qto_WallBaseQuantities', property: 'NetSideArea', unit: 'm²' },
+      action: 'highlight',
+      note: 'Load-bearing taken from Pset_WallCommon.LoadBearing.',
+      model: 'claude-opus-5-5',
+    } });
+  });
+  await openViewer(page, `/files/${jobId}/gltf/box.glb`);
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+
+  // The tool shows up once the properties are in and the worker offers it.
+  await page.waitForFunction(() => window.Viewer.isIfcQueryAvailable?.() === true, null, { timeout: 20_000 });
+  expect(await page.evaluate(() => window.Viewer.editorToolbarButtons.ifcQuery.hidden)).toBe(false);
+  await page.evaluate(() => window.Viewer.toggleIfcQuery());
+  const panel = page.locator('#ifcQueryPanel');
+  await expect(panel).toBeVisible();
+  await panel.locator('input').fill('nośne ściany');
+  await panel.locator('button[type="submit"]').click();
+  await expect(panel.locator('.ifc-query-count')).toHaveText('2 element(s) found');
+  await expect(panel.locator('.ifc-query-aggregate')).toContainText('12.5 m²');
+  await expect(panel.locator('.ifc-query-filter code')).toHaveCount(2);
+  await expect(panel.locator('.ifc-query-note')).toContainText('Pset_WallCommon');
+  expect(asked[0].question).toBe('nośne ściany');
+  expect(asked[0].schema.classes.IfcWall).toBe(2);
+
+  // Highlighted: an overlay on the wall's mesh.
+  expect(await page.evaluate(() => window.Viewer.ifcQueryOverlays.length)).toBe(1);
+  await panel.locator('.ifc-query-actions [data-action="hide"]').click();
+  expect(await page.evaluate(() => window.Viewer.ifcQueryHidden.length)).toBe(1);
+  expect(await page.evaluate(() => window.Viewer.ifcQueryOverlays.length)).toBe(0);
+  await panel.locator('.ifc-query-actions [data-action="reset"]').click();
+  expect(await page.evaluate(() => window.Viewer.ifcQueryHidden.length)).toBe(0);
+  await panel.locator('.ifc-query-list summary').click();
+  await expect(panel.locator('.ifc-query-list li')).toHaveCount(2);
+});
+
+test('AI: reconstruction variants compared and their paradata reviewed', async ({ page }) => {
+  test.setTimeout(120_000);
+  const sent = [];
+  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['variants'], model: 'claude-opus-5-5' } }));
+  await page.route('**/api/ai/variants', (route) => {
+    sent.push(route.request().postDataJSON());
+    return route.fulfill({ json: {
+      summary: 'The roofed variant adds a dome and a fourth column.',
+      differences: [{ aspect: 'Height', detail: 'The roofed variant is taller.', variants: ['roofed', 'open'] }],
+      paradata: [
+        { variant: 'roofed', status: 'ok', issues: [], suggestions: [] },
+        { variant: 'open', status: 'incomplete', issues: ['No source is cited.'], suggestions: ['Cite the survey the ruin state is based on.'] },
+      ],
+      model: 'claude-opus-5-5',
+    } });
+  });
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await page.evaluate(async () => {
+    const manifest = await (await fetch('/manifests/tempietto-aim3d-variants.json')).json();
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.variantsState, null, { timeout: 60_000 });
+
+  const section = page.locator('#viewerVariants .viewer-variants_ai');
+  await expect(section.locator('.ai-button')).toBeVisible();
+  expect(sent).toHaveLength(0);
+  await section.locator('.ai-button').click();
+  await expect(section.locator('.ai-answer')).toContainText('adds a dome');
+  await expect(section.locator('[data-variant="open"][data-status="incomplete"]')).toContainText('Cite the survey');
+  await expect(section.locator('.ai-disclaimer')).toBeVisible();
+
+  // What was sent: texts, certainty and measurements - no geometry.
+  const body = sent[0];
+  expect(body.variants.map((variant) => variant.id)).toEqual(['roofed', 'open']);
+  const roofed = body.variants[0];
+  expect(roofed.measurements.sizeMeters).toHaveLength(3);
+  expect(roofed.measurements.triangles).toBeGreaterThan(0);
+  expect(roofed.certaintyLevel.code).toMatch(/^D/);
+  expect(body.certaintyScale.levels.length).toBeGreaterThan(1);
+  expect(roofed.nodeCount).toBe(3);
+});
+
+test('point clouds classified by the worker: the class list says so', async ({ page }) => {
+  test.setTimeout(60_000);
+  // tiles/<name>/tileset.json -> tiles/<name>.classification.json (worker/classify.py).
+  await page.route('**/examples/tiles/wolpa-points.classification.json', (route) => route.fulfill({
+    json: { classifier: 'geometric', points: 1000, counts: { ground: 600, building: 400 }, seconds: 0.4 },
+  }));
+  await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  await page.waitForFunction(() => window.Viewer.pointCloudState?.autoClassification, null, { timeout: 20_000 });
+  await expect(page.locator('#viewerPointCloudPanel .viewer-pointcloud-panel_note')).toHaveText(/assigned automatically from the geometry/);
 });
 
 test('example manifests list: icons of what each manifest contains', async ({ page }) => {

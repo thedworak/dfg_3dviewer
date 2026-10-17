@@ -76,6 +76,18 @@ services:
       - WORKER_SMTP_PASSWORD=${WORKER_SMTP_PASSWORD:-}
       - WORKER_SMTP_FROM=${WORKER_SMTP_FROM:-}
       - WORKER_PUBLIC_URL=${WORKER_PUBLIC_URL:-}
+      # Optional AI assistance (Claude API) - see docs/ai.md. Off unless
+      # WORKER_AI_ENABLED=true and an ANTHROPIC_API_KEY is set.
+      - WORKER_AI_ENABLED=${WORKER_AI_ENABLED:-false}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - WORKER_AI_MODEL=${WORKER_AI_MODEL:-}
+      - WORKER_AI_FEATURES=${WORKER_AI_FEATURES:-}
+      - WORKER_AI_ACCESS=${WORKER_AI_ACCESS:-business}
+      - WORKER_AI_REQUESTS_PER_HOUR=${WORKER_AI_REQUESTS_PER_HOUR:-30}
+      # Point cloud classification before tiling (worker/classify.py): off | auto | always.
+      - WORKER_POINTCLOUD_CLASSIFY=${WORKER_POINTCLOUD_CLASSIFY:-off}
+      - WORKER_POINTCLOUD_CLASSIFIER=${WORKER_POINTCLOUD_CLASSIFIER:-geometric}
+      - WORKER_POINTCLOUD_CLASSIFIER_CMD=${WORKER_POINTCLOUD_CLASSIFIER_CMD:-}
     # Requesting this reservation without nvidia-container-toolkit on the
     # host makes `docker compose up` fail outright ("could not select
     # device driver \"nvidia\"") before the container ever starts, so it

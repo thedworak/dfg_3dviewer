@@ -1,0 +1,247 @@
+/* AI assistance (viewer/ai/): the button asking for an answer and the
+   answer itself, in the validation report, the IFC query panel and the
+   variants panel. Marked as AI throughout - an accent border and the
+   disclaimer line. */
+.ai-answer {
+  --ai-accent: #7c5cff;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-left: 3px solid var(--ai-accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ai-accent) 6%, transparent);
+  color: var(--viewer-panel-text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ai-answer h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.ai-answer p {
+  margin: 4px 0;
+}
+
+.ai-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--ai-accent, #7c5cff) 60%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ai-accent, #7c5cff) 14%, transparent);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ai-button::before {
+  content: "✦";
+  color: var(--ai-accent, #7c5cff);
+}
+
+.ai-button:hover,
+.ai-button:focus-visible {
+  background: color-mix(in srgb, var(--ai-accent, #7c5cff) 24%, transparent);
+}
+
+.ai-button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.ai-headline {
+  font-weight: 600;
+}
+
+.ai-findings {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.ai-findings li {
+  padding-left: 8px;
+  border-left: 3px solid var(--status-color, color-mix(in srgb, var(--viewer-panel-text) 25%, transparent));
+}
+
+.ai-findings [data-level="error"],
+.ai-findings [data-status="inconsistent"] {
+  --status-color: #e5484d;
+}
+
+.ai-findings [data-level="warning"],
+.ai-findings [data-status="incomplete"] {
+  --status-color: #d48806;
+}
+
+.ai-findings [data-status="ok"] {
+  --status-color: #30a46c;
+}
+
+.ai-fix span {
+  font-weight: 600;
+}
+
+.ai-disclaimer,
+.ai-loading {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.ai-error {
+  color: #e5484d;
+}
+
+/* The IFC question window (ai/ifc-query.js): top right, beside the model. */
+#ifcQueryPanel[hidden] {
+  display: none !important;
+}
+
+#ifcQueryPanel {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: min(420px, calc(100% - 32px));
+  max-height: min(calc(100% - 32px), 720px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 99998;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  scrollbar-width: thin;
+}
+
+.ifc-query-form {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.ifc-query-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.ifc-query-hint {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.ifc-query-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ifc-query-example,
+.ifc-query-actions button,
+.ifc-query-list button {
+  padding: 3px 9px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ifc-query-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0 4px;
+}
+
+.ifc-query-actions button.is-active {
+  border-color: #7c5cff;
+  background: color-mix(in srgb, #7c5cff 18%, transparent);
+}
+
+.ifc-query-filter code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 8%, transparent);
+  font-size: 12px;
+}
+
+.ifc-query-count,
+.ifc-query-aggregate {
+  font-weight: 600;
+}
+
+.ifc-query-note {
+  font-style: italic;
+}
+
+.ifc-query-list ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.ifc-query-list button {
+  border-radius: 6px;
+  width: 100%;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ifc-query-list small {
+  opacity: 0.6;
+}
+
+/* In the variants panel (ai/variants-review.js): under the variant list,
+   scrolling on its own when long. */
+.viewer-variants_ai {
+  margin-top: 8px;
+}
+
+.viewer-variants .ai-button {
+  border-radius: 999px;
+  border-color: color-mix(in srgb, #7c5cff 60%, transparent);
+  background: color-mix(in srgb, #7c5cff 14%, transparent);
+}
+
+.viewer-variants_ai .ai-answer {
+  max-height: min(32vh, 320px);
+  overflow: auto;
+  margin-bottom: 0;
+}
+
+.ai-answer h4 {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.ai-status {
+  font-weight: 400;
+  color: var(--status-color, inherit);
+}

@@ -4,6 +4,7 @@ import { appRequestHeaders, remoteAssetUrl } from "../remote.js";
 import { makePanelWindow } from "./panel-window.js";
 import { featureIconSvg, featureLabel, statusLabel } from "./feature-icons.js";
 import { inspectAIM3DManifest } from "../manifesto/manifest-inspection.js";
+import { aiDisclaimer, aiRequest, hasAIFeature } from "../ai/ai-client.js";
 
 // The validation report (toolbar: File > Validation report): is the open
 // model ready to be published? One row per check, like a checklist:
@@ -17,6 +18,11 @@ import { inspectAIM3DManifest } from "../manifesto/manifest-inspection.js";
 // of the manifest the viewer would export now (build3IFManifest), checked
 // attribute by attribute (manifest-inspection.js). Each row opens to its
 // issues. Overall: "X/Y passed" - rows that pass over rows checked.
+//
+// When the worker offers AI assistance (worker/ai.py, "validation"), the
+// model check can be explained in plain language: what matters, what to fix
+// first (POST /api/ai/validation/<id>). Asked for by a button, never on its
+// own, since every answer costs a request.
 
 const MAX_ISSUES_SHOWN = 50;
 const ALWAYS = ["manifest", "metadata", "rights"];
@@ -25,8 +31,8 @@ const HINTED = ["model", "metadata", "rights", "annotations", "manifest"];
 
 const validationRequests = new Map();
 
-// The worker's validation endpoint for a model it serves, or null.
-export function modelValidationUrl(modelUrl) {
+// The worker job serving a model (/files/<id>/...): {id, origin}, or null.
+export function modelJob(modelUrl) {
   if (typeof modelUrl !== "string" || !modelUrl) return null;
   let parsed;
   try {
@@ -35,7 +41,13 @@ export function modelValidationUrl(modelUrl) {
     return null;
   }
   const match = parsed.pathname.match(/\/files\/([A-Za-z0-9_-]+)\//);
-  return match ? new URL(`/api/model/validation/${match[1]}`, parsed.origin).href : null;
+  return match ? { id: match[1], origin: parsed.origin } : null;
+}
+
+// The worker's validation endpoint for a model it serves, or null.
+export function modelValidationUrl(modelUrl) {
+  const job = modelJob(modelUrl);
+  return job ? new URL(`/api/model/validation/${job.id}`, job.origin).href : null;
 }
 
 // validation.json of a worker model; null when there is none (other hosts,
@@ -144,6 +156,8 @@ function el(tag, className, text) {
 export function attachValidationReport(Viewer) {
   Object.assign(Viewer, {
     validationReport: null,
+    // The AI explanation of the model check: {model, state, answer, error}.
+    validationAIExplanation: null,
 
     isValidationReportOpen() {
       return Boolean(this.validationReportPanel && !this.validationReportPanel.hidden);
@@ -237,6 +251,8 @@ export function attachValidationReport(Viewer) {
       }
       const modelReport = await fetchModelValidation(core.fileObject.originalPath, { refresh });
       this.validationReport = buildValidationReport(manifest, modelReport);
+      if (refresh || this.validationAIExplanation?.model !== core.fileObject.originalPath) this.validationAIExplanation = null;
+      this.validationAIAvailable = Boolean(modelReport) && await hasAIFeature("validation");
       this.renderValidationReport();
     },
 
@@ -270,6 +286,8 @@ export function attachValidationReport(Viewer) {
       verdict.append(el("strong", "", headline), el("p", "", explanation));
       summary.append(ring, verdict);
       body.appendChild(summary);
+
+      if (this.validationAIAvailable) body.appendChild(this.renderValidationAISection());
 
       // The checklist.
       const list = el("ul", "validation-report-list");
@@ -347,6 +365,65 @@ export function attachValidationReport(Viewer) {
       return section;
     },
 
+    // The AI explanation: a button, then the answer (or why there is none).
+    renderValidationAISection() {
+      const section = el("section", "validation-report-ai ai-answer");
+      const state = this.validationAIExplanation;
+      if (!state || state.state === "error") {
+        const button = el("button", "ai-button", t("ai.validation.explain", "Explain in plain language (AI)"));
+        button.type = "button";
+        button.title = t("ai.validation.explainHint", "Sends the model check report (not the model) to the AI assistant.");
+        this.bindEventListener(button, "click", () => this.explainValidationWithAI());
+        section.appendChild(button);
+        if (state?.error) section.appendChild(el("p", "ai-error", state.error));
+        return section;
+      }
+      if (state.state === "loading") {
+        section.appendChild(el("p", "ai-loading", t("ai.thinking", "The AI assistant is looking at it...")));
+        return section;
+      }
+      const answer = state.answer || {};
+      section.appendChild(el("h3", "", t("ai.validation.title", "Explained by AI")));
+      if (answer.headline) section.appendChild(el("p", "ai-headline", answer.headline));
+      if (answer.summary) section.appendChild(el("p", "", answer.summary));
+      const findings = Array.isArray(answer.findings) ? answer.findings : [];
+      if (findings.length) {
+        const list = el("ul", "ai-findings");
+        findings.forEach((finding) => {
+          const item = el("li");
+          item.dataset.level = finding.level || "info";
+          item.appendChild(el("strong", "", finding.title || ""));
+          if (finding.explanation) item.appendChild(el("p", "", finding.explanation));
+          if (finding.fix) {
+            const fix = el("p", "ai-fix");
+            fix.append(el("span", "", t("ai.validation.fix", "What to do: ")), document.createTextNode(finding.fix));
+            item.appendChild(fix);
+          }
+          list.appendChild(item);
+        });
+        section.appendChild(list);
+      }
+      section.appendChild(el("p", "ai-disclaimer", aiDisclaimer(answer.model)));
+      return section;
+    },
+
+    async explainValidationWithAI() {
+      const modelUrl = core.fileObject?.originalPath;
+      const job = modelJob(modelUrl);
+      if (!job) return;
+      this.validationAIExplanation = { model: modelUrl, state: "loading" };
+      this.renderValidationReport();
+      try {
+        const answer = await aiRequest(`/api/ai/validation/${encodeURIComponent(job.id)}`);
+        if (this.validationAIExplanation?.model !== modelUrl) return;
+        this.validationAIExplanation = { model: modelUrl, state: "done", answer };
+      } catch (error) {
+        if (this.validationAIExplanation?.model !== modelUrl) return;
+        this.validationAIExplanation = { model: modelUrl, state: "error", error: error.message };
+      }
+      this.renderValidationReport();
+    },
+
     downloadValidationReport() {
       const report = this.validationReport;
       if (!report) return;
@@ -359,6 +436,7 @@ export function attachValidationReport(Viewer) {
         checks: report.rows.map(({ id, status, count, issues }) => ({ id, status, count, issues })),
         modelValidation: report.modelReport,
         manifestInspection: report.inspection,
+        ...(this.validationAIExplanation?.state === "done" ? { aiExplanation: this.validationAIExplanation.answer } : {}),
       };
       const link = document.createElement("a");
       link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
