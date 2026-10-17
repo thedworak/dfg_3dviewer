@@ -130,6 +130,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ make 
     && rm -rf /var/lib/apt/lists/* \
     && /usr/local/bin/PotreeConverter --help > /dev/null
 
+# Khronos glTF-Validator checks every GLB/glTF before optimization and
+# writes validation.json (worker/validate.py). A single native binary; kept
+# after PotreeConverter so adding it did not invalidate the cached layers.
+ARG GLTF_VALIDATOR_VERSION=2.0.0-dev.3.10
+RUN curl -fsSL "https://github.com/KhronosGroup/glTF-Validator/releases/download/${GLTF_VALIDATOR_VERSION}/gltf_validator-${GLTF_VALIDATOR_VERSION}-linux64.tar.xz" -o /tmp/gltf_validator.tar.xz \
+    && tar -xJf /tmp/gltf_validator.tar.xz -C /usr/local/bin gltf_validator \
+    && chmod +x /usr/local/bin/gltf_validator \
+    && rm /tmp/gltf_validator.tar.xz \
+    && { gltf_validator --help 2>&1 || true; } | grep -q "glTF 2.0 Validator"
+
 # Runtime defaults that do not depend on the code.
 ENV SPATH=/app
 ENV BLENDER_BIN=blender

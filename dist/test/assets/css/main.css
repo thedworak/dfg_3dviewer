@@ -2,6 +2,7 @@
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
 @import "./models-panel.css";
+@import "./validation-report.css";
 @import "./admin-panel.css";
 @import "./login-panel.css";
 @import "./ifc-properties.css";
@@ -2563,6 +2564,7 @@ body.presentation-mode {
   #example-model-picker #uploadModel,
   #example-model-picker #browseModelsButton,
   #example-model-picker #openLocalFileButton,
+  #example-model-picker #browseManifestsButton,
   #example-model-picker #planButton,
   #example-model-picker #example-theme-toggle,
   #viewer-account-bar #loginButton,
@@ -2614,6 +2616,7 @@ body.viewer-no-remote #uploadModel,
 body.viewer-no-remote #loginButton,
 body.viewer-no-remote #manageUsersButton,
 body.viewer-app #browseModelsButton,
+body.viewer-app #browseManifestsButton,
 /* ...and the bar that holds only those two, or its empty frame stays in the
    header's corner. */
 body.viewer-offline #viewer-account-bar,

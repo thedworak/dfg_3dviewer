@@ -9,7 +9,9 @@ could talk to either backend interchangeably:
 
   POST /api/model/create        multipart file upload -> {entity_id, status}
   GET  /api/model/status/<id>   -> {progress, status, message, modelUrl,
-                                    previewUrl (point clouds, while converting), ...}
+                                    previewUrl (point clouds, while converting),
+                                    validation (summary), ...}
+  GET  /api/model/validation/<id> -> the job's validation.json (validate.py)
   GET  /api/jobs                -> {jobs: [...]} previously converted models
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
@@ -59,6 +61,7 @@ import optimize
 import remote_fetch
 import pointcloud
 import static_files
+import validate
 from auth import APP_TIERS, AuthError, AuthStore
 try:
     # Plans sold by an app built on the viewer: an optional module next to
@@ -295,6 +298,28 @@ def scan_job(job_id: str, job_dir: Path):
     }
 
 
+def validation_path(job_id: str) -> Path:
+    # Next to owner.json, not under input/: GET /api/model/validation/<id>
+    # serves it, /files/ does not.
+    return JOBS_DIR / job_id / validate.REPORT_NAME
+
+
+def validate_model(job_id: str, model_path: Path, job_root: Path) -> None:
+    """Writes validation.json for model_path (validate.py). Best effort: a
+    failed check is logged, never fails the job."""
+    if not validate.enabled():
+        return
+    set_job(job_id, progress=55, message="Validating model...")
+    try:
+        report = validate.write_report(model_path, validation_path(job_id), str(model_path.relative_to(job_root)))
+    except (RuntimeError, subprocess.TimeoutExpired, OSError, ValueError) as exc:
+        print(f"[job {job_id}] validation skipped: {exc}", file=sys.stderr)
+        return
+    summary = validate.summary_of(report)
+    print(f"[job {job_id}] validation: {summary}", file=sys.stderr)
+    set_job(job_id, validation=summary)
+
+
 def read_owner(job_id: str):
     try:
         return json.loads((JOBS_DIR / job_id / "owner.json").read_text("utf-8"))
@@ -347,6 +372,9 @@ def list_jobs(user=None):
             continue
         if job is not None:
             job["canDelete"] = can_delete_job(job["id"], user)
+            # null for formats that are not validated (point clouds, splats...)
+            # and for jobs from before validation.
+            job["validation"] = validate.read_summary(validation_path(job["id"]))
             # Shown as "Uploaded by {owner}" in the browse-models panel, to
             # anyone - including anonymous visitors, same as the rest of
             # GET /api/jobs. Jobs uploaded anonymously (accounts off, or
@@ -430,6 +458,10 @@ def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool,
 
     if not glb_path.is_file():
         raise RuntimeError(f"Expected converted output missing: {glb_path}")
+
+    # Before optimize.py: gltfpack's Meshopt/KTX2 output is the worker's own
+    # and the validator cannot look into it.
+    validate_model(job_id, glb_path, job_root)
 
     if optimizing:
         glb_path = optimize_converted_glb(job_id, glb_path, work_path)
@@ -520,6 +552,8 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         # A PLY of Gaussian splats is drawn by the viewer as it is.
         if ext in VIEWER_NATIVE_FORMATS or (ext == "ply" and pointcloud.is_gaussian_splat_ply(work_path)):
             # Nothing to convert or render: the viewer reads this format itself.
+            if ext == "gltf":
+                validate_model(job_id, work_path, job_root)
             set_job(
                 job_id,
                 status="ready",
@@ -537,11 +571,15 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         ):
             glb_path, image_urls = convert_and_render(job_id, work_path, ext, is_archive, job_root)
 
+        validation = (get_job(job_id) or {}).get("validation") or {}
         set_job(
             job_id,
             status="ready",
             progress=100,
-            message="Conversion finished",
+            message=(
+                f"Conversion finished - validation found {validation['errors']} error(s)"
+                if validation.get("errors") else "Conversion finished"
+            ),
             model_url=f"/files/{job_id}/{glb_path.relative_to(job_root)}",
             image_urls=image_urls,
         )
@@ -917,7 +955,18 @@ class Handler(BaseHTTPRequestHandler):
                 # A point cloud's quick preview (LAS) while its tiles are built.
                 "previewUrl": job.get("preview_url"),
                 "imageUrls": job.get("image_urls", []),
+                "validation": job.get("validation"),
             })
+            return
+
+        match = re.fullmatch(r"/api/model/validation/([A-Za-z0-9_-]+)", path)
+        if match:
+            try:
+                report = json.loads(validation_path(match.group(1)).read_text("utf-8"))
+            except (OSError, ValueError):
+                self._send_json(404, {"error": "not found"})
+                return
+            self._send_json(200, report)
             return
 
         if path == "/api/auth/config":

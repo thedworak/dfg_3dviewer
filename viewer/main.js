@@ -57,6 +57,7 @@ import { attachModelsPanel } from "./ui/models-panel.js";
 import { attachLibraryPanel } from "./ui/library-panel.js";
 import { attachModelsSource } from "./ui/models-source.js";
 import { attachExamplesPanel } from "./ui/examples-panel.js";
+import { attachValidationReport } from "./ui/validation-report.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
 import { attachLoginPanel } from "./ui/login-panel.js";
 import { buildThumbnailGallery, getManifestThumbnails } from "./ui/thumbnail-gallery.js";
@@ -2025,6 +2026,11 @@ export const Viewer = {
     openLocalFile.type = "button";
     openLocalFile.id = "openLocalFileButton";
     picker.appendChild(openLocalFile);
+
+    const browseManifests = document.createElement("button");
+    browseManifests.type = "button";
+    browseManifests.id = "browseManifestsButton";
+    picker.appendChild(browseManifests);
 
     return picker;
   },
@@ -4002,6 +4008,7 @@ export const Viewer = {
         let loginButton = document.getElementById('loginButton');
         let browseModelsButton = document.getElementById('browseModelsButton');
         let openLocalFileButton = document.getElementById('openLocalFileButton');
+        let browseManifestsButton = document.getElementById('browseManifestsButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
           const header = Viewer.createViewerPageHeader();
@@ -4012,6 +4019,7 @@ export const Viewer = {
           loginButton = header.querySelector('#loginButton');
           browseModelsButton = header.querySelector('#browseModelsButton');
           openLocalFileButton = header.querySelector('#openLocalFileButton');
+          browseManifestsButton = header.querySelector('#browseManifestsButton');
           manageUsersButton = header.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(header, viewerElement);
         }
@@ -4051,6 +4059,16 @@ export const Viewer = {
             "click",
             (isAppBuild() ? Viewer.toggleModelsSource : Viewer.openLibraryPanel).bind(Viewer)
           );
+        }
+        // The example manifests, as a list with what each one contains
+        // (ui/examples-panel.js). The app reaches them through its "Models"
+        // button instead (ui/models-source.js); hidden there (main.css).
+        if (browseManifestsButton) {
+          browseManifestsButton.innerHTML = '<span class="browse-manifests-icon" aria-hidden="true"></span>';
+          const browseManifestsLabel = t("menu.openExampleManifests", "Example manifests");
+          browseManifestsButton.setAttribute("aria-label", browseManifestsLabel);
+          browseManifestsButton.setAttribute("title", browseManifestsLabel);
+          Viewer.bindEventListener(browseManifestsButton, "click", Viewer.toggleExamplesPanel.bind(Viewer));
         }
         // The app build's own controls (app-hooks.js).
         Viewer.initAppUi?.();
@@ -4301,6 +4319,7 @@ attachModelsPanel(Viewer);
 attachLibraryPanel(Viewer);
 attachModelsSource(Viewer);
 attachExamplesPanel(Viewer);
+attachValidationReport(Viewer);
 attachAppUi(Viewer);
 attachAdminPanel(Viewer);
 attachWindowControls(Viewer);

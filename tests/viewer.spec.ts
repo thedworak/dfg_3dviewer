@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validation.js';
+import { inspectAIM3DManifest, manifestFeatureIcons } from '../viewer/manifesto/manifest-inspection.js';
 import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 
 const defaultModel = '/examples/box.stl';
@@ -3818,4 +3819,195 @@ test('comparing the look: two shading modes and lightings, the scene as it was b
   await overlay.locator('.viewer-compare_close').click();
   await expect(overlay).toHaveCount(0);
   expect(await scene()).toBe(before);
+});
+
+test('manifest inspection: every example is fine and every attribute known', () => {
+  const dir = 'viewer/manifesto/examples';
+  for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.json') && name !== 'index.json')) {
+    const inspection = inspectAIM3DManifest(JSON.parse(fs.readFileSync(`${dir}/${file}`, 'utf8')));
+    const problems = inspection.attributes.filter((entry) => ['error', 'warning'].includes(entry.level) || !entry.known);
+    expect(problems.map((entry) => `${entry.path}: ${entry.issues.map((issue) => issue.message).join('; ')}`), file).toEqual([]);
+    expect(inspection.status, file).toBe('ok');
+    // Every leaf of the JSON is an attribute of the report.
+    expect(inspection.summary.attributes, file).toBeGreaterThan(10);
+  }
+
+  // What the list icons show.
+  const sun = inspectAIM3DManifest(JSON.parse(fs.readFileSync(`${dir}/tempietto-aim3d-sun.json`, 'utf8')));
+  expect(manifestFeatureIcons(sun).map((feature) => feature.id)).toEqual([
+    'model', 'metadata', 'camera', 'lights', 'timeline', 'location', 'sun', 'transform', 'rendering', 'settings',
+  ]);
+  expect(manifestFeatureIcons(sun).find((feature) => feature.id === 'timeline')).toMatchObject({ count: 3, status: 'ok' });
+});
+
+test('manifest inspection: checks each attribute value', () => {
+  const scene = 'https://example.org/scene';
+  const inspection = inspectAIM3DManifest({
+    '@context': 'http://iiif.io/api/presentation/4/context.json',
+    id: 'https://example.org/manifest.json',
+    type: 'Manifest',
+    label: { english: ['Vessel'], pl: [''] },
+    rights: 'Public domain',
+    items: [{
+      id: scene,
+      type: 'Scene',
+      backgroundColor: 'not a colour',
+      items: [{
+        id: 'https://example.org/page',
+        type: 'AnnotationPage',
+        items: [{
+          id: 'https://example.org/painting',
+          type: 'Annotation',
+          motivation: ['painting'],
+          body: { id: 'http://localhost:8080/vessel.glb', type: 'Model', format: 'glb' },
+          target: { id: 'https://example.org/elsewhere', type: 'Scene' },
+        }],
+      }],
+      annotations: [{
+        id: 'https://example.org/comments',
+        type: 'AnnotationPage',
+        items: [{
+          id: 'https://example.org/comment',
+          type: 'Annotation',
+          motivation: 'commenting',
+          body: { type: 'TextualBody', value: 'Handle' },
+          target: scene,
+          AIM3DViewer: { faceIndex: -3, point: [1, 2], certainty: { value: 42 } },
+        }],
+      }],
+    }],
+    AIM3DViewer: {
+      generatedAt: 'yesterday',
+      camera: { up: [0, 0, 0], fov: 200, perspectiveMode: 'fisheye' },
+      viewer: { autorotate: 'yes', backgroundColor: '#12345', colour: 'red' },
+      lights: [{ type: 'LaserLight', intensity: -1 }],
+      variants: { items: [{ id: 'a', label: 'A' }] },
+      compare: { left: { variant: 'b' }, right: { variant: 'a' } },
+      location: { latitude: 123 },
+      sun: { time: '25:00' },
+      modelTransform: { scale: [1, 0, 1] },
+    },
+  });
+  const levels = Object.fromEntries(inspection.attributes.filter((entry) => entry.level !== 'ok').map((entry) => [entry.path, entry.level]));
+  expect(levels).toEqual({
+    '$.summary': 'info',
+    '$.label.english': 'warning',
+    '$.label.pl[0]': 'warning',
+    '$.rights': 'warning',
+    '$.items[0].backgroundColor': 'warning',
+    '$.items[0].items[0].items[0].body.id': 'warning',
+    '$.items[0].items[0].items[0].body.format': 'warning',
+    '$.items[0].items[0].items[0].target': 'warning',
+    '$.items[0].annotations[0].items[0].AIM3DViewer.faceIndex': 'error',
+    '$.items[0].annotations[0].items[0].AIM3DViewer.point': 'error',
+    '$.items[0].annotations[0].items[0].AIM3DViewer.certainty.value': 'error',
+    '$.AIM3DViewer.generatedAt': 'warning',
+    '$.AIM3DViewer.camera.up': 'warning',
+    '$.AIM3DViewer.camera.fov': 'warning',
+    '$.AIM3DViewer.camera.perspectiveMode': 'error',
+    '$.AIM3DViewer.viewer.autorotate': 'error',
+    '$.AIM3DViewer.viewer.backgroundColor': 'warning',
+    '$.AIM3DViewer.viewer.colour': 'info',
+    '$.AIM3DViewer.lights[0].type': 'warning',
+    '$.AIM3DViewer.lights[0].intensity': 'warning',
+    '$.AIM3DViewer.compare.left.variant': 'warning',
+    '$.AIM3DViewer.location.latitude': 'error',
+    '$.AIM3DViewer.location.longitude': 'error',
+    '$.AIM3DViewer.sun.time': 'error',
+    '$.AIM3DViewer.modelTransform.scale': 'warning',
+  });
+  expect(inspection.status).toBe('error');
+  expect(inspection.summary).toMatchObject({ errors: 8, unknown: 1 });
+
+  // Each problem counts against its feature (icon).
+  const status = Object.fromEntries(manifestFeatureIcons(inspection).map((feature) => [feature.id, feature.status]));
+  expect(status).toMatchObject({
+    model: 'warning', annotations: 'error', certainty: 'error', camera: 'error', lights: 'warning',
+    variants: 'ok', compare: 'warning', location: 'error', sun: 'error', transform: 'warning', rights: 'warning',
+  });
+
+  // Not an object at all.
+  expect(inspectAIM3DManifest([]).status).toBe('error');
+});
+
+test('validation report: X/Y passed, rows with their issues, the worker check of the model', async ({ page }) => {
+  test.setTimeout(120_000);
+  const jobId = 'a1b2c3';
+  const modelReport = {
+    schema: 'explora4d-validation/1',
+    file: { name: 'box.glb', format: 'glb', bytes: 1948 },
+    status: 'error',
+    summary: { errors: 1, warnings: 0 },
+    validator: {
+      available: true, version: '2.0.0-dev.3.10', errors: 1, warnings: 0, infos: 0, hints: 0,
+      issues: [{ code: 'ACCESSOR_MAX_MISMATCH', level: 'error', count: 1, message: 'Declared maximum does not match the actual maximum.', pointers: ['/accessors/0/max'] }],
+    },
+    stats: { totalTriangleCount: 12, totalVertexCount: 24, materialCount: 1 },
+    bounds: { min: [0, 0, 0], max: [1, 1, 1], size: [1, 1, 1], unit: 'm' },
+    checks: [],
+  };
+  await page.route(`**/files/${jobId}/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
+  await page.route(`**/api/model/validation/${jobId}`, (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(modelReport) }));
+  await page.route('**/api/jobs', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ jobs: [{ id: jobId, name: 'box.glb', status: 'ready', modelUrl: `/files/${jobId}/box.glb`, imageUrls: [], createdAt: 1792000000, validation: { status: 'error', errors: 1, warnings: 0, validator: true } }] }),
+  }));
+  await openViewer(page, `/files/${jobId}/box.glb`);
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+
+  // The toolbar's tool opens the report on the manifest the viewer would export.
+  await page.evaluate(() => window.Viewer.toggleValidationReport());
+  const panel = page.locator('#validationReportPanel');
+  await expect(panel.locator('.validation-report-summary')).toBeVisible();
+  const ring = await panel.locator('.validation-report-ring strong').innerText();
+  const [passed, total] = ring.split('/').map(Number);
+  const rows = panel.locator('.validation-report-row');
+  expect(total).toBe(await rows.count());
+  expect(passed).toBe(await panel.locator('.validation-report-row[data-status="ok"]').count());
+  await expect(panel.locator('.validation-report-summary')).toHaveAttribute('data-status', 'error');
+  expect(await page.evaluate(() => window.Viewer.editorToolbarButtons.validationReport.classList.contains('is-active'))).toBe(true);
+
+  // The model file row: the worker's glTF-Validator issues.
+  const modelRow = panel.locator('.validation-report-row[data-check="model-check"]');
+  await expect(modelRow).toHaveAttribute('data-status', 'error');
+  await modelRow.locator('summary').click();
+  await expect(modelRow.locator('.validation-report-issues')).toContainText('ACCESSOR_MAX_MISMATCH');
+  await expect(modelRow.locator('.validation-report-issues')).toContainText('/accessors/0/max');
+  // Always checked: the IIIF structure, metadata and rights.
+  for (const id of ['manifest', 'metadata', 'rights']) await expect(panel.locator(`.validation-report-row[data-check="${id}"]`)).toHaveCount(1);
+  await expect(panel.locator('.validation-report-details')).toContainText('box.glb');
+
+  await page.evaluate(() => window.Viewer.closeValidationReport());
+  await expect(panel).toBeHidden();
+
+  // The worker's list: the model check as an icon in the row's caption.
+  await page.evaluate(() => window.Viewer.openModelsPanel());
+  await expect(page.locator('#modelsPanel .model-check-icon')).toHaveAttribute('data-status', 'error');
+});
+
+test('example manifests list: icons of what each manifest contains', async ({ page }) => {
+  await openViewer(page);
+  await page.evaluate(() => {
+    window.Viewer.createExamplesPanel();
+    window.Viewer.examplesPanel.hidden = false;
+    window.Viewer.loadExamplesList();
+  });
+  const row = page.locator('#examplesPanel .models-panel-item', { hasText: 'Sun and shadows' });
+  const icons = row.locator('.feature-icons .feature-icon');
+  await expect(icons.first()).toBeAttached({ timeout: 20_000 });
+  const shown = await icons.evaluateAll((parts) => parts.map((part) => part.querySelector('.meta-icon').dataset.icon));
+  expect(shown).toEqual(expect.arrayContaining(['model', 'timeline', 'location', 'sun']));
+  expect(await icons.evaluateAll((parts) => parts.every((part) => part.dataset.status === 'ok'))).toBe(true);
+});
+
+test('page header: the manifests button opens and closes the example manifests list', async ({ page }) => {
+  await openViewer(page);
+  const button = page.locator('#browseManifestsButton');
+  await expect(button).toBeVisible();
+  await expect(button).toHaveAttribute('aria-label', 'Example manifests');
+  await button.click();
+  await expect(page.locator('#examplesPanel')).toBeVisible();
+  await expect(page.locator('#examplesPanel .feature-icons').first()).toBeAttached({ timeout: 20_000 });
+  await button.click();
+  await expect(page.locator('#examplesPanel')).toBeHidden();
 });

@@ -233,12 +233,12 @@ const bodyOf = (annotation) => {
   const body = Array.isArray(annotation?.body) ? annotation.body[0] : annotation?.body;
   return body?.type === "SpecificResource" ? body.source ?? body : body;
 };
-const typeOf$2 = (annotation) => {
+const typeOf$3 = (annotation) => {
   const body = bodyOf(annotation);
   return (Array.isArray(body) ? body[0]?.type : body?.type) || "";
 };
-const isModel = (annotation) => typeOf$2(annotation) === "Model";
-const isCamera = (annotation) => /Camera$/.test(typeOf$2(annotation));
+const isModel = (annotation) => typeOf$3(annotation) === "Model";
+const isCamera = (annotation) => /Camera$/.test(typeOf$3(annotation));
 
 function modelUrlOfManifest(manifest) {
   for (const scene of manifest?.items || []) {
@@ -334,6 +334,7 @@ const VIEWER_I18N = {
       openModelsPanel: "Browse previously generated models",
       openLocalFile: "Models on this device",
       openModels: "Models",
+      openExampleManifests: "Example manifests",
       openAdminPanel: "Manage registered users",
       openLoginPanel: "Log in or register",
     },
@@ -430,6 +431,7 @@ const VIEWER_I18N = {
       saveProperties: "Save properties",
       hierarchy: "Hierarchy",
       statistics: "Statistics",
+      validationReport: "Validation report",
       clearSelectedFaces: "Clear selected faces",
       clearSelectedHierarchy: "Clear selected objects",
       addAnnotations: "Add annotations",
@@ -727,6 +729,77 @@ const VIEWER_I18N = {
       bundled: "In the app, works offline",
       online: "Needs an internet connection",
       refresh: "Refresh",
+    },
+    validationReport: {
+      title: "Validation report",
+      download: "Download the report (JSON)",
+      refresh: "Check again",
+      close: "Close",
+      checking: "Checking...",
+      noModel: "Open a model to check it.",
+      passed: "{passed}/{total}",
+      passedLabel: "passed",
+      ready: "Ready",
+      mostlyReady: "Mostly ready",
+      notReady: "Not ready",
+      readyHint: "Every check passed: the model and its manifest are ready for public reuse.",
+      mostlyReadyHint: "The model can be published. Review the remaining items first.",
+      notReadyHint: "Some values cannot be used. Fix the failed items before publishing.",
+      pass: "Pass",
+      review: "Needs review",
+      fail: "Fail",
+      notSet: "Not set",
+      notChecked: "Not checked",
+      notSetHint: "The manifest does not set this yet.",
+      noIssues: "No issues.",
+      moreIssues: "...and {count} more (download the report)",
+      modelCheck: "Model file check (glTF-Validator)",
+      modelCheckHint: "Is the model file valid glTF that works in all browsers?",
+      modelNotChecked: "Only models converted by the upload worker are checked.",
+      validatorMissing: "glTF-Validator is not installed on the worker.",
+      errorsCount: "{count} error(s)",
+      warningsCount: "{count} warning(s)",
+      details: "Details",
+      file: "File",
+      fileSize: "File size",
+      triangles: "Triangles",
+      vertices: "Vertices",
+      materials: "Materials",
+      textures: "Largest texture",
+      size: "Size",
+      generator: "Made with",
+      attributes: "Manifest attributes",
+      attributesValue: "{count} checked: {errors} error(s), {warnings} warning(s), {unknown} unknown",
+      features: {
+        model: "3D model",
+        metadata: "Descriptive metadata",
+        rights: "Rights and attribution",
+        annotations: "Annotations",
+        camera: "Camera view",
+        lights: "Lights",
+        "raking-light": "Raking light",
+        clipping: "Section planes",
+        timeline: "4D timeline",
+        variants: "Reconstruction variants",
+        compare: "Comparison view",
+        photos: "Historical photos",
+        location: "Geographic location",
+        sun: "Sun study",
+        certainty: "Level of certainty",
+        thumbnails: "Thumbnails",
+        transform: "Model transform and shading",
+        rendering: "Rendering and environment",
+        tour: "Guided tour",
+        settings: "Viewer settings",
+        manifest: "IIIF structure",
+      },
+      hints: {
+        model: "Does the manifest paint a model with a usable URL and format?",
+        metadata: "Are label, summary and metadata filled in, in every language?",
+        rights: "Are the licence (rights) and the attribution (requiredStatement) set?",
+        annotations: "Do the annotations have a body and a target in this scene?",
+        manifest: "Are ids, types and the IIIF structure right?",
+      },
     },
     // Plan names (admin and account panels); an app build adds the rest.
     plans: {
@@ -1266,6 +1339,7 @@ const VIEWER_I18N = {
       openModelsPanel: "Przeglądaj wcześniej wygenerowane modele",
       openLocalFile: "Modele na tym urządzeniu",
       openModels: "Modele",
+      openExampleManifests: "Przykładowe manifesty",
       openAdminPanel: "Zarządzaj zarejestrowanymi użytkownikami",
       openLoginPanel: "Zaloguj się lub zarejestruj",
     },
@@ -1344,6 +1418,7 @@ const VIEWER_I18N = {
       saveProperties: "Zapisz właściwości",
       hierarchy: "Hierarchia",
       statistics: "Statystyki",
+      validationReport: "Raport walidacji",
       clearSelectedFaces: "Wyczyść wybrane ściany",
       clearSelectedHierarchy: "Odznacz wybrane obiekty",
       addAnnotations: "Dodaj annotacje",
@@ -1641,6 +1716,77 @@ const VIEWER_I18N = {
       bundled: "W aplikacji, działa offline",
       online: "Wymaga połączenia z internetem",
       refresh: "Odśwież",
+    },
+    validationReport: {
+      title: "Raport walidacji",
+      download: "Pobierz raport (JSON)",
+      refresh: "Sprawdź ponownie",
+      close: "Zamknij",
+      checking: "Sprawdzanie...",
+      noModel: "Otwórz model, aby go sprawdzić.",
+      passed: "{passed}/{total}",
+      passedLabel: "zaliczone",
+      ready: "Gotowy",
+      mostlyReady: "Prawie gotowy",
+      notReady: "Niegotowy",
+      readyHint: "Wszystkie testy zaliczone: model i manifest są gotowe do publicznego udostępnienia.",
+      mostlyReadyHint: "Model można opublikować. Najpierw przejrzyj pozostałe pozycje.",
+      notReadyHint: "Części wartości nie da się użyć. Popraw niezaliczone pozycje przed publikacją.",
+      pass: "Zaliczone",
+      review: "Do przejrzenia",
+      fail: "Błąd",
+      notSet: "Brak",
+      notChecked: "Niesprawdzone",
+      notSetHint: "Manifest jeszcze tego nie ustawia.",
+      noIssues: "Bez uwag.",
+      moreIssues: "...i {count} więcej (pobierz raport)",
+      modelCheck: "Kontrola pliku modelu (glTF-Validator)",
+      modelCheckHint: "Czy plik modelu to poprawny glTF działający w każdej przeglądarce?",
+      modelNotChecked: "Sprawdzane są tylko modele skonwertowane przez worker uploadu.",
+      validatorMissing: "Na workerze nie ma zainstalowanego glTF-Validatora.",
+      errorsCount: "błędy: {count}",
+      warningsCount: "ostrzeżenia: {count}",
+      details: "Szczegóły",
+      file: "Plik",
+      fileSize: "Rozmiar pliku",
+      triangles: "Trójkąty",
+      vertices: "Wierzchołki",
+      materials: "Materiały",
+      textures: "Największa tekstura",
+      size: "Wymiary",
+      generator: "Utworzono w",
+      attributes: "Atrybuty manifestu",
+      attributesValue: "sprawdzone: {count}; błędy: {errors}, ostrzeżenia: {warnings}, nieznane: {unknown}",
+      features: {
+        model: "Model 3D",
+        metadata: "Metadane opisowe",
+        rights: "Prawa i atrybucja",
+        annotations: "Adnotacje",
+        camera: "Widok kamery",
+        lights: "Światła",
+        "raking-light": "Światło boczne",
+        clipping: "Przekroje",
+        timeline: "Oś czasu 4D",
+        variants: "Warianty rekonstrukcji",
+        compare: "Porównanie",
+        photos: "Zdjęcia historyczne",
+        location: "Położenie geograficzne",
+        sun: "Analiza nasłonecznienia",
+        certainty: "Poziom pewności",
+        thumbnails: "Miniatury",
+        transform: "Transformacja i cieniowanie",
+        rendering: "Renderowanie i otoczenie",
+        tour: "Wycieczka",
+        settings: "Ustawienia viewera",
+        manifest: "Struktura IIIF",
+      },
+      hints: {
+        model: "Czy manifest wskazuje model z poprawnym adresem i formatem?",
+        metadata: "Czy tytuł, opis i metadane są wypełnione we wszystkich językach?",
+        rights: "Czy ustawiono licencję (rights) i atrybucję (requiredStatement)?",
+        annotations: "Czy adnotacje mają treść i cel w tej scenie?",
+        manifest: "Czy identyfikatory, typy i struktura IIIF są poprawne?",
+      },
     },
     toolPanel: {
       move: "Przesuń panel (podwójne dotknięcie: przypnij z powrotem)",
@@ -2197,6 +2343,7 @@ const VIEWER_I18N = {
       openModelsPanel: "Zuvor generierte Modelle durchsuchen",
       openLocalFile: "Modelle auf diesem Gerät",
       openModels: "Modelle",
+      openExampleManifests: "Beispiel-Manifeste",
       openAdminPanel: "Registrierte Benutzer verwalten",
       openLoginPanel: "Anmelden oder registrieren",
     },
@@ -2274,6 +2421,7 @@ const VIEWER_I18N = {
       saveProperties: "Eigenschaften speichern",
       hierarchy: "Hierarchie",
       statistics: "Statistiken",
+      validationReport: "Prüfbericht",
       clearSelectedFaces: "Ausgewählte Flächen löschen",
       clearSelectedHierarchy: "Ausgewählte Objekte abwählen",
       addAnnotations: "Anmerkungen hinzufügen",
@@ -2588,6 +2736,77 @@ const VIEWER_I18N = {
       bundled: "In der App, funktioniert offline",
       online: "Benötigt eine Internetverbindung",
       refresh: "Aktualisieren",
+    },
+    validationReport: {
+      title: "Prüfbericht",
+      download: "Bericht herunterladen (JSON)",
+      refresh: "Erneut prüfen",
+      close: "Schließen",
+      checking: "Wird geprüft...",
+      noModel: "Öffnen Sie ein Modell, um es zu prüfen.",
+      passed: "{passed}/{total}",
+      passedLabel: "bestanden",
+      ready: "Bereit",
+      mostlyReady: "Fast bereit",
+      notReady: "Nicht bereit",
+      readyHint: "Alle Prüfungen bestanden: Modell und Manifest sind bereit zur öffentlichen Nachnutzung.",
+      mostlyReadyHint: "Das Modell kann veröffentlicht werden. Prüfen Sie zuerst die übrigen Punkte.",
+      notReadyHint: "Einige Werte sind nicht verwendbar. Beheben Sie die Fehler vor der Veröffentlichung.",
+      pass: "Bestanden",
+      review: "Prüfen",
+      fail: "Fehler",
+      notSet: "Nicht gesetzt",
+      notChecked: "Nicht geprüft",
+      notSetHint: "Das Manifest setzt dies noch nicht.",
+      noIssues: "Keine Hinweise.",
+      moreIssues: "...und {count} weitere (Bericht herunterladen)",
+      modelCheck: "Prüfung der Modelldatei (glTF-Validator)",
+      modelCheckHint: "Ist die Modelldatei gültiges glTF, das in allen Browsern funktioniert?",
+      modelNotChecked: "Nur vom Upload-Worker konvertierte Modelle werden geprüft.",
+      validatorMissing: "Auf dem Worker ist kein glTF-Validator installiert.",
+      errorsCount: "{count} Fehler",
+      warningsCount: "{count} Warnung(en)",
+      details: "Details",
+      file: "Datei",
+      fileSize: "Dateigröße",
+      triangles: "Dreiecke",
+      vertices: "Eckpunkte",
+      materials: "Materialien",
+      textures: "Größte Textur",
+      size: "Abmessungen",
+      generator: "Erstellt mit",
+      attributes: "Manifest-Attribute",
+      attributesValue: "{count} geprüft: {errors} Fehler, {warnings} Warnungen, {unknown} unbekannt",
+      features: {
+        model: "3D-Modell",
+        metadata: "Beschreibende Metadaten",
+        rights: "Rechte und Namensnennung",
+        annotations: "Annotationen",
+        camera: "Kameraansicht",
+        lights: "Lichter",
+        "raking-light": "Streiflicht",
+        clipping: "Schnittebenen",
+        timeline: "4D-Zeitleiste",
+        variants: "Rekonstruktionsvarianten",
+        compare: "Vergleichsansicht",
+        photos: "Historische Fotos",
+        location: "Geografische Lage",
+        sun: "Sonnenstudie",
+        certainty: "Grad der Gewissheit",
+        thumbnails: "Vorschaubilder",
+        transform: "Modelltransformation und Schattierung",
+        rendering: "Rendering und Umgebung",
+        tour: "Führung",
+        settings: "Viewer-Einstellungen",
+        manifest: "IIIF-Struktur",
+      },
+      hints: {
+        model: "Zeigt das Manifest ein Modell mit gültiger URL und gültigem Format?",
+        metadata: "Sind Titel, Zusammenfassung und Metadaten in allen Sprachen ausgefüllt?",
+        rights: "Sind Lizenz (rights) und Namensnennung (requiredStatement) gesetzt?",
+        annotations: "Haben die Annotationen einen Inhalt und ein Ziel in dieser Szene?",
+        manifest: "Stimmen IDs, Typen und die IIIF-Struktur?",
+      },
     },
     // Plan names (admin and account panels); an app build adds the rest.
     plans: {
@@ -6334,7 +6553,7 @@ function isContainer(value) {
   return value !== null && typeof value === "object";
 }
 
-function typeOf$1(value) {
+function typeOf$2(value) {
   if (value === null) return "null";
   if (Array.isArray(value)) return "array";
   return typeof value;
@@ -6529,7 +6748,7 @@ class ManifestTreeEditor {
       leaf.append(document.createTextNode(":"));
     }
 
-    const valueType = typeOf$1(value);
+    const valueType = typeOf$2(value);
     if (valueType === "boolean") {
       leaf.appendChild(this.createBooleanEditor(value, setValue));
       return leaf;
@@ -6547,7 +6766,7 @@ class ManifestTreeEditor {
     let current = value;
     let swatch = null;
     const commit = () => {
-      const next = parseEdited(valueEl.textContent, typeOf$1(current));
+      const next = parseEdited(valueEl.textContent, typeOf$2(current));
       if (next === undefined) {
         valueEl.classList.add("mt-invalid");
         setTimeout(() => valueEl.classList.remove("mt-invalid"), 900);
@@ -6557,7 +6776,7 @@ class ManifestTreeEditor {
       if (next === current) return;
       current = next;
       setValue(next);
-      valueEl.className = `mt-value mt-${typeOf$1(next)}`;
+      valueEl.className = `mt-value mt-${typeOf$2(next)}`;
       if (typeof next === "string" && URL_RE.test(next)) valueEl.classList.add("mt-url");
       valueEl.textContent = next === null ? "null" : isContainer(next) ? JSON.stringify(next) : String(next);
       if (swatch && typeof next === "string" && COLOR_RE.test(next)) swatch.value = expandHex(next);
@@ -8842,7 +9061,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DHhdNdHD.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-Kuue9f7j.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DL-d2Se7.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9500,7 +9719,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-DZjy8YhV.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-BiQ6uciY.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -9629,9 +9848,9 @@ const loadLWOLoader = async () => (await import('./three-DVpUZZAE.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DEYEu7o2.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DVpUZZAE.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-CO_YJirc.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-CARGDGRi.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-C4EPpyuw.js');
+const loadSplats = async () => import('./splats-BB-fxaOh.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -11371,6 +11590,1920 @@ function metaCaption(parts) {
   return caption;
 }
 
+// Level of Certainty (LoC) of a reconstruction: the scale a manifest defines
+// (AIM3DViewer.certainty) and the assessments its annotations carry
+// (annotation.AIM3DViewer.certainty). No three.js here: the manifest
+// validation (aim3dviewer-validation.js) also runs in Node.
+//
+// A level is told apart by its colour, its code (a letter) and its symbol,
+// so it reads without colour vision too. A level's `value` is its lower bound
+// on the scale: an assessment belongs to the highest level not above it.
+
+const CERTAINTY_SCOPES = ["object", "group"];
+
+// Opacity of the colour overlays in the view: the model shows through.
+const DEFAULT_CERTAINTY_OPACITY = 0.4;
+
+const DEFAULT_CERTAINTY_SCALE = Object.freeze({
+  min: 0,
+  max: 10,
+  unassessedColor: "#9ca3af",
+  opacity: DEFAULT_CERTAINTY_OPACITY,
+  levels: [
+    {
+      value: 10, code: "A", symbol: "✓", color: "#1a9850",
+      label: { en: ["Preserved / surveyed"], pl: ["Stan zachowany / pomiar"], de: ["Erhalten / vermessen"] },
+    },
+    {
+      value: 8, code: "B", symbol: "■", color: "#2166ac",
+      label: { en: ["Direct documentation"], pl: ["Dokumentacja bezpośrednia"], de: ["Direkte Dokumentation"] },
+    },
+    {
+      value: 6, code: "C", symbol: "▲", color: "#ffd400",
+      label: { en: ["Indirect sources"], pl: ["Źródła pośrednie"], de: ["Indirekte Quellen"] },
+    },
+    {
+      value: 4, code: "D", symbol: "≈", color: "#f46d00",
+      label: { en: ["Analogy"], pl: ["Analogia"], de: ["Analogie"] },
+    },
+    {
+      value: 0, code: "E", symbol: "?", color: "#c51b7d",
+      label: { en: ["Hypothesis"], pl: ["Hipoteza"], de: ["Hypothese"] },
+    },
+  ],
+});
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+function isPlainObject$8(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function toFiniteNumber(value) {
+  const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return typeof number === "number" && Number.isFinite(number) ? number : null;
+}
+
+// A IIIF language map ({ "pl": ["..."] }) or a plain string, as a language map.
+function normalizeLanguageMap(value) {
+  if (typeof value === "string") return value.trim() ? { none: [value.trim()] } : null;
+  if (!isPlainObject$8(value)) return null;
+  const entries = Object.entries(value)
+    .map(([language, texts]) => [language, (Array.isArray(texts) ? texts : [texts]).map(String).filter(Boolean)])
+    .filter(([, texts]) => texts.length > 0);
+  return entries.length ? Object.fromEntries(entries) : null;
+}
+
+// The text of a language map in `language`, else English, else any.
+function certaintyText(map, language = "en") {
+  if (!isPlainObject$8(map)) return "";
+  const texts = map[language] || map.en || map.none || Object.values(map)[0];
+  return Array.isArray(texts) ? texts.join(" ") : String(texts || "");
+}
+
+// The manifest's scale, levels sorted from the highest value down; the
+// default scale when it has no usable levels. Invalid levels are dropped
+// (the validation reports them).
+function normalizeCertaintyScale(raw) {
+  const source = isPlainObject$8(raw) && Array.isArray(raw.levels) ? raw : DEFAULT_CERTAINTY_SCALE;
+  const levels = source.levels
+    .map((level) => {
+      if (!isPlainObject$8(level)) return null;
+      const value = toFiniteNumber(level.value);
+      const color = String(level.color || "").trim();
+      const code = String(level.code || "").trim();
+      if (value === null || !HEX_COLOR.test(color) || !code) return null;
+      return {
+        value,
+        code,
+        symbol: String(level.symbol || "").trim(),
+        color: color.toLowerCase(),
+        label: normalizeLanguageMap(level.label) || { none: [code] },
+        ...(normalizeLanguageMap(level.description) ? { description: normalizeLanguageMap(level.description) } : {}),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.value - a.value);
+  if (!levels.length) return normalizeCertaintyScale(DEFAULT_CERTAINTY_SCALE);
+
+  const min = toFiniteNumber(source.min) ?? Math.min(...levels.map((level) => level.value));
+  const max = toFiniteNumber(source.max) ?? Math.max(...levels.map((level) => level.value));
+  const unassessedColor = HEX_COLOR.test(String(source.unassessedColor || ""))
+    ? source.unassessedColor.toLowerCase()
+    : DEFAULT_CERTAINTY_SCALE.unassessedColor;
+  const opacity = toFiniteNumber(source.opacity);
+  return {
+    min,
+    max,
+    unassessedColor,
+    opacity: opacity !== null && opacity >= 0 && opacity <= 1 ? opacity : DEFAULT_CERTAINTY_OPACITY,
+    levels,
+    ...(normalizeLanguageMap(source.label) ? { label: normalizeLanguageMap(source.label) } : {}),
+    visible: source.visible === true,
+  };
+}
+
+// The level an assessed value belongs to; null when below every level.
+function certaintyLevelForValue(scale, value) {
+  const number = toFiniteNumber(value);
+  if (number === null || !scale?.levels?.length) return null;
+  return scale.levels.find((level) => number >= level.value) || null;
+}
+
+// An annotation's assessment ({ value, code?, scope, targetId? }); a code
+// alone is resolved against the scale. null when it has none.
+function normalizeCertaintyAssessment(raw, scale = null) {
+  if (!isPlainObject$8(raw)) return null;
+  let value = toFiniteNumber(raw.value);
+  const code = String(raw.code || "").trim();
+  if (value === null && code && scale) {
+    value = scale.levels.find((level) => level.code === code)?.value ?? null;
+  }
+  if (value === null) return null;
+  const scope = CERTAINTY_SCOPES.includes(raw.scope) ? raw.scope : "object";
+  const targetId = String(raw.targetId || "").trim();
+  return {
+    value,
+    ...(code ? { code } : {}),
+    scope,
+    ...(targetId ? { targetId } : {}),
+  };
+}
+
+// Problems of a manifest's scale, as [path, message] pairs.
+function certaintyScaleErrors(raw, path) {
+  const errors = [];
+  if (!isPlainObject$8(raw)) return [[path, "must be an object"]];
+  ["min", "max"].forEach((key) => {
+    if (raw[key] !== undefined && toFiniteNumber(raw[key]) === null) errors.push([`${path}.${key}`, "must be a finite number"]);
+  });
+  if (raw.unassessedColor !== undefined && !HEX_COLOR.test(String(raw.unassessedColor))) {
+    errors.push([`${path}.unassessedColor`, "must be a #rrggbb colour"]);
+  }
+  if (raw.visible !== undefined && typeof raw.visible !== "boolean") errors.push([`${path}.visible`, "must be a boolean"]);
+  if (raw.opacity !== undefined && (typeof raw.opacity !== "number" || !(raw.opacity >= 0 && raw.opacity <= 1))) {
+    errors.push([`${path}.opacity`, "must be a number within 0..1"]);
+  }
+  if (!Array.isArray(raw.levels) || raw.levels.length === 0) {
+    errors.push([`${path}.levels`, "must be a non-empty array"]);
+    return errors;
+  }
+  const seen = { value: new Set(), code: new Set(), color: new Set() };
+  raw.levels.forEach((level, index) => {
+    const levelPath = `${path}.levels[${index}]`;
+    if (!isPlainObject$8(level)) {
+      errors.push([levelPath, "must be an object"]);
+      return;
+    }
+    if (typeof level.value !== "number" || !Number.isFinite(level.value)) errors.push([`${levelPath}.value`, "must be a finite number"]);
+    if (typeof level.code !== "string" || !level.code.trim()) errors.push([`${levelPath}.code`, "must be a non-empty string"]);
+    if (!HEX_COLOR.test(String(level.color))) errors.push([`${levelPath}.color`, "must be a #rrggbb colour"]);
+    if (level.symbol !== undefined && typeof level.symbol !== "string") errors.push([`${levelPath}.symbol`, "must be a string"]);
+    if (level.label !== undefined && typeof level.label !== "string" && !isPlainObject$8(level.label)) {
+      errors.push([`${levelPath}.label`, "must be a string or a language map"]);
+    }
+    // Levels must stay apart: no shared value, code or colour.
+    ["value", "code", "color"].forEach((key) => {
+      const token = key === "color" ? String(level[key]).toLowerCase() : level[key];
+      if (level[key] === undefined) return;
+      if (seen[key].has(token)) errors.push([`${levelPath}.${key}`, "must be unique among the levels"]);
+      seen[key].add(token);
+    });
+  });
+  const min = toFiniteNumber(raw.min);
+  const max = toFiniteNumber(raw.max);
+  if (min !== null && max !== null && min > max) errors.push([`${path}.min`, "must not exceed max"]);
+  return errors;
+}
+
+// Problems of an annotation's assessment, checked against the scale.
+function certaintyAssessmentErrors(raw, path, scale) {
+  if (!isPlainObject$8(raw)) return [[path, "must be an object"]];
+  const errors = [];
+  if (raw.value === undefined && raw.code === undefined) errors.push([path, "needs a value or a code"]);
+  if (raw.value !== undefined) {
+    if (typeof raw.value !== "number" || !Number.isFinite(raw.value)) {
+      errors.push([`${path}.value`, "must be a finite number"]);
+    } else if (scale && (raw.value < scale.min || raw.value > scale.max)) {
+      errors.push([`${path}.value`, `must be within ${scale.min}..${scale.max}`]);
+    }
+  }
+  if (raw.code !== undefined && scale && !scale.levels.some((level) => level.code === raw.code)) {
+    errors.push([`${path}.code`, `must be one of: ${scale.levels.map((level) => level.code).join(", ")}`]);
+  }
+  if (raw.scope !== undefined && !CERTAINTY_SCOPES.includes(raw.scope)) {
+    errors.push([`${path}.scope`, `must be one of: ${CERTAINTY_SCOPES.join(", ")}`]);
+  }
+  if (raw.targetId !== undefined && typeof raw.targetId !== "string") errors.push([`${path}.targetId`, "must be a string"]);
+  return errors;
+}
+
+// Keep in sync with TONE_MAPPING_MODES / ANTIALIAS_MODES in viewer/rendering.js
+// (not imported: this module also runs in Node without three.js).
+const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
+const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
+// Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
+const SHADING_MODES$1 = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
+// Keep in sync with TIMELINE_TRANSITIONS / TIMELINE_STAGE_TYPES in viewer/timeline.js.
+const TIMELINE_TRANSITIONS$1 = ["interpolate", "step"];
+const TIMELINE_STAGE_TYPES$1 = ["documented", "modelled"];
+// Keep in sync with COMPARE_MODES / COMPARE_KINDS in viewer/editor/compare.js.
+const COMPARE_MODES$1 = ["swipe", "split"];
+const COMPARE_KINDS$1 = ["content", "look"];
+const COMPARE_LIGHTINGS$1 = ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"];
+
+function isPlainObject$7(value) {
+  return value != null && typeof value === "object" && Array.isArray(value) === false;
+}
+
+function isAIM3DManifest(manifest) {
+  return isPlainObject$7(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
+}
+
+function parseFiniteNumber(value) {
+  if (isFiniteNumber$1(value)) return value;
+  if (typeof value !== "string" || value.trim() === "") return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+// Older viewer exports kept values from viewer-settings.json verbatim. Normalize
+// those compatible values before validating the canonical AIM3D representation.
+function normalizeAIM3DManifest(manifest) {
+  const viewer = manifest?.AIM3DViewer?.viewer;
+  if (!isPlainObject$7(viewer)) return manifest;
+
+  if (Array.isArray(viewer.scale)) {
+    viewer.scale = viewer.scale.map((value) => parseFiniteNumber(value) ?? value);
+  } else if (isPlainObject$7(viewer.scale)) {
+    ["x", "y"].forEach((axis) => {
+      viewer.scale[axis] = parseFiniteNumber(viewer.scale[axis]) ?? viewer.scale[axis];
+    });
+  }
+
+  if (isPlainObject$7(viewer.performance)) {
+    const mode = viewer.performance.Performance ?? viewer.performance.performance;
+    if (typeof mode === "string" && mode.trim() !== "") {
+      viewer.performance = mode;
+    }
+  }
+
+  return manifest;
+}
+
+function isFiniteNumber$1(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isString(value) {
+  return typeof value === "string";
+}
+
+function pushError(errors, path, message) {
+  errors.push({ path, message });
+}
+
+function validateVector(value, path, errors, expectedLength = 3) {
+  if (Array.isArray(value)) {
+    if (value.length < expectedLength) {
+      pushError(errors, path, `must contain at least ${expectedLength} numbers`);
+      return;
+    }
+    value.slice(0, expectedLength).forEach((item, index) => {
+      if (!isFiniteNumber$1(item)) {
+        pushError(errors, `${path}[${index}]`, "must be a finite number");
+      }
+    });
+    return;
+  }
+
+  if (isPlainObject$7(value)) {
+    const keys = expectedLength === 2 ? ["x", "y"] : ["x", "y", "z"];
+    keys.forEach((key) => {
+      if (!isFiniteNumber$1(value[key])) {
+        pushError(errors, `${path}.${key}`, "must be a finite number");
+      }
+    });
+    return;
+  }
+
+  pushError(errors, path, `must be a ${expectedLength}D vector array or object`);
+}
+
+function validateBoolean(value, path, errors) {
+  if (typeof value !== "boolean") {
+    pushError(errors, path, "must be a boolean");
+  }
+}
+
+function validateNumber(value, path, errors) {
+  if (!isFiniteNumber$1(value)) {
+    pushError(errors, path, "must be a finite number");
+  }
+}
+
+function validateString(value, path, errors) {
+  if (!isString(value)) {
+    pushError(errors, path, "must be a string");
+  }
+}
+
+function validateEnum(value, allowedValues, path, errors) {
+  if (!allowedValues.includes(value)) {
+    pushError(errors, path, `must be one of: ${allowedValues.join(", ")}`);
+  }
+}
+
+function validateLight(light, path, errors) {
+  if (!isPlainObject$7(light)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (light.type !== undefined) validateString(light.type, `${path}.type`, errors);
+  if (light.position !== undefined) validateVector(light.position, `${path}.position`, errors, 3);
+  if (light.target !== undefined) validateVector(light.target, `${path}.target`, errors, 3);
+  if (light.color !== undefined) validateString(light.color, `${path}.color`, errors);
+  if (light.intensity !== undefined) validateNumber(light.intensity, `${path}.intensity`, errors);
+}
+
+// AIM3DViewer.rakingLight (editor/raking-light.js): direction 0-360 and
+// height 1-89 degrees.
+function validateRakingLight(rakingLight, path, errors) {
+  if (!isPlainObject$7(rakingLight)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (rakingLight.enabled !== undefined) validateBoolean(rakingLight.enabled, `${path}.enabled`, errors);
+  if (rakingLight.sweep !== undefined) validateBoolean(rakingLight.sweep, `${path}.sweep`, errors);
+  if (rakingLight.direction !== undefined) {
+    if (!isFiniteNumber$1(rakingLight.direction) || rakingLight.direction < 0 || rakingLight.direction > 360) {
+      pushError(errors, `${path}.direction`, "must be a number from 0 to 360");
+    }
+  }
+  if (rakingLight.height !== undefined) {
+    if (!isFiniteNumber$1(rakingLight.height) || rakingLight.height < 1 || rakingLight.height > 89) {
+      pushError(errors, `${path}.height`, "must be a number from 1 to 89");
+    }
+  }
+}
+
+function validateClipping(clipping, path, errors) {
+  if (!isPlainObject$7(clipping)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (clipping.mode !== undefined) {
+    if (!isPlainObject$7(clipping.mode)) {
+      pushError(errors, `${path}.mode`, "must be an object");
+    } else {
+      ["x", "y", "z"].forEach((axis) => {
+        if (clipping.mode[axis] !== undefined) validateBoolean(clipping.mode[axis], `${path}.mode.${axis}`, errors);
+      });
+    }
+  }
+  if (clipping.constants !== undefined) validateVector(clipping.constants, `${path}.constants`, errors, 3);
+  if (clipping.outlineVisible !== undefined) validateBoolean(clipping.outlineVisible, `${path}.outlineVisible`, errors);
+  if (clipping.outline !== undefined) validateBoolean(clipping.outline, `${path}.outline`, errors);
+}
+
+function validateCamera(camera, path, errors) {
+  if (!isPlainObject$7(camera)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (camera.position !== undefined) validateVector(camera.position, `${path}.position`, errors, 3);
+  if (camera.target !== undefined) validateVector(camera.target, `${path}.target`, errors, 3);
+  if (camera.up !== undefined) validateVector(camera.up, `${path}.up`, errors, 3);
+  if (camera.fov !== undefined) validateNumber(camera.fov, `${path}.fov`, errors);
+  if (camera.zoom !== undefined) validateNumber(camera.zoom, `${path}.zoom`, errors);
+  if (camera.distance !== undefined) validateNumber(camera.distance, `${path}.distance`, errors);
+  if (camera.perspectiveMode !== undefined) validateEnum(camera.perspectiveMode, ["perspective", "orthographic"], `${path}.perspectiveMode`, errors);
+}
+
+function validatePanelState(panel, path, errors) {
+  if (!isPlainObject$7(panel)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (panel.position !== undefined) validateVector(panel.position, `${path}.position`, errors, 2);
+  if (panel.size !== undefined) {
+    if (!isPlainObject$7(panel.size)) {
+      pushError(errors, `${path}.size`, "must be an object");
+    } else {
+      // viewer-settings.json uses null for "not sized yet".
+      ["width", "height"].forEach((key) => {
+        if (panel.size[key] != null) validateNumber(panel.size[key], `${path}.size.${key}`, errors);
+      });
+    }
+  }
+}
+
+function validateIntegration(integration, path, errors) {
+  if (!isPlainObject$7(integration)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (integration.exportViewerUrl !== undefined) validateString(integration.exportViewerUrl, `${path}.exportViewerUrl`, errors);
+  if (integration.api !== undefined) {
+    if (!isPlainObject$7(integration.api)) {
+      pushError(errors, `${path}.api`, "must be an object");
+    } else if (integration.api.thumbnailUploadEndpoint !== undefined) {
+      validateString(integration.api.thumbnailUploadEndpoint, `${path}.api.thumbnailUploadEndpoint`, errors);
+    }
+  }
+}
+
+function validateViewer(viewer, path, errors) {
+  if (!isPlainObject$7(viewer)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (viewer.container !== undefined) validateString(viewer.container, `${path}.container`, errors);
+  if (viewer.mailUrl !== undefined) validateString(viewer.mailUrl, `${path}.mailUrl`, errors);
+  if (viewer.mainUrl !== undefined) validateString(viewer.mainUrl, `${path}.mainUrl`, errors);
+  if (viewer.baseModulePath !== undefined) validateString(viewer.baseModulePath, `${path}.baseModulePath`, errors);
+  if (viewer.background !== undefined) validateString(viewer.background, `${path}.background`, errors);
+  if (viewer.credits !== undefined && !isPlainObject$7(viewer.credits)) pushError(errors, `${path}.credits`, "must be an object");
+  if (viewer.auth !== undefined) {
+    if (!isPlainObject$7(viewer.auth)) {
+      pushError(errors, `${path}.auth`, "must be an object");
+    } else {
+      ["enabled", "allowRegistration"].forEach((key) => {
+        if (viewer.auth[key] !== undefined) validateBoolean(viewer.auth[key], `${path}.auth.${key}`, errors);
+      });
+    }
+  }
+  ["manifestoForm", "metadataContainer"].forEach((key) => {
+    if (viewer[key] !== undefined) validatePanelState(viewer[key], `${path}.${key}`, errors);
+  });
+  if (viewer.baseNamespace !== undefined) validateString(viewer.baseNamespace, `${path}.baseNamespace`, errors);
+  if (viewer.metadataUrl !== undefined) validateString(viewer.metadataUrl, `${path}.metadataUrl`, errors);
+  if (viewer.theme !== undefined) validateEnum(viewer.theme, ["light", "dark"], `${path}.theme`, errors);
+  if (viewer.language !== undefined) validateEnum(viewer.language, ["en", "pl", "de"], `${path}.language`, errors);
+  if (viewer.backgroundColor !== undefined) validateString(viewer.backgroundColor, `${path}.backgroundColor`, errors);
+  if (viewer.environmentMap !== undefined) {
+    if (!isPlainObject$7(viewer.environmentMap)) {
+      pushError(errors, `${path}.environmentMap`, "must be an object");
+    } else {
+      if (viewer.environmentMap.intensity !== undefined) validateNumber(viewer.environmentMap.intensity, `${path}.environmentMap.intensity`, errors);
+      if (viewer.environmentMap.preset !== undefined) validateString(viewer.environmentMap.preset, `${path}.environmentMap.preset`, errors);
+      if (viewer.environmentMap.enabled !== undefined) validateBoolean(viewer.environmentMap.enabled, `${path}.environmentMap.enabled`, errors);
+    }
+  }
+  if (viewer.rendering !== undefined) {
+    const rendering = viewer.rendering;
+    if (!isPlainObject$7(rendering)) {
+      pushError(errors, `${path}.rendering`, "must be an object");
+    } else {
+      if (rendering.toneMapping !== undefined) validateEnum(rendering.toneMapping, RENDERING_TONE_MAPPINGS, `${path}.rendering.toneMapping`, errors);
+      if (rendering.exposure !== undefined) {
+        validateNumber(rendering.exposure, `${path}.rendering.exposure`, errors);
+        if (Number.isFinite(rendering.exposure) && rendering.exposure < 0) pushError(errors, `${path}.rendering.exposure`, "must be >= 0");
+      }
+      if (rendering.postprocessing !== undefined) {
+        const postprocessing = rendering.postprocessing;
+        if (!isPlainObject$7(postprocessing)) {
+          pushError(errors, `${path}.rendering.postprocessing`, "must be an object");
+        } else {
+          if (postprocessing.enabled !== undefined) validateBoolean(postprocessing.enabled, `${path}.rendering.postprocessing.enabled`, errors);
+          if (postprocessing.antialias !== undefined) validateEnum(postprocessing.antialias, RENDERING_ANTIALIAS_MODES, `${path}.rendering.postprocessing.antialias`, errors);
+          if (postprocessing.ao !== undefined) validateBoolean(postprocessing.ao, `${path}.rendering.postprocessing.ao`, errors);
+          if (postprocessing.aoIntensity !== undefined) {
+            if (!isFiniteNumber$1(postprocessing.aoIntensity) || postprocessing.aoIntensity < 0 || postprocessing.aoIntensity > 2) {
+              pushError(errors, `${path}.rendering.postprocessing.aoIntensity`, "must be a number from 0 to 2");
+            }
+          }
+        }
+      }
+    }
+  }
+  [
+    "presentationMode",
+    "sandbox",
+    "lightweight",
+    "editor",
+    "autorotate",
+    "disableInteraction",
+    "hideUi",
+    "hideMetadata",
+    "showNotifications",
+  ].forEach((key) => {
+    if (viewer[key] !== undefined) validateBoolean(viewer[key], `${path}.${key}`, errors);
+  });
+  if (viewer.autorotateSpeed !== undefined) validateNumber(viewer.autorotateSpeed, `${path}.autorotateSpeed`, errors);
+  if (viewer.scale !== undefined) validateVector(viewer.scale, `${path}.scale`, errors, 2);
+  if (viewer.window !== undefined) {
+    if (!isPlainObject$7(viewer.window)) {
+      pushError(errors, `${path}.window`, "must be an object");
+    } else {
+      if (viewer.window.position !== undefined) {
+        validateVector(viewer.window.position, `${path}.window.position`, errors, 2);
+      }
+      if (viewer.window.size !== undefined) {
+        if (!isPlainObject$7(viewer.window.size)) {
+          pushError(errors, `${path}.window.size`, "must be an object");
+        } else {
+          if (viewer.window.size.width !== undefined) validateNumber(viewer.window.size.width, `${path}.window.size.width`, errors);
+          if (viewer.window.size.height !== undefined) validateNumber(viewer.window.size.height, `${path}.window.size.height`, errors);
+        }
+      }
+    }
+  }
+  if (viewer.performance !== undefined) validateString(viewer.performance, `${path}.performance`, errors);
+  if (viewer.units !== undefined && !(isFiniteNumber$1(viewer.units) || isString(viewer.units))) {
+    pushError(errors, `${path}.units`, "must be a finite number or string");
+  }
+  if (viewer.gallery !== undefined && !isPlainObject$7(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
+  if (viewer.editorToolbar !== undefined) {
+    if (!isPlainObject$7(viewer.editorToolbar)) {
+      pushError(errors, `${path}.editorToolbar`, "must be an object");
+    } else {
+      if (viewer.editorToolbar.enabled !== undefined) validateBoolean(viewer.editorToolbar.enabled, `${path}.editorToolbar.enabled`, errors);
+      if (viewer.editorToolbar.position !== undefined) validateVector(viewer.editorToolbar.position, `${path}.editorToolbar.position`, errors, 2);
+      if (viewer.editorToolbar.expanded !== undefined) validateBoolean(viewer.editorToolbar.expanded, `${path}.editorToolbar.expanded`, errors);
+      if (viewer.editorToolbar.visible !== undefined) validateBoolean(viewer.editorToolbar.visible, `${path}.editorToolbar.visible`, errors);
+    }
+  }
+  if (viewer.menuToolbar !== undefined) {
+    if (!isPlainObject$7(viewer.menuToolbar)) {
+      pushError(errors, `${path}.menuToolbar`, "must be an object");
+    } else {
+      if (viewer.menuToolbar.enabled !== undefined) validateBoolean(viewer.menuToolbar.enabled, `${path}.menuToolbar.enabled`, errors);
+      if (viewer.menuToolbar.position !== undefined) validateVector(viewer.menuToolbar.position, `${path}.menuToolbar.position`, errors, 2);
+    }
+  }
+  if (viewer.clipping !== undefined) validateClipping(viewer.clipping, `${path}.clipping`, errors);
+  if (viewer.tour !== undefined) {
+    if (!isPlainObject$7(viewer.tour)) {
+      pushError(errors, `${path}.tour`, "must be an object");
+    } else {
+      ["autostart", "autoplay", "loop"].forEach((key) => {
+        if (viewer.tour[key] !== undefined) validateBoolean(viewer.tour[key], `${path}.tour.${key}`, errors);
+      });
+      if (viewer.tour.stepDuration !== undefined) {
+        validateNumber(viewer.tour.stepDuration, `${path}.tour.stepDuration`, errors);
+        if (Number.isFinite(viewer.tour.stepDuration) && viewer.tour.stepDuration <= 0) pushError(errors, `${path}.tour.stepDuration`, "must be > 0");
+      }
+      if (viewer.tour.transitionDuration !== undefined) {
+        validateNumber(viewer.tour.transitionDuration, `${path}.tour.transitionDuration`, errors);
+        if (Number.isFinite(viewer.tour.transitionDuration) && viewer.tour.transitionDuration < 0) pushError(errors, `${path}.tour.transitionDuration`, "must be >= 0");
+      }
+    }
+  }
+}
+
+function validateModelTransform(modelTransform, path, errors) {
+  if (!isPlainObject$7(modelTransform)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (modelTransform.position !== undefined) validateVector(modelTransform.position, `${path}.position`, errors, 3);
+  if (modelTransform.scale !== undefined) validateVector(modelTransform.scale, `${path}.scale`, errors, 3);
+  if (modelTransform.rotation !== undefined) {
+    if (!isPlainObject$7(modelTransform.rotation)) {
+      pushError(errors, `${path}.rotation`, "must be an object");
+    } else {
+      ["x", "y", "z"].forEach((key) => {
+        if (modelTransform.rotation[key] !== undefined) validateNumber(modelTransform.rotation[key], `${path}.rotation.${key}`, errors);
+      });
+      if (modelTransform.rotation.order !== undefined) validateString(modelTransform.rotation.order, `${path}.rotation.order`, errors);
+    }
+  }
+  if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
+  if (modelTransform.shadingMode !== undefined) {
+    validateEnum(modelTransform.shadingMode, SHADING_MODES$1, `${path}.shadingMode`, errors);
+  }
+  if (modelTransform.customShader !== undefined) {
+    if (!isPlainObject$7(modelTransform.customShader)) {
+      pushError(errors, `${path}.customShader`, "must be an object");
+    } else {
+      if (modelTransform.customShader.vertexShader !== undefined) {
+        validateString(modelTransform.customShader.vertexShader, `${path}.customShader.vertexShader`, errors);
+      }
+      if (modelTransform.customShader.fragmentShader !== undefined) {
+        validateString(modelTransform.customShader.fragmentShader, `${path}.customShader.fragmentShader`, errors);
+      }
+    }
+  }
+}
+
+// IIIF language map ({ "pl": ["..."] }) or a plain string.
+function validateLanguageMap(value, path, errors) {
+  if (isString(value)) return;
+  if (!isPlainObject$7(value)) {
+    pushError(errors, path, "must be a string or a language map");
+    return;
+  }
+  Object.entries(value).forEach(([lang, texts]) => {
+    if (!Array.isArray(texts) || !texts.every(isString)) {
+      pushError(errors, `${path}.${lang}`, "must be an array of strings");
+    }
+  });
+}
+
+// AIM3DViewer.thumbnails (ui/thumbnail-gallery.js): URLs, or { src, label }.
+function validateThumbnails(thumbnails, path, errors) {
+  if (!Array.isArray(thumbnails)) {
+    pushError(errors, path, "must be an array");
+    return;
+  }
+  thumbnails.forEach((entry, index) => {
+    const entryPath = `${path}[${index}]`;
+    if (isString(entry)) {
+      if (!entry.trim()) pushError(errors, entryPath, "must not be empty");
+      return;
+    }
+    if (!isPlainObject$7(entry) || !isString(entry.src) || !entry.src.trim()) {
+      pushError(errors, entryPath, "must be a URL or an object with a non-empty src");
+      return;
+    }
+    if (entry.label !== undefined) validateLanguageMap(entry.label, `${entryPath}.label`, errors);
+  });
+}
+
+// AIM3DViewer.timeline (timeline.js): the 4D stages of the model.
+function validateTimeline(timeline, path, errors) {
+  if (!isPlainObject$7(timeline)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  ["enabled", "showPanel"].forEach((key) => {
+    if (timeline[key] !== undefined) validateBoolean(timeline[key], `${path}.${key}`, errors);
+  });
+  ["year", "startYear", "endYear"].forEach((key) => {
+    if (timeline[key] !== undefined) validateNumber(timeline[key], `${path}.${key}`, errors);
+  });
+  if (isFiniteNumber$1(timeline.startYear) && isFiniteNumber$1(timeline.endYear) && timeline.startYear > timeline.endYear) {
+    pushError(errors, `${path}.endYear`, "must not be before startYear");
+  }
+  if (timeline.label !== undefined) validateLanguageMap(timeline.label, `${path}.label`, errors);
+  if (timeline.description !== undefined) validateLanguageMap(timeline.description, `${path}.description`, errors);
+  if (timeline.transition !== undefined) validateEnum(timeline.transition, TIMELINE_TRANSITIONS$1, `${path}.transition`, errors);
+  if (timeline.transitionDuration !== undefined && (!isFiniteNumber$1(timeline.transitionDuration) || timeline.transitionDuration < 0)) {
+    pushError(errors, `${path}.transitionDuration`, "must be a number >= 0");
+  }
+  if (timeline.playback !== undefined) {
+    const playback = timeline.playback;
+    if (!isPlainObject$7(playback)) {
+      pushError(errors, `${path}.playback`, "must be an object");
+    } else {
+      if (playback.autoplay !== undefined) validateBoolean(playback.autoplay, `${path}.playback.autoplay`, errors);
+      if (playback.loop !== undefined) validateBoolean(playback.loop, `${path}.playback.loop`, errors);
+      if (playback.yearsPerSecond !== undefined && (!isFiniteNumber$1(playback.yearsPerSecond) || playback.yearsPerSecond <= 0)) {
+        pushError(errors, `${path}.playback.yearsPerSecond`, "must be a number > 0");
+      }
+      if (playback.speed !== undefined && (!isFiniteNumber$1(playback.speed) || playback.speed <= 0)) {
+        pushError(errors, `${path}.playback.speed`, "must be a number > 0");
+      }
+      if (playback.pauseAtEvents !== undefined && (!isFiniteNumber$1(playback.pauseAtEvents) || playback.pauseAtEvents < 0)) {
+        pushError(errors, `${path}.playback.pauseAtEvents`, "must be a number >= 0");
+      }
+    }
+  }
+  if (timeline.stages === undefined) return;
+  if (!Array.isArray(timeline.stages)) {
+    pushError(errors, `${path}.stages`, "must be an array");
+    return;
+  }
+  timeline.stages.forEach((stage, index) => {
+    const stagePath = `${path}.stages[${index}]`;
+    if (!isPlainObject$7(stage)) {
+      pushError(errors, stagePath, "must be an object");
+      return;
+    }
+    validateNumber(stage.year, `${stagePath}.year`, errors);
+    if (stage.type !== undefined) validateEnum(stage.type, TIMELINE_STAGE_TYPES$1, `${stagePath}.type`, errors);
+    if (stage.approximate !== undefined) validateBoolean(stage.approximate, `${stagePath}.approximate`, errors);
+    ["yearLabel", "label", "description", "source"].forEach((key) => {
+      if (stage[key] !== undefined) validateLanguageMap(stage[key], `${stagePath}.${key}`, errors);
+    });
+    if (stage.nodes !== undefined && !(Array.isArray(stage.nodes) && stage.nodes.every(isString))) {
+      pushError(errors, `${stagePath}.nodes`, "must be an array of node names");
+    }
+  });
+}
+
+// AIM3DViewer.variants (editor/compare.js): reconstruction variants.
+function validateVariants(variants, path, errors) {
+  if (!isPlainObject$7(variants)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  ["enabled", "showPanel"].forEach((key) => {
+    if (variants[key] !== undefined) validateBoolean(variants[key], `${path}.${key}`, errors);
+  });
+  if (variants.label !== undefined) validateLanguageMap(variants.label, `${path}.label`, errors);
+  if (variants.description !== undefined) validateLanguageMap(variants.description, `${path}.description`, errors);
+  if (variants.active !== undefined) validateString(variants.active, `${path}.active`, errors);
+  if (variants.items === undefined) return;
+  if (!Array.isArray(variants.items)) {
+    pushError(errors, `${path}.items`, "must be an array");
+    return;
+  }
+  const ids = new Set();
+  variants.items.forEach((item, index) => {
+    const itemPath = `${path}.items[${index}]`;
+    if (!isPlainObject$7(item)) {
+      pushError(errors, itemPath, "must be an object");
+      return;
+    }
+    validateString(item.id, `${itemPath}.id`, errors);
+    if (isString(item.id)) {
+      if (ids.has(item.id)) pushError(errors, `${itemPath}.id`, "must be unique");
+      ids.add(item.id);
+    }
+    ["label", "description", "source"].forEach((key) => {
+      if (item[key] !== undefined) validateLanguageMap(item[key], `${itemPath}.${key}`, errors);
+    });
+    if (item.certainty !== undefined) validateNumber(item.certainty, `${itemPath}.certainty`, errors);
+    if (item.nodes !== undefined && !(Array.isArray(item.nodes) && item.nodes.every(isString))) {
+      pushError(errors, `${itemPath}.nodes`, "must be an array of node names");
+    }
+  });
+  if (isString(variants.active) && ids.size && !ids.has(variants.active)) {
+    pushError(errors, `${path}.active`, "must be the id of one of the items");
+  }
+}
+
+// AIM3DViewer.compare (editor/compare.js): the comparison view.
+function validateCompare(compare, path, errors) {
+  if (!isPlainObject$7(compare)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (compare.enabled !== undefined) validateBoolean(compare.enabled, `${path}.enabled`, errors);
+  if (compare.mode !== undefined) validateEnum(compare.mode, COMPARE_MODES$1, `${path}.mode`, errors);
+  if (compare.kind !== undefined) validateEnum(compare.kind, COMPARE_KINDS$1, `${path}.kind`, errors);
+  const look = compare.kind === "look";
+  if (compare.position !== undefined && (!isFiniteNumber$1(compare.position) || compare.position < 0 || compare.position > 1)) {
+    pushError(errors, `${path}.position`, "must be a number from 0 to 1");
+  }
+  ["left", "right"].forEach((key) => {
+    const side = compare[key];
+    if (side === undefined) return;
+    const sidePath = `${path}.${key}`;
+    if (!isPlainObject$7(side)) {
+      pushError(errors, sidePath, look ? "must be an object with a shading mode or a lighting" : "must be an object with a variant or a year");
+      return;
+    }
+    if (look) {
+      if (side.shading === undefined && side.lighting === undefined) pushError(errors, sidePath, "must have a shading mode or a lighting");
+      if (side.shading !== undefined) validateEnum(side.shading, SHADING_MODES$1, `${sidePath}.shading`, errors);
+      if (side.lighting !== undefined) validateEnum(side.lighting, COMPARE_LIGHTINGS$1, `${sidePath}.lighting`, errors);
+      return;
+    }
+    if (side.variant !== undefined) validateString(side.variant, `${sidePath}.variant`, errors);
+    if (side.year !== undefined) validateNumber(side.year, `${sidePath}.year`, errors);
+    if (side.variant === undefined && side.year === undefined) pushError(errors, sidePath, "must have a variant or a year");
+  });
+}
+
+// AIM3DViewer.photos (editor/photo-overlay.js): historical photos and the
+// views they were taken from.
+function validatePhotos(photos, path, errors) {
+  if (!Array.isArray(photos)) {
+    pushError(errors, path, "must be an array");
+    return;
+  }
+  const ids = new Set();
+  photos.forEach((photo, index) => {
+    const photoPath = `${path}[${index}]`;
+    if (!isPlainObject$7(photo)) {
+      pushError(errors, photoPath, "must be an object");
+      return;
+    }
+    const service = typeof photo.service === "string" || isPlainObject$7(photo.service);
+    if (!isString(photo.src) && !service) pushError(errors, photoPath, "must have a src or a IIIF Image API service");
+    if (photo.src !== undefined) validateString(photo.src, `${photoPath}.src`, errors);
+    if (photo.id !== undefined) {
+      validateString(photo.id, `${photoPath}.id`, errors);
+      if (ids.has(photo.id)) pushError(errors, `${photoPath}.id`, "must be unique");
+      ids.add(photo.id);
+    }
+    ["label", "description", "source"].forEach((key) => {
+      if (photo[key] !== undefined) validateLanguageMap(photo[key], `${photoPath}.${key}`, errors);
+    });
+    if (photo.year !== undefined) validateNumber(photo.year, `${photoPath}.year`, errors);
+    if (photo.opacity !== undefined && (!isFiniteNumber$1(photo.opacity) || photo.opacity < 0 || photo.opacity > 1)) {
+      pushError(errors, `${photoPath}.opacity`, "must be a number from 0 to 1");
+    }
+    if (photo.view === undefined) return;
+    const view = photo.view;
+    if (!isPlainObject$7(view)) {
+      pushError(errors, `${photoPath}.view`, "must be an object");
+      return;
+    }
+    ["position", "target"].forEach((key) => {
+      const value = view[key];
+      if (!(Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber$1))) {
+        pushError(errors, `${photoPath}.view.${key}`, "must be an array of 3 numbers");
+      }
+    });
+    if (view.fov !== undefined && (!isFiniteNumber$1(view.fov) || view.fov <= 0 || view.fov >= 180)) {
+      pushError(errors, `${photoPath}.view.fov`, "must be a number between 0 and 180");
+    }
+    if (view.roll !== undefined) validateNumber(view.roll, `${photoPath}.view.roll`, errors);
+  });
+}
+
+// AIM3DViewer.location (editor/sun-study.js): where the model stands.
+function validateLocation(location, path, errors) {
+  if (!isPlainObject$7(location)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (!isFiniteNumber$1(location.latitude) || location.latitude < -90 || location.latitude > 90) {
+    pushError(errors, `${path}.latitude`, "must be a number from -90 to 90");
+  }
+  if (!isFiniteNumber$1(location.longitude) || location.longitude < -180 || location.longitude > 180) {
+    pushError(errors, `${path}.longitude`, "must be a number from -180 to 180");
+  }
+  if (location.north !== undefined) validateNumber(location.north, `${path}.north`, errors);
+  if (location.utcOffset !== undefined && (!isFiniteNumber$1(location.utcOffset) || location.utcOffset < -14 || location.utcOffset > 14)) {
+    pushError(errors, `${path}.utcOffset`, "must be a number of hours from -14 to 14");
+  }
+}
+
+// AIM3DViewer.sun (editor/sun-study.js): the sun on a day and hour.
+function validateSun(sun, path, errors) {
+  if (!isPlainObject$7(sun)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  ["enabled", "followTimeline", "animate"].forEach((key) => {
+    if (sun[key] !== undefined) validateBoolean(sun[key], `${path}.${key}`, errors);
+  });
+  if (sun.date !== undefined && !(isString(sun.date) && /^(-?\d{1,4}-)?(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/.test(sun.date.trim()))) {
+    pushError(errors, `${path}.date`, 'must be "MM-DD" or "YYYY-MM-DD"');
+  }
+  if (sun.time !== undefined && !(isString(sun.time) && /^([01]?\d|2[0-3]):[0-5]\d$|^24:00$/.test(sun.time.trim()))) {
+    pushError(errors, `${path}.time`, 'must be "HH:MM"');
+  }
+}
+
+function validateAIM3DViewerBlock(block, path, errors) {
+  if (!isPlainObject$7(block)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (block.version !== undefined) validateString(block.version, `${path}.version`, errors);
+  if (block.generatedAt !== undefined) validateString(block.generatedAt, `${path}.generatedAt`, errors);
+  if (block.camera !== undefined) validateCamera(block.camera, `${path}.camera`, errors);
+  if (block.viewer !== undefined) validateViewer(block.viewer, `${path}.viewer`, errors);
+  if (block.integration !== undefined) validateIntegration(block.integration, `${path}.integration`, errors);
+  if (block.lights !== undefined) {
+    if (!Array.isArray(block.lights)) {
+      pushError(errors, `${path}.lights`, "must be an array");
+    } else {
+      block.lights.forEach((light, index) => validateLight(light, `${path}.lights[${index}]`, errors));
+    }
+  }
+  if (block.modelTransform !== undefined) validateModelTransform(block.modelTransform, `${path}.modelTransform`, errors);
+  if (block.clipping !== undefined) validateClipping(block.clipping, `${path}.clipping`, errors);
+  if (block.rakingLight !== undefined) validateRakingLight(block.rakingLight, `${path}.rakingLight`, errors);
+  if (block.timeline !== undefined) validateTimeline(block.timeline, `${path}.timeline`, errors);
+  if (block.variants !== undefined) validateVariants(block.variants, `${path}.variants`, errors);
+  if (block.compare !== undefined) validateCompare(block.compare, `${path}.compare`, errors);
+  if (block.photos !== undefined) validatePhotos(block.photos, `${path}.photos`, errors);
+  if (block.location !== undefined) validateLocation(block.location, `${path}.location`, errors);
+  if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
+  if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
+  if (block.certainty !== undefined) {
+    certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
+  }
+}
+
+// Level of Certainty assessments on the annotations of every Scene and of
+// the manifest itself, checked against the manifest's scale (or the default).
+function validateCertaintyAssessments(manifest, errors) {
+  const scale = normalizeCertaintyScale(manifest.AIM3DViewer?.certainty);
+  const pages = [
+    ...(Array.isArray(manifest.items) ? manifest.items : []).flatMap((item, itemIndex) => (
+      Array.isArray(item?.annotations)
+        ? item.annotations.map((page, pageIndex) => [page, `$.items[${itemIndex}].annotations[${pageIndex}]`])
+        : []
+    )),
+    ...(Array.isArray(manifest.annotations)
+      ? manifest.annotations.map((page, pageIndex) => [page, `$.annotations[${pageIndex}]`])
+      : []),
+  ];
+  pages.forEach(([page, pagePath]) => {
+    (Array.isArray(page?.items) ? page.items : []).forEach((annotation, index) => {
+      const certainty = annotation?.AIM3DViewer?.certainty;
+      if (certainty === undefined) return;
+      certaintyAssessmentErrors(certainty, `${pagePath}.items[${index}].AIM3DViewer.certainty`, scale)
+        .forEach(([errorPath, message]) => pushError(errors, errorPath, message));
+    });
+  });
+}
+
+function validateAIM3DManifest(manifest, options = {}) {
+  const { requireCustomBlock = false } = options;
+  const errors = [];
+
+  if (!isPlainObject$7(manifest)) {
+    pushError(errors, "$", "must be an object");
+    return { valid: false, errors };
+  }
+
+  if (manifest.id !== undefined) validateString(manifest.id, "$.id", errors);
+  if (manifest.type !== undefined) validateString(manifest.type, "$.type", errors);
+  if (manifest.type !== undefined && manifest.type !== "Manifest") {
+    pushError(errors, "$.type", 'must equal "Manifest"');
+  }
+  if (manifest.items !== undefined && !Array.isArray(manifest.items)) {
+    pushError(errors, "$.items", "must be an array");
+  }
+  if (requireCustomBlock && !isPlainObject$7(manifest.AIM3DViewer)) {
+    pushError(errors, "$.AIM3DViewer", "is required and must be an object");
+  }
+  if (manifest.AIM3DViewer !== undefined) {
+    validateAIM3DViewerBlock(manifest.AIM3DViewer, "$.AIM3DViewer", errors);
+  }
+  validateCertaintyAssessments(manifest, errors);
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+function formatAIM3DManifestValidationErrors(errors, maxErrors = 8) {
+  if (!Array.isArray(errors) || errors.length === 0) return "";
+  const visibleErrors = errors.slice(0, maxErrors).map((error) => `${error.path} ${error.message}`);
+  const remainingCount = errors.length - visibleErrors.length;
+  if (remainingCount > 0) {
+    visibleErrors.push(`...and ${remainingCount} more error${remainingCount === 1 ? "" : "s"}`);
+  }
+  return visibleErrors.join("\n");
+}
+
+// What an AIM3D/IIIF manifest contains and whether each of its values is
+// right: every attribute (every leaf of the JSON) is checked against a
+// description of the known attributes below, and the result is grouped into
+// features (model, annotations, timeline, photos...) - one icon each in the
+// manifest lists. No three.js and no DOM here: this also runs in Node
+// (scripts/inspect-manifest.mjs, the tests).
+//
+//   inspectAIM3DManifest(manifest) -> {
+//     status: "ok" | "warning" | "error",
+//     summary: { errors, warnings, infos, attributes, unknown },
+//     features: [{ id, icon, label, present, count, status, errors, warnings }],
+//     attributes: [{ path, value, level, feature, known, issues: [{ level, message }] }],
+//   }
+//
+// Levels: "error" - the viewer cannot use the value (validateAIM3DManifest
+// would reject the manifest, or IIIF requires otherwise); "warning" - it
+// loads, but the value is probably wrong (a local URL, an empty text, a
+// colour the browser does not know); "info" - worth knowing (an attribute
+// the viewer does not know and ignores, a recommended one missing); "ok".
+// validateAIM3DManifest stays the authority: its errors always win.
+
+
+const INSPECTION_SCHEMA = "explora4d-manifest-inspection/1";
+
+const LEVELS = ["ok", "info", "warning", "error"];
+const MAX_TEXT = 200;
+
+// Keep in sync with LIGHT_TYPES / CAMERA_TYPES in viewer/IIIF/presentation4.js
+// and the light types annotations.js exports.
+const LIGHT_TYPES$1 = ["AmbientLight", "DirectionalLight", "PointLight", "SpotLight", "HemisphereLight"];
+const CAMERA_TYPES$1 = ["PerspectiveCamera", "OrthographicCamera"];
+const TRANSFORM_TYPES = ["RotateTransform", "ScaleTransform", "TranslateTransform"];
+const MOTIVATIONS = [
+  "painting", "supplementing", "commenting", "describing", "tagging", "linking", "highlighting",
+  "identifying", "assessing", "bookmarking", "classifying", "editing", "moderating", "questioning",
+  "replying", "contentState", "activating", "transforming",
+];
+const ROTATION_ORDERS = ["XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"];
+
+// ---- the features (icons) ------------------------------------------------------
+
+const isObject = (value) => value != null && typeof value === "object" && !Array.isArray(value);
+const asArray$1 = (value) => (Array.isArray(value) ? value : value === undefined ? [] : [value]);
+const typeOf$1 = (value) => (isObject(value) ? value.type || value["@type"] || null : null);
+const block = (manifest) => (isObject(manifest.AIM3DViewer) ? manifest.AIM3DViewer : {});
+const has = (value) => (value !== undefined ? 1 : 0);
+const length = (value) => (Array.isArray(value) ? value.length : 0);
+
+function annotationsOf(manifest, pages) {
+  return asArray$1(manifest.items).flatMap((scene) => asArray$1(scene?.[pages]))
+    .concat(pages === "annotations" ? asArray$1(manifest.annotations) : [])
+    .flatMap((page) => asArray$1(page?.items))
+    .filter(isObject);
+}
+
+function paintedBodies(manifest) {
+  return annotationsOf(manifest, "items").flatMap((annotation) => asArray$1(annotation.body))
+    .map((body) => (typeOf$1(body) === "SpecificResource" && isObject(body.source) ? body.source : body))
+    .filter(isObject);
+}
+
+function bodyFeature(body) {
+  const resource = typeOf$1(body) === "SpecificResource" && isObject(body?.source) ? body.source : body;
+  const type = typeOf$1(resource);
+  if (CAMERA_TYPES$1.includes(type)) return "camera";
+  if (LIGHT_TYPES$1.includes(type)) return "lights";
+  return "model";
+}
+
+// The order is the order of the icons. `count` says whether the manifest has
+// the feature (0 = not set) and how much of it.
+const MANIFEST_FEATURES = [
+  { id: "model", label: "3D model", count: (m) => paintedBodies(m).filter((body) => bodyFeature(body) === "model").length },
+  {
+    id: "metadata",
+    label: "Descriptive metadata",
+    count: (m) => ["label", "summary", "metadata", "provider", "homepage", "navDate"].filter((key) => m[key] !== undefined).length,
+  },
+  { id: "rights", label: "Rights and attribution", count: (m) => has(m.rights) + has(m.requiredStatement) },
+  { id: "annotations", label: "Annotations", count: (m) => annotationsOf(m, "annotations").length },
+  {
+    id: "camera",
+    label: "Camera view",
+    count: (m) => has(block(m).camera) + paintedBodies(m).filter((body) => bodyFeature(body) === "camera").length,
+  },
+  {
+    id: "lights",
+    label: "Lights",
+    count: (m) => length(block(m).lights) + paintedBodies(m).filter((body) => bodyFeature(body) === "lights").length,
+  },
+  { id: "raking-light", label: "Raking light", count: (m) => has(block(m).rakingLight) },
+  { id: "clipping", label: "Section planes", count: (m) => has(block(m).clipping) + has(block(m).viewer?.clipping) },
+  { id: "timeline", label: "4D timeline", count: (m) => (block(m).timeline ? Math.max(length(block(m).timeline.stages), 1) : 0) },
+  { id: "variants", label: "Reconstruction variants", count: (m) => length(block(m).variants?.items) || has(block(m).variants) },
+  { id: "compare", label: "Comparison view", count: (m) => has(block(m).compare) },
+  { id: "photos", label: "Historical photos", count: (m) => length(block(m).photos) },
+  { id: "location", label: "Geographic location", count: (m) => has(block(m).location) },
+  { id: "sun", label: "Sun study", count: (m) => has(block(m).sun) },
+  {
+    id: "certainty",
+    label: "Level of certainty",
+    count: (m) => has(block(m).certainty)
+      + annotationsOf(m, "annotations").filter((annotation) => annotation.AIM3DViewer?.certainty !== undefined).length,
+  },
+  { id: "thumbnails", label: "Thumbnails", count: (m) => length(block(m).thumbnails) },
+  { id: "transform", label: "Model transform and shading", count: (m) => has(block(m).modelTransform) },
+  {
+    id: "rendering",
+    label: "Rendering and environment",
+    count: (m) => has(block(m).viewer?.rendering) + has(block(m).viewer?.environmentMap) + has(block(m).viewer?.backgroundColor),
+  },
+  { id: "tour", label: "Guided tour", count: (m) => has(block(m).viewer?.tour) },
+  { id: "settings", label: "Viewer settings", count: (m) => has(block(m).viewer) + has(block(m).integration) },
+  { id: "manifest", label: "IIIF structure", count: () => 1 },
+];
+
+// ---- value checks ------------------------------------------------------------
+// A check returns null (fine) or [level, message].
+
+const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+
+function text(value) {
+  if (typeof value !== "string") return ["error", "must be a string"];
+  if (!value.trim()) return ["warning", "is empty"];
+  return null;
+}
+
+const anyString = (value) => (typeof value === "string" ? null : ["error", "must be a string"]);
+const bool = (value) => (typeof value === "boolean" ? null : ["error", "must be a boolean"]);
+
+function number({ min, max, above, below, integer, level = "error" } = {}) {
+  return (value) => {
+    if (!isFiniteNumber(value)) return ["error", "must be a finite number"];
+    if (integer && !Number.isInteger(value)) return [level, "must be a whole number"];
+    if (min !== undefined && value < min) return [level, max !== undefined ? `must be from ${min} to ${max}` : `must be >= ${min}`];
+    if (max !== undefined && value > max) return [level, min !== undefined ? `must be from ${min} to ${max}` : `must be <= ${max}`];
+    if (above !== undefined && value <= above) return [level, below !== undefined ? `must be between ${above} and ${below}` : `must be > ${above}`];
+    if (below !== undefined && value >= below) return [level, above !== undefined ? `must be between ${above} and ${below}` : `must be < ${below}`];
+    return null;
+  };
+}
+
+const num = number();
+
+function oneOf(values, level = "error") {
+  return (value) => (values.includes(value) ? null : [level, `must be one of: ${values.join(", ")}`]);
+}
+
+const LOCAL_HOST = /^(localhost|127(?:\.\d+){3}|0\.0\.0\.0|\[::1\])$/i;
+
+// An absolute URI (http(s), urn, data, mailto...) or a path relative to the
+// manifest. Addresses of this computer work for nobody else.
+function url(value, fetched = false) {
+  const problem = text(value);
+  if (problem) return problem;
+  const trimmed = value.trim();
+  if (/\s/.test(trimmed)) return ["warning", "contains spaces - must be URL-encoded"];
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    // Relative: resolved against the manifest's own URL.
+    return null;
+  }
+  if (/^https?:$/.test(parsed.protocol) && LOCAL_HOST.test(parsed.hostname)) {
+    return ["warning", `points at ${parsed.hostname} - works only on the computer that made it`];
+  }
+  // Identifiers may be http; files the viewer downloads are blocked on https pages.
+  if (fetched && parsed.protocol === "http:") return ["info", "uses http - browsers block it on https pages (mixed content)"];
+  return null;
+}
+
+// Colours the viewer passes to three.js / CSS: #rgb, #rrggbb, rgb(), hsl()
+// or a colour name.
+function color(value) {
+  if (typeof value !== "string") return ["error", "must be a colour string"];
+  const trimmed = value.trim();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return null;
+  if (/^#([0-9a-f]{4}|[0-9a-f]{8})$/i.test(trimmed)) return ["info", "has an alpha channel, which the viewer ignores"];
+  if (/^(rgb|hsl)a?\([^)]*\)$/i.test(trimmed) || /^[a-z]+$/i.test(trimmed)) return null;
+  return ["warning", "is not a colour (#rrggbb expected)"];
+}
+
+function isoDate(value) {
+  if (typeof value !== "string") return ["error", "must be a date string"];
+  if (!/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.test(value.trim()) || Number.isNaN(Date.parse(value))) {
+    return ["warning", "is not an ISO 8601 date (YYYY-MM-DDThh:mm:ssZ)"];
+  }
+  return null;
+}
+
+function mediaType(value) {
+  if (typeof value !== "string") return ["error", "must be a string"];
+  return /^[a-z]+\/[a-z0-9.+-]+$/i.test(value.trim()) ? null : ["warning", "is not a media type (e.g. model/gltf-binary)"];
+}
+
+// IIIF rights: a Creative Commons licence or a RightsStatements.org statement.
+function rights(value) {
+  if (typeof value === "string" && !/^[a-z][a-z0-9+.-]*:/i.test(value.trim())) {
+    return ["warning", "must be a licence URI, e.g. https://creativecommons.org/licenses/by/4.0/"];
+  }
+  const problem = url(value);
+  if (problem) return problem;
+  if (!/^https?:\/\/(creativecommons\.org\/(licenses|publicdomain)\/|rightsstatements\.org\/vocab\/)/.test(value.trim())) {
+    return ["info", "is not a Creative Commons or RightsStatements.org URI, which IIIF expects"];
+  }
+  return null;
+}
+
+const languageKey = (key) => (
+  key === "none" || /^[a-z]{2,3}(-[A-Za-z0-9]{1,8})*$/.test(key) ? null : ["warning", `"${key}" is not a language code (BCP 47, e.g. "en", "pl")`]
+);
+
+const sunDate = (value) => (
+  typeof value === "string" && /^(-?\d{1,4}-)?(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/.test(value.trim())
+    ? null : ["error", 'must be "MM-DD" or "YYYY-MM-DD"']
+);
+const sunTime = (value) => (
+  typeof value === "string" && /^([01]?\d|2[0-3]):[0-5]\d$|^24:00$/.test(value.trim()) ? null : ["error", 'must be "HH:MM"']
+);
+
+// ---- the known attributes ------------------------------------------------------
+// leaf(check) a value; obj({...}) an object with these keys (others: "info,
+// unknown"), arr(item) an array, map(value) an object with free keys (language
+// maps), alt({ string, number, boolean, array, object }) by the value's type,
+// ANY a free-form value the viewer passes on as it is. A function is a lazy
+// spec (for recursion).
+
+const leaf = (check) => ({ kind: "leaf", check });
+const obj = (props, options = {}) => ({ kind: "object", props, ...options });
+const arr = (items, options = {}) => ({ kind: "array", items, ...options });
+const map = (value, options = {}) => ({ kind: "map", value, ...options });
+const alt = (byType, options = {}) => ({ kind: "alt", byType, ...options });
+const ANY = { kind: "any" };
+const tag = (feature, spec) => ({ ...spec, feature });
+
+const TEXT = leaf(text);
+const STRING = leaf(anyString);
+const BOOL = leaf(bool);
+const NUM = leaf(num);
+const URL_ = leaf(url);
+// A file the viewer downloads (model, photo, thumbnail, metadata).
+const FILE_URL = leaf((value) => url(value, true));
+const COLOR = leaf(color);
+const DATE = leaf(isoDate);
+const LANG = alt({ string: TEXT, object: map(alt({ array: arr(TEXT), string: TEXT }), { key: languageKey }) }, { name: "a string or a language map" });
+const NODE_NAMES = arr(TEXT);
+
+const vector = (size) => alt({
+  array: arr(NUM, { minLength: size }),
+  object: obj(Object.fromEntries(["x", "y", "z"].slice(0, size).map((axis) => [axis, NUM])), { expect: [["x", "error"], ["y", "error"], ...(size === 3 ? [["z", "error"]] : [])] }),
+}, { name: `a ${size}D vector array or object` });
+const VEC2 = vector(2);
+const VEC3 = vector(3);
+const TRIPLE = arr(NUM, { exactLength: 3 });
+
+const PANEL = obj({ position: VEC2, size: obj({ width: alt({ number: NUM, null: leaf(() => null) }), height: alt({ number: NUM, null: leaf(() => null) }) }) });
+const CLIPPING = tag("clipping", obj({
+  mode: obj({ x: BOOL, y: BOOL, z: BOOL }),
+  // Planes flipped to keep the other side (editor/clipping.js).
+  negated: obj({ x: BOOL, y: BOOL, z: BOOL }),
+  constants: VEC3,
+  outlineVisible: BOOL,
+  outline: BOOL,
+}));
+
+const VIEWER = obj({
+  container: TEXT,
+  mailUrl: TEXT,
+  mainUrl: FILE_URL,
+  baseModulePath: STRING,
+  background: STRING,
+  credits: ANY,
+  auth: obj({ enabled: BOOL, allowRegistration: BOOL }),
+  manifestoForm: PANEL,
+  metadataContainer: PANEL,
+  baseNamespace: URL_,
+  metadataUrl: FILE_URL,
+  theme: leaf(oneOf(["light", "dark"])),
+  language: leaf(oneOf(["en", "pl", "de"])),
+  backgroundColor: tag("rendering", COLOR),
+  environmentMap: tag("rendering", obj({ intensity: leaf(number({ min: 0 })), preset: TEXT, enabled: BOOL })),
+  rendering: tag("rendering", obj({
+    toneMapping: leaf(oneOf(RENDERING_TONE_MAPPINGS)),
+    exposure: leaf(number({ min: 0 })),
+    postprocessing: obj({
+      enabled: BOOL,
+      antialias: leaf(oneOf(RENDERING_ANTIALIAS_MODES)),
+      ao: BOOL,
+      aoIntensity: leaf(number({ min: 0, max: 2 })),
+    }),
+  })),
+  ...Object.fromEntries([
+    "presentationMode", "sandbox", "lightweight", "editor", "forceLocalPreview", "autorotate",
+    "disableInteraction", "hideUi", "hideMetadata", "showNotifications",
+  ].map((key) => [key, BOOL])),
+  autorotateSpeed: NUM,
+  scale: VEC2,
+  window: obj({ position: VEC2, size: obj({ width: NUM, height: NUM }) }),
+  performance: leaf((value) => anyString(value) || oneOf(["high-performance", "low-power", "default"], "warning")(value)),
+  units: alt({ number: NUM, string: TEXT }),
+  gallery: ANY,
+  editorToolbar: obj({ enabled: BOOL, position: VEC2, expanded: BOOL, visible: BOOL }),
+  menuToolbar: obj({ enabled: BOOL, position: VEC2 }),
+  clipping: CLIPPING,
+  tour: tag("tour", obj({
+    autostart: BOOL,
+    autoplay: BOOL,
+    loop: BOOL,
+    stepDuration: leaf(number({ above: 0 })),
+    transitionDuration: leaf(number({ min: 0 })),
+  })),
+});
+
+const CERTAINTY_LEVEL = obj({ value: NUM, code: TEXT, symbol: STRING, color: COLOR, label: LANG, description: LANG }, {
+  expect: [["value", "error"], ["code", "error"], ["color", "error"]],
+});
+
+const AIM3D_BLOCK = obj({
+  version: TEXT,
+  generatedAt: DATE,
+  camera: tag("camera", obj({
+    position: VEC3,
+    target: VEC3,
+    up: VEC3,
+    fov: leaf(number({ above: 0, below: 180, level: "warning" })),
+    zoom: leaf(number({ above: 0, level: "warning" })),
+    distance: leaf(number({ min: 0, level: "warning" })),
+    perspectiveMode: leaf(oneOf(["perspective", "orthographic"])),
+  })),
+  viewer: tag("settings", VIEWER),
+  integration: tag("settings", obj({
+    type: TEXT,
+    exportViewerUrl: URL_,
+    api: obj({ thumbnailUploadEndpoint: STRING }),
+  }, { open: true })),
+  lights: tag("lights", arr(obj({
+    type: leaf(oneOf(LIGHT_TYPES$1, "warning")),
+    position: VEC3,
+    target: VEC3,
+    color: COLOR,
+    groundColor: COLOR,
+    intensity: leaf(number({ min: 0, level: "warning" })),
+    distance: leaf(number({ min: 0, level: "warning" })),
+    decay: leaf(number({ min: 0, level: "warning" })),
+    angle: leaf(number({ above: 0, max: Math.PI / 2, level: "warning" })),
+    penumbra: leaf(number({ min: 0, max: 1, level: "warning" })),
+    visible: BOOL,
+  }))),
+  certainty: tag("certainty", obj({
+    label: LANG,
+    min: NUM,
+    max: NUM,
+    unassessedColor: COLOR,
+    visible: BOOL,
+    opacity: leaf(number({ min: 0, max: 1 })),
+    levels: arr(CERTAINTY_LEVEL, { minLength: 1 }),
+  })),
+  rakingLight: tag("raking-light", obj({
+    enabled: BOOL,
+    sweep: BOOL,
+    direction: leaf(number({ min: 0, max: 360 })),
+    height: leaf(number({ min: 1, max: 89 })),
+  })),
+  timeline: tag("timeline", obj({
+    enabled: BOOL,
+    showPanel: BOOL,
+    year: NUM,
+    startYear: NUM,
+    endYear: NUM,
+    label: LANG,
+    description: LANG,
+    transition: leaf(oneOf(TIMELINE_TRANSITIONS$1)),
+    transitionDuration: leaf(number({ min: 0 })),
+    playback: obj({
+      autoplay: BOOL,
+      loop: BOOL,
+      yearsPerSecond: leaf(number({ above: 0 })),
+      speed: leaf(number({ above: 0 })),
+      pauseAtEvents: leaf(number({ min: 0 })),
+    }),
+    stages: arr(obj({
+      year: NUM,
+      type: leaf(oneOf(TIMELINE_STAGE_TYPES$1)),
+      approximate: BOOL,
+      yearLabel: LANG,
+      label: LANG,
+      description: LANG,
+      source: LANG,
+      nodes: NODE_NAMES,
+    }, { expect: [["year", "error"], ["label", "info"]] })),
+  })),
+  variants: tag("variants", obj({
+    enabled: BOOL,
+    showPanel: BOOL,
+    label: LANG,
+    description: LANG,
+    active: TEXT,
+    items: arr(obj({
+      id: TEXT,
+      label: LANG,
+      description: LANG,
+      source: LANG,
+      certainty: NUM,
+      nodes: NODE_NAMES,
+    }, { expect: [["id", "error"], ["label", "info"]] })),
+  })),
+  compare: tag("compare", obj({
+    enabled: BOOL,
+    mode: leaf(oneOf(COMPARE_MODES$1)),
+    kind: leaf(oneOf(COMPARE_KINDS$1)),
+    position: leaf(number({ min: 0, max: 1 })),
+    left: obj({ variant: TEXT, year: NUM, shading: leaf(oneOf(SHADING_MODES$1)), lighting: leaf(oneOf(COMPARE_LIGHTINGS$1)) }),
+    right: obj({ variant: TEXT, year: NUM, shading: leaf(oneOf(SHADING_MODES$1)), lighting: leaf(oneOf(COMPARE_LIGHTINGS$1)) }),
+  })),
+  photos: tag("photos", arr(obj({
+    id: TEXT,
+    src: FILE_URL,
+    service: alt({ string: FILE_URL, object: ANY }),
+    label: LANG,
+    description: LANG,
+    source: LANG,
+    year: leaf(number({ integer: true, level: "warning" })),
+    opacity: leaf(number({ min: 0, max: 1 })),
+    view: obj({
+      position: TRIPLE,
+      target: TRIPLE,
+      fov: leaf(number({ above: 0, below: 180 })),
+      roll: NUM,
+    }, { expect: [["position", "error"], ["target", "error"]] }),
+  }, { expect: [["label", "info"], ["source", "info"]] }))),
+  location: tag("location", obj({
+    latitude: leaf(number({ min: -90, max: 90 })),
+    longitude: leaf(number({ min: -180, max: 180 })),
+    north: leaf(number({ min: -360, max: 360, level: "warning" })),
+    utcOffset: leaf(number({ min: -14, max: 14 })),
+  }, { expect: [["latitude", "error"], ["longitude", "error"]] })),
+  sun: tag("sun", obj({ enabled: BOOL, followTimeline: BOOL, animate: BOOL, date: leaf(sunDate), time: leaf(sunTime) })),
+  thumbnails: tag("thumbnails", arr(alt({ string: FILE_URL, object: obj({ src: FILE_URL, label: LANG }, { expect: [["src", "error"]] }) }))),
+  modelTransform: tag("transform", obj({
+    position: VEC3,
+    rotation: obj({ x: NUM, y: NUM, z: NUM, order: leaf(oneOf(ROTATION_ORDERS, "warning")) }),
+    scale: VEC3,
+    wireframe: BOOL,
+    shadingMode: leaf(oneOf(SHADING_MODES$1)),
+    customShader: obj({ vertexShader: TEXT, fragmentShader: TEXT }),
+  })),
+  clipping: CLIPPING,
+});
+
+// IIIF Presentation 3/4. Linking and descriptive properties every resource
+// may have.
+const DESCRIPTIVE = {
+  label: LANG,
+  summary: LANG,
+  metadata: arr(obj({ label: LANG, value: LANG }, { expect: [["label", "error"], ["value", "error"]] })),
+  requiredStatement: tag("rights", obj({ label: LANG, value: LANG }, { expect: [["label", "error"], ["value", "error"]] })),
+  rights: tag("rights", leaf(rights)),
+  provider: ANY,
+  homepage: ANY,
+  thumbnail: ANY,
+  logo: ANY,
+  seeAlso: ANY,
+  service: ANY,
+  services: ANY,
+  partOf: ANY,
+  rendering: ANY,
+  start: ANY,
+  navDate: DATE,
+  navPlace: ANY,
+  behavior: arr(TEXT),
+  viewingDirection: leaf(oneOf(["left-to-right", "right-to-left", "top-to-bottom", "bottom-to-top"])),
+  created: DATE,
+  modified: DATE,
+};
+
+const QUANTITY = obj({ type: leaf(oneOf(["Quantity"], "warning")), quantityValue: NUM, unit: TEXT }, { expect: [["quantityValue", "error"]] });
+const POINT = obj({ type: TEXT, x: NUM, y: NUM, z: NUM, id: URL_ });
+const TRANSFORM = obj({ type: leaf(oneOf(TRANSFORM_TYPES)), x: NUM, y: NUM, z: NUM }, { expect: [["type", "error"]] });
+const SELECTOR = obj({ type: TEXT, x: NUM, y: NUM, z: NUM, value: STRING }, { open: true });
+
+// Bodies: a model, a light, a camera, a SpecificResource around one of them,
+// a TextualBody of a comment, or a Choice / List of bodies.
+const BODY = () => obj({
+  id: FILE_URL,
+  type: TEXT,
+  format: leaf(mediaType),
+  language: alt({ string: TEXT, array: arr(TEXT) }),
+  value: STRING,
+  label: LANG,
+  source: alt({ string: URL_, object: BODY }),
+  selector: alt({ object: SELECTOR, array: arr(SELECTOR) }),
+  transform: arr(TRANSFORM),
+  items: arr(BODY),
+  color: COLOR,
+  intensity: alt({ number: leaf(number({ min: 0, level: "warning" })), object: QUANTITY }),
+  angle: leaf(number({ above: 0, max: 90, level: "warning" })),
+  fieldOfView: leaf(number({ above: 0, below: 180, level: "warning" })),
+  near: leaf(number({ min: 0, level: "warning" })),
+  far: leaf(number({ above: 0, level: "warning" })),
+  lookAt: alt({ string: URL_, object: POINT }),
+  purpose: TEXT,
+  ...DESCRIPTIVE,
+});
+
+const TARGET = obj({
+  id: URL_,
+  type: TEXT,
+  source: alt({ string: URL_, object: obj({ id: URL_, type: TEXT }) }),
+  selector: alt({ object: SELECTOR, array: arr(SELECTOR) }),
+});
+
+// annotation.AIM3DViewer: where an annotation sits on the model.
+const ANNOTATION_AIM3D = obj({
+  certainty: tag("certainty", obj({ value: NUM, code: TEXT, scope: leaf(oneOf(CERTAINTY_SCOPES)), targetId: STRING })),
+  faceIndex: leaf(number({ min: 0, integer: true })),
+  faceNumbers: arr(leaf(number({ min: 0, integer: true }))),
+  groupId: STRING,
+  key: alt({ string: STRING, number: NUM }),
+  object: STRING,
+  point: TRIPLE,
+  targetId: STRING,
+  view: obj({ position: TRIPLE, target: TRIPLE, fov: leaf(number({ above: 0, below: 180 })) }),
+});
+
+const MOTIVATION = leaf((value) => anyString(value) || oneOf(MOTIVATIONS, "info")(value));
+
+const annotation = (feature) => obj({
+  id: URL_,
+  type: leaf(oneOf(["Annotation"])),
+  motivation: alt({ string: MOTIVATION, array: arr(MOTIVATION) }),
+  body: alt({ string: URL_, object: BODY, array: arr(BODY) }),
+  bodyValue: STRING,
+  target: alt({ string: URL_, object: TARGET, array: arr(TARGET) }),
+  scope: ANY,
+  stylesheet: ANY,
+  timeMode: ANY,
+  AIM3DViewer: ANNOTATION_AIM3D,
+  ...DESCRIPTIVE,
+}, {
+  feature,
+  expect: [["id", "warning"], ["type", "warning"], ["target", "error"], ["motivation", "info"]],
+});
+
+// Painting annotations are the model, its lights and cameras; the others
+// are the annotations of the "annotations" feature.
+const PAINTING = annotation((value) => bodyFeature(asArray$1(value?.body)[0]));
+const COMMENT = annotation("annotations");
+
+const page = (item) => obj({
+  id: URL_,
+  type: leaf(oneOf(["AnnotationPage"])),
+  items: arr(item),
+  ...DESCRIPTIVE,
+}, { expect: [["id", "warning"], ["type", "warning"]] });
+
+const SCENE = obj({
+  id: URL_,
+  type: leaf(oneOf(["Scene", "Canvas"])),
+  backgroundColor: tag("rendering", COLOR),
+  spatialScale: QUANTITY,
+  height: leaf(number({ above: 0 })),
+  width: leaf(number({ above: 0 })),
+  duration: leaf(number({ above: 0 })),
+  items: arr(page(PAINTING)),
+  annotations: arr(page(COMMENT)),
+  placeholderContainer: ANY,
+  accompanyingContainer: ANY,
+  ...DESCRIPTIVE,
+}, { expect: [["id", "warning"], ["type", "warning"], ["items", "warning"]] });
+
+const MANIFEST = obj({
+  "@context": alt({ string: URL_, array: arr(alt({ string: URL_, object: ANY })) }),
+  id: URL_,
+  type: leaf(oneOf(["Manifest"])),
+  items: arr(SCENE),
+  structures: ANY,
+  annotations: arr(page(COMMENT)),
+  AIM3DViewer: AIM3D_BLOCK,
+  ...Object.fromEntries(Object.entries(DESCRIPTIVE).map(([key, spec]) => [key, spec.feature ? spec : tag("metadata", spec)])),
+}, {
+  feature: "manifest",
+  expect: [["id", "warning"], ["type", "warning"], ["label", "warning"], ["items", "info"], ["summary", "info"], ["rights", "info"]],
+});
+
+// ---- the walk ----------------------------------------------------------------
+
+function kindOf(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function shown(value) {
+  if (typeof value === "string") return value.length > MAX_TEXT ? `${value.slice(0, MAX_TEXT)}…` : value;
+  if (Array.isArray(value)) return `[${value.length}]`;
+  if (isObject(value)) return `{${Object.keys(value).length}}`;
+  return value;
+}
+
+class Collector {
+  constructor() {
+    this.entries = new Map();
+  }
+
+  entry(path, value, feature, known = true) {
+    let entry = this.entries.get(path);
+    if (!entry) {
+      entry = { path, value: shown(value), level: "ok", feature, known, issues: [] };
+      this.entries.set(path, entry);
+    }
+    return entry;
+  }
+
+  issue(path, level, message, value, feature) {
+    const entry = this.entry(path, value, feature);
+    if (entry.issues.some((issue) => issue.message === message)) return;
+    entry.issues.push({ level, message });
+    if (LEVELS.indexOf(level) > LEVELS.indexOf(entry.level)) entry.level = level;
+  }
+}
+
+function walk(value, spec, path, feature, out) {
+  if (typeof spec === "function") spec = spec();
+  if (spec.feature) feature = typeof spec.feature === "function" ? spec.feature(value) : spec.feature;
+
+  switch (spec.kind) {
+    case "any":
+      out.entry(path, value, feature);
+      return;
+    case "leaf": {
+      out.entry(path, value, feature);
+      const problem = spec.check(value);
+      if (problem) out.issue(path, problem[0], problem[1], value, feature);
+      return;
+    }
+    case "alt": {
+      const next = spec.byType[kindOf(value)];
+      if (!next) {
+        const expected = spec.name || Object.keys(spec.byType).join(" or ");
+        out.issue(path, "error", `must be ${expected}`, value, feature);
+        return;
+      }
+      walk(value, next, path, feature, out);
+      return;
+    }
+    case "array": {
+      if (!Array.isArray(value)) {
+        out.issue(path, "error", "must be an array", value, feature);
+        return;
+      }
+      if (value.length === 0) out.entry(path, value, feature);
+      if (spec.minLength !== undefined && value.length < spec.minLength) {
+        out.issue(path, "error", `must contain at least ${spec.minLength} item${spec.minLength === 1 ? "" : "s"}`, value, feature);
+      }
+      if (spec.exactLength !== undefined && value.length !== spec.exactLength) {
+        out.issue(path, "error", `must contain exactly ${spec.exactLength} items`, value, feature);
+      }
+      value.forEach((item, index) => walk(item, spec.items, `${path}[${index}]`, feature, out));
+      return;
+    }
+    case "map": {
+      if (!isObject(value)) {
+        out.issue(path, "error", "must be an object", value, feature);
+        return;
+      }
+      if (Object.keys(value).length === 0) out.issue(path, "warning", "is empty", value, feature);
+      Object.entries(value).forEach(([key, item]) => {
+        const problem = spec.key?.(key);
+        if (problem) out.issue(`${path}.${key}`, problem[0], problem[1], item, feature);
+        walk(item, spec.value, `${path}.${key}`, feature, out);
+      });
+      return;
+    }
+    case "object": {
+      if (!isObject(value)) {
+        out.issue(path, "error", "must be an object", value, feature);
+        return;
+      }
+      if (Object.keys(value).length === 0) out.entry(path, value, feature);
+      (spec.expect || []).forEach(([key, level]) => {
+        if (value[key] === undefined) {
+          out.issue(`${path}.${key}`, level, level === "info" ? "is not set (recommended)" : "is missing", undefined, feature);
+        }
+      });
+      Object.entries(value).forEach(([key, item]) => {
+        const childPath = `${path}.${key}`;
+        const child = spec.props[key];
+        if (child) {
+          walk(item, child, childPath, feature, out);
+        } else if (spec.open) {
+          out.entry(childPath, item, feature);
+        } else {
+          out.entry(childPath, item, feature, false);
+          out.issue(childPath, "info", "is not a known attribute - the viewer ignores it", item, feature);
+        }
+      });
+      return;
+    }
+    default:
+      throw new Error(`Unknown spec kind: ${spec.kind}`);
+  }
+}
+
+// ---- checks across attributes --------------------------------------------------
+
+function crossChecks(manifest, out) {
+  const aim = block(manifest);
+
+  // IIIF resources need their own ids; the viewer looks scenes up by id.
+  const ids = new Map();
+  const remember = (resource, path) => {
+    if (!isObject(resource) || typeof resource.id !== "string") return;
+    if (ids.has(resource.id)) {
+      out.issue(`${path}.id`, "warning", `is the same id as ${ids.get(resource.id)}`, resource.id);
+    } else {
+      ids.set(resource.id, path);
+    }
+  };
+  const sceneIds = new Set();
+  remember(manifest, "$");
+  asArray$1(manifest.items).forEach((scene, sceneIndex) => {
+    const scenePath = `$.items[${sceneIndex}]`;
+    remember(scene, scenePath);
+    if (typeof scene?.id === "string") sceneIds.add(scene.id);
+    ["items", "annotations"].forEach((pages) => {
+      asArray$1(scene?.[pages]).forEach((annotationPage, pageIndex) => {
+        const pagePath = `${scenePath}.${pages}[${pageIndex}]`;
+        remember(annotationPage, pagePath);
+        asArray$1(annotationPage?.items).forEach((item, index) => remember(item, `${pagePath}.items[${index}]`));
+      });
+    });
+  });
+
+  // Annotation targets must be one of the manifest's scenes.
+  if (sceneIds.size) {
+    asArray$1(manifest.items).forEach((scene, sceneIndex) => {
+      ["items", "annotations"].forEach((pages) => {
+        asArray$1(scene?.[pages]).forEach((annotationPage, pageIndex) => {
+          asArray$1(annotationPage?.items).forEach((item, index) => {
+            asArray$1(item?.target).forEach((target, targetIndex) => {
+              const source = typeof target === "string" ? target : typeof target?.source === "string" ? target.source : target?.source?.id ?? target?.id;
+              if (typeof source !== "string") return;
+              const scene = source.split("#")[0];
+              if (sceneIds.has(scene)) return;
+              const targets = Array.isArray(item.target) ? `.target[${targetIndex}]` : ".target";
+              out.issue(
+                `$.items[${sceneIndex}].${pages}[${pageIndex}].items[${index}]${targets}`,
+                "warning",
+                `points at "${shown(scene)}", which is not a scene of this manifest`,
+                target,
+              );
+            });
+          });
+        });
+      });
+    });
+  }
+
+  // The comparison view shows variants by id.
+  const variantIds = new Set(asArray$1(aim.variants?.items).map((item) => item?.id).filter((id) => typeof id === "string"));
+  ["left", "right"].forEach((side) => {
+    const variant = aim.compare?.[side]?.variant;
+    if (typeof variant === "string" && !variantIds.has(variant)) {
+      out.issue(`$.AIM3DViewer.compare.${side}.variant`, "warning", "is not the id of one of AIM3DViewer.variants.items", variant, "compare");
+    }
+  });
+
+  // Vectors that make the view or the model degenerate.
+  const zero = (vector) => {
+    const values = Array.isArray(vector) ? vector.slice(0, 3) : isObject(vector) ? [vector.x, vector.y, vector.z] : null;
+    return values && values.every(isFiniteNumber) && values.every((v) => v === 0);
+  };
+  if (zero(aim.camera?.up)) out.issue("$.AIM3DViewer.camera.up", "warning", "is a zero vector - the camera has no up direction", aim.camera.up, "camera");
+  const scale = aim.modelTransform?.scale;
+  const scales = Array.isArray(scale) ? scale : isObject(scale) ? [scale.x, scale.y, scale.z] : [];
+  if (scales.some((v) => v === 0)) {
+    out.issue("$.AIM3DViewer.modelTransform.scale", "warning", "has a zero component - the model becomes flat or invisible", scale, "transform");
+  }
+  const { startYear, endYear } = aim.timeline || {};
+  asArray$1(aim.timeline?.stages).forEach((stage, index) => {
+    if (!isFiniteNumber(stage?.year)) return;
+    if ((isFiniteNumber(startYear) && stage.year < startYear) || (isFiniteNumber(endYear) && stage.year > endYear)) {
+      out.issue(`$.AIM3DViewer.timeline.stages[${index}].year`, "warning", "lies outside startYear..endYear", stage.year, "timeline");
+    }
+  });
+}
+
+// ---- the result ----------------------------------------------------------------
+
+// The feature an attribute path belongs to, for validator errors at paths
+// the walk did not reach (e.g. a missing value).
+const LAST_SEGMENT = /(\.[^.[\]]+|\[\d+\])$/;
+
+function featureOfPath(path, out) {
+  let prefix = path;
+  while (true) {
+    const entry = out.entries.get(prefix);
+    if (entry) return entry.feature;
+    if (!LAST_SEGMENT.test(prefix)) return "manifest";
+    prefix = prefix.replace(LAST_SEGMENT, "");
+  }
+}
+
+function inspectAIM3DManifest(manifest) {
+  const out = new Collector();
+  if (!isObject(manifest)) {
+    out.issue("$", "error", "must be an object", manifest, "manifest");
+  } else {
+    // As the viewer reads it: older exports keep numbers as strings.
+    const normalized = normalizeAIM3DManifest(structuredClone(manifest));
+    walk(normalized, MANIFEST, "$", "manifest", out);
+    crossChecks(normalized, out);
+    // The validator decides what the viewer rejects; an attribute the walk
+    // already marked as an error keeps that message.
+    validateAIM3DManifest(normalized).errors.forEach(({ path, message }) => {
+      if (out.entries.get(path)?.level === "error") return;
+      out.issue(path, "error", message, undefined, featureOfPath(path, out));
+    });
+  }
+
+  const attributes = [...out.entries.values()];
+  const count = (level) => attributes.reduce((sum, entry) => sum + entry.issues.filter((issue) => issue.level === level).length, 0);
+  const summary = {
+    errors: count("error"),
+    warnings: count("warning"),
+    infos: count("info"),
+    attributes: attributes.length,
+    unknown: attributes.filter((entry) => !entry.known).length,
+  };
+
+  const features = MANIFEST_FEATURES.map((feature) => {
+    const own = attributes.filter((entry) => entry.feature === feature.id);
+    const issues = own.flatMap((entry) => entry.issues);
+    const errors = issues.filter((issue) => issue.level === "error").length;
+    const warnings = issues.filter((issue) => issue.level === "warning").length;
+    const featureCount = isObject(manifest) ? feature.count(manifest) : 0;
+    return {
+      id: feature.id,
+      icon: feature.id,
+      label: feature.label,
+      present: featureCount > 0,
+      count: featureCount,
+      status: errors ? "error" : warnings ? "warning" : "ok",
+      errors,
+      warnings,
+    };
+  });
+
+  return {
+    schema: INSPECTION_SCHEMA,
+    status: summary.errors ? "error" : summary.warnings ? "warning" : "ok",
+    summary,
+    features,
+    attributes,
+  };
+}
+
+// The model files a manifest paints (body ids), resolved against its URL.
+function manifestModelUrls(manifest, base = undefined) {
+  if (!isObject(manifest)) return [];
+  return paintedBodies(manifest)
+    .filter((body) => bodyFeature(body) === "model" && typeof body.id === "string")
+    .map((body) => {
+      try {
+        return base ? new URL(body.id, base).href : body.id;
+      } catch {
+        return body.id;
+      }
+    });
+}
+
+// What the manifest lists show: the features that are set, in icon order,
+// with their status (the structure itself only when something is wrong).
+function manifestFeatureIcons(inspection) {
+  return inspection.features
+    .filter((feature) => feature.present && (feature.id !== "manifest" || feature.status !== "ok"))
+    .map(({ id, icon, label, count, status }) => ({ id, icon, label, count, status }));
+}
+
+// Icons of what a manifest contains (manifest-inspection.js features) and of
+// the check of its model file (the worker's validation.json), for the model
+// lists and the validation report (validation-report.js). Each icon is a
+// meta-icon (meta-icons.js) whose mask is set here, coloured by its status:
+// data-status="warning" / "error" (models-panel.css).
+
+const SHAPES$1 = {
+  model: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9"/>',
+  metadata: '<rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/>',
+  rights: '<circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.6a3.5 3.5 0 1 0 0 4.8"/>',
+  annotations: '<path d="M5 4h14v11H10l-5 4z"/><path d="M9 8.5h6M9 11.5h4"/>',
+  camera: '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  lights: '<path d="M9.5 17.5h5M10.5 20.5h3M12 3a6 6 0 0 0-3.5 10.9V15.5h7v-1.6A6 6 0 0 0 12 3z"/>',
+  "raking-light": '<path d="M3 19h18M4.5 14.5l15-8M4.5 10l8-4.5"/>',
+  clipping: '<rect x="5" y="4" width="14" height="16" rx="1.5"/><path d="M2.5 12h19"/>',
+  timeline: '<path d="M3 12h18M7 8.5v7M12 6v12M17 8.5v7"/>',
+  variants: '<rect x="3.5" y="3.5" width="11" height="11" rx="1.5"/><rect x="9.5" y="9.5" width="11" height="11" rx="1.5"/>',
+  compare: '<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M12 2.5v19"/>',
+  photos: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.4"/>',
+  location: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
+  certainty: '<path d="M12 3 19 6v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
+  thumbnails: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+  transform: '<path d="M12 3v18M3 12h18M9.5 5.5 12 3l2.5 2.5M9.5 18.5 12 21l2.5-2.5M5.5 9.5 3 12l2.5 2.5M18.5 9.5 21 12l-2.5 2.5"/>',
+  rendering: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M12 8h7.5M12 12h8.5M12 16h7.5"/>',
+  tour: '<path d="M6 21V4h11l-2.5 4 2.5 4H6"/>',
+  settings: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  manifest: '<path d="M9 4H8a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h1M15 4h1a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-1"/>',
+  "model-check": '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/>',
+};
+
+const mask = (shape) => `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>${shape}</svg>`,
+)}")`;
+
+// The same shapes as inline SVG in the current colour (the report's rows).
+function featureIconSvg(icon) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${SHAPES$1[icon] || SHAPES$1.manifest}</svg>`;
+}
+
+const featureLabel = (feature) => t$1(`validationReport.features.${feature.id}`, feature.label);
+
+const statusLabel = (status) => ({
+  ok: t$1("validationReport.pass", "Pass"),
+  warning: t$1("validationReport.review", "Needs review"),
+  error: t$1("validationReport.fail", "Fail"),
+  missing: t$1("validationReport.notSet", "Not set"),
+  unchecked: t$1("validationReport.notChecked", "Not checked"),
+}[status] || status);
+
+// One icon, its tooltip "<label> (<count>): <status>".
+function statusIconPart(icon, label, status = "ok", count = 0) {
+  const tooltip = `${label}${count > 1 ? ` (${count})` : ""}: ${statusLabel(status)}`;
+  const part = metaPart(icon, tooltip, count > 1 ? String(count) : "");
+  const glyph = part.querySelector(".meta-icon");
+  glyph.style.setProperty("--meta-icon", mask(SHAPES$1[icon] || SHAPES$1.manifest));
+  part.title = tooltip;
+  if (count > 1) part.setAttribute("aria-label", tooltip);
+  part.dataset.status = status;
+  part.classList.add("feature-icon");
+  return part;
+}
+
+// The model check of the worker (validation.json, or its summary in
+// GET /api/jobs): one icon with the counts in its tooltip.
+function modelCheckPart(validation) {
+  if (!validation?.status) return null;
+  const counts = [];
+  if (validation.errors) counts.push(t$1("validationReport.errorsCount", { count: validation.errors }, "{count} error(s)"));
+  if (validation.warnings) counts.push(t$1("validationReport.warningsCount", { count: validation.warnings }, "{count} warning(s)"));
+  const label = t$1("validationReport.modelCheck", "Model file check (glTF-Validator)");
+  const part = statusIconPart("model-check", counts.length ? `${label} - ${counts.join(", ")}` : label, validation.status);
+  part.classList.add("model-check-icon");
+  return part;
+}
+
+// The caption of a manifest in a list: what it contains, then the model check.
+function featureIconsCaption(inspection, modelValidation = null) {
+  const parts = manifestFeatureIcons(inspection)
+    .map((feature) => statusIconPart(feature.icon, featureLabel(feature), feature.status, feature.count));
+  const caption = metaCaption([...parts, modelCheckPart(modelValidation)]);
+  caption.classList.add("feature-icons");
+  return caption;
+}
+
 function getGalleryConfig() {
   return core.CONFIG?.viewer?.gallery || {};
 }
@@ -12342,13 +14475,15 @@ function attachModelsPanel(Viewer) {
 
       // job.owner is null for anonymous uploads (accounts off, or jobs from
       // before accounts were enabled) - the caption then just falls back to
-      // the date.
-      if (job.owner || job.createdAt) {
+      // the date. job.validation: the worker's check of the model file
+      // (validation.json), null for formats it does not check.
+      if (job.owner || job.createdAt || job.validation) {
         text.appendChild(metaCaption([
           job.owner ? metaPart("user", t$1("modelsMeta.uploadedBy", "Uploaded by"), job.owner) : null,
           job.createdAt
             ? metaPart("date", t$1("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleDateString())
             : null,
+          modelCheckPart(job.validation),
         ]));
       }
 
@@ -12821,9 +14956,373 @@ function attachModelsSource(Viewer) {
   });
 }
 
-// App only: the example AIM3D/IIIF manifests the dev build offers in its
-// manifest form (metadata.js), as the third tab of the "Models" panels
-// (models-source.js). The list itself is fetched on every open and on
+// The validation report (toolbar: File > Validation report): is the open
+// model ready to be published? One row per check, like a checklist:
+//
+//   - the model file: the worker's glTF-Validator report (validation.json,
+//     GET /api/model/validation/<id>) for models served from a worker job
+//     (/files/<id>/...); "not checked" elsewhere
+//   - the IIIF structure, the descriptive metadata and the rights - always
+//   - every other feature the manifest sets (annotations, timeline, ...)
+//
+// of the manifest the viewer would export now (build3IFManifest), checked
+// attribute by attribute (manifest-inspection.js). Each row opens to its
+// issues. Overall: "X/Y passed" - rows that pass over rows checked.
+
+const MAX_ISSUES_SHOWN = 50;
+const ALWAYS = ["manifest", "metadata", "rights"];
+// Rows with a line saying what they check (validationReport.hints).
+const HINTED = ["model", "metadata", "rights", "annotations", "manifest"];
+
+const validationRequests = new Map();
+
+// The worker's validation endpoint for a model it serves, or null.
+function modelValidationUrl(modelUrl) {
+  if (typeof modelUrl !== "string" || !modelUrl) return null;
+  let parsed;
+  try {
+    parsed = new URL(remoteAssetUrl(modelUrl), window.location.href);
+  } catch {
+    return null;
+  }
+  const match = parsed.pathname.match(/\/files\/([A-Za-z0-9_-]+)\//);
+  return match ? new URL(`/api/model/validation/${match[1]}`, parsed.origin).href : null;
+}
+
+// validation.json of a worker model; null when there is none (other hosts,
+// Drupal, models from before validation). Cached per URL for the session.
+function fetchModelValidation(modelUrl, { refresh = false } = {}) {
+  const url = modelValidationUrl(modelUrl);
+  if (!url) return Promise.resolve(null);
+  if (refresh) validationRequests.delete(url);
+  if (!validationRequests.has(url)) {
+    validationRequests.set(url, fetch(url, { cache: "no-store", headers: appRequestHeaders() })
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null));
+  }
+  return validationRequests.get(url);
+}
+
+const issueLevelOrder = { error: 0, warning: 1, info: 2, hint: 3 };
+
+function modelRow(report) {
+  const base = {
+    id: "model-check",
+    icon: "model-check",
+    label: t$1("validationReport.modelCheck", "Model file check (glTF-Validator)"),
+    description: t$1("validationReport.modelCheckHint", "Is the model file valid glTF that works in all browsers?"),
+  };
+  if (!report) {
+    return {
+      ...base,
+      status: "unchecked",
+      note: t$1("validationReport.modelNotChecked", "Only models converted by the upload worker are checked."),
+      issues: [],
+    };
+  }
+  const groups = (report.validator?.issues || []).map((group) => ({
+    level: group.level,
+    path: group.code + (group.count > 1 ? ` ×${group.count}` : ""),
+    message: [group.message, group.pointers?.length ? `(${group.pointers.join(", ")})` : ""].filter(Boolean).join(" "),
+  }));
+  const checks = (report.checks || []).map((check) => ({ level: check.level, path: check.id, message: check.message }));
+  const note = report.validator?.version
+    ? `glTF-Validator ${report.validator.version}`
+    : report.validator?.failed || t$1("validationReport.validatorMissing", "glTF-Validator is not installed on the worker.");
+  return {
+    ...base,
+    status: report.status,
+    note,
+    issues: [...checks, ...groups].sort((a, b) => (issueLevelOrder[a.level] ?? 9) - (issueLevelOrder[b.level] ?? 9)),
+  };
+}
+
+function featureRows(inspection) {
+  return inspection.features
+    .filter((feature) => feature.present || ALWAYS.includes(feature.id))
+    .map((feature) => {
+      const issues = inspection.attributes
+        .filter((entry) => entry.feature === feature.id)
+        .flatMap((entry) => entry.issues.map((issue) => ({ level: issue.level, path: entry.path, message: issue.message })))
+        .sort((a, b) => (issueLevelOrder[a.level] ?? 9) - (issueLevelOrder[b.level] ?? 9));
+      return {
+        id: feature.id,
+        icon: feature.icon,
+        label: featureLabel(feature),
+        description: HINTED.includes(feature.id) ? t$1(`validationReport.hints.${feature.id}`, "") : "",
+        status: feature.present ? feature.status : "missing",
+        count: feature.count,
+        issues,
+      };
+    });
+}
+
+// The rows, the overall count and the details, from the manifest and the
+// model's report. Also usable without the panel (tests, other UIs).
+function buildValidationReport(manifest, modelReport) {
+  const inspection = inspectAIM3DManifest(manifest);
+  const rows = [modelRow(modelReport), ...featureRows(inspection)];
+  const checked = rows.filter((row) => row.status !== "unchecked");
+  const passed = checked.filter((row) => row.status === "ok").length;
+  const failed = checked.some((row) => row.status === "error");
+  return {
+    rows,
+    passed,
+    total: checked.length,
+    status: failed ? "error" : passed === checked.length ? "ok" : "warning",
+    inspection,
+    modelReport,
+  };
+}
+
+function formatNumber(value) {
+  return typeof value === "number" ? value.toLocaleString() : "–";
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "–";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function el$1(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function attachValidationReport(Viewer) {
+  Object.assign(Viewer, {
+    validationReport: null,
+
+    isValidationReportOpen() {
+      return Boolean(this.validationReportPanel && !this.validationReportPanel.hidden);
+    },
+
+    closeValidationReport() {
+      if (this.validationReportPanel) this.validationReportPanel.hidden = true;
+      this.updateEditorToolbarState?.();
+    },
+
+    toggleValidationReport() {
+      if (this.isValidationReportOpen()) {
+        this.closeValidationReport();
+        return;
+      }
+      this.createValidationReportPanel();
+      if (!this.validationReportPanel) return;
+      this.validationReportPanel.hidden = false;
+      this.openToolbarMenu?.(null);
+      this.refreshValidationReport();
+      this.updateEditorToolbarState?.();
+    },
+
+    createValidationReportPanel() {
+      if (!core.container || this.validationReportPanel) return;
+      const panel = document.createElement("div");
+      panel.id = "validationReportPanel";
+      panel.hidden = true;
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-labelledby", "validationReportTitle");
+      panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span id="validationReportTitle"></span>
+          <span class="validation-report-actions">
+            <button type="button" data-action="download"></button>
+            <button type="button" data-action="refresh">↻</button>
+            <button type="button" data-action="close">X</button>
+          </span>
+        </div>
+        <div class="validation-report-body"></div>
+      `;
+      core.container.appendChild(panel);
+      this.validationReportPanel = panel;
+      this.validationReportBody = panel.querySelector(".validation-report-body");
+      this.bindEventListener(panel.querySelector('[data-action="close"]'), "click", () => this.closeValidationReport());
+      this.bindEventListener(panel.querySelector('[data-action="refresh"]'), "click", () => this.refreshValidationReport({ refresh: true }));
+      this.bindEventListener(panel.querySelector('[data-action="download"]'), "click", () => this.downloadValidationReport());
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeValidationReport());
+      this.localizeValidationReport();
+    },
+
+    localizeValidationReport() {
+      const panel = this.validationReportPanel;
+      if (!panel) return;
+      panel.querySelector("#validationReportTitle").textContent = t$1("validationReport.title", "Validation report");
+      [
+        ["download", t$1("validationReport.download", "Download the report (JSON)"), "⤓"],
+        ["refresh", t$1("validationReport.refresh", "Check again"), "↻"],
+        ["close", t$1("validationReport.close", "Close"), "X"],
+      ].forEach(([action, label, glyph]) => {
+        const button = panel.querySelector(`[data-action="${action}"]`);
+        button.title = label;
+        button.setAttribute("aria-label", label);
+        button.textContent = glyph;
+      });
+      if (this.validationReport) this.renderValidationReport();
+    },
+
+    // The manifest as it would be exported now; null without a model.
+    currentManifestForReport() {
+      if (!core.fileObject?.originalPath) return null;
+      try {
+        return this.build3IFManifest();
+      } catch (error) {
+        this.reportError?.(error, { context: "Failed to build the manifest for the validation report", toast: false });
+        return null;
+      }
+    },
+
+    async refreshValidationReport({ refresh = false } = {}) {
+      const body = this.validationReportBody;
+      if (!body) return;
+      body.textContent = "";
+      body.appendChild(el$1("p", "models-panel-empty", t$1("validationReport.checking", "Checking...")));
+      const manifest = this.currentManifestForReport();
+      if (!manifest) {
+        this.validationReport = null;
+        body.textContent = "";
+        body.appendChild(el$1("p", "models-panel-empty", t$1("validationReport.noModel", "Open a model to check it.")));
+        return;
+      }
+      const modelReport = await fetchModelValidation(core.fileObject.originalPath, { refresh });
+      this.validationReport = buildValidationReport(manifest, modelReport);
+      this.renderValidationReport();
+    },
+
+    renderValidationReport() {
+      const body = this.validationReportBody;
+      const report = this.validationReport;
+      if (!body || !report) return;
+      body.textContent = "";
+
+      // Overall: the ring with X/Y passed and what that means.
+      const summary = el$1("div", "validation-report-summary");
+      summary.dataset.status = report.status;
+      const ratio = report.total ? report.passed / report.total : 0;
+      const ring = el$1("div", "validation-report-ring");
+      ring.style.setProperty("--ratio", String(ratio));
+      ring.append(
+        el$1("strong", "", t$1("validationReport.passed", { passed: report.passed, total: report.total }, "{passed}/{total}")),
+        el$1("span", "", t$1("validationReport.passedLabel", "passed")),
+      );
+      const verdict = el$1("div", "validation-report-verdict");
+      const headline = {
+        ok: t$1("validationReport.ready", "Ready"),
+        warning: t$1("validationReport.mostlyReady", "Mostly ready"),
+        error: t$1("validationReport.notReady", "Not ready"),
+      }[report.status];
+      const explanation = {
+        ok: t$1("validationReport.readyHint", "Every check passed: the model and its manifest are ready for public reuse."),
+        warning: t$1("validationReport.mostlyReadyHint", "The model can be published. Review the remaining items first."),
+        error: t$1("validationReport.notReadyHint", "Some values cannot be used. Fix the failed items before publishing."),
+      }[report.status];
+      verdict.append(el$1("strong", "", headline), el$1("p", "", explanation));
+      summary.append(ring, verdict);
+      body.appendChild(summary);
+
+      // The checklist.
+      const list = el$1("ul", "validation-report-list");
+      report.rows.forEach((row) => list.appendChild(this.renderValidationReportRow(row)));
+      body.appendChild(list);
+
+      body.appendChild(this.renderValidationReportDetails(report));
+    },
+
+    renderValidationReportRow(row) {
+      const item = el$1("li", "validation-report-row");
+      item.dataset.status = row.status;
+      item.dataset.check = row.id;
+      const details = el$1("details");
+      const head = el$1("summary");
+      const icon = el$1("span", "validation-report-icon");
+      icon.innerHTML = featureIconSvg(row.icon);
+      const text = el$1("span", "validation-report-text");
+      text.append(el$1("strong", "", row.label + (row.count > 1 ? ` (${row.count})` : "")));
+      if (row.description) text.appendChild(el$1("span", "", row.description));
+      const pill = el$1("span", "validation-report-pill", statusLabel(row.status));
+      head.append(icon, text, pill);
+      details.appendChild(head);
+
+      const issues = el$1("ul", "validation-report-issues");
+      if (row.note) issues.appendChild(el$1("li", "validation-report-note", row.note));
+      if (!row.issues.length && !row.note) {
+        issues.appendChild(el$1("li", "validation-report-note", row.status === "missing"
+          ? t$1("validationReport.notSetHint", "The manifest does not set this yet.")
+          : t$1("validationReport.noIssues", "No issues.")));
+      }
+      row.issues.slice(0, MAX_ISSUES_SHOWN).forEach((issue) => {
+        const line = el$1("li");
+        line.dataset.level = issue.level;
+        line.append(el$1("code", "", issue.path), el$1("span", "", issue.message));
+        issues.appendChild(line);
+      });
+      if (row.issues.length > MAX_ISSUES_SHOWN) {
+        issues.appendChild(el$1("li", "validation-report-note",
+          t$1("validationReport.moreIssues", { count: row.issues.length - MAX_ISSUES_SHOWN }, "...and {count} more (download the report)")));
+      }
+      details.appendChild(issues);
+      item.appendChild(details);
+      return item;
+    },
+
+    // What the checks looked at: the model's numbers and the manifest's.
+    renderValidationReportDetails(report) {
+      const section = el$1("section", "validation-report-details");
+      section.appendChild(el$1("h3", "", t$1("validationReport.details", "Details")));
+      const table = el$1("dl");
+      const add = (label, value) => {
+        if (value === undefined || value === null || value === "") return;
+        table.append(el$1("dt", "", label), el$1("dd", "", String(value)));
+      };
+      const model = report.modelReport;
+      add(t$1("validationReport.file", "File"), model?.file?.name || core.fileObject?.filename);
+      if (model) {
+        const stats = model.stats || {};
+        add(t$1("validationReport.fileSize", "File size"), formatBytes(model.file?.bytes));
+        add(t$1("validationReport.triangles", "Triangles"), formatNumber(stats.totalTriangleCount));
+        add(t$1("validationReport.vertices", "Vertices"), formatNumber(stats.totalVertexCount));
+        add(t$1("validationReport.materials", "Materials"), formatNumber(stats.materialCount));
+        add(t$1("validationReport.textures", "Largest texture"), stats.maxTextureSize ? `${stats.maxTextureSize[0]} × ${stats.maxTextureSize[1]} px` : null);
+        add(t$1("validationReport.size", "Size"), model.bounds?.size ? `${model.bounds.size.map((v) => v.toLocaleString(undefined, { maximumFractionDigits: 2 })).join(" × ")} m` : null);
+        add(t$1("validationReport.generator", "Made with"), stats.generator);
+      }
+      const { summary } = report.inspection;
+      add(t$1("validationReport.attributes", "Manifest attributes"), t$1(
+        "validationReport.attributesValue",
+        { count: summary.attributes, errors: summary.errors, warnings: summary.warnings, unknown: summary.unknown },
+        "{count} checked: {errors} error(s), {warnings} warning(s), {unknown} unknown",
+      ));
+      section.appendChild(table);
+      return section;
+    },
+
+    downloadValidationReport() {
+      const report = this.validationReport;
+      if (!report) return;
+      const data = {
+        createdAt: new Date().toISOString(),
+        model: core.fileObject?.originalPath || null,
+        passed: report.passed,
+        total: report.total,
+        status: report.status,
+        checks: report.rows.map(({ id, status, count, issues }) => ({ id, status, count, issues })),
+        modelValidation: report.modelReport,
+        manifestInspection: report.inspection,
+      };
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+      link.download = `${(core.fileObject?.basename || core.fileObject?.filename || "model").replace(/\.[^.]+$/, "")}-validation.json`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    },
+  });
+}
+
+// The example AIM3D/IIIF manifests the dev build offers in its manifest
+// form (metadata.js): in the app the third tab of the "Models" panels
+// (models-source.js), on the page the header's manifests button. The list itself is fetched on every open and on
 // "Refresh" (example-manifests.js). The "./manifests/" ones are bundled with
 // the app and work offline; the others are fetched from the internet.
 const GROUPS = [
@@ -12833,6 +15332,30 @@ const GROUPS = [
 
 const isBundled = (url) => url.startsWith("./");
 
+// What each manifest contains and whether its values are right
+// (manifest-inspection.js), with the check of its model file when a worker
+// serves it: fetched once per manifest and session, shown as icons under its
+// name (feature-icons.js).
+const inspections = new Map();
+
+function inspectExample(url) {
+  if (!inspections.has(url)) {
+    const absolute = new URL(url, window.location.href).href;
+    inspections.set(url, fetch(absolute)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+      .then(async (manifest) => ({
+        inspection: inspectAIM3DManifest(manifest),
+        modelValidation: await fetchModelValidation(manifestModelUrls(manifest, absolute)[0]),
+      }))
+      .catch(() => {
+        // Not cached: offline now, perhaps online on the next open.
+        inspections.delete(url);
+        return null;
+      }));
+  }
+  return inspections.get(url);
+}
+
 // "(localhost)" in the dev names means "served with the viewer" - in the app
 // that is the app itself.
 const displayName = (name) => name.replace(/\s*\(localhost\)\s*$/i, "");
@@ -12841,6 +15364,20 @@ function attachExamplesPanel(Viewer) {
   Object.assign(Viewer, {
     closeExamplesPanel() {
       if (this.examplesPanel) this.examplesPanel.hidden = true;
+    },
+
+    // The page's header button (main.js): opens the list, or closes it.
+    toggleExamplesPanel(event) {
+      event?.preventDefault?.();
+      if (this.examplesPanel?.hidden === false) {
+        this.closeExamplesPanel();
+        return;
+      }
+      this.closeActionMenu?.();
+      this.createExamplesPanel();
+      if (!this.examplesPanel) return;
+      this.examplesPanel.hidden = false;
+      this.loadExamplesList();
     },
 
     createExamplesPanel() {
@@ -12954,6 +15491,11 @@ function attachExamplesPanel(Viewer) {
       source.title = sourceLabel;
       button.append(text, source);
       button.disabled = !online && !bundled;
+      if (!button.disabled) {
+        inspectExample(url).then((result) => {
+          if (result && text.isConnected) text.appendChild(featureIconsCaption(result.inspection, result.modelValidation));
+        });
+      }
       this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
       item.appendChild(button);
       return item;
@@ -13637,6 +16179,9 @@ function attachAdminPanel(Viewer) {
         job.createdAt
           ? metaPart("date", t$1("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleString())
           : null,
+        // The worker's check of the model file (validation.json), as in the
+        // browse-models panel.
+        modelCheckPart(job.validation),
       ]);
       text.append(label, caption);
       entry.appendChild(text);
@@ -14353,6 +16898,7 @@ function attachLocalizationTheme(viewer) {
       this.applyAnnotationLanguage?.();
       // The Level of Certainty legend and dialog field name their levels.
       this.applyCertaintyLanguage?.();
+      this.localizeValidationReport?.();
     },
 
     toggleLanguage() {
@@ -14512,7 +17058,7 @@ let composerAntialias = null;
 let composerAo = null;
 const canvasSize = new THREE.Vector2();
 
-function isPlainObject$8(value) {
+function isPlainObject$6(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -14527,7 +17073,7 @@ function cloneSettings(settings) {
 // `input` merged over `base`; unknown or malformed values keep the base value.
 function normalizeRenderingSettings(input, base = RENDERING_DEFAULTS) {
   const result = cloneSettings(base);
-  if (!isPlainObject$8(input)) return result;
+  if (!isPlainObject$6(input)) return result;
 
   const toneMapping = typeof input.toneMapping === "string" ? input.toneMapping.trim().toLowerCase() : "";
   if (toneMapping in TONE_MAPPING_MODES) result.toneMapping = toneMapping;
@@ -14537,7 +17083,7 @@ function normalizeRenderingSettings(input, base = RENDERING_DEFAULTS) {
     result.exposure = exposure;
   }
 
-  if (isPlainObject$8(input.postprocessing)) {
+  if (isPlainObject$6(input.postprocessing)) {
     const { enabled, antialias, ao, aoIntensity } = input.postprocessing;
     if (typeof enabled === "boolean") result.postprocessing.enabled = enabled;
     if (ANTIALIAS_MODES.includes(antialias)) result.postprocessing.antialias = antialias;
@@ -14745,7 +17291,7 @@ function renderFrame(renderer = core.renderer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "526be86" ;
+const BUILD_ID$2 = "ea4c2b8" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -14796,8 +17342,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "526be86" ;
-const BUILD_TIME$1 = "2026-10-16T19:55:44.228Z" ;
+const BUILD_ID$1 = "ea4c2b8" ;
+const BUILD_TIME$1 = "2026-10-17T08:08:24.709Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -15237,7 +17783,7 @@ const CATEGORIES = [
     more: true,
     label: () => t$1("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["preview", "download", "save", "generateThumbnails", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"],
+    tools: ["validationReport", "preview", "download", "save", "generateThumbnails", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
   // and theme, first.
@@ -15834,6 +18380,7 @@ function getEditorToolbarIcon(icon) {
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
+    validationReport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7.5 5H5v16h14V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
@@ -17128,6 +19675,8 @@ function createEditorToolbar(viewer) {
     { key: "annotate", group: "inspect", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
     { key: "certainty", group: "inspect", icon: "certainty", onClick: () => viewer.toggleCertaintyView(), pressed: true, primary: false },
     { key: "statistics", group: "inspect", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
+    // Is the model ready to publish (ui/validation-report.js).
+    { key: "validationReport", group: "inspect", icon: "validationReport", onClick: () => viewer.toggleValidationReport(), pressed: true, primary: false },
     // Help.
     { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
     { key: "help", group: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
@@ -17778,7 +20327,7 @@ function createEditorToolbar(viewer) {
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
-  const actionMenuToolKeys = ["statistics", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
+  const actionMenuToolKeys = ["statistics", "validationReport", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
   if (viewer.actionMenuPanel && !menus) {
     actionMenuToolKeys.forEach((key) => {
       const button = viewer.editorToolbarButtons[key];
@@ -18132,6 +20681,7 @@ function updateEditorToolbarLabels(viewer) {
     shading: t$1("gui.shading", "Shading"),
     background: t$1("gui.backgroundColor", "Background Color"),
     statistics: t$1("gui.statistics", "Statistics"),
+    validationReport: t$1("gui.validationReport", "Validation report"),
     expand: viewer.isToolbarExpanded
       ? t$1("gui.collapse", "Collapse toolbar")
       : t$1("gui.expand", "Expand toolbar"),
@@ -18370,6 +20920,7 @@ function updateEditorToolbarState(viewer) {
     advancedEditor: viewer.isEditorAdvancedPanelVisible(),
     fullScreen: viewer.FULLSCREEN === true,
     loadingLogs: viewer.showLoadingLogs === true,
+    validationReport: viewer.isValidationReportOpen?.() === true,
     wireframe: viewer.wireframeMode === true,
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,
     download: false,
@@ -19629,7 +22180,7 @@ function attachMaterialsEditor(Viewer) {
 // "original": the loader's own materials, as loaded. The others are made
 // from them on each switch (see buildMaterialForMode); "clay", "matcap",
 // "flat" and "normals" are for reading the geometry of a scan.
-const SHADING_MODES$1 = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
+const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
 const DEFAULT_SHADING_MODE = "original";
 
 // The modes' names, in the viewer's language (the shading menu, the
@@ -19861,7 +22412,7 @@ function attachShadingEditor(Viewer) {
       const certaintyView = this.certaintyView === true;
       if (certaintyView) this.removeCertaintyOverlays?.();
 
-      const mode = SHADING_MODES$1.includes(this.shadingMode) ? this.shadingMode : DEFAULT_SHADING_MODE;
+      const mode = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : DEFAULT_SHADING_MODE;
       const customShader = mode === "custom"
         ? { vertexShader: this.customVertexShader, fragmentShader: this.customFragmentShader }
         : null;
@@ -19915,7 +22466,7 @@ function attachShadingEditor(Viewer) {
     // The modes a comparison can show: the custom shader once there is one
     // (and only with WebGL, see setShadingMode).
     getCompareShadingModes() {
-      return SHADING_MODES$1.filter((mode) => mode !== "custom" || (
+      return SHADING_MODES.filter((mode) => mode !== "custom" || (
         core.rendererBackend !== "webgpu" && Boolean(this.customFragmentShader)
       ));
     },
@@ -19925,8 +22476,8 @@ function attachShadingEditor(Viewer) {
     // Each mode's materials are made once per mesh and kept, so the two
     // sides swap them every frame without building or compiling anything.
     showShadingForCompare(mode) {
-      const current = SHADING_MODES$1.includes(this.shadingMode) ? this.shadingMode : DEFAULT_SHADING_MODE;
-      if (!SHADING_MODES$1.includes(mode) || mode === current) return null;
+      const current = SHADING_MODES.includes(this.shadingMode) ? this.shadingMode : DEFAULT_SHADING_MODE;
+      if (!SHADING_MODES.includes(mode) || mode === current) return null;
       const roots = this.getShadingRootObjects();
       const shown = [];
       roots.forEach((root) => root.traverse((child) => {
@@ -19979,7 +22530,7 @@ function attachShadingEditor(Viewer) {
     },
 
     setShadingMode(mode, options = {}) {
-      if (!SHADING_MODES$1.includes(mode)) return;
+      if (!SHADING_MODES.includes(mode)) return;
       // GLSL: the WebGL renderer's only (renderer-backend.js).
       if (mode === "custom" && core.rendererBackend === "webgpu") {
         if (options.silent !== true) toastHelper("webglOnlyFeature", "warning", { feature: t$1("gui.shadingCustom", "Custom shader") });
@@ -20402,955 +22953,6 @@ async function saveEditorMetadata(viewer) {
     console.error(err);
     toastHelper("settingsSaveError", "error");
   }
-}
-
-// Level of Certainty (LoC) of a reconstruction: the scale a manifest defines
-// (AIM3DViewer.certainty) and the assessments its annotations carry
-// (annotation.AIM3DViewer.certainty). No three.js here: the manifest
-// validation (aim3dviewer-validation.js) also runs in Node.
-//
-// A level is told apart by its colour, its code (a letter) and its symbol,
-// so it reads without colour vision too. A level's `value` is its lower bound
-// on the scale: an assessment belongs to the highest level not above it.
-
-const CERTAINTY_SCOPES = ["object", "group"];
-
-// Opacity of the colour overlays in the view: the model shows through.
-const DEFAULT_CERTAINTY_OPACITY = 0.4;
-
-const DEFAULT_CERTAINTY_SCALE = Object.freeze({
-  min: 0,
-  max: 10,
-  unassessedColor: "#9ca3af",
-  opacity: DEFAULT_CERTAINTY_OPACITY,
-  levels: [
-    {
-      value: 10, code: "A", symbol: "✓", color: "#1a9850",
-      label: { en: ["Preserved / surveyed"], pl: ["Stan zachowany / pomiar"], de: ["Erhalten / vermessen"] },
-    },
-    {
-      value: 8, code: "B", symbol: "■", color: "#2166ac",
-      label: { en: ["Direct documentation"], pl: ["Dokumentacja bezpośrednia"], de: ["Direkte Dokumentation"] },
-    },
-    {
-      value: 6, code: "C", symbol: "▲", color: "#ffd400",
-      label: { en: ["Indirect sources"], pl: ["Źródła pośrednie"], de: ["Indirekte Quellen"] },
-    },
-    {
-      value: 4, code: "D", symbol: "≈", color: "#f46d00",
-      label: { en: ["Analogy"], pl: ["Analogia"], de: ["Analogie"] },
-    },
-    {
-      value: 0, code: "E", symbol: "?", color: "#c51b7d",
-      label: { en: ["Hypothesis"], pl: ["Hipoteza"], de: ["Hypothese"] },
-    },
-  ],
-});
-
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
-
-function isPlainObject$7(value) {
-  return value != null && typeof value === "object" && !Array.isArray(value);
-}
-
-function toFiniteNumber(value) {
-  const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
-  return typeof number === "number" && Number.isFinite(number) ? number : null;
-}
-
-// A IIIF language map ({ "pl": ["..."] }) or a plain string, as a language map.
-function normalizeLanguageMap(value) {
-  if (typeof value === "string") return value.trim() ? { none: [value.trim()] } : null;
-  if (!isPlainObject$7(value)) return null;
-  const entries = Object.entries(value)
-    .map(([language, texts]) => [language, (Array.isArray(texts) ? texts : [texts]).map(String).filter(Boolean)])
-    .filter(([, texts]) => texts.length > 0);
-  return entries.length ? Object.fromEntries(entries) : null;
-}
-
-// The text of a language map in `language`, else English, else any.
-function certaintyText(map, language = "en") {
-  if (!isPlainObject$7(map)) return "";
-  const texts = map[language] || map.en || map.none || Object.values(map)[0];
-  return Array.isArray(texts) ? texts.join(" ") : String(texts || "");
-}
-
-// The manifest's scale, levels sorted from the highest value down; the
-// default scale when it has no usable levels. Invalid levels are dropped
-// (the validation reports them).
-function normalizeCertaintyScale(raw) {
-  const source = isPlainObject$7(raw) && Array.isArray(raw.levels) ? raw : DEFAULT_CERTAINTY_SCALE;
-  const levels = source.levels
-    .map((level) => {
-      if (!isPlainObject$7(level)) return null;
-      const value = toFiniteNumber(level.value);
-      const color = String(level.color || "").trim();
-      const code = String(level.code || "").trim();
-      if (value === null || !HEX_COLOR.test(color) || !code) return null;
-      return {
-        value,
-        code,
-        symbol: String(level.symbol || "").trim(),
-        color: color.toLowerCase(),
-        label: normalizeLanguageMap(level.label) || { none: [code] },
-        ...(normalizeLanguageMap(level.description) ? { description: normalizeLanguageMap(level.description) } : {}),
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.value - a.value);
-  if (!levels.length) return normalizeCertaintyScale(DEFAULT_CERTAINTY_SCALE);
-
-  const min = toFiniteNumber(source.min) ?? Math.min(...levels.map((level) => level.value));
-  const max = toFiniteNumber(source.max) ?? Math.max(...levels.map((level) => level.value));
-  const unassessedColor = HEX_COLOR.test(String(source.unassessedColor || ""))
-    ? source.unassessedColor.toLowerCase()
-    : DEFAULT_CERTAINTY_SCALE.unassessedColor;
-  const opacity = toFiniteNumber(source.opacity);
-  return {
-    min,
-    max,
-    unassessedColor,
-    opacity: opacity !== null && opacity >= 0 && opacity <= 1 ? opacity : DEFAULT_CERTAINTY_OPACITY,
-    levels,
-    ...(normalizeLanguageMap(source.label) ? { label: normalizeLanguageMap(source.label) } : {}),
-    visible: source.visible === true,
-  };
-}
-
-// The level an assessed value belongs to; null when below every level.
-function certaintyLevelForValue(scale, value) {
-  const number = toFiniteNumber(value);
-  if (number === null || !scale?.levels?.length) return null;
-  return scale.levels.find((level) => number >= level.value) || null;
-}
-
-// An annotation's assessment ({ value, code?, scope, targetId? }); a code
-// alone is resolved against the scale. null when it has none.
-function normalizeCertaintyAssessment(raw, scale = null) {
-  if (!isPlainObject$7(raw)) return null;
-  let value = toFiniteNumber(raw.value);
-  const code = String(raw.code || "").trim();
-  if (value === null && code && scale) {
-    value = scale.levels.find((level) => level.code === code)?.value ?? null;
-  }
-  if (value === null) return null;
-  const scope = CERTAINTY_SCOPES.includes(raw.scope) ? raw.scope : "object";
-  const targetId = String(raw.targetId || "").trim();
-  return {
-    value,
-    ...(code ? { code } : {}),
-    scope,
-    ...(targetId ? { targetId } : {}),
-  };
-}
-
-// Problems of a manifest's scale, as [path, message] pairs.
-function certaintyScaleErrors(raw, path) {
-  const errors = [];
-  if (!isPlainObject$7(raw)) return [[path, "must be an object"]];
-  ["min", "max"].forEach((key) => {
-    if (raw[key] !== undefined && toFiniteNumber(raw[key]) === null) errors.push([`${path}.${key}`, "must be a finite number"]);
-  });
-  if (raw.unassessedColor !== undefined && !HEX_COLOR.test(String(raw.unassessedColor))) {
-    errors.push([`${path}.unassessedColor`, "must be a #rrggbb colour"]);
-  }
-  if (raw.visible !== undefined && typeof raw.visible !== "boolean") errors.push([`${path}.visible`, "must be a boolean"]);
-  if (raw.opacity !== undefined && (typeof raw.opacity !== "number" || !(raw.opacity >= 0 && raw.opacity <= 1))) {
-    errors.push([`${path}.opacity`, "must be a number within 0..1"]);
-  }
-  if (!Array.isArray(raw.levels) || raw.levels.length === 0) {
-    errors.push([`${path}.levels`, "must be a non-empty array"]);
-    return errors;
-  }
-  const seen = { value: new Set(), code: new Set(), color: new Set() };
-  raw.levels.forEach((level, index) => {
-    const levelPath = `${path}.levels[${index}]`;
-    if (!isPlainObject$7(level)) {
-      errors.push([levelPath, "must be an object"]);
-      return;
-    }
-    if (typeof level.value !== "number" || !Number.isFinite(level.value)) errors.push([`${levelPath}.value`, "must be a finite number"]);
-    if (typeof level.code !== "string" || !level.code.trim()) errors.push([`${levelPath}.code`, "must be a non-empty string"]);
-    if (!HEX_COLOR.test(String(level.color))) errors.push([`${levelPath}.color`, "must be a #rrggbb colour"]);
-    if (level.symbol !== undefined && typeof level.symbol !== "string") errors.push([`${levelPath}.symbol`, "must be a string"]);
-    if (level.label !== undefined && typeof level.label !== "string" && !isPlainObject$7(level.label)) {
-      errors.push([`${levelPath}.label`, "must be a string or a language map"]);
-    }
-    // Levels must stay apart: no shared value, code or colour.
-    ["value", "code", "color"].forEach((key) => {
-      const token = key === "color" ? String(level[key]).toLowerCase() : level[key];
-      if (level[key] === undefined) return;
-      if (seen[key].has(token)) errors.push([`${levelPath}.${key}`, "must be unique among the levels"]);
-      seen[key].add(token);
-    });
-  });
-  const min = toFiniteNumber(raw.min);
-  const max = toFiniteNumber(raw.max);
-  if (min !== null && max !== null && min > max) errors.push([`${path}.min`, "must not exceed max"]);
-  return errors;
-}
-
-// Problems of an annotation's assessment, checked against the scale.
-function certaintyAssessmentErrors(raw, path, scale) {
-  if (!isPlainObject$7(raw)) return [[path, "must be an object"]];
-  const errors = [];
-  if (raw.value === undefined && raw.code === undefined) errors.push([path, "needs a value or a code"]);
-  if (raw.value !== undefined) {
-    if (typeof raw.value !== "number" || !Number.isFinite(raw.value)) {
-      errors.push([`${path}.value`, "must be a finite number"]);
-    } else if (scale && (raw.value < scale.min || raw.value > scale.max)) {
-      errors.push([`${path}.value`, `must be within ${scale.min}..${scale.max}`]);
-    }
-  }
-  if (raw.code !== undefined && scale && !scale.levels.some((level) => level.code === raw.code)) {
-    errors.push([`${path}.code`, `must be one of: ${scale.levels.map((level) => level.code).join(", ")}`]);
-  }
-  if (raw.scope !== undefined && !CERTAINTY_SCOPES.includes(raw.scope)) {
-    errors.push([`${path}.scope`, `must be one of: ${CERTAINTY_SCOPES.join(", ")}`]);
-  }
-  if (raw.targetId !== undefined && typeof raw.targetId !== "string") errors.push([`${path}.targetId`, "must be a string"]);
-  return errors;
-}
-
-// Keep in sync with TONE_MAPPING_MODES / ANTIALIAS_MODES in viewer/rendering.js
-// (not imported: this module also runs in Node without three.js).
-const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
-const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
-// Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
-const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
-// Keep in sync with TIMELINE_TRANSITIONS / TIMELINE_STAGE_TYPES in viewer/timeline.js.
-const TIMELINE_TRANSITIONS$1 = ["interpolate", "step"];
-const TIMELINE_STAGE_TYPES$1 = ["documented", "modelled"];
-// Keep in sync with COMPARE_MODES / COMPARE_KINDS in viewer/editor/compare.js.
-const COMPARE_MODES$1 = ["swipe", "split"];
-const COMPARE_KINDS$1 = ["content", "look"];
-const COMPARE_LIGHTINGS$1 = ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"];
-
-function isPlainObject$6(value) {
-  return value != null && typeof value === "object" && Array.isArray(value) === false;
-}
-
-function isAIM3DManifest(manifest) {
-  return isPlainObject$6(manifest) && Object.hasOwn(manifest, "AIM3DViewer");
-}
-
-function parseFiniteNumber(value) {
-  if (isFiniteNumber(value)) return value;
-  if (typeof value !== "string" || value.trim() === "") return null;
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-// Older viewer exports kept values from viewer-settings.json verbatim. Normalize
-// those compatible values before validating the canonical AIM3D representation.
-function normalizeAIM3DManifest(manifest) {
-  const viewer = manifest?.AIM3DViewer?.viewer;
-  if (!isPlainObject$6(viewer)) return manifest;
-
-  if (Array.isArray(viewer.scale)) {
-    viewer.scale = viewer.scale.map((value) => parseFiniteNumber(value) ?? value);
-  } else if (isPlainObject$6(viewer.scale)) {
-    ["x", "y"].forEach((axis) => {
-      viewer.scale[axis] = parseFiniteNumber(viewer.scale[axis]) ?? viewer.scale[axis];
-    });
-  }
-
-  if (isPlainObject$6(viewer.performance)) {
-    const mode = viewer.performance.Performance ?? viewer.performance.performance;
-    if (typeof mode === "string" && mode.trim() !== "") {
-      viewer.performance = mode;
-    }
-  }
-
-  return manifest;
-}
-
-function isFiniteNumber(value) {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isString(value) {
-  return typeof value === "string";
-}
-
-function pushError(errors, path, message) {
-  errors.push({ path, message });
-}
-
-function validateVector(value, path, errors, expectedLength = 3) {
-  if (Array.isArray(value)) {
-    if (value.length < expectedLength) {
-      pushError(errors, path, `must contain at least ${expectedLength} numbers`);
-      return;
-    }
-    value.slice(0, expectedLength).forEach((item, index) => {
-      if (!isFiniteNumber(item)) {
-        pushError(errors, `${path}[${index}]`, "must be a finite number");
-      }
-    });
-    return;
-  }
-
-  if (isPlainObject$6(value)) {
-    const keys = expectedLength === 2 ? ["x", "y"] : ["x", "y", "z"];
-    keys.forEach((key) => {
-      if (!isFiniteNumber(value[key])) {
-        pushError(errors, `${path}.${key}`, "must be a finite number");
-      }
-    });
-    return;
-  }
-
-  pushError(errors, path, `must be a ${expectedLength}D vector array or object`);
-}
-
-function validateBoolean(value, path, errors) {
-  if (typeof value !== "boolean") {
-    pushError(errors, path, "must be a boolean");
-  }
-}
-
-function validateNumber(value, path, errors) {
-  if (!isFiniteNumber(value)) {
-    pushError(errors, path, "must be a finite number");
-  }
-}
-
-function validateString(value, path, errors) {
-  if (!isString(value)) {
-    pushError(errors, path, "must be a string");
-  }
-}
-
-function validateEnum(value, allowedValues, path, errors) {
-  if (!allowedValues.includes(value)) {
-    pushError(errors, path, `must be one of: ${allowedValues.join(", ")}`);
-  }
-}
-
-function validateLight(light, path, errors) {
-  if (!isPlainObject$6(light)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (light.type !== undefined) validateString(light.type, `${path}.type`, errors);
-  if (light.position !== undefined) validateVector(light.position, `${path}.position`, errors, 3);
-  if (light.target !== undefined) validateVector(light.target, `${path}.target`, errors, 3);
-  if (light.color !== undefined) validateString(light.color, `${path}.color`, errors);
-  if (light.intensity !== undefined) validateNumber(light.intensity, `${path}.intensity`, errors);
-}
-
-// AIM3DViewer.rakingLight (editor/raking-light.js): direction 0-360 and
-// height 1-89 degrees.
-function validateRakingLight(rakingLight, path, errors) {
-  if (!isPlainObject$6(rakingLight)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (rakingLight.enabled !== undefined) validateBoolean(rakingLight.enabled, `${path}.enabled`, errors);
-  if (rakingLight.sweep !== undefined) validateBoolean(rakingLight.sweep, `${path}.sweep`, errors);
-  if (rakingLight.direction !== undefined) {
-    if (!isFiniteNumber(rakingLight.direction) || rakingLight.direction < 0 || rakingLight.direction > 360) {
-      pushError(errors, `${path}.direction`, "must be a number from 0 to 360");
-    }
-  }
-  if (rakingLight.height !== undefined) {
-    if (!isFiniteNumber(rakingLight.height) || rakingLight.height < 1 || rakingLight.height > 89) {
-      pushError(errors, `${path}.height`, "must be a number from 1 to 89");
-    }
-  }
-}
-
-function validateClipping(clipping, path, errors) {
-  if (!isPlainObject$6(clipping)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (clipping.mode !== undefined) {
-    if (!isPlainObject$6(clipping.mode)) {
-      pushError(errors, `${path}.mode`, "must be an object");
-    } else {
-      ["x", "y", "z"].forEach((axis) => {
-        if (clipping.mode[axis] !== undefined) validateBoolean(clipping.mode[axis], `${path}.mode.${axis}`, errors);
-      });
-    }
-  }
-  if (clipping.constants !== undefined) validateVector(clipping.constants, `${path}.constants`, errors, 3);
-  if (clipping.outlineVisible !== undefined) validateBoolean(clipping.outlineVisible, `${path}.outlineVisible`, errors);
-  if (clipping.outline !== undefined) validateBoolean(clipping.outline, `${path}.outline`, errors);
-}
-
-function validateCamera(camera, path, errors) {
-  if (!isPlainObject$6(camera)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (camera.position !== undefined) validateVector(camera.position, `${path}.position`, errors, 3);
-  if (camera.target !== undefined) validateVector(camera.target, `${path}.target`, errors, 3);
-  if (camera.up !== undefined) validateVector(camera.up, `${path}.up`, errors, 3);
-  if (camera.fov !== undefined) validateNumber(camera.fov, `${path}.fov`, errors);
-  if (camera.zoom !== undefined) validateNumber(camera.zoom, `${path}.zoom`, errors);
-  if (camera.distance !== undefined) validateNumber(camera.distance, `${path}.distance`, errors);
-  if (camera.perspectiveMode !== undefined) validateEnum(camera.perspectiveMode, ["perspective", "orthographic"], `${path}.perspectiveMode`, errors);
-}
-
-function validatePanelState(panel, path, errors) {
-  if (!isPlainObject$6(panel)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (panel.position !== undefined) validateVector(panel.position, `${path}.position`, errors, 2);
-  if (panel.size !== undefined) {
-    if (!isPlainObject$6(panel.size)) {
-      pushError(errors, `${path}.size`, "must be an object");
-    } else {
-      // viewer-settings.json uses null for "not sized yet".
-      ["width", "height"].forEach((key) => {
-        if (panel.size[key] != null) validateNumber(panel.size[key], `${path}.size.${key}`, errors);
-      });
-    }
-  }
-}
-
-function validateIntegration(integration, path, errors) {
-  if (!isPlainObject$6(integration)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (integration.exportViewerUrl !== undefined) validateString(integration.exportViewerUrl, `${path}.exportViewerUrl`, errors);
-  if (integration.api !== undefined) {
-    if (!isPlainObject$6(integration.api)) {
-      pushError(errors, `${path}.api`, "must be an object");
-    } else if (integration.api.thumbnailUploadEndpoint !== undefined) {
-      validateString(integration.api.thumbnailUploadEndpoint, `${path}.api.thumbnailUploadEndpoint`, errors);
-    }
-  }
-}
-
-function validateViewer(viewer, path, errors) {
-  if (!isPlainObject$6(viewer)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (viewer.container !== undefined) validateString(viewer.container, `${path}.container`, errors);
-  if (viewer.mailUrl !== undefined) validateString(viewer.mailUrl, `${path}.mailUrl`, errors);
-  if (viewer.mainUrl !== undefined) validateString(viewer.mainUrl, `${path}.mainUrl`, errors);
-  if (viewer.baseModulePath !== undefined) validateString(viewer.baseModulePath, `${path}.baseModulePath`, errors);
-  if (viewer.background !== undefined) validateString(viewer.background, `${path}.background`, errors);
-  if (viewer.credits !== undefined && !isPlainObject$6(viewer.credits)) pushError(errors, `${path}.credits`, "must be an object");
-  if (viewer.auth !== undefined) {
-    if (!isPlainObject$6(viewer.auth)) {
-      pushError(errors, `${path}.auth`, "must be an object");
-    } else {
-      ["enabled", "allowRegistration"].forEach((key) => {
-        if (viewer.auth[key] !== undefined) validateBoolean(viewer.auth[key], `${path}.auth.${key}`, errors);
-      });
-    }
-  }
-  ["manifestoForm", "metadataContainer"].forEach((key) => {
-    if (viewer[key] !== undefined) validatePanelState(viewer[key], `${path}.${key}`, errors);
-  });
-  if (viewer.baseNamespace !== undefined) validateString(viewer.baseNamespace, `${path}.baseNamespace`, errors);
-  if (viewer.metadataUrl !== undefined) validateString(viewer.metadataUrl, `${path}.metadataUrl`, errors);
-  if (viewer.theme !== undefined) validateEnum(viewer.theme, ["light", "dark"], `${path}.theme`, errors);
-  if (viewer.language !== undefined) validateEnum(viewer.language, ["en", "pl", "de"], `${path}.language`, errors);
-  if (viewer.backgroundColor !== undefined) validateString(viewer.backgroundColor, `${path}.backgroundColor`, errors);
-  if (viewer.environmentMap !== undefined) {
-    if (!isPlainObject$6(viewer.environmentMap)) {
-      pushError(errors, `${path}.environmentMap`, "must be an object");
-    } else {
-      if (viewer.environmentMap.intensity !== undefined) validateNumber(viewer.environmentMap.intensity, `${path}.environmentMap.intensity`, errors);
-      if (viewer.environmentMap.preset !== undefined) validateString(viewer.environmentMap.preset, `${path}.environmentMap.preset`, errors);
-      if (viewer.environmentMap.enabled !== undefined) validateBoolean(viewer.environmentMap.enabled, `${path}.environmentMap.enabled`, errors);
-    }
-  }
-  if (viewer.rendering !== undefined) {
-    const rendering = viewer.rendering;
-    if (!isPlainObject$6(rendering)) {
-      pushError(errors, `${path}.rendering`, "must be an object");
-    } else {
-      if (rendering.toneMapping !== undefined) validateEnum(rendering.toneMapping, RENDERING_TONE_MAPPINGS, `${path}.rendering.toneMapping`, errors);
-      if (rendering.exposure !== undefined) {
-        validateNumber(rendering.exposure, `${path}.rendering.exposure`, errors);
-        if (Number.isFinite(rendering.exposure) && rendering.exposure < 0) pushError(errors, `${path}.rendering.exposure`, "must be >= 0");
-      }
-      if (rendering.postprocessing !== undefined) {
-        const postprocessing = rendering.postprocessing;
-        if (!isPlainObject$6(postprocessing)) {
-          pushError(errors, `${path}.rendering.postprocessing`, "must be an object");
-        } else {
-          if (postprocessing.enabled !== undefined) validateBoolean(postprocessing.enabled, `${path}.rendering.postprocessing.enabled`, errors);
-          if (postprocessing.antialias !== undefined) validateEnum(postprocessing.antialias, RENDERING_ANTIALIAS_MODES, `${path}.rendering.postprocessing.antialias`, errors);
-          if (postprocessing.ao !== undefined) validateBoolean(postprocessing.ao, `${path}.rendering.postprocessing.ao`, errors);
-          if (postprocessing.aoIntensity !== undefined) {
-            if (!isFiniteNumber(postprocessing.aoIntensity) || postprocessing.aoIntensity < 0 || postprocessing.aoIntensity > 2) {
-              pushError(errors, `${path}.rendering.postprocessing.aoIntensity`, "must be a number from 0 to 2");
-            }
-          }
-        }
-      }
-    }
-  }
-  [
-    "presentationMode",
-    "sandbox",
-    "lightweight",
-    "editor",
-    "autorotate",
-    "disableInteraction",
-    "hideUi",
-    "hideMetadata",
-    "showNotifications",
-  ].forEach((key) => {
-    if (viewer[key] !== undefined) validateBoolean(viewer[key], `${path}.${key}`, errors);
-  });
-  if (viewer.autorotateSpeed !== undefined) validateNumber(viewer.autorotateSpeed, `${path}.autorotateSpeed`, errors);
-  if (viewer.scale !== undefined) validateVector(viewer.scale, `${path}.scale`, errors, 2);
-  if (viewer.window !== undefined) {
-    if (!isPlainObject$6(viewer.window)) {
-      pushError(errors, `${path}.window`, "must be an object");
-    } else {
-      if (viewer.window.position !== undefined) {
-        validateVector(viewer.window.position, `${path}.window.position`, errors, 2);
-      }
-      if (viewer.window.size !== undefined) {
-        if (!isPlainObject$6(viewer.window.size)) {
-          pushError(errors, `${path}.window.size`, "must be an object");
-        } else {
-          if (viewer.window.size.width !== undefined) validateNumber(viewer.window.size.width, `${path}.window.size.width`, errors);
-          if (viewer.window.size.height !== undefined) validateNumber(viewer.window.size.height, `${path}.window.size.height`, errors);
-        }
-      }
-    }
-  }
-  if (viewer.performance !== undefined) validateString(viewer.performance, `${path}.performance`, errors);
-  if (viewer.units !== undefined && !(isFiniteNumber(viewer.units) || isString(viewer.units))) {
-    pushError(errors, `${path}.units`, "must be a finite number or string");
-  }
-  if (viewer.gallery !== undefined && !isPlainObject$6(viewer.gallery)) pushError(errors, `${path}.gallery`, "must be an object");
-  if (viewer.editorToolbar !== undefined) {
-    if (!isPlainObject$6(viewer.editorToolbar)) {
-      pushError(errors, `${path}.editorToolbar`, "must be an object");
-    } else {
-      if (viewer.editorToolbar.enabled !== undefined) validateBoolean(viewer.editorToolbar.enabled, `${path}.editorToolbar.enabled`, errors);
-      if (viewer.editorToolbar.position !== undefined) validateVector(viewer.editorToolbar.position, `${path}.editorToolbar.position`, errors, 2);
-      if (viewer.editorToolbar.expanded !== undefined) validateBoolean(viewer.editorToolbar.expanded, `${path}.editorToolbar.expanded`, errors);
-      if (viewer.editorToolbar.visible !== undefined) validateBoolean(viewer.editorToolbar.visible, `${path}.editorToolbar.visible`, errors);
-    }
-  }
-  if (viewer.menuToolbar !== undefined) {
-    if (!isPlainObject$6(viewer.menuToolbar)) {
-      pushError(errors, `${path}.menuToolbar`, "must be an object");
-    } else {
-      if (viewer.menuToolbar.enabled !== undefined) validateBoolean(viewer.menuToolbar.enabled, `${path}.menuToolbar.enabled`, errors);
-      if (viewer.menuToolbar.position !== undefined) validateVector(viewer.menuToolbar.position, `${path}.menuToolbar.position`, errors, 2);
-    }
-  }
-  if (viewer.clipping !== undefined) validateClipping(viewer.clipping, `${path}.clipping`, errors);
-  if (viewer.tour !== undefined) {
-    if (!isPlainObject$6(viewer.tour)) {
-      pushError(errors, `${path}.tour`, "must be an object");
-    } else {
-      ["autostart", "autoplay", "loop"].forEach((key) => {
-        if (viewer.tour[key] !== undefined) validateBoolean(viewer.tour[key], `${path}.tour.${key}`, errors);
-      });
-      if (viewer.tour.stepDuration !== undefined) {
-        validateNumber(viewer.tour.stepDuration, `${path}.tour.stepDuration`, errors);
-        if (Number.isFinite(viewer.tour.stepDuration) && viewer.tour.stepDuration <= 0) pushError(errors, `${path}.tour.stepDuration`, "must be > 0");
-      }
-      if (viewer.tour.transitionDuration !== undefined) {
-        validateNumber(viewer.tour.transitionDuration, `${path}.tour.transitionDuration`, errors);
-        if (Number.isFinite(viewer.tour.transitionDuration) && viewer.tour.transitionDuration < 0) pushError(errors, `${path}.tour.transitionDuration`, "must be >= 0");
-      }
-    }
-  }
-}
-
-function validateModelTransform(modelTransform, path, errors) {
-  if (!isPlainObject$6(modelTransform)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (modelTransform.position !== undefined) validateVector(modelTransform.position, `${path}.position`, errors, 3);
-  if (modelTransform.scale !== undefined) validateVector(modelTransform.scale, `${path}.scale`, errors, 3);
-  if (modelTransform.rotation !== undefined) {
-    if (!isPlainObject$6(modelTransform.rotation)) {
-      pushError(errors, `${path}.rotation`, "must be an object");
-    } else {
-      ["x", "y", "z"].forEach((key) => {
-        if (modelTransform.rotation[key] !== undefined) validateNumber(modelTransform.rotation[key], `${path}.rotation.${key}`, errors);
-      });
-      if (modelTransform.rotation.order !== undefined) validateString(modelTransform.rotation.order, `${path}.rotation.order`, errors);
-    }
-  }
-  if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
-  if (modelTransform.shadingMode !== undefined) {
-    validateEnum(modelTransform.shadingMode, SHADING_MODES, `${path}.shadingMode`, errors);
-  }
-  if (modelTransform.customShader !== undefined) {
-    if (!isPlainObject$6(modelTransform.customShader)) {
-      pushError(errors, `${path}.customShader`, "must be an object");
-    } else {
-      if (modelTransform.customShader.vertexShader !== undefined) {
-        validateString(modelTransform.customShader.vertexShader, `${path}.customShader.vertexShader`, errors);
-      }
-      if (modelTransform.customShader.fragmentShader !== undefined) {
-        validateString(modelTransform.customShader.fragmentShader, `${path}.customShader.fragmentShader`, errors);
-      }
-    }
-  }
-}
-
-// IIIF language map ({ "pl": ["..."] }) or a plain string.
-function validateLanguageMap(value, path, errors) {
-  if (isString(value)) return;
-  if (!isPlainObject$6(value)) {
-    pushError(errors, path, "must be a string or a language map");
-    return;
-  }
-  Object.entries(value).forEach(([lang, texts]) => {
-    if (!Array.isArray(texts) || !texts.every(isString)) {
-      pushError(errors, `${path}.${lang}`, "must be an array of strings");
-    }
-  });
-}
-
-// AIM3DViewer.thumbnails (ui/thumbnail-gallery.js): URLs, or { src, label }.
-function validateThumbnails(thumbnails, path, errors) {
-  if (!Array.isArray(thumbnails)) {
-    pushError(errors, path, "must be an array");
-    return;
-  }
-  thumbnails.forEach((entry, index) => {
-    const entryPath = `${path}[${index}]`;
-    if (isString(entry)) {
-      if (!entry.trim()) pushError(errors, entryPath, "must not be empty");
-      return;
-    }
-    if (!isPlainObject$6(entry) || !isString(entry.src) || !entry.src.trim()) {
-      pushError(errors, entryPath, "must be a URL or an object with a non-empty src");
-      return;
-    }
-    if (entry.label !== undefined) validateLanguageMap(entry.label, `${entryPath}.label`, errors);
-  });
-}
-
-// AIM3DViewer.timeline (timeline.js): the 4D stages of the model.
-function validateTimeline(timeline, path, errors) {
-  if (!isPlainObject$6(timeline)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  ["enabled", "showPanel"].forEach((key) => {
-    if (timeline[key] !== undefined) validateBoolean(timeline[key], `${path}.${key}`, errors);
-  });
-  ["year", "startYear", "endYear"].forEach((key) => {
-    if (timeline[key] !== undefined) validateNumber(timeline[key], `${path}.${key}`, errors);
-  });
-  if (isFiniteNumber(timeline.startYear) && isFiniteNumber(timeline.endYear) && timeline.startYear > timeline.endYear) {
-    pushError(errors, `${path}.endYear`, "must not be before startYear");
-  }
-  if (timeline.label !== undefined) validateLanguageMap(timeline.label, `${path}.label`, errors);
-  if (timeline.description !== undefined) validateLanguageMap(timeline.description, `${path}.description`, errors);
-  if (timeline.transition !== undefined) validateEnum(timeline.transition, TIMELINE_TRANSITIONS$1, `${path}.transition`, errors);
-  if (timeline.transitionDuration !== undefined && (!isFiniteNumber(timeline.transitionDuration) || timeline.transitionDuration < 0)) {
-    pushError(errors, `${path}.transitionDuration`, "must be a number >= 0");
-  }
-  if (timeline.playback !== undefined) {
-    const playback = timeline.playback;
-    if (!isPlainObject$6(playback)) {
-      pushError(errors, `${path}.playback`, "must be an object");
-    } else {
-      if (playback.autoplay !== undefined) validateBoolean(playback.autoplay, `${path}.playback.autoplay`, errors);
-      if (playback.loop !== undefined) validateBoolean(playback.loop, `${path}.playback.loop`, errors);
-      if (playback.yearsPerSecond !== undefined && (!isFiniteNumber(playback.yearsPerSecond) || playback.yearsPerSecond <= 0)) {
-        pushError(errors, `${path}.playback.yearsPerSecond`, "must be a number > 0");
-      }
-      if (playback.speed !== undefined && (!isFiniteNumber(playback.speed) || playback.speed <= 0)) {
-        pushError(errors, `${path}.playback.speed`, "must be a number > 0");
-      }
-      if (playback.pauseAtEvents !== undefined && (!isFiniteNumber(playback.pauseAtEvents) || playback.pauseAtEvents < 0)) {
-        pushError(errors, `${path}.playback.pauseAtEvents`, "must be a number >= 0");
-      }
-    }
-  }
-  if (timeline.stages === undefined) return;
-  if (!Array.isArray(timeline.stages)) {
-    pushError(errors, `${path}.stages`, "must be an array");
-    return;
-  }
-  timeline.stages.forEach((stage, index) => {
-    const stagePath = `${path}.stages[${index}]`;
-    if (!isPlainObject$6(stage)) {
-      pushError(errors, stagePath, "must be an object");
-      return;
-    }
-    validateNumber(stage.year, `${stagePath}.year`, errors);
-    if (stage.type !== undefined) validateEnum(stage.type, TIMELINE_STAGE_TYPES$1, `${stagePath}.type`, errors);
-    if (stage.approximate !== undefined) validateBoolean(stage.approximate, `${stagePath}.approximate`, errors);
-    ["yearLabel", "label", "description", "source"].forEach((key) => {
-      if (stage[key] !== undefined) validateLanguageMap(stage[key], `${stagePath}.${key}`, errors);
-    });
-    if (stage.nodes !== undefined && !(Array.isArray(stage.nodes) && stage.nodes.every(isString))) {
-      pushError(errors, `${stagePath}.nodes`, "must be an array of node names");
-    }
-  });
-}
-
-// AIM3DViewer.variants (editor/compare.js): reconstruction variants.
-function validateVariants(variants, path, errors) {
-  if (!isPlainObject$6(variants)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  ["enabled", "showPanel"].forEach((key) => {
-    if (variants[key] !== undefined) validateBoolean(variants[key], `${path}.${key}`, errors);
-  });
-  if (variants.label !== undefined) validateLanguageMap(variants.label, `${path}.label`, errors);
-  if (variants.description !== undefined) validateLanguageMap(variants.description, `${path}.description`, errors);
-  if (variants.active !== undefined) validateString(variants.active, `${path}.active`, errors);
-  if (variants.items === undefined) return;
-  if (!Array.isArray(variants.items)) {
-    pushError(errors, `${path}.items`, "must be an array");
-    return;
-  }
-  const ids = new Set();
-  variants.items.forEach((item, index) => {
-    const itemPath = `${path}.items[${index}]`;
-    if (!isPlainObject$6(item)) {
-      pushError(errors, itemPath, "must be an object");
-      return;
-    }
-    validateString(item.id, `${itemPath}.id`, errors);
-    if (isString(item.id)) {
-      if (ids.has(item.id)) pushError(errors, `${itemPath}.id`, "must be unique");
-      ids.add(item.id);
-    }
-    ["label", "description", "source"].forEach((key) => {
-      if (item[key] !== undefined) validateLanguageMap(item[key], `${itemPath}.${key}`, errors);
-    });
-    if (item.certainty !== undefined) validateNumber(item.certainty, `${itemPath}.certainty`, errors);
-    if (item.nodes !== undefined && !(Array.isArray(item.nodes) && item.nodes.every(isString))) {
-      pushError(errors, `${itemPath}.nodes`, "must be an array of node names");
-    }
-  });
-  if (isString(variants.active) && ids.size && !ids.has(variants.active)) {
-    pushError(errors, `${path}.active`, "must be the id of one of the items");
-  }
-}
-
-// AIM3DViewer.compare (editor/compare.js): the comparison view.
-function validateCompare(compare, path, errors) {
-  if (!isPlainObject$6(compare)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (compare.enabled !== undefined) validateBoolean(compare.enabled, `${path}.enabled`, errors);
-  if (compare.mode !== undefined) validateEnum(compare.mode, COMPARE_MODES$1, `${path}.mode`, errors);
-  if (compare.kind !== undefined) validateEnum(compare.kind, COMPARE_KINDS$1, `${path}.kind`, errors);
-  const look = compare.kind === "look";
-  if (compare.position !== undefined && (!isFiniteNumber(compare.position) || compare.position < 0 || compare.position > 1)) {
-    pushError(errors, `${path}.position`, "must be a number from 0 to 1");
-  }
-  ["left", "right"].forEach((key) => {
-    const side = compare[key];
-    if (side === undefined) return;
-    const sidePath = `${path}.${key}`;
-    if (!isPlainObject$6(side)) {
-      pushError(errors, sidePath, look ? "must be an object with a shading mode or a lighting" : "must be an object with a variant or a year");
-      return;
-    }
-    if (look) {
-      if (side.shading === undefined && side.lighting === undefined) pushError(errors, sidePath, "must have a shading mode or a lighting");
-      if (side.shading !== undefined) validateEnum(side.shading, SHADING_MODES, `${sidePath}.shading`, errors);
-      if (side.lighting !== undefined) validateEnum(side.lighting, COMPARE_LIGHTINGS$1, `${sidePath}.lighting`, errors);
-      return;
-    }
-    if (side.variant !== undefined) validateString(side.variant, `${sidePath}.variant`, errors);
-    if (side.year !== undefined) validateNumber(side.year, `${sidePath}.year`, errors);
-    if (side.variant === undefined && side.year === undefined) pushError(errors, sidePath, "must have a variant or a year");
-  });
-}
-
-// AIM3DViewer.photos (editor/photo-overlay.js): historical photos and the
-// views they were taken from.
-function validatePhotos(photos, path, errors) {
-  if (!Array.isArray(photos)) {
-    pushError(errors, path, "must be an array");
-    return;
-  }
-  const ids = new Set();
-  photos.forEach((photo, index) => {
-    const photoPath = `${path}[${index}]`;
-    if (!isPlainObject$6(photo)) {
-      pushError(errors, photoPath, "must be an object");
-      return;
-    }
-    const service = typeof photo.service === "string" || isPlainObject$6(photo.service);
-    if (!isString(photo.src) && !service) pushError(errors, photoPath, "must have a src or a IIIF Image API service");
-    if (photo.src !== undefined) validateString(photo.src, `${photoPath}.src`, errors);
-    if (photo.id !== undefined) {
-      validateString(photo.id, `${photoPath}.id`, errors);
-      if (ids.has(photo.id)) pushError(errors, `${photoPath}.id`, "must be unique");
-      ids.add(photo.id);
-    }
-    ["label", "description", "source"].forEach((key) => {
-      if (photo[key] !== undefined) validateLanguageMap(photo[key], `${photoPath}.${key}`, errors);
-    });
-    if (photo.year !== undefined) validateNumber(photo.year, `${photoPath}.year`, errors);
-    if (photo.opacity !== undefined && (!isFiniteNumber(photo.opacity) || photo.opacity < 0 || photo.opacity > 1)) {
-      pushError(errors, `${photoPath}.opacity`, "must be a number from 0 to 1");
-    }
-    if (photo.view === undefined) return;
-    const view = photo.view;
-    if (!isPlainObject$6(view)) {
-      pushError(errors, `${photoPath}.view`, "must be an object");
-      return;
-    }
-    ["position", "target"].forEach((key) => {
-      const value = view[key];
-      if (!(Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber))) {
-        pushError(errors, `${photoPath}.view.${key}`, "must be an array of 3 numbers");
-      }
-    });
-    if (view.fov !== undefined && (!isFiniteNumber(view.fov) || view.fov <= 0 || view.fov >= 180)) {
-      pushError(errors, `${photoPath}.view.fov`, "must be a number between 0 and 180");
-    }
-    if (view.roll !== undefined) validateNumber(view.roll, `${photoPath}.view.roll`, errors);
-  });
-}
-
-// AIM3DViewer.location (editor/sun-study.js): where the model stands.
-function validateLocation(location, path, errors) {
-  if (!isPlainObject$6(location)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (!isFiniteNumber(location.latitude) || location.latitude < -90 || location.latitude > 90) {
-    pushError(errors, `${path}.latitude`, "must be a number from -90 to 90");
-  }
-  if (!isFiniteNumber(location.longitude) || location.longitude < -180 || location.longitude > 180) {
-    pushError(errors, `${path}.longitude`, "must be a number from -180 to 180");
-  }
-  if (location.north !== undefined) validateNumber(location.north, `${path}.north`, errors);
-  if (location.utcOffset !== undefined && (!isFiniteNumber(location.utcOffset) || location.utcOffset < -14 || location.utcOffset > 14)) {
-    pushError(errors, `${path}.utcOffset`, "must be a number of hours from -14 to 14");
-  }
-}
-
-// AIM3DViewer.sun (editor/sun-study.js): the sun on a day and hour.
-function validateSun(sun, path, errors) {
-  if (!isPlainObject$6(sun)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  ["enabled", "followTimeline", "animate"].forEach((key) => {
-    if (sun[key] !== undefined) validateBoolean(sun[key], `${path}.${key}`, errors);
-  });
-  if (sun.date !== undefined && !(isString(sun.date) && /^(-?\d{1,4}-)?(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/.test(sun.date.trim()))) {
-    pushError(errors, `${path}.date`, 'must be "MM-DD" or "YYYY-MM-DD"');
-  }
-  if (sun.time !== undefined && !(isString(sun.time) && /^([01]?\d|2[0-3]):[0-5]\d$|^24:00$/.test(sun.time.trim()))) {
-    pushError(errors, `${path}.time`, 'must be "HH:MM"');
-  }
-}
-
-function validateAIM3DViewerBlock(block, path, errors) {
-  if (!isPlainObject$6(block)) {
-    pushError(errors, path, "must be an object");
-    return;
-  }
-  if (block.version !== undefined) validateString(block.version, `${path}.version`, errors);
-  if (block.generatedAt !== undefined) validateString(block.generatedAt, `${path}.generatedAt`, errors);
-  if (block.camera !== undefined) validateCamera(block.camera, `${path}.camera`, errors);
-  if (block.viewer !== undefined) validateViewer(block.viewer, `${path}.viewer`, errors);
-  if (block.integration !== undefined) validateIntegration(block.integration, `${path}.integration`, errors);
-  if (block.lights !== undefined) {
-    if (!Array.isArray(block.lights)) {
-      pushError(errors, `${path}.lights`, "must be an array");
-    } else {
-      block.lights.forEach((light, index) => validateLight(light, `${path}.lights[${index}]`, errors));
-    }
-  }
-  if (block.modelTransform !== undefined) validateModelTransform(block.modelTransform, `${path}.modelTransform`, errors);
-  if (block.clipping !== undefined) validateClipping(block.clipping, `${path}.clipping`, errors);
-  if (block.rakingLight !== undefined) validateRakingLight(block.rakingLight, `${path}.rakingLight`, errors);
-  if (block.timeline !== undefined) validateTimeline(block.timeline, `${path}.timeline`, errors);
-  if (block.variants !== undefined) validateVariants(block.variants, `${path}.variants`, errors);
-  if (block.compare !== undefined) validateCompare(block.compare, `${path}.compare`, errors);
-  if (block.photos !== undefined) validatePhotos(block.photos, `${path}.photos`, errors);
-  if (block.location !== undefined) validateLocation(block.location, `${path}.location`, errors);
-  if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
-  if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
-  if (block.certainty !== undefined) {
-    certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
-  }
-}
-
-// Level of Certainty assessments on the annotations of every Scene and of
-// the manifest itself, checked against the manifest's scale (or the default).
-function validateCertaintyAssessments(manifest, errors) {
-  const scale = normalizeCertaintyScale(manifest.AIM3DViewer?.certainty);
-  const pages = [
-    ...(Array.isArray(manifest.items) ? manifest.items : []).flatMap((item, itemIndex) => (
-      Array.isArray(item?.annotations)
-        ? item.annotations.map((page, pageIndex) => [page, `$.items[${itemIndex}].annotations[${pageIndex}]`])
-        : []
-    )),
-    ...(Array.isArray(manifest.annotations)
-      ? manifest.annotations.map((page, pageIndex) => [page, `$.annotations[${pageIndex}]`])
-      : []),
-  ];
-  pages.forEach(([page, pagePath]) => {
-    (Array.isArray(page?.items) ? page.items : []).forEach((annotation, index) => {
-      const certainty = annotation?.AIM3DViewer?.certainty;
-      if (certainty === undefined) return;
-      certaintyAssessmentErrors(certainty, `${pagePath}.items[${index}].AIM3DViewer.certainty`, scale)
-        .forEach(([errorPath, message]) => pushError(errors, errorPath, message));
-    });
-  });
-}
-
-function validateAIM3DManifest(manifest, options = {}) {
-  const { requireCustomBlock = false } = options;
-  const errors = [];
-
-  if (!isPlainObject$6(manifest)) {
-    pushError(errors, "$", "must be an object");
-    return { valid: false, errors };
-  }
-
-  if (manifest.id !== undefined) validateString(manifest.id, "$.id", errors);
-  if (manifest.type !== undefined) validateString(manifest.type, "$.type", errors);
-  if (manifest.type !== undefined && manifest.type !== "Manifest") {
-    pushError(errors, "$.type", 'must equal "Manifest"');
-  }
-  if (manifest.items !== undefined && !Array.isArray(manifest.items)) {
-    pushError(errors, "$.items", "must be an array");
-  }
-  if (requireCustomBlock && !isPlainObject$6(manifest.AIM3DViewer)) {
-    pushError(errors, "$.AIM3DViewer", "is required and must be an object");
-  }
-  if (manifest.AIM3DViewer !== undefined) {
-    validateAIM3DViewerBlock(manifest.AIM3DViewer, "$.AIM3DViewer", errors);
-  }
-  validateCertaintyAssessments(manifest, errors);
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
-}
-
-function formatAIM3DManifestValidationErrors(errors, maxErrors = 8) {
-  if (!Array.isArray(errors) || errors.length === 0) return "";
-  const visibleErrors = errors.slice(0, maxErrors).map((error) => `${error.path} ${error.message}`);
-  const remainingCount = errors.length - visibleErrors.length;
-  if (remainingCount > 0) {
-    visibleErrors.push(`...and ${remainingCount} more error${remainingCount === 1 ? "" : "s"}`);
-  }
-  return visibleErrors.join("\n");
 }
 
 // IIIF Presentation 4 (3D) scene content beyond the models themselves, read
@@ -27478,7 +29080,7 @@ function attachCompare(Viewer) {
       const options = Viewer.getCompareOptions(kind);
       if (kind === "look") {
         const [keyShading, keyLighting] = side.key != null ? side.key.split(",").map((part) => part.trim()) : [];
-        const shown = SHADING_MODES$1.includes(Viewer.shadingMode) ? Viewer.shadingMode : "original";
+        const shown = SHADING_MODES.includes(Viewer.shadingMode) ? Viewer.shadingMode : "original";
         const mode = side.shading ?? (keyShading || shown);
         const lighting = side.lighting ?? (keyLighting || "current");
         const option = options.find((entry) => entry.shading === mode);
@@ -27513,7 +29115,7 @@ function attachCompare(Viewer) {
       const options = Viewer.getCompareOptions(kind);
       if (options.length < 2) return null;
       if (kind === "look") {
-        const shown = SHADING_MODES$1.includes(Viewer.shadingMode) ? Viewer.shadingMode : "original";
+        const shown = SHADING_MODES.includes(Viewer.shadingMode) ? Viewer.shadingMode : "original";
         const left = options.find((option) => option.shading === shown) || options[0];
         const right = options.find((option) => option.shading === (shown === "original" ? "clay" : "original"))
           || options.find((option) => option !== left);
@@ -43705,8 +45307,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "526be86" ;
-const BUILD_TIME = "2026-10-16T19:55:44.228Z" ;
+const BUILD_ID = "ea4c2b8" ;
+const BUILD_TIME = "2026-10-17T08:08:24.709Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -45796,6 +47398,11 @@ const Viewer$1 = {
     openLocalFile.id = "openLocalFileButton";
     picker.appendChild(openLocalFile);
 
+    const browseManifests = document.createElement("button");
+    browseManifests.type = "button";
+    browseManifests.id = "browseManifestsButton";
+    picker.appendChild(browseManifests);
+
     return picker;
   },
 
@@ -47772,6 +49379,7 @@ const Viewer$1 = {
         let loginButton = document.getElementById('loginButton');
         let browseModelsButton = document.getElementById('browseModelsButton');
         let openLocalFileButton = document.getElementById('openLocalFileButton');
+        let browseManifestsButton = document.getElementById('browseManifestsButton');
         let manageUsersButton = document.getElementById('manageUsersButton');
         if (!picker && !selectModel && viewerElement) {
           const header = Viewer$1.createViewerPageHeader();
@@ -47782,6 +49390,7 @@ const Viewer$1 = {
           loginButton = header.querySelector('#loginButton');
           browseModelsButton = header.querySelector('#browseModelsButton');
           openLocalFileButton = header.querySelector('#openLocalFileButton');
+          browseManifestsButton = header.querySelector('#browseManifestsButton');
           manageUsersButton = header.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(header, viewerElement);
         }
@@ -47821,6 +49430,16 @@ const Viewer$1 = {
             "click",
             (isAppBuild() ? Viewer$1.toggleModelsSource : Viewer$1.openLibraryPanel).bind(Viewer$1)
           );
+        }
+        // The example manifests, as a list with what each one contains
+        // (ui/examples-panel.js). The app reaches them through its "Models"
+        // button instead (ui/models-source.js); hidden there (main.css).
+        if (browseManifestsButton) {
+          browseManifestsButton.innerHTML = '<span class="browse-manifests-icon" aria-hidden="true"></span>';
+          const browseManifestsLabel = t$1("menu.openExampleManifests", "Example manifests");
+          browseManifestsButton.setAttribute("aria-label", browseManifestsLabel);
+          browseManifestsButton.setAttribute("title", browseManifestsLabel);
+          Viewer$1.bindEventListener(browseManifestsButton, "click", Viewer$1.toggleExamplesPanel.bind(Viewer$1));
         }
         // The app build's own controls (app-hooks.js).
         Viewer$1.initAppUi?.();
@@ -48064,6 +49683,7 @@ attachModelsPanel(Viewer$1);
 attachLibraryPanel(Viewer$1);
 attachModelsSource(Viewer$1);
 attachExamplesPanel(Viewer$1);
+attachValidationReport(Viewer$1);
 attachAdminPanel(Viewer$1);
 attachWindowControls(Viewer$1);
 
@@ -48099,4 +49719,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-Ckf9Ebz0.js.map
+//# sourceMappingURL=main-CiPiqvc1.js.map

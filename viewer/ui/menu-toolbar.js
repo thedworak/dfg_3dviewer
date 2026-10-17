@@ -58,7 +58,7 @@ const CATEGORIES = [
     more: true,
     label: () => t("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["preview", "download", "save", "generateThumbnails", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"],
+    tools: ["validationReport", "preview", "download", "save", "generateThumbnails", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
   // and theme, first.

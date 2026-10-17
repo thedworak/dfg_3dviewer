@@ -252,6 +252,18 @@ Face selection in picking mode (used to create annotations): click selects one f
   - Axes gizmo drawn in a corner of the canvas. Clicking an axis turns the camera to look along it. Hidden in presentation mode, with `hideUi`, and on canvases smaller than 320 px.
 
 
+## `viewer/ui/validation-report.js` and `viewer/ui/feature-icons.js`
+
+Is the open model ready to publish? The report (File > Validation report; in the classic toolbar the main menu) checks the manifest the viewer would export now (`build3IFManifest()`) attribute by attribute (`manifesto/manifest-inspection.js`) and, for a model a worker serves (`/files/<id>/...`), its model file (the worker's `validation.json`). One row per check - the model file, the IIIF structure, metadata and rights always, then every feature the manifest sets - each with Pass / Needs review / Fail / Not set and its issues; overall "X/Y passed". Styles: `css/validation-report.css`.
+
+- `Viewer.toggleValidationReport()` / `Viewer.closeValidationReport()` / `Viewer.isValidationReportOpen()` / `Viewer.refreshValidationReport({ refresh })` / `Viewer.downloadValidationReport()`
+  - The download is the whole report as JSON (rows, the model's `validation.json`, the manifest inspection).
+- `buildValidationReport(manifest, modelReport)` -> `{ rows, passed, total, status, inspection, modelReport }`
+- `fetchModelValidation(modelUrl)` / `modelValidationUrl(modelUrl)`
+  - `GET /api/model/validation/<id>` for a worker model, null otherwise; cached per session.
+- `featureIconsCaption(inspection, modelValidation)` / `statusIconPart(icon, label, status, count)` / `modelCheckPart(validation)` / `featureIconSvg(icon)`
+  - The icons of the model lists: what a manifest contains (example manifests list) and the model file check (worker models list), coloured by status.
+
 ## `viewer/ui/menu-toolbar.js`
 
 The toolbar as menus with names (Look, Analysis, Measure, Story, Model, File, Device, Settings) instead of one row of icons: the same tool buttons `editor-toolbar.js` builds, with their submenus and state, sorted into the menus; submenus open in place. The default; `?ui=classic` or `viewer.ui: "classic"` keeps the classic toolbar. The sun and the raking light (out of Lights), the comparison, the tour, the photos and the annotation and IIIF import/export (out of Annotate) are tools of their own here. The transform modes (orbit, move, rotate, scale), the camera reset and full screen stay at hand outside the menus, and so do AR (the app's, else the browser's WebXR) and the app's motion look - on a phone set off on the right, AR as an accent pill; the projection is under Look, and Settings holds the language and theme of the classic main menu (its cog is not shown). Styles: `css/menu-toolbar.css`.

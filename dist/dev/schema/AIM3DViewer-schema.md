@@ -566,3 +566,45 @@ The XML export for Drupal (`iiif:annotations`) carries the same as
 - `AIM3DViewer.viewer.menuToolbar` is kept as a backward-compatibility field for older manifests.
 - The importer also accepts `AIM3DViewer.clipping` as a backward-compatibility fallback.
 - `camera.zoom` is read from the camera state and should be treated as the source of truth for orthographic view restoration.
+## Inspection: what a manifest contains, value by value
+
+`manifest-inspection.js` (`inspectAIM3DManifest(manifest)`) checks every
+attribute of a manifest - every leaf of the JSON, the IIIF part as well as
+`AIM3DViewer` - and groups them into features, one icon each in the manifest
+lists (`manifestFeatureIcons(inspection)`):
+
+`model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
+`raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
+`location`, `sun`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`tour`, `settings`, `manifest` (the IIIF structure itself).
+
+Each attribute gets a level:
+
+- `error` - the viewer cannot use the value: wrong type, out of range, an
+  unknown enum value, a required key missing. Everything
+  `validateAIM3DManifest` rejects is an error here too.
+- `warning` - it loads, but is probably wrong: an empty text, a URL with
+  spaces or pointing at `localhost`, a colour the browser does not know, a
+  date that is not ISO 8601, a language key that is not a language code, a
+  media type like `glb`, a zero `camera.up` or `modelTransform.scale`, a
+  compared variant that does not exist, an annotation targeting a scene the
+  manifest does not have, a duplicate IIIF id, a stage outside the timeline.
+- `info` - worth knowing: an attribute the viewer does not know and ignores,
+  a recommended one not set (`summary`, `rights`, labels of photos and
+  variants), `rights` that is neither Creative Commons nor
+  RightsStatements.org, a file served over http.
+
+```json
+{
+  "status": "warning",
+  "summary": { "errors": 0, "warnings": 1, "infos": 2, "attributes": 154, "unknown": 0 },
+  "features": [{ "id": "timeline", "icon": "timeline", "label": "4D timeline", "present": true, "count": 3, "status": "ok", "errors": 0, "warnings": 0 }],
+  "attributes": [{ "path": "$.AIM3DViewer.viewer.backgroundColor", "value": "#12345", "level": "warning", "feature": "rendering", "known": true, "issues": [{ "level": "warning", "message": "is not a colour (#rrggbb expected)" }] }]
+}
+```
+
+From the command line: `node scripts/inspect-manifest.mjs manifest.json`
+(issues and the features it contains), `--all` for every attribute, `--json`
+for the full report; it exits 1 when a manifest has errors. Models
+themselves are checked by the conversion worker (`validation.json`, see
+`worker/README.md`).

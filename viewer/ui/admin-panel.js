@@ -4,6 +4,7 @@ import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 import { metaCaption, metaPart } from "./meta-icons.js";
+import { modelCheckPart } from "./feature-icons.js";
 import { fillModelThumbnail } from "./thumbnail-gallery.js";
 
 // Same-origin worker endpoints (see worker/auth.py's "administration" methods
@@ -671,6 +672,9 @@ export function attachAdminPanel(Viewer) {
         job.createdAt
           ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleString())
           : null,
+        // The worker's check of the model file (validation.json), as in the
+        // browse-models panel.
+        modelCheckPart(job.validation),
       ]);
       text.append(label, caption);
       entry.appendChild(text);

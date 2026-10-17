@@ -8,6 +8,7 @@ import { createLockIcon } from "./lock-icon.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 import { metaCaption, metaPart } from "./meta-icons.js";
+import { modelCheckPart } from "./feature-icons.js";
 import { fillModelThumbnail } from "./thumbnail-gallery.js";
 import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
 
@@ -287,13 +288,15 @@ export function attachModelsPanel(Viewer) {
 
       // job.owner is null for anonymous uploads (accounts off, or jobs from
       // before accounts were enabled) - the caption then just falls back to
-      // the date.
-      if (job.owner || job.createdAt) {
+      // the date. job.validation: the worker's check of the model file
+      // (validation.json), null for formats it does not check.
+      if (job.owner || job.createdAt || job.validation) {
         text.appendChild(metaCaption([
           job.owner ? metaPart("user", t("modelsMeta.uploadedBy", "Uploaded by"), job.owner) : null,
           job.createdAt
             ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleDateString())
             : null,
+          modelCheckPart(job.validation),
         ]));
       }
 

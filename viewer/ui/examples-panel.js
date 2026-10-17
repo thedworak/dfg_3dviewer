@@ -4,10 +4,13 @@ import { t } from "../i18n-utils.js";
 import { isOnline } from "../connectivity.js";
 import { makePanelWindow } from "./panel-window.js";
 import { exampleManifestOption, getExampleManifests, groupExampleOptions, refreshExampleManifests } from "../example-manifests.js";
+import { inspectAIM3DManifest, manifestModelUrls } from "../manifesto/manifest-inspection.js";
+import { featureIconsCaption } from "./feature-icons.js";
+import { fetchModelValidation } from "./validation-report.js";
 
-// App only: the example AIM3D/IIIF manifests the dev build offers in its
-// manifest form (metadata.js), as the third tab of the "Models" panels
-// (models-source.js). The list itself is fetched on every open and on
+// The example AIM3D/IIIF manifests the dev build offers in its manifest
+// form (metadata.js): in the app the third tab of the "Models" panels
+// (models-source.js), on the page the header's manifests button. The list itself is fetched on every open and on
 // "Refresh" (example-manifests.js). The "./manifests/" ones are bundled with
 // the app and work offline; the others are fetched from the internet.
 const GROUPS = [
@@ -17,6 +20,30 @@ const GROUPS = [
 
 const isBundled = (url) => url.startsWith("./");
 
+// What each manifest contains and whether its values are right
+// (manifest-inspection.js), with the check of its model file when a worker
+// serves it: fetched once per manifest and session, shown as icons under its
+// name (feature-icons.js).
+const inspections = new Map();
+
+function inspectExample(url) {
+  if (!inspections.has(url)) {
+    const absolute = new URL(url, window.location.href).href;
+    inspections.set(url, fetch(absolute)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+      .then(async (manifest) => ({
+        inspection: inspectAIM3DManifest(manifest),
+        modelValidation: await fetchModelValidation(manifestModelUrls(manifest, absolute)[0]),
+      }))
+      .catch(() => {
+        // Not cached: offline now, perhaps online on the next open.
+        inspections.delete(url);
+        return null;
+      }));
+  }
+  return inspections.get(url);
+}
+
 // "(localhost)" in the dev names means "served with the viewer" - in the app
 // that is the app itself.
 const displayName = (name) => name.replace(/\s*\(localhost\)\s*$/i, "");
@@ -25,6 +52,20 @@ export function attachExamplesPanel(Viewer) {
   Object.assign(Viewer, {
     closeExamplesPanel() {
       if (this.examplesPanel) this.examplesPanel.hidden = true;
+    },
+
+    // The page's header button (main.js): opens the list, or closes it.
+    toggleExamplesPanel(event) {
+      event?.preventDefault?.();
+      if (this.examplesPanel?.hidden === false) {
+        this.closeExamplesPanel();
+        return;
+      }
+      this.closeActionMenu?.();
+      this.createExamplesPanel();
+      if (!this.examplesPanel) return;
+      this.examplesPanel.hidden = false;
+      this.loadExamplesList();
     },
 
     createExamplesPanel() {
@@ -138,6 +179,11 @@ export function attachExamplesPanel(Viewer) {
       source.title = sourceLabel;
       button.append(text, source);
       button.disabled = !online && !bundled;
+      if (!button.disabled) {
+        inspectExample(url).then((result) => {
+          if (result && text.isConnected) text.appendChild(featureIconsCaption(result.inspection, result.modelValidation));
+        });
+      }
       this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
       item.appendChild(button);
       return item;

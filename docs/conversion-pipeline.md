@@ -42,7 +42,7 @@ This step needs some steps to be performed before rendering:
 
 ## Optimization in the standalone worker
 
-The Docker worker additionally compresses every converted GLB with gltfpack (Meshopt geometry, KTX2 textures) and writes a lightweight `<name>.preview.glb` that the viewer shows first - see "GLB optimization and progressive loading" in [`worker/README.md`](../worker/README.md). `worker/optimize.py model.glb --preview` does the same for files produced by this pipeline. Point clouds (LAS, LAZ, E57, face-less PLY) are turned into streamed 3D Tiles by `worker/pointcloud.py` - see "Point clouds" in the worker README.
+The Docker worker additionally compresses every converted GLB with gltfpack (Meshopt geometry, KTX2 textures) and writes a lightweight `<name>.preview.glb` that the viewer shows first - see "GLB optimization and progressive loading" in [`worker/README.md`](../worker/README.md). `worker/optimize.py model.glb --preview` does the same for files produced by this pipeline. Point clouds (LAS, LAZ, E57, face-less PLY) are turned into streamed 3D Tiles by `worker/pointcloud.py` - see "Point clouds" in the worker README. Before optimization, `worker/validate.py` checks the model with the Khronos glTF-Validator and writes `validation.json` (spec issues, statistics, bounding box, unit and size checks) - see "Model validation" in the worker README; `python3 worker/validate.py model.glb` prints the same report for any GLB/glTF.
 
 ## Supported conversion inputs
 

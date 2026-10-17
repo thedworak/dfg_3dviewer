@@ -6,17 +6,17 @@ import {
 
 // Keep in sync with TONE_MAPPING_MODES / ANTIALIAS_MODES in viewer/rendering.js
 // (not imported: this module also runs in Node without three.js).
-const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
-const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
+export const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
+export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
-const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
+export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
 // Keep in sync with TIMELINE_TRANSITIONS / TIMELINE_STAGE_TYPES in viewer/timeline.js.
-const TIMELINE_TRANSITIONS = ["interpolate", "step"];
-const TIMELINE_STAGE_TYPES = ["documented", "modelled"];
+export const TIMELINE_TRANSITIONS = ["interpolate", "step"];
+export const TIMELINE_STAGE_TYPES = ["documented", "modelled"];
 // Keep in sync with COMPARE_MODES / COMPARE_KINDS in viewer/editor/compare.js.
-const COMPARE_MODES = ["swipe", "split"];
-const COMPARE_KINDS = ["content", "look"];
-const COMPARE_LIGHTINGS = ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"];
+export const COMPARE_MODES = ["swipe", "split"];
+export const COMPARE_KINDS = ["content", "look"];
+export const COMPARE_LIGHTINGS = ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"];
 
 function isPlainObject(value) {
   return value != null && typeof value === "object" && Array.isArray(value) === false;
