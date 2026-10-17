@@ -12,10 +12,6 @@ could talk to either backend interchangeably:
                                     previewUrl (point clouds, while converting),
                                     validation (summary), ...}
   GET  /api/model/validation/<id> -> the job's validation.json (validate.py)
-  GET  /api/ai/config           -> {enabled, features, ...} optional AI help
-  POST /api/ai/validation/<id>     (Claude API, off by default - worker/ai.py):
-  POST /api/ai/ifc-query           the validation report explained, IFC
-  POST /api/ai/variants            questions as filters, variants compared
   GET  /api/jobs                -> {jobs: [...]} previously converted models
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
@@ -52,7 +48,6 @@ import subprocess
 import sys
 import threading
 import time
-import traceback
 import uuid
 import zipfile
 from email.utils import formatdate
@@ -60,7 +55,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-import ai
 import cloudflare
 import mailer
 import optimize
@@ -540,12 +534,6 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                         message="Preview ready, building streamed point cloud tiles...",
                         preview_url=f"/files/{job_id}/{preview.relative_to(job_root)}",
                     ),
-                    # WORKER_POINTCLOUD_CLASSIFY (worker/classify.py).
-                    on_classify=lambda: set_job(
-                        job_id,
-                        progress=45,
-                        message="Classifying points (ground, vegetation, buildings)...",
-                    ),
                 )
             set_job(
                 job_id,
@@ -755,57 +743,6 @@ class Handler(BaseHTTPRequestHandler):
             raise AuthError(400, "Body must be a JSON object")
         return data
 
-    def _is_business_caller(self, user) -> bool:
-        if is_business_account(user):
-            return True
-        app_user_id = self.headers.get("X-App-User-Id", "").strip()
-        return bool(ENTITLEMENTS and not user and app_user_id and ENTITLEMENTS.is_business(app_user_id))
-
-    def _handle_ai(self, feature: str, job_id: str = None) -> None:
-        """POST /api/ai/* (worker/ai.py): the caller's access and hourly
-        limit first, then one Claude request."""
-        try:
-            user = self._current_user()
-            if not ai.enabled():
-                raise ai.AIError(404, "AI features are not enabled on this server.", "ai_disabled")
-            if not ai.allowed(user, self._is_business_caller(user)):
-                raise ai.AIError(403, "AI features are not available for this account.", "ai_forbidden")
-            length = int(self.headers.get("Content-Length", "0") or 0)
-            if length > ai.MAX_BODY_BYTES:
-                raise ai.AIError(413, "Request too large.", "too_large")
-            try:
-                data = json.loads(self.rfile.read(length)) if length > 0 else {}
-            except ValueError:
-                raise ai.AIError(400, "Body must be JSON.", "bad_request")
-            if not isinstance(data, dict):
-                raise ai.AIError(400, "Body must be a JSON object.", "bad_request")
-            key, _, _ = self._limit_context(user)
-            lang = data.get("lang", "en")
-            if feature == "validation":
-                try:
-                    report = json.loads(validation_path(job_id).read_text("utf-8"))
-                except (OSError, ValueError):
-                    raise ai.AIError(404, "This model has no validation report.", "no_report")
-                ai.RATE_LIMITER.check(key)
-                answer = ai.explain_validation(report, lang)
-            elif feature == "ifc-query":
-                ai.RATE_LIMITER.check(key)
-                answer = ai.ifc_query(data.get("question", ""), data.get("schema"), lang, data.get("selection"))
-            else:
-                ai.RATE_LIMITER.check(key)
-                answer = ai.describe_variants(data, lang)
-        except ai.AIError as exc:
-            if exc.status >= 500:
-                print(f"[ai] {feature}: {exc.code}: {exc.message}", file=sys.stderr)
-            retry = getattr(exc, "retry_after", 0)
-            self._send_json(exc.status, exc.payload(), headers={"Retry-After": str(retry)} if retry else None)
-            return
-        except Exception as exc:  # noqa: BLE001 - an answer instead of a dropped connection
-            traceback.print_exc()
-            self._send_json(500, {"error": f"The AI request failed on the server ({type(exc).__name__}).", "code": "ai_internal"})
-            return
-        self._send_json(200, answer)
-
     def _cookie_is_secure(self) -> bool:
         return self.headers.get("X-Forwarded-Proto", "").lower() == "https"
 
@@ -916,7 +853,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(exc.status, {"error": exc.message})
 
     def _handle_admin_set_plan(self, username: str) -> None:
-        """POST /api/admin/users/<u>/plan {"tier": "pro"|"business"|"enterprise"|null,
+        """POST /api/admin/users/<u>/plan {"tier": "pro"|"business"|null,
         "expiresAt": unix seconds|null}: grants a plan (null = only what the
         account bought in the app)."""
         admin = self._require_admin()
@@ -1032,11 +969,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, report)
             return
 
-        if path == "/api/ai/config":
-            user = self._current_user()
-            self._send_json(200, ai.config(user, self._is_business_caller(user)))
-            return
-
         if path == "/api/auth/config":
             self._send_json(200, {
                 "mode": AUTH.mode,
@@ -1108,10 +1040,6 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
         if match:
             self._handle_auth(match.group(1))
-            return
-        match = re.fullmatch(r"/api/ai/(validation)/([A-Za-z0-9_-]+)|/api/ai/(ifc-query|variants)", path)
-        if match:
-            self._handle_ai(match.group(1) or match.group(3), match.group(2))
             return
         match = re.fullmatch(r"/api/app/(link|sync|unlink)", path)
         if match:
@@ -1347,7 +1275,7 @@ def admin_cli(args) -> None:
     """docker compose exec worker python3 /app/worker/server.py admin <command>"""
     commands = (
         "users | uploads | usage | limits <user> [key=value|key=default ...] | "
-        "plan <user> [free|pro|business|enterprise|purchase] [days] | "
+        "plan <user> [free|pro|business|purchase] [days] | "
         "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user>"
     )
     if not args:
@@ -1451,10 +1379,6 @@ def main() -> None:
         print(f"Accounts enabled (registration: {AUTH.registration}); no WORKER_ADMIN_USER/PASSWORD set.")
     print(f"Upload limits: {default_limits()} per account (0 = unlimited), "
           f"{MAX_CONCURRENT_CONVERSIONS or 'unlimited'} concurrent conversion(s).")
-    if ai.enabled():
-        print(f"AI assistance on ({ai.model()}): {', '.join(ai.enabled_features()) or 'no features'}, access: {ai.access_level()}.")
-    elif os.environ.get("WORKER_AI_ENABLED", "").lower() in ("1", "true", "yes", "on"):
-        print("WORKER_AI_ENABLED is set but the anthropic package is missing - AI assistance stays off.")
     if not CONVERT_SCRIPT.is_file():
         sys.exit(f"convert.sh not found at {CONVERT_SCRIPT} - set WORKER_SCRIPTS_DIR")
     if not CONVERT_MESH_SCRIPT.is_file():

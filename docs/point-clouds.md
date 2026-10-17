@@ -51,8 +51,6 @@ Uploaded scans are converted by the worker to a level-of-detail octree - see "Po
 
 Why Potree 2 rather than COPC: COPC (Cloud Optimized Point Cloud - one LAZ file with an octree, read by ranges) would be the better archive format, but needs a LAZ chunk decoder and an octree renderer of its own in the viewer, while Potree 2 is read by the 3d-tiles-renderer plugin the viewer already uses, with the same range-request delivery. COPC stays an option for later (e.g. as a download next to the Potree output).
 
-**Classification.** With `WORKER_POINTCLOUD_CLASSIFY=auto` (or `always`), the worker assigns ASPRS classes (ground, low/medium/high vegetation, building, noise) to a cloud without classes before building the Potree octree, so the viewer's class filter has something to offer. It uses `worker/classify.py`: built-in geometric rules, or an external model via `WORKER_POINTCLOUD_CLASSIFIER=command`. The class list then says the classes were assigned automatically. See [AI assistance](ai.md#4-point-cloud-classification).
-
 While the converter runs, the viewer already shows a **quick preview**: the worker first writes a random subsample of about a million points, shuffled, as `tiles/<name>.preview.las`, and the job status reports it as `previewUrl`. The upload panel (`viewer/ui/upload-panel.js`) loads it like any LAS file (direct loading, above) - because the points are in random order, the first batch already shows the whole object and later batches make it denser - with a "Preview · building the full point cloud..." badge. When the job is `ready`, the streamed tiles replace the preview. `WORKER_POINTCLOUD_PREVIEW_POINTS` sets the size (`0`: no preview).
 
 ## Tools

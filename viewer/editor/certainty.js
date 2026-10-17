@@ -2,7 +2,6 @@ import { core } from "../core.js";
 import THREE from "../init.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
 import {
   certaintyLevelForValue,
   certaintyText,
@@ -391,12 +390,6 @@ export function attachCertainty(Viewer) {
           <input type="range" min="0" max="100" step="5" value="${Math.round(scale.opacity * 100)}" />
           <output>${Math.round(scale.opacity * 100)}%</output>
         </label>`;
-      // On a phone: a grip to drag the legend off what it covers (another
-      // panel, the model) and a button to fold it to its header, like the
-      // other tool panels. Again on every render, which rebuilds the header.
-      attachToolPanelChrome(legend, legend.querySelector(".certainty-legend__header"), {
-        before: legend.querySelector(".certainty-legend__close"),
-      });
     },
 
     // An annotation badge in the view: the level's colour, its code large

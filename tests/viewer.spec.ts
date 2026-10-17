@@ -4,7 +4,6 @@ import fs from 'fs';
 import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validation.js';
 import { inspectAIM3DManifest, manifestFeatureIcons } from '../viewer/manifesto/manifest-inspection.js';
 import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
-import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 
 const defaultModel = '/examples/box.stl';
 const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG';
@@ -2338,6 +2337,30 @@ test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, uprig
   expect(await splatPixelShare(page)).toBeGreaterThan(0.005);
 });
 
+// Spark sorts the splats asynchronously; disposed in the middle of a sort it
+// threw "Uncaught (in promise) Error: No target" (main.js, disposeSparkRenderer).
+test('switching away from Gaussian splats while Spark sorts leaves no errors', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await openViewer(page, '/examples/tempietto/Tempietto.splat');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  const box = await page.locator('#MainCanvas').boundingBox();
+  for (let round = 0; round < 3; round += 1) {
+    // A turn of the camera makes Spark sort again; the model goes right after.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 20, { steps: 5 });
+    await page.mouse.up();
+    await page.selectOption('#example-model-select', './examples/points.laz');
+    await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+    await page.selectOption('#example-model-select', './examples/tempietto/Tempietto.splat');
+    await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  }
+  await page.waitForTimeout(1500);
+  expect(errors).toEqual([]);
+});
+
 test('a manifest\'s settings for another model: the look stays, what belongs to the model goes', () => {
   const source = JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-tour.json', 'utf8'));
   // As exported from a page where the viewer was a movable window.
@@ -3538,7 +3561,7 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
   await expect(toolbar).toHaveAttribute('data-mode', 'desktop');
   const tabs = toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label');
-  await expect(tabs).toHaveText(['Look', 'Analysis', 'Model', 'Story', 'File', 'Settings']);
+  await expect(tabs).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'Model', 'File', 'Settings']);
   // Icons only; the name shows over the icon on hover, moving nothing.
   const lookTab = toolbar.locator('.viewer-menus_tab[data-menu="look"]');
   const lookLabel = lookTab.locator('.viewer-menus_tab-label');
@@ -3550,20 +3573,13 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   expect((await lookLabel.boundingBox()).y + 5).toBeLessThan((await lookTab.boundingBox()).y);
   expect(await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox()).toEqual(tabBefore);
   await page.mouse.move(700, 300);
-  // At hand, outside the menus: navigating and the view.
+  // At hand, outside the menus: the transform modes and the view.
   const nav = toolbar.locator('.viewer-menus_nav > [data-tool]:visible:not(.viewer-menus_grip)');
-  await expect(nav).toHaveCount(3);
-  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'resetCamera', 'fullScreen']);
-  // Moving, turning, scaling and measuring, the parts, and what only some
-  // models have (hidden here: no variants, IFC or point cloud): under Model.
-  await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
-  const tools = toolbar.locator('.viewer-menus_group[data-category="model"] > [data-tool]:visible');
-  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['move', 'rotate', 'scale', 'ruler', 'hierarchy', 'picking']);
-  await toolbar.locator('.viewer-menus_group[data-category="model"] [data-tool="move"]').click();
+  await expect(nav).toHaveCount(6);
+  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'move', 'rotate', 'scale', 'resetCamera', 'fullScreen']);
+  await toolbar.locator('.viewer-menus_nav [data-tool="move"]').click();
   expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('translate');
   await toolbar.locator('.viewer-menus_nav [data-tool="orbit"]').click();
-  expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('');
-  await page.keyboard.press('Escape');
 
   // Settings: the language and theme of the classic main menu, then help;
   // its cog is gone. The projection is under Look.
@@ -3668,13 +3684,13 @@ test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once
   expect(arBox.y + arBox.height).toBeLessThanOrEqual(navBox.y + navBox.height);
   expect(navBox.x).toBeGreaterThanOrEqual(0);
   expect(navBox.x + navBox.width).toBeLessThanOrEqual(390);
-  await expect(toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label')).toHaveText(['Look', 'Analysis', 'Model', 'Story', 'More']);
+  await expect(toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label')).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'More']);
 
   // "More": the rest, under headings.
   await toolbar.locator('.viewer-menus_tab[data-menu="more"]').tap();
   const panel = toolbar.locator('.viewer-menus_panel');
   await expect(panel).toBeVisible();
-  await expect(panel.locator('.viewer-menus_group.is-shown .viewer-menus_group-title')).toHaveText(['File', 'Settings']);
+  await expect(panel.locator('.viewer-menus_group.is-shown .viewer-menus_group-title')).toHaveText(['Model', 'File', 'Settings']);
   // The sheet stands on the tab bar, over the whole width (once slid in).
   await panel.evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
   const [sheet, bar] = await Promise.all([panel.boundingBox(), toolbar.locator('.viewer-menus_tabs').boundingBox()]);
@@ -3991,433 +4007,6 @@ test('validation report: X/Y passed, rows with their issues, the worker check of
   // The worker's list: the model check as an icon in the row's caption.
   await page.evaluate(() => window.Viewer.openModelsPanel());
   await expect(page.locator('#modelsPanel .model-check-icon')).toHaveAttribute('data-status', 'error');
-});
-
-test('AI: the validation report explained in plain language when the worker offers it', async ({ page }) => {
-  test.setTimeout(120_000);
-  const jobId = 'ai1b2c3';
-  const modelReport = {
-    file: { name: 'box.glb', format: 'glb', bytes: 1948 },
-    status: 'warning',
-    summary: { errors: 0, warnings: 1 },
-    validator: { available: true, version: '2.0.0', issues: [{ code: 'UNUSED_OBJECT', level: 'warning', count: 2, message: 'This object may be unused.', pointers: ['/textures/0'] }] },
-    stats: { totalTriangleCount: 12 },
-    bounds: { size: [1, 1, 1], unit: 'm' },
-    checks: [],
-  };
-  const requests = [];
-  await page.route(`**/files/${jobId}/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
-  await page.route(`**/api/model/validation/${jobId}`, (route) => route.fulfill({ json: modelReport }));
-  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['validation', 'ifc-query', 'variants'], model: 'claude-opus-5-5' } }));
-  await page.route(`**/api/ai/validation/${jobId}`, (route) => {
-    requests.push(route.request().postDataJSON());
-    return route.fulfill({ json: {
-      headline: 'The model can be published.',
-      summary: 'One unused texture; nothing a viewer would notice.',
-      findings: [{ level: 'warning', title: 'Unused texture', explanation: 'It makes the file larger.', fix: 'Remove it in Blender before exporting.', codes: ['UNUSED_OBJECT'] }],
-      model: 'claude-opus-5-5',
-    } });
-  });
-  await openViewer(page, `/files/${jobId}/box.glb`);
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
-
-  await page.evaluate(() => window.Viewer.toggleValidationReport());
-  const panel = page.locator('#validationReportPanel');
-  const button = panel.locator('.validation-report-ai .ai-button');
-  await expect(button).toBeVisible();
-  // Nothing is sent before the button.
-  expect(requests).toHaveLength(0);
-  await button.click();
-  const answer = panel.locator('.validation-report-ai');
-  await expect(answer.locator('.ai-headline')).toHaveText('The model can be published.');
-  await expect(answer.locator('.ai-findings li[data-level="warning"]')).toContainText('Remove it in Blender');
-  await expect(answer.locator('.ai-disclaimer')).toContainText('claude-opus-5-5');
-  expect(requests[0].lang).toBe('en');
-});
-
-test('AI: nothing is offered when the worker has no AI endpoint', async ({ page }) => {
-  test.setTimeout(120_000);
-  const jobId = 'noai123';
-  await page.route(`**/files/${jobId}/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
-  await page.route(`**/api/model/validation/${jobId}`, (route) => route.fulfill({ json: { status: 'ok', validator: { issues: [] }, checks: [] } }));
-  await page.route('**/api/ai/config', (route) => route.fulfill({ status: 404, json: { error: 'not found' } }));
-  await openViewer(page, `/files/${jobId}/box.glb`);
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
-  await page.evaluate(() => window.Viewer.toggleValidationReport());
-  await expect(page.locator('#validationReportPanel .validation-report-summary')).toBeVisible();
-  await expect(page.locator('#validationReportPanel .ai-button')).toHaveCount(0);
-});
-
-// A converted IFC model's properties (scripts/ifc_metadata.py): the box's
-// node "Cube" is a wall; the other elements have no geometry in box.glb.
-const ifcTestData = {
-  schema: 'IFC4',
-  project: { guid: 'P', name: 'Test house' },
-  tree: { guid: 'P', type: 'IfcProject', name: 'Test house', children: [
-    { guid: 'B', type: 'IfcBuilding', name: 'House', children: [
-      { guid: 'S1', type: 'IfcBuildingStorey', name: 'Level 1', children: [{ guid: 'Cube', type: 'IfcWall' }, { guid: 'W2', type: 'IfcWallStandardCase' }, { guid: 'D1', type: 'IfcDoor' }] },
-      { guid: 'S2', type: 'IfcBuildingStorey', name: 'Level 2', children: [{ guid: 'W3', type: 'IfcWall' }, { guid: 'SL', type: 'IfcSlab' }] },
-    ] },
-  ] },
-  elements: {
-    P: { type: 'IfcProject', name: 'Test house' },
-    B: { type: 'IfcBuilding', name: 'House' },
-    S1: { type: 'IfcBuildingStorey', name: 'Level 1' },
-    S2: { type: 'IfcBuildingStorey', name: 'Level 2' },
-    Cube: { type: 'IfcWall', name: 'Wall A', material: 'Brick', psets: { Pset_WallCommon: { id: 1, LoadBearing: true, IsExternal: true }, Qto_WallBaseQuantities: { NetSideArea: 12.5 } } },
-    W2: { type: 'IfcWallStandardCase', name: 'Wall B', material: 'Brick', psets: { Pset_WallCommon: { LoadBearing: '.F.' }, Qto_WallBaseQuantities: { NetSideArea: 7.5 } } },
-    W3: { type: 'IfcWall', name: 'Wall C', material: 'Concrete', psets: { Pset_WallCommon: { LoadBearing: true } } },
-    D1: { type: 'IfcDoor', name: 'Door', psets: { Pset_DoorCommon: { FireRating: 'EI30' } } },
-    SL: { type: 'IfcSlab', name: 'Slab', psets: { Qto_SlabBaseQuantities: { NetArea: 48 } } },
-    WT: { type: 'IfcWallType', name: 'Brick wall type' },
-  },
-};
-
-test('AI: IFC questions - the summary sent and the filter run on the data', () => {
-  const summary = buildIfcSummary(ifcTestData);
-  expect(summary.classes).toEqual({ IfcWall: 2, IfcWallStandardCase: 1, IfcDoor: 1, IfcSlab: 1, IfcBuilding: 1, IfcBuildingStorey: 2 });
-  expect(summary.storeys).toEqual(['Level 1', 'Level 2']);
-  expect(summary.psets.Pset_WallCommon.properties.LoadBearing).toMatchObject({ type: 'boolean', samples: [true, false] });
-  expect(summary.psets.Pset_WallCommon.properties.id).toBeUndefined();
-  expect(summary.psets.Qto_WallBaseQuantities.properties.NetSideArea).toMatchObject({ type: 'number', min: 7.5, max: 12.5 });
-  // Only names, types and samples - no GlobalIds.
-  expect(JSON.stringify(summary)).not.toContain('Cube');
-
-  const walls = { match: 'all', conditions: [{ field: 'type', op: 'eq', value: 'IfcWall', pset: null, property: null }], aggregate: { kind: 'sum', pset: 'Qto_WallBaseQuantities', property: 'NetSideArea', unit: 'm2' } };
-  const all = runIfcFilter(ifcTestData, walls);
-  // IfcWallStandardCase counts as a wall.
-  expect(all.guids.sort()).toEqual(['Cube', 'W2', 'W3']);
-  expect(all.aggregate).toMatchObject({ kind: 'sum', value: 20, counted: 2, missing: 1, unit: 'm2' });
-
-  const loadBearing = runIfcFilter(ifcTestData, { match: 'all', aggregate: { kind: 'count' }, conditions: [
-    { field: 'type', op: 'eq', value: 'IfcWall', pset: null, property: null },
-    { field: 'property', pset: 'Pset_WallCommon', property: 'LoadBearing', op: 'true', value: null },
-    { field: 'storey', op: 'eq', value: 'level 1', pset: null, property: null },
-  ] });
-  expect(loadBearing.guids).toEqual(['Cube']);
-  expect(loadBearing.aggregate).toEqual({ kind: 'count', value: 1 });
-
-  const anyPset = runIfcFilter(ifcTestData, { match: 'any', conditions: [
-    { field: 'property', pset: null, property: 'FireRating', op: 'contains', value: 'ei' },
-    { field: 'property', pset: null, property: 'NetArea', op: 'gte', value: '40' },
-  ] });
-  expect(anyPset.guids.sort()).toEqual(['D1', 'SL']);
-  // Storeys only when asked for.
-  expect(runIfcFilter(ifcTestData, { match: 'all', conditions: [{ field: 'type', op: 'eq', value: 'IfcBuildingStorey' }] }).guids).toEqual(['S1', 'S2']);
-  expect(runIfcFilter(ifcTestData, { match: 'all', conditions: [{ field: 'name', op: 'contains', value: 'e' }] }).guids).not.toContain('S1');
-});
-
-test('AI: IFC question panel - asks the worker, runs the filter, highlights and hides', async ({ page }) => {
-  test.setTimeout(120_000);
-  const jobId = 'ifcjob1';
-  const asked = [];
-  await page.route(`**/files/${jobId}/gltf/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
-  await page.route(`**/files/${jobId}/metadata/box_ifc.json`, (route) => route.fulfill({ json: ifcTestData }));
-  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['ifc-query'], model: 'claude-opus-5-5' } }));
-  await page.route('**/api/ai/ifc-query', (route) => {
-    asked.push(route.request().postDataJSON());
-    return route.fulfill({ json: {
-      understood: true,
-      interpretation: 'Load-bearing walls',
-      match: 'all',
-      conditions: [
-        { field: 'type', pset: null, property: null, op: 'eq', value: 'IfcWall' },
-        { field: 'property', pset: 'Pset_WallCommon', property: 'LoadBearing', op: 'true', value: null },
-      ],
-      aggregate: { kind: 'sum', pset: 'Qto_WallBaseQuantities', property: 'NetSideArea', unit: 'm²' },
-      action: 'highlight',
-      note: 'Load-bearing taken from Pset_WallCommon.LoadBearing.',
-      model: 'claude-opus-5-5',
-    } });
-  });
-  await openViewer(page, `/files/${jobId}/gltf/box.glb`);
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
-
-  // The tool shows up once the properties are in and the worker offers it.
-  await page.waitForFunction(() => window.Viewer.isIfcQueryAvailable?.() === true, null, { timeout: 20_000 });
-  expect(await page.evaluate(() => window.Viewer.editorToolbarButtons.ifcQuery.hidden)).toBe(false);
-  await page.evaluate(() => window.Viewer.toggleIfcQuery());
-  const panel = page.locator('#ifcQueryPanel');
-  await expect(panel).toBeVisible();
-  await panel.locator('input').fill('nośne ściany');
-  await panel.locator('button[type="submit"]').click();
-  await expect(panel.locator('.ifc-query-count')).toHaveText('2 element(s) found');
-  await expect(panel.locator('.ifc-query-aggregate')).toContainText('12.5 m²');
-  await expect(panel.locator('.ifc-query-filter code')).toHaveCount(2);
-  await expect(panel.locator('.ifc-query-note')).toContainText('Pset_WallCommon');
-  expect(asked[0].question).toBe('nośne ściany');
-  expect(asked[0].schema.classes.IfcWall).toBe(2);
-
-  // Highlighted: an overlay on the wall's mesh.
-  expect(await page.evaluate(() => window.Viewer.ifcQueryOverlays.length)).toBe(1);
-  await panel.locator('.ifc-query-actions [data-action="hide"]').click();
-  expect(await page.evaluate(() => window.Viewer.ifcQueryHidden.length)).toBe(1);
-  expect(await page.evaluate(() => window.Viewer.ifcQueryOverlays.length)).toBe(0);
-  await panel.locator('.ifc-query-actions [data-action="reset"]').click();
-  expect(await page.evaluate(() => window.Viewer.ifcQueryHidden.length)).toBe(0);
-  await panel.locator('.ifc-query-list summary').click();
-  await expect(panel.locator('.ifc-query-list li')).toHaveCount(2);
-});
-
-async function routeIfcBox(page, jobId, asked = []) {
-  await page.route(`**/files/${jobId}/gltf/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
-  await page.route(`**/files/${jobId}/metadata/box_ifc.json`, (route) => route.fulfill({ json: ifcTestData }));
-  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['ifc-query'], model: 'claude-opus-5-5' } }));
-  await page.route('**/api/ai/ifc-query', (route) => {
-    asked.push(route.request().postDataJSON());
-    return route.fulfill({ json: {
-      understood: true,
-      interpretation: 'Walls like Wall A',
-      match: 'all',
-      conditions: [{ field: 'type', pset: null, property: null, op: 'eq', value: 'IfcWall' }],
-      aggregate: { kind: 'count', pset: null, property: null, unit: null },
-      action: 'highlight',
-      note: null,
-      model: 'claude-opus-5-5',
-    } });
-  });
-}
-
-test('context menu: a right click on an IFC element asks about it; Escape steps back', async ({ page }) => {
-  test.setTimeout(120_000);
-  const asked = [];
-  await routeIfcBox(page, 'ifcjob2', asked);
-  await openViewer(page, '/files/ifcjob2/gltf/box.glb');
-  await waitForCameraIdle(page);
-  await page.waitForFunction(() => window.Viewer.isIfcQueryAvailable?.() === true, null, { timeout: 20_000 });
-  const box = await page.locator('#MainCanvas').boundingBox();
-  const center = [box.x + box.width / 2, box.y + box.height / 2];
-  const menu = page.locator('.viewer-context-menu');
-
-  // A right click picks the element (its properties) and offers the actions.
-  await page.mouse.click(...center, { button: 'right' });
-  await expect(menu).toBeVisible();
-  await expect(page.locator('#ifc-properties-panel')).toContainText('Wall A');
-  await expect(menu.locator('.viewer-context-menu_title')).toHaveText('Wall A · IfcWall');
-  for (const action of ['ask', 'sameType', 'isolate', 'hide', 'copyGuid', 'focus', 'copyPoint', 'reset']) {
-    await expect(menu.locator(`[data-action="${action}"]`)).toBeVisible();
-  }
-
-  await menu.locator('[data-action="ask"]').click();
-  await expect(menu).toBeHidden();
-  const panel = page.locator('#ifcQueryPanel');
-  await expect(panel).toBeVisible();
-  await expect(panel.locator('.ifc-query-selection')).toContainText('IfcWall · Wall A');
-  await panel.locator('.ifc-query-example').first().click();
-  // IfcWall: the IfcWallStandardCase too.
-  await expect(panel.locator('.ifc-query-count')).toHaveText('3 element(s) found');
-  expect(asked[0].question).toBe('Elements like this');
-  expect(asked[0].selection).toMatchObject({ guid: 'Cube', type: 'IfcWall', name: 'Wall A', storey: 'Level 1', material: 'Brick' });
-  expect(asked[0].selection.psets.Pset_WallCommon).toEqual({ id: 1, LoadBearing: true, IsExternal: true });
-
-  // Back: the question window first, then the element's properties.
-  await page.locator('#MainCanvas').focus();
-  await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
-  // The mouse's back button over the viewer: the answer's highlight goes,
-  // then the element's properties.
-  const mouseBack = () => page.evaluate(() => document.getElementById('MainCanvas').dispatchEvent(new MouseEvent('mouseup', { button: 3, bubbles: true, cancelable: true })));
-  await mouseBack();
-  expect(await page.evaluate(() => window.Viewer.isIfcQueryViewActive())).toBe(false);
-  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
-  await mouseBack();
-  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
-
-  // Without the AI: the elements of the same type highlighted, undone by
-  // a step back.
-  await page.mouse.click(...center, { button: 'right' });
-  await menu.locator('[data-action="sameType"]').click();
-  await expect.poll(() => page.evaluate(() => window.Viewer.ifcQueryOverlays.length)).toBe(1);
-  await page.locator('#MainCanvas').focus();
-  await page.keyboard.press('Escape');
-  await expect.poll(() => page.evaluate(() => window.Viewer.isIfcQueryViewActive())).toBe(false);
-  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
-
-  await page.mouse.click(...center, { button: 'right' });
-  await menu.locator('[data-action="hide"]').click();
-  await page.mouse.click(...center, { button: 'right' });
-  await expect(menu.locator('[data-action="showHidden"]')).toHaveText('Show hidden elements (1)');
-  await menu.locator('[data-action="showHidden"]').click();
-  await expect(menu).toBeHidden();
-
-  // Measuring from the menu, then its own actions there.
-  await page.mouse.click(...center, { button: 'right' });
-  await menu.locator('[data-action="measure"]').click();
-  expect(await page.evaluate(() => [window.Viewer.RULER_MODE, window.Viewer.measurementDraft?.points.length])).toEqual([true, 1]);
-  await page.mouse.click(center[0] + 10, center[1] + 10);
-  expect(await page.evaluate(() => window.Viewer.measurementDraft?.points.length)).toBe(2);
-  await page.mouse.click(...center, { button: 'right' });
-  await expect(menu.locator('button')).toHaveText(['Finish measurement', 'Remove last point', 'Discard measurement', 'Stop measuring', 'Reset view']);
-  await menu.locator('[data-action="undoPoint"]').click();
-  expect(await page.evaluate(() => window.Viewer.measurementDraft?.points.length)).toBe(1);
-  await page.locator('#MainCanvas').focus();
-  await page.keyboard.press('Backspace');
-  expect(await page.evaluate(() => window.Viewer.measurementDraft)).toBeNull();
-  await page.evaluate(() => window.Viewer.toggleDistanceMeasurement());
-
-  // A floor plan cut at the point, and off again.
-  await page.mouse.click(...center, { button: 'right' });
-  await menu.locator('[data-action="cut"]').click();
-  expect(await page.evaluate(() => [window.Viewer.isClippingAxisEnabled('y'), window.Viewer.hasActiveClipping()])).toEqual([true, true]);
-  await page.mouse.click(...center, { button: 'right' });
-  await menu.locator('[data-action="removeCuts"]').click();
-  expect(await page.evaluate(() => window.Viewer.hasActiveClipping())).toBe(false);
-
-  // A right-drag pans: no menu.
-  await page.mouse.move(...center);
-  await page.mouse.down({ button: 'right' });
-  await page.mouse.move(center[0] + 40, center[1] + 20, { steps: 4 });
-  await page.mouse.up({ button: 'right' });
-  await expect(menu).toBeHidden();
-});
-
-test('context menu on a phone: press and hold, the back gesture closes one layer at a time', async ({ browser }) => {
-  test.setTimeout(120_000);
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  const page = await context.newPage();
-  await routeIfcBox(page, 'ifcjob3');
-  await openViewer(page, '/files/ifcjob3/gltf/box.glb');
-  await waitForCameraIdle(page);
-  await page.waitForFunction(() => window.Viewer.isIfcQueryAvailable?.() === true, null, { timeout: 20_000 });
-  const box = await page.locator('#MainCanvas').boundingBox();
-  const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
-  const cdp = await context.newCDPSession(page);
-  const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
-  const menu = page.locator('.viewer-context-menu');
-
-  // A short tap is still a tap: the properties, no menu.
-  await touch('touchStart', [point]);
-  await touch('touchEnd', []);
-  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
-  await expect(menu).toBeHidden();
-
-  await touch('touchStart', [point]);
-  await expect(menu).toBeVisible();
-  await touch('touchEnd', []);
-  // The release is not a tap on the model too.
-  await expect(menu).toBeVisible();
-  await expect(menu.locator('[data-action="ask"]')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(true);
-
-  await page.evaluate(() => history.back());
-  await expect(menu).toBeHidden();
-  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(true);
-  await page.evaluate(() => history.back());
-  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
-
-  // A quick tap of two fingers: a step back.
-  await touch('touchStart', [point]);
-  await touch('touchEnd', []);
-  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
-  const second = { x: point.x + 60, y: point.y + 40 };
-  await touch('touchStart', [point, second]);
-  await touch('touchEnd', []);
-  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
-
-  // Closed by its own button: the history entry goes too.
-  await touch('touchStart', [point]);
-  await touch('touchEnd', []);
-  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(true);
-  await page.locator('#ifc-properties-panel .ifc-props-close').click();
-  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(false);
-  await context.close();
-});
-
-test('AI: reconstruction variants compared and their paradata reviewed', async ({ page }) => {
-  test.setTimeout(120_000);
-  const sent = [];
-  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['variants'], model: 'claude-opus-5-5' } }));
-  await page.route('**/api/ai/variants', (route) => {
-    sent.push(route.request().postDataJSON());
-    return route.fulfill({ json: {
-      summary: 'The roofed variant adds a dome and a fourth column.',
-      differences: [{ aspect: 'Height', detail: 'The roofed variant is taller.', variants: ['roofed', 'open'] }],
-      paradata: [
-        { variant: 'roofed', status: 'ok', issues: [], suggestions: [] },
-        { variant: 'open', status: 'incomplete', issues: ['No source is cited.'], suggestions: ['Cite the survey the ruin state is based on.'] },
-      ],
-      model: 'claude-opus-5-5',
-    } });
-  });
-  await openViewer(page, '/examples/box.glb');
-  await waitForModel(page);
-  await page.evaluate(async () => {
-    const manifest = await (await fetch('/manifests/tempietto-aim3d-variants.json')).json();
-    window.viewer.fullModelLoaded = false;
-    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
-  });
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.variantsState, null, { timeout: 60_000 });
-
-  const section = page.locator('#viewerVariants .viewer-variants_ai');
-  await expect(section.locator('.ai-button')).toBeVisible();
-  expect(sent).toHaveLength(0);
-  await section.locator('.ai-button').click();
-  await expect(section.locator('.ai-answer')).toContainText('adds a dome');
-  await expect(section.locator('[data-variant="open"][data-status="incomplete"]')).toContainText('Cite the survey');
-  await expect(section.locator('.ai-disclaimer')).toBeVisible();
-
-  // What was sent: texts, certainty and measurements - no geometry.
-  const body = sent[0];
-  expect(body.variants.map((variant) => variant.id)).toEqual(['roofed', 'open']);
-  const roofed = body.variants[0];
-  expect(roofed.measurements.sizeMeters).toHaveLength(3);
-  expect(roofed.measurements.triangles).toBeGreaterThan(0);
-  expect(roofed.certaintyLevel.code).toMatch(/^D/);
-  expect(body.certaintyScale.levels.length).toBeGreaterThan(1);
-  expect(roofed.nodeCount).toBe(3);
-});
-
-test('point clouds classified by the worker: the class list says so', async ({ page }) => {
-  test.setTimeout(60_000);
-  // tiles/<name>/tileset.json -> tiles/<name>.classification.json (worker/classify.py).
-  await page.route('**/examples/tiles/wolpa-points.classification.json', (route) => route.fulfill({
-    json: { classifier: 'geometric', points: 1000, counts: { ground: 600, building: 400 }, seconds: 0.4 },
-  }));
-  await openViewer(page, '/examples/tiles/wolpa-points/tileset.json');
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
-  await page.waitForFunction(() => window.Viewer.pointCloudState?.autoClassification, null, { timeout: 20_000 });
-  await expect(page.locator('#viewerPointCloudPanel .viewer-pointcloud-panel_note')).toHaveText(/assigned automatically from the geometry/);
-});
-
-test('AI: IFC questions on a .ifc opened directly (web-ifc): properties read once, elements drawn from the merged mesh', async ({ page }) => {
-  test.setTimeout(150_000);
-  let schema = null;
-  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['ifc-query'], model: 'claude-opus-5-5' } }));
-  await page.route('**/api/ai/ifc-query', (route) => {
-    schema = route.request().postDataJSON().schema;
-    return route.fulfill({ json: {
-      understood: true, interpretation: 'Columns', match: 'all',
-      conditions: [{ field: 'type', pset: null, property: null, op: 'eq', value: 'IfcColumn' }],
-      aggregate: { kind: 'count', pset: null, property: null, unit: null }, action: 'highlight', note: null, model: 'claude-opus-5-5',
-    } });
-  });
-  await openViewer(page, '/examples/tempietto/Tempietto.ifc');
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 90_000 });
-  await page.waitForFunction(() => window.Viewer.ifcQueryAIState?.() === 'on', null, { timeout: 20_000 });
-  expect(await page.evaluate(() => window.Viewer.editorToolbarButtons.ifcQuery.hidden)).toBe(false);
-
-  await page.evaluate(() => window.Viewer.toggleIfcQuery());
-  const panel = page.locator('#ifcQueryPanel');
-  await panel.locator('input').fill('columns');
-  await panel.locator('button[type="submit"]').click();
-  await expect(panel.locator('.ifc-query-count')).toHaveText('5 element(s) found', { timeout: 60_000 });
-  expect(schema.classes.IfcColumn).toBe(5);
-  expect(schema.storeys).toEqual(['Ground']);
-
-  // Highlighted: an overlay of the columns' triangles on the one mesh.
-  const whole = await page.evaluate(() => window.Viewer.ifcQueryOverlays[0].parent.geometry.index.count);
-  expect(await page.evaluate(() => window.Viewer.ifcQueryOverlays[0].geometry.index.count)).toBeLessThan(whole);
-  // Shown alone: the mesh gets a geometry with only those triangles, back on reset.
-  await panel.locator('.ifc-query-actions [data-action="isolate"]').click();
-  const isolated = await page.evaluate(() => window.Viewer.ifcQueryLiveGeometry.model.geometry.index.count);
-  expect(isolated).toBeLessThan(whole);
-  await panel.locator('.ifc-query-actions [data-action="reset"]').click();
-  expect(await page.evaluate(() => window.Viewer.ifcQueryLiveGeometry)).toBeNull();
 });
 
 test('example manifests list: icons of what each manifest contains', async ({ page }) => {

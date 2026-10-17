@@ -4,7 +4,6 @@ import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
 import { getTiledModelBox } from "../tiles.js";
 import { CLASSIFICATION_COLORS } from "../pointcloud-material.js";
-import { remoteAssetUrl } from "../remote.js";
 
 // Point cloud tools in the point cloud panel (point-cloud-panel.js):
 //
@@ -25,14 +24,6 @@ const PROFILE_COLOR = 0xff3b30;
 function colorSwatch(classId) {
   const hex = CLASSIFICATION_COLORS[classId] ?? 0xeeeeee;
   return `#${hex.toString(16).padStart(6, "0")}`;
-}
-
-// tiles/<name>/metadata.json (or tileset.json) -> tiles/<name>.classification.json,
-// which the worker writes when it classified the points itself
-// (worker/classify.py); null for other URLs.
-export function classificationInfoUrl(modelUrl) {
-  const match = String(modelUrl || "").match(/^(.*\/tiles\/[^/?#]+)\/(?:metadata|tileset)\.json(?:[?#].*)?$/);
-  return match ? `${match[1]}.classification.json` : null;
 }
 
 export function attachPointCloudTools(Viewer) {
@@ -326,44 +317,18 @@ export function attachPointCloudTools(Viewer) {
       ui.classesLegend = document.createElement("legend");
       ui.classList = document.createElement("div");
       ui.classList.className = "viewer-pointcloud-panel_class-list";
-      // Classes the worker assigned (not the scanner or a person).
-      ui.classesNote = document.createElement("p");
-      ui.classesNote.className = "viewer-pointcloud-panel_note";
-      ui.classesNote.hidden = true;
-      ui.classes.append(ui.classesLegend, ui.classList, ui.classesNote);
+      ui.classes.append(ui.classesLegend, ui.classList);
       body.appendChild(ui.classes);
 
       state.toolsUi = ui;
       Viewer.renderPointCloudClassList();
-      Viewer.loadPointCloudClassificationInfo();
       return ui;
-    },
-
-    loadPointCloudClassificationInfo() {
-      const state = Viewer.pointCloudState;
-      const url = classificationInfoUrl(core.fileObject?.originalPath);
-      if (!state || !url) return;
-      fetch(remoteAssetUrl(url), { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((info) => {
-          if (!info || Viewer.pointCloudState !== state) return;
-          state.autoClassification = info;
-          Viewer.renderPointCloudClassList();
-        })
-        .catch(() => {});
     },
 
     renderPointCloudClassList() {
       const state = Viewer.pointCloudState;
       const ui = state?.toolsUi;
       if (!ui) return;
-      const info = state.autoClassification;
-      ui.classesNote.hidden = !info;
-      if (info) {
-        ui.classesNote.textContent = info.classifier === "command"
-          ? t("pointCloud.autoClassifiedModel", "Classes assigned automatically by a model - check before relying on them.")
-          : t("pointCloud.autoClassified", "Classes assigned automatically from the geometry - check before relying on them.");
-      }
       const classes = [...state.classes.keys()].sort((a, b) => a - b);
       ui.classes.hidden = classes.length < 2;
       ui.classesLegend.textContent = t("pointCloud.classesTitle", "Classes");

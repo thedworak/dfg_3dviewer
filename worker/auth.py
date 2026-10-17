@@ -51,12 +51,10 @@ MODES = ("off", "required")
 REGISTRATION_MODES = ("open", "approval", "closed")
 STATUSES = ("active", "pending", "disabled")
 ROLES = ("user", "admin")
-# Enterprise is never bought in the app: an admin grants it to an account
-# (price agreed individually).
-APP_TIERS = ("free", "pro", "business", "enterprise")
+APP_TIERS = ("free", "pro", "business")
 
 
-PLAN_RANK = {"free": 0, "pro": 1, "business": 2, "enterprise": 3}
+PLAN_RANK = {"free": 0, "pro": 1, "business": 2}
 
 
 def _active_tier(plan) -> str:

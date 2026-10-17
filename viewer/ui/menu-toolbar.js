@@ -32,23 +32,26 @@ const CATEGORIES = [
     id: "analysis",
     label: () => t("menus.analysis", "Analysis"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6 19c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5l7 6M5 9l4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty"],
+    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty", "compare"],
   },
-  // The model itself: moving, turning, scaling and measuring it, its parts,
-  // and what only some models have (shown when the model has it): its
-  // reconstruction variants to compare, IFC properties to ask about, point
-  // cloud settings.
   {
-    id: "model",
-    label: () => t("menus.model", "Model"),
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["move", "rotate", "scale", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
+    id: "measure",
+    label: () => t("menus.measure", "Measure"),
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15 15 3l6 6L9 21z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7 11l2 2M10 8l2 2M13 5l2 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    tools: ["ruler"],
   },
   {
     id: "story",
     label: () => t("menus.story", "Story"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H10l-5 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
     tools: ["annotate", "annotateTour", "annotatePhotos"],
+  },
+  {
+    id: "model",
+    more: true,
+    label: () => t("menus.model", "Model"),
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+    tools: ["hierarchy", "picking", "pointCloud"],
   },
   {
     id: "file",
@@ -74,9 +77,9 @@ const MORE = {
   icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg>',
 };
 
-// Always at hand, outside the menus: navigating (which also ends moving,
-// turning or scaling the model - those are under Model), then the view.
-const NAV_TRANSFORM = ["orbit"];
+// Always at hand, outside the menus: the model's transform modes, then the
+// view.
+const NAV_TRANSFORM = ["orbit", "move", "rotate", "scale"];
 const NAV_VIEW = ["resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
 // What the phone itself adds - AR in the room (the app's, else the
@@ -188,14 +191,6 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
       groups[category.id].group.appendChild(button);
       groups[category.id].count += 1;
     });
-  // Moving, turning or scaling: the gizmo is on the model, so a phone's
-  // sheet gets out of its way.
-  ["move", "rotate", "scale"].forEach((key) => {
-    if (!buttons[key]) return;
-    viewer.bindEventListener(buttons[key], "click", () => {
-      if (state.mode !== "desktop") openMenu(null);
-    });
-  });
   // The main menu's contents (language, theme - kept by main.js and
   // ui/localization-theme.js) open in Settings; its cog is not shown.
   if (viewer.actionMenuPanel) {
@@ -265,7 +260,6 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     setTimeout(syncNoticeAboveToolbar, 320);
   }
   viewer.openToolbarMenu = openMenu;
-  viewer.isToolbarMenuOpen = () => Boolean(state.open);
 
   // On the desktop the panel stands over its tab - or under it, where the
   // bar was moved up and there is more room below.
@@ -357,9 +351,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     openMenu(null);
   });
   viewer.bindEventListener(document, "keydown", (event) => {
-    if (event.key !== "Escape" || !state.open) return;
-    event.preventDefault(); // handled: not a step back too (ui/back-navigation.js)
-    openMenu(null);
+    if (event.key === "Escape" && state.open) openMenu(null);
   });
   // A tool panel opening (sun, section planes, VR and AR...) gets the room
   // on a phone.

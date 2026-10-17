@@ -7766,7 +7766,11 @@ var fc = {
 	}
 }, gc = Math.PI / 180, _c = null;
 function vc() {
-	return _c ??= import('./index-QNDaJeux.js').then((e) => e.PMTiles);
+<<<<<<<< HEAD:dist/test/assets/index.three-plugins-__d-YzKl.js
+	return _c ??= import('./index-ztzJIFzZ.js').then((e) => e.PMTiles);
+========
+	return _c ??= import('./index-HI2WM0v4.js').then((e) => e.PMTiles);
+>>>>>>>> ed0348f29c556ff511c08636edfa6b476d64b66a:dist/test/assets/index.three-plugins-DL-d2Se7.js
 }
 var yc = class extends St {
 	constructor(e, t) {

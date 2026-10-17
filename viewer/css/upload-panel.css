@@ -289,24 +289,6 @@
   cursor: pointer;
 }
 
-/* On touch screens a grip says the window can be dragged by its header. */
-@media (pointer: coarse) {
-  .panel-window-handle::before {
-    content: "⠿";
-    flex: none;
-    margin-right: 8px;
-    opacity: 0.6;
-  }
-
-  .panel-window-handle {
-    justify-content: flex-start;
-  }
-
-  .panel-window-handle > :last-child {
-    margin-left: auto;
-  }
-}
-
 /* Password input with a show/hide button inside it (ui/password-field.js). */
 .password-field {
   position: relative;

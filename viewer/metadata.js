@@ -198,18 +198,6 @@ export function expandMetadata() {
   setMetadataWindowOpen(win.hidden || win.classList.contains("metadata-window-closing"));
 }
 
-export function isMetadataWindowOpen() {
-  const win = document.getElementById("metadata-window");
-  return Boolean(win && !win.hidden && !win.classList.contains("metadata-window-closing"));
-}
-
-// Back (ui/back-navigation.js): false when it was not open.
-export function closeMetadataWindow() {
-  if (!isMetadataWindowOpen()) return false;
-  setMetadataWindowOpen(false);
-  return true;
-}
-
 function setMetadataWindowOpen(open) {
   const win = document.getElementById("metadata-window");
   const toggle = document.getElementById("metadata-collapse");
@@ -319,7 +307,6 @@ function bindMetadataInteractions() {
 
   core.metadataContainer.addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || !e.target.closest("#metadata-window")) return;
-    e.preventDefault();
     e.stopPropagation();
     setMetadataWindowOpen(false);
     document.getElementById("metadata-collapse")?.focus();

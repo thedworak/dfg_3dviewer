@@ -251,9 +251,6 @@ Set via environment variables on the `worker` container (see
 | `WORKER_POINTCLOUD_TIMEOUT` | `3600`        | Seconds before a point cloud conversion is killed |
 | `WORKER_POINTCLOUD_PREVIEW_POINTS` | `1000000` | Points in a point cloud's quick preview; `0` disables it |
 | `WORKER_POINTCLOUD_FORMAT` | `auto`          | `potree` (PotreeConverter), `3dtiles` (py3dtiles) or `auto`: Potree when installed |
-| `WORKER_POINTCLOUD_CLASSIFY` | `off`         | Classify points before tiling (ground, vegetation, buildings, noise): `auto` (clouds without classes), `always`; Potree output only - see `worker/classify.py` and `docs/ai.md` |
-| `WORKER_POINTCLOUD_CLASSIFIER` | `geometric` | `geometric` (built-in rules) or `command` (`WORKER_POINTCLOUD_CLASSIFIER_CMD` with `{input}` `{output}`, e.g. a trained model) |
-| `WORKER_AI_ENABLED`        | `false`         | AI assistance through the Claude API (needs `ANTHROPIC_API_KEY`), see `docs/ai.md` |
 | `WORKER_POTREE_CONVERTER`  | `PotreeConverter` | PotreeConverter executable (name on `PATH` or a path) |
 | `WORKER_GZIP_MAX_BYTES`    | `268435456`    | Largest file served gzip-compressed (`static_files.py`); `0` turns compression off |
 | `WORKER_VALIDATE`          | `true`         | Write `validation.json` for GLB/glTF models (see "Model validation") |
@@ -284,7 +281,6 @@ docker compose exec worker python3 /app/worker/server.py admin uploads
 docker compose exec worker python3 /app/worker/server.py admin approve alice
 # also: disable <user>, promote <user>, demote <user>, delete-user <user>
 docker compose exec worker python3 /app/worker/server.py admin plan alice business 30   # grant Business for 30 days
-docker compose exec worker python3 /app/worker/server.py admin plan acme enterprise      # grant Enterprise, no end
 docker compose exec worker python3 /app/worker/server.py admin plan alice purchase      # drop the grant
 ```
 
@@ -362,7 +358,7 @@ docker compose exec worker python3 /app/worker/server.py admin limits alice stor
 
 #### Business plan
 
-Admins can grant an account a plan in the admin panel ("Change plan"), with `POST /api/admin/users/<user>/plan` `{"tier": "pro"|"business"|"enterprise"|null, "expiresAt": <unix seconds>|null}` or `admin plan` above (stored in `users.json` as `planGrant`). **Enterprise** is only granted this way (its price is agreed individually, it is not sold in the app); it includes everything in Business. An account with Business or Enterprise gets these limits for everything it uploads instead of the defaults (for Enterprise, set the agreed values as the account's overrides); an admin's per-account overrides still win, and the admin panel shows the Business values as that account's defaults. `GET /api/auth/me` returns the plan (`plan`), shown next to the signed-in name.
+Admins can grant an account a plan in the admin panel ("Change plan"), with `POST /api/admin/users/<user>/plan` `{"tier": "pro"|"business"|null, "expiresAt": <unix seconds>|null}` or `admin plan` above (stored in `users.json` as `planGrant`). An account with Business gets these limits for everything it uploads instead of the defaults; an admin's per-account overrides still win, and the admin panel shows the Business values as that account's defaults. `GET /api/auth/me` returns the plan (`plan`), shown next to the signed-in name.
 
 | Variable | Default | |
 |---|---|---|

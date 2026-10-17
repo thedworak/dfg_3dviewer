@@ -14,15 +14,6 @@ FROM worker-base
 
 WORKDIR /app
 
-# The Claude API SDK for the optional AI assistance (worker/ai.py, off unless
-# WORKER_AI_ENABLED=true). A layer of its own, so the base image stays as is.
-# brotli >= 1.2: the SDK's HTTP client decodes brotli answers with
-# Decompressor.process(..., output_buffer_limit=), which Ubuntu's
-# python3-brotli 1.1 (pulled in by matplotlib) rejects with a TypeError.
-# --ignore-installed puts the new one in /usr/local, ahead of apt's copy.
-RUN pip3 install --no-cache-dir --break-system-packages "anthropic>=1.15,<2" \
-    && pip3 install --no-cache-dir --break-system-packages --ignore-installed "brotli>=1.2"
-
 COPY scripts/ /app/scripts/
 # scripts/.env (if present) carries absolute paths from whichever host last
 # edited it - the worker configures SPATH/BLENDER_BIN via container ENV

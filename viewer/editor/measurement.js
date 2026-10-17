@@ -383,17 +383,6 @@ export function attachMeasurement(Viewer) {
       return true;
     },
 
-    // Backspace, a step back, the context menu: the last point placed goes;
-    // with it the last one, the measurement.
-    undoMeasurementPoint() {
-      const draft = Viewer.measurementDraft;
-      if (!draft) return false;
-      if (draft.points.length <= 1) return Viewer.cancelMeasurementDraft();
-      draft.points.pop();
-      Viewer.redrawMeasurementDraft();
-      return true;
-    },
-
     discardMeasurement(entry) {
       entry.labels.forEach((label) => Viewer.removeMeasurementLabel(label));
       Viewer.removeAndDisposeFromScene(entry.group);

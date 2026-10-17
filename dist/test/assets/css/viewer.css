@@ -1,6 +1,15 @@
-@import "./main.css?v=0572510";
-@import "./embed-configurator.css?v=0572510";
-@import "./spinner.css?v=0572510";
-@import "./theme.css?v=0572510";
-@import "./external-sources.css?v=0572510";
-@import "./credits.css?v=0572510";
+<<<<<<< HEAD
+@import "./main.css?v=91414dab";
+@import "./embed-configurator.css?v=91414dab";
+@import "./spinner.css?v=91414dab";
+@import "./theme.css?v=91414dab";
+@import "./external-sources.css?v=91414dab";
+@import "./credits.css?v=91414dab";
+=======
+@import "./main.css?v=ea4c2b8";
+@import "./embed-configurator.css?v=ea4c2b8";
+@import "./spinner.css?v=ea4c2b8";
+@import "./theme.css?v=ea4c2b8";
+@import "./external-sources.css?v=ea4c2b8";
+@import "./credits.css?v=ea4c2b8";
+>>>>>>> ed0348f29c556ff511c08636edfa6b476d64b66a

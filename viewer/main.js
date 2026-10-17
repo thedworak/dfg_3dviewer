@@ -58,8 +58,6 @@ import { attachLibraryPanel } from "./ui/library-panel.js";
 import { attachModelsSource } from "./ui/models-source.js";
 import { attachExamplesPanel } from "./ui/examples-panel.js";
 import { attachValidationReport } from "./ui/validation-report.js";
-import { attachIfcQuery } from "./ai/ifc-query.js";
-import { attachVariantsReview } from "./ai/variants-review.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
 import { attachLoginPanel } from "./ui/login-panel.js";
 import { buildThumbnailGallery, getManifestThumbnails } from "./ui/thumbnail-gallery.js";
@@ -85,8 +83,6 @@ import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
-import { attachContextMenu } from "./editor/context-menu.js";
-import { attachBackNavigation } from "./ui/back-navigation.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachModelUnits } from "./editor/model-units.js";
@@ -203,6 +199,32 @@ const SHORTCUT_ICONS = {
 // Loaded from another site (the app's online-only examples,
 // example-manifests.js), they must point at that site instead: every
 // "./" or "../" string becomes absolute against `baseUrl`.
+// Spark sorts the splats asynchronously - a depth readback from the GPU, then
+// a worker - and also on a timer. Disposed in the middle of that, its sort
+// went on to read a render target that no longer existed: "Uncaught (in
+// promise) Error: No target" on switching away from a splat model. So it
+// leaves the scene at once, sorts no more, and is disposed once the sort in
+// flight is done (or after 5 s, should that never end). Uses Spark's
+// sorting / sortDirty / sortTimeoutId (@sparkjsdev/spark is pinned to 2.2.0).
+function disposeSparkRenderer(spark) {
+  if (!spark) return;
+  spark.removeFromParent();
+  if (spark.sortTimeoutId !== undefined && spark.sortTimeoutId !== -1) {
+    clearTimeout(spark.sortTimeoutId);
+    spark.sortTimeoutId = -1;
+  }
+  spark.sortDirty = false;
+  const started = performance.now();
+  const disposeWhenIdle = () => {
+    if (spark.sorting && performance.now() - started < 5000) {
+      setTimeout(disposeWhenIdle, 50);
+      return;
+    }
+    spark.dispose?.();
+  };
+  disposeWhenIdle();
+}
+
 function rebaseManifestUrls(value, baseUrl) {
   if (!baseUrl) return value;
   if (typeof value === "string") {
@@ -1269,9 +1291,6 @@ export const Viewer = {
           handled = true;
         }
         break;
-      case "Backspace":
-        if (Viewer.RULER_MODE) handled = Viewer.undoMeasurementPoint();
-        break;
       case "Escape":
         if (Viewer.RULER_MODE) handled = Viewer.cancelMeasurementDraft();
         else if (Viewer.pickingMode && Viewer.selectedFaces?.length) {
@@ -1413,8 +1432,7 @@ export const Viewer = {
     Viewer.disposeRakingLight();
     Viewer.disposeSunStudy();
     // Spark's splat renderer (splats.js) comes back with the next splat model.
-    core.sparkRenderer?.removeFromParent();
-    core.sparkRenderer?.dispose?.();
+    disposeSparkRenderer(core.sparkRenderer);
     core.sparkRenderer = null;
     // The next model comes with its own materials: shown as they are.
     Viewer.shadingMode = "original";
@@ -3696,8 +3714,6 @@ export const Viewer = {
         Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
         Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
         Viewer.bindDoubleTapFocus();
-        Viewer.bindContextMenu();
-        Viewer.bindBackNavigation();
         Viewer.bindFaceAreaSelection();
         Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
           if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
@@ -4335,8 +4351,6 @@ attachMaterialsEditor(Viewer);
 attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
-attachContextMenu(Viewer);
-attachBackNavigation(Viewer);
 attachFaceAreaSelection(Viewer);
 attachPointCloudPanel(Viewer);
 attachModelUnits(Viewer);
@@ -4362,8 +4376,6 @@ attachLibraryPanel(Viewer);
 attachModelsSource(Viewer);
 attachExamplesPanel(Viewer);
 attachValidationReport(Viewer);
-attachIfcQuery(Viewer);
-attachVariantsReview(Viewer);
 attachAppUi(Viewer);
 attachAdminPanel(Viewer);
 attachWindowControls(Viewer);

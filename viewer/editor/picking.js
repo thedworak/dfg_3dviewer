@@ -651,8 +651,6 @@ export function attachPicking(Viewer) {
     },
 
     onPointerUp(e) {
-      // The release of a press and hold that opened the context menu.
-      if (Viewer.consumeContextMenuPointer?.(e)) return;
       if (e.button !== 0) return;
 
       getNormalizedPointerPosition(Viewer, e.clientX, e.clientY, Viewer.onUpPosition);
