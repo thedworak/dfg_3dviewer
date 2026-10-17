@@ -3769,7 +3769,7 @@ var DEFAULT_LIST$1 = {
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
-const IS_MOBILE_BUILD$1 = "test" === "mobile";
+const IS_MOBILE_BUILD$1 = "dev" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -7810,7 +7810,7 @@ var DEFAULT_LIST = {
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const IS_MOBILE_BUILD = "test" === "mobile";
+const IS_MOBILE_BUILD = "dev" === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
 const DEFAULT_URL = "./manifests/index.json";
@@ -9328,7 +9328,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DHhdNdHD.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DD17btJi.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DJKxtX12.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9986,7 +9986,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-CN7sPGJp.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-DcKscWEt.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -10115,9 +10115,9 @@ const loadLWOLoader = async () => (await import('./three-DVpUZZAE.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DEYEu7o2.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DVpUZZAE.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-C6s_4b4m.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-Dw7JnHnv.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-CmxWz6Bj.js');
+const loadSplats = async () => import('./splats-DEWOGDpS.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -10318,7 +10318,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "test";
+const ENV_BUILD = "dev";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -13816,7 +13816,7 @@ function removeExistingGalleryDom() {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "dev") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -15309,10 +15309,11 @@ async function aiRequest(path, body = {}) {
     data = null;
   }
   if (!response.ok) {
-    // Without JSON the answer came from a proxy in front of the worker.
+    // Without JSON the answer came from a proxy in front of the worker:
+    // 524 is Cloudflare giving up after 100 s.
     const message = response.status === 429
       ? t$1("ai.rateLimited", "AI request limit reached. Try again later.")
-      : data?.error || ([504, 524].includes(response.status)
+      : data?.error || (response.status === 524
         ? t$1("ai.timeout", "The AI answer took too long. Try again or ask a narrower question.")
         : `${t$1("ai.failed", "The AI assistant could not answer.")} (HTTP ${response.status})`);
     throw new AIRequestError(message, response.status, data?.code || "");
@@ -18669,8 +18670,8 @@ function renderFrame(renderer = core.renderer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "b518d59" ;
-const BUILD = "test" ;
+const BUILD_ID$2 = "0572510" ;
+const BUILD = "dev" ;
 
 let initPromise = null;
 
@@ -18720,8 +18721,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "b518d59" ;
-const BUILD_TIME$1 = "2026-10-17T19:29:49.114Z" ;
+const BUILD_ID$1 = "0572510" ;
+const BUILD_TIME$1 = "2026-10-17T20:48:24.051Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -46762,8 +46763,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "b518d59" ;
-const BUILD_TIME = "2026-10-17T19:29:49.114Z" ;
+const BUILD_ID = "0572510" ;
+const BUILD_TIME = "2026-10-17T20:48:24.051Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -47004,7 +47005,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "" ;
+const SOURCE = "IIIF" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
@@ -48571,9 +48572,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    if (!core.CONFIG.entity.metadata.sourceType) {
+    {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -51206,4 +51207,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-BswOBeS3.js.map
+//# sourceMappingURL=main-1bngMxTx.js.map

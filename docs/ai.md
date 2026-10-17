@@ -47,7 +47,7 @@ Identical requests are answered from an in-memory cache (the last 256 answers), 
 | `POST /api/ai/ifc-query` | `{question, schema, lang}` (`schema`: `buildIfcSummary()` of `viewer/ai/ifc-filter.js`) | `{understood, interpretation, match, conditions: [{field, pset, property, op, value}], aggregate: {kind, pset, property, unit}, action, note, model}` |
 | `POST /api/ai/variants` | `{label, description, certaintyScale, variants: [...], lang}` (`buildVariantsPayload()` of `viewer/ai/variants-review.js`) | `{summary, differences: [{aspect, detail, variants}], paradata: [{variant, status, issues, suggestions}], model}` |
 
-Errors are `{error, code}`: `404 ai_disabled` / `ai_feature_disabled`, `403 ai_forbidden`, `429 ai_rate_limited` (with `Retry-After`), `422 ai_refusal`, `5xx` when the Claude API fails. `lang` is `en`, `pl` or `de` (the viewer's language). The answer's texts are written in that language.
+Errors are `{error, code}`: `404 ai_disabled` / `ai_feature_disabled`, `403 ai_forbidden`, `429 ai_rate_limited` (with `Retry-After`), `422 ai_refusal`, `503 ai_*` when the Claude API fails or answers unusably (`ai_auth`, `ai_unreachable`, `ai_timeout`, ...; never 502/504, whose bodies Cloudflare replaces with its own page), `500 ai_internal` for an unexpected worker error (traceback in the worker log). `lang` is `en`, `pl` or `de` (the viewer's language). The answer's texts are written in that language.
 
 ## 1. Validation report explained
 

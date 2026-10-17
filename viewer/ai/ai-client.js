@@ -86,10 +86,11 @@ export async function aiRequest(path, body = {}) {
     data = null;
   }
   if (!response.ok) {
-    // Without JSON the answer came from a proxy in front of the worker.
+    // Without JSON the answer came from a proxy in front of the worker:
+    // 524 is Cloudflare giving up after 100 s.
     const message = response.status === 429
       ? t("ai.rateLimited", "AI request limit reached. Try again later.")
-      : data?.error || ([504, 524].includes(response.status)
+      : data?.error || (response.status === 524
         ? t("ai.timeout", "The AI answer took too long. Try again or ask a narrower question.")
         : `${t("ai.failed", "The AI assistant could not answer.")} (HTTP ${response.status})`);
     throw new AIRequestError(message, response.status, data?.code || "");

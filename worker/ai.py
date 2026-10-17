@@ -214,6 +214,14 @@ _client = None
 _client_lock = threading.Lock()
 
 
+def api_key():
+    """ANTHROPIC_API_KEY without what an .env file can leave around it: a
+    Windows line end, spaces, quotes kept by an env_file. None = let the SDK
+    resolve its other credentials."""
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip().strip("\"'").strip()
+    return key or None
+
+
 def client():
     global _client
     with _client_lock:
@@ -221,7 +229,10 @@ def client():
             # One attempt within WORKER_AI_TIMEOUT: retries would outlast the
             # proxies in front of the worker (docker/nginx.conf, Cloudflare's
             # 100 s), which then answer the viewer with an HTML 504.
-            _client = anthropic.Anthropic(timeout=float(_env_int("WORKER_AI_TIMEOUT", 90)), max_retries=0)
+            options = {"timeout": float(_env_int("WORKER_AI_TIMEOUT", 90)), "max_retries": 0}
+            if api_key():
+                options["api_key"] = api_key()
+            _client = anthropic.Anthropic(**options)
         return _client
 
 
@@ -251,34 +262,36 @@ def ask(system: str, prompt: str, schema: dict, effort: str = "medium", max_toke
     if _env_bool("WORKER_AI_FALLBACKS", True):
         params["betas"] = [FALLBACK_BETA]
         params["fallbacks"] = "default"
+    # 503, never 502/504: Cloudflare replaces an origin's 502 and 504 with
+    # its own HTML page, and the viewer would lose the message below.
     try:
         response = client().beta.messages.create(**params)
     except anthropic.AuthenticationError:
-        raise AIError(502, "The AI service rejected the server's credentials.", "ai_auth")
+        raise AIError(503, "The AI service rejected the server's credentials.", "ai_auth")
     except anthropic.PermissionDeniedError:
-        raise AIError(502, "The server's AI account may not use this model.", "ai_permission")
+        raise AIError(503, "The server's AI account may not use this model.", "ai_permission")
     except anthropic.RateLimitError:
         raise AIError(503, "The AI service is busy. Try again in a minute.", "ai_busy")
     except anthropic.BadRequestError as exc:
-        raise AIError(502, f"The AI service did not accept the request: {exc.message}", "ai_bad_request")
+        raise AIError(503, f"The AI service did not accept the request: {exc.message}", "ai_bad_request")
     except anthropic.APIStatusError as exc:
-        raise AIError(502, f"The AI service failed ({exc.status_code}).", "ai_upstream")
+        raise AIError(503, f"The AI service failed ({exc.status_code}).", "ai_upstream")
     except anthropic.APITimeoutError:
-        raise AIError(504, "The AI answer took too long. Try again or ask a narrower question.", "ai_timeout")
+        raise AIError(503, "The AI answer took too long. Try again or ask a narrower question.", "ai_timeout")
     except anthropic.APIConnectionError:
-        raise AIError(504, "The AI service could not be reached.", "ai_unreachable")
+        raise AIError(503, "The AI service could not be reached.", "ai_unreachable")
 
     if response.stop_reason == "refusal":
         raise AIError(422, "The AI declined to answer this request.", "ai_refusal")
     if response.stop_reason == "max_tokens":
-        raise AIError(502, "The AI answer was too long and got cut off.", "ai_truncated")
+        raise AIError(503, "The AI answer was too long and got cut off.", "ai_truncated")
     text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
     try:
         answer = json.loads(text)
     except ValueError:
-        raise AIError(502, "The AI answer could not be read.", "ai_invalid")
+        raise AIError(503, "The AI answer could not be read.", "ai_invalid")
     if not isinstance(answer, dict):
-        raise AIError(502, "The AI answer could not be read.", "ai_invalid")
+        raise AIError(503, "The AI answer could not be read.", "ai_invalid")
     CACHE.put(cache_key, answer)
     return answer
 
