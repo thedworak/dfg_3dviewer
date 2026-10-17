@@ -180,6 +180,7 @@ import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
 import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
+import { isPhoneLayout } from "./ui/menu-toolbar.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 // Small inline icons for the keyboard-shortcuts hint (see
@@ -1416,6 +1417,7 @@ export const Viewer = {
     removeImportedLights();
     removeImportedCanvases();
     Viewer.resetModelUnits();
+    Viewer.resetCameraLens();
     Viewer.currentManifest = null;
     Viewer.manifestCameras = [];
     document.getElementById("manifesto-camera-switch")?.remove();
@@ -1473,6 +1475,28 @@ export const Viewer = {
     Viewer.disposeFacePickCache();
     Viewer.updateSelectedFacesCount();
     Viewer.lastPickedFace = { id: "", object: "", faceIndex: null, overlay: null };
+  },
+
+  // The lens a model starts with. A manifest's camera (its fov, zoom, up,
+  // orthographic projection), a tour or a photo may have changed it, and the
+  // next model is fitted and flown to with whatever is left - switching
+  // examples, it was framed through the previous one's fov.
+  resetCameraLens() {
+    if (!core.camera) return;
+    Viewer.setCameraProjection("perspective");
+    core.camera.fov = 45;
+    core.camera.zoom = 1;
+    core.camera.up.set(0, 1, 0);
+    core.camera.updateProjectionMatrix();
+  },
+
+  // Shows or hides the credits line below the viewer.
+  toggleCredits() {
+    if (!Viewer.creditsWrapper) return;
+    Viewer.creditsWrapper.hidden = !Viewer.creditsWrapper.hidden;
+    Viewer.updateEditorToolbarLabels();
+    Viewer.updateEditorToolbarState();
+    Viewer.updateSize();
   },
 
   renderFatalError(error) {
@@ -4156,7 +4180,14 @@ export const Viewer = {
           // viewer/css/main.css); living outside it here means credits
           // (like core.editorToolbar - see getEditorToolbarHost() in
           // editor-toolbar.js) isn't part of that fullscreen overlay.
-          (core.viewerWrapper || core.container).appendChild(Viewer.creditsWrapper);
+          const host = core.viewerWrapper || core.container;
+          // On a phone the line takes room the model needs: hidden until
+          // switched on from the menus (Settings, under "More").
+          const { width, height } = host.getBoundingClientRect();
+          Viewer.creditsWrapper.hidden = isPhoneLayout(width, height);
+          host.appendChild(Viewer.creditsWrapper);
+          Viewer.updateEditorToolbarLabels();
+          Viewer.updateEditorToolbarState();
         }
       }
       if (core.SANDBOX_MODE) {
