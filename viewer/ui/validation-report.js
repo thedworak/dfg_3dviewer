@@ -4,7 +4,8 @@ import { appRequestHeaders, remoteAssetUrl } from "../remote.js";
 import { makePanelWindow } from "./panel-window.js";
 import { featureIconSvg, featureLabel, statusLabel } from "./feature-icons.js";
 import { inspectAIM3DManifest } from "../manifesto/manifest-inspection.js";
-import { aiDisclaimer, aiRequest, hasAIFeature } from "../ai/ai-client.js";
+import { aiAvailability, aiDisclaimer, aiRequest, showAILocked } from "../ai/ai-client.js";
+import { createLockIcon } from "./lock-icon.js";
 
 // The validation report (toolbar: File > Validation report): is the open
 // model ready to be published? One row per check, like a checklist:
@@ -252,7 +253,8 @@ export function attachValidationReport(Viewer) {
       const modelReport = await fetchModelValidation(core.fileObject.originalPath, { refresh });
       this.validationReport = buildValidationReport(manifest, modelReport);
       if (refresh || this.validationAIExplanation?.model !== core.fileObject.originalPath) this.validationAIExplanation = null;
-      this.validationAIAvailable = Boolean(modelReport) && await hasAIFeature("validation");
+      // "on" | "locked" (the app, a plan without it) | "off".
+      this.validationAIState = modelReport ? await aiAvailability("validation") : "off";
       this.renderValidationReport();
     },
 
@@ -287,7 +289,7 @@ export function attachValidationReport(Viewer) {
       summary.append(ring, verdict);
       body.appendChild(summary);
 
-      if (this.validationAIAvailable) body.appendChild(this.renderValidationAISection());
+      if (this.validationAIState && this.validationAIState !== "off") body.appendChild(this.renderValidationAISection());
 
       // The checklist.
       const list = el("ul", "validation-report-list");
@@ -368,6 +370,15 @@ export function attachValidationReport(Viewer) {
     // The AI explanation: a button, then the answer (or why there is none).
     renderValidationAISection() {
       const section = el("section", "validation-report-ai ai-answer");
+      if (this.validationAIState === "locked") {
+        const button = el("button", "ai-button ai-button-locked", t("ai.validation.explain", "Explain in plain language (AI)"));
+        button.type = "button";
+        button.prepend(createLockIcon());
+        button.title = t("ai.locked", "Available with the Business plan");
+        this.bindEventListener(button, "click", () => showAILocked(this));
+        section.append(button, el("p", "ai-disclaimer", t("ai.locked", "Available with the Business plan")));
+        return section;
+      }
       const state = this.validationAIExplanation;
       if (!state || state.state === "error") {
         const button = el("button", "ai-button", t("ai.validation.explain", "Explain in plain language (AI)"));

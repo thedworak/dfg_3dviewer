@@ -738,6 +738,7 @@ const VIEWER_I18N = {
       offline: "The AI assistant could not be reached.",
       failed: "The AI assistant could not answer.",
       rateLimited: "AI request limit reached. Try again later.",
+      locked: "Available with the Business plan",
       validation: {
         explain: "Explain in plain language (AI)",
         explainHint: "Sends the model check report (not the model) to the AI assistant.",
@@ -1268,6 +1269,7 @@ const VIEWER_I18N = {
       look: "Look",
       analysis: "Analysis",
       measure: "Measure",
+      tools: "Tools",
       story: "Story",
       model: "Model",
       file: "File",
@@ -1782,6 +1784,7 @@ const VIEWER_I18N = {
       offline: "Nie udało się połączyć z asystentem AI.",
       failed: "Asystent AI nie mógł odpowiedzieć.",
       rateLimited: "Osiągnięto limit zapytań AI. Spróbuj później.",
+      locked: "Dostępne w planie Business",
       validation: {
         explain: "Wyjaśnij prostym językiem (AI)",
         explainHint: "Wysyła do asystenta AI raport ze sprawdzenia modelu (nie sam model).",
@@ -2329,6 +2332,7 @@ const VIEWER_I18N = {
       look: "Wygląd",
       analysis: "Analiza",
       measure: "Pomiary",
+      tools: "Narzędzia",
       story: "Opowieść",
       model: "Model",
       file: "Plik",
@@ -2859,6 +2863,7 @@ const VIEWER_I18N = {
       offline: "Der KI-Assistent ist nicht erreichbar.",
       failed: "Der KI-Assistent konnte nicht antworten.",
       rateLimited: "KI-Anfragelimit erreicht. Bitte später erneut versuchen.",
+      locked: "Im Business-Tarif verfügbar",
       validation: {
         explain: "Verständlich erklären (KI)",
         explainHint: "Sendet den Prüfbericht des Modells (nicht das Modell) an den KI-Assistenten.",
@@ -3389,6 +3394,7 @@ const VIEWER_I18N = {
       look: "Darstellung",
       analysis: "Analyse",
       measure: "Messen",
+      tools: "Werkzeuge",
       story: "Geschichte",
       model: "Modell",
       file: "Datei",
@@ -3760,7 +3766,7 @@ var DEFAULT_LIST$1 = {
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
-const IS_MOBILE_BUILD$1 = "test" === "mobile";
+const IS_MOBILE_BUILD$1 = "dev" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -6281,6 +6287,9 @@ let ifcData = null;
 // Directly loaded .ifc: properties are read on demand from the web-ifc model (IFCModel).
 let liveModel = null;
 let liveRequest = 0;
+// All the elements of liveModel in the shape of <name>_ifc.json, read once
+// for questions over the whole model (loadIfcQueryData()).
+let liveDataRequest = null;
 let panel = null;
 let highlights = [];
 // Elements hidden through the panel's eye toggle; they stay hidden until toggled back / "Show all".
@@ -6300,9 +6309,15 @@ function hasIfcProperties() {
 }
 
 // The converted model's properties (<name>_ifc.json), or null - also null
-// for a directly loaded .ifc, whose properties are only read per element.
+// for a directly loaded .ifc, whose properties are only read per element
+// (loadIfcQueryData() reads them all).
 function getIfcData() {
   return ifcData;
+}
+
+// The web-ifc model of a directly loaded .ifc, or null.
+function getLiveIfcModel() {
+  return liveModel;
 }
 
 // Fired on document when the properties of the shown model change (loaded
@@ -6315,9 +6330,10 @@ function notifyIfcChange() {
 
 function clearIfcProperties() {
   showAllHidden();
-  const had = ifcData !== null;
+  const had = ifcData !== null || liveModel !== null;
   ifcData = null;
   liveModel = null;
+  liveDataRequest = null;
   liveRequest++;
   closeIfcPanel();
   if (had) notifyIfcChange();
@@ -6353,7 +6369,64 @@ async function loadIfcProperties(url) {
 /** Serves properties straight from a model loaded by IFCLoader (no converted GLB + JSON needed). */
 function setIfcModel(model) {
   clearIfcProperties();
-  if (model?.ifcManager && model.geometry?.attributes?.expressID) liveModel = model;
+  if (model?.ifcManager && model.geometry?.attributes?.expressID) {
+    liveModel = model;
+    notifyIfcChange();
+  }
+}
+
+const LIVE_BATCH = 40;
+
+// The properties of every element, in the shape of <name>_ifc.json
+// ({tree, elements}), plus expressIds (GlobalId -> web-ifc expressID) for
+// a directly loaded .ifc: read from web-ifc once, on first need (an IFC
+// question, ai/ifc-query.js). The converted file's data as it is otherwise;
+// null without IFC properties.
+function loadIfcQueryData() {
+  if (ifcData) return Promise.resolve(ifcData);
+  if (!liveModel) return Promise.resolve(null);
+  if (!liveDataRequest) liveDataRequest = readLiveModelData(liveModel);
+  return liveDataRequest;
+}
+
+async function readLiveModelData(model) {
+  const ids = [...new Set(Array.from(model.geometry.attributes.expressID.array, Math.round))];
+  const elements = {};
+  const expressIds = {};
+  const guidOf = new Map();
+  for (let start = 0; start < ids.length; start += LIVE_BATCH) {
+    const batch = await Promise.all(ids.slice(start, start + LIVE_BATCH).map((id) =>
+      readLiveEntry(model, id).then((result) => ({ id, ...result })).catch(() => null)));
+    batch.filter(Boolean).forEach(({ id, guid, entry }) => {
+      const key = guid || `#${id}`;
+      elements[key] = entry;
+      expressIds[key] = id;
+      guidOf.set(id, key);
+    });
+  }
+  // The spatial structure (project > site > building > storeys > elements),
+  // for the storey of each element.
+  let tree = null;
+  try {
+    const spatial = await model.getSpatialStructure();
+    const walk = async (node) => {
+      let guid = guidOf.get(node.expressID);
+      let name = guid ? elements[guid]?.name : null;
+      if (!guid) {
+        const item = await model.getItemProperties(node.expressID, false).catch(() => null);
+        guid = unwrap(item?.GlobalId) || `#${node.expressID}`;
+        name = unwrap(item?.Name);
+        if (!elements[guid]) elements[guid] = { type: model.getIfcType(node.expressID) || node.type, name };
+      }
+      const children = [];
+      for (const child of node.children || []) children.push(await walk(child));
+      return { guid, type: elements[guid]?.type || node.type, name, ...(children.length ? { children } : {}) };
+    };
+    tree = spatial ? await walk(spatial) : null;
+  } catch (error) {
+    console.warn("[ifc-properties] no spatial structure", error);
+  }
+  return { schema: null, project: null, tree, elements, expressIds };
 }
 
 const unwrap = (v) => {
@@ -7734,7 +7807,7 @@ var DEFAULT_LIST = {
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const IS_MOBILE_BUILD = "test" === "mobile";
+const IS_MOBILE_BUILD = "dev" === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
 const DEFAULT_URL = "./manifests/index.json";
@@ -9252,7 +9325,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DHhdNdHD.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DfRBEUG-.js');
+const loadTilesPlugins = () => import('./index.three-plugins-B62scDuY.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9910,7 +9983,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-DJdhPJxE.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DN8MUS4e.js').then(function (n) { return n.t; }), import('./rendering-webgpu-CAY4mkkR.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -10039,9 +10112,9 @@ const loadLWOLoader = async () => (await import('./three-DVpUZZAE.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DEYEu7o2.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DVpUZZAE.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BkaKo3mg.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BChEJK2Y.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-C7Kw68QA.js');
+const loadSplats = async () => import('./splats-xacOC5Qw.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -10242,7 +10315,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "test";
+const ENV_BUILD = "dev";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -11746,6 +11819,15 @@ function libraryEntryFile(entry) {
 }
 
 const repositoryEntryId = (jobId) => `repository-${jobId}`;
+
+// The small padlock next to a control that is not available (see
+// hasFeature() in app-features.js).
+function createLockIcon() {
+  const icon = document.createElement("span");
+  icon.className = "plan-lock-icon";
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
 
 // The line under a model's name in the model lists (library, repository,
 // admin): small icons instead of words. Each part is an icon, optionally
@@ -13731,7 +13813,7 @@ function removeExistingGalleryDom() {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "dev") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -15176,9 +15258,23 @@ function fetchAIConfig({ refresh = false } = {}) {
   return configRequest;
 }
 
-async function hasAIFeature(feature) {
-  const config = await fetchAIConfig();
-  return Boolean(config.enabled && Array.isArray(config.features) && config.features.includes(feature));
+// "on": offered to this user; "locked": the worker has it, but not for this
+// user's plan (WORKER_AI_ACCESS) - in the app, where plans are sold, the
+// tool is shown with a lock and opens the plans panel; "off": hidden.
+function aiFeatureState(config, feature) {
+  const offered = Array.isArray(config?.features) && config.features.includes(feature);
+  if (config?.enabled && offered) return "on";
+  return "off";
+}
+
+async function aiAvailability(feature) {
+  return aiFeatureState(await fetchAIConfig(), feature);
+}
+
+// A locked AI tool was used: the app's plans panel, at Business.
+function showAILocked(viewer) {
+  toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+  viewer.showLockedFeature?.("aiAssistant");
 }
 
 class AIRequestError extends Error {
@@ -15470,7 +15566,8 @@ function attachValidationReport(Viewer) {
       const modelReport = await fetchModelValidation(core.fileObject.originalPath, { refresh });
       this.validationReport = buildValidationReport(manifest, modelReport);
       if (refresh || this.validationAIExplanation?.model !== core.fileObject.originalPath) this.validationAIExplanation = null;
-      this.validationAIAvailable = Boolean(modelReport) && await hasAIFeature("validation");
+      // "on" | "locked" (the app, a plan without it) | "off".
+      this.validationAIState = modelReport ? await aiAvailability("validation") : "off";
       this.renderValidationReport();
     },
 
@@ -15505,7 +15602,7 @@ function attachValidationReport(Viewer) {
       summary.append(ring, verdict);
       body.appendChild(summary);
 
-      if (this.validationAIAvailable) body.appendChild(this.renderValidationAISection());
+      if (this.validationAIState && this.validationAIState !== "off") body.appendChild(this.renderValidationAISection());
 
       // The checklist.
       const list = el$3("ul", "validation-report-list");
@@ -15586,6 +15683,15 @@ function attachValidationReport(Viewer) {
     // The AI explanation: a button, then the answer (or why there is none).
     renderValidationAISection() {
       const section = el$3("section", "validation-report-ai ai-answer");
+      if (this.validationAIState === "locked") {
+        const button = el$3("button", "ai-button ai-button-locked", t$1("ai.validation.explain", "Explain in plain language (AI)"));
+        button.type = "button";
+        button.prepend(createLockIcon());
+        button.title = t$1("ai.locked", "Available with the Business plan");
+        this.bindEventListener(button, "click", () => showAILocked(this));
+        section.append(button, el$3("p", "ai-disclaimer", t$1("ai.locked", "Available with the Business plan")));
+        return section;
+      }
       const state = this.validationAIExplanation;
       if (!state || state.state === "error") {
         const button = el$3("button", "ai-button", t$1("ai.validation.explain", "Explain in plain language (AI)"));
@@ -15868,8 +15974,10 @@ const MAX_PROPERTIES = 40;
 const MAX_SAMPLES = 3;
 const MAX_TOP = 40;
 // Not elements to count: type objects, the project, relationship-like defs.
-const NOT_ELEMENTS = /(Type|Style)$|^IfcProject$/;
-const SPATIAL = new Set(["IfcSite", "IfcBuilding", "IfcBuildingStorey", "IfcSpace"]);
+// Any case: web-ifc (a .ifc opened directly) names the classes in capitals.
+const NOT_ELEMENTS = /(type|style)$|^ifcproject$/i;
+const SPATIAL = new Set(["ifcsite", "ifcbuilding", "ifcbuildingstorey", "ifcspace"]);
+const isSpatial = (type) => SPATIAL.has(String(type || "").toLowerCase());
 
 function isPlainObject$7(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -15896,7 +16004,7 @@ function ifcStoreys(data) {
   const storeys = new Map();
   const walk = (node, storey) => {
     if (!node) return;
-    const here = node.type === "IfcBuildingStorey" ? (node.name || node.guid) : storey;
+    const here = String(node.type || "").toLowerCase() === "ifcbuildingstorey" ? (node.name || node.guid) : storey;
     if (node.guid && here) storeys.set(node.guid, here);
     (node.children || []).forEach((child) => walk(child, here));
   };
@@ -15904,7 +16012,7 @@ function ifcStoreys(data) {
   Object.entries(data?.elements || {}).forEach(([guid, entry]) => {
     if (storeys.has(guid) || !entry.container) return;
     const container = data.elements[entry.container];
-    if (container?.type === "IfcBuildingStorey") storeys.set(guid, container.name || entry.container);
+    if (String(container?.type || "").toLowerCase() === "ifcbuildingstorey") storeys.set(guid, container.name || entry.container);
   });
   return storeys;
 }
@@ -16057,11 +16165,11 @@ function matchCondition(guid, entry, condition, storeys) {
 function runIfcFilter(data, answer) {
   const storeys = ifcStoreys(data);
   const conditions = Array.isArray(answer?.conditions) ? answer.conditions : [];
-  const wantsSpatial = conditions.some((condition) => condition.field === "type" && SPATIAL.has(condition.value));
+  const wantsSpatial = conditions.some((condition) => condition.field === "type" && isSpatial(condition.value));
   const guids = [];
   Object.entries(data?.elements || {}).forEach(([guid, entry]) => {
     if (!entry || NOT_ELEMENTS.test(entry.type || "")) return;
-    if (!wantsSpatial && SPATIAL.has(entry.type)) return;
+    if (!wantsSpatial && isSpatial(entry.type)) return;
     if (!conditions.length) return;
     const results = conditions.map((condition) => matchCondition(guid, entry, condition, storeys));
     if (answer.match === "any" ? results.some(Boolean) : results.every(Boolean)) guids.push(guid);
@@ -16104,10 +16212,37 @@ function runIfcFilter(data, answer) {
 // data, not from the AI. The panel shows the filter as well, so the user
 // can see how the question was understood.
 //
-// Only for converted IFC models (GLB node names are the GlobalIds); a .ifc
-// opened directly has no property file to query.
+// Converted IFC models: <name>_ifc.json, GLB node names are the GlobalIds.
+// A .ifc opened directly (web-ifc): its properties are read from the model
+// on the first question (loadIfcQueryData), and the elements found are drawn
+// from its one merged mesh by their expressIDs (liveSubset below).
 
 const MAX_LIST = 200;
+
+// The triangles of a web-ifc mesh whose elements are (keep) or are not in
+// `ids` (expressIDs), as a geometry sharing its attributes; `groups`: with
+// the material groups of the source, renumbered.
+function liveSubset(geometry, ids, keep, groups) {
+  const index = geometry.index.array;
+  const expressId = geometry.attributes.expressID;
+  const ranges = groups && geometry.groups.length ? geometry.groups : [{ start: 0, count: index.length, materialIndex: 0 }];
+  const out = [];
+  const outGroups = [];
+  ranges.forEach((range) => {
+    const start = out.length;
+    for (let i = range.start; i < range.start + range.count; i += 3) {
+      if (ids.has(Math.round(expressId.getX(index[i]))) === keep) out.push(index[i], index[i + 1], index[i + 2]);
+    }
+    if (out.length > start) outGroups.push({ start, count: out.length - start, materialIndex: range.materialIndex });
+  });
+  const subset = new THREE.BufferGeometry();
+  Object.entries(geometry.attributes).forEach(([name, attribute]) => subset.setAttribute(name, attribute));
+  subset.setIndex(out);
+  if (groups) outGroups.forEach(({ start, count, materialIndex }) => subset.addGroup(start, count, materialIndex));
+  subset.boundingBox = geometry.boundingBox;
+  subset.boundingSphere = geometry.boundingSphere;
+  return subset;
+}
 
 function describeCondition(condition) {
   const field = condition.field === "property"
@@ -16139,11 +16274,16 @@ function attachIfcQuery(Viewer) {
     ifcQueryHidden: [],
     ifcQueryAIConfig: null,
 
-    // Shown in the toolbar while the model has IFC properties and the
-    // worker offers the feature.
+    // "on" | "locked" | "off" (ai-client.js aiFeatureState) for the model
+    // shown: the tool is in the toolbar while the model has IFC properties
+    // and the worker has the feature - with a lock in the app when the
+    // plan does not include it.
+    ifcQueryAIState() {
+      return hasIfcProperties() ? aiFeatureState(this.ifcQueryAIConfig, "ifc-query") : "off";
+    },
+
     isIfcQueryAvailable() {
-      return Boolean(getIfcData()) && this.ifcQueryAIConfig?.enabled === true
-        && (this.ifcQueryAIConfig.features || []).includes("ifc-query");
+      return this.ifcQueryAIState() === "on";
     },
 
     isIfcQueryOpen() {
@@ -16154,7 +16294,8 @@ function attachIfcQuery(Viewer) {
     // is shown (the settings are loaded by then).
     initIfcQuery() {
       document.addEventListener(IFC_PROPERTIES_EVENT, async () => {
-        if (!getIfcData()) {
+        this.ifcQueryData = null;
+        if (!hasIfcProperties()) {
           this.closeIfcQuery({ reset: true });
         } else {
           this.resetIfcQueryView();
@@ -16177,6 +16318,10 @@ function attachIfcQuery(Viewer) {
     },
 
     toggleIfcQuery() {
+      if (this.ifcQueryAIState() === "locked") {
+        showAILocked(this);
+        return;
+      }
       if (this.isIfcQueryOpen()) {
         this.closeIfcQuery();
         return;
@@ -16260,9 +16405,14 @@ function attachIfcQuery(Viewer) {
     },
 
     async askIfcQuestion(question) {
-      const data = getIfcData();
       const text = String(question || "").trim();
       if (!text) return;
+      // A .ifc opened directly: its properties are read now, once.
+      this.ifcQueryState = { question: text, state: "loading" };
+      this.renderIfcQuery();
+      const data = await loadIfcQueryData().catch(() => null);
+      if (this.ifcQueryState?.question !== text) return;
+      this.ifcQueryData = data;
       if (!data) {
         this.ifcQueryState = { question: text, state: "error", error: t$1("ai.ifc.noData", "This model has no IFC properties.") };
         this.renderIfcQuery();
@@ -16272,7 +16422,7 @@ function attachIfcQuery(Viewer) {
       this.renderIfcQuery();
       try {
         const answer = await aiRequest("/api/ai/ifc-query", { question: text, schema: buildIfcSummary(data) });
-        if (this.ifcQueryState?.question !== text || getIfcData() !== data) return;
+        if (this.ifcQueryState?.question !== text || this.ifcQueryData !== data) return;
         const result = answer.understood === false ? { guids: [], aggregate: null } : runIfcFilter(data, answer);
         this.ifcQueryState = { question: text, state: "done", answer, result };
         this.applyIfcQueryAction(answer.understood === false ? "reset" : answer.action || "highlight");
@@ -16356,7 +16506,7 @@ function attachIfcQuery(Viewer) {
     },
 
     renderIfcQueryList(guids) {
-      const data = getIfcData();
+      const data = this.ifcQueryData;
       const details = el$2("details", "ifc-query-list");
       details.appendChild(el$2("summary", "", `${t$1("ai.ifc.list", "Elements")} (${guids.length})`));
       const list = el$2("ul");
@@ -16368,6 +16518,13 @@ function attachIfcQuery(Viewer) {
         button.title = guid;
         button.appendChild(el$2("small", "", ` ${entry.type || ""}`));
         button.addEventListener("click", () => {
+          // A .ifc opened directly has no node per element: the element
+          // alone is highlighted instead of its properties opened.
+          if (getLiveIfcModel() && !getIfcData()) {
+            this.applyIfcQueryAction("highlight", [guid]);
+            this.renderIfcQuery();
+            return;
+          }
           const node = this.findIfcNodes(new Set([guid]))[0];
           if (node) showIfcProperties(node);
         });
@@ -16418,8 +16575,18 @@ function attachIfcQuery(Viewer) {
     },
 
     resetIfcQueryView() {
-      this.ifcQueryOverlays.forEach((overlay) => overlay.parent?.remove(overlay));
+      this.ifcQueryOverlays.forEach((overlay) => {
+        overlay.parent?.remove(overlay);
+        if (overlay.userData.ownGeometry) overlay.geometry.dispose();
+      });
       this.ifcQueryOverlays = [];
+      // A .ifc opened directly: its whole geometry back.
+      const swapped = this.ifcQueryLiveGeometry;
+      if (swapped) {
+        swapped.model.geometry.dispose();
+        swapped.model.geometry = swapped.geometry;
+        this.ifcQueryLiveGeometry = null;
+      }
       this.ifcQueryMaterial?.dispose();
       this.ifcQueryMaterial = null;
       this.ifcQueryHidden.forEach((mesh) => {
@@ -16429,22 +16596,21 @@ function attachIfcQuery(Viewer) {
       if (this.ifcQueryState) this.ifcQueryState.view = "reset";
     },
 
-    // highlight | isolate | hide | reset, on the elements found.
-    applyIfcQueryAction(action) {
+    // highlight | isolate | hide | reset, on the elements found (or on
+    // `only`, some of them).
+    applyIfcQueryAction(action, only = null) {
       this.resetIfcQueryView();
-      const guids = new Set(this.ifcQueryState?.result?.guids || []);
+      const guids = new Set(only || this.ifcQueryState?.result?.guids || []);
       if (action === "reset" || !guids.size) return;
+      const live = getLiveIfcModel();
+      if (live && !getIfcData()) {
+        this.applyLiveIfcQueryAction(live, action, guids);
+        this.ifcQueryState.view = action;
+        return;
+      }
       const meshes = this.ifcQueryMeshes(guids);
       if (action === "highlight") {
-        this.ifcQueryMaterial = new THREE.MeshBasicMaterial({
-          color: 0x7c5cff,
-          transparent: true,
-          opacity: 0.5,
-          depthWrite: false,
-          polygonOffset: true,
-          polygonOffsetFactor: -2,
-          polygonOffsetUnits: -2,
-        });
+        this.ifcQueryMaterial = this.createIfcQueryMaterial();
         meshes.filter(([, matched]) => matched).forEach(([mesh]) => {
           const overlay = new THREE.Mesh(mesh.geometry, this.ifcQueryMaterial);
           overlay.raycast = () => {};
@@ -16463,6 +16629,43 @@ function attachIfcQuery(Viewer) {
         });
       }
       this.ifcQueryState.view = action;
+    },
+
+    createIfcQueryMaterial() {
+      return new THREE.MeshBasicMaterial({
+          color: 0x7c5cff,
+          transparent: true,
+          opacity: 0.5,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+      });
+    },
+
+    // A .ifc opened directly is one mesh, its elements told apart by the
+    // expressID of each vertex: highlighted by an overlay of their
+    // triangles; hidden or isolated by giving the mesh, until the view is
+    // reset, a geometry with only the triangles that stay (its material
+    // groups kept, and the same attributes, so picking still works).
+    applyLiveIfcQueryAction(model, action, guids) {
+      const expressIds = this.ifcQueryData?.expressIds || {};
+      const ids = new Set([...guids].map((guid) => expressIds[guid]).filter((id) => id != null));
+      if (!ids.size) return;
+      const geometry = model.geometry;
+      if (action === "highlight") {
+        this.ifcQueryMaterial = this.createIfcQueryMaterial();
+        const overlay = new THREE.Mesh(liveSubset(geometry, ids, true, false), this.ifcQueryMaterial);
+        overlay.raycast = () => {};
+        overlay.renderOrder = 998;
+        overlay.userData.ifcQueryOverlay = true;
+        overlay.userData.ownGeometry = true;
+        model.add(overlay);
+        this.ifcQueryOverlays.push(overlay);
+        return;
+      }
+      this.ifcQueryLiveGeometry = { model, geometry };
+      model.geometry = liveSubset(geometry, ids, action === "isolate", true);
     },
   });
   Viewer.initIfcQuery();
@@ -16569,17 +16772,18 @@ function attachVariantsReview(Viewer) {
   Object.assign(Viewer, {
     // {state, answer, error}, for the variants shown.
     variantsAIReview: null,
-    variantsAIAvailable: false,
+    // "on" | "locked" | "off" (ai-client.js aiFeatureState).
+    variantsAIState: "off",
 
     // From createVariantsPanel: the place for the button and the answer.
     attachVariantsAI(container) {
       Viewer.variantsAIContainer = container;
       Viewer.variantsAIReview = null;
-      Viewer.variantsAIAvailable = false;
+      Viewer.variantsAIState = "off";
       Viewer.renderVariantsAI();
-      hasAIFeature("variants").then((available) => {
+      aiAvailability("variants").then((state) => {
         if (Viewer.variantsAIContainer !== container) return;
-        Viewer.variantsAIAvailable = available;
+        Viewer.variantsAIState = state;
         Viewer.renderVariantsAI();
       });
     },
@@ -16588,8 +16792,17 @@ function attachVariantsReview(Viewer) {
       const container = Viewer.variantsAIContainer;
       if (!container) return;
       container.textContent = "";
-      container.hidden = !Viewer.variantsAIAvailable;
-      if (!Viewer.variantsAIAvailable) return;
+      container.hidden = Viewer.variantsAIState === "off";
+      if (Viewer.variantsAIState === "off") return;
+      if (Viewer.variantsAIState === "locked") {
+        const button = el$1("button", "ai-button ai-button-locked", t$1("ai.variants.describe", "Compare and review paradata (AI)"));
+        button.type = "button";
+        button.prepend(createLockIcon());
+        button.title = t$1("ai.locked", "Available with the Business plan");
+        button.addEventListener("click", () => showAILocked(Viewer));
+        container.appendChild(button);
+        return;
+      }
       const review = Viewer.variantsAIReview;
       if (!review || review.state === "error") {
         const button = el$1("button", "ai-button", t$1("ai.variants.describe", "Compare and review paradata (AI)"));
@@ -18450,8 +18663,8 @@ function renderFrame(renderer = core.renderer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "479e1b6" ;
-const BUILD = "test" ;
+const BUILD_ID$2 = "e8c660a" ;
+const BUILD = "dev" ;
 
 let initPromise = null;
 
@@ -18501,8 +18714,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "479e1b6" ;
-const BUILD_TIME$1 = "2026-10-17T13:37:32.163Z" ;
+const BUILD_ID$1 = "e8c660a" ;
+const BUILD_TIME$1 = "2026-10-17T18:46:28.810Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -18916,26 +19129,23 @@ const CATEGORIES = [
     id: "analysis",
     label: () => t$1("menus.analysis", "Analysis"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6 19c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5l7 6M5 9l4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty", "compare", "ifcQuery"],
+    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty"],
   },
+  // The model itself: moving, turning, scaling and measuring it, its parts,
+  // and what only some models have (shown when the model has it): its
+  // reconstruction variants to compare, IFC properties to ask about, point
+  // cloud settings.
   {
-    id: "measure",
-    label: () => t$1("menus.measure", "Measure"),
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15 15 3l6 6L9 21z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7 11l2 2M10 8l2 2M13 5l2 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["ruler"],
+    id: "model",
+    label: () => t$1("menus.model", "Model"),
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+    tools: ["move", "rotate", "scale", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
   },
   {
     id: "story",
     label: () => t$1("menus.story", "Story"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H10l-5 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
     tools: ["annotate", "annotateTour", "annotatePhotos"],
-  },
-  {
-    id: "model",
-    more: true,
-    label: () => t$1("menus.model", "Model"),
-    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["hierarchy", "picking", "pointCloud"],
   },
   {
     id: "file",
@@ -18961,9 +19171,9 @@ const MORE = {
   icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg>',
 };
 
-// Always at hand, outside the menus: the model's transform modes, then the
-// view.
-const NAV_TRANSFORM = ["orbit", "move", "rotate", "scale"];
+// Always at hand, outside the menus: navigating (which also ends moving,
+// turning or scaling the model - those are under Model), then the view.
+const NAV_TRANSFORM = ["orbit"];
 const NAV_VIEW = ["resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
 // What the phone itself adds - AR in the room (the app's, else the
@@ -19075,6 +19285,14 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
       groups[category.id].group.appendChild(button);
       groups[category.id].count += 1;
     });
+  // Moving, turning or scaling: the gizmo is on the model, so a phone's
+  // sheet gets out of its way.
+  ["move", "rotate", "scale"].forEach((key) => {
+    if (!buttons[key]) return;
+    viewer.bindEventListener(buttons[key], "click", () => {
+      if (state.mode !== "desktop") openMenu(null);
+    });
+  });
   // The main menu's contents (language, theme - kept by main.js and
   // ui/localization-theme.js) open in Settings; its cog is not shown.
   if (viewer.actionMenuPanel) {
@@ -22122,7 +22340,11 @@ function updateEditorToolbarState(viewer) {
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
   const ifcQueryButton = viewer.editorToolbarButtons.ifcQuery;
-  if (ifcQueryButton) ifcQueryButton.hidden = !viewer.isIfcQueryAvailable?.();
+  if (ifcQueryButton) {
+    const state = viewer.ifcQueryAIState?.() || "off";
+    ifcQueryButton.hidden = state === "off";
+    ifcQueryButton.classList.toggle("plan-locked", state === "locked");
+  }
   const creditsButton = viewer.editorToolbarButtons.credits;
   if (creditsButton) creditsButton.hidden = !viewer.creditsWrapper;
 
@@ -34770,6 +34992,12 @@ function attachCertainty(Viewer) {
           <input type="range" min="0" max="100" step="5" value="${Math.round(scale.opacity * 100)}" />
           <output>${Math.round(scale.opacity * 100)}%</output>
         </label>`;
+      // On a phone: a grip to drag the legend off what it covers (another
+      // panel, the model) and a button to fold it to its header, like the
+      // other tool panels. Again on every render, which rebuilds the header.
+      attachToolPanelChrome(legend, legend.querySelector(".certainty-legend__header"), {
+        before: legend.querySelector(".certainty-legend__close"),
+      });
     },
 
     // An annotation badge in the view: the level's colour, its code large
@@ -46528,8 +46756,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "479e1b6" ;
-const BUILD_TIME = "2026-10-17T13:37:32.163Z" ;
+const BUILD_ID = "e8c660a" ;
+const BUILD_TIME = "2026-10-17T18:46:28.810Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -46770,7 +46998,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "" ;
+const SOURCE = "IIIF" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
@@ -48337,9 +48565,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    if (!core.CONFIG.entity.metadata.sourceType) {
+    {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -50972,4 +51200,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-DV90dvrA.js.map
+//# sourceMappingURL=main-5iQ3BcMM.js.map

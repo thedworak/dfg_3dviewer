@@ -3538,7 +3538,7 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
   await expect(toolbar).toHaveAttribute('data-mode', 'desktop');
   const tabs = toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label');
-  await expect(tabs).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'Model', 'File', 'Settings']);
+  await expect(tabs).toHaveText(['Look', 'Analysis', 'Model', 'Story', 'File', 'Settings']);
   // Icons only; the name shows over the icon on hover, moving nothing.
   const lookTab = toolbar.locator('.viewer-menus_tab[data-menu="look"]');
   const lookLabel = lookTab.locator('.viewer-menus_tab-label');
@@ -3550,13 +3550,20 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   expect((await lookLabel.boundingBox()).y + 5).toBeLessThan((await lookTab.boundingBox()).y);
   expect(await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox()).toEqual(tabBefore);
   await page.mouse.move(700, 300);
-  // At hand, outside the menus: the transform modes and the view.
+  // At hand, outside the menus: navigating and the view.
   const nav = toolbar.locator('.viewer-menus_nav > [data-tool]:visible:not(.viewer-menus_grip)');
-  await expect(nav).toHaveCount(6);
-  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'move', 'rotate', 'scale', 'resetCamera', 'fullScreen']);
-  await toolbar.locator('.viewer-menus_nav [data-tool="move"]').click();
+  await expect(nav).toHaveCount(3);
+  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'resetCamera', 'fullScreen']);
+  // Moving, turning, scaling and measuring, the parts, and what only some
+  // models have (hidden here: no variants, IFC or point cloud): under Model.
+  await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
+  const tools = toolbar.locator('.viewer-menus_group[data-category="model"] > [data-tool]:visible');
+  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['move', 'rotate', 'scale', 'ruler', 'hierarchy', 'picking']);
+  await toolbar.locator('.viewer-menus_group[data-category="model"] [data-tool="move"]').click();
   expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('translate');
   await toolbar.locator('.viewer-menus_nav [data-tool="orbit"]').click();
+  expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('');
+  await page.keyboard.press('Escape');
 
   // Settings: the language and theme of the classic main menu, then help;
   // its cog is gone. The projection is under Look.
@@ -3661,13 +3668,13 @@ test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once
   expect(arBox.y + arBox.height).toBeLessThanOrEqual(navBox.y + navBox.height);
   expect(navBox.x).toBeGreaterThanOrEqual(0);
   expect(navBox.x + navBox.width).toBeLessThanOrEqual(390);
-  await expect(toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label')).toHaveText(['Look', 'Analysis', 'Measure', 'Story', 'More']);
+  await expect(toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label')).toHaveText(['Look', 'Analysis', 'Model', 'Story', 'More']);
 
   // "More": the rest, under headings.
   await toolbar.locator('.viewer-menus_tab[data-menu="more"]').tap();
   const panel = toolbar.locator('.viewer-menus_panel');
   await expect(panel).toBeVisible();
-  await expect(panel.locator('.viewer-menus_group.is-shown .viewer-menus_group-title')).toHaveText(['Model', 'File', 'Settings']);
+  await expect(panel.locator('.viewer-menus_group.is-shown .viewer-menus_group-title')).toHaveText(['File', 'Settings']);
   // The sheet stands on the tab bar, over the whole width (once slid in).
   await panel.evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
   const [sheet, bar] = await Promise.all([panel.boundingBox(), toolbar.locator('.viewer-menus_tabs').boundingBox()]);
@@ -4206,6 +4213,42 @@ test('point clouds classified by the worker: the class list says so', async ({ p
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
   await page.waitForFunction(() => window.Viewer.pointCloudState?.autoClassification, null, { timeout: 20_000 });
   await expect(page.locator('#viewerPointCloudPanel .viewer-pointcloud-panel_note')).toHaveText(/assigned automatically from the geometry/);
+});
+
+test('AI: IFC questions on a .ifc opened directly (web-ifc): properties read once, elements drawn from the merged mesh', async ({ page }) => {
+  test.setTimeout(150_000);
+  let schema = null;
+  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['ifc-query'], model: 'claude-opus-5-5' } }));
+  await page.route('**/api/ai/ifc-query', (route) => {
+    schema = route.request().postDataJSON().schema;
+    return route.fulfill({ json: {
+      understood: true, interpretation: 'Columns', match: 'all',
+      conditions: [{ field: 'type', pset: null, property: null, op: 'eq', value: 'IfcColumn' }],
+      aggregate: { kind: 'count', pset: null, property: null, unit: null }, action: 'highlight', note: null, model: 'claude-opus-5-5',
+    } });
+  });
+  await openViewer(page, '/examples/tempietto/Tempietto.ifc');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 90_000 });
+  await page.waitForFunction(() => window.Viewer.ifcQueryAIState?.() === 'on', null, { timeout: 20_000 });
+  expect(await page.evaluate(() => window.Viewer.editorToolbarButtons.ifcQuery.hidden)).toBe(false);
+
+  await page.evaluate(() => window.Viewer.toggleIfcQuery());
+  const panel = page.locator('#ifcQueryPanel');
+  await panel.locator('input').fill('columns');
+  await panel.locator('button[type="submit"]').click();
+  await expect(panel.locator('.ifc-query-count')).toHaveText('5 element(s) found', { timeout: 60_000 });
+  expect(schema.classes.IfcColumn).toBe(5);
+  expect(schema.storeys).toEqual(['Ground']);
+
+  // Highlighted: an overlay of the columns' triangles on the one mesh.
+  const whole = await page.evaluate(() => window.Viewer.ifcQueryOverlays[0].parent.geometry.index.count);
+  expect(await page.evaluate(() => window.Viewer.ifcQueryOverlays[0].geometry.index.count)).toBeLessThan(whole);
+  // Shown alone: the mesh gets a geometry with only those triangles, back on reset.
+  await panel.locator('.ifc-query-actions [data-action="isolate"]').click();
+  const isolated = await page.evaluate(() => window.Viewer.ifcQueryLiveGeometry.model.geometry.index.count);
+  expect(isolated).toBeLessThan(whole);
+  await panel.locator('.ifc-query-actions [data-action="reset"]').click();
+  expect(await page.evaluate(() => window.Viewer.ifcQueryLiveGeometry)).toBeNull();
 });
 
 test('example manifests list: icons of what each manifest contains', async ({ page }) => {

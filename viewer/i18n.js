@@ -419,6 +419,7 @@ export const VIEWER_I18N = {
       offline: "The AI assistant could not be reached.",
       failed: "The AI assistant could not answer.",
       rateLimited: "AI request limit reached. Try again later.",
+      locked: "Available with the Business plan",
       validation: {
         explain: "Explain in plain language (AI)",
         explainHint: "Sends the model check report (not the model) to the AI assistant.",
@@ -949,6 +950,7 @@ export const VIEWER_I18N = {
       look: "Look",
       analysis: "Analysis",
       measure: "Measure",
+      tools: "Tools",
       story: "Story",
       model: "Model",
       file: "File",
@@ -1463,6 +1465,7 @@ export const VIEWER_I18N = {
       offline: "Nie udało się połączyć z asystentem AI.",
       failed: "Asystent AI nie mógł odpowiedzieć.",
       rateLimited: "Osiągnięto limit zapytań AI. Spróbuj później.",
+      locked: "Dostępne w planie Business",
       validation: {
         explain: "Wyjaśnij prostym językiem (AI)",
         explainHint: "Wysyła do asystenta AI raport ze sprawdzenia modelu (nie sam model).",
@@ -2010,6 +2013,7 @@ export const VIEWER_I18N = {
       look: "Wygląd",
       analysis: "Analiza",
       measure: "Pomiary",
+      tools: "Narzędzia",
       story: "Opowieść",
       model: "Model",
       file: "Plik",
@@ -2540,6 +2544,7 @@ export const VIEWER_I18N = {
       offline: "Der KI-Assistent ist nicht erreichbar.",
       failed: "Der KI-Assistent konnte nicht antworten.",
       rateLimited: "KI-Anfragelimit erreicht. Bitte später erneut versuchen.",
+      locked: "Im Business-Tarif verfügbar",
       validation: {
         explain: "Verständlich erklären (KI)",
         explainHint: "Sendet den Prüfbericht des Modells (nicht das Modell) an den KI-Assistenten.",
@@ -3070,6 +3075,7 @@ export const VIEWER_I18N = {
       look: "Darstellung",
       analysis: "Analyse",
       measure: "Messen",
+      tools: "Werkzeuge",
       story: "Geschichte",
       model: "Modell",
       file: "Datei",

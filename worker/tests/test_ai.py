@@ -163,6 +163,14 @@ class AccessTests(unittest.TestCase):
         # The app's Business subscriber has no account.
         self.assertTrue(ai.allowed(None, True))
 
+    def test_config_when_restricted(self):
+        os.environ.pop("WORKER_AI_ACCESS", None)
+        config = ai.config(None, False)
+        self.assertFalse(config["enabled"])
+        self.assertTrue(config["restricted"])
+        # The tools the app shows locked.
+        self.assertEqual(config["features"], list(ai.FEATURES))
+
     def test_enterprise_counts_as_business(self):
         from limits import is_business_account
         from auth import APP_TIERS, PLAN_RANK

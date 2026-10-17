@@ -1,8 +1,8 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
-import { getIfcData, IFC_PROPERTIES_EVENT, showIfcProperties } from "../ifc-properties.js";
-import { aiDisclaimer, aiRequest, fetchAIConfig } from "./ai-client.js";
+import { getIfcData, getLiveIfcModel, hasIfcProperties, IFC_PROPERTIES_EVENT, loadIfcQueryData, showIfcProperties } from "../ifc-properties.js";
+import { aiDisclaimer, aiFeatureState, aiRequest, fetchAIConfig, showAILocked } from "./ai-client.js";
 import { buildIfcSummary, runIfcFilter } from "./ifc-filter.js";
 
 // Questions about a building model in plain language ("load-bearing walls
@@ -17,10 +17,37 @@ import { buildIfcSummary, runIfcFilter } from "./ifc-filter.js";
 // data, not from the AI. The panel shows the filter as well, so the user
 // can see how the question was understood.
 //
-// Only for converted IFC models (GLB node names are the GlobalIds); a .ifc
-// opened directly has no property file to query.
+// Converted IFC models: <name>_ifc.json, GLB node names are the GlobalIds.
+// A .ifc opened directly (web-ifc): its properties are read from the model
+// on the first question (loadIfcQueryData), and the elements found are drawn
+// from its one merged mesh by their expressIDs (liveSubset below).
 
 const MAX_LIST = 200;
+
+// The triangles of a web-ifc mesh whose elements are (keep) or are not in
+// `ids` (expressIDs), as a geometry sharing its attributes; `groups`: with
+// the material groups of the source, renumbered.
+function liveSubset(geometry, ids, keep, groups) {
+  const index = geometry.index.array;
+  const expressId = geometry.attributes.expressID;
+  const ranges = groups && geometry.groups.length ? geometry.groups : [{ start: 0, count: index.length, materialIndex: 0 }];
+  const out = [];
+  const outGroups = [];
+  ranges.forEach((range) => {
+    const start = out.length;
+    for (let i = range.start; i < range.start + range.count; i += 3) {
+      if (ids.has(Math.round(expressId.getX(index[i]))) === keep) out.push(index[i], index[i + 1], index[i + 2]);
+    }
+    if (out.length > start) outGroups.push({ start, count: out.length - start, materialIndex: range.materialIndex });
+  });
+  const subset = new THREE.BufferGeometry();
+  Object.entries(geometry.attributes).forEach(([name, attribute]) => subset.setAttribute(name, attribute));
+  subset.setIndex(out);
+  if (groups) outGroups.forEach(({ start, count, materialIndex }) => subset.addGroup(start, count, materialIndex));
+  subset.boundingBox = geometry.boundingBox;
+  subset.boundingSphere = geometry.boundingSphere;
+  return subset;
+}
 
 function describeCondition(condition) {
   const field = condition.field === "property"
@@ -52,11 +79,16 @@ export function attachIfcQuery(Viewer) {
     ifcQueryHidden: [],
     ifcQueryAIConfig: null,
 
-    // Shown in the toolbar while the model has IFC properties and the
-    // worker offers the feature.
+    // "on" | "locked" | "off" (ai-client.js aiFeatureState) for the model
+    // shown: the tool is in the toolbar while the model has IFC properties
+    // and the worker has the feature - with a lock in the app when the
+    // plan does not include it.
+    ifcQueryAIState() {
+      return hasIfcProperties() ? aiFeatureState(this.ifcQueryAIConfig, "ifc-query") : "off";
+    },
+
     isIfcQueryAvailable() {
-      return Boolean(getIfcData()) && this.ifcQueryAIConfig?.enabled === true
-        && (this.ifcQueryAIConfig.features || []).includes("ifc-query");
+      return this.ifcQueryAIState() === "on";
     },
 
     isIfcQueryOpen() {
@@ -67,7 +99,8 @@ export function attachIfcQuery(Viewer) {
     // is shown (the settings are loaded by then).
     initIfcQuery() {
       document.addEventListener(IFC_PROPERTIES_EVENT, async () => {
-        if (!getIfcData()) {
+        this.ifcQueryData = null;
+        if (!hasIfcProperties()) {
           this.closeIfcQuery({ reset: true });
         } else {
           this.resetIfcQueryView();
@@ -90,6 +123,10 @@ export function attachIfcQuery(Viewer) {
     },
 
     toggleIfcQuery() {
+      if (this.ifcQueryAIState() === "locked") {
+        showAILocked(this);
+        return;
+      }
       if (this.isIfcQueryOpen()) {
         this.closeIfcQuery();
         return;
@@ -173,9 +210,14 @@ export function attachIfcQuery(Viewer) {
     },
 
     async askIfcQuestion(question) {
-      const data = getIfcData();
       const text = String(question || "").trim();
       if (!text) return;
+      // A .ifc opened directly: its properties are read now, once.
+      this.ifcQueryState = { question: text, state: "loading" };
+      this.renderIfcQuery();
+      const data = await loadIfcQueryData().catch(() => null);
+      if (this.ifcQueryState?.question !== text) return;
+      this.ifcQueryData = data;
       if (!data) {
         this.ifcQueryState = { question: text, state: "error", error: t("ai.ifc.noData", "This model has no IFC properties.") };
         this.renderIfcQuery();
@@ -185,7 +227,7 @@ export function attachIfcQuery(Viewer) {
       this.renderIfcQuery();
       try {
         const answer = await aiRequest("/api/ai/ifc-query", { question: text, schema: buildIfcSummary(data) });
-        if (this.ifcQueryState?.question !== text || getIfcData() !== data) return;
+        if (this.ifcQueryState?.question !== text || this.ifcQueryData !== data) return;
         const result = answer.understood === false ? { guids: [], aggregate: null } : runIfcFilter(data, answer);
         this.ifcQueryState = { question: text, state: "done", answer, result };
         this.applyIfcQueryAction(answer.understood === false ? "reset" : answer.action || "highlight");
@@ -269,7 +311,7 @@ export function attachIfcQuery(Viewer) {
     },
 
     renderIfcQueryList(guids) {
-      const data = getIfcData();
+      const data = this.ifcQueryData;
       const details = el("details", "ifc-query-list");
       details.appendChild(el("summary", "", `${t("ai.ifc.list", "Elements")} (${guids.length})`));
       const list = el("ul");
@@ -281,6 +323,13 @@ export function attachIfcQuery(Viewer) {
         button.title = guid;
         button.appendChild(el("small", "", ` ${entry.type || ""}`));
         button.addEventListener("click", () => {
+          // A .ifc opened directly has no node per element: the element
+          // alone is highlighted instead of its properties opened.
+          if (getLiveIfcModel() && !getIfcData()) {
+            this.applyIfcQueryAction("highlight", [guid]);
+            this.renderIfcQuery();
+            return;
+          }
           const node = this.findIfcNodes(new Set([guid]))[0];
           if (node) showIfcProperties(node);
         });
@@ -331,8 +380,18 @@ export function attachIfcQuery(Viewer) {
     },
 
     resetIfcQueryView() {
-      this.ifcQueryOverlays.forEach((overlay) => overlay.parent?.remove(overlay));
+      this.ifcQueryOverlays.forEach((overlay) => {
+        overlay.parent?.remove(overlay);
+        if (overlay.userData.ownGeometry) overlay.geometry.dispose();
+      });
       this.ifcQueryOverlays = [];
+      // A .ifc opened directly: its whole geometry back.
+      const swapped = this.ifcQueryLiveGeometry;
+      if (swapped) {
+        swapped.model.geometry.dispose();
+        swapped.model.geometry = swapped.geometry;
+        this.ifcQueryLiveGeometry = null;
+      }
       this.ifcQueryMaterial?.dispose();
       this.ifcQueryMaterial = null;
       this.ifcQueryHidden.forEach((mesh) => {
@@ -342,22 +401,21 @@ export function attachIfcQuery(Viewer) {
       if (this.ifcQueryState) this.ifcQueryState.view = "reset";
     },
 
-    // highlight | isolate | hide | reset, on the elements found.
-    applyIfcQueryAction(action) {
+    // highlight | isolate | hide | reset, on the elements found (or on
+    // `only`, some of them).
+    applyIfcQueryAction(action, only = null) {
       this.resetIfcQueryView();
-      const guids = new Set(this.ifcQueryState?.result?.guids || []);
+      const guids = new Set(only || this.ifcQueryState?.result?.guids || []);
       if (action === "reset" || !guids.size) return;
+      const live = getLiveIfcModel();
+      if (live && !getIfcData()) {
+        this.applyLiveIfcQueryAction(live, action, guids);
+        this.ifcQueryState.view = action;
+        return;
+      }
       const meshes = this.ifcQueryMeshes(guids);
       if (action === "highlight") {
-        this.ifcQueryMaterial = new THREE.MeshBasicMaterial({
-          color: 0x7c5cff,
-          transparent: true,
-          opacity: 0.5,
-          depthWrite: false,
-          polygonOffset: true,
-          polygonOffsetFactor: -2,
-          polygonOffsetUnits: -2,
-        });
+        this.ifcQueryMaterial = this.createIfcQueryMaterial();
         meshes.filter(([, matched]) => matched).forEach(([mesh]) => {
           const overlay = new THREE.Mesh(mesh.geometry, this.ifcQueryMaterial);
           overlay.raycast = () => {};
@@ -376,6 +434,43 @@ export function attachIfcQuery(Viewer) {
         });
       }
       this.ifcQueryState.view = action;
+    },
+
+    createIfcQueryMaterial() {
+      return new THREE.MeshBasicMaterial({
+          color: 0x7c5cff,
+          transparent: true,
+          opacity: 0.5,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+      });
+    },
+
+    // A .ifc opened directly is one mesh, its elements told apart by the
+    // expressID of each vertex: highlighted by an overlay of their
+    // triangles; hidden or isolated by giving the mesh, until the view is
+    // reset, a geometry with only the triangles that stay (its material
+    // groups kept, and the same attributes, so picking still works).
+    applyLiveIfcQueryAction(model, action, guids) {
+      const expressIds = this.ifcQueryData?.expressIds || {};
+      const ids = new Set([...guids].map((guid) => expressIds[guid]).filter((id) => id != null));
+      if (!ids.size) return;
+      const geometry = model.geometry;
+      if (action === "highlight") {
+        this.ifcQueryMaterial = this.createIfcQueryMaterial();
+        const overlay = new THREE.Mesh(liveSubset(geometry, ids, true, false), this.ifcQueryMaterial);
+        overlay.raycast = () => {};
+        overlay.renderOrder = 998;
+        overlay.userData.ifcQueryOverlay = true;
+        overlay.userData.ownGeometry = true;
+        model.add(overlay);
+        this.ifcQueryOverlays.push(overlay);
+        return;
+      }
+      this.ifcQueryLiveGeometry = { model, geometry };
+      model.geometry = liveSubset(geometry, ids, action === "isolate", true);
     },
   });
   Viewer.initIfcQuery();

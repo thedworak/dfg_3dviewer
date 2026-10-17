@@ -1,4 +1,4 @@
-import { d as decompressSync } from './main-Dv_dhYWV.js';
+import { d as decompressSync } from './main-SZeHmbX0.js';
 import './three-DVpUZZAE.js';
 import './_commonjsHelpers-B1ynBD_6.js';
 

@@ -138,7 +138,8 @@ def config(user=None, is_business: bool = False) -> dict:
         # Switched on, but not for this caller: the viewer can say why.
         "restricted": on and not permitted,
         "access": access_level() if on else None,
-        "features": enabled_features() if permitted else [],
+        # Also when restricted: the app shows those tools with a lock.
+        "features": enabled_features() if on else [],
         "model": model() if permitted else None,
     }
 

@@ -10,6 +10,9 @@ let ifcData = null;
 // Directly loaded .ifc: properties are read on demand from the web-ifc model (IFCModel).
 let liveModel = null;
 let liveRequest = 0;
+// All the elements of liveModel in the shape of <name>_ifc.json, read once
+// for questions over the whole model (loadIfcQueryData()).
+let liveDataRequest = null;
 let panel = null;
 let highlights = [];
 // Elements hidden through the panel's eye toggle; they stay hidden until toggled back / "Show all".
@@ -29,9 +32,15 @@ export function hasIfcProperties() {
 }
 
 // The converted model's properties (<name>_ifc.json), or null - also null
-// for a directly loaded .ifc, whose properties are only read per element.
+// for a directly loaded .ifc, whose properties are only read per element
+// (loadIfcQueryData() reads them all).
 export function getIfcData() {
   return ifcData;
+}
+
+// The web-ifc model of a directly loaded .ifc, or null.
+export function getLiveIfcModel() {
+  return liveModel;
 }
 
 // Fired on document when the properties of the shown model change (loaded
@@ -44,9 +53,10 @@ function notifyIfcChange() {
 
 export function clearIfcProperties() {
   showAllHidden();
-  const had = ifcData !== null;
+  const had = ifcData !== null || liveModel !== null;
   ifcData = null;
   liveModel = null;
+  liveDataRequest = null;
   liveRequest++;
   closeIfcPanel();
   if (had) notifyIfcChange();
@@ -82,7 +92,64 @@ export async function loadIfcProperties(url) {
 /** Serves properties straight from a model loaded by IFCLoader (no converted GLB + JSON needed). */
 export function setIfcModel(model) {
   clearIfcProperties();
-  if (model?.ifcManager && model.geometry?.attributes?.expressID) liveModel = model;
+  if (model?.ifcManager && model.geometry?.attributes?.expressID) {
+    liveModel = model;
+    notifyIfcChange();
+  }
+}
+
+const LIVE_BATCH = 40;
+
+// The properties of every element, in the shape of <name>_ifc.json
+// ({tree, elements}), plus expressIds (GlobalId -> web-ifc expressID) for
+// a directly loaded .ifc: read from web-ifc once, on first need (an IFC
+// question, ai/ifc-query.js). The converted file's data as it is otherwise;
+// null without IFC properties.
+export function loadIfcQueryData() {
+  if (ifcData) return Promise.resolve(ifcData);
+  if (!liveModel) return Promise.resolve(null);
+  if (!liveDataRequest) liveDataRequest = readLiveModelData(liveModel);
+  return liveDataRequest;
+}
+
+async function readLiveModelData(model) {
+  const ids = [...new Set(Array.from(model.geometry.attributes.expressID.array, Math.round))];
+  const elements = {};
+  const expressIds = {};
+  const guidOf = new Map();
+  for (let start = 0; start < ids.length; start += LIVE_BATCH) {
+    const batch = await Promise.all(ids.slice(start, start + LIVE_BATCH).map((id) =>
+      readLiveEntry(model, id).then((result) => ({ id, ...result })).catch(() => null)));
+    batch.filter(Boolean).forEach(({ id, guid, entry }) => {
+      const key = guid || `#${id}`;
+      elements[key] = entry;
+      expressIds[key] = id;
+      guidOf.set(id, key);
+    });
+  }
+  // The spatial structure (project > site > building > storeys > elements),
+  // for the storey of each element.
+  let tree = null;
+  try {
+    const spatial = await model.getSpatialStructure();
+    const walk = async (node) => {
+      let guid = guidOf.get(node.expressID);
+      let name = guid ? elements[guid]?.name : null;
+      if (!guid) {
+        const item = await model.getItemProperties(node.expressID, false).catch(() => null);
+        guid = unwrap(item?.GlobalId) || `#${node.expressID}`;
+        name = unwrap(item?.Name);
+        if (!elements[guid]) elements[guid] = { type: model.getIfcType(node.expressID) || node.type, name };
+      }
+      const children = [];
+      for (const child of node.children || []) children.push(await walk(child));
+      return { guid, type: elements[guid]?.type || node.type, name, ...(children.length ? { children } : {}) };
+    };
+    tree = spatial ? await walk(spatial) : null;
+  } catch (error) {
+    console.warn("[ifc-properties] no spatial structure", error);
+  }
+  return { schema: null, project: null, tree, elements, expressIds };
 }
 
 const unwrap = (v) => {
