@@ -790,7 +790,7 @@ class Handler(BaseHTTPRequestHandler):
                 answer = ai.explain_validation(report, lang)
             elif feature == "ifc-query":
                 ai.RATE_LIMITER.check(key)
-                answer = ai.ifc_query(data.get("question", ""), data.get("schema"), lang)
+                answer = ai.ifc_query(data.get("question", ""), data.get("schema"), lang, data.get("selection"))
             else:
                 ai.RATE_LIMITER.check(key)
                 answer = ai.describe_variants(data, lang)

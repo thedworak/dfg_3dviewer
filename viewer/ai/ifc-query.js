@@ -1,9 +1,9 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
-import { getIfcData, getLiveIfcModel, hasIfcProperties, IFC_PROPERTIES_EVENT, loadIfcQueryData, showIfcProperties } from "../ifc-properties.js";
+import { getIfcData, getLiveIfcModel, getSelectedIfcElement, hasIfcProperties, IFC_PROPERTIES_EVENT, loadIfcQueryData, showIfcProperties } from "../ifc-properties.js";
 import { aiDisclaimer, aiFeatureState, aiRequest, fetchAIConfig, showAILocked } from "./ai-client.js";
-import { buildIfcSummary, runIfcFilter } from "./ifc-filter.js";
+import { buildIfcSummary, ifcStoreys, plainValue, runIfcFilter } from "./ifc-filter.js";
 
 // Questions about a building model in plain language ("load-bearing walls
 // on level 2", "total slab area"), answered from its IFC properties
@@ -21,8 +21,46 @@ import { buildIfcSummary, runIfcFilter } from "./ifc-filter.js";
 // A .ifc opened directly (web-ifc): its properties are read from the model
 // on the first question (loadIfcQueryData), and the elements found are drawn
 // from its one merged mesh by their expressIDs (liveSubset below).
+//
+// A question can be about an element picked in the model (the context
+// menu's "Ask about this element", editor/context-menu.js): its fields and
+// properties go along as `selection`, so "elements like this" or "on this
+// storey" refer to it.
 
 const MAX_LIST = 200;
+const SELECTION_EXAMPLES = ["selectionExample1", "selectionExample2", "selectionExample3"];
+
+// The picked element as the AI assistant gets it: its own fields, storey
+// and property values (worker/ai.py _ifc_selection caps the size).
+function selectionContext({ guid, entry }, data) {
+  const psets = {};
+  Object.entries(entry.psets || {}).forEach(([name, props]) => {
+    if (!props || typeof props !== "object" || Array.isArray(props)) return;
+    const values = {};
+    Object.entries(props).forEach(([key, raw]) => {
+      const value = plainValue(raw);
+      if (["string", "number", "boolean"].includes(typeof value) && value !== "") values[key] = value;
+    });
+    if (Object.keys(values).length) psets[name] = values;
+  });
+  return {
+    guid,
+    type: entry.type,
+    name: entry.name,
+    description: entry.description,
+    objectType: entry.objectType,
+    predefinedType: entry.predefinedType,
+    tag: entry.tag,
+    material: entry.material,
+    typeName: entry.typeRef?.name,
+    storey: ifcStoreys(data).get(guid),
+    psets,
+  };
+}
+
+function selectionLabel({ guid, entry }) {
+  return [entry.type, entry.name || guid].filter(Boolean).join(" · ");
+}
 
 // The triangles of a web-ifc mesh whose elements are (keep) or are not in
 // `ids` (expressIDs), as a geometry sharing its attributes; `groups`: with
@@ -78,6 +116,8 @@ export function attachIfcQuery(Viewer) {
     ifcQueryOverlays: [],
     ifcQueryHidden: [],
     ifcQueryAIConfig: null,
+    // The element the questions are about ({ guid, entry }), or null.
+    ifcQuerySelection: null,
 
     // "on" | "locked" | "off" (ai-client.js aiFeatureState) for the model
     // shown: the tool is in the toolbar while the model has IFC properties
@@ -100,6 +140,7 @@ export function attachIfcQuery(Viewer) {
     initIfcQuery() {
       document.addEventListener(IFC_PROPERTIES_EVENT, async () => {
         this.ifcQueryData = null;
+        this.ifcQuerySelection = null;
         if (!hasIfcProperties()) {
           this.closeIfcQuery({ reset: true });
         } else {
@@ -131,13 +172,67 @@ export function attachIfcQuery(Viewer) {
         this.closeIfcQuery();
         return;
       }
+      this.openIfcQuery();
+    },
+
+    openIfcQuery() {
       this.createIfcQueryPanel();
       if (!this.ifcQueryPanel) return;
       this.ifcQueryPanel.hidden = false;
       this.openToolbarMenu?.(null);
-      this.renderIfcQuery();
+      this.localizeIfcQuery();
       this.ifcQueryPanel.querySelector("input")?.focus();
       this.updateEditorToolbarState?.();
+    },
+
+    // The element picked last (its properties panel) becomes what the
+    // questions are about, until it is removed from the panel.
+    askAboutIfcSelection() {
+      if (this.ifcQueryAIState() === "locked") {
+        showAILocked(this);
+        return;
+      }
+      if (!this.isIfcQueryAvailable()) return;
+      // Null while a .ifc opened directly is still reading the element.
+      this.ifcQuerySelection = getSelectedIfcElement();
+      this.resetIfcQueryView();
+      this.ifcQueryState = null;
+      this.openIfcQuery();
+    },
+
+    // Elements highlighted, hidden or isolated by a question or the context menu.
+    isIfcQueryViewActive() {
+      return Boolean(this.ifcQueryOverlays.length || this.ifcQueryHidden.length || this.ifcQueryLiveGeometry);
+    },
+
+    // Without the AI (the context menu): the elements like the picked one -
+    // the same IFC type object, else the same class - highlighted, or the
+    // picked one alone shown. Returns how many elements, or 0.
+    async showIfcSelectionMatches(kind) {
+      const selected = getSelectedIfcElement();
+      if (!selected) return 0;
+      const data = await loadIfcQueryData().catch(() => null);
+      if (!data || getSelectedIfcElement() !== selected) return 0;
+      this.ifcQueryData = data;
+      const { guid, entry } = selected;
+      const guids = kind === "isolate"
+        ? [guid]
+        : runIfcFilter(data, {
+          match: "all",
+          conditions: [entry.typeRef?.name
+            ? { field: "typeName", op: "eq", value: entry.typeRef.name }
+            : { field: "type", op: "eq", value: entry.type }],
+        }).guids;
+      if (!guids.length) return 0;
+      this.applyIfcQueryAction(kind === "isolate" ? "isolate" : "highlight", guids);
+      this.renderIfcQuery();
+      return guids.length;
+    },
+
+    clearIfcQuerySelection() {
+      this.ifcQuerySelection = null;
+      this.localizeIfcQuery();
+      this.ifcQueryPanel?.querySelector("input")?.focus();
     },
 
     closeIfcQuery({ reset = false } = {}) {
@@ -165,6 +260,10 @@ export function attachIfcQuery(Viewer) {
           <input type="search" name="question" maxlength="500" autocomplete="off">
           <button type="submit" class="ai-button"></button>
         </form>
+        <div class="ifc-query-selection" hidden>
+          <span class="ifc-query-selection-label"></span>
+          <button type="button" data-action="clear-selection">×</button>
+        </div>
         <p class="ifc-query-hint"></p>
         <div class="ifc-query-examples"></div>
         <div class="ifc-query-body"></div>
@@ -175,6 +274,7 @@ export function attachIfcQuery(Viewer) {
       core.container.appendChild(panel);
       this.ifcQueryPanel = panel;
       this.bindEventListener(panel.querySelector('[data-action="close"]'), "click", () => this.closeIfcQuery());
+      this.bindEventListener(panel.querySelector('[data-action="clear-selection"]'), "click", () => this.clearIfcQuerySelection());
       this.bindEventListener(panel.querySelector("form"), "submit", (event) => {
         event.preventDefault();
         this.askIfcQuestion(panel.querySelector("input").value);
@@ -194,10 +294,20 @@ export function attachIfcQuery(Viewer) {
       input.setAttribute("aria-label", t("ai.ifc.title", "Ask the model"));
       panel.querySelector('button[type="submit"]').textContent = t("ai.ifc.ask", "Ask");
       panel.querySelector(".ifc-query-hint").textContent = t("ai.ifc.hint", "");
+      const selection = this.ifcQuerySelection;
+      const selectionRow = panel.querySelector(".ifc-query-selection");
+      selectionRow.hidden = !selection;
+      if (selection) {
+        selectionRow.querySelector(".ifc-query-selection-label").textContent =
+          t("ai.ifc.selection", { element: selectionLabel(selection) }, "About: {element}");
+        const clear = selectionRow.querySelector("button");
+        clear.title = t("ai.ifc.clearSelection", "Ask about the whole model");
+        clear.setAttribute("aria-label", clear.title);
+      }
       const examples = panel.querySelector(".ifc-query-examples");
       examples.textContent = "";
       examples.setAttribute("aria-label", t("ai.ifc.examples", "Examples"));
-      ["example1", "example2", "example3"].forEach((key) => {
+      (selection ? SELECTION_EXAMPLES : ["example1", "example2", "example3"]).forEach((key) => {
         const chip = el("button", "ifc-query-example", t(`ai.ifc.${key}`, key));
         chip.type = "button";
         chip.addEventListener("click", () => {
@@ -226,7 +336,9 @@ export function attachIfcQuery(Viewer) {
       this.ifcQueryState = { question: text, state: "loading" };
       this.renderIfcQuery();
       try {
-        const answer = await aiRequest("/api/ai/ifc-query", { question: text, schema: buildIfcSummary(data) });
+        const body = { question: text, schema: buildIfcSummary(data) };
+        if (this.ifcQuerySelection) body.selection = selectionContext(this.ifcQuerySelection, data);
+        const answer = await aiRequest("/api/ai/ifc-query", body);
         if (this.ifcQueryState?.question !== text || this.ifcQueryData !== data) return;
         const result = answer.understood === false ? { guids: [], aggregate: null } : runIfcFilter(data, answer);
         this.ifcQueryState = { question: text, state: "done", answer, result };
@@ -410,7 +522,7 @@ export function attachIfcQuery(Viewer) {
       const live = getLiveIfcModel();
       if (live && !getIfcData()) {
         this.applyLiveIfcQueryAction(live, action, guids);
-        this.ifcQueryState.view = action;
+        if (this.ifcQueryState) this.ifcQueryState.view = action;
         return;
       }
       const meshes = this.ifcQueryMeshes(guids);
@@ -433,7 +545,7 @@ export function attachIfcQuery(Viewer) {
           }
         });
       }
-      this.ifcQueryState.view = action;
+      if (this.ifcQueryState) this.ifcQueryState.view = action;
     },
 
     createIfcQueryMaterial() {

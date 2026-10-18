@@ -18,6 +18,8 @@ let highlights = [];
 // Elements hidden through the panel's eye toggle; they stay hidden until toggled back / "Show all".
 const hiddenNodes = new Set();
 let selectedNode = null;
+// The element whose properties the panel shows: { guid, entry }.
+let selectedElement = null;
 let highlightMaterial = null;
 // Properties handed over with a model opened from a File (blob: URL, which has no
 // metadata/ sibling to fetch) - the app downloads repository models before opening
@@ -441,9 +443,39 @@ function refreshVisibilityControls() {
   }
 }
 
+// The element picked last (its properties in the panel), as { guid, entry },
+// or null - for questions about it (ai/ifc-query.js).
+export function getSelectedIfcElement() {
+  return selectedElement;
+}
+
+export function isIfcPanelOpen() {
+  return panel !== null;
+}
+
+// The context menu's "Hide element" / "Show all hidden" (editor/context-menu.js).
+export function canHideSelectedIfcElement() {
+  return Boolean(selectedNode && selectedNode.visible !== false);
+}
+
+export function hideSelectedIfcElement() {
+  if (!canHideSelectedIfcElement()) return;
+  toggleSelectedVisibility();
+}
+
+export function ifcHiddenCount() {
+  return hiddenNodes.size;
+}
+
+export function showAllIfcHidden() {
+  showAllHidden();
+  refreshVisibilityControls();
+}
+
 export function closeIfcPanel() {
   liveRequest++; // drop any in-flight property read
   selectedNode = null;
+  selectedElement = null;
   clearIfcHighlight();
   panel?.remove();
   panel = null;
@@ -459,6 +491,7 @@ export function showIfcProperties(object, hit = null) {
   const { node, guid, entry } = found;
   highlightElement(node);
   selectedNode = node;
+  selectedElement = { guid, entry };
   renderPanel(entry, guid);
   return true;
 }
@@ -468,12 +501,15 @@ function showLiveProperties(object, hit) {
   const id = liveModel.getExpressId(object.geometry, hit.faceIndex);
   const request = ++liveRequest;
   selectedNode = null;
+  selectedElement = null;
   const sub = elementGeometry(object.geometry, id);
   createHighlightMaterial();
   if (sub) addOverlay(object, sub).userData.ownGeometry = true;
   readLiveEntry(liveModel, id)
     .then(({ guid, entry }) => {
-      if (request === liveRequest) renderPanel(entry, guid);
+      if (request !== liveRequest) return;
+      selectedElement = { guid, entry };
+      renderPanel(entry, guid);
     })
     .catch((error) => console.warn("[ifc-properties] could not read element", id, error));
   return true;

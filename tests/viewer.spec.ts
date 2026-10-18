@@ -4159,6 +4159,175 @@ test('AI: IFC question panel - asks the worker, runs the filter, highlights and 
   await expect(panel.locator('.ifc-query-list li')).toHaveCount(2);
 });
 
+async function routeIfcBox(page, jobId, asked = []) {
+  await page.route(`**/files/${jobId}/gltf/box.glb`, (route) => route.fulfill({ contentType: 'model/gltf-binary', body: fs.readFileSync('viewer/examples/box.glb') }));
+  await page.route(`**/files/${jobId}/metadata/box_ifc.json`, (route) => route.fulfill({ json: ifcTestData }));
+  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['ifc-query'], model: 'claude-opus-5-5' } }));
+  await page.route('**/api/ai/ifc-query', (route) => {
+    asked.push(route.request().postDataJSON());
+    return route.fulfill({ json: {
+      understood: true,
+      interpretation: 'Walls like Wall A',
+      match: 'all',
+      conditions: [{ field: 'type', pset: null, property: null, op: 'eq', value: 'IfcWall' }],
+      aggregate: { kind: 'count', pset: null, property: null, unit: null },
+      action: 'highlight',
+      note: null,
+      model: 'claude-opus-5-5',
+    } });
+  });
+}
+
+test('context menu: a right click on an IFC element asks about it; Escape steps back', async ({ page }) => {
+  test.setTimeout(120_000);
+  const asked = [];
+  await routeIfcBox(page, 'ifcjob2', asked);
+  await openViewer(page, '/files/ifcjob2/gltf/box.glb');
+  await waitForCameraIdle(page);
+  await page.waitForFunction(() => window.Viewer.isIfcQueryAvailable?.() === true, null, { timeout: 20_000 });
+  const box = await page.locator('#MainCanvas').boundingBox();
+  const center = [box.x + box.width / 2, box.y + box.height / 2];
+  const menu = page.locator('.viewer-context-menu');
+
+  // A right click picks the element (its properties) and offers the actions.
+  await page.mouse.click(...center, { button: 'right' });
+  await expect(menu).toBeVisible();
+  await expect(page.locator('#ifc-properties-panel')).toContainText('Wall A');
+  await expect(menu.locator('.viewer-context-menu_title')).toHaveText('Wall A · IfcWall');
+  for (const action of ['ask', 'sameType', 'isolate', 'hide', 'copyGuid', 'focus', 'copyPoint', 'reset']) {
+    await expect(menu.locator(`[data-action="${action}"]`)).toBeVisible();
+  }
+
+  await menu.locator('[data-action="ask"]').click();
+  await expect(menu).toBeHidden();
+  const panel = page.locator('#ifcQueryPanel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.ifc-query-selection')).toContainText('IfcWall · Wall A');
+  await panel.locator('.ifc-query-example').first().click();
+  // IfcWall: the IfcWallStandardCase too.
+  await expect(panel.locator('.ifc-query-count')).toHaveText('3 element(s) found');
+  expect(asked[0].question).toBe('Elements like this');
+  expect(asked[0].selection).toMatchObject({ guid: 'Cube', type: 'IfcWall', name: 'Wall A', storey: 'Level 1', material: 'Brick' });
+  expect(asked[0].selection.psets.Pset_WallCommon).toEqual({ id: 1, LoadBearing: true, IsExternal: true });
+
+  // Back: the question window first, then the element's properties.
+  await page.locator('#MainCanvas').focus();
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
+  // The mouse's back button over the viewer: the answer's highlight goes,
+  // then the element's properties.
+  const mouseBack = () => page.evaluate(() => document.getElementById('MainCanvas').dispatchEvent(new MouseEvent('mouseup', { button: 3, bubbles: true, cancelable: true })));
+  await mouseBack();
+  expect(await page.evaluate(() => window.Viewer.isIfcQueryViewActive())).toBe(false);
+  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
+  await mouseBack();
+  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
+
+  // Without the AI: the elements of the same type highlighted, undone by
+  // a step back.
+  await page.mouse.click(...center, { button: 'right' });
+  await menu.locator('[data-action="sameType"]').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.ifcQueryOverlays.length)).toBe(1);
+  await page.locator('#MainCanvas').focus();
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => window.Viewer.isIfcQueryViewActive())).toBe(false);
+  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
+
+  await page.mouse.click(...center, { button: 'right' });
+  await menu.locator('[data-action="hide"]').click();
+  await page.mouse.click(...center, { button: 'right' });
+  await expect(menu.locator('[data-action="showHidden"]')).toHaveText('Show hidden elements (1)');
+  await menu.locator('[data-action="showHidden"]').click();
+  await expect(menu).toBeHidden();
+
+  // Measuring from the menu, then its own actions there.
+  await page.mouse.click(...center, { button: 'right' });
+  await menu.locator('[data-action="measure"]').click();
+  expect(await page.evaluate(() => [window.Viewer.RULER_MODE, window.Viewer.measurementDraft?.points.length])).toEqual([true, 1]);
+  await page.mouse.click(center[0] + 10, center[1] + 10);
+  expect(await page.evaluate(() => window.Viewer.measurementDraft?.points.length)).toBe(2);
+  await page.mouse.click(...center, { button: 'right' });
+  await expect(menu.locator('button')).toHaveText(['Finish measurement', 'Remove last point', 'Discard measurement', 'Stop measuring', 'Reset view']);
+  await menu.locator('[data-action="undoPoint"]').click();
+  expect(await page.evaluate(() => window.Viewer.measurementDraft?.points.length)).toBe(1);
+  await page.locator('#MainCanvas').focus();
+  await page.keyboard.press('Backspace');
+  expect(await page.evaluate(() => window.Viewer.measurementDraft)).toBeNull();
+  await page.evaluate(() => window.Viewer.toggleDistanceMeasurement());
+
+  // A floor plan cut at the point, and off again.
+  await page.mouse.click(...center, { button: 'right' });
+  await menu.locator('[data-action="cut"]').click();
+  expect(await page.evaluate(() => [window.Viewer.isClippingAxisEnabled('y'), window.Viewer.hasActiveClipping()])).toEqual([true, true]);
+  await page.mouse.click(...center, { button: 'right' });
+  await menu.locator('[data-action="removeCuts"]').click();
+  expect(await page.evaluate(() => window.Viewer.hasActiveClipping())).toBe(false);
+
+  // A right-drag pans: no menu.
+  await page.mouse.move(...center);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(center[0] + 40, center[1] + 20, { steps: 4 });
+  await page.mouse.up({ button: 'right' });
+  await expect(menu).toBeHidden();
+});
+
+test('context menu on a phone: press and hold, the back gesture closes one layer at a time', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await routeIfcBox(page, 'ifcjob3');
+  await openViewer(page, '/files/ifcjob3/gltf/box.glb');
+  await waitForCameraIdle(page);
+  await page.waitForFunction(() => window.Viewer.isIfcQueryAvailable?.() === true, null, { timeout: 20_000 });
+  const box = await page.locator('#MainCanvas').boundingBox();
+  const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
+  const cdp = await context.newCDPSession(page);
+  const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  const menu = page.locator('.viewer-context-menu');
+
+  // A short tap is still a tap: the properties, no menu.
+  await touch('touchStart', [point]);
+  await touch('touchEnd', []);
+  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
+  await expect(menu).toBeHidden();
+
+  await touch('touchStart', [point]);
+  await expect(menu).toBeVisible();
+  await touch('touchEnd', []);
+  // The release is not a tap on the model too.
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('[data-action="ask"]')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(true);
+
+  await page.evaluate(() => history.back());
+  await expect(menu).toBeHidden();
+  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(true);
+  await page.evaluate(() => history.back());
+  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
+
+  // A quick tap of two fingers: a step back.
+  await touch('touchStart', [point]);
+  await touch('touchEnd', []);
+  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
+  const second = { x: point.x + 60, y: point.y + 40 };
+  await touch('touchStart', [point, second]);
+  await touch('touchEnd', []);
+  await expect(page.locator('#ifc-properties-panel')).toHaveCount(0);
+
+  // Closed by its own button: the history entry goes too.
+  await touch('touchStart', [point]);
+  await touch('touchEnd', []);
+  await expect(page.locator('#ifc-properties-panel')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(true);
+  await page.locator('#ifc-properties-panel .ifc-props-close').click();
+  await expect.poll(() => page.evaluate(() => history.state?.explora4dBack === true)).toBe(false);
+  await context.close();
+});
+
 test('AI: reconstruction variants compared and their paradata reviewed', async ({ page }) => {
   test.setTimeout(120_000);
   const sent = [];

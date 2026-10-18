@@ -96,6 +96,26 @@ class AskTests(unittest.TestCase):
         self.assertIn("Polish", params["system"])
         self.assertNotIn("thinking", params)
 
+    def test_selection_context(self):
+        client, messages = fake_client(IFC_ANSWER)
+        ai.set_client(client)
+        selection = {
+            "guid": "2O2Fr$t4X7Zf8NOew3FLOH", "type": "IfcWall", "name": "Basic Wall 200",
+            "storey": "Level 2", "geometry": [1, 2, 3],
+            "psets": {"Pset_WallCommon": {"LoadBearing": True, "nested": {"x": 1}}, "bad": "x"},
+        }
+        ai.ifc_query("walls like this", IFC_SUMMARY, "en", selection)
+        prompt = messages.calls[0]["messages"][0]["content"]
+        self.assertIn('Selected element (JSON):', prompt)
+        self.assertIn('"storey":"Level 2"', prompt)
+        self.assertIn('"Pset_WallCommon":{"LoadBearing":true}', prompt)
+        self.assertNotIn("geometry", prompt)
+        self.assertNotIn("nested", prompt)
+        self.assertIsNone(ai._ifc_selection("IfcWall"))
+        self.assertIsNone(ai._ifc_selection({"name": "x" * (ai.MAX_SELECTION_CHARS + 1)}))
+        big = {"type": "IfcWall", "psets": {f"P{i}": {"v": "y" * 500} for i in range(20)}}
+        self.assertLessEqual(len(ai._compact(ai._ifc_selection(big))), ai.MAX_SELECTION_CHARS)
+
     def test_cached_answer(self):
         client, messages = fake_client(IFC_ANSWER)
         ai.set_client(client)

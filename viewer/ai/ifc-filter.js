@@ -17,7 +17,7 @@ function isPlainObject(value) {
 }
 
 // A property value as text/number/boolean (references become their name).
-function plainValue(value) {
+export function plainValue(value) {
   if (value === ".T.") return true;
   if (value === ".F.") return false;
   if (isPlainObject(value)) return value.name ?? value.guid ?? value.type ?? null;

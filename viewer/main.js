@@ -85,6 +85,8 @@ import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
+import { attachContextMenu } from "./editor/context-menu.js";
+import { attachBackNavigation } from "./ui/back-navigation.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachModelUnits } from "./editor/model-units.js";
@@ -1266,6 +1268,9 @@ export const Viewer = {
           Viewer.openAnnotationDialog();
           handled = true;
         }
+        break;
+      case "Backspace":
+        if (Viewer.RULER_MODE) handled = Viewer.undoMeasurementPoint();
         break;
       case "Escape":
         if (Viewer.RULER_MODE) handled = Viewer.cancelMeasurementDraft();
@@ -3691,6 +3696,8 @@ export const Viewer = {
         Viewer.bindEventListener(core.renderer.domElement, "pointerup", Viewer.onPointerUp);
         Viewer.bindEventListener(core.renderer.domElement, "pointermove", Viewer.onPointerMove);
         Viewer.bindDoubleTapFocus();
+        Viewer.bindContextMenu();
+        Viewer.bindBackNavigation();
         Viewer.bindFaceAreaSelection();
         Viewer.bindEventListener(core.renderer.domElement, "mouseenter", (event) => {
           if (!Viewer.isPointerDirectlyOverCanvas(event)) return;
@@ -4328,6 +4335,8 @@ attachMaterialsEditor(Viewer);
 attachShadingEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
+attachContextMenu(Viewer);
+attachBackNavigation(Viewer);
 attachFaceAreaSelection(Viewer);
 attachPointCloudPanel(Viewer);
 attachModelUnits(Viewer);

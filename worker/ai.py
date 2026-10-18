@@ -10,7 +10,7 @@ answer; the viewer shows the answer, the worker never acts on it:
               level 2") into a filter over its properties; the viewer runs
               the filter itself (viewer/ai/ifc-query.js), so counts and
               sums are computed, never made up
-              POST /api/ai/ifc-query   {question, schema, lang}
+              POST /api/ai/ifc-query   {question, schema, lang, selection?}
   variants    compare reconstruction variants (viewer/editor/compare.js)
               and review their paradata (sources, Level of Certainty)
               POST /api/ai/variants    {variants, label, description, lang}
@@ -424,7 +424,11 @@ Build the filter:
 - aggregate: count when the user asks how many; sum/average/min/max of a numeric property (e.g. NetArea in Qto_..., for "how many m2"); else none. Give the unit if the summary shows it.
 - action: "isolate" when the user wants to see only those elements, "hide" when they want them out of the way, else "highlight".
 - Use only property sets, properties, classes and storeys present in the summary. If the question needs data the model does not have, set understood false and say in note what is missing; if you approximate (e.g. "load-bearing" through LoadBearing=true in Pset_WallCommon), say so in note.
-- interpretation and note are in {language}; field names, psets and values are written exactly as in the data."""
+- interpretation and note are in {language}; field names, psets and values are written exactly as in the data.
+- A selected element may be given (the one the user picked in the viewer, with its own fields and properties). Then "this", "this element", "like this", "the same type", "on this storey" refer to it: build the conditions from its values (e.g. type and typeName for "elements like this", its storey for "on this storey"). The selection is only context: the filter still runs over all the elements."""
+
+MAX_SELECTION_CHARS = 4000
+SELECTION_FIELDS = ("guid", "type", "name", "description", "objectType", "predefinedType", "tag", "material", "typeName", "storey")
 
 
 def _check_ifc_schema(schema) -> dict:
@@ -433,7 +437,33 @@ def _check_ifc_schema(schema) -> dict:
     return schema
 
 
-def ifc_query(question: str, schema: dict, lang: str = "en") -> dict:
+def _ifc_selection(selection) -> dict | None:
+    """The element picked in the viewer, as context for the question: its
+    plain fields and (while the whole fits MAX_SELECTION_CHARS) its psets."""
+    if not isinstance(selection, dict):
+        return None
+    plain = (str, int, float, bool)
+    element = {
+        key: selection[key] for key in SELECTION_FIELDS
+        if isinstance(selection.get(key), plain) and str(selection[key]).strip()
+    }
+    psets = selection.get("psets")
+    if isinstance(psets, dict):
+        kept = {}
+        for pset, props in psets.items():
+            if not isinstance(props, dict):
+                continue
+            values = {str(k): v for k, v in props.items() if isinstance(v, plain)}
+            if values and len(_compact({**element, "psets": {**kept, str(pset): values}})) <= MAX_SELECTION_CHARS:
+                kept[str(pset)] = values
+        if kept:
+            element["psets"] = kept
+    if not element or len(_compact(element)) > MAX_SELECTION_CHARS:
+        return None
+    return element
+
+
+def ifc_query(question: str, schema: dict, lang: str = "en", selection: dict | None = None) -> dict:
     if "ifc-query" not in enabled_features():
         raise AIError(404, "This AI feature is not enabled.", "ai_feature_disabled")
     question = str(question or "").strip()
@@ -446,6 +476,9 @@ def ifc_query(question: str, schema: dict, lang: str = "en") -> dict:
         "Model data summary (JSON):\n" + _compact(summary)
         + "\n\nQuestion:\n" + question
     )
+    element = _ifc_selection(selection)
+    if element:
+        prompt += "\n\nSelected element (JSON):\n" + _compact(element)
     answer = ask(IFC_SYSTEM.replace("{language}", language_name(lang)), prompt, IFC_SCHEMA, effort="medium")
     answer["model"] = model()
     return answer

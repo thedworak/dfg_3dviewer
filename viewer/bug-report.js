@@ -159,7 +159,9 @@ function buildDialog() {
     if (event.target.closest("[data-bug-report-dismiss='true']")) close();
   });
   root.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") close();
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    close();
   });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();

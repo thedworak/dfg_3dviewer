@@ -28,6 +28,17 @@ const windows = new Map();
 const CLICK_SLOP_PX = 6;
 let pressStart = null;
 
+// The open panel window, closed (ui/back-navigation.js); false when none is.
+export function closeOpenPanelWindow() {
+  const open = [...windows.entries()].find(([panel]) => !panel.hidden);
+  open?.[1]();
+  return Boolean(open);
+}
+
+export function hasOpenPanelWindow() {
+  return [...windows.keys()].some((panel) => !panel.hidden);
+}
+
 function closeWindows(except) {
   windows.forEach((close, panel) => {
     if (panel !== except && !panel.hidden) close();

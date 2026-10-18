@@ -265,6 +265,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     setTimeout(syncNoticeAboveToolbar, 320);
   }
   viewer.openToolbarMenu = openMenu;
+  viewer.isToolbarMenuOpen = () => Boolean(state.open);
 
   // On the desktop the panel stands over its tab - or under it, where the
   // bar was moved up and there is more room below.
@@ -356,7 +357,9 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     openMenu(null);
   });
   viewer.bindEventListener(document, "keydown", (event) => {
-    if (event.key === "Escape" && state.open) openMenu(null);
+    if (event.key !== "Escape" || !state.open) return;
+    event.preventDefault(); // handled: not a step back too (ui/back-navigation.js)
+    openMenu(null);
   });
   // A tool panel opening (sun, section planes, VR and AR...) gets the room
   // on a phone.

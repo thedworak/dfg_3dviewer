@@ -334,6 +334,7 @@ export function attachUploadPanel(Viewer) {
         };
         const onKey = (event) => {
           if (event.key === "Escape") {
+            event.preventDefault();
             event.stopPropagation();
             finish(false);
           }
