@@ -245,3 +245,17 @@
   font-weight: 400;
   color: var(--status-color, inherit);
 }
+
+/* A tool the plan does not include (the app): the lock first, then the
+   label; a tap opens the plans panel. */
+.ai-button-locked {
+  opacity: 0.85;
+}
+
+.ai-button-locked::before {
+  content: none;
+}
+
+.ai-button-locked .plan-lock-icon {
+  margin-right: 2px;
+}

@@ -2,14 +2,14 @@
 
 Optional help from an AI assistant (the Claude API), run by the standalone worker (`worker/ai.py`). It is **off by default**; the viewer offers it only when the worker has it on. Point cloud classification (section 4) is a separate worker step that does not use the Claude API.
 
-**Plans:** by default only the **Business and Enterprise** plans may use the assistant (`WORKER_AI_ACCESS=business`): accounts with either plan (Enterprise is granted by an admin, with its price agreed individually), the app's Business subscribers, and admins. A server without plans opens it with `WORKER_AI_ACCESS=users` or `all`. The worker decides; the viewer shows the AI tools only when `GET /api/ai/config` says they are enabled for the caller.
+**Plans:** by default only the **Business and Enterprise** plans may use the assistant (`WORKER_AI_ACCESS=business`): accounts with either plan (Enterprise is granted by an admin, with its price agreed individually), the app's Business subscribers, and admins. A server without plans opens it with `WORKER_AI_ACCESS=users` or `all`. The worker decides; the viewer shows the AI tools when `GET /api/ai/config` says they are enabled for the caller. In the app, a user whose plan does not include them (`restricted`) sees the tools the server has with a **lock**; a tap opens the plans panel at Business. The web viewer, which sells no plans, hides them instead.
 
 The assistant never sees the model files. Each feature sends only derived data (listed below) and gets back a structured (JSON schema) answer. The viewer shows that answer next to the data it came from, marked as AI-generated, and acts on it only when the user asks.
 
 | Feature | Where in the viewer | What is sent | What comes back |
 |---|---|---|---|
 | `validation` | File > Validation report > "Explain in plain language (AI)" | the model's `validation.json` (issue codes, statistics, bounds, checks) | headline, summary, findings with what to fix |
-| `ifc-query` | Analysis > "Ask the building model (AI)" (converted IFC models) | the question and a summary of the IFC data: classes with counts, storeys, materials, property sets with property names, types, min/max and up to 3 sample values | a filter (conditions, aggregate, action) that the viewer runs on the real data |
+| `ifc-query` | Model > "Ask the building model (AI)" (converted IFC models) | the question and a summary of the IFC data: classes with counts, storeys, materials, property sets with property names, types, min/max and up to 3 sample values; asked from the context menu ("Ask about this element"), also the picked element's fields, storey and property values | a filter (conditions, aggregate, action) that the viewer runs on the real data |
 | `variants` | Reconstruction variants panel > "Compare and review paradata (AI)" | each variant's label, description, source, Level of Certainty (with the scale's levels), node names (at most 30) and the viewer's measurements (size, bottom/top in metres, triangles, shared/exclusive nodes) | summary, differences, paradata review per variant (ok / incomplete / inconsistent, issues, suggestions) |
 
 ## Turning it on
@@ -29,7 +29,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 | `WORKER_AI_FEATURES` | all | Comma-separated subset of `validation`, `ifc-query`, `variants`. |
 | `WORKER_AI_ACCESS` | `business` | Who may use it: `business` (the **Business and Enterprise** plans: accounts with either plan, and the app's Business subscribers, who have no account), `users` (anyone logged in), `all`, `admin`. Admins always may. A self-hosted server without plans sets `all` or `users`. |
 | `WORKER_AI_REQUESTS_PER_HOUR` | `30` | Per caller (account, else IP), rolling hour, in memory. `0` = unlimited. |
-| `WORKER_AI_TIMEOUT` | `120` | Seconds per request. |
+| `WORKER_AI_TIMEOUT` | `90` | Seconds per request, one attempt. Keep it under the proxies' limits: `docker/nginx.conf` waits 100 s on `/api/ai/`, Cloudflare 100 s. |
 | `WORKER_AI_FALLBACKS` | `true` | Server-side refusal fallback of the Claude API (beta `server-side-fallback-2026-07-01`). |
 
 The worker image installs the `anthropic` package. Running `worker/server.py` outside Docker requires `pip install "anthropic>=1.15,<2"`. Without the package, the features report themselves as off.
@@ -42,12 +42,12 @@ Identical requests are answered from an in-memory cache (the last 256 answers), 
 
 | Endpoint | Body | Answer |
 |---|---|---|
-| `GET /api/ai/config` | – | `{enabled, restricted, access, features, model}` for this caller |
+| `GET /api/ai/config` | – | `{enabled, restricted, access, features, model}` for this caller: `restricted` = on, but not for this caller; `features` lists the features the server has (also when restricted, for the app to show them locked) |
 | `POST /api/ai/validation/<job id>` | `{lang}` | `{headline, summary, findings: [{level, title, explanation, fix, codes}], model}` |
-| `POST /api/ai/ifc-query` | `{question, schema, lang}` (`schema`: `buildIfcSummary()` of `viewer/ai/ifc-filter.js`) | `{understood, interpretation, match, conditions: [{field, pset, property, op, value}], aggregate: {kind, pset, property, unit}, action, note, model}` |
+| `POST /api/ai/ifc-query` | `{question, schema, lang, selection?}` (`schema`: `buildIfcSummary()` of `viewer/ai/ifc-filter.js`; `selection`: the picked element - `guid`, `type`, `name`, `storey`, ..., `psets` - at most 4000 characters, the property sets dropped first) | `{understood, interpretation, match, conditions: [{field, pset, property, op, value}], aggregate: {kind, pset, property, unit}, action, note, model}` |
 | `POST /api/ai/variants` | `{label, description, certaintyScale, variants: [...], lang}` (`buildVariantsPayload()` of `viewer/ai/variants-review.js`) | `{summary, differences: [{aspect, detail, variants}], paradata: [{variant, status, issues, suggestions}], model}` |
 
-Errors are `{error, code}`: `404 ai_disabled` / `ai_feature_disabled`, `403 ai_forbidden`, `429 ai_rate_limited` (with `Retry-After`), `422 ai_refusal`, `5xx` when the Claude API fails. `lang` is `en`, `pl` or `de` (the viewer's language). The answer's texts are written in that language.
+Errors are `{error, code}`: `404 ai_disabled` / `ai_feature_disabled`, `403 ai_forbidden`, `429 ai_rate_limited` (with `Retry-After`), `422 ai_refusal`, `503 ai_*` when the Claude API fails or answers unusably (`ai_auth`, `ai_unreachable`, `ai_timeout`, ...; never 502/504, whose bodies Cloudflare replaces with its own page), `500 ai_internal` for an unexpected worker error (traceback in the worker log). `lang` is `en`, `pl` or `de` (the viewer's language). The answer's texts are written in that language.
 
 ## 1. Validation report explained
 
@@ -59,7 +59,7 @@ The explanation is fetched only on the button. It is included in the report's JS
 
 Examples: "load-bearing walls on level 2", "all fire doors", "total slab area", "windows with U-value above 1.1".
 
-The panel (Analysis menu) appears for converted IFC models, whose properties sit next to the GLB in `metadata/<name>_ifc.json` (`scripts/ifc_metadata.py`). It does not appear for a `.ifc` opened directly, which has no such file.
+The panel (Model menu) appears for IFC models of both kinds. Converted models have their properties next to the GLB in `metadata/<name>_ifc.json` (`scripts/ifc_metadata.py`). For a `.ifc` opened directly (web-ifc), the properties of every element and the storeys are read from the model on the first question (`loadIfcQueryData()` in `viewer/ifc-properties.js`). Such a model is one merged mesh, so the elements found are highlighted by an overlay of their triangles and hidden or isolated by a temporary geometry without the others, restored by "Show all".
 
 1. The viewer summarises the data (`buildIfcSummary`): IFC classes with counts, storeys, materials, type names, and the property sets with each property's type, min/max and a few sample values. GlobalIds and the elements themselves stay in the browser.
 2. The assistant answers with a **filter**, not with results. Each condition is `field` + `op` + `value`. The fields are `type`, `name`, `description`, `objectType`, `predefinedType`, `tag`, `material`, `typeName`, `storey`, and `property` (with `pset`/`property`). The ops are `eq`, `ne`, `contains`, `gt`, `gte`, `lt`, `lte`, `exists`, `missing`, `true` and `false`. The conditions are joined with `match`: `all` or `any`. The answer can also ask for an aggregate (`count`, `sum`, `average`, `min`, `max` of a numeric property) and an action (`highlight`, `isolate`, `hide`).

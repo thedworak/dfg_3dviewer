@@ -2669,7 +2669,11 @@ export function updateEditorToolbarState(viewer) {
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
   const ifcQueryButton = viewer.editorToolbarButtons.ifcQuery;
-  if (ifcQueryButton) ifcQueryButton.hidden = !viewer.isIfcQueryAvailable?.();
+  if (ifcQueryButton) {
+    const state = viewer.ifcQueryAIState?.() || "off";
+    ifcQueryButton.hidden = state === "off";
+    ifcQueryButton.classList.toggle("plan-locked", state === "locked");
+  }
   const creditsButton = viewer.editorToolbarButtons.credits;
   if (creditsButton) creditsButton.hidden = !viewer.creditsWrapper;
 

@@ -245,3 +245,51 @@
   font-weight: 400;
   color: var(--status-color, inherit);
 }
+
+/* A tool the plan does not include (the app): the lock first, then the
+   label; a tap opens the plans panel. */
+.ai-button-locked {
+  opacity: 0.85;
+}
+
+.ai-button-locked::before {
+  content: none;
+}
+
+.ai-button-locked .plan-lock-icon {
+  margin-right: 2px;
+}
+
+/* The element the questions are about (the context menu's "Ask about
+   this element"), removable to ask about the whole model again. */
+.ifc-query-selection[hidden] {
+  display: none;
+}
+
+.ifc-query-selection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #00e5ff 16%, transparent);
+  font-size: 12px;
+}
+
+.ifc-query-selection-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ifc-query-selection button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 6px;
+}

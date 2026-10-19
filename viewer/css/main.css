@@ -9,6 +9,7 @@
 @import "./ifc-properties.css";
 @import "./viewer-tools.css";
 @import "./menu-toolbar.css";
+@import "./context-menu.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;

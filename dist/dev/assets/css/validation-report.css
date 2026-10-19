@@ -48,10 +48,12 @@
 #validationReportPanel {
   position: absolute;
   left: 50%;
-  top: 8%;
+  top: min(8%, 48px);
   transform: translateX(-50%);
   width: min(520px, calc(100vw - 36px));
-  max-height: min(80vh, 760px);
+  /* Of the viewer, not of the window: on a phone the viewer is shorter
+     than the screen, and the panel's end was cut off below it. */
+  max-height: min(calc(100% - min(8%, 48px) - 8px), 760px);
   overflow: auto;
   resize: both;
   box-sizing: border-box;
@@ -251,4 +253,15 @@
 .validation-report-details dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+/* The header (the panel's drag handle) stays in view while the report
+   scrolls under it. */
+#validationReportPanel > .upload-panel-header {
+  position: sticky;
+  top: -14px;
+  z-index: 1;
+  margin: -14px -16px 8px;
+  padding: 10px 16px;
+  background: var(--viewer-panel-embed-bg);
 }

@@ -272,11 +272,36 @@ The toolbar as menus with names (Look, Analysis, Measure, Story, Model, File, De
   - The layout follows the viewer's size (`data-mode` on the toolbar): `desktop` (a bar in the bottom left corner, a menu opening as a panel above its name), `bar` (narrower than 700 px: five tabs along the bottom, the rest under More, a menu as a sheet) and `rail` (a touch screen on its side, up to 520 px high: the tabs down the left edge, a panel beside them). Between layouts the tabs move to their new places and turn a quarter, the way `screen.orientation` says the phone turned (not with reduced motion).
 
 - `Viewer.openToolbarMenu(id)`
-  - Opens a menu (`look`, `analysis`, ..., `more`), or closes it with `null`. Escape, a tap outside and, on a phone, a tool panel opening close it too.
+  - Opens a menu (`look`, `analysis`, ..., `more`), or closes it with `null`. Escape, a tap outside and, on a phone, a tool panel opening close it too. `Viewer.isToolbarMenuOpen()`: whether one is open (`ui/back-navigation.js`).
 
 - `updateMenuToolbarLabels(viewer)` / `updateMenuToolbarState(viewer)`
   - Called from `updateEditorToolbarLabels()` and `updateEditorToolbarState()`: the menus' names, and the comparison button (shown where `Viewer.canCompare()`).
 
+
+## `viewer/editor/context-menu.js`
+
+The actions for the point under the pointer: a right click that did not move (a right-drag still pans), a press and hold of one finger or pen (500 ms, not while drawing a point cloud profile), or the ContextMenu key / Shift+F10 (the centre of the canvas, the first item focused). On an IFC element it picks it first, as a tap does (highlight and properties). A quick tap of two fingers together is a step back (`Viewer.goBack()`). Styles: `css/context-menu.css`.
+
+- `Viewer.openContextMenu(clientX, clientY, { focus })` / `Viewer.closeContextMenu()` / `Viewer.isContextMenuOpen()`
+  - Items in groups, where they apply. Measuring: Finish measurement, Remove last point (`undoMeasurementPoint()`), Discard measurement, Stop measuring - a phone's Enter and Backspace. Picking faces: Annotate selected faces (n), Clear selection, Stop selecting faces. Otherwise the IFC element (its name as the title): Ask about this element (`askAboutIfcSelection()`, with a lock where the plan lacks it), Select all of this type and Show only this element (no AI: `showIfcSelectionMatches(kind)`), Hide element, Copy GlobalId; Show hidden elements (n), Show all elements; the point: Zoom to this point, Measure from here, Annotate here (`startPointAnnotationAt`), Cut horizontally here (`cutHorizontallyAt`, the part above cut away), Copy coordinates; the view: Remove sections, Reset view. Measure, annotate and cut only where the toolbar offers the tool. A press outside, the wheel, a resize or a step back close it.
+
+- `Viewer.consumeContextMenuPointer(event)`
+  - True for the release of the press and hold that opened the menu, and for the fingers of a gesture of two or more (pinch, two-finger tap): `onPointerUp` does not take them as taps.
+
+- `Viewer.showIfcSelectionMatches("sameType" | "isolate")` (`viewer/ai/ifc-query.js`)
+  - The elements with the picked element's IFC type object (else its class) highlighted, or the element alone shown, with the IFC question tool's view (`resetIfcQueryView()`, a step back undoes it). Returns the number of elements.
+
+- `Viewer.askAboutIfcSelection()` (`viewer/ai/ifc-query.js`)
+  - Opens the IFC question window about the picked element: it is shown above the examples (removable with ×), the examples become questions about it, and its fields, storey and property values go to the worker as `selection`.
+
+## `viewer/ui/back-navigation.js`
+
+Back: one step out of what is open, the last layer first - the context menu, a toolbar menu, the annotation, materials and shading dialogs, a panel window, the IFC question window, elements highlighted or isolated, the IFC properties, the metadata window, the tour, the last point of a measurement being drawn, the selected faces. Taken by Escape, the mouse's back button, a two-finger tap and the back gesture.
+
+- `Viewer.goBack()` / `Viewer.canGoBack()`
+  - `goBack()` closes the topmost open layer; false when nothing was open. Escape takes it when no other handler used the key (`preventDefault`) and not in a field with text; so does the mouse's back button over the viewer (the browser's own back only when nothing was open).
+
+- History (a touch screen or the app, not in an iframe): while something is open the page has one history entry of its own (`history.state.explora4dBack`), so the back gesture or Android's back button closes one layer instead of leaving the page; the entry goes again when everything is closed by its own buttons.
 
 ## `viewer/editor/measurement.js`
 
@@ -286,7 +311,7 @@ Measurement tools in the ruler button's submenu. Lengths use `viewer.measurement
   - `"distance"` (path of segments with a total), `"angle"` (start, vertex, end) or `"area"` (polygon, closed by clicking the first point again or pressing Enter).
 
 - `Viewer.finishMeasurementDraft()` / `Viewer.cancelMeasurementDraft()`
-  - Finish (Enter) or discard (Escape) the measurement in progress.
+  - Finish (Enter) or discard (Escape) the measurement in progress. `Viewer.undoMeasurementPoint()`: its last point (Backspace, a step back, the context menu), the measurement with the last one.
 
 - `Viewer.toggleModelDimensions()`
   - Show the model's bounding box with its size, surface area and volume. The volume is only meaningful for closed meshes.

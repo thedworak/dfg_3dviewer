@@ -96,6 +96,26 @@ class AskTests(unittest.TestCase):
         self.assertIn("Polish", params["system"])
         self.assertNotIn("thinking", params)
 
+    def test_selection_context(self):
+        client, messages = fake_client(IFC_ANSWER)
+        ai.set_client(client)
+        selection = {
+            "guid": "2O2Fr$t4X7Zf8NOew3FLOH", "type": "IfcWall", "name": "Basic Wall 200",
+            "storey": "Level 2", "geometry": [1, 2, 3],
+            "psets": {"Pset_WallCommon": {"LoadBearing": True, "nested": {"x": 1}}, "bad": "x"},
+        }
+        ai.ifc_query("walls like this", IFC_SUMMARY, "en", selection)
+        prompt = messages.calls[0]["messages"][0]["content"]
+        self.assertIn('Selected element (JSON):', prompt)
+        self.assertIn('"storey":"Level 2"', prompt)
+        self.assertIn('"Pset_WallCommon":{"LoadBearing":true}', prompt)
+        self.assertNotIn("geometry", prompt)
+        self.assertNotIn("nested", prompt)
+        self.assertIsNone(ai._ifc_selection("IfcWall"))
+        self.assertIsNone(ai._ifc_selection({"name": "x" * (ai.MAX_SELECTION_CHARS + 1)}))
+        big = {"type": "IfcWall", "psets": {f"P{i}": {"v": "y" * 500} for i in range(20)}}
+        self.assertLessEqual(len(ai._compact(ai._ifc_selection(big))), ai.MAX_SELECTION_CHARS)
+
     def test_cached_answer(self):
         client, messages = fake_client(IFC_ANSWER)
         ai.set_client(client)
@@ -115,6 +135,18 @@ class AskTests(unittest.TestCase):
         with self.assertRaises(ai.AIError) as cut:
             ai.ifc_query("b", IFC_SUMMARY)
         self.assertEqual(cut.exception.code, "ai_truncated")
+
+    def test_timeout(self):
+        request = SimpleNamespace(method="POST", url="https://api.anthropic.com")
+
+        def slow(**_):
+            raise anthropic.APITimeoutError(request)
+
+        ai.set_client(SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=slow))))
+        with self.assertRaises(ai.AIError) as late:
+            ai.ifc_query("doors", IFC_SUMMARY)
+        self.assertEqual(late.exception.code, "ai_timeout")
+        self.assertEqual(late.exception.status, 503)
 
     def test_input_checks(self):
         ai.set_client(fake_client()[0])
@@ -163,6 +195,14 @@ class AccessTests(unittest.TestCase):
         # The app's Business subscriber has no account.
         self.assertTrue(ai.allowed(None, True))
 
+    def test_config_when_restricted(self):
+        os.environ.pop("WORKER_AI_ACCESS", None)
+        config = ai.config(None, False)
+        self.assertFalse(config["enabled"])
+        self.assertTrue(config["restricted"])
+        # The tools the app shows locked.
+        self.assertEqual(config["features"], list(ai.FEATURES))
+
     def test_enterprise_counts_as_business(self):
         from limits import is_business_account
         from auth import APP_TIERS, PLAN_RANK
@@ -186,6 +226,19 @@ class AccessTests(unittest.TestCase):
         self.assertTrue(ai.allowed(admin, False))
         os.environ["WORKER_AI_ACCESS"] = "admin"
         self.assertFalse(ai.allowed(user, True))
+
+    def test_api_key_cleaned(self):
+        saved = os.environ.get("ANTHROPIC_API_KEY")
+        try:
+            os.environ["ANTHROPIC_API_KEY"] = ' "sk-ant-api03-a_b-C" \r'
+            self.assertEqual(ai.api_key(), "sk-ant-api03-a_b-C")
+            os.environ["ANTHROPIC_API_KEY"] = ""
+            self.assertIsNone(ai.api_key())
+        finally:
+            if saved is None:
+                os.environ.pop("ANTHROPIC_API_KEY", None)
+            else:
+                os.environ["ANTHROPIC_API_KEY"] = saved
 
     def test_rate_limit(self):
         os.environ["WORKER_AI_REQUESTS_PER_HOUR"] = "2"
@@ -256,6 +309,13 @@ class EndpointTests(unittest.TestCase):
         self.assertEqual(body["action"], "highlight")
         status, body = self.request("/api/ai/ifc-query", {"question": "", "schema": IFC_SUMMARY})
         self.assertEqual(status, 400)
+
+    def test_unexpected_error_answers_json(self):
+        broken = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=lambda **_: 1 / 0)))
+        ai.set_client(broken)
+        status, body = self.request("/api/ai/ifc-query", {"question": "doors", "schema": IFC_SUMMARY})
+        self.assertEqual(status, 500)
+        self.assertEqual(body["code"], "ai_internal")
 
     def test_disabled(self):
         os.environ["WORKER_AI_ENABLED"] = "false"

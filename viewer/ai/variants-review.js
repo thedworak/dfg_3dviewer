@@ -1,7 +1,8 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
-import { aiDisclaimer, aiRequest, hasAIFeature } from "./ai-client.js";
+import { aiAvailability, aiDisclaimer, aiRequest, showAILocked } from "./ai-client.js";
+import { createLockIcon } from "../ui/lock-icon.js";
 
 // Reconstruction variants (editor/compare.js) compared and their paradata
 // reviewed by the AI assistant (worker/ai.py, "variants"): a button in the
@@ -104,17 +105,18 @@ export function attachVariantsReview(Viewer) {
   Object.assign(Viewer, {
     // {state, answer, error}, for the variants shown.
     variantsAIReview: null,
-    variantsAIAvailable: false,
+    // "on" | "locked" | "off" (ai-client.js aiFeatureState).
+    variantsAIState: "off",
 
     // From createVariantsPanel: the place for the button and the answer.
     attachVariantsAI(container) {
       Viewer.variantsAIContainer = container;
       Viewer.variantsAIReview = null;
-      Viewer.variantsAIAvailable = false;
+      Viewer.variantsAIState = "off";
       Viewer.renderVariantsAI();
-      hasAIFeature("variants").then((available) => {
+      aiAvailability("variants").then((state) => {
         if (Viewer.variantsAIContainer !== container) return;
-        Viewer.variantsAIAvailable = available;
+        Viewer.variantsAIState = state;
         Viewer.renderVariantsAI();
       });
     },
@@ -123,8 +125,17 @@ export function attachVariantsReview(Viewer) {
       const container = Viewer.variantsAIContainer;
       if (!container) return;
       container.textContent = "";
-      container.hidden = !Viewer.variantsAIAvailable;
-      if (!Viewer.variantsAIAvailable) return;
+      container.hidden = Viewer.variantsAIState === "off";
+      if (Viewer.variantsAIState === "off") return;
+      if (Viewer.variantsAIState === "locked") {
+        const button = el("button", "ai-button ai-button-locked", t("ai.variants.describe", "Compare and review paradata (AI)"));
+        button.type = "button";
+        button.prepend(createLockIcon());
+        button.title = t("ai.locked", "Available with the Business plan");
+        button.addEventListener("click", () => showAILocked(Viewer));
+        container.appendChild(button);
+        return;
+      }
       const review = Viewer.variantsAIReview;
       if (!review || review.state === "error") {
         const button = el("button", "ai-button", t("ai.variants.describe", "Compare and review paradata (AI)"));

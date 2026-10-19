@@ -1,6 +1,8 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { apiUrl, appRequestHeaders, hasRemote } from "../remote.js";
+import { isFeatureGatingEnabled } from "../app-features.js";
+import { toastHelper } from "../viewer-utils.js";
 
 // The worker's optional AI assistance (worker/ai.py): which features it
 // offers this viewer (GET /api/ai/config) and the requests to them. Off
@@ -32,8 +34,27 @@ export function fetchAIConfig({ refresh = false } = {}) {
 }
 
 export async function hasAIFeature(feature) {
-  const config = await fetchAIConfig();
-  return Boolean(config.enabled && Array.isArray(config.features) && config.features.includes(feature));
+  return aiFeatureState(await fetchAIConfig(), feature) === "on";
+}
+
+// "on": offered to this user; "locked": the worker has it, but not for this
+// user's plan (WORKER_AI_ACCESS) - in the app, where plans are sold, the
+// tool is shown with a lock and opens the plans panel; "off": hidden.
+export function aiFeatureState(config, feature) {
+  const offered = Array.isArray(config?.features) && config.features.includes(feature);
+  if (config?.enabled && offered) return "on";
+  if (config?.restricted && offered && isFeatureGatingEnabled()) return "locked";
+  return "off";
+}
+
+export async function aiAvailability(feature) {
+  return aiFeatureState(await fetchAIConfig(), feature);
+}
+
+// A locked AI tool was used: the app's plans panel, at Business.
+export function showAILocked(viewer) {
+  toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+  viewer.showLockedFeature?.("aiAssistant");
 }
 
 export class AIRequestError extends Error {
@@ -65,9 +86,13 @@ export async function aiRequest(path, body = {}) {
     data = null;
   }
   if (!response.ok) {
+    // Without JSON the answer came from a proxy in front of the worker:
+    // 524 is Cloudflare giving up after 100 s.
     const message = response.status === 429
       ? t("ai.rateLimited", "AI request limit reached. Try again later.")
-      : data?.error || t("ai.failed", "The AI assistant could not answer.");
+      : data?.error || (response.status === 524
+        ? t("ai.timeout", "The AI answer took too long. Try again or ask a narrower question.")
+        : `${t("ai.failed", "The AI assistant could not answer.")} (HTTP ${response.status})`);
     throw new AIRequestError(message, response.status, data?.code || "");
   }
   return data || {};

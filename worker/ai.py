@@ -10,7 +10,7 @@ answer; the viewer shows the answer, the worker never acts on it:
               level 2") into a filter over its properties; the viewer runs
               the filter itself (viewer/ai/ifc-query.js), so counts and
               sums are computed, never made up
-              POST /api/ai/ifc-query   {question, schema, lang}
+              POST /api/ai/ifc-query   {question, schema, lang, selection?}
   variants    compare reconstruction variants (viewer/editor/compare.js)
               and review their paradata (sources, Level of Certainty)
               POST /api/ai/variants    {variants, label, description, lang}
@@ -46,6 +46,7 @@ features report themselves as unavailable.
 import hashlib
 import json
 import os
+import sys
 import threading
 import time
 from collections import OrderedDict
@@ -138,7 +139,8 @@ def config(user=None, is_business: bool = False) -> dict:
         # Switched on, but not for this caller: the viewer can say why.
         "restricted": on and not permitted,
         "access": access_level() if on else None,
-        "features": enabled_features() if permitted else [],
+        # Also when restricted: the app shows those tools with a lock.
+        "features": enabled_features() if on else [],
         "model": model() if permitted else None,
     }
 
@@ -213,11 +215,25 @@ _client = None
 _client_lock = threading.Lock()
 
 
+def api_key():
+    """ANTHROPIC_API_KEY without what an .env file can leave around it: a
+    Windows line end, spaces, quotes kept by an env_file. None = let the SDK
+    resolve its other credentials."""
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip().strip("\"'").strip()
+    return key or None
+
+
 def client():
     global _client
     with _client_lock:
         if _client is None:
-            _client = anthropic.Anthropic(timeout=float(_env_int("WORKER_AI_TIMEOUT", 120)), max_retries=2)
+            # One attempt within WORKER_AI_TIMEOUT: retries would outlast the
+            # proxies in front of the worker (docker/nginx.conf, Cloudflare's
+            # 100 s), which then answer the viewer with an HTML 504.
+            options = {"timeout": float(_env_int("WORKER_AI_TIMEOUT", 90)), "max_retries": 0}
+            if api_key():
+                options["api_key"] = api_key()
+            _client = anthropic.Anthropic(**options)
         return _client
 
 
@@ -247,32 +263,39 @@ def ask(system: str, prompt: str, schema: dict, effort: str = "medium", max_toke
     if _env_bool("WORKER_AI_FALLBACKS", True):
         params["betas"] = [FALLBACK_BETA]
         params["fallbacks"] = "default"
+    # 503, never 502/504: Cloudflare replaces an origin's 502 and 504 with
+    # its own HTML page, and the viewer would lose the message below.
     try:
         response = client().beta.messages.create(**params)
     except anthropic.AuthenticationError:
-        raise AIError(502, "The AI service rejected the server's credentials.", "ai_auth")
+        raise AIError(503, "The AI service rejected the server's credentials.", "ai_auth")
     except anthropic.PermissionDeniedError:
-        raise AIError(502, "The server's AI account may not use this model.", "ai_permission")
+        raise AIError(503, "The server's AI account may not use this model.", "ai_permission")
     except anthropic.RateLimitError:
         raise AIError(503, "The AI service is busy. Try again in a minute.", "ai_busy")
     except anthropic.BadRequestError as exc:
-        raise AIError(502, f"The AI service did not accept the request: {exc.message}", "ai_bad_request")
+        raise AIError(503, f"The AI service did not accept the request: {exc.message}", "ai_bad_request")
     except anthropic.APIStatusError as exc:
-        raise AIError(502, f"The AI service failed ({exc.status_code}).", "ai_upstream")
-    except anthropic.APIConnectionError:
-        raise AIError(504, "The AI service could not be reached.", "ai_unreachable")
+        raise AIError(503, f"The AI service failed ({exc.status_code}).", "ai_upstream")
+    except anthropic.APITimeoutError:
+        raise AIError(503, "The AI answer took too long. Try again or ask a narrower question.", "ai_timeout")
+    except anthropic.APIConnectionError as exc:
+        # The cause (DNS, TLS, refused connection, proxy) is what an admin needs.
+        cause = exc.__cause__ or exc
+        print(f"[ai] connection to the Claude API failed: {cause!r}", file=sys.stderr)
+        raise AIError(503, f"The AI service could not be reached ({type(cause).__name__}).", "ai_unreachable")
 
     if response.stop_reason == "refusal":
         raise AIError(422, "The AI declined to answer this request.", "ai_refusal")
     if response.stop_reason == "max_tokens":
-        raise AIError(502, "The AI answer was too long and got cut off.", "ai_truncated")
+        raise AIError(503, "The AI answer was too long and got cut off.", "ai_truncated")
     text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
     try:
         answer = json.loads(text)
     except ValueError:
-        raise AIError(502, "The AI answer could not be read.", "ai_invalid")
+        raise AIError(503, "The AI answer could not be read.", "ai_invalid")
     if not isinstance(answer, dict):
-        raise AIError(502, "The AI answer could not be read.", "ai_invalid")
+        raise AIError(503, "The AI answer could not be read.", "ai_invalid")
     CACHE.put(cache_key, answer)
     return answer
 
@@ -401,7 +424,11 @@ Build the filter:
 - aggregate: count when the user asks how many; sum/average/min/max of a numeric property (e.g. NetArea in Qto_..., for "how many m2"); else none. Give the unit if the summary shows it.
 - action: "isolate" when the user wants to see only those elements, "hide" when they want them out of the way, else "highlight".
 - Use only property sets, properties, classes and storeys present in the summary. If the question needs data the model does not have, set understood false and say in note what is missing; if you approximate (e.g. "load-bearing" through LoadBearing=true in Pset_WallCommon), say so in note.
-- interpretation and note are in {language}; field names, psets and values are written exactly as in the data."""
+- interpretation and note are in {language}; field names, psets and values are written exactly as in the data.
+- A selected element may be given (the one the user picked in the viewer, with its own fields and properties). Then "this", "this element", "like this", "the same type", "on this storey" refer to it: build the conditions from its values (e.g. type and typeName for "elements like this", its storey for "on this storey"). The selection is only context: the filter still runs over all the elements."""
+
+MAX_SELECTION_CHARS = 4000
+SELECTION_FIELDS = ("guid", "type", "name", "description", "objectType", "predefinedType", "tag", "material", "typeName", "storey")
 
 
 def _check_ifc_schema(schema) -> dict:
@@ -410,7 +437,33 @@ def _check_ifc_schema(schema) -> dict:
     return schema
 
 
-def ifc_query(question: str, schema: dict, lang: str = "en") -> dict:
+def _ifc_selection(selection) -> dict | None:
+    """The element picked in the viewer, as context for the question: its
+    plain fields and (while the whole fits MAX_SELECTION_CHARS) its psets."""
+    if not isinstance(selection, dict):
+        return None
+    plain = (str, int, float, bool)
+    element = {
+        key: selection[key] for key in SELECTION_FIELDS
+        if isinstance(selection.get(key), plain) and str(selection[key]).strip()
+    }
+    psets = selection.get("psets")
+    if isinstance(psets, dict):
+        kept = {}
+        for pset, props in psets.items():
+            if not isinstance(props, dict):
+                continue
+            values = {str(k): v for k, v in props.items() if isinstance(v, plain)}
+            if values and len(_compact({**element, "psets": {**kept, str(pset): values}})) <= MAX_SELECTION_CHARS:
+                kept[str(pset)] = values
+        if kept:
+            element["psets"] = kept
+    if not element or len(_compact(element)) > MAX_SELECTION_CHARS:
+        return None
+    return element
+
+
+def ifc_query(question: str, schema: dict, lang: str = "en", selection: dict | None = None) -> dict:
     if "ifc-query" not in enabled_features():
         raise AIError(404, "This AI feature is not enabled.", "ai_feature_disabled")
     question = str(question or "").strip()
@@ -423,6 +476,9 @@ def ifc_query(question: str, schema: dict, lang: str = "en") -> dict:
         "Model data summary (JSON):\n" + _compact(summary)
         + "\n\nQuestion:\n" + question
     )
+    element = _ifc_selection(selection)
+    if element:
+        prompt += "\n\nSelected element (JSON):\n" + _compact(element)
     answer = ask(IFC_SYSTEM.replace("{language}", language_name(lang)), prompt, IFC_SCHEMA, effort="medium")
     answer["model"] = model()
     return answer

@@ -7,15 +7,17 @@ const MAX_PROPERTIES = 40;
 const MAX_SAMPLES = 3;
 const MAX_TOP = 40;
 // Not elements to count: type objects, the project, relationship-like defs.
-const NOT_ELEMENTS = /(Type|Style)$|^IfcProject$/;
-const SPATIAL = new Set(["IfcSite", "IfcBuilding", "IfcBuildingStorey", "IfcSpace"]);
+// Any case: web-ifc (a .ifc opened directly) names the classes in capitals.
+const NOT_ELEMENTS = /(type|style)$|^ifcproject$/i;
+const SPATIAL = new Set(["ifcsite", "ifcbuilding", "ifcbuildingstorey", "ifcspace"]);
+const isSpatial = (type) => SPATIAL.has(String(type || "").toLowerCase());
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 // A property value as text/number/boolean (references become their name).
-function plainValue(value) {
+export function plainValue(value) {
   if (value === ".T.") return true;
   if (value === ".F.") return false;
   if (isPlainObject(value)) return value.name ?? value.guid ?? value.type ?? null;
@@ -35,7 +37,7 @@ export function ifcStoreys(data) {
   const storeys = new Map();
   const walk = (node, storey) => {
     if (!node) return;
-    const here = node.type === "IfcBuildingStorey" ? (node.name || node.guid) : storey;
+    const here = String(node.type || "").toLowerCase() === "ifcbuildingstorey" ? (node.name || node.guid) : storey;
     if (node.guid && here) storeys.set(node.guid, here);
     (node.children || []).forEach((child) => walk(child, here));
   };
@@ -43,7 +45,7 @@ export function ifcStoreys(data) {
   Object.entries(data?.elements || {}).forEach(([guid, entry]) => {
     if (storeys.has(guid) || !entry.container) return;
     const container = data.elements[entry.container];
-    if (container?.type === "IfcBuildingStorey") storeys.set(guid, container.name || entry.container);
+    if (String(container?.type || "").toLowerCase() === "ifcbuildingstorey") storeys.set(guid, container.name || entry.container);
   });
   return storeys;
 }
@@ -196,11 +198,11 @@ export function matchCondition(guid, entry, condition, storeys) {
 export function runIfcFilter(data, answer) {
   const storeys = ifcStoreys(data);
   const conditions = Array.isArray(answer?.conditions) ? answer.conditions : [];
-  const wantsSpatial = conditions.some((condition) => condition.field === "type" && SPATIAL.has(condition.value));
+  const wantsSpatial = conditions.some((condition) => condition.field === "type" && isSpatial(condition.value));
   const guids = [];
   Object.entries(data?.elements || {}).forEach(([guid, entry]) => {
     if (!entry || NOT_ELEMENTS.test(entry.type || "")) return;
-    if (!wantsSpatial && SPATIAL.has(entry.type)) return;
+    if (!wantsSpatial && isSpatial(entry.type)) return;
     if (!conditions.length) return;
     const results = conditions.map((condition) => matchCondition(guid, entry, condition, storeys));
     if (answer.match === "any" ? results.some(Boolean) : results.every(Boolean)) guids.push(guid);
