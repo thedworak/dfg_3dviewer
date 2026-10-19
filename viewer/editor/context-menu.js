@@ -18,7 +18,8 @@ import { showToast } from "../viewer-utils.js";
 // What it offers follows the mode: while measuring, the measurement's
 // finish / last point / cancel (a phone has no Enter or Backspace); while
 // picking faces, annotating or clearing them; else the element, the point
-// (zoom, measure, annotate, cut, coordinates) and the view.
+// (zoom, measure, annotate, cut, coordinates) and the view; beside the
+// model, moving, rotating and scaling it.
 //
 // The right button also pans (OrbitControls): only a right click that did
 // not move opens the menu, on release. A long press ends in a pointerup the
@@ -81,8 +82,8 @@ export function attachContextMenu(Viewer) {
       return Boolean(core.camera && core.controls && core.controls.enabled !== false);
     },
 
-    // Groups of items ({ key, label, run, locked }); a group may start with
-    // a title ({ title }).
+    // Groups of items ({ key, label, run, locked, checked }); a group may
+    // start with a title ({ title }).
     contextMenuItems(clientX, clientY) {
       const view = [{ key: "reset", label: t("contextMenu.reset", "Reset view"), run: () => Viewer.resetCamera() }];
       if (Viewer.RULER_MODE) return [Viewer.measurementMenuItems(), view];
@@ -103,10 +104,11 @@ export function attachContextMenu(Viewer) {
         elements.push({ key: "showAll", label: t("contextMenu.showAll", "Show all elements"), run: () => Viewer.resetIfcQueryView() });
       }
       const point = hit?.point ? Viewer.pointMenuItems(hit.point.clone(), clientX, clientY) : [];
+      const transform = hit ? [] : Viewer.transformMenuItems();
       if (Viewer.hasActiveClipping?.()) {
         view.unshift({ key: "removeCuts", label: t("contextMenu.removeCuts", "Remove sections"), run: () => Viewer.removeAllClipping() });
       }
-      return [element, elements, point, view];
+      return [element, elements, point, transform, view];
     },
 
     measurementMenuItems() {
@@ -173,6 +175,25 @@ export function attachContextMenu(Viewer) {
         });
       }
       return items;
+    },
+
+    // The model's gizmo, as the toolbar's move / rotate / scale: the mode
+    // on is ticked, choosing it again turns it off.
+    transformMenuItems() {
+      if (!core.helperObjects?.[0]) return [];
+      const current = Viewer.transformText?.["Transform 3D Object"] || "";
+      return [
+        { key: "move", mode: "translate", label: t("gui.move", "Move") },
+        { key: "rotate", mode: "rotate", label: t("gui.rotate", "Rotate") },
+        { key: "scale", mode: "scale", label: t("gui.scale", "Scale") },
+      ]
+        .filter(({ key }) => hasTool(Viewer, key))
+        .map(({ key, mode, label }) => ({
+          key,
+          label,
+          checked: current === mode,
+          run: () => Viewer.toggleObjectTransformMode(mode),
+        }));
     },
 
     // A point of the model (world space).
@@ -267,7 +288,8 @@ export function attachContextMenu(Viewer) {
     appendContextMenuItem(menu, item, separated) {
       const button = document.createElement("button");
       button.type = "button";
-      button.setAttribute("role", "menuitem");
+      button.setAttribute("role", item.checked === undefined ? "menuitem" : "menuitemcheckbox");
+      if (item.checked !== undefined) button.setAttribute("aria-checked", String(item.checked));
       button.dataset.action = item.key;
       button.textContent = item.label;
       if (item.locked) button.classList.add("is-locked");
