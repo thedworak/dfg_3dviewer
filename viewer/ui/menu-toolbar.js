@@ -42,7 +42,7 @@ const CATEGORIES = [
     id: "model",
     label: () => t("menus.model", "Model"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["move", "rotate", "scale", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
+    tools: ["move", "rotate", "scale", "upAxis", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
   },
   {
     id: "story",

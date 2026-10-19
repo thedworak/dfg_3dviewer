@@ -4,6 +4,7 @@ import { t } from "../i18n-utils.js";
 import { makeDraggable } from "../ui/panel-window.js";
 import THREE from "../init.js";
 import { unitNameToMeters } from "./model-units.js";
+import { DEFAULT_UP_AXIS, getUpAxis, normalizeUpAxis } from "../up-axis.js";
 import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
 import {
@@ -1657,6 +1658,11 @@ export function attachAnnotations(Viewer) {
               primaryModelObject?.scale?.toArray?.() ||
               [1, 1, 1],
 
+            // Only for a model not Y-up (up-axis.js).
+            ...(primaryModelObject && getUpAxis(primaryModelObject) !== DEFAULT_UP_AXIS
+              ? { upAxis: getUpAxis(primaryModelObject) }
+              : {}),
+
             wireframe: core.wireframeMode || false,
 
             // Left out for the materials as loaded (the default).
@@ -2144,6 +2150,10 @@ export function attachAnnotations(Viewer) {
         || (Array.isArray(core.helperObjects) ? core.helperObjects.find((item) => item?.isObject3D) : null);
 
       if (modelObject) {
+        // Turned upright first: position, rotation and scale are the
+        // upright model's. Left out, a manifest keeps the model as it is.
+        const upAxis = normalizeUpAxis(modelTransform.upAxis);
+        if (upAxis) this.setUpAxis?.(upAxis, { silent: true });
         const position = this.parse3IFManifestVector(modelTransform.position, null, 3);
         const scale = this.parse3IFManifestVector(modelTransform.scale, null, 3);
         const rotation = modelTransform.rotation && typeof modelTransform.rotation === "object"

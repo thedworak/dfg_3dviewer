@@ -67,6 +67,8 @@ import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
 import { attachMaterialsEditor } from "./editor/materials-editor.js";
 import { attachShadingEditor } from "./editor/shading.js";
+import { attachUpAxisEditor } from "./editor/up-axis.js";
+import { normalizeUpAxis } from "./up-axis.js";
 import { buildEditorMetadata, saveEditorMetadata as persistEditorMetadata } from "./editor/metadata-persistence.js";
 import { attachAnnotations } from "./editor/annotations.js";
 import { attachMeasurement } from "./editor/measurement.js";
@@ -149,6 +151,7 @@ import {
   updateLightsSubmenuState,
   updateShadingSubmenuState,
   updateStatisticsSubmenuState,
+  updateUpAxisSubmenuState,
 } from "./editor-toolbar.js";
 import { VIEWER_DEFAULTS } from "./viewer-defaults.js";
 import {
@@ -789,6 +792,10 @@ export const Viewer = {
     return updateShadingSubmenuState(this);
   },
 
+  updateUpAxisSubmenuState() {
+    return updateUpAxisSubmenuState(this);
+  },
+
   async saveEditorMetadata() {
     return persistEditorMetadata(this);
   },
@@ -890,6 +897,9 @@ export const Viewer = {
       presentationMode: presentationModeFromQuery,
       sandboxMode: sandboxModeFromQuery,
       scale: this.parseVector2Param(params.get("scale")) ?? null,
+      // Which axis of the model file is up (Z+ for Z-up exports, Y- for a
+      // model upside down); see up-axis.js.
+      upAxis: normalizeUpAxis(params.get("upAxis")),
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
     };
   },
@@ -3248,6 +3258,11 @@ export const Viewer = {
       modelConfig.position = { x: 0, y: 0, z: 0 };
       modelConfig.rotation = { x: 0, y: 0, z: 0 };
       modelConfig.scale = { x: 1, y: 1, z: 1 };
+      // AIM3DViewer.modelTransform is the first model's: its upAxis is
+      // needed before placing the model, not after (import3IFManifest).
+      modelConfig.upAxis = isAim3ifManifest && i === 0
+        ? normalizeUpAxis(loadedManifest.manifest?.AIM3DViewer?.modelTransform?.upAxis)
+        : null;
       core.fileObject.originalPath = loadedManifest.modelUrl = url;
       //fileObject.originalPath = loadedManifest.modelUrl;
       Viewer.setModelPaths();
@@ -4369,6 +4384,7 @@ attachLocalizationTheme(Viewer);
 attachLoadingStatus(Viewer);
 attachMaterialsEditor(Viewer);
 attachShadingEditor(Viewer);
+attachUpAxisEditor(Viewer);
 attachAnnotations(Viewer);
 attachPicking(Viewer);
 attachContextMenu(Viewer);

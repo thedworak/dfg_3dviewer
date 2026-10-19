@@ -694,6 +694,106 @@ test('faces are selected by Shift + drag, Ctrl + click and accepted with Enter',
   expect(await selectedCount()).toBe(0);
 });
 
+// Size and grid placement of the model root, and its own rotation.
+async function modelPose(page) {
+  return page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const bounds = new THREE.Box3().setFromObject(root, true);
+    const size = bounds.getSize(new THREE.Vector3());
+    // "|| 0": -0 reads as 0.
+    const round = (value) => +value.toFixed(3) || 0;
+    return {
+      size: size.toArray().map(round),
+      minY: round(bounds.min.y),
+      rotation: root.rotation.toArray().slice(0, 3).map(round),
+      upAxis: window.Viewer.getModelUpAxis(),
+    };
+  });
+}
+
+test('upAxis turns Z-up and upside-down models upright, under the root transform', async ({ page }) => {
+  // A group (glTF) and a single mesh (STL, whose geometry is turned).
+  for (const model of ['/examples/WolpaSynagogue.glb', '/examples/box.stl']) {
+    await openViewer(page, model);
+    await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+    const asLoaded = await modelPose(page);
+    expect(asLoaded.upAxis, model).toBe('Y+');
+
+    // The URL: the file's Z is up (a "+" in a URL reads as a space).
+    await openViewer(page, model, 'upAxis=Z+');
+    await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+    const zUp = await modelPose(page);
+    expect(zUp.upAxis, model).toBe('Z+');
+    expect(zUp.size, model).toEqual([asLoaded.size[0], asLoaded.size[2], asLoaded.size[1]]);
+    // Still on the grid, and the fix is not in the root's own rotation.
+    expect(zUp.minY, model).toBe(0);
+    expect(zUp.rotation, model).toEqual([0, 0, 0]);
+
+    // Annotation targets (child-index paths) skip the pivot.
+    const lastMeshTarget = () => page.evaluate(() => {
+      const meshes = [];
+      window.Viewer.resolveObjectByTargetId('m0:root').traverse((child) => { if (child.isMesh) meshes.push(child); });
+      const mesh = meshes.at(-1);
+      delete mesh.userData.annotationTargetId;
+      const id = window.Viewer.resolveFaceTargetId(mesh);
+      return { id, resolved: window.Viewer.resolveObjectByTargetId(id) === mesh };
+    });
+    const zUpTarget = await lastMeshTarget();
+    expect(zUpTarget.resolved, model).toBe(true);
+
+    // The editor: back to Y-up, then upside down.
+    expect(await page.evaluate(() => window.Viewer.setUpAxis('Y+'))).toBe(true);
+    expect(await modelPose(page)).toEqual(asLoaded);
+    expect(await lastMeshTarget(), model).toEqual(zUpTarget);
+    await page.evaluate(() => window.Viewer.setUpAxis('Y-'));
+    const flipped = await modelPose(page);
+    expect(flipped.size, model).toEqual(asLoaded.size);
+    expect(flipped.minY, model).toBe(0);
+    // Setting it again changes nothing (no second turn).
+    expect(await page.evaluate(() => window.Viewer.setUpAxis('Y-'))).toBe(false);
+  }
+
+  // The toolbar's menu marks the current axis and sets another.
+  const zButton = page.locator('[data-tool="upAxis-Z+"]');
+  await expect(zButton).toHaveCount(1);
+  await expect(page.locator('[data-tool="upAxis-Y-"]')).toHaveClass(/is-active/);
+  await zButton.dispatchEvent('click');
+  expect((await modelPose(page)).upAxis).toBe('Z+');
+  await expect(zButton).toHaveClass(/is-active/);
+
+  // Exported as modelTransform.upAxis, and imported back.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.modelTransform.upAxis).toBe('Z+');
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+  await page.evaluate(() => window.Viewer.setUpAxis('Y+'));
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.modelTransform.upAxis)).toBeUndefined();
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  expect((await modelPose(page)).upAxis).toBe('Z+');
+
+  const broken = structuredClone(manifest);
+  broken.AIM3DViewer.modelTransform.upAxis = 'up';
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual(['$.AIM3DViewer.modelTransform.upAxis']);
+});
+
+test('progressive loading: the up axis of the preview stays on the full model', async ({ page }) => {
+  await page.route('**/examples/compressed.glb', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await openViewer(page, '/examples/compressed.glb', 'upAxis=-Y');
+  await waitForModel(page);
+  const preview = await modelPose(page);
+  expect(preview.upAxis).toBe('Y-');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const full = await page.evaluate(() => {
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const pivots = root.children.filter((child) => child.userData?.isUpAxisPivot);
+    return { isPreview: root.userData?.isPreviewModel === true, pivots: pivots.length, pivotX: +pivots[0]?.rotation.x.toFixed(3) };
+  });
+  expect(full).toEqual({ isPreview: false, pivots: 1, pivotX: +Math.PI.toFixed(3) });
+  expect((await modelPose(page)).upAxis).toBe('Y-');
+});
+
 test('progressive loading shows the preview first and swaps in the full compressed model', async ({ page }) => {
   const requests = [];
   page.on('request', (request) => {
@@ -3582,7 +3682,7 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   // models have (hidden here: no variants, IFC or point cloud): under Model.
   await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
   const tools = toolbar.locator('.viewer-menus_group[data-category="model"] > [data-tool]:visible');
-  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['move', 'rotate', 'scale', 'ruler', 'hierarchy', 'picking']);
+  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['move', 'rotate', 'scale', 'upAxis', 'ruler', 'hierarchy', 'picking']);
   await toolbar.locator('.viewer-menus_group[data-category="model"] [data-tool="move"]').click();
   expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('translate');
   await toolbar.locator('.viewer-menus_nav [data-tool="orbit"]').click();

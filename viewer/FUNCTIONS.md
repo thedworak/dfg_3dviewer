@@ -385,6 +385,15 @@ GLB/glTF models are decoded with Draco (`assets/draco/`), Meshopt and KTX2/Basis
 When `<model>.preview.glb` exists next to the model (HEAD probe; `viewer.progressive.enabled`, URL `preview=0|<url>`), the preview goes through the normal load (`afterLoad`: settings, camera, metadata), then the full model is fetched in the background and `swapInFullModel()` replaces the preview root in place: same root transform, materials setup, section outline, animations, hierarchy and statistics (`refreshModelHierarchyAndStats()` in `metadata.js`), annotation markers. The camera does not move. Annotations cannot be created while the preview is on screen (`Viewer.isPreviewModelActive()`), because they store face indices of the full model. `window.viewer.fullModelLoaded` turns true once the full model is in place.
 
 
+## `viewer/up-axis.js` and `viewer/editor/up-axis.js`
+
+Models whose up is not three.js' +Y: Z-up exports (CAD, scans, photogrammetry) and models upside down. `upAxis` names the axis of the file that points up (`Y+` default, `Y-`, `Z+`, `Z-`, `X+`, `X-`; `normalizeUpAxis()` also reads `z`, `-z`, `z-up`).
+
+- `applyUpAxis(root, upAxis)` turns that axis to +Y without touching the root's own transform, so it composes with what `afterLoad` resets and what metadata, config, manifests and the editor set: a group root gets an inner pivot (`userData.isUpAxisPivot`) holding its children; a mesh or point root (STL, PLY, XYZ, ...) has its geometry turned. Repeated calls replace the fix; tiled models are skipped (oriented by `tiles.js`). `getUpAxis(root)` reads it back (`userData.appliedUpAxis`).
+- Applied at the start of `setupObject()` (`viewer-utils.js`), before the metadata/config transform and the grid placement. Sources, first wins: URL `?upAxis=`, the model's `_viewer.json` (`upAxis`, saved with the rotation), its `objectsConfig.models` entry (`upAxis`; for an AIM3D manifest, `AIM3DViewer.modelTransform.upAxis` of the first model).
+- `swapInFullModel()` gives the full model the preview's fix; annotation target paths (`editor/picking.js`) skip the pivot, so they do not change with the up axis.
+- Editor: *Up axis* in the toolbar's transform group (*Model* menu) — `Viewer.setUpAxis(axis)` turns the model, puts it back on the grid and refreshes the section outline, clipping, face picking and annotation markers; `Viewer.getModelUpAxis()`. Exported to and imported from `AIM3DViewer.modelTransform.upAxis`.
+
 ## `viewer/tiles.js`
 
 Streamed level-of-detail models through [3d-tiles-renderer](https://github.com/NASA-AMMOS/3DTilesRendererJS): 3D Tiles (`tileset.json`) and Potree 2 (`metadata.json`), detected by file name or `?format=3dtiles|potree`.

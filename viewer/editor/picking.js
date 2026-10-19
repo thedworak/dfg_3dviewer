@@ -3,6 +3,7 @@ import { hasIfcProperties, showIfcProperties, closeIfcPanel } from "../ifc-prope
 import THREE from "../init.js";
 import TWEEN from "three/examples/jsm/libs/tween.module.js";
 import { pickPointCloud, withoutPointRaycast } from "../pointcloud-picking.js";
+import { getUpAxisPivot } from "../up-axis.js";
 
 function getNormalizedPointerPosition(Viewer, clientX, clientY, targetVector) {
   targetVector.x =
@@ -339,8 +340,12 @@ export function attachPicking(Viewer) {
       while (current && current !== rootObject) {
         const parent = current.parent;
         if (!parent) break;
-        const index = parent.children.indexOf(current);
-        path.push(index >= 0 ? String(index) : "x");
+        // The up-axis pivot (up-axis.js) is not part of the model: paths
+        // stay the same whichever axis is up.
+        if (!current.userData?.isUpAxisPivot) {
+          const index = parent.children.indexOf(current);
+          path.push(index >= 0 ? String(index) : "x");
+        }
         current = parent;
       }
       return path.reverse().join(".") || "root";
@@ -385,6 +390,7 @@ export function attachPicking(Viewer) {
       if (!rootObject) return null;
 
       if (path === "root") return rootObject;
+      rootObject = getUpAxisPivot(rootObject) ?? rootObject;
       const segments = path.split(".").filter(Boolean);
       for (const segment of segments) {
         const childIndex = Number.parseInt(segment, 10);

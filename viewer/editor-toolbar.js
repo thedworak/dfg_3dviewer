@@ -6,6 +6,8 @@ import { t } from "./i18n-utils.js";
 import { AO_INTENSITY_MAX, applyRenderingSettings, getRenderingSettings, renderToneMappingPreviews } from "./rendering.js";
 import { changeBackground, toastHelper } from './viewer-utils.js';
 import { MODEL_UNITS } from "./editor/model-units.js";
+import { UP_AXES } from "./up-axis.js";
+import { upAxisLabel } from "./editor/up-axis.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
 import { appToolbarTools } from "./app-features.js";
@@ -28,6 +30,7 @@ export function getEditorToolbarIcon(icon) {
     move: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     rotate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5A7.5 7.5 0 1 1 5 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 3.5v3H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     scale: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h8v8H8zM5 5h4M5 5v4M19 19h-4M19 19v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    upAxis: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V4M8 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
@@ -1362,6 +1365,8 @@ export function createEditorToolbar(viewer) {
     { key: "move", group: "transform", icon: "move", onClick: () => viewer.toggleObjectTransformMode("translate"), pressed: true, primary: true },
     { key: "rotate", group: "transform", icon: "rotate", onClick: () => viewer.toggleObjectTransformMode("rotate"), pressed: true, primary: true },
     { key: "scale", group: "transform", icon: "scale", onClick: () => viewer.toggleObjectTransformMode("scale"), pressed: true, primary: true },
+    // Which axis of the file is up (Z-up exports, models upside down).
+    { key: "upAxis", group: "transform", icon: "upAxis", onClick: () => {}, pressed: false, primary: false },
     // Shown only while a point cloud is loaded (updateEditorToolbarState):
     // opens its settings window (editor/point-cloud-panel.js).
     { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
@@ -1965,6 +1970,30 @@ export function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
+    } else if (tool.key === "upAxis") {
+      button.classList.add("has-submenu");
+      const submenu = document.createElement("div");
+      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu--grid";
+      viewer.upAxisSubmenuButtons = {};
+      UP_AXES.forEach((axis) => {
+        const label = upAxisLabel(axis);
+        const subButton = document.createElement("button");
+        subButton.type = "button";
+        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
+        subButton.dataset.tool = `upAxis-${axis}`;
+        subButton.setAttribute("title", label);
+        subButton.setAttribute("aria-label", label);
+        subButton.innerHTML = `
+          <span class="viewer-editor-tool_icon" aria-hidden="true">${upAxisIcon(axis)}</span>
+        `;
+        viewer.bindEventListener(subButton, "click", (event) => {
+          event.stopPropagation();
+          viewer.setUpAxis(axis);
+        });
+        viewer.upAxisSubmenuButtons[axis] = subButton;
+        submenu.appendChild(subButton);
+      });
+      button.appendChild(submenu);
     } else if (tool.key === "shading") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
@@ -2209,6 +2238,20 @@ export function updateMeasurementSubmenuState(viewer) {
   viewer.measurementSubmenuButtons.dimensions?.setAttribute("aria-pressed", dimensionsShown ? "true" : "false");
 }
 
+// An arrow up with the file's axis written under it.
+function upAxisIcon(axis) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13V3M8.5 6.5 12 3l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="22" text-anchor="middle" font-size="8.5" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor">${axis}</text></svg>`;
+}
+
+export function updateUpAxisSubmenuState(viewer) {
+  if (!viewer.upAxisSubmenuButtons) return;
+  const activeAxis = viewer.getModelUpAxis?.();
+  Object.entries(viewer.upAxisSubmenuButtons).forEach(([axis, button]) => {
+    button?.classList.toggle("is-active", axis === activeAxis);
+    button?.setAttribute("aria-pressed", axis === activeAxis ? "true" : "false");
+  });
+}
+
 export function updateShadingSubmenuState(viewer) {
   if (!viewer.shadingSubmenuButtons) return;
   const activeMode = viewer.shadingMode || "original";
@@ -2358,6 +2401,7 @@ export function updateEditorToolbarLabels(viewer) {
     move: t("gui.move", "Move"),
     rotate: t("gui.rotate", "Rotate"),
     scale: t("gui.scale", "Scale"),
+    upAxis: t("gui.upAxis", "Up axis of the model"),
     lights: t("gui.lights", "Lights"),
     environmentMap: t("gui.environmentMap", "Environment map"),
     rendering: t("gui.rendering", "Rendering"),
@@ -2685,6 +2729,7 @@ export function updateEditorToolbarState(viewer) {
   updateBackgroundSubmenuState(viewer);
   updateStatisticsSubmenuState(viewer);
   updateShadingSubmenuState(viewer);
+  updateUpAxisSubmenuState(viewer);
   updateMenuToolbarState(viewer);
   updateToolbarGroups();
 }

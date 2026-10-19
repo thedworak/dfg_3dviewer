@@ -48,6 +48,7 @@ import {
   refreshModelHierarchyAndStats,
   replaceModelSettingsResetObject,
 } from "./metadata.js";
+import { applyUpAxis, getUpAxis } from "./up-axis.js";
 import { loadIfcProperties, ifcPropertiesUrlForModel, setIfcModel } from "./ifc-properties.js";
 import { reportViewerError, showToast, toastHelper } from "./viewer-utils.js";
 import { t } from "./i18n-utils.js";
@@ -174,6 +175,8 @@ async function swapInFullModel(previewRoot, fullRoot) {
   window.Viewer?.clearHierarchySelection?.();
   window.Viewer?.endFaceAreaSelection?.();
 
+  // The preview's up-axis fix (up-axis.js) lives under its root.
+  applyUpAxis(fullRoot, getUpAxis(previewRoot));
   fullRoot.position.copy(previewRoot.position);
   fullRoot.quaternion.copy(previewRoot.quaternion);
   fullRoot.scale.copy(previewRoot.scale);

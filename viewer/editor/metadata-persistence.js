@@ -1,6 +1,7 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { toastHelper } from "../viewer-utils.js";
+import { getUpAxis } from "../up-axis.js";
 
 function pickMetadataValue(save, current, original) {
   return save ? current : original;
@@ -25,6 +26,13 @@ export function buildEditorMetadata(viewer, rotateMetadata) {
     saveProperties.Rotation,
     [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
     originalMetadata.objRotation
+  );
+
+  // Which axis of the file is up (up-axis.js): part of the orientation.
+  metadata.upAxis = pickMetadataValue(
+    saveProperties.Rotation,
+    getUpAxis(core.helperObjects[0]),
+    originalMetadata.upAxis
   );
 
   metadata.objScale = pickMetadataValue(

@@ -10,6 +10,8 @@ export const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", 
 export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
 export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
+// Keep in sync with UP_AXES in viewer/up-axis.js (same reason).
+export const MODEL_UP_AXES = ["Y+", "Y-", "Z+", "Z-", "X+", "X-"];
 // Keep in sync with TIMELINE_TRANSITIONS / TIMELINE_STAGE_TYPES in viewer/timeline.js.
 export const TIMELINE_TRANSITIONS = ["interpolate", "step"];
 export const TIMELINE_STAGE_TYPES = ["documented", "modelled"];
@@ -376,6 +378,7 @@ function validateModelTransform(modelTransform, path, errors) {
       if (modelTransform.rotation.order !== undefined) validateString(modelTransform.rotation.order, `${path}.rotation.order`, errors);
     }
   }
+  if (modelTransform.upAxis !== undefined) validateEnum(modelTransform.upAxis, MODEL_UP_AXES, `${path}.upAxis`, errors);
   if (modelTransform.wireframe !== undefined) validateBoolean(modelTransform.wireframe, `${path}.wireframe`, errors);
   if (modelTransform.shadingMode !== undefined) {
     validateEnum(modelTransform.shadingMode, SHADING_MODES, `${path}.shadingMode`, errors);

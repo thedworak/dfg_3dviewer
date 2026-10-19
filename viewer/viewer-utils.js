@@ -4,6 +4,7 @@ import { core, setCore } from './core.js';
 import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
 import { normalizeColor, parseCssColor } from './utils.js';
 import { t } from "./i18n-utils.js";
+import { applyUpAxis, getFirstModelChild, getUpAxis, normalizeUpAxis } from "./up-axis.js";
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -297,13 +298,22 @@ function centerObjectAtOrigin(_object) {
 // bottom at y = 0. The shift is relative to the current position because the
 // box is in world space - a streamed (tiled) model's group already carries
 // the transform that centres/orients it (tiles.js).
-function placeOnGrid(_object) {
+export function placeOnGrid(_object) {
   const boundingBox = new THREE.Box3().setFromObject(_object);
   if (boundingBox.isEmpty()) return;
   _object.position.x -= (boundingBox.min.x + boundingBox.max.x) / 2;
   _object.position.y -= boundingBox.min.y;
   _object.position.z -= (boundingBox.min.z + boundingBox.max.z) / 2;
   _object.updateMatrixWorld();
+}
+
+// The URL (?upAxis=) wins, as for testing a model or embedding it; then the
+// model's saved metadata, then its config / manifest entry. None: +Y.
+function resolveUpAxis(_metadata, configModel) {
+  return normalizeUpAxis(window.Viewer?.urlOptions?.upAxis)
+    ?? normalizeUpAxis(_metadata?.upAxis)
+    ?? normalizeUpAxis(configModel?.upAxis)
+    ?? null;
 }
 
 function setupCameraHandler(_object, meta) {
@@ -338,10 +348,11 @@ export const setupObject = (_object, _metadata) => {
   // on the grid.
   if (_metadata === null || typeof _metadata !== "object") _metadata = null;
   let model;
-  if (typeof _object.children === "undefined" || _object.children.length == 0) {
+  const firstChild = getFirstModelChild(_object);
+  if (!firstChild) {
     model = fetchObjectFromConfig(_object.name);
-  } else if (_object.children.length > 0) {
-    model = fetchObjectFromConfig(_object.children[0].name); //TODO: check for multiple objects
+  } else {
+    model = fetchObjectFromConfig(firstChild.name); //TODO: check for multiple objects
   }
   // Models from a IIIF (or AIM3D) manifest carry their transform (Scale/
   // Rotate/TranslateTransform, PointSelector position) in the config entry of
@@ -350,6 +361,11 @@ export const setupObject = (_object, _metadata) => {
   if (!model && (manifestSource === "IIIF" || manifestSource === "AIM3IF")) {
     model = core.objectsConfig?.models?.[core.objectsConfig.setupIndex];
   }
+
+  // Which axis of the file is up (up-axis.js), before any placement: the
+  // transforms below and the grid placement are for the upright model.
+  const configModel = model ?? core.objectsConfig?.models?.[core.objectsConfig?.setupIndex];
+  applyUpAxis(_object, resolveUpAxis(_metadata, configModel));
 
   if (_metadata != null) {
     setupObjectHandler(_object, _metadata);
@@ -946,6 +962,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
     core.objectsConfig.originalMetadata = {
       objPosition: [rootObject?.position?.x || 0, rootObject?.position?.y || 0, rootObject?.position?.z || 0],
       objRotation: [rotateMetadata.x, rotateMetadata.y, rotateMetadata.z],
+      upAxis: getUpAxis(rootObject),
       objScale: [
         core.helperObjects[0]?.scale.x || 1,
         core.helperObjects[0]?.scale.y || 5,
