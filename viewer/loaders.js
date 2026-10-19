@@ -921,7 +921,8 @@ export async function loadModel() {
       case "spz":
       case "splat":
       case "ksplat":
-      case "sog": {
+      case "sog":
+      case "rad": {
         const buffer = await loadAsync(new THREE.FileLoader().setResponseType("arraybuffer"), modelPath, onProgress);
         updateLoadingStage("loadingLog.preparingGeometry", 99);
         const { buildSplatModel } = await loadSplats();

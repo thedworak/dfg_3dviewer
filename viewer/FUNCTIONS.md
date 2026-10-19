@@ -437,10 +437,11 @@ The Web Worker entry: posts `ready` once loaded (a worker that fails before that
 
 ## `viewer/splats.js`
 
-Gaussian splats (3D Gaussian Splatting captures: `.spz`, `.splat`, `.ksplat`, `.sog`, and a `.ply` whose vertices are Gaussians), drawn with [Spark](https://sparkjs.dev) together with the meshes of the scene, in VR and AR too. Loaded on demand by `loaders.js`, so Spark (WebAssembly and workers embedded) only downloads with the first splat file. Example: `examples/tempietto/Tempietto.splat` (built by `scripts/build-tempietto-examples.mjs`).
+Gaussian splats (3D Gaussian Splatting captures: `.spz`, `.splat`, `.ksplat`, `.sog`, `.rad`, and a `.ply` whose vertices are Gaussians), drawn with [Spark](https://sparkjs.dev) together with the meshes of the scene, in VR and AR too. Loaded on demand by `loaders.js`, so Spark (WebAssembly and workers embedded) only downloads with the first splat file. Example: `examples/tempietto/Tempietto.splat` (built by `scripts/build-tempietto-examples.mjs`).
 
 - `buildSplatModel(buffer, { fileName, name, upright })`
   - A group holding the `SplatMesh`, turned upright (captures are stored Y down). The mesh gets a geometry with the corners of its bounds, so framing, the grid and measurements see it; `userData.gaussianSplats` holds `{ count, format }`.
+  - From 300 000 splats on, Spark builds a level-of-detail tree while loading and draws a budget of splats per frame; a `.rad` (Spark's format, written by its `build-lod` - the worker makes one of every uploaded capture) brings the tree ready-made, and its bounds and count are those of the tree, merged inner splats included.
   - Adds Spark's renderer (`core.sparkRenderer`, `spark-renderer` in the scene) once; `resetLoadedModelState()` removes it.
 - `isSplatPly(buffer)` (in `loaders.js`) — tells a PLY of Gaussians (`f_dc_0`, `scale_0`, `rot_0`, or a compressed `packed_position`) from a mesh or point PLY.
 

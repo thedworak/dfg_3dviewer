@@ -3,7 +3,7 @@ import { core } from "./core.js";
 import { SparkRenderer, SplatMesh, isMobile } from "@sparkjsdev/spark";
 
 // Gaussian splats (3D Gaussian Splatting captures: .ply, .spz, .splat,
-// .ksplat, .sog), drawn with Spark (sparkjs.dev) together with the meshes of
+// .ksplat, .sog, .rad), drawn with Spark (sparkjs.dev) together with the meshes of
 // the scene. Loaded dynamically by loaders.js, so Spark (with its WebAssembly
 // and workers, embedded in the bundle) is only downloaded with the first
 // splat file.
@@ -22,6 +22,11 @@ import { SparkRenderer, SplatMesh, isMobile } from "@sparkjsdev/spark";
 // nonLod keeps the full set too, for the bounds, raycasts and forEachSplat.
 // Phones also leave out the higher spherical harmonics (view-dependent
 // colour), which cost texture reads on every splat.
+//
+// A .rad file (Spark's own format, written by its build-lod tool - the
+// worker turns uploaded splats into one) holds that tree already built, so
+// nothing is computed on loading. It decodes to the tree alone: the bounds
+// and the count come from the tree's splats, the merged inner ones included.
 
 const LOD_ABOVE = 300_000;
 // Share of Spark's default per-platform budget (2.5M splats on desktop,
@@ -57,6 +62,12 @@ function boundsGeometry(box) {
   return geometry;
 }
 
+function centersBox(splats) {
+  const box = new THREE.Box3();
+  splats.forEachSplat((_index, center) => box.expandByPoint(center));
+  return box;
+}
+
 // Builds the splat model from the file's bytes. Resolves once the splats
 // are decoded.
 export async function buildSplatModel(buffer, { fileName = "splats", name = "Gaussian splats", upright = true } = {}) {
@@ -72,9 +83,11 @@ export async function buildSplatModel(buffer, { fileName = "splats", name = "Gau
   if (isMobile()) mesh.maxSh = MOBILE_MAX_SH;
   mesh.name = name;
   if (upright) mesh.quaternion.set(1, 0, 0, 0);
-  const box = mesh.getBoundingBox(true);
+  const splats = mesh.packedSplats ?? mesh.extSplats;
+  const lodOnly = !splats?.numSplats && splats?.lodSplats ? splats.lodSplats : null;
+  const box = lodOnly ? centersBox(lodOnly) : mesh.getBoundingBox(true);
   if (!box.isEmpty()) mesh.geometry = boundsGeometry(box);
-  const count = mesh.packedSplats?.numSplats ?? mesh.extSplats?.numSplats ?? null;
+  const count = (lodOnly ?? splats)?.numSplats ?? null;
   mesh.userData.gaussianSplats = { count, format: fileName.split(".").pop().toLowerCase() };
   mesh.userData.isGaussianSplats = true;
 

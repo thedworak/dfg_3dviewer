@@ -14,6 +14,20 @@
 # The build needs no files from the repository (everything is downloaded):
 #   docker build -f worker/Dockerfile.base -t dfg-3dviewer-worker-base worker
 
+# Spark's build-lod (worker/splats.py): turns uploaded Gaussian splats into
+# a .rad level-of-detail file. There is no release binary; it is built from
+# the Spark repository in a stage of its own, so the Rust toolchain stays out
+# of the image. SPARK_VERSION must match @sparkjsdev/spark in package.json -
+# the viewer's Spark reads the .rad files. Without the "gpu" feature (wgpu,
+# for clustering SH coefficients): the container has no GPU.
+ARG SPARK_VERSION=2.2.0
+FROM rust:1.90-bookworm AS spark-build-lod
+ARG SPARK_VERSION
+RUN git clone --depth 1 --branch "v${SPARK_VERSION}" https://github.com/sparkjsdev/spark.git /spark \
+    && cd /spark/rust \
+    && cargo build --release -p build-lod --no-default-features \
+    && install -m 755 target/release/build-lod /usr/local/bin/build-lod
+
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -139,6 +153,11 @@ RUN curl -fsSL "https://github.com/KhronosGroup/glTF-Validator/releases/download
     && chmod +x /usr/local/bin/gltf_validator \
     && rm /tmp/gltf_validator.tar.xz \
     && { gltf_validator --help 2>&1 || true; } | grep -q "glTF 2.0 Validator"
+
+# Gaussian splats -> .rad (see the spark-build-lod stage at the top). Kept
+# after the validator so adding it did not invalidate the cached layers.
+COPY --from=spark-build-lod /usr/local/bin/build-lod /usr/local/bin/build-lod
+RUN { build-lod 2>&1 || true; } | grep -q "Usage: build-lod"
 
 # Runtime defaults that do not depend on the code.
 ENV SPATH=/app

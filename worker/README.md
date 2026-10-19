@@ -170,7 +170,8 @@ needing the tag.
   first file part wins). Accepts, plus `.zip` archives containing one of them:
   - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
-  - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
+  - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
+  - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading
   - point clouds converted to a streamed octree (`modelUrl` ends in `tiles/<name>/metadata.json` for Potree 2, `tiles/<name>/tileset.json` for 3D Tiles), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
@@ -255,6 +256,10 @@ Set via environment variables on the `worker` container (see
 | `WORKER_POINTCLOUD_CLASSIFIER` | `geometric` | `geometric` (built-in rules) or `command` (`WORKER_POINTCLOUD_CLASSIFIER_CMD` with `{input}` `{output}`, e.g. a trained model) |
 | `WORKER_AI_ENABLED`        | `false`         | AI assistance through the Claude API (needs `ANTHROPIC_API_KEY`), see `docs/ai.md` |
 | `WORKER_POTREE_CONVERTER`  | `PotreeConverter` | PotreeConverter executable (name on `PATH` or a path) |
+| `WORKER_SPLAT_LOD`         | `auto`          | `auto`: Gaussian splats become a `.rad` level-of-detail file when `build-lod` is installed; `off`: kept as uploaded |
+| `WORKER_SPLAT_LOD_BIN`     | `build-lod`     | Spark's build-lod executable (name on `PATH` or a path) |
+| `WORKER_SPLAT_LOD_ARGS`    | `--quality`     | build-lod options, e.g. `--quality --max-sh=1` for smaller files without the higher spherical harmonics |
+| `WORKER_SPLAT_LOD_TIMEOUT` | `1800`          | seconds per splat conversion |
 | `WORKER_GZIP_MAX_BYTES`    | `268435456`    | Largest file served gzip-compressed (`static_files.py`); `0` turns compression off |
 | `WORKER_VALIDATE`          | `true`         | Write `validation.json` for GLB/glTF models (see "Model validation") |
 | `WORKER_GLTF_VALIDATOR_BIN` | `gltf_validator` | Khronos glTF-Validator executable (in the image); without it the report has no spec check |

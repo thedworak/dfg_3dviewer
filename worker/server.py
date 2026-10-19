@@ -32,8 +32,9 @@ Accepted uploads (see the *_FORMATS sets below): Blender importers via
 scripts/convert.sh (abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend
 gml glb), STEP/IGES/3MF via scripts/convert_mesh.py (step stp iges igs 3mf), and
 formats the viewer reads itself, stored as uploaded without thumbnails (gltf 3ds
-pcd xyz amf kmz vox lwo, and Gaussian splats: spz splat ksplat sog, and a .ply
-of splats), plus .zip/.rar/.tar/.xz/.gz archives of any of these.
+pcd xyz amf kmz vox lwo, and Gaussian splats: spz splat ksplat sog rad, and a
+.ply of splats - turned into a level-of-detail .rad by splats.py when build-lod
+is installed), plus .zip/.rar/.tar/.xz/.gz archives of any of these.
 
 This process is single-node and keeps in-flight job state (progress/status
 messages) in memory only, so that is lost on restart - it is meant for
@@ -66,6 +67,7 @@ import mailer
 import optimize
 import remote_fetch
 import pointcloud
+import splats
 import static_files
 import validate
 from auth import APP_TIERS, AuthError, AuthStore
@@ -128,7 +130,7 @@ MESH_CONVERT_FORMATS = {"step", "stp", "iges", "igs", "3mf"}
 # served as-is. No GLB is produced and, since thumbnails are rendered from a
 # GLB by Blender, no thumbnails either. ("gltf" is only useful inside a .zip
 # together with its .bin/textures, which stay next to it in the job folder.)
-VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo", "spz", "splat", "ksplat", "sog"}
+VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo", "spz", "splat", "ksplat", "sog", "rad"}
 # Point clouds become a streamed 3D Tiles tileset (worker/pointcloud.py);
 # a .ply without faces joins them at run time (is_point_cloud()).
 POINTCLOUD_FORMATS = pointcloud.POINTCLOUD_FORMATS
@@ -280,7 +282,9 @@ def scan_job(job_id: str, job_dir: Path):
         ]
         if not native:
             return None
-        glb_path = native[0]
+        # Gaussian splats: the level-of-detail tree built from the upload
+        # (splats.py) rather than the upload itself.
+        glb_path = next((p for p in native if p.suffix.lower() == ".rad"), native[0])
 
     image_urls = []
     views_dirs = sorted(job_root.rglob("views"))
@@ -290,8 +294,10 @@ def scan_job(job_id: str, job_dir: Path):
         images = sorted(views_dirs[0].glob("*.png"), key=lambda img: (not img.stem.endswith("_side45"), img.name))
         image_urls = [thumbnail_url(job_id, img, job_root) for img in images]
 
+    # The upload, not the -lod.rad built next to it (splats.py).
     original_name = next(
-        (p.name for p in sorted(job_root.iterdir()) if p.is_file()), None
+        (p.name for p in sorted(job_root.iterdir(), key=lambda p: (p.name.endswith("-lod.rad"), p.name)) if p.is_file()),
+        None,
     )
 
     return {
@@ -562,16 +568,32 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
             return
 
         # A PLY of Gaussian splats is drawn by the viewer as it is.
-        if ext in VIEWER_NATIVE_FORMATS or (ext == "ply" and pointcloud.is_gaussian_splat_ply(work_path)):
+        splat_ply = ext == "ply" and pointcloud.is_gaussian_splat_ply(work_path)
+        if ext in VIEWER_NATIVE_FORMATS or splat_ply:
             # Nothing to convert or render: the viewer reads this format itself.
             if ext == "gltf":
                 validate_model(job_id, work_path, job_root)
+            model_path = work_path
+            message = "Uploaded (viewer-native format, no conversion or thumbnails)"
+            # Gaussian splats get their level-of-detail tree built once here
+            # (splats.py), instead of in the browser on every load.
+            if (ext in splats.LOD_SOURCE_FORMATS or splat_ply) and splats.available():
+                with LIMITS.conversion_slot(
+                    on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
+                ):
+                    set_job(job_id, status="processing", progress=25, message="Building level of detail for the splats...")
+                    rad = splats.build_rad(work_path, log_prefix=f"[job {job_id}]")
+                if rad:
+                    model_path = rad
+                    message = "Splats converted to a level-of-detail .rad (no thumbnails)"
+                else:
+                    message = "Uploaded as it is - building the splats' level of detail failed (no thumbnails)"
             set_job(
                 job_id,
                 status="ready",
                 progress=100,
-                message="Uploaded (viewer-native format, no conversion or thumbnails)",
-                model_url=f"/files/{job_id}/{work_path.relative_to(job_root)}",
+                message=message,
+                model_url=f"/files/{job_id}/{model_path.relative_to(job_root)}",
                 image_urls=[],
             )
             return
