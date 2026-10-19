@@ -1,0 +1,87 @@
+/* The actions for the point under the pointer (editor/context-menu.js):
+   a right click, a press and hold. Above the panels it can act on. */
+.viewer-context-menu[hidden] {
+  display: none !important;
+}
+
+.viewer-context-menu {
+  position: absolute;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-width: min(280px, calc(100% - 16px));
+  padding: 4px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg, var(--viewer-panel-bg));
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  backdrop-filter: blur(12px);
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.viewer-context-menu button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.viewer-context-menu button:hover,
+.viewer-context-menu button:focus-visible {
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+  outline: none;
+}
+
+/* A mode (move, rotate, scale): a tick when it is on. */
+.viewer-context-menu button[role="menuitemcheckbox"]::before {
+  content: "";
+  display: inline-block;
+  width: 1.3em;
+}
+
+.viewer-context-menu button[aria-checked="true"]::before {
+  content: "✓";
+}
+
+.viewer-context-menu button.is-locked::after {
+  content: " 🔒";
+}
+
+/* Fingers: taller rows. */
+@media (pointer: coarse) {
+  .viewer-context-menu button {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+}
+
+/* The element picked (IFC): its name over its actions. */
+.viewer-context-menu_title {
+  padding: 6px 12px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Between the groups: element, point, view. */
+.viewer-context-menu .is-separated {
+  margin-top: 4px;
+  border-top: 1px solid var(--viewer-panel-border);
+  border-radius: 0 0 6px 6px;
+  padding-top: 10px;
+}

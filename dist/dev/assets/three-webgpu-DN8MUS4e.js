@@ -93410,4 +93410,4 @@ function generateMagicSquare( size ) {
 const ao = ( depthNode, normalNode, camera ) => new GTAONode( nodeObject( depthNode ), nodeObject( normalNode ), camera );
 
 export { MeshBasicNodeMaterial as M, RenderPipeline as R, attribute as a, vec3 as b, ao as c, builtinAOContext as d, mix as e, float as f, mrt as m, normalView as n, pass as p, screenUV as s, three_webgpu as t, uniform as u, vec4 as v };
-//# sourceMappingURL=three-webgpu-L2yTFvhx.js.map
+//# sourceMappingURL=three-webgpu-E5CZbymj.js.map

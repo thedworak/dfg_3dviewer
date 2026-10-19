@@ -824,7 +824,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         except Exception as exc:  # noqa: BLE001 - an answer instead of a dropped connection
             traceback.print_exc()
-            self._send_json(500, {"error": f"The AI request failed on the server ({type(exc).__name__}).", "code": "ai_internal"})
+            self._send_json(500, {"error": ai.UNAVAILABLE, "code": "ai_internal"})
             return
         self._send_json(200, answer)
 

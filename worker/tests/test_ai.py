@@ -148,6 +148,18 @@ class AskTests(unittest.TestCase):
         self.assertEqual(late.exception.code, "ai_timeout")
         self.assertEqual(late.exception.status, 503)
 
+    def test_setup_problems_are_only_unavailable(self):
+        request = SimpleNamespace(method="POST", url="https://api.anthropic.com")
+
+        def down(**_):
+            raise anthropic.APIConnectionError(message="Connection error.", request=request)
+
+        ai.set_client(SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=down))))
+        with self.assertRaises(ai.AIError) as off:
+            ai.ifc_query("doors", IFC_SUMMARY)
+        self.assertEqual(off.exception.code, "ai_unreachable")
+        self.assertEqual(off.exception.message, ai.UNAVAILABLE)
+
     def test_input_checks(self):
         ai.set_client(fake_client()[0])
         with self.assertRaises(ai.AIError):

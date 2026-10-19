@@ -19,4 +19,4 @@ self.onmessage = async (event) => {
 // Tells the page the module (and laz-perf) loaded: a worker that fails to
 // start falls back to the main thread.
 self.postMessage({ type: "ready" });
-//# sourceMappingURL=pointcloud-las-worker-ujcmB-5A.js.map
+//# sourceMappingURL=pointcloud-las-worker-BXdMZg4y.js.map

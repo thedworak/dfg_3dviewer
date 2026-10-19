@@ -65,6 +65,21 @@ export class AIRequestError extends Error {
   }
 }
 
+// The server's own setup failed (key, credit, model access, network): the
+// worker logs the reason, the viewer only says the assistant is unavailable.
+const UNAVAILABLE_CODES = new Set(["ai_auth", "ai_permission", "ai_bad_request", "ai_upstream", "ai_unreachable", "ai_internal"]);
+
+function errorMessage(status, data) {
+  if (status === 429) return t("ai.rateLimited", "AI request limit reached. Try again later.");
+  if (UNAVAILABLE_CODES.has(data?.code)) return t("ai.unavailable", "The AI assistant is temporarily unavailable.");
+  // 524: Cloudflare gave up after 100 s, without JSON.
+  if (data?.code === "ai_timeout" || status === 524) {
+    return t("ai.timeout", "The AI answer took too long. Try again or ask a narrower question.");
+  }
+  // Without JSON the answer came from a proxy in front of the worker.
+  return data?.error || `${t("ai.failed", "The AI assistant could not answer.")} (HTTP ${status})`;
+}
+
 // POST to an /api/ai/ endpoint; resolves to the answer, rejects with an
 // AIRequestError carrying a message fit to show.
 export async function aiRequest(path, body = {}) {
@@ -86,13 +101,7 @@ export async function aiRequest(path, body = {}) {
     data = null;
   }
   if (!response.ok) {
-    // Without JSON the answer came from a proxy in front of the worker:
-    // 524 is Cloudflare giving up after 100 s.
-    const message = response.status === 429
-      ? t("ai.rateLimited", "AI request limit reached. Try again later.")
-      : data?.error || (response.status === 524
-        ? t("ai.timeout", "The AI answer took too long. Try again or ask a narrower question.")
-        : `${t("ai.failed", "The AI assistant could not answer.")} (HTTP ${response.status})`);
+    const message = errorMessage(response.status, data);
     throw new AIRequestError(message, response.status, data?.code || "");
   }
   return data || {};

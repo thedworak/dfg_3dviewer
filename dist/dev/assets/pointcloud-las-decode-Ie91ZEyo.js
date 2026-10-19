@@ -19987,4 +19987,4 @@ function decodeBuffer(buffer, { maxPoints, emit }) {
 }
 
 export { decodeBuffer, decodeLasUrl, decodeLazBuffer, readLasHeader };
-//# sourceMappingURL=pointcloud-las-decode-B3kflm8N.js.map
+//# sourceMappingURL=pointcloud-las-decode-CVpgIRAJ.js.map

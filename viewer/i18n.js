@@ -424,6 +424,7 @@ export const VIEWER_I18N = {
       offline: "The AI assistant could not be reached.",
       failed: "The AI assistant could not answer.",
       timeout: "The AI answer took too long. Try again or ask a narrower question.",
+      unavailable: "The AI assistant is temporarily unavailable.",
       rateLimited: "AI request limit reached. Try again later.",
       locked: "Available with the Business plan",
       validation: {
@@ -1520,6 +1521,7 @@ export const VIEWER_I18N = {
       offline: "Nie udało się połączyć z asystentem AI.",
       failed: "Asystent AI nie mógł odpowiedzieć.",
       timeout: "Odpowiedź AI trwała zbyt długo. Spróbuj ponownie lub zadaj węższe pytanie.",
+      unavailable: "Asystent AI jest chwilowo niedostępny.",
       rateLimited: "Osiągnięto limit zapytań AI. Spróbuj później.",
       locked: "Dostępne w planie Business",
       validation: {
@@ -2649,6 +2651,7 @@ export const VIEWER_I18N = {
       offline: "Der KI-Assistent ist nicht erreichbar.",
       failed: "Der KI-Assistent konnte nicht antworten.",
       timeout: "Die KI-Antwort hat zu lange gedauert. Erneut versuchen oder enger fragen.",
+      unavailable: "Der KI-Assistent ist vorübergehend nicht verfügbar.",
       rateLimited: "KI-Anfragelimit erreicht. Bitte später erneut versuchen.",
       locked: "Im Business-Tarif verfügbar",
       validation: {

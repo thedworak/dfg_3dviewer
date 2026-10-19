@@ -267,23 +267,23 @@ def ask(system: str, prompt: str, schema: dict, effort: str = "medium", max_toke
     # its own HTML page, and the viewer would lose the message below.
     try:
         response = client().beta.messages.create(**params)
-    except anthropic.AuthenticationError:
-        raise AIError(503, "The AI service rejected the server's credentials.", "ai_auth")
-    except anthropic.PermissionDeniedError:
-        raise AIError(503, "The server's AI account may not use this model.", "ai_permission")
+    except anthropic.AuthenticationError as exc:
+        _unavailable("ai_auth", f"the Claude API rejected the key: {exc.message}")
+    except anthropic.PermissionDeniedError as exc:
+        _unavailable("ai_permission", f"the API key may not use {model()}: {exc.message}")
     except anthropic.RateLimitError:
         raise AIError(503, "The AI service is busy. Try again in a minute.", "ai_busy")
     except anthropic.BadRequestError as exc:
-        raise AIError(503, f"The AI service did not accept the request: {exc.message}", "ai_bad_request")
+        # Also an empty credit balance.
+        _unavailable("ai_bad_request", f"the Claude API did not accept the request: {exc.message}")
     except anthropic.APIStatusError as exc:
-        raise AIError(503, f"The AI service failed ({exc.status_code}).", "ai_upstream")
+        _unavailable("ai_upstream", f"the Claude API failed ({exc.status_code}): {exc.message}")
     except anthropic.APITimeoutError:
         raise AIError(503, "The AI answer took too long. Try again or ask a narrower question.", "ai_timeout")
     except anthropic.APIConnectionError as exc:
         # The cause (DNS, TLS, refused connection, proxy) is what an admin needs.
         cause = exc.__cause__ or exc
-        print(f"[ai] connection to the Claude API failed: {cause!r}", file=sys.stderr)
-        raise AIError(503, f"The AI service could not be reached ({type(cause).__name__}).", "ai_unreachable")
+        _unavailable("ai_unreachable", f"connection to the Claude API failed: {cause!r}")
 
     if response.stop_reason == "refusal":
         raise AIError(422, "The AI declined to answer this request.", "ai_refusal")
@@ -298,6 +298,17 @@ def ask(system: str, prompt: str, schema: dict, effort: str = "medium", max_toke
         raise AIError(503, "The AI answer could not be read.", "ai_invalid")
     CACHE.put(cache_key, answer)
     return answer
+
+
+UNAVAILABLE = "The AI assistant is temporarily unavailable."
+
+
+def _unavailable(code: str, detail: str):
+    """A problem of the server's setup (key, credit, model access, network):
+    the details go to the worker log for its admin, the caller only learns
+    that the assistant is unavailable."""
+    print(f"[ai] {code}: {detail}", file=sys.stderr)
+    raise AIError(503, UNAVAILABLE, code)
 
 
 def _nullable(schema: dict) -> dict:

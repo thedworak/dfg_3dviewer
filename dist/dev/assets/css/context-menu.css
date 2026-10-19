@@ -44,6 +44,17 @@
   outline: none;
 }
 
+/* A mode (move, rotate, scale): a tick when it is on. */
+.viewer-context-menu button[role="menuitemcheckbox"]::before {
+  content: "";
+  display: inline-block;
+  width: 1.3em;
+}
+
+.viewer-context-menu button[aria-checked="true"]::before {
+  content: "✓";
+}
+
 .viewer-context-menu button.is-locked::after {
   content: " 🔒";
 }
