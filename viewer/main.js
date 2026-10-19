@@ -179,7 +179,7 @@ import {
   toThreeColor,
   getWrapperSize,
 } from "./viewer-helpers.js";
-import { t } from "./i18n-utils.js";
+import { t, setLanguageSource } from "./i18n-utils.js";
 import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
@@ -187,6 +187,9 @@ import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
 import { anchorPanelUnder } from "./ui/panel-window.js";
 import { isPhoneLayout } from "./ui/menu-toolbar.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+
+// t() follows the viewer's language (localization-theme.js).
+setLanguageSource(() => core.currentLanguage);
 
 // Small inline icons for the keyboard-shortcuts hint (see
 // getKeyboardShortcutsDetailHtml() below) - inline SVG rather than image
@@ -4095,7 +4098,7 @@ export const Viewer = {
         if (manageUsersButton) {
           Viewer.manageUsersButton = manageUsersButton;
           Viewer.updateAdminMenuEntryState();
-          Viewer.bindEventListener(manageUsersButton, "click", Viewer.openAdminPanel.bind(Viewer));
+          Viewer.bindEventListener(manageUsersButton, "click", Viewer.openAdminPage.bind(Viewer));
         }
         if (uploadModelButton) {
           Viewer.uploadModel = uploadModelButton;

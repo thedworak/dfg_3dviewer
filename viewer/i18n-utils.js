@@ -1,12 +1,22 @@
 import { VIEWER_I18N } from "./i18n.js";
-import { core } from './core.js';
 
 const DEFAULT_LANG = "en";
 
+// Where the current language comes from: the viewer's core.currentLanguage
+// (main.js), the admin pages' own choice (exadmin/). Kept out of this module
+// so pages without the viewer translate without loading it (core.js pulls
+// in three.js).
+let languageSource = () => DEFAULT_LANG;
+
+export function setLanguageSource(source) {
+  languageSource = source;
+}
+
 export const t=function(key, varsOrFallback = {}, maybeFallback = "") {
-  const lang = ["pl", "de"].includes(core.currentLanguage)
-    ? core.currentLanguage
-    : "en";
+  const current = languageSource();
+  const lang = ["pl", "de"].includes(current)
+    ? current
+    : DEFAULT_LANG;
 
   const dictionary = VIEWER_I18N[lang] || VIEWER_I18N.en;
 

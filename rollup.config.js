@@ -183,6 +183,19 @@ async function copyHtmlWithEntryVersion(source, target) {
   await fs.writeFile(target, extension.transformHtml ? extension.transformHtml(html) : html);
 }
 
+// The admin pages (exadmin/index.html -> <build>/exadmin/index.html): the
+// script is pointed at the content-hashed entry chunk this build wrote, the
+// stylesheet gets the build id.
+async function writeAdminPage(bundle) {
+  const entry = Object.values(bundle).find((chunk) => chunk.type === 'chunk' && chunk.isEntry && chunk.name === 'exadmin');
+  if (!entry) return;
+  const html = (await fs.readFile('exadmin/index.html', 'utf8'))
+    .replace('src="../assets/exadmin.js"', `src="../${entry.fileName}"`)
+    .replace(/(href=["'])(\.\.\/assets\/css\/[^"'?]+\.css)(["'])/g, `$1$2${versionQuery}$3`);
+  await fs.mkdir(path.join(outDistDir, 'exadmin'), { recursive: true });
+  await fs.writeFile(path.join(outDistDir, 'exadmin', 'index.html'), html);
+}
+
 // Chunks are named by their content hash (see output.chunkFileNames): files
 // of one build always fit together. Only chunks sit at the top of assets/
 // (libraries, CSS, images and fonts are copied into its folders), so any
@@ -234,7 +247,7 @@ const buildContext = { envBuild, outDistDir, production, appBuild };
 function copyBuildAssets() {
   return {
     name: 'copy-build-assets',
-    async writeBundle() {
+    async writeBundle(_options, bundle) {
       await fs.mkdir(outDistDir, { recursive: true });
       await Promise.all([
         // Only what is loaded at run time (the rest of these packages is
@@ -280,6 +293,7 @@ function copyBuildAssets() {
         !appBuild && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
       await stampCssImports(path.join(outDistDir, 'assets/css/viewer.css'));
+      await stampCssImports(path.join(outDistDir, 'assets/css/exadmin.css'));
 
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
       const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
@@ -290,6 +304,7 @@ function copyBuildAssets() {
         writeDrupalLibrariesFile(),
         copyHtmlWithEntryVersion('index.html', indexTarget),
         copyHtmlWithEntryVersion('embed.html', embedTarget),
+        writeAdminPage(bundle),
       ];
 
       if (!appBuild) {
@@ -394,7 +409,11 @@ function copyBuildAssets() {
 }
 
 export default {
-  input: 'viewer/main.js',
+  // The viewer, and the admin pages (viewer/exadmin/) - not in an app build,
+  // which has no server of its own to administer.
+  input: appBuild
+    ? { 'dfg_3dviewer-module': 'viewer/main.js' }
+    : { 'dfg_3dviewer-module': 'viewer/main.js', exadmin: 'viewer/exadmin/main.js' },
   treeshake: {
     moduleSideEffects: false,
     propertyReadSideEffects: false,
@@ -450,7 +469,10 @@ export default {
 
   output: {
     dir: outDistDir,
-    entryFileNames: 'dfg_3dviewer-module.js',
+    // The viewer's entry keeps its name (Drupal's library file and the
+    // pages point at it); the admin pages' is hashed like the chunks
+    // (writeAdminPage puts its name into exadmin/index.html).
+    entryFileNames: (chunk) => (chunk.name === 'exadmin' ? 'assets/exadmin-[hash].js' : 'dfg_3dviewer-module.js'),
     // Content-hashed: a cache (browser, CDN, the 30-day expiry for module
     // JS in docker/host-nginx.example.conf) can never hand out one build's
     // chunk next to another build's - their minified export names differ,

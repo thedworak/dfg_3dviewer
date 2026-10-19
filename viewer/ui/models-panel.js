@@ -9,7 +9,7 @@ import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 import { metaCaption, metaPart } from "./meta-icons.js";
 import { modelCheckPart } from "./feature-icons.js";
-import { fillModelThumbnail } from "./thumbnail-gallery.js";
+import { fillModelThumbnail } from "./model-thumbnail.js";
 import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing

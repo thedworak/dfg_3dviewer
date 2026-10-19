@@ -275,7 +275,7 @@ With `WORKER_AUTH_MODE=required`, uploading and deleting need a logged-in accoun
 - Visitors register in the viewer's upload panel. With the default `approval` registration, new accounts stay *pending* until you approve them.
 - Endpoints: `GET /api/auth/config`, `GET /api/auth/me`, `POST /api/auth/register|login|logout` (JSON `{username, password}`; the session is an HttpOnly, SameSite=Lax cookie, `Secure` when the proxy sends `X-Forwarded-Proto: https`). An app build runs on another origin and never gets that cookie: it logs in with `{"session": "token"}`, gets the same signed token back in the response (`token`) and sends it as `Authorization: Bearer <token>`. A failed login says `Unknown username.` or `Invalid password.`; five failed logins lock a username for five minutes.
 - Every upload records its account, original filename and size in `<job>/owner.json`. Users can delete only their own uploads; admins can delete any. Jobs from before accounts were enabled are admin-only.
-- Admins can correct who uploaded a model and when: in the viewer's user panel ("Edit" next to a model), or `POST /api/admin/jobs/<id>` with `{"owner": "alice", "createdAt": 1767225600}` (`owner: null` = no owner; `createdAt` in Unix seconds). It rewrites `<job>/owner.json`, so storage quotas move with the owner.
+- Admins can correct who uploaded a model and when: on the admin pages, `/exadmin/` ("Edit" next to a model), or `POST /api/admin/jobs/<id>` with `{"owner": "alice", "createdAt": 1767225600}` (`owner: null` = no owner; `createdAt` in Unix seconds). It rewrites `<job>/owner.json`, so storage quotas move with the owner.
 - Supervise from the command line (there is deliberately no admin HTTP API):
 
 ```bash
@@ -349,7 +349,7 @@ The source model is checked, before gltfpack: its Meshopt/KTX2 output is generat
 `POST /api/model/create` checks the limits above before reading the upload and again, atomically, before the job is created. A rejected upload gets a JSON body `{"error", "code", "limit", "retryAfter"}` (`code`: `rate_hour`, `rate_day`, `concurrent`, `storage`, `models`) and, for 429s, a `Retry-After` header; the upload panel shows it translated, together with the caller's current usage.
 
 - `0` disables a limit. Admin accounts are never limited.
-- With accounts on, limits are per account and admins can override any of them per account: in the viewer's user panel ("Edit limits"), `POST /api/admin/users/<user>/limits` with e.g. `{"maxModels": 10, "storageMb": null}` (`null` = back to the default), or the CLI below.
+- With accounts on, limits are per account and admins can override any of them per account: on the admin pages, `/exadmin/` ("Edit limits"), `POST /api/admin/users/<user>/limits` with e.g. `{"maxModels": 10, "storageMb": null}` (`null` = back to the default), or the CLI below.
 - With accounts off, the rate and concurrency limits apply per client IP; storage and model quotas need accounts (anonymous uploads have no owner). The client IP is taken from `X-Forwarded-For`, `WORKER_TRUSTED_PROXIES` entries from the right: `1` behind the viewer's own nginx, `2` with `docker/host-nginx.example.conf` in front. Anyone who can reach the worker's port directly can forge that header, so do not publish port 8080 when you rely on per-IP limits.
 - The upload log (`JOBS_DIR/.limits/uploads.json`) survives restarts, and deleting a model does not give an upload back. Storage counts everything in the account's job folders (upload, conversion output, thumbnails).
 - `GET /api/limits` returns the caller's effective limits and usage; `GET /api/admin/users` includes both for every account.
@@ -362,7 +362,7 @@ docker compose exec worker python3 /app/worker/server.py admin limits alice stor
 
 #### Business plan
 
-Admins can grant an account a plan in the admin panel ("Change plan"), with `POST /api/admin/users/<user>/plan` `{"tier": "pro"|"business"|"enterprise"|null, "expiresAt": <unix seconds>|null}` or `admin plan` above (stored in `users.json` as `planGrant`). **Enterprise** is only granted this way (its price is agreed individually, it is not sold in the app); it includes everything in Business. An account with Business or Enterprise gets these limits for everything it uploads instead of the defaults (for Enterprise, set the agreed values as the account's overrides); an admin's per-account overrides still win, and the admin panel shows the Business values as that account's defaults. `GET /api/auth/me` returns the plan (`plan`), shown next to the signed-in name.
+Admins can grant an account a plan on the admin pages, `/exadmin/` ("Change plan"), with `POST /api/admin/users/<user>/plan` `{"tier": "pro"|"business"|"enterprise"|null, "expiresAt": <unix seconds>|null}` or `admin plan` above (stored in `users.json` as `planGrant`). **Enterprise** is only granted this way (its price is agreed individually, it is not sold in the app); it includes everything in Business. An account with Business or Enterprise gets these limits for everything it uploads instead of the defaults (for Enterprise, set the agreed values as the account's overrides); an admin's per-account overrides still win, and the admin pages show the Business values as that account's defaults. `GET /api/auth/me` returns the plan (`plan`), shown next to the signed-in name.
 
 | Variable | Default | |
 |---|---|---|

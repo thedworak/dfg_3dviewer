@@ -101,7 +101,9 @@ export function makeDraggable(Viewer, panel, handle) {
   on(handle, "pointerdown", (event) => {
     if (event.button !== 0 || event.target.closest("button, input, select, textarea, a")) return;
     pinPanel(panel);
-    const parent = panel.offsetParent || panel.parentElement;
+    // A panel dropped down from the header (anchorPanelUnder) moves within
+    // the window, the others within the viewer.
+    const parent = panel.style.position === "fixed" ? null : panel.offsetParent || panel.parentElement;
     const startX = event.clientX;
     const startY = event.clientY;
     const startLeft = panel.offsetLeft;
@@ -109,8 +111,8 @@ export function makeDraggable(Viewer, panel, handle) {
     handle.setPointerCapture?.(event.pointerId);
 
     const onMove = (moveEvent) => {
-      const maxLeft = (parent?.clientWidth ?? window.innerWidth) - panel.offsetWidth;
-      const maxTop = (parent?.clientHeight ?? window.innerHeight) - panel.offsetHeight;
+      const maxLeft = (parent ?? document.documentElement).clientWidth - panel.offsetWidth;
+      const maxTop = (parent ?? document.documentElement).clientHeight - panel.offsetHeight;
       panel.style.left = `${clamp(startLeft + moveEvent.clientX - startX, 0, maxLeft)}px`;
       panel.style.top = `${clamp(startTop + moveEvent.clientY - startY, 0, maxTop)}px`;
     };
@@ -141,19 +143,19 @@ export function makeDraggable(Viewer, panel, handle) {
 }
 
 // Opened from a button in the page header, a panel drops down below it like
-// a submenu: its left edge under the button, kept within the viewer. Each
-// opening places it there again; dragging moves it from there.
+// a submenu: its left edge under the button, kept within the window. The
+// header sits outside the viewer (with the thumbnail gallery, if any, in
+// between), so the panel is placed against the window (position: fixed),
+// not the viewer, which would hold it inside itself. Each opening places it
+// there again; dragging moves it from there.
 export function anchorPanelUnder(panel, button) {
   if (!panel || panel.hidden || !button) return;
-  const parent = panel.offsetParent || panel.parentElement;
-  if (!parent) return;
-  const parentRect = parent.getBoundingClientRect();
   const buttonRect = button.getBoundingClientRect();
   if (!buttonRect.width && !buttonRect.height) return;
-  const left = buttonRect.left - parentRect.left - parent.clientLeft + parent.scrollLeft;
-  const top = buttonRect.bottom - parentRect.top - parent.clientTop + parent.scrollTop + ANCHOR_GAP_PX;
+  const viewport = document.documentElement;
+  panel.style.position = "fixed";
   panel.style.transform = "none";
-  panel.style.left = `${clamp(left, ANCHOR_GAP_PX, parent.clientWidth - panel.offsetWidth - ANCHOR_GAP_PX)}px`;
-  panel.style.top = `${clamp(top, ANCHOR_GAP_PX, parent.clientHeight - panel.offsetHeight - ANCHOR_GAP_PX)}px`;
+  panel.style.left = `${clamp(buttonRect.left, ANCHOR_GAP_PX, viewport.clientWidth - panel.offsetWidth - ANCHOR_GAP_PX)}px`;
+  panel.style.top = `${clamp(buttonRect.bottom + ANCHOR_GAP_PX, ANCHOR_GAP_PX, viewport.clientHeight - panel.offsetHeight - ANCHOR_GAP_PX)}px`;
   panel.dataset.windowPinned = "1";
 }
