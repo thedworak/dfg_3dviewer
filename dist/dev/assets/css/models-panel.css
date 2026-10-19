@@ -110,6 +110,11 @@ body[data-viewer-theme="dark"] #planButton {
   }
 }
 
+/* Each example lists what it contains: wider than the other lists. */
+#examplesPanel {
+  width: min(520px, calc(100vw - 36px));
+}
+
 .models-panel-list {
   display: flex;
   flex-direction: column;

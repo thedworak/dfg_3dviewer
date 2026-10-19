@@ -184,6 +184,7 @@ import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
 import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
+import { anchorPanelUnder } from "./ui/panel-window.js";
 import { isPhoneLayout } from "./ui/menu-toolbar.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
@@ -4081,6 +4082,11 @@ export const Viewer = {
           manageUsersButton = header.querySelector('#manageUsersButton');
           viewerElement.parentNode.insertBefore(header, viewerElement);
         }
+        // The header buttons' panels drop down below them (ui/panel-window.js).
+        const openUnder = (button, open, panelKey) => (event) => {
+          open.call(Viewer, event);
+          anchorPanelUnder(Viewer[panelKey], button);
+        };
         if (loginButton) {
           Viewer.loginButton = loginButton;
           Viewer.updateLoginMenuEntryState();
@@ -4094,14 +4100,14 @@ export const Viewer = {
         if (uploadModelButton) {
           Viewer.uploadModel = uploadModelButton;
           Viewer.updateUploadMenuEntryState();
-          Viewer.bindEventListener(uploadModelButton, "click", Viewer.openUploadPanel.bind(Viewer));
+          Viewer.bindEventListener(uploadModelButton, "click", openUnder(uploadModelButton, Viewer.openUploadPanel, "uploadPanel"));
         }
         if (browseModelsButton) {
           browseModelsButton.innerHTML = '<span class="browse-models-icon" aria-hidden="true"></span>';
           const browseModelsLabel = t("menu.openModelsPanel", "Browse previously generated models");
           browseModelsButton.setAttribute("aria-label", browseModelsLabel);
           browseModelsButton.setAttribute("title", browseModelsLabel);
-          Viewer.bindEventListener(browseModelsButton, "click", Viewer.openModelsPanel.bind(Viewer));
+          Viewer.bindEventListener(browseModelsButton, "click", openUnder(browseModelsButton, Viewer.openModelsPanel, "modelsPanel"));
         }
         if (openLocalFileButton) {
           openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
@@ -4115,7 +4121,9 @@ export const Viewer = {
           Viewer.bindEventListener(
             openLocalFileButton,
             "click",
-            (isAppBuild() ? Viewer.toggleModelsSource : Viewer.openLibraryPanel).bind(Viewer)
+            isAppBuild()
+              ? Viewer.toggleModelsSource.bind(Viewer)
+              : openUnder(openLocalFileButton, Viewer.openLibraryPanel, "libraryPanel")
           );
         }
         // The example manifests, as a list with what each one contains
@@ -4126,7 +4134,7 @@ export const Viewer = {
           const browseManifestsLabel = t("menu.openExampleManifests", "Example manifests");
           browseManifestsButton.setAttribute("aria-label", browseManifestsLabel);
           browseManifestsButton.setAttribute("title", browseManifestsLabel);
-          Viewer.bindEventListener(browseManifestsButton, "click", Viewer.toggleExamplesPanel.bind(Viewer));
+          Viewer.bindEventListener(browseManifestsButton, "click", openUnder(browseManifestsButton, Viewer.toggleExamplesPanel, "examplesPanel"));
         }
         // The app build's own controls (app-hooks.js).
         Viewer.initAppUi?.();

@@ -1,0 +1,267 @@
+/* Feature icons in the model lists (ui/feature-icons.js) and the validation
+   report (ui/validation-report.js). Status colours work on both themes. */
+.feature-icon[data-status="warning"],
+.validation-report-row[data-status="warning"],
+.validation-report-issues [data-level="warning"] {
+  --status-color: #d48806;
+}
+
+.feature-icon[data-status="error"],
+.validation-report-row[data-status="error"],
+.validation-report-issues [data-level="error"] {
+  --status-color: #e5484d;
+}
+
+.validation-report-row[data-status="ok"] {
+  --status-color: #30a46c;
+}
+
+/* Infos and hints are no failure: a neutral line. */
+.validation-report-issues [data-level="info"],
+.validation-report-issues [data-level="hint"] {
+  --status-color: color-mix(in srgb, var(--viewer-panel-text) 30%, transparent);
+}
+
+.feature-icon[data-status="warning"],
+.feature-icon[data-status="error"] {
+  color: var(--status-color);
+}
+
+/* Many features: the icons wrap instead of being cut off. */
+.models-panel-item-meta.feature-icons {
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+  gap: 3px 7px;
+  margin-top: 2px;
+}
+
+.models-panel-item-meta .feature-icon[data-status="warning"],
+.models-panel-item-meta .feature-icon[data-status="error"] {
+  opacity: 1;
+}
+
+#validationReportPanel[hidden] {
+  display: none !important;
+}
+
+#validationReportPanel {
+  position: absolute;
+  left: 50%;
+  top: min(8%, 48px);
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 36px));
+  /* Of the viewer, not of the window: on a phone the viewer is shorter
+     than the screen, and the panel's end was cut off below it. */
+  max-height: min(calc(100% - min(8%, 48px) - 8px), 760px);
+  overflow: auto;
+  resize: both;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
+}
+
+.validation-report-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Overall: the ring (X/Y passed) and the verdict. */
+.validation-report-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: var(--viewer-panel-bg);
+}
+
+.validation-report-summary[data-status="ok"] { --status-color: #30a46c; }
+.validation-report-summary[data-status="warning"] { --status-color: #d48806; }
+.validation-report-summary[data-status="error"] { --status-color: #e5484d; }
+
+.validation-report-ring {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--viewer-panel-bg) 80%, transparent 81%),
+    conic-gradient(var(--status-color) calc(var(--ratio) * 360deg), color-mix(in srgb, var(--viewer-panel-text) 15%, transparent) 0);
+}
+
+.validation-report-ring strong {
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.validation-report-ring span {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.validation-report-verdict strong {
+  display: block;
+  font-size: 16px;
+  color: var(--status-color);
+}
+
+.validation-report-verdict p {
+  margin: 4px 0 0;
+  opacity: 0.8;
+}
+
+/* The checklist. */
+.validation-report-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.validation-report-row + .validation-report-row {
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+.validation-report-row summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.validation-report-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.validation-report-row summary:hover {
+  background: color-mix(in srgb, var(--viewer-panel-text) 6%, transparent);
+}
+
+.validation-report-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  opacity: 0.85;
+}
+
+.validation-report-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.validation-report-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.validation-report-text span {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.validation-report-pill {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--status-color, var(--viewer-panel-text));
+  border: 1px solid color-mix(in srgb, var(--status-color, var(--viewer-panel-text)) 55%, transparent);
+  background: color-mix(in srgb, var(--status-color, var(--viewer-panel-text)) 14%, transparent);
+}
+
+.validation-report-row[data-status="missing"] .validation-report-pill,
+.validation-report-row[data-status="unchecked"] .validation-report-pill {
+  opacity: 0.6;
+}
+
+.validation-report-issues {
+  margin: 0;
+  padding: 0 10px 10px 40px;
+  list-style: none;
+  font-size: 11.5px;
+}
+
+.validation-report-issues li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0 4px 8px;
+  border-left: 3px solid var(--status-color, color-mix(in srgb, var(--viewer-panel-text) 25%, transparent));
+}
+
+.validation-report-issues li + li {
+  margin-top: 3px;
+}
+
+.validation-report-issues code {
+  font-size: 10.5px;
+  opacity: 0.75;
+  word-break: break-all;
+}
+
+.validation-report-note {
+  opacity: 0.7;
+}
+
+/* Details: the numbers the checks looked at. */
+.validation-report-details h3 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
+
+.validation-report-details dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 3px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.validation-report-details dt {
+  opacity: 0.65;
+}
+
+.validation-report-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The header (the panel's drag handle) stays in view while the report
+   scrolls under it. */
+#validationReportPanel > .upload-panel-header {
+  position: sticky;
+  top: -14px;
+  z-index: 1;
+  margin: -14px -16px 8px;
+  padding: 10px 16px;
+  background: var(--viewer-panel-embed-bg);
+}

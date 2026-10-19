@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
+import { makeDraggable } from "../ui/panel-window.js";
 import THREE from "../init.js";
 import { unitNameToMeters } from "./model-units.js";
 import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
@@ -636,6 +637,7 @@ export function attachAnnotations(Viewer) {
 
       document.body.appendChild(dialog);
       this.annotationDialog = dialog;
+      makeDraggable(this, dialog.querySelector(".annotation-dialog__panel"), dialog.querySelector(".annotation-dialog__header"));
       this.annotationDialogHost = document.body;
       this.annotationDialogTitleInput = dialog.querySelector("#annotationTitleInput");
       this.annotationDialogDescriptionInput = dialog.querySelector("#annotationDescriptionInput");

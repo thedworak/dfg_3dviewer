@@ -1369,3 +1369,936 @@
   font-size: 11px;
   opacity: 0.7;
 }
+
+/* Profile and classes (editor/point-cloud-tools.js). */
+.viewer-pointcloud-panel_row[hidden],
+.viewer-pointcloud-panel_classes[hidden] {
+  display: none;
+}
+
+.viewer-pointcloud-panel_profile {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.viewer-pointcloud-panel_button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-pointcloud-panel_button[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, #3d6a91);
+  color: #fff;
+}
+
+.viewer-pointcloud-panel_classes {
+  margin: 0;
+  padding: 6px 8px 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.viewer-pointcloud-panel_classes legend {
+  padding: 0 4px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.viewer-pointcloud-panel_note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.viewer-pointcloud-panel_class-list {
+  display: grid;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.viewer-pointcloud-panel_class {
+  display: grid;
+  grid-template-columns: auto 12px 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.viewer-pointcloud-panel_swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+/* Comparison view (editor/compare.js): two variants or two years of the
+   timeline, split by a divider over the canvas or side by side. */
+.viewer-timeline_compare.is-active {
+  background: var(--viewer-gui-widget-focus-bg, #3d6a91);
+  color: #fff;
+}
+
+.viewer-compare {
+  --viewer-compare-accent: var(--viewer-brand-blue, #7db6de);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 110;
+  pointer-events: none;
+  overflow: hidden;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+.viewer-compare_divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
+}
+
+.viewer-compare_handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  color: #fff;
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  cursor: ew-resize;
+  touch-action: none;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-compare_handle:focus-visible {
+  outline: 2px solid var(--viewer-compare-accent);
+  outline-offset: 3px;
+}
+
+.viewer-compare.is-dragging .viewer-compare_handle {
+  background: var(--viewer-gui-widget-focus-bg, #3d6a91);
+}
+
+/* Side by side: the line only separates the halves. */
+.viewer-compare.is-split .viewer-compare_handle {
+  display: none;
+}
+
+.viewer-compare_bar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--viewer-compare-bar-bottom, 12px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+.viewer-compare_bar select,
+.viewer-compare_bar button {
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-compare_bar select {
+  max-width: 180px;
+  padding: 0 6px;
+  text-overflow: ellipsis;
+}
+
+.viewer-compare_bar select option,
+.viewer-compare_bar select optgroup {
+  color: #111827;
+}
+
+.viewer-compare_bar button {
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.viewer-compare_close {
+  width: 30px;
+  padding: 0 !important;
+  font-size: 18px !important;
+}
+
+.viewer-compare_bar button:hover,
+.viewer-compare_bar select:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+/* Comparing the look: each side's shading over its lighting, the mode and
+   close buttons between them. */
+.viewer-compare.is-look .viewer-compare_bar {
+  display: grid;
+  grid-template-columns: minmax(0, 180px) auto minmax(0, 180px);
+  grid-template-rows: auto auto;
+  gap: 4px 6px;
+}
+
+.viewer-compare.is-look .viewer-compare_select {
+  width: 100%;
+  max-width: none;
+}
+
+.viewer-compare.is-look .viewer-compare_select.is-left { grid-column: 1; }
+.viewer-compare.is-look .viewer-compare_select.is-right { grid-column: 3; }
+.viewer-compare.is-look .viewer-compare_select:not(.viewer-compare_lighting) { grid-row: 1; }
+.viewer-compare.is-look .viewer-compare_lighting { grid-row: 2; }
+.viewer-compare.is-look .viewer-compare_mode { grid-column: 2; grid-row: 1; }
+.viewer-compare.is-look .viewer-compare_close { grid-column: 2; grid-row: 2; justify-self: center; }
+
+/* The name of each side, next to the divider. */
+.viewer-compare_label {
+  position: absolute;
+  top: 12px;
+  max-width: 40%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-compare_label.is-left {
+  margin-right: 10px;
+}
+
+.viewer-compare_label.is-right {
+  margin-left: 10px;
+}
+
+@media (max-width: 640px) {
+  .viewer-compare_bar {
+    bottom: var(--viewer-compare-bar-bottom, 8px);
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  .viewer-compare_bar select {
+    max-width: 110px;
+  }
+
+  .viewer-compare_label {
+    top: auto;
+    bottom: calc(var(--viewer-compare-bar-bottom, 8px) + 52px);
+  }
+
+  .viewer-compare.is-look .viewer-compare_bar {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    width: calc(100% - 16px);
+    box-sizing: border-box;
+  }
+
+  .viewer-compare.is-look .viewer-compare_label {
+    bottom: calc(var(--viewer-compare-bar-bottom, 8px) + 86px);
+  }
+}
+
+/* Reconstruction variants (editor/compare.js): the hypothesis shown. */
+.viewer-variants {
+  width: 300px;
+  max-width: 100%;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.4 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+}
+
+.viewer-variants [hidden] {
+  display: none !important;
+}
+
+.viewer-variants button {
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-variants button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-variants button:focus-visible {
+  outline: 2px solid var(--viewer-brand-blue, #7db6de);
+  outline-offset: 2px;
+}
+
+.viewer-variants_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-variants_title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.viewer-variants_compare {
+  height: 26px;
+  padding: 0 10px;
+}
+
+.viewer-variants_compare.is-active {
+  background: var(--viewer-gui-widget-focus-bg, #3d6a91) !important;
+  color: #fff;
+}
+
+.viewer-variants_collapse {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+.viewer-variants.is-collapsed .viewer-variants_body {
+  display: none;
+}
+
+.viewer-variants_info {
+  margin: 6px 0 0;
+  opacity: 0.85;
+  white-space: pre-line;
+}
+
+.viewer-variants_list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viewer-variants_item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  text-align: left;
+}
+
+.viewer-variants_item::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.viewer-variants_item.is-active {
+  border-color: var(--viewer-brand-blue, #7db6de);
+}
+
+.viewer-variants_item.is-active::before {
+  border-color: var(--viewer-brand-blue, #7db6de);
+  background: var(--viewer-brand-blue, #7db6de);
+  opacity: 1;
+}
+
+.viewer-variants_name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Level of Certainty of the variant: its code and symbol in its colour. */
+.viewer-variants_badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--viewer-variant-level, #9ca3af);
+  color: var(--viewer-variant-level, #9ca3af);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.viewer-variants_card {
+  margin-top: 6px;
+}
+
+.viewer-variants_description,
+.viewer-variants_source {
+  margin: 4px 0 0;
+  white-space: pre-line;
+}
+
+.viewer-variants_source {
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+/* Historical photos (editor/photo-overlay.js): the photo over the canvas,
+   fitted to its height, and the panel listing the photos. */
+.viewer-photo-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 105;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.viewer-photo-overlay.is-away {
+  opacity: 0;
+}
+
+.viewer-photo-overlay [hidden] {
+  display: none !important;
+}
+
+.viewer-photo-overlay_frame {
+  position: absolute;
+  top: 0;
+  transform-origin: 50% 50%;
+}
+
+.viewer-photo-overlay_image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  user-select: none;
+}
+
+.viewer-photo-overlay.is-aligning .viewer-photo-overlay_frame {
+  outline: 1px dashed rgba(255, 255, 255, 0.7);
+}
+
+.viewer-photo-overlay_divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
+}
+
+.viewer-photo-overlay_handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  color: #fff;
+  cursor: ew-resize;
+  touch-action: none;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-photos {
+  width: 320px;
+  max-width: 100%;
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.4 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+}
+
+.viewer-photos [hidden] {
+  display: none !important;
+}
+
+.viewer-photos button {
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-photos button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-photos button:focus-visible,
+.viewer-photos input:focus-visible {
+  outline: 2px solid var(--viewer-brand-blue, #7db6de);
+  outline-offset: 2px;
+}
+
+.viewer-photos_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-photos_title {
+  flex: 1 1 auto;
+  opacity: 0.8;
+}
+
+.viewer-photos_icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 16px !important;
+}
+
+.viewer-photos_list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viewer-photos_item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  text-align: left;
+}
+
+.viewer-photos_item.is-active {
+  border-color: var(--viewer-brand-blue, #7db6de);
+}
+
+.viewer-photos_thumb {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.viewer-photos_item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.viewer-photos_item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-photos_item-year {
+  opacity: 0.7;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-photos_empty,
+.viewer-photos_hint {
+  margin: 8px 0 0;
+  opacity: 0.75;
+}
+
+.viewer-photos_card,
+.viewer-photos_add-box {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-photos_add-title {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.viewer-photos_description,
+.viewer-photos_source {
+  margin: 4px 0 0;
+  white-space: pre-line;
+}
+
+.viewer-photos_source {
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.viewer-photos_row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.viewer-photos_row input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--viewer-brand-blue, #7db6de);
+}
+
+.viewer-photos_row > span:first-child {
+  flex: 0 0 auto;
+  min-width: 64px;
+}
+
+.viewer-photos_check > span:first-child {
+  min-width: 0;
+}
+
+.viewer-photos_value {
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-photos_actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.viewer-photos_button {
+  height: 28px;
+  padding: 0 10px;
+}
+
+.viewer-photos_button.is-primary,
+.viewer-photos_button.is-active {
+  background: var(--viewer-gui-widget-focus-bg, #3d6a91) !important;
+  color: #fff;
+}
+
+.viewer-photos_add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.viewer-photos_input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.viewer-photos_year {
+  width: 100px;
+}
+
+/* Sun and shadows (editor/sun-study.js): time of day, day and place. */
+.viewer-sun {
+  width: 340px;
+  max-width: 100%;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.4 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+}
+
+.viewer-sun [hidden] {
+  display: none !important;
+}
+
+.viewer-sun button {
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-sun button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-sun button:focus-visible,
+.viewer-sun input:focus-visible {
+  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline-offset: 2px;
+}
+
+.viewer-sun_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-sun_title {
+  flex: 1 1 auto;
+  opacity: 0.8;
+}
+
+.viewer-sun_clock {
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-sun_icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 16px !important;
+}
+
+.viewer-sun_row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.viewer-sun_play {
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  font-size: 11px !important;
+}
+
+.viewer-sun_time {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-sun_field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 80px;
+  font-size: 12px;
+}
+
+.viewer-sun_field > span {
+  opacity: 0.75;
+}
+
+.viewer-sun_field input {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  box-sizing: border-box;
+  color-scheme: dark;
+}
+
+.viewer-sun_check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  padding-bottom: 6px;
+}
+
+.viewer-sun_check input {
+  height: auto;
+}
+
+.viewer-sun_readout {
+  margin: 8px 0 0;
+  opacity: 0.85;
+  font-size: 12px;
+}
+
+/* VR and AR (editor/webxr.js) */
+.viewer-xr {
+  width: 300px;
+  max-width: 100%;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(17, 24, 39, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(15, 23, 42, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.4 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+}
+
+.viewer-xr [hidden],
+.viewer-xr_overlay[hidden] {
+  display: none !important;
+}
+
+.viewer-xr button {
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-xr button:hover:not(:disabled) {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-xr button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.viewer-xr button:focus-visible,
+.viewer-xr input:focus-visible {
+  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline-offset: 2px;
+}
+
+.viewer-xr_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-xr_title {
+  flex: 1 1 auto;
+  opacity: 0.8;
+}
+
+.viewer-xr_icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 16px !important;
+}
+
+.viewer-xr_actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.viewer-xr_button {
+  min-height: 32px;
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.viewer-xr_button.is-active {
+  border-color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-xr_scale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.viewer-xr_scale > span {
+  opacity: 0.75;
+  flex: 1 0 100%;
+}
+
+.viewer-xr_check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viewer-xr_check input {
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-xr_note {
+  margin: 8px 0 0;
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+.viewer-xr_overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 50;
+}
+
+.viewer-xr_exit {
+  min-height: 44px;
+  padding: 8px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 22px;
+  background: rgba(17, 24, 39, 0.82);
+  color: #fff;
+  font: 15px/1.2 system-ui, sans-serif;
+}

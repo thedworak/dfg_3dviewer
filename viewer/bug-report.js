@@ -1,6 +1,7 @@
 import { core } from "./core.js";
 import { isAppBuild } from "./remote.js";
 import { t } from "./i18n-utils.js";
+import { makeDraggable } from "./ui/panel-window.js";
 import { showToast } from "./viewer-utils.js";
 import { initErrorTracking, isErrorTrackingConfigured } from "./error-tracking.js";
 
@@ -184,6 +185,7 @@ function buildDialog() {
     }
   });
   document.body.appendChild(root);
+  makeDraggable(null, root.querySelector(".annotation-dialog__panel"), root.querySelector(".annotation-dialog__header"));
   return root;
 }
 

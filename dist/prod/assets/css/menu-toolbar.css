@@ -1,0 +1,936 @@
+/* The toolbar as menus (ui/menu-toolbar.js): three layouts by data-mode -
+   "desktop" (a bar with the menus by name, a panel above it), "bar" (phone
+   upright: tabs along the bottom, a sheet above them), "rail" (phone on its
+   side: tabs down the left edge, a panel beside them). Over the classic
+   toolbar's rules (editor-toolbar.css): the same element, so the selectors
+   carry #viewerEditorToolbar.viewer-menus. */
+
+#viewerEditorToolbar.viewer-menus {
+  --viewer-menus-accent: var(--viewer-brand-gold, #e9b264);
+  --viewer-menus-surface: color-mix(in srgb, var(--viewer-panel-bg) 96%, transparent);
+  --viewer-menus-rail: 76px;
+  display: block;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+  touch-action: auto;
+  transform: none !important;
+  transition: opacity 0.6s ease, visibility 0s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+#viewerEditorToolbar.viewer-menus > * {
+  margin-inline-start: 0;
+}
+
+#viewerEditorToolbar.viewer-menus.editorToolbar-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* The loading ring goes round the dock, not the whole toolbar box. */
+#viewerEditorToolbar.viewer-menus[data-loading]::before {
+  display: none;
+}
+
+/* Upright: above the navigation bar (over the tabs, 54px tall), not on it. */
+#viewerEditorToolbar.viewer-menus[data-mode="bar"][data-loading]::after {
+  right: 12px;
+  bottom: calc(100% + 72px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="rail"][data-loading]::after {
+  right: auto;
+  left: calc(100% + 12px);
+  top: 12px;
+  bottom: auto;
+}
+
+/* ---- The dock: navigation and the menus ---- */
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_dock {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_nav > .viewer-editor-tool {
+  width: 40px;
+  height: 40px;
+}
+
+/* Between the transform modes and the view tools. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_nav-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--viewer-panel-border);
+}
+
+/* AR, motion look and the 360° video (what the phone adds): at the end of
+   the navigation, after a divider; none shown, neither group nor divider. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_device {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_device:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+/* Apart from the rule above: :has() cannot hold another :has(), and one
+   invalid selector drops a whole list. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_nav:not(:has(> .viewer-menus_device > :not([hidden]))) > .viewer-menus_nav-divider--device {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_device > .viewer-editor-tool {
+  width: 40px;
+  height: 40px;
+}
+
+/* The main menu lives in Settings: no cog of its own. */
+#viewerEditorToolbar.viewer-menus > .viewer-menus_cog {
+  display: none;
+}
+
+/* Its language and theme controls, as rows of the menu. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-action-menu_panel {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-action-menu_panel .language-mode-container {
+  min-width: 0;
+  opacity: 1;
+  transform: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel :is(#viewerThemeMode, #shareView, #viewEntity, #viewerLanguageMode) {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  grid-template-columns: 22px 1fr;
+  gap: 12px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel :is(#viewerThemeMode, #shareView, #viewEntity, #viewerLanguageMode)[hidden] {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel :is(#viewerThemeMode, #shareView, #viewEntity, #viewerLanguageMode) > :first-child {
+  width: 22px;
+  height: 22px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel :is(#viewerThemeMode, #shareView, #viewEntity, #viewerLanguageMode) span:not(:first-child) {
+  font-size: 14px;
+  font-weight: 450;
+  white-space: normal;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel #viewerLanguageModeDropdown {
+  position: static;
+  margin: 2px 0 4px 44px;
+  border: 0;
+  border-left: 1px solid var(--viewer-panel-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .language-dropdown-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+@media (hover: hover) {
+  #viewerEditorToolbar.viewer-menus .viewer-menus_panel :is(#viewerThemeMode, #shareView, #viewEntity, #viewerLanguageMode):hover {
+    background: var(--viewer-panel-bg-hover);
+    border-color: var(--viewer-panel-border);
+  }
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab:hover {
+  background: var(--viewer-panel-bg-hover);
+  border-color: var(--viewer-panel-border);
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab:focus-visible,
+#viewerEditorToolbar.viewer-menus .viewer-menus_close:focus-visible,
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool:focus-visible {
+  outline: 2px solid var(--viewer-menus-accent);
+  outline-offset: 1px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab.is-open {
+  background: color-mix(in srgb, var(--viewer-menus-accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--viewer-menus-accent) 70%, transparent);
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  transform-origin: 50% 50%;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab-chevron {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 1px;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(-135deg);
+  opacity: 0.6;
+  transition: transform 0.25s ease;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_tab.is-open .viewer-menus_tab-chevron {
+  transform: rotate(45deg);
+  margin-top: -5px;
+}
+
+/* ---- The panel ---- */
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-menus-surface);
+  box-shadow: var(--viewer-panel-shadow), 0 18px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(16px);
+  color: var(--viewer-panel-text);
+  overflow: hidden;
+  z-index: 2;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel[hidden] {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 8px 6px 4px 16px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  cursor: pointer;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_close svg {
+  width: 18px;
+  height: 18px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 6px 10px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_group {
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_group.is-shown {
+  display: flex;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_group[hidden] {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_group-title {
+  display: none;
+  padding: 12px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel--many .viewer-menus_group-title {
+  display: block;
+}
+
+/* ---- The tools as rows: icon, name, control ---- */
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px 12px;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--viewer-panel-text);
+  text-align: left;
+  transform: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool:hover {
+  transform: none;
+}
+
+@media (hover: hover) {
+  #viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool:hover {
+    background: var(--viewer-panel-bg-hover);
+    border-color: var(--viewer-panel-border);
+  }
+}
+
+/* Touch: a tap leaves a "hover" behind - no outline for it. */
+@media (hover: none) {
+  #viewerEditorToolbar.viewer-menus .viewer-editor-tool:not(.is-active):hover,
+  #viewerEditorToolbar.viewer-menus .viewer-menus_tab:hover {
+    background: transparent;
+    border-color: transparent;
+  }
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool.is-active {
+  background: color-mix(in srgb, var(--viewer-menus-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--viewer-menus-accent) 55%, transparent);
+  box-shadow: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-editor-tool[hidden] {
+  display: none !important;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool > .viewer-editor-tool_icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool > .viewer-editor-tool_icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* The name, from the label the toolbar keeps translated. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool::after {
+  content: attr(aria-label);
+  order: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 450;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool_submenu-preview::after {
+  content: none;
+}
+
+/* A tool with a submenu: a chevron, turned while open. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .has-submenu::before {
+  content: "";
+  order: 2;
+  width: 7px;
+  height: 7px;
+  margin: -3px 6px 0 0;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.55;
+  transition: transform 0.25s ease, margin 0.25s ease;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .has-submenu.is-open::before {
+  transform: rotate(-135deg);
+  margin-top: 3px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool_submenu-toggle-state,
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool_submenu-value,
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool > input[type="color"] {
+  order: 2;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool > input[type="range"] {
+  order: 3;
+  flex: 1 0 100%;
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0 4px;
+  accent-color: var(--viewer-menus-accent);
+}
+
+/* Submenus open in place, under their tool. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool_submenu {
+  position: static;
+  order: 9;
+  flex: 0 0 calc(100% - 10px);
+  box-sizing: border-box;
+  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 0;
+  max-height: none;
+  margin: 4px 0 0 10px;
+  padding: 2px 0 2px 8px;
+  border: 0;
+  border-left: 1px solid var(--viewer-panel-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  inset: auto;
+  z-index: auto;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .has-submenu.is-open > .viewer-editor-tool_submenu {
+  display: flex;
+  animation: viewer-menus-unfold 0.22s ease;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool_submenu-close {
+  display: none;
+}
+
+@keyframes viewer-menus-unfold {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- Desktop: the bar in the bottom left corner ---- */
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] {
+  left: 16px;
+  right: auto;
+  top: auto;
+  bottom: calc(var(--viewer-canvas-bottom, 0px) + 16px);
+  /* Moved by its grip (ui/menu-toolbar.js). */
+  transform: translate(var(--viewer-menus-drag-x, 0px), var(--viewer-menus-drag-y, 0px)) !important;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_nav > .viewer-menus_grip {
+  width: 28px;
+  cursor: grab;
+  touch-action: none;
+}
+
+#viewerEditorToolbar.viewer-menus.viewer-menus--dragging,
+#viewerEditorToolbar.viewer-menus.viewer-menus--dragging .viewer-menus_grip {
+  cursor: grabbing;
+  user-select: none;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_grip {
+  display: none;
+}
+
+/* Moved up: the menu opens downwards. */
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"].viewer-menus--below .viewer-menus_panel {
+  top: calc(100% + 8px);
+  bottom: auto;
+  animation-name: viewer-menus-drop;
+}
+
+@keyframes viewer-menus-drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_dock {
+  padding: 5px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 14px;
+  background: var(--viewer-menus-surface);
+  box-shadow: var(--viewer-panel-shadow);
+  backdrop-filter: blur(14px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_nav {
+  padding-right: 6px;
+  border-right: 1px solid var(--viewer-panel-border);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_tab[data-menu="more"] {
+  display: none;
+}
+
+/* Icons only; the name shows as a small label over the icon on hover and
+   keyboard focus - fading in after a moment's rest of the pointer, so
+   passing over the bar shows nothing, and moving nothing in the bar. Not
+   while the menu is open: its panel carries the name. */
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_tab {
+  position: relative;
+  gap: 0;
+  padding: 0 10px;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_tab-chevron {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_tab-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  padding: 5px 9px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 7px;
+  background: var(--viewer-menus-surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  color: var(--viewer-panel-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  translate: -50% 3px;
+  transition: opacity 0.12s ease, translate 0.12s ease;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_tab:is(:hover, :focus-visible):not(.is-open) .viewer-menus_tab-label {
+  opacity: 1;
+  translate: -50% 0;
+  transition: opacity 0.22s ease 0.3s, translate 0.22s ease 0.3s;
+}
+
+/* A bar moved up opens its menus below: the label goes under the icon. */
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"].viewer-menus--below .viewer-menus_tab-label {
+  top: calc(100% + 10px);
+  bottom: auto;
+  translate: -50% -3px;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"].viewer-menus--below .viewer-menus_tab:is(:hover, :focus-visible):not(.is-open) .viewer-menus_tab-label {
+  translate: -50% 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_tab-label {
+    transition: none !important;
+    translate: -50% 0;
+  }
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_panel {
+  left: var(--viewer-menus-panel-left, 0px);
+  bottom: calc(100% + 8px);
+  width: 320px;
+  max-height: min(600px, calc(var(--viewer-menus-host-h, 700px) - 110px));
+  border-radius: 14px;
+  animation: viewer-menus-rise 0.2s ease;
+}
+
+@keyframes viewer-menus-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- Phones: the tabs ---- */
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab[data-more] {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab {
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  height: auto;
+  min-height: 52px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--viewer-panel-text) 78%, transparent);
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab:hover {
+  background: transparent;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab-chevron {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab-icon {
+  width: 52px;
+  height: 28px;
+  border-radius: 14px;
+  transition: background 0.2s ease;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab.is-open {
+  background: transparent;
+  color: var(--viewer-menus-accent);
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_tab.is-open .viewer-menus_tab-icon {
+  background: color-mix(in srgb, var(--viewer-menus-accent) 20%, transparent);
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav {
+  position: absolute;
+  padding: 4px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 14px;
+  background: var(--viewer-menus-surface);
+  box-shadow: var(--viewer-panel-shadow);
+  backdrop-filter: blur(14px);
+  transition: opacity 0.25s ease;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav > .viewer-editor-tool {
+  width: 44px;
+  height: 44px;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_panel .viewer-editor-tool {
+  min-height: 48px;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_panel .viewer-editor-tool::after {
+  font-size: 15px;
+}
+
+/* ---- Phones: AR, motion look and the video in the navigation bar ---- */
+
+/* A narrow phone: the buttons give up some width (not height) so the whole
+   bar fits. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav,
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav .viewer-editor-tool {
+  flex: 0 1 44px;
+  min-width: 32px;
+  width: 44px;
+  height: 44px;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device {
+  flex: 0 1 auto;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_nav-divider {
+  flex-shrink: 1;
+  margin: 0 3px;
+}
+
+/* AR: the phone's headline feature, in the accent. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar {
+  border-radius: 10px;
+  background: var(--viewer-menus-accent);
+  color: #15191d;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.is-active {
+  background: color-mix(in srgb, var(--viewer-menus-accent) 80%, #ffffff);
+  color: #15191d;
+}
+
+/* Locked by the plan: the lock dark on the accent. */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::after {
+  background-color: #15191d;
+}
+
+/* Motion look, the video: lit while on (recording). */
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-tool.is-active {
+  background: color-mix(in srgb, var(--viewer-menus-accent) 24%, transparent);
+  color: var(--viewer-menus-accent);
+}
+
+/* ---- Phone upright: tabs along the bottom, a sheet above them ---- */
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: var(--viewer-canvas-bottom, 0px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_tabs {
+  flex: 1 1 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-menus-surface);
+  backdrop-filter: blur(16px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_nav {
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  flex-direction: row;
+  max-width: calc(100% - 16px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"].viewer-menus--open .viewer-menus_nav {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_panel {
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  max-height: calc(var(--viewer-menus-host-h, 700px) * 0.62);
+  /* Its height, when dragged, the whole sheet's. */
+  box-sizing: border-box;
+  border-bottom: 0;
+  border-radius: 18px 18px 0 0;
+  animation: viewer-menus-sheet 0.28s cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+
+/* The sheet's grip: it and the header drag the sheet lower or taller
+   (menu-toolbar.js), so the touch is theirs, not the page's. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_sheet-grip {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_sheet-grip {
+  display: block;
+  position: relative;
+  align-self: stretch;
+  flex: 0 0 auto;
+  height: 16px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_sheet-grip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--viewer-panel-text) 25%, transparent);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_panel-header {
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"] .viewer-menus_close {
+  cursor: pointer;
+}
+
+#viewerEditorToolbar.viewer-menus--resizing .viewer-menus_panel {
+  animation: none;
+  user-select: none;
+}
+
+@keyframes viewer-menus-sheet {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ---- Phone on its side: tabs down the left edge, a panel beside them ---- */
+
+/* The notch and the rounded corners: only a fullscreen viewer reaches the
+   screen's edges. Elsewhere the standalone page (and the app) already pads
+   itself by the safe area (main.css), and adding it again here doubled the
+   rail's width beside the notch. */
+#viewerEditorToolbar.viewer-menus {
+  --viewer-menus-safe-left: 0px;
+  --viewer-menus-safe-right: 0px;
+}
+
+:fullscreen #viewerEditorToolbar.viewer-menus,
+#viewerEditorToolbar.viewer-menus.with-fullscreen {
+  --viewer-menus-safe-left: env(safe-area-inset-left, 0px);
+  --viewer-menus-safe-right: env(safe-area-inset-right, 0px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="rail"] {
+  left: 0;
+  right: auto;
+  top: 0;
+  bottom: var(--viewer-canvas-bottom, 0px);
+  width: calc(var(--viewer-menus-rail) + var(--viewer-menus-safe-left));
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_dock {
+  position: static;
+  height: 100%;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_tabs {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-auto-flow: row;
+  grid-auto-rows: minmax(0, 1fr);
+  align-content: center;
+  padding: 6px 4px 6px calc(4px + var(--viewer-menus-safe-left));
+  border-right: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-menus-surface);
+  backdrop-filter: blur(16px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_tab {
+  min-height: 44px;
+}
+
+/* At the bottom, centred on the room right of the rail (the logo has the
+   top, the axes the bottom right corner: kept clear of them). */
+#viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_nav {
+  --viewer-menus-room: calc(var(--viewer-menus-host-w, 800px) - var(--viewer-menus-rail) - var(--viewer-menus-safe-left) - var(--viewer-menus-safe-right));
+  top: auto;
+  bottom: 10px;
+  left: calc(var(--viewer-menus-rail) + var(--viewer-menus-safe-left) + var(--viewer-menus-room) / 2);
+  transform: translateX(-50%);
+  flex-direction: row;
+  max-width: calc(var(--viewer-menus-room) - 220px);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="rail"] .viewer-menus_panel {
+  left: 100%;
+  top: 0;
+  bottom: 0;
+  width: min(340px, calc(var(--viewer-menus-host-w, 800px) * 0.5));
+  border-left: 0;
+  border-radius: 0 16px 16px 0;
+  animation: viewer-menus-slide 0.28s cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+
+@keyframes viewer-menus-slide {
+  from { transform: translateX(-30px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #viewerEditorToolbar.viewer-menus .viewer-menus_panel,
+  #viewerEditorToolbar.viewer-menus .viewer-menus_panel .has-submenu.is-open > .viewer-editor-tool_submenu {
+    animation: none;
+  }
+}

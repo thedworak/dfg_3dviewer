@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 
 const RESIZE_GRIP_PX = 18;
+const ANCHOR_GAP_PX = 8;
 
 // Panels start centered via left:50% + translateX(-50%); the first drag or
 // resize pins them to explicit pixel coordinates so neither fights the transform.
@@ -71,8 +72,7 @@ function watchBackgroundClicks(Viewer) {
 
 export function makePanelWindow(Viewer, panel, handle, close = () => { panel.hidden = true; }) {
   if (!panel || !handle) return;
-  handle.classList.add("panel-window-handle");
-  panel.classList.add("panel-window");
+  makeDraggable(Viewer, panel, handle);
 
   windows.set(panel, close);
   watchBackgroundClicks(Viewer);
@@ -84,8 +84,21 @@ export function makePanelWindow(Viewer, panel, handle, close = () => { panel.hid
     observer.disconnect();
     windows.delete(panel);
   });
+}
 
-  Viewer.bindEventListener(handle, "pointerdown", (event) => {
+// Dragging by `handle` and resizing (native corner grip) alone, for windows
+// that stay open beside the others (the IFC question window) or sit over a
+// backdrop of their own (the annotation and bug report dialogs). Without a
+// Viewer (bug-report.js) the listeners live as long as the panel.
+export function makeDraggable(Viewer, panel, handle) {
+  if (!panel || !handle) return;
+  const on = Viewer
+    ? (target, type, listener) => Viewer.bindEventListener(target, type, listener)
+    : (target, type, listener) => target.addEventListener(type, listener);
+  handle.classList.add("panel-window-handle");
+  panel.classList.add("panel-window");
+
+  on(handle, "pointerdown", (event) => {
     if (event.button !== 0 || event.target.closest("button, input, select, textarea, a")) return;
     pinPanel(panel);
     const parent = panel.offsetParent || panel.parentElement;
@@ -117,7 +130,7 @@ export function makePanelWindow(Viewer, panel, handle, close = () => { panel.hid
   // event, but it does press on the panel itself in its bottom-right corner:
   // pin the position and swap the max-height cap for the current height so
   // dragging the grip can both grow and shrink the panel.
-  Viewer.bindEventListener(panel, "pointerdown", (event) => {
+  on(panel, "pointerdown", (event) => {
     if (event.target !== panel) return;
     const rect = panel.getBoundingClientRect();
     if (event.clientX < rect.right - RESIZE_GRIP_PX || event.clientY < rect.bottom - RESIZE_GRIP_PX) return;
@@ -125,4 +138,22 @@ export function makePanelWindow(Viewer, panel, handle, close = () => { panel.hid
     panel.style.height = `${panel.offsetHeight}px`;
     panel.style.maxHeight = "none";
   });
+}
+
+// Opened from a button in the page header, a panel drops down below it like
+// a submenu: its left edge under the button, kept within the viewer. Each
+// opening places it there again; dragging moves it from there.
+export function anchorPanelUnder(panel, button) {
+  if (!panel || panel.hidden || !button) return;
+  const parent = panel.offsetParent || panel.parentElement;
+  if (!parent) return;
+  const parentRect = parent.getBoundingClientRect();
+  const buttonRect = button.getBoundingClientRect();
+  if (!buttonRect.width && !buttonRect.height) return;
+  const left = buttonRect.left - parentRect.left - parent.clientLeft + parent.scrollLeft;
+  const top = buttonRect.bottom - parentRect.top - parent.clientTop + parent.scrollTop + ANCHOR_GAP_PX;
+  panel.style.transform = "none";
+  panel.style.left = `${clamp(left, ANCHOR_GAP_PX, parent.clientWidth - panel.offsetWidth - ANCHOR_GAP_PX)}px`;
+  panel.style.top = `${clamp(top, ANCHOR_GAP_PX, parent.clientHeight - panel.offsetHeight - ANCHOR_GAP_PX)}px`;
+  panel.dataset.windowPinned = "1";
 }

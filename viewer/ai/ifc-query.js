@@ -4,6 +4,7 @@ import { t } from "../i18n-utils.js";
 import { getIfcData, getLiveIfcModel, getSelectedIfcElement, hasIfcProperties, IFC_PROPERTIES_EVENT, loadIfcQueryData, showIfcProperties } from "../ifc-properties.js";
 import { aiDisclaimer, aiFeatureState, aiRequest, fetchAIConfig, showAILocked } from "./ai-client.js";
 import { buildIfcSummary, ifcStoreys, plainValue, runIfcFilter } from "./ifc-filter.js";
+import { makeDraggable } from "../ui/panel-window.js";
 
 // Questions about a building model in plain language ("load-bearing walls
 // on level 2", "total slab area"), answered from its IFC properties
@@ -273,6 +274,7 @@ export function attachIfcQuery(Viewer) {
       });
       core.container.appendChild(panel);
       this.ifcQueryPanel = panel;
+      makeDraggable(this, panel, panel.querySelector(".upload-panel-header"));
       this.bindEventListener(panel.querySelector('[data-action="close"]'), "click", () => this.closeIfcQuery());
       this.bindEventListener(panel.querySelector('[data-action="clear-selection"]'), "click", () => this.clearIfcQuerySelection());
       this.bindEventListener(panel.querySelector("form"), "submit", (event) => {

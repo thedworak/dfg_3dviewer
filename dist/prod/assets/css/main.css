@@ -2,10 +2,14 @@
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
 @import "./models-panel.css";
+@import "./validation-report.css";
+@import "./ai.css";
 @import "./admin-panel.css";
 @import "./login-panel.css";
 @import "./ifc-properties.css";
 @import "./viewer-tools.css";
+@import "./menu-toolbar.css";
+@import "./context-menu.css";
 
 #cboxLoadedContent.iipmooviewer {
   position: absolute;
@@ -148,8 +152,9 @@ canvas {
   max-width: calc(100% - 88px);
   position: absolute;
   left: 50%;
-  bottom: var(--viewer-notice-safe-bottom);
+  bottom: calc(var(--viewer-notice-safe-bottom) + var(--viewer-notice-loading-offset, 0px));
   transform: translateX(-50%);
+  transition: bottom 300ms ease;
   /* Above the panel windows (99999) and the upload overlay (100000), so
      errors raised from inside a panel (e.g. plans, account link) stay visible. */
   z-index: 100001;
@@ -174,6 +179,25 @@ canvas {
     (var(--viewer-toolbar-height) * clamp(0.62, calc((100vw - 48px) / var(--viewer-toolbar-max-width)), 0.9)) +
     8px
   );
+}
+
+/* While the model loads, the percentage badge sits just above the toolbar
+   (editor-toolbar.css); lift the notices over it so "model loaded" does not
+   cover it. data-loading stays on through the "complete" fade-out. */
+.mainContainer:has(#viewerEditorToolbar[data-loading]) #viewerNoticeContainer {
+  --viewer-notice-loading-offset: 40px;
+}
+
+/* On a phone with the menus (syncNoticeAboveToolbar() in editor-toolbar.js):
+   at the top, across the viewer under the logo - the bottom is the tools'. */
+#viewerNoticeContainer.viewer-notice-container--top:not(.viewer-notice-container--sandbox):not(.viewer-notice-container--shortcuts) {
+  top: var(--viewer-notice-top, 56px);
+  bottom: auto;
+  left: var(--viewer-notice-left, 12px);
+  right: 12px;
+  max-width: none;
+  transform: none;
+  transition: top 300ms ease;
 }
 
 #viewerNoticeContainer.viewer-notice-container--sandbox {
@@ -505,7 +529,7 @@ canvas {
   position: relative;
   display: block;
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.92));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
   opacity: 1;
   transition: opacity 600ms ease;
 }
@@ -529,7 +553,7 @@ canvas {
 }
 
 .model-loader__track {
-  height: 2px;
+  height: 3px;
   background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
@@ -548,12 +572,14 @@ canvas {
 }
 
 .model-loader__percent {
-  padding: 2px 6px;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 45%, transparent);
   border-radius: 999px;
-  color: color-mix(in srgb, currentColor 72%, transparent);
-  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)) 70%, transparent);
-  font-size: 10px;
-  font-weight: 500;
+  color: currentColor;
+  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(17, 24, 39, 0.82)) 88%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
@@ -881,7 +907,7 @@ html[data-viewer-theme="light"],
   --viewer-panel-border: rgba(255, 255, 255, 0.12);
   --viewer-panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
-  --viewer-loader-accent: var(--viewer-brand-blue);
+  --viewer-loader-accent: var(--viewer-brand-gold);
   --viewer-gui-bg: rgba(43, 49, 61, 0.9);
   --viewer-gui-title-bg: rgba(43, 49, 61, 0.9);
   --viewer-gui-title-hover-bg: rgba(25, 29, 36, 0.9);
@@ -925,7 +951,7 @@ html[data-viewer-theme="light"],
   --viewer-panel-border: rgba(164, 151, 132, 0.28);
   --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
   --viewer-panel-text: rgba(37, 33, 28, 0.92);
-  --viewer-loader-accent: var(--viewer-brand-blue);
+  --viewer-loader-accent: var(--viewer-brand-gold);
   --viewer-gui-bg: rgba(249, 246, 240, 0.96);
   --viewer-gui-title-bg: rgba(243, 238, 230, 0.98);
   --viewer-gui-title-hover-bg: rgba(236, 230, 220, 0.98);
@@ -1003,10 +1029,8 @@ html[data-viewer-theme="light"],
   box-shadow: var(--metadata-shadow);
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  /* Draggable via .metadata-drag-handle and resizable via the native
-     bottom-right handle below (see initializeMetadataDrag()/
-     observeMetadataResize() in metadata.js) - both mirror the mechanisms
-     already used for #viewerEditorToolbar and #form-manifesto. */
+  /* Draggable via .metadata-drag-handle (startMetadataDrag() in
+     metadata.js); it is the button of #metadata-window below. */
   transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0);
   display: flex;
   flex-direction: column;
@@ -1027,19 +1051,120 @@ html[data-viewer-theme="light"],
 }
 
 #metadata-card.metadata-open {
-  width: min(320px, 32vw);
   background: var(--metadata-card-bg-open);
   border-color: var(--metadata-row-border-strong);
-  box-shadow: var(--metadata-shadow);
-  resize: both;
-  overflow: auto;
 }
 
-#metadata-card.metadata-card-resized #metadata-content.expanded {
+/* The model's details, opened from the card (metadata.js): a window that
+   grows out of it, moved by its header, resized by its corner, kept inside
+   the viewer and off the toolbar (getMetadataWindowBounds()). */
+#metadata-window {
+  position: absolute;
+  left: var(--window-x, 8px);
+  top: var(--window-y, 64px);
+  width: min(340px, calc(100% - 16px));
+  min-width: 200px;
+  min-height: 120px;
+  max-height: min(72vh, 640px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px 12px;
+  border-radius: 10px;
+  background: var(--metadata-card-bg-open);
+  border: 1px solid var(--metadata-row-border-strong);
+  box-shadow: var(--metadata-shadow);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  pointer-events: auto;
+  resize: both;
+  overflow: hidden;
+  transform-origin: var(--window-origin-x, 0px) var(--window-origin-y, 0px);
+  animation: metadata-window-in 360ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+#metadata-window[hidden] {
+  display: none;
+}
+
+#metadata-window.metadata-window-closing {
+  animation: metadata-window-out 220ms cubic-bezier(0.4, 0, 0.8, 0.4) forwards;
+  pointer-events: none;
+}
+
+@keyframes metadata-window-in {
+  from { opacity: 0; transform: scale(0.12); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes metadata-window-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(0.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #metadata-window,
+  #metadata-window.metadata-window-closing {
+    animation: none;
+  }
+}
+
+.metadata-window-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  margin: 0 -14px;
+  padding: 0 6px 0 14px;
+  border-bottom: 1px solid var(--metadata-border);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+#metadata-window.metadata-dragging .metadata-window-header {
+  cursor: grabbing;
+}
+
+.metadata-window-title {
   flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
-  overflow-y: auto;
+  min-width: 0;
+  color: var(--metadata-value-color);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadata-window-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--metadata-label-color);
+  cursor: pointer;
+}
+
+.metadata-window-close:hover {
+  color: var(--metadata-value-color);
+  background: color-mix(in srgb, var(--metadata-value-color) 10%, transparent);
+}
+
+.metadata-window-close:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--metadata-value-color) 40%, transparent);
+  outline-offset: 1px;
+}
+
+.metadata-window-close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .metadata-drag-handle {
@@ -1084,37 +1209,12 @@ html[data-viewer-theme="light"],
 }
 
 #metadata-content {
-  max-height: 0;
-  overflow: hidden;
-  transition:
-    max-height 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    opacity 1520ms ease,
-    transform 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    visibility 0s linear 1360ms,
-    padding 1400ms cubic-bezier(0.23, 1, 0.32, 1);
-  opacity: 0;
-  visibility: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
   position: relative;
-  transform: translateY(-1px);
-  transform-origin: top;
-  padding: 0;
-}
-
-#metadata-content.expanded {
-  max-height: min(72vh, 640px);
-  overflow: hidden;
-  opacity: 1;
-  visibility: visible;
-  margin-top: 10px;
-  padding: 10px 0 0;
-  border-top: 1px solid var(--metadata-border);
-  transform: translateY(0);
-  transition:
-    max-height 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    opacity 1520ms ease,
-    transform 1400ms cubic-bezier(0.23, 1, 0.32, 1),
-    visibility 0s linear 0s,
-    padding 1400ms cubic-bezier(0.23, 1, 0.32, 1);
+  padding-top: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .metadata-stats {
@@ -1219,7 +1319,7 @@ html[data-viewer-theme="light"],
   height: 1px;
 }
 
-#metadata-card.metadata-card-overflowing #metadata-content::after {
+#metadata-window.metadata-window-overflowing #metadata-content::after {
   content: "";
   position: absolute;
   left: 0;
@@ -1916,10 +2016,26 @@ html[data-viewer-theme="light"],
   opacity: 0.85;
 }
 
+/* Kept in view at the bottom of the scrolling panel, so Save stays tappable
+   on phones while the keyboard is open. */
 .annotation-dialog__actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 1;
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  margin: 0 -14px -14px;
+  padding: 10px 14px 14px;
+  background: var(--viewer-panel-bg);
+  border-top: 1px solid var(--viewer-panel-border);
+}
+
+@media (pointer: coarse) {
+  .annotation-dialog__actions button {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
 }
 
 /* Bug report form (bug-report.js); the panel and form reuse the annotation
@@ -1999,10 +2115,6 @@ body[data-viewer-theme="light"] #annotationPOITooltip {
   #metadata-card {
     width: min(220px, calc(100vw - 32px));
     padding: 10px 12px;
-  }
-
-  #metadata-card.metadata-open {
-    width: min(320px, calc(100vw - 32px));
   }
 
   .metadata-row {
@@ -2396,41 +2508,11 @@ body.presentation-mode {
   }
 }
 
-/* Model details on a phone: open, a sheet along the bottom of the viewer,
-   above the toolbar - the model stays visible above it. */
-@media (max-width: 640px) {
-  #metadata-card.metadata-open {
-    position: absolute;
-    top: auto;
-    left: max(8px, env(safe-area-inset-left));
-    right: max(8px, env(safe-area-inset-right));
-    bottom: calc(var(--viewer-toolbar-height, 58px) + 26px + env(safe-area-inset-bottom));
-    width: auto !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: 55%;
-    transform: none;
-    resize: none;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    border-radius: 6px;
-  }
-
-  #metadata-card.metadata-open #metadata-content.expanded {
-    max-height: none;
-    overflow: visible;
-  }
-
-  #metadata-card.metadata-open .metadata-drag-handle {
-    display: none;
-  }
-}
-
-/* Model details on a phone, closed: a small round "i" in the corner instead
-   of the file name card, so it keeps off the model. The name stays in the
-   button's aria-label; a tap opens the sheet above. */
+/* Model details on a phone: a small round "i" in the corner instead of the
+   file name card, so it keeps off the model. The name stays in the button's
+   aria-label; a tap opens the window out of it. */
 @media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
-  #metadata-card:not(.metadata-open) {
+  #metadata-card {
     width: 40px !important;
     height: 40px !important;
     min-width: 0;
@@ -2442,12 +2524,12 @@ body.presentation-mode {
     transition: none;
   }
 
-  #metadata-card:not(.metadata-open) .metadata-drag-handle,
-  #metadata-card:not(.metadata-open) .metadata-toggle-copy {
+  #metadata-card .metadata-drag-handle,
+  #metadata-card .metadata-toggle-copy {
     display: none;
   }
 
-  #metadata-card:not(.metadata-open) #metadata-collapse {
+  #metadata-card #metadata-collapse {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2456,7 +2538,7 @@ body.presentation-mode {
     gap: 0;
   }
 
-  #metadata-card:not(.metadata-open) .metadata-toggle-chevron {
+  #metadata-card .metadata-toggle-chevron {
     width: 20px;
     height: 20px;
     border-radius: 0;
@@ -2465,7 +2547,7 @@ body.presentation-mode {
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
   }
 
-  #metadata-card:not(.metadata-open) .metadata-toggle-chevron::before {
+  #metadata-card .metadata-toggle-chevron::before {
     display: none;
   }
 }
@@ -2484,6 +2566,7 @@ body.presentation-mode {
   #example-model-picker #uploadModel,
   #example-model-picker #browseModelsButton,
   #example-model-picker #openLocalFileButton,
+  #example-model-picker #browseManifestsButton,
   #example-model-picker #planButton,
   #example-model-picker #example-theme-toggle,
   #viewer-account-bar #loginButton,
@@ -2535,6 +2618,7 @@ body.viewer-no-remote #uploadModel,
 body.viewer-no-remote #loginButton,
 body.viewer-no-remote #manageUsersButton,
 body.viewer-app #browseModelsButton,
+body.viewer-app #browseManifestsButton,
 /* ...and the bar that holds only those two, or its empty frame stays in the
    header's corner. */
 body.viewer-offline #viewer-account-bar,

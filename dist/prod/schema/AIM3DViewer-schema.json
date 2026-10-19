@@ -230,6 +230,55 @@
           "additionalProperties": true
         },
         "timeline": { "$ref": "#/$defs/timeline" },
+        "variants": { "$ref": "#/$defs/variants" },
+        "compare": { "$ref": "#/$defs/compare" },
+        "location": {
+          "description": "Where the model stands on the Earth, for the sun.",
+          "type": "object",
+          "required": ["latitude", "longitude"],
+          "properties": {
+            "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+            "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+            "north": { "type": "number", "description": "Direction of north in the scene: degrees clockwise from -Z, seen from above (default 0)." },
+            "utcOffset": { "type": "number", "minimum": -14, "maximum": 14, "description": "Hours the local time is ahead of UTC (default: longitude / 15, rounded)." }
+          },
+          "additionalProperties": true
+        },
+        "sun": {
+          "description": "The sun at a place (AIM3DViewer.location) on a day and hour, casting shadows; exported while on.",
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "date": { "type": "string", "pattern": "^(-?\\d{1,4}-)?\\d{1,2}-\\d{1,2}$", "description": "\"MM-DD\", or \"YYYY-MM-DD\" (the year is the timeline's while followTimeline is on; default: today at the model's place)." },
+            "time": { "type": "string", "pattern": "^\\d{1,2}:\\d{2}$", "description": "Local time, \"HH:MM\" (default: the time now at the model's place)." },
+            "followTimeline": { "type": "boolean", "description": "Take the year from the 4D timeline (default true)." },
+            "animate": { "type": "boolean", "description": "Play the day on open (default false)." }
+          },
+          "additionalProperties": true
+        },
+        "photos": {
+          "description": "Historical photos laid over the model from the camera they were taken from.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/photo" }
+        },
+        "thumbnails": {
+          "description": "Renders of the model shown in the thumbnail gallery, in this order (any number). Without it the viewer shows its generic placeholder images. Relative URLs (\"./...\") resolve like the manifest's model URLs.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string", "minLength": 1 },
+              {
+                "type": "object",
+                "required": ["src"],
+                "properties": {
+                  "src": { "type": "string", "minLength": 1 },
+                  "label": { "$ref": "#/$defs/languageMap" }
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        },
         "modelTransform": {
           "type": "object",
           "properties": {
@@ -342,7 +391,7 @@
             "autoplay": { "type": "boolean" },
             "loop": { "type": "boolean" },
             "yearsPerSecond": { "type": "number", "exclusiveMinimum": 0 },
-            "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Multiple of yearsPerSecond chosen in the panel (default 1)." },
+            "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Multiple of yearsPerSecond chosen in the panel (default 0.5)." },
             "pauseAtEvents": { "type": "number", "minimum": 0, "description": "Seconds held on each documented stage while playing (default 1.5)." }
           },
           "additionalProperties": true
@@ -364,6 +413,84 @@
             },
             "additionalProperties": true
           }
+        }
+      },
+      "additionalProperties": true
+    },
+    "variants": {
+      "description": "Reconstruction variants: alternative hypotheses of the same object, each a set of model nodes. One is shown at a time; nodes of no variant are always shown. Variants come from the model (glTF scene extras `variants`, or node extras `variant`) unless listed here.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "description": "false: the model's own variants are not used (default true)." },
+        "showPanel": { "type": "boolean", "description": "Show the variants panel (default true)." },
+        "label": { "$ref": "#/$defs/languageMap" },
+        "description": { "$ref": "#/$defs/languageMap" },
+        "active": { "type": "string", "description": "Id of the variant shown (default the first)." },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "$ref": "#/$defs/languageMap" },
+              "description": { "$ref": "#/$defs/languageMap" },
+              "source": { "$ref": "#/$defs/languageMap" },
+              "certainty": { "type": "number", "description": "Level of Certainty value on the manifest's scale (AIM3DViewer.certainty), shown as the level's badge." },
+              "nodes": { "type": "array", "items": { "type": "string" }, "description": "Model nodes of this variant. Left out: those of the model's variant with the same id." }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "compareSide": {
+      "type": "object",
+      "anyOf": [{ "required": ["variant"] }, { "required": ["year"] }, { "required": ["shading"] }, { "required": ["lighting"] }],
+      "properties": {
+        "variant": { "type": "string", "description": "Id of a variant." },
+        "year": { "type": "number", "description": "A year of the timeline: the last stage reached is shown." },
+        "shading": { "enum": ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"], "description": "A shading mode (kind \"look\")." },
+        "lighting": { "enum": ["current", "noEnvironment", "neutral", "sunny", "studio", "goldenHour", "raking"], "description": "The lighting (kind \"look\"): as set, without the environment map, an environment preset, or the raking light." }
+      },
+      "additionalProperties": true
+    },
+    "compare": {
+      "description": "Comparison view, open when the manifest loads: two variants or two years of the timeline, or (kind \"look\") the model shaded and lit two ways, split by a divider (swipe) or side by side (split).",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "description": "false: no comparison on open (default true)." },
+        "kind": { "enum": ["content", "look"], "description": "content: variants or years (default); look: shading and lighting." },
+        "mode": { "enum": ["swipe", "split"], "description": "swipe: one view split by a divider (default); split: two halves side by side." },
+        "position": { "type": "number", "minimum": 0, "maximum": 1, "description": "Divider position across the canvas in swipe mode (default 0.5)." },
+        "left": { "$ref": "#/$defs/compareSide" },
+        "right": { "$ref": "#/$defs/compareSide" }
+      },
+      "additionalProperties": true
+    },
+    "photo": {
+      "type": "object",
+      "anyOf": [{ "required": ["src"] }, { "required": ["service"] }],
+      "properties": {
+        "id": { "type": "string" },
+        "src": { "type": "string", "description": "Image URL, or a IIIF Image API info.json." },
+        "service": { "description": "A IIIF Image API service (its URL or an object with id): the image is asked for at up to 2000 px.", "anyOf": [{ "type": "string" }, { "type": "object" }] },
+        "label": { "$ref": "#/$defs/languageMap" },
+        "description": { "$ref": "#/$defs/languageMap" },
+        "source": { "$ref": "#/$defs/languageMap" },
+        "year": { "type": "number", "description": "Year the photo was taken: the 4D timeline goes there when it opens." },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "description": "Opacity of the photo over the model (default 0.6)." },
+        "view": {
+          "type": "object",
+          "required": ["position", "target"],
+          "properties": {
+            "position": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+            "target": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+            "fov": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180, "description": "Vertical field of view in degrees." },
+            "roll": { "type": "number", "description": "Tilt of the photo in degrees, clockwise." }
+          },
+          "additionalProperties": true
         }
       },
       "additionalProperties": true
