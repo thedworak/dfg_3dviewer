@@ -105,7 +105,11 @@ async function openMainActionMenu(page) {
   await expect(menuToggle).toBeChecked();
 }
 
-test('viewer runs in E2E mode', async ({ page }) => {
+// Tests tagged @smoke run on every push to a pull request (about 2
+// minutes); the whole file runs on a pull request labelled "full-tests",
+// on a manual run and when a deploy finds no passing run
+// (.github/workflows/playwright.yml). Locally: pnpm run test:smoke.
+test('viewer runs in E2E mode', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page);
 
   const canvas = page.locator('#MainCanvas');
@@ -338,7 +342,7 @@ test('models are centred on the grid whether or not metadata is configured', asy
   }
 });
 
-test('camera rotates on mouse drag', async ({ page }) => {
+test('camera rotates on mouse drag', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
   await page.waitForFunction(() => window.viewer?.camera);
@@ -794,7 +798,7 @@ test('progressive loading: the up axis of the preview stays on the full model', 
   expect((await modelPose(page)).upAxis).toBe('Y-');
 });
 
-test('progressive loading shows the preview first and swaps in the full compressed model', async ({ page }) => {
+test('progressive loading shows the preview first and swaps in the full compressed model', { tag: '@smoke' }, async ({ page }) => {
   const requests = [];
   page.on('request', (request) => {
     if (request.url().includes('/examples/compressed')) {
@@ -923,7 +927,7 @@ test('streams a 3D Tiles point cloud and keeps annotations off it', async ({ pag
   await expect(page.locator('#annotationDialog')).toHaveCount(0);
 });
 
-test('LAZ point clouds load directly, re-centred in double precision', async ({ page }) => {
+test('LAZ point clouds load directly, re-centred in double precision', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page, '/examples/points.laz');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
   const cloud = await page.evaluate(() => {
@@ -1038,7 +1042,7 @@ test('large LAS files are decoded in a Web Worker and fill in batch by batch', a
 
 // examples/potree/scan: 30 000 points of points.laz through PotreeConverter
 // 2.1.1, classified ground (2) / building (6) by height.
-test('Potree 2 clouds stream by range requests, with intensity, height and classification colours', async ({ page }) => {
+test('Potree 2 clouds stream by range requests, with intensity, height and classification colours', { tag: '@smoke' }, async ({ page }) => {
   const ranges = [];
   page.on('request', (request) => {
     if (request.url().endsWith('/octree.bin')) ranges.push(request.headers().range);
@@ -1504,7 +1508,7 @@ test('manifest thumbnails stay above the viewer when the manifest makes it a mov
   expect(layout).toEqual({ placeholder: true, galleryFirst: true, above: true });
 });
 
-test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments round-trip', async ({ page }) => {
+test('IIIF Presentation 4 scenes: camera, lights, transforms and point comments round-trip', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
   await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-iiif-p4.json', 'url', 'iiif'));
@@ -1777,7 +1781,7 @@ test('Level of Certainty: objects and groups get see-through colour overlays by 
   expect(switched).toEqual({ view: false, filter: null, fromManifest: false, opacity: 0.4, legend: 0, pressed: 'false' });
 });
 
-test('shading modes: the original materials come back untouched, switched-out ones are released, scan views and manifests', async ({ page }) => {
+test('shading modes: the original materials come back untouched, switched-out ones are released, scan views and manifests', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page, '/examples/compressed.glb');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
 
@@ -2376,7 +2380,7 @@ async function splatPixelShare(page) {
   });
 }
 
-test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, upright and framed like any model', async ({ page }) => {
+test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, upright and framed like any model', { tag: '@smoke' }, async ({ page }) => {
   test.setTimeout(90_000);
   await openViewer(page, '/examples/tempietto/Tempietto.splat');
   await waitForCameraIdle(page);
@@ -2540,7 +2544,7 @@ test('a manifest\'s settings for another model: the look stays, what belongs to 
   expect(retargetManifest({ type: 'Manifest', items: [] }, model)).toBeNull();
 });
 
-test('example manifests: all valid, and the scan views open as written (shading, ambient occlusion, raking light, custom shader)', async ({ page }) => {
+test('example manifests: all valid, and the scan views open as written (shading, ambient occlusion, raking light, custom shader)', { tag: '@smoke' }, async ({ page }) => {
   test.setTimeout(120_000);
   // Every example passes the viewer's own validation.
   const dir = 'viewer/manifesto/examples';
@@ -2688,7 +2692,7 @@ test('IIIF Presentation 4 transforms apply in order, and manifest lights replace
   expect(await lightState()).toEqual(defaults);
 });
 
-test('IIIF Presentation 4 export keeps every model of the scene and its background colour', async ({ page }) => {
+test('IIIF Presentation 4 export keeps every model of the scene and its background colour', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
 
@@ -3289,7 +3293,7 @@ test('IIIF Scene.spatialScale sets the model unit and is exported again', async 
   expect(await page.evaluate(() => window.Viewer.resolveModelUnit().source)).toBe('default');
 });
 
-test('upload panel shows limit usage and limit errors from the worker', async ({ page }) => {
+test('upload panel shows limit usage and limit errors from the worker', { tag: '@smoke' }, async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
   );
@@ -3479,7 +3483,7 @@ test('reports unsupported format without loading a model', async ({ page }) => {
   expect(state.toasts).toContain('File extension is not supported yet.');
 });
 
-test('reports a missing model file instead of hanging', async ({ page }) => {
+test('reports a missing model file instead of hanging', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page, '/examples/does-not-exist.stl');
   await waitForViewerIssue(page);
 
@@ -3511,7 +3515,7 @@ test('loads OBJ even when the referenced MTL file is missing', async ({ page }) 
   expect(state.toasts).toContain('Error occurred while loading attached MTL file.');
 });
 
-test('reports a corrupted model file instead of hanging', async ({ page }) => {
+test('reports a corrupted model file instead of hanging', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page, '/examples/broken.glb');
   await waitForViewerIssue(page);
 
@@ -3702,7 +3706,7 @@ test('sun and shadows: switched on at the day and hour it is now at the place, u
   expect(await when()).toEqual({ year: 2026, month: 6, day: 21, minutes: 12 * 60 + 30 });
 });
 
-test('toolbar menus on a desktop: the tools sorted into named menus, submenus opening in place', async ({ page }) => {
+test('toolbar menus on a desktop: the tools sorted into named menus, submenus opening in place', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page, '/examples/tempietto/Tempietto.glb', 'ui=menus');
   await waitForModel(page);
   const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
@@ -3810,7 +3814,7 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   expect(await page.evaluate(() => window.viewer.errors ?? [])).toEqual([]);
 });
 
-test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once turned', async ({ browser }) => {
+test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once turned', { tag: '@smoke' }, async ({ browser }) => {
   // With motion: turning animates the tabs (none with reduced motion, as the
   // other tests run).
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'no-preference' });
@@ -3999,7 +4003,7 @@ test('comparing the look: two shading modes and lightings, the scene as it was b
   expect(await scene()).toBe(before);
 });
 
-test('manifest inspection: every example is fine and every attribute known', () => {
+test('manifest inspection: every example is fine and every attribute known', { tag: '@smoke' }, () => {
   const dir = 'viewer/manifesto/examples';
   for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.json') && name !== 'index.json')) {
     const inspection = inspectAIM3DManifest(JSON.parse(fs.readFileSync(`${dir}/${file}`, 'utf8')));
@@ -4108,7 +4112,7 @@ test('manifest inspection: checks each attribute value', () => {
   expect(inspectAIM3DManifest([]).status).toBe('error');
 });
 
-test('validation report: X/Y passed, rows with their issues, the worker check of the model', async ({ page }) => {
+test('validation report: X/Y passed, rows with their issues, the worker check of the model', { tag: '@smoke' }, async ({ page }) => {
   test.setTimeout(120_000);
   const jobId = 'a1b2c3';
   const modelReport = {

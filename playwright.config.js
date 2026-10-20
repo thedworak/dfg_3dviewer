@@ -18,7 +18,9 @@ export default defineConfig({
   // workflow passes the repository variable of that name).
   workers: process.env.CI ? Number(process.env.PLAYWRIGHT_WORKERS) || 1 : undefined,
 
-  retries: process.env.CI ? 2 : 0,
+  // One retry: a flaky test still passes, a broken one costs one run more,
+  // not two.
+  retries: process.env.CI ? 1 : 0,
 
   reporter: process.env.CI
     ? [

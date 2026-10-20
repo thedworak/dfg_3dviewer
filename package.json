@@ -64,6 +64,7 @@
     "serve:test": "npx serve -n -l 3101 --no-port-switching dist/test",
     "serve:prod": "npx serve -n -l 3200 --no-port-switching dist/prod",
     "test:local": "sh ./scripts/run-local-tests.sh",
+    "test:smoke": "sh ./scripts/run-local-tests.sh --grep @smoke",
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
     "pack-dist": "node ./scripts/pack-dist.js"
   },

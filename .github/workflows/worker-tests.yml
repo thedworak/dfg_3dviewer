@@ -1,0 +1,37 @@
+name: Worker Tests
+
+# The worker's Python unit tests (worker/tests) on pull requests that change
+# the worker - the viewer's Playwright tests skip those (playwright.yml).
+# A minute on a GitHub runner, without Blender or the other conversion tools:
+# the tests stand in for them.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'worker/**'
+  workflow_dispatch:
+
+concurrency:
+  group: worker-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unittest:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # What the tests import beyond the standard library (worker/Dockerfile
+      # and Dockerfile.base install the same).
+      - name: Install dependencies
+        run: pip install numpy laspy "anthropic>=1.15,<2"
+
+      - name: Run the worker tests
+        run: python -m unittest discover -s worker/tests -v

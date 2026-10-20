@@ -4,24 +4,40 @@ name: Playwright Tests
 # request. Pushes do not run it - stable-release deploys untested, and main
 # deploys the merge without testing again (deploy.yml finds this run of the
 # pull request's head commit; without one it calls this workflow itself,
-# workflow_call). Changes to the docs or Markdown files alone do not run it.
+# workflow_call).
+#
+# A push to a pull request runs the tests tagged @smoke (tests/viewer.spec.ts,
+# about 2 minutes). The label "full-tests" on the pull request runs them all -
+# added before merging, and kept for the pushes after it. A manual run and
+# the deploy's own run are always the full suite.
+#
+# Not run for changes to files the viewer tests do not cover: docs, Markdown,
+# the website, the app's docs, and the worker (worker-tests.yml runs its
+# Python tests).
 on:
   pull_request:
     branches:
       - main
+    types: [opened, synchronize, reopened, labeled]
     paths-ignore:
-      - 'docs/**'
+      - '**/docs/**'
       - '**/*.md'
+      - '**/website/**'
+      - 'worker/**'
   workflow_call:
   workflow_dispatch:
 
-# A new push to the pull request cancels the run for its previous commit.
-concurrency:
-  group: playwright-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-  cancel-in-progress: true
-
 jobs:
   e2e:
+    # Labelling with anything but "full-tests" runs nothing.
+    if: github.event.action != 'labeled' || github.event.label.name == 'full-tests'
+    name: e2e ${{ (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-tests')) && 'smoke' || 'full' }} (${{ matrix.shard }})
+    # A new push to the pull request (or the full-tests label) cancels the
+    # run for its previous commit; on the job, so that a skipped run (another
+    # label) cancels nothing.
+    concurrency:
+      group: playwright-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}-${{ matrix.shard }}
+      cancel-in-progress: true
     # Repository variables (Settings > Secrets and variables > Actions >
     # Variables), all optional - without them: GitHub's runners, 3 shards,
     # 1 worker each.
@@ -65,7 +81,7 @@ jobs:
          run: pnpm run build:test
  
        - name: Run Playwright tests
-         run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+         run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }} ${{ (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-tests')) && '--grep @smoke' || '' }}
          env:
            CI: true
            PLAYWRIGHT_WORKERS: ${{ vars.PLAYWRIGHT_WORKERS || 1 }}
