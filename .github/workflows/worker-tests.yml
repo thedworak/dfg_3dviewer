@@ -31,7 +31,7 @@ jobs:
       # What the tests import beyond the standard library (worker/Dockerfile
       # and Dockerfile.base install the same).
       - name: Install dependencies
-        run: pip install numpy laspy "anthropic>=1.15,<2"
+        run: pip install numpy "laspy[lazrs]" "anthropic>=1.15,<2"
 
       - name: Run the worker tests
         run: python -m unittest discover -s worker/tests -v

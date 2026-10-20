@@ -783,6 +783,8 @@ const VIEWER_I18N = {
 
       settingsSaved: "Settings have been saved.",
       settingsSaveError: "Error saving settings.",
+      settingsNotUploaded: "Settings can be saved only for models uploaded to the repository.",
+      settingsNotOwner: "Only the person who uploaded this model (or an admin) can save its settings.",
 
       featureToggle: "{feature} is {state}.",
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
@@ -1905,6 +1907,8 @@ const VIEWER_I18N = {
 
       settingsSaved: "Ustawienia zostały zapisane.",
       settingsSaveError: "Błąd zapisywania ustawień.",
+      settingsNotUploaded: "Ustawienia można zapisać tylko dla modeli przesłanych do repozytorium.",
+      settingsNotOwner: "Ustawienia tego modelu może zapisać tylko osoba, która go przesłała (lub administrator).",
 
       featureToggle: "{feature} jest {state}.",
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
@@ -3026,6 +3030,8 @@ const VIEWER_I18N = {
 
       settingsSaved: "Einstellungen wurden gespeichert.",
       settingsSaveError: "Fehler beim Speichern der Einstellungen.",
+      settingsNotUploaded: "Einstellungen können nur für ins Repository hochgeladene Modelle gespeichert werden.",
+      settingsNotOwner: "Nur wer dieses Modell hochgeladen hat (oder ein Admin) kann seine Einstellungen speichern.",
 
       featureToggle: "{feature} ist {state}.",
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",
@@ -5431,7 +5437,7 @@ function featureIconsCaption(inspection, modelValidation = null) {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "dev") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -5471,4 +5477,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-8HbWr5cx.js.map
+//# sourceMappingURL=model-thumbnail-CKWd859N.js.map

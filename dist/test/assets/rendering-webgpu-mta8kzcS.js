@@ -1,7 +1,7 @@
 import { a as attribute, f as float, M as MeshBasicNodeMaterial, v as vec4, b as vec3, R as RenderPipeline, p as pass, m as mrt, n as normalView, c as ao, u as uniform, s as screenUV, d as builtinAOContext, e as mix } from './three-webgpu-DfUCPSX0.js';
-import { c as core, A as AO_RADIUS, a as AO_THICKNESS } from './main-WfpBcd00.js';
+import { c as core, A as AO_RADIUS, a as AO_THICKNESS } from './main-jjsKVWhN.js';
 import { t as RenderTarget, a1 as UnsignedByteType, b1 as NearestFilter } from './three-DtpVwUD_.js';
-import './model-thumbnail-CT_hCnnc.js';
+import './model-thumbnail-DZYLpZtu.js';
 import './_commonjsHelpers-ChNyZfSg.js';
 
 // Post-processing and ambient occlusion for the WebGPU renderer

@@ -783,6 +783,8 @@ export const VIEWER_I18N = {
 
       settingsSaved: "Settings have been saved.",
       settingsSaveError: "Error saving settings.",
+      settingsNotUploaded: "Settings can be saved only for models uploaded to the repository.",
+      settingsNotOwner: "Only the person who uploaded this model (or an admin) can save its settings.",
 
       featureToggle: "{feature} is {state}.",
       clippingHelperToggle: "Clipping plane {axis} helper {state}.",
@@ -1905,6 +1907,8 @@ export const VIEWER_I18N = {
 
       settingsSaved: "Ustawienia zostały zapisane.",
       settingsSaveError: "Błąd zapisywania ustawień.",
+      settingsNotUploaded: "Ustawienia można zapisać tylko dla modeli przesłanych do repozytorium.",
+      settingsNotOwner: "Ustawienia tego modelu może zapisać tylko osoba, która go przesłała (lub administrator).",
 
       featureToggle: "{feature} jest {state}.",
       clippingHelperToggle: "Pomocnik płaszczyzny przycinania {axis} jest {state}.",
@@ -3026,6 +3030,8 @@ export const VIEWER_I18N = {
 
       settingsSaved: "Einstellungen wurden gespeichert.",
       settingsSaveError: "Fehler beim Speichern der Einstellungen.",
+      settingsNotUploaded: "Einstellungen können nur für ins Repository hochgeladene Modelle gespeichert werden.",
+      settingsNotOwner: "Nur wer dieses Modell hochgeladen hat (oder ein Admin) kann seine Einstellungen speichern.",
 
       featureToggle: "{feature} ist {state}.",
       clippingHelperToggle: "Clipping-Ebenen-Helfer {axis} ist {state}.",

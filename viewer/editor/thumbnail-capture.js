@@ -3,6 +3,7 @@ import { core } from "../core.js";
 import { renderFrame } from "../rendering.js";
 import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
 import { toastHelper } from "../viewer-utils.js";
+import { workerJobId } from "../worker-model.js";
 
 const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
 
@@ -11,16 +12,6 @@ const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
 // worker (worker/server.py), which only has the models uploaded to it.
 const DRUPAL_ENDPOINT = "/api/editor/upload-thumbnail";
 const WORKER_ENDPOINT = "/api/model/thumbnail";
-
-// The worker's job id from a model folder URL (/files/<job>/...), or null.
-function workerJobId(path) {
-  try {
-    const match = new URL(path, window.location.origin).pathname.match(/^\/files\/([A-Za-z0-9_-]+)\//);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
-}
 
 function thumbnailUploadUrl() {
   if (BUILD === "drupal") {

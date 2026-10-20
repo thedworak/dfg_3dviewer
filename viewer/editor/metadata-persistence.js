@@ -2,6 +2,10 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { toastHelper } from "../viewer-utils.js";
 import { getUpAxis } from "../up-axis.js";
+import { apiUrl, appRequestHeaders } from "../remote.js";
+import { workerJobId, workerSettingsUrl } from "../worker-model.js";
+
+const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
 
 function pickMetadataValue(save, current, original) {
   return save ? current : original;
@@ -139,24 +143,20 @@ export function buildEditorMetadata(viewer, rotateMetadata) {
   return metadata;
 }
 
-export async function saveEditorMetadata(viewer) {
-  if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
-
-  const rotateMetadata = new THREE.Vector3(
+function currentRotationDegrees() {
+  return new THREE.Vector3(
     THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
     THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
     THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
   );
+}
 
-  if (core.CONFIG.entity.proxyPath !== undefined) {
-    core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
-  }
-
+// The settings saved before, so that what is not ticked keeps its value.
+async function mergeSavedMetadata(viewer, url) {
   let fetchedMetadata = {};
-
   try {
-    if (core.CONFIG?.metadataUrl) {
-      const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
+    if (url) {
+      const response = await fetch(url, { cache: "no-cache" });
       if (response.ok) {
         fetchedMetadata = await response.json();
       }
@@ -164,18 +164,63 @@ export async function saveEditorMetadata(viewer) {
   } catch (err) {
     console.warn("Metadata fetch failed, continuing with save", err);
   }
-
   viewer.originalMetadata = {
     ...viewer.originalMetadata,
     ...fetchedMetadata
   };
+}
 
-  const newMetadata = buildEditorMetadata(viewer, rotateMetadata);
+// Docker/standalone and the app: the worker keeps the settings of the models
+// uploaded to it (POST /api/model/settings), for their uploader or an admin.
+async function saveToWorker(viewer) {
+  if (!workerJobId(core.fileObject.path)) {
+    toastHelper("settingsNotUploaded", "info");
+    return;
+  }
+  await mergeSavedMetadata(viewer, workerSettingsUrl());
+  const newMetadata = buildEditorMetadata(viewer, currentRotationDegrees());
+  try {
+    const response = await fetch(apiUrl("/api/model/settings"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path: core.fileObject.path,
+        filename: core.fileObject.filename,
+        content: newMetadata
+      })
+    });
+    if (response.status === 401 || response.status === 403) {
+      toastHelper("settingsNotOwner", "warning");
+      return;
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    toastHelper("settingsSaved", "success");
+  } catch (err) {
+    console.error(err);
+    toastHelper("settingsSaveError", "error");
+  }
+}
+
+export async function saveEditorMetadata(viewer) {
+  if (!core.EDITOR || !core.helperObjects?.[0]) return;
+  if (BUILD !== "drupal") {
+    await saveToWorker(viewer);
+    return;
+  }
+  if (core.isLightweight) return;
+
+  if (core.CONFIG.entity.proxyPath !== undefined) {
+    core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
+  }
+  await mergeSavedMetadata(viewer, core.CONFIG?.metadataUrl);
+
+  const newMetadata = buildEditorMetadata(viewer, currentRotationDegrees());
 
   try {
     const token = await fetch("/session/token").then((response) => response.text());
 
-    await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
+    const response = await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
       method: "POST",
       credentials: "same-origin",
       headers: {
@@ -191,6 +236,7 @@ export async function saveEditorMetadata(viewer) {
         content: JSON.stringify(newMetadata, null, "\t")
       })
     });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     toastHelper("settingsSaved", "success");
   } catch (err) {

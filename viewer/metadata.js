@@ -4,6 +4,7 @@ import { core } from './core.js';
 import { t } from "./i18n-utils.js";
 import { parseFloatParam } from "./viewer-param-utils.js";
 import { clearIfcProperties } from "./ifc-properties.js";
+import { workerSettingsUrl } from "./worker-model.js";
 import { attachManifestTreeEditor } from "./manifesto/manifest-tree-editor.js";
 import { exampleManifestOption, getExampleManifests, groupExampleOptions, refreshExampleManifests } from "./example-manifests.js";
 
@@ -1047,9 +1048,27 @@ export async function fetchSettings(object) {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
 
+  // A model uploaded to the worker: its settings saved there ("Save
+  // settings", metadata-persistence.js), if any - quietly none otherwise.
+  const savedSettingsUrl = core.CONFIG.entity?.metadata?.sourceType === "IIIF" || metadataUrl ? null : workerSettingsUrl();
+
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object);
+  }
+  else if (savedSettingsUrl) {
+    let data = null;
+    try {
+      const response = await fetch(savedSettingsUrl, { cache: "no-cache" });
+      if (response.ok) {
+        data = await response.json();
+        toastHelper("settingsFound", "success", { filename: core.fileObject.filename });
+      }
+    } catch (error) {
+      console.warn("Saved settings could not be read", error);
+    }
+    window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+    await handleMetadataResponse(data, metadata, object);
   }
   else if (metadataUrl) {
     console.log("Loading metadata from URL:", metadataUrl);

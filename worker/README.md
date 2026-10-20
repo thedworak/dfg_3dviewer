@@ -217,6 +217,13 @@ needing the tag.
   Blender render and Drupal's `ThumbnailUploadController` write. Needs the
   rights of `DELETE /api/jobs/<id>` (with accounts on: the uploader or an
   admin).
+- `POST /api/model/settings` - the viewer's "Save settings" (File menu): JSON
+  `{"path": "/files/<id>/...", "filename": "<the model's file>", "content": {...}}`,
+  saved as `metadata/<filename>_viewer.json` next to the model (position,
+  rotation, scale, camera, lights, background, annotations) - the file and
+  place of Drupal's `SaveMetadataController`. The viewer reads it back when
+  the model opens; served with `Cache-Control: no-cache`, as it is rewritten
+  in place. Same rights as the thumbnails.
 - `GET /files/<id>/...` - serves the converted model and rendered thumbnails.
 
 ## Configuration

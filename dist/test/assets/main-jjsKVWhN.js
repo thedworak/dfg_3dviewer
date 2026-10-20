@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as unzipSync$1, ge as GTAOPass, gf as EffectComposer, gg as RenderPass, gh as SMAAPass, gi as OutputPass, gj as FXAAPass, gk as USDZExporter, gl as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gm as Vector3$1, gn as Matrix4, go as Quaternion, gp as Euler, gq as MathUtils$1, gr as FontLoader, gs as TextGeometry, gt as OrbitControls, gu as TransformControls } from './three-DtpVwUD_.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-BptIKTw7.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-DZYLpZtu.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -3774,6 +3774,32 @@ function ifcPropertiesUrlForModel(modelPath) {
   return match ? `${match[1]}/metadata/${match[2]}_ifc.json` : null;
 }
 
+// A model uploaded to the worker (worker/server.py) is served from
+// /files/<job>/...: its job id, and where its saved viewer settings live.
+
+// The worker's job id from a model folder URL (/files/<job>/...), or null.
+function workerJobId(path) {
+  try {
+    const match = new URL(path, window.location.origin).pathname.match(/^\/files\/([A-Za-z0-9_-]+)\//);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+// The saved settings of the model on screen, when it is an upload:
+// metadata/<file>_viewer.json in its folder (POST /api/model/settings
+// writes it, like Drupal's SaveMetadataController), else null.
+function workerSettingsUrl() {
+  const { path, filename } = core.fileObject || {};
+  if (!path || !filename || filename.startsWith("blob:") || !workerJobId(path)) return null;
+  try {
+    return new URL(`metadata/${encodeURIComponent(filename)}_viewer.json`, new URL(path, window.location.href)).href;
+  } catch {
+    return null;
+  }
+}
+
 // A collapsible, editable tree view of a manifest's JSON, shown in the
 // manifest form (#form-manifesto) next to its raw-JSON textarea. The textarea
 // stays the source of truth for "Load from Text": every edit made in the tree
@@ -5875,9 +5901,27 @@ async function fetchSettings(object) {
     console.warn("Metadata URL or file information is missing. Skipping metadata fetch.");
   }
 
+  // A model uploaded to the worker: its settings saved there ("Save
+  // settings", metadata-persistence.js), if any - quietly none otherwise.
+  const savedSettingsUrl = core.CONFIG.entity?.metadata?.sourceType === "IIIF" || metadataUrl ? null : workerSettingsUrl();
+
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object);
+  }
+  else if (savedSettingsUrl) {
+    let data = null;
+    try {
+      const response = await fetch(savedSettingsUrl, { cache: "no-cache" });
+      if (response.ok) {
+        data = await response.json();
+        toastHelper("settingsFound", "success", { filename: core.fileObject.filename });
+      }
+    } catch (error) {
+      console.warn("Saved settings could not be read", error);
+    }
+    window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(data);
+    await handleMetadataResponse(data, metadata, object);
   }
   else if (metadataUrl) {
     console.log("Loading metadata from URL:", metadataUrl);
@@ -6313,7 +6357,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-e8n9GGBt.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BQphzLoL.js');
+const loadTilesPlugins = () => import('./index.three-plugins-BKQYkKxt.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -6971,7 +7015,7 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DfUCPSX0.js').then(function (n) { return n.t; }), import('./rendering-webgpu-DoHHaq5E.js')]);
+  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DfUCPSX0.js').then(function (n) { return n.t; }), import('./rendering-webgpu-mta8kzcS.js')]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -7100,9 +7144,9 @@ const loadLWOLoader = async () => (await import('./three-DtpVwUD_.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BrLbK6jt.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gR; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-bNJqREyb.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DG4GONP4.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-ggT2rNGP.js');
+const loadSplats = async () => import('./splats-Dq1lmBF-.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -12978,7 +13022,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "9bd651a" ;
+const BUILD_ID$2 = "9d27614" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -13029,8 +13073,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "9bd651a" ;
-const BUILD_TIME$1 = "2026-10-20T06:18:05.989Z" ;
+const BUILD_ID$1 = "9d27614" ;
+const BUILD_TIME$1 = "2026-10-20T07:26:32.306Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -18668,24 +18712,20 @@ function buildEditorMetadata(viewer, rotateMetadata) {
   return metadata;
 }
 
-async function saveEditorMetadata(viewer) {
-  if (!core.EDITOR || core.isLightweight || !core.helperObjects?.[0]) return;
-
-  const rotateMetadata = new THREE.Vector3(
+function currentRotationDegrees() {
+  return new THREE.Vector3(
     THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.x),
     THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.y),
     THREE.MathUtils.radToDeg(core.helperObjects[0].rotation.z)
   );
+}
 
-  if (core.CONFIG.entity.proxyPath !== undefined) {
-    core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
-  }
-
+// The settings saved before, so that what is not ticked keeps its value.
+async function mergeSavedMetadata(viewer, url) {
   let fetchedMetadata = {};
-
   try {
-    if (core.CONFIG?.metadataUrl) {
-      const response = await fetch(core.CONFIG.metadataUrl, { cache: "no-cache" });
+    if (url) {
+      const response = await fetch(url, { cache: "no-cache" });
       if (response.ok) {
         fetchedMetadata = await response.json();
       }
@@ -18693,38 +18733,49 @@ async function saveEditorMetadata(viewer) {
   } catch (err) {
     console.warn("Metadata fetch failed, continuing with save", err);
   }
-
   viewer.originalMetadata = {
     ...viewer.originalMetadata,
     ...fetchedMetadata
   };
+}
 
-  const newMetadata = buildEditorMetadata(viewer, rotateMetadata);
-
+// Docker/standalone and the app: the worker keeps the settings of the models
+// uploaded to it (POST /api/model/settings), for their uploader or an admin.
+async function saveToWorker(viewer) {
+  if (!workerJobId(core.fileObject.path)) {
+    toastHelper("settingsNotUploaded", "info");
+    return;
+  }
+  await mergeSavedMetadata(viewer, workerSettingsUrl());
+  const newMetadata = buildEditorMetadata(viewer, currentRotationDegrees());
   try {
-    const token = await fetch("/session/token").then((response) => response.text());
-
-    await fetch(core.CONFIG.mainUrl + "/api/editor/save-metadata", {
+    const response = await fetch(apiUrl("/api/model/settings"), {
       method: "POST",
       credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": token
-      },
+      headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
+        path: core.fileObject.path,
         filename: core.fileObject.filename,
-        path:
-          viewer.archiveType !== ""
-            ? core.fileObject.relativePath + core.fileObject.basename + core.loadedFile
-            : core.fileObject.relativePath,
-        content: JSON.stringify(newMetadata, null, "\t")
+        content: newMetadata
       })
     });
-
+    if (response.status === 401 || response.status === 403) {
+      toastHelper("settingsNotOwner", "warning");
+      return;
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     toastHelper("settingsSaved", "success");
   } catch (err) {
     console.error(err);
     toastHelper("settingsSaveError", "error");
+  }
+}
+
+async function saveEditorMetadata(viewer) {
+  if (!core.EDITOR || !core.helperObjects?.[0]) return;
+  {
+    await saveToWorker(viewer);
+    return;
   }
 }
 
@@ -33690,16 +33741,6 @@ function attachPointCloudPanel(Viewer) {
 
 const WORKER_ENDPOINT = "/api/model/thumbnail";
 
-// The worker's job id from a model folder URL (/files/<job>/...), or null.
-function workerJobId(path) {
-  try {
-    const match = new URL(path, window.location.origin).pathname.match(/^\/files\/([A-Za-z0-9_-]+)\//);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
-}
-
 function thumbnailUploadUrl() {
   // The page's own /api/ (nginx or the dev server passes it to the worker),
   // the repository in the app.
@@ -41710,8 +41751,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "9bd651a" ;
-const BUILD_TIME = "2026-10-20T06:18:05.989Z" ;
+const BUILD_ID = "9d27614" ;
+const BUILD_TIME = "2026-10-20T07:26:32.306Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -46209,4 +46250,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-v5I9epzB.js.map
+//# sourceMappingURL=main-B0ZYfypF.js.map

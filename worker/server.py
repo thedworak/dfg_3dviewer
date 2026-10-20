@@ -24,6 +24,7 @@ could talk to either backend interchangeably:
   POST /api/app/link|sync|unlink  an app's plan on an account (only with an
                                   entitlements module, see below)
   POST /api/admin/users/<u>/plan  a plan granted by an admin (auth.py)
+  POST /api/model/settings      the viewer's saved settings of an uploaded model
   GET  /files/<id>/<path>       static access to converted output (HEAD too;
                                 byte ranges, gzip, ETag - static_files.py)
   GET  /healthz                 liveness check
@@ -97,6 +98,9 @@ RENDER_DEVICE = os.environ.get("WORKER_RENDER_DEVICE", "CPU").upper()
 MAX_UPLOAD_BYTES = int(os.environ.get("WORKER_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 # A "Render preview" PNG (1024x1024) - far below this.
 MAX_THUMBNAIL_BYTES = 20 * 1024 * 1024
+# A model's saved viewer settings (POST /api/model/settings): transforms,
+# camera, lights and its annotations as IIIF.
+MAX_SETTINGS_BYTES = 5 * 1024 * 1024
 # Optional accounts (off by default) - see worker/auth.py. Stored on the same
 # persistent volume as the jobs, in a dot-directory the job listing skips.
 AUTH = AuthStore(
@@ -1127,6 +1131,11 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/api/model/thumbnail", "/api/editor/upload-thumbnail"):
             self._handle_thumbnail_upload()
             return
+        # The viewer's "Save settings" (metadata-persistence.js); the Drupal
+        # module has /api/editor/save-metadata for the same.
+        if path == "/api/model/settings":
+            self._handle_settings_save()
+            return
         match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
         if match:
             self._handle_auth(match.group(1))
@@ -1333,6 +1342,59 @@ class Handler(BaseHTTPRequestHandler):
         cloudflare.purge_paths_async([plain_url], self.headers.get("Host", ""))
         self._send_json(200, {"message": f"Thumbnail saved ({len(image)} bytes)", "imageUrl": image_url})
 
+    def _handle_settings_save(self) -> None:
+        """The viewer's "Save settings": the model's transforms, camera,
+        lights and annotations as <model dir>/metadata/<file>_viewer.json -
+        the file and place Drupal's SaveMetadataController uses, read back
+        by the viewer (metadata.js) when the model opens. Body: {path: the
+        model's folder URL (/files/<job>/...), filename, content: the JSON}.
+        Only the uploader or an admin, like thumbnails."""
+        user = self._require_user()
+        if user is None:
+            return
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length <= 0 or length > MAX_SETTINGS_BYTES:
+            self._send_json(413 if length > 0 else 400, {"error": "Invalid request body"})
+            return
+        try:
+            data = json.loads(self.rfile.read(length))
+            content = data["content"]
+            settings = json.loads(content) if isinstance(content, str) else content
+            if not isinstance(settings, dict):
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            self._send_json(400, {"error": "Expected {path, filename, content} with the settings as a JSON object"})
+            return
+        filename = str(data.get("filename", ""))
+        # The model's own file name, next to which the settings go.
+        if not filename or filename.startswith(".") or "/" in filename or "\\" in filename or "\0" in filename:
+            self._send_json(400, {"error": "Invalid filename"})
+            return
+        match = re.fullmatch(r"/files/([A-Za-z0-9_-]+)(?:/(.*))?", unquote(urlparse(str(data.get("path", ""))).path))
+        if not match or not JOB_ID_RE.fullmatch(match.group(1)):
+            self._send_json(400, {"error": "Not an uploaded model"})
+            return
+        job_id = match.group(1)
+        job_root = (JOBS_DIR / job_id / "input").resolve()
+        model_dir = (job_root / (match.group(2) or "")).resolve()
+        if not (model_dir == job_root or str(model_dir).startswith(str(job_root) + os.sep)) or not (model_dir / filename).is_file():
+            self._send_json(404, {"error": "not found"})
+            return
+        if not can_delete_job(job_id, user or None):
+            self._send_json(403, {"error": "You can only change your own uploads"})
+            return
+        target = model_dir / "metadata" / f"{filename}_viewer.json"
+        target.parent.mkdir(exist_ok=True)
+        partial = target.with_name(target.name + ".tmp")
+        partial.write_text(json.dumps(settings, indent="\t", ensure_ascii=False), "utf-8")
+        partial.replace(target)
+        # Its gzip copy (static_files.py) is of the old settings.
+        for stale in (target.with_name(target.name + ".gz"), target.with_name(target.name + ".nogz")):
+            stale.unlink(missing_ok=True)
+        url = f"/files/{job_id}/{target.relative_to(job_root)}"
+        cloudflare.purge_paths_async([url], self.headers.get("Host", ""))
+        self._send_json(200, {"message": "Settings saved", "url": url})
+
     def _serve_file(self, job_id: str, rel_path: str, head: bool = False) -> None:
         job_root = (JOBS_DIR / job_id / "input").resolve()
         target = (job_root / rel_path).resolve()
@@ -1351,7 +1413,10 @@ class Handler(BaseHTTPRequestHandler):
         # out versioned (thumbnail_url), and an unversioned URL - from a
         # manifest or an older client - only stays in the browser briefly.
         versioned = "v" in parse_qs(urlparse(self.path).query)
-        if "views" in Path(rel_path).parts and not versioned:
+        if "metadata" in Path(rel_path).parts and rel_path.endswith("_viewer.json"):
+            # Saved settings, rewritten in place ("Save settings").
+            cache_control = "no-cache"
+        elif "views" in Path(rel_path).parts and not versioned:
             cache_control = "public, max-age=300, s-maxage=2592000"
         else:
             cache_control = "public, max-age=2592000, s-maxage=2592000"

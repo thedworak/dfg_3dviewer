@@ -3332,6 +3332,48 @@ test('upload panel shows limit usage and limit errors from the worker', { tag: '
   );
 });
 
+// "Save settings" (File menu) for a model uploaded to the worker: posted to
+// POST /api/model/settings, read back from metadata/<file>_viewer.json in the
+// model's folder when it opens again (worker/server.py, metadata.js).
+test('saved settings of an uploaded model: posted to the worker and applied when it opens again', async ({ page }) => {
+  const job = 'd'.repeat(32);
+  const box = fs.readFileSync('viewer/examples/box.glb');
+  let saved = null;
+  await page.route(`**/files/${job}/box.glb`, (route) => route.fulfill({ body: box, contentType: 'model/gltf-binary' }));
+  await page.route(`**/files/${job}/metadata/box.glb_viewer.json`, (route) =>
+    saved ? route.fulfill({ json: saved }) : route.fulfill({ status: 404, json: { error: 'not found' } }));
+  await page.route('**/api/model/settings', async (route) => {
+    const body = route.request().postDataJSON();
+    expect(body).toMatchObject({ path: expect.stringContaining(`/files/${job}/`), filename: 'box.glb' });
+    saved = body.content;
+    await route.fulfill({ json: { message: 'Settings saved' } });
+  });
+
+  await openViewer(page, `/files/${job}/box.glb`, 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.helperObjects[0].position.set(1.5, 0.25, -2));
+  await page.locator('.viewer-menus_tabs button', { hasText: 'File' }).click();
+  await page.locator('[data-tool="save"]').click();
+  await page.locator('.viewer-editor-save-apply').click();
+  await expect.poll(() => saved?.objPosition ?? null).toEqual([1.5, 0.25, -2]);
+  await expect.poll(() => page.evaluate(() => window.viewer.toasts.join(' '))).toContain('Settings have been saved.');
+
+  // Opened again: the saved position.
+  await openViewer(page, `/files/${job}/box.glb`, 'ui=menus');
+  await waitForModel(page);
+  await expect.poll(() => page.evaluate(() => window.Viewer.helperObjects[0].position.toArray())).toEqual([1.5, 0.25, -2]);
+
+  // A model that is not an upload (an example): nothing posted, said why.
+  saved = null;
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.locator('.viewer-menus_tabs button', { hasText: 'File' }).click();
+  await page.locator('[data-tool="save"]').click();
+  await page.locator('.viewer-editor-save-apply').click();
+  await expect.poll(() => page.evaluate(() => window.viewer.toasts.join(' '))).toContain('only for models uploaded');
+  expect(saved).toBeNull();
+});
+
 test('point cloud uploads show the worker\'s quick preview until the tiles are ready', async ({ page }) => {
   test.setTimeout(60_000);
   await page.route('**/api/auth/config', (route) =>
