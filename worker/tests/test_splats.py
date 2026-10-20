@@ -15,13 +15,14 @@ WORKER_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(WORKER_DIR))
 
 # Writes <name>-lod.rad next to its last argument, as build-lod does, and
-# records its arguments; "fail" in the file name makes it exit 101 (a panic).
+# records its arguments; "fail" in the file name, or "broken" as its content,
+# makes it exit 101 (a panic).
 FAKE_BUILD_LOD = """#!/usr/bin/env python3
 import sys
 from pathlib import Path
 src = Path(sys.argv[-1])
 Path("args.txt").write_text(" ".join(sys.argv[1:]))
-if "fail" in src.name:
+if "fail" in src.name or src.read_bytes() == b"broken":
     sys.exit(101)
 src.with_name(src.stem + "-lod.rad").write_bytes(b"RAD0 tree of " + src.read_bytes())
 """
@@ -93,6 +94,42 @@ class BuildRadTest(unittest.TestCase):
         splats = self.load()
         self.assertIsNone(splats.build_rad(self.upload("Ready-lod.rad")))
         self.assertIsNone(splats.build_rad(self.upload("model.glb")))
+
+
+    def test_sources(self):
+        splats = self.load()
+        for name in ("Angel.spz", "Scan.ply", "Mesh.ply", "Angel-lod.rad", "model.glb", "Crown-lod-src.spz"):
+            self.upload(name)
+        found = splats.sources(self.dir / "job", lambda path: path.name == "Scan.ply")
+        self.assertEqual([p.name for p in found], ["Angel.spz", "Scan.ply"])
+
+    def test_rebuild_keeps_builds_and_forces(self):
+        splats = self.load()
+        upload = self.upload("Angel.spz")
+        self.assertEqual(splats.rebuild(upload), ("built", upload.with_name("Angel-lod.rad")))
+        rad = upload.with_name("Angel-lod.rad")
+        rad.write_bytes(b"old tree")
+        rad.with_name(rad.name + ".gz").write_bytes(b"gz of the old tree")
+        self.assertEqual(splats.rebuild(upload), ("kept", rad))
+        self.assertEqual(rad.read_bytes(), b"old tree")
+        self.assertEqual(splats.rebuild(upload, force=True), ("built", rad))
+        self.assertEqual(rad.read_bytes(), b"RAD0 tree of splats")
+        self.assertFalse(rad.with_name(rad.name + ".gz").exists())
+
+    def test_failed_rebuild_keeps_old_tree(self):
+        splats = self.load()
+        upload = self.upload("Angel.spz")
+        rad = upload.with_name("Angel-lod.rad")
+        rad.write_bytes(b"old tree")
+        upload.write_bytes(b"broken")
+        self.assertEqual(splats.rebuild(upload, force=True), ("failed", rad))
+        self.assertEqual(rad.read_bytes(), b"old tree")
+        self.assertFalse(rad.with_name(rad.name + ".bak").exists())
+        # Named like a tree: the copy's tree is the one checked.
+        crown = self.upload("Crown-lod.spz")
+        self.assertEqual(splats.expected_rad(crown).name, "Crown-lod-src-lod.rad")
+        self.assertEqual(splats.rebuild(crown)[0], "built")
+        self.assertEqual(splats.rebuild(crown)[0], "kept")
 
 
 if __name__ == "__main__":

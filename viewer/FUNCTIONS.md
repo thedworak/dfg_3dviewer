@@ -452,6 +452,8 @@ Gaussian splats (3D Gaussian Splatting captures: `.spz`, `.splat`, `.ksplat`, `.
   - A group holding the `SplatMesh`, turned upright (captures are stored Y down). The mesh gets a geometry with the corners of its bounds, so framing, the grid and measurements see it; `userData.gaussianSplats` holds `{ count, format }`.
   - From 300 000 splats on, Spark builds a level-of-detail tree while loading and draws a budget of splats per frame; a `.rad` (Spark's format, written by its `build-lod` - the worker makes one of every uploaded capture) brings the tree ready-made, and its bounds and count are those of the tree, merged inner splats included.
   - Adds Spark's renderer (`core.sparkRenderer`, `spark-renderer` in the scene) once; `resetLoadedModelState()` removes it.
+- `buildPagedSplatModel(url, { fileName, name, upright })`
+  - A `.rad` on a server, paged: Spark reads its header by an HTTP range request and then fetches the tree in chunks of 64K splats, the coarse root first and finer chunks where the camera looks, so the capture shows after a few hundred kB and sharpens while it is viewed; only what is seen takes GPU memory. The bounds come from the root chunk, the count from the header (`userData.gaussianSplats.paged` is `true`). Resolves to `null` when the server answers the probe range with the whole file (`200`); `loaders.js` then loads it with `buildSplatModel()`, as it does a `.rad` opened from a File. Example: `examples/tempietto/Tempietto-lod.rad` (`Tempietto.splat` through `build-lod --rad`).
 - `isSplatPly(buffer)` (in `loaders.js`) — tells a PLY of Gaussians (`f_dc_0`, `scale_0`, `rot_0`, or a compressed `packed_position`) from a mesh or point PLY.
 
 

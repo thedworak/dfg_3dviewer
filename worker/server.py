@@ -1365,12 +1365,57 @@ class Handler(BaseHTTPRequestHandler):
         static_files.send_file(self, target, content_type, headers, head=head)
 
 
+def rebuild_splats_cli(args) -> None:
+    """admin rebuild-splats [--force] [<job id> ...]: the level-of-detail
+    .rad (splats.py) of every splat upload that has none - uploaded before
+    build-lod was in the image, or when it failed. --force rebuilds the
+    existing ones too (new build-lod or WORKER_SPLAT_LOD_ARGS), purging
+    their cached copies from Cloudflare. GET /api/jobs reads the jobs from
+    disk, so the new .rad is served without a restart."""
+    force = "--force" in args
+    job_ids = [arg for arg in args if arg != "--force"]
+    if not splats.available():
+        sys.exit(f"build-lod not found ({splats.BUILD_LOD}) or WORKER_SPLAT_LOD=off")
+    for job_id in job_ids:
+        if not JOB_ID_RE.fullmatch(job_id) or not (JOBS_DIR / job_id / "input").is_dir():
+            sys.exit(f"No such job: {job_id}")
+    jobs = job_ids or sorted(
+        d.name for d in JOBS_DIR.iterdir() if d.is_dir() and JOB_ID_RE.fullmatch(d.name) and (d / "input").is_dir()
+    )
+    counts = {"kept": 0, "built": 0, "failed": 0}
+    purge = []
+    for job_id in jobs:
+        job_root = JOBS_DIR / job_id / "input"
+        for source in splats.sources(job_root, pointcloud.is_gaussian_splat_ply):
+            had_rad = splats.expected_rad(source).is_file()
+            if not (had_rad and not force):
+                print(f"{job_id}  building  {source.relative_to(job_root)} ...", flush=True)
+            result, rad = splats.rebuild(source, force=force, log_prefix=f"[job {job_id}]")
+            counts[result] += 1
+            name = rad.relative_to(job_root) if rad else "-"
+            print(f"{job_id}  {result:<6}  {name}")
+            if result == "built" and had_rad:
+                purge.append(f"/files/{job_id}/{rad.relative_to(job_root)}")
+    print(f"{counts['built']} built, {counts['kept']} kept (have a .rad; --force rebuilds), {counts['failed']} failed")
+    if purge and cloudflare.enabled():
+        hosts = cloudflare.public_hosts()
+        if not hosts:
+            print("Cloudflare: set WORKER_PUBLIC_HOSTS to purge the rebuilt files' cached copies")
+        else:
+            try:
+                cloudflare.purge_prefixes([host + path for host in hosts for path in purge])
+                print(f"Cloudflare: purged {len(purge)} file(s)")
+            except RuntimeError as exc:
+                print(f"Cloudflare purge failed: {exc}")
+
+
 def admin_cli(args) -> None:
     """docker compose exec worker python3 /app/worker/server.py admin <command>"""
     commands = (
         "users | uploads | usage | limits <user> [key=value|key=default ...] | "
         "plan <user> [free|pro|business|enterprise|purchase] [days] | "
-        "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user>"
+        "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user> | "
+        "rebuild-splats [--force] [<job id> ...]"
     )
     if not args:
         sys.exit(f"usage: server.py admin {commands}")
@@ -1436,6 +1481,8 @@ def admin_cli(args) -> None:
             if record is None:
                 sys.exit(f"No such user: {user}")
             print(json.dumps(record["plan"], indent=2))
+        elif command == "rebuild-splats":
+            rebuild_splats_cli(rest)
         elif command in ("approve", "disable", "promote", "demote", "delete-user") and len(rest) == 1:
             user = rest[0]
             if command == "approve":

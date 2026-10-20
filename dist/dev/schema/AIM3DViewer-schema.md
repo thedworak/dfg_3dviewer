@@ -227,10 +227,34 @@ Stores model transform and rendering flags.
     "order": "XYZ"
   },
   "scale": [1, 1, 1],
+  "upAxis": "Z+",
   "wireframe": false,
   "shadingMode": "clay"
 }
 ```
+
+`upAxis` (optional) names the axis of the model file that points up, for
+models that do not come in Y-up (three.js and glTF are Y-up). The viewer
+turns that axis to +Y when the model is loaded, before placing it on the grid
+and before `position`, `rotation` and `scale`, which are those of the upright
+model. Left out, the model is used as loaded (`Y+`).
+
+| Value | Model |
+|---|---|
+| `Y+` | Y-up (the default; not written on export) |
+| `Y-` | upside down |
+| `Z+` | Z-up: CAD, scans and photogrammetry exports (STL, PLY, OBJ, ...) |
+| `Z-` | Z-up, flipped |
+| `X+`, `X-` | X-up |
+
+The fix is applied under the model root (an inner pivot node, or the geometry
+of a single mesh), so `rotation` stays the rotation set in the editor.
+Streamed models (3D Tiles, Potree) are oriented by their loader and do not
+take `upAxis`; LAS/LAZ point clouds and Gaussian splats are already turned to
+Y-up when loaded, so `upAxis` turns them further. The same setting comes from
+the `upAxis` URL parameter (`?upAxis=Z` or `?upAxis=-Y`; a `+` in a URL reads as a space, which is fine, as a bare axis means its + side; the URL wins over the manifest), the
+`upAxis` of a model's entry in `viewer-settings.json` / `objectsConfig.models`,
+and the model's saved `_viewer.json` metadata.
 
 `shadingMode` (optional) sets how the model's surfaces are drawn; left out,
 the model keeps the materials it was loaded with:

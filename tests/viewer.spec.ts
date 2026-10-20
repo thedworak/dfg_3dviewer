@@ -2438,6 +2438,52 @@ test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, uprig
   expect(await splatPixelShare(page)).toBeGreaterThan(0.005);
 });
 
+// Tempietto-lod.rad: Tempietto.splat through Spark's build-lod (--rad), as
+// the worker does with uploaded splats (worker/splats.py).
+test('Gaussian splats: a .rad on the server is paged by range requests, loaded whole without them', async ({ page }) => {
+  test.setTimeout(90_000);
+  const radRequests = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.endsWith('.rad')) radRequests.push(request.headers().range ?? null);
+  });
+  await openViewer(page, '/examples/tempietto/Tempietto-lod.rad');
+  await waitForCameraIdle(page);
+  await expect.poll(() => page.evaluate(() => {
+    const mesh = window.Viewer.mainObject[0].children.find((child) => child.userData.isGaussianSplats);
+    return mesh?.paged?.numSplats ?? 0;
+  }), { timeout: 30_000 }).toBeGreaterThan(0);
+
+  const info = await page.evaluate(() => {
+    const root = window.Viewer.mainObject[0];
+    const mesh = root.children.find((child) => child.userData.isGaussianSplats);
+    const box = new window.THREE.Box3().setFromObject(root);
+    return { ...mesh.userData.gaussianSplats, height: box.max.y - box.min.y, upright: mesh.quaternion.toArray() };
+  });
+  // The count is the header's: the tree's splats, merged inner ones included.
+  expect(info).toMatchObject({ format: 'rad', paged: true, upright: [1, 0, 0, 0] });
+  expect(info.count).toBeGreaterThanOrEqual(30000);
+  expect(info.height).toBeGreaterThan(3);
+  // Only ranges: the header, then the tree's chunks.
+  expect(radRequests.length).toBeGreaterThan(1);
+  expect(radRequests.every((range) => /^bytes=\d+-\d+$/.test(range ?? ''))).toBe(true);
+  expect(await splatPixelShare(page)).toBeGreaterThan(0.02);
+
+  // A server that ignores Range (200, the whole file): loaded whole, as before.
+  await page.route('**/*.rad', async (route) => {
+    const response = await route.fetch({ headers: { ...route.request().headers(), range: '' } });
+    const body = await response.body();
+    await route.fulfill({ status: 200, body, headers: { 'content-type': 'application/octet-stream', 'content-length': String(body.length) } });
+  });
+  await openViewer(page, '/examples/tempietto/Tempietto-lod.rad');
+  await waitForModel(page, 30_000);
+  const whole = await page.evaluate(() => {
+    const mesh = window.Viewer.mainObject[0].children.find((child) => child.userData.isGaussianSplats);
+    return { paged: !!mesh.paged, format: mesh.userData.gaussianSplats.format, count: mesh.userData.gaussianSplats.count };
+  });
+  expect(whole).toMatchObject({ paged: false, format: 'rad' });
+  expect(whole.count).toBe(info.count);
+});
+
 // Spark sorts the splats asynchronously; disposed in the middle of a sort it
 // threw "Uncaught (in promise) Error: No target" (main.js, disposeSparkRenderer).
 test('switching away from Gaussian splats while Spark sorts leaves no errors', async ({ page }) => {

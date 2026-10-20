@@ -294,6 +294,11 @@
               "additionalProperties": true
             },
             "scale": { "$ref": "#/$defs/vector3" },
+            "upAxis": {
+              "type": "string",
+              "enum": ["Y+", "Y-", "Z+", "Z-", "X+", "X-"],
+              "description": "The axis of the model file that points up; the viewer turns it to +Y before applying position, rotation and scale. Y+ (default) for three.js / glTF models, Z+ for Z-up exports, Y- for a model upside down."
+            },
             "wireframe": { "type": "boolean" },
             "shadingMode": {
               "type": "string",

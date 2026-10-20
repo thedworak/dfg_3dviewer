@@ -1,6 +1,6 @@
 import THREE from "./init.js";
 import { core } from "./core.js";
-import { SparkRenderer, SplatMesh, isMobile } from "@sparkjsdev/spark";
+import { PackedSplats, SparkRenderer, SplatFileType, SplatMesh, isMobile } from "@sparkjsdev/spark";
 
 // Gaussian splats (3D Gaussian Splatting captures: .ply, .spz, .splat,
 // .ksplat, .sog, .rad), drawn with Spark (sparkjs.dev) together with the meshes of
@@ -27,6 +27,15 @@ import { SparkRenderer, SplatMesh, isMobile } from "@sparkjsdev/spark";
 // worker turns uploaded splats into one) holds that tree already built, so
 // nothing is computed on loading. It decodes to the tree alone: the bounds
 // and the count come from the tree's splats, the merged inner ones included.
+//
+// A .rad on a server is not downloaded whole: buildPagedSplatModel() reads
+// its header and Spark then fetches the tree in chunks of 64K splats by HTTP
+// range requests, the coarse root first and finer chunks where the camera
+// looks - the capture shows after a few hundred kB and sharpens while it is
+// viewed, and only what is seen takes GPU memory. Its bounds come from the
+// root chunk (the coarse splats spread over the whole capture), its count
+// from the header. Without range support (a proxy answering 200) the file
+// is loaded whole, as above.
 
 const LOD_ABOVE = 300_000;
 // Share of Spark's default per-platform budget (2.5M splats on desktop,
@@ -89,6 +98,67 @@ export async function buildSplatModel(buffer, { fileName = "splats", name = "Gau
   if (!box.isEmpty()) mesh.geometry = boundsGeometry(box);
   const count = (lodOnly ?? splats)?.numSplats ?? null;
   mesh.userData.gaussianSplats = { count, format: fileName.split(".").pop().toLowerCase() };
+  mesh.userData.isGaussianSplats = true;
+
+  const root = new THREE.Group();
+  root.name = name;
+  root.userData.isGaussianSplats = true;
+  root.add(mesh);
+  root.updateMatrixWorld(true);
+  return root;
+}
+
+const RAD_PROBE_BYTES = 65536;
+
+// Whether url answers range requests; the probe is the start of the file,
+// where Spark reads the header from next.
+async function supportsRanges(url) {
+  try {
+    const response = await fetch(url, { headers: { Range: `bytes=0-${RAD_PROBE_BYTES - 1}` } });
+    const partial = response.status === 206;
+    if (partial) await response.arrayBuffer();
+    else response.body?.cancel().catch(() => {});
+    return partial;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchBytes(url, offset, bytes) {
+  const response = await fetch(url, { headers: { Range: `bytes=${offset}-${offset + bytes - 1}` } });
+  if (response.status !== 206) throw new Error(`Range request for ${url} answered ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+// The root chunk of a paged .rad, decoded on its own for the bounds: the
+// first chunk of the tree, its coarsest splats.
+async function rootChunkBox(url, meta, chunksStart) {
+  const chunk = meta.chunks[0];
+  if (!chunk) return new THREE.Box3();
+  const bytes = chunk.filename
+    ? new Uint8Array(await (await fetch(new URL(chunk.filename, new URL(url, window.location.href)))).arrayBuffer())
+    : await fetchBytes(url, chunksStart + chunk.offset, chunk.bytes);
+  const root = new PackedSplats({ fileBytes: bytes, fileType: SplatFileType.RAD });
+  await root.initialized;
+  const box = centersBox(root.lodSplats ?? root);
+  root.dispose();
+  return box;
+}
+
+// Builds the splat model of a .rad at url, paged (see above). Resolves to
+// null when the server does not answer range requests.
+export async function buildPagedSplatModel(url, { fileName = "splats.rad", name = "Gaussian splats", upright = true } = {}) {
+  if (!(await supportsRanges(url))) return null;
+  ensureSparkRenderer();
+  const mesh = new SplatMesh({ url, paged: true, fileType: SplatFileType.RAD });
+  await mesh.initialized;
+  const { meta, chunksStart } = await mesh.paged.getRadMeta();
+  const box = await rootChunkBox(url, meta, chunksStart);
+  if (isMobile()) mesh.maxSh = MOBILE_MAX_SH;
+  mesh.name = name;
+  if (upright) mesh.quaternion.set(1, 0, 0, 0);
+  if (!box.isEmpty()) mesh.geometry = boundsGeometry(box);
+  mesh.userData.gaussianSplats = { count: meta.count ?? null, format: fileName.split(".").pop().toLowerCase(), paged: true };
   mesh.userData.isGaussianSplats = true;
 
   const root = new THREE.Group();

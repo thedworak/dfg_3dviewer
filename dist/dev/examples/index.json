@@ -19,6 +19,7 @@
     {"url": "./examples/tempietto/Tempietto.kmz", "name": "KMZ"},
     {"url": "./examples/tempietto/Tempietto.vox", "name": "VOX"},
     {"url": "./examples/tempietto/Tempietto.splat", "name": "Gaussian splats (SPLAT)", "app": false},
+    {"url": "./examples/tempietto/Tempietto-lod.rad", "name": "Gaussian splats (RAD, paged)", "app": false},
     {"url": "./examples/box-missing-mtl.obj", "name": "OBJ (missing MTL)", "app": false},
     {"url": "./examples/broken.glb", "name": "Broken GLB", "app": false},
     {"url": "./examples/WolpaSynagogue.glb", "name": "Wolpa Synagogue", "app": false},

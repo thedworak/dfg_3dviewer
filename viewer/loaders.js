@@ -926,6 +926,21 @@ export async function loadModel() {
       case "ksplat":
       case "sog":
       case "rad": {
+        // A .rad on a server is paged: Spark fetches its tree chunk by chunk
+        // (splats.js). Opened from a File, or without range support, it is
+        // loaded whole like the other formats.
+        if (core.fileObject.extension.toLowerCase() === "rad" && !modelPath.startsWith("blob:")) {
+          const { buildPagedSplatModel } = await loadSplats();
+          const object = await buildPagedSplatModel(new URL(modelPath, window.location.href).href, {
+            fileName: core.fileObject.filename,
+            name: core.fileObject.basename || "Gaussian splats",
+          });
+          if (object) {
+            updateLoadingStage("loadingLog.preparingGeometry", 99);
+            await afterLoad({ object });
+            break;
+          }
+        }
         const buffer = await loadAsync(new THREE.FileLoader().setResponseType("arraybuffer"), modelPath, onProgress);
         updateLoadingStage("loadingLog.preparingGeometry", 99);
         const { buildSplatModel } = await loadSplats();

@@ -171,7 +171,7 @@ needing the tag.
   - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
-  - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading
+  - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading. Uploads without a tree (from before `build-lod`, or where it failed) get one with `docker compose exec worker python3 /app/worker/server.py admin rebuild-splats`; `--force` rebuilds the existing trees too (new `build-lod` or `WORKER_SPLAT_LOD_ARGS`, cached copies purged from Cloudflare when `WORKER_PUBLIC_HOSTS` is set), job ids limit it to those jobs. No restart needed: the model list reads the jobs from disk
   - point clouds converted to a streamed octree (`modelUrl` ends in `tiles/<name>/metadata.json` for Potree 2, `tiles/<name>/tileset.json` for 3D Tiles), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
@@ -291,6 +291,7 @@ docker compose exec worker python3 /app/worker/server.py admin approve alice
 docker compose exec worker python3 /app/worker/server.py admin plan alice business 30   # grant Business for 30 days
 docker compose exec worker python3 /app/worker/server.py admin plan acme enterprise      # grant Enterprise, no end
 docker compose exec worker python3 /app/worker/server.py admin plan alice purchase      # drop the grant
+docker compose exec worker python3 /app/worker/server.py admin rebuild-splats          # .rad for splat uploads without one (--force: all)
 ```
 
 The viewer-side switch lives in the AIM3D manifest (`AIM3DViewer.viewer.auth`, see `viewer/manifesto/AIM3DViewer-schema.md`), but that only controls whether the login UI is shown - **the worker setting is what actually enforces access**, because a manifest is client-side data.
@@ -347,7 +348,7 @@ The source model is checked, before gltfpack: its Meshopt/KTX2 output is generat
 - Files go out in 1 MB pieces, never read into memory whole.
 - `ETag` and `Last-Modified`; `If-None-Match` / `If-Modified-Since` answer `304`. Cached for 30 days (browsers, Cloudflare); job ids are random, so a URL never changes content.
 - **gzip** for formats that are not compressed already (JSON, LAS, `.pnts`/`.b3dm`, OBJ, PLY, STL, IFC, Potree's `hierarchy.bin` ...) when the client accepts it and asks for the whole file. The compressed copy (`<file>.gz`, next to it) is made in the background on the first request - which still gets the plain file, so nobody waits - and used from then on; files that shrink by less than 10 % are marked (`<file>.nogz`) and not tried again. Example: a 1-million-point preview LAS of 2.6 MB goes out as 1.1 MB. `WORKER_GZIP_MAX_BYTES` (default 256 MB, `0` = off) caps the size compressed. Range requests, GLB, LAZ, PNG and Potree's `octree.bin` are sent as they are.
-- Behind the viewer's nginx (`docker/nginx.conf`), `/files/` responses are cached; `octree.bin` is fetched and cached in 1 MB slices, so a range request never waits for nginx to copy the whole file first. Cloudflare caches files up to its size limit (512 MB on the free plan) and answers ranges from them; a larger `octree.bin` is passed through to the origin.
+- Behind the viewer's nginx (`docker/nginx.conf`), `/files/` responses are cached; `octree.bin` and the `.rad` trees of Gaussian splats (paged by the viewer, `viewer/splats.js`) are fetched and cached in 1 MB slices, so a range request never waits for nginx to copy the whole file first. Cloudflare caches files up to its size limit (512 MB on the free plan) and answers ranges from them; a larger `octree.bin` or `.rad` is passed through to the origin.
 
 ### Upload limits
 

@@ -23,6 +23,8 @@ Configuration (environment):
   WORKER_SPLAT_LOD_TIMEOUT  seconds per conversion (default 1800)
 
 Also usable on its own: python3 splats.py capture.spz
+Uploads from before (or rebuilt with new options): server.py admin
+rebuild-splats, see rebuild().
 """
 
 import os
@@ -84,6 +86,49 @@ def build_rad(path: Path, log_prefix: str = "") -> Path | None:
         output.unlink(missing_ok=True)
         return None
     return output
+
+
+def expected_rad(path: Path) -> Path:
+    """The .rad build_rad() writes for `path` (an upload named *-lod is
+    copied to *-lod-src first, see there)."""
+    if path.stem.endswith("-lod"):
+        return rad_path_for(path.with_name(path.stem + "-src" + path.suffix))
+    return rad_path_for(path)
+
+
+def sources(job_root: Path, is_splat_ply) -> list:
+    """The splat uploads under job_root: the LOD_SOURCE_FORMATS, a .ply only
+    when is_splat_ply(path) says it holds splats."""
+    found = []
+    for path in sorted(job_root.rglob("*")):
+        ext = path.suffix.lower().lstrip(".")
+        if not path.is_file() or ext not in LOD_SOURCE_FORMATS or path.stem.endswith("-lod-src"):
+            continue
+        if ext == "ply" and not is_splat_ply(path):
+            continue
+        found.append(path)
+    return found
+
+
+def rebuild(path: Path, force: bool = False, log_prefix: str = "[splats]"):
+    """("kept" | "built" | "failed", rad) for the upload `path`: an existing
+    .rad stays unless force, and a failed rebuild keeps the old one."""
+    rad = expected_rad(path)
+    if rad.is_file() and not force:
+        return "kept", rad
+    backup = rad.with_name(rad.name + ".bak")
+    if rad.is_file():
+        rad.replace(backup)
+    built = build_rad(path, log_prefix=log_prefix)
+    if not built:
+        if backup.is_file():
+            backup.replace(rad)
+        return "failed", rad if rad.is_file() else None
+    backup.unlink(missing_ok=True)
+    # The gzip copy of the old tree (static_files.py) would be served instead.
+    for stale in (built.with_name(built.name + ".gz"), built.with_name(built.name + ".nogz")):
+        stale.unlink(missing_ok=True)
+    return "built", built
 
 
 if __name__ == "__main__":
