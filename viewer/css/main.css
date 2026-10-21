@@ -240,7 +240,7 @@ canvas {
   pointer-events: none;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(22, 18, 14, 0.18);
+  box-shadow: 0 8px 24px rgba(12, 10, 8, 0.18);
 }
 
 .viewer-notice-status {
@@ -296,7 +296,7 @@ canvas {
 }
 
 .viewer-notice-status[data-tone="success"] {
-  background: rgba(96, 76, 50, 0.8);
+  background: rgba(46, 37, 26, 0.8);
   border-color: rgba(233, 178, 100, 0.42);
 }
 
@@ -324,11 +324,11 @@ canvas {
   line-height: 1.35;
   font-weight: 450;
   white-space: normal;
-  background: rgba(30, 26, 22, 0.64);
+  background: rgba(22, 19, 16, 0.64);
   border-color: rgba(255, 255, 255, 0.24);
-  box-shadow: 0 18px 56px rgba(22, 18, 14, 0.28);
+  box-shadow: 0 18px 56px rgba(12, 10, 8, 0.28);
   box-shadow: 0 0 0 0 rgba(233, 178, 100, 0.0),
-              0 18px 56px rgba(22, 18, 14, 0.28);
+              0 18px 56px rgba(12, 10, 8, 0.28);
 
   animation: sandbox-outline 2.4s ease-in-out infinite;
 }
@@ -353,15 +353,15 @@ canvas {
 @keyframes sandbox-outline {
   0% {
     box-shadow: 0 0 0 0 rgba(233, 178, 100, 0.0),
-                0 18px 56px rgba(22, 18, 14, 0.28);
+                0 18px 56px rgba(12, 10, 8, 0.28);
   }
   50% {
     box-shadow: 0 0 0 4px rgba(233, 178, 100, 0.43),
-                0 18px 56px rgba(22, 18, 14, 0.28);
+                0 18px 56px rgba(12, 10, 8, 0.28);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(233, 178, 100, 0.0),
-                0 18px 56px rgba(22, 18, 14, 0.28);
+                0 18px 56px rgba(12, 10, 8, 0.28);
   }
 }
 
@@ -576,7 +576,7 @@ canvas {
   border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 45%, transparent);
   border-radius: 999px;
   color: currentColor;
-  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(30, 26, 22, 0.82)) 88%, transparent);
+  background: color-mix(in srgb, var(--viewer-panel-bg, rgba(22, 19, 16, 0.82)) 88%, transparent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   font-size: 13px;
   font-weight: 600;
@@ -614,7 +614,7 @@ canvas {
   font-size: 10px;
   line-height: 1.3;
   pointer-events: auto;
-  background: rgba(14, 11, 8, 0.34);
+  background: rgba(8, 7, 5, 0.34);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
@@ -712,7 +712,7 @@ canvas {
 
 #loading-log[data-expanded="true"] {
   padding: 8px 10px;
-  background: rgba(14, 11, 8, 0.44);
+  background: rgba(8, 7, 5, 0.44);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
@@ -814,9 +814,9 @@ canvas {
   display: inline-block;
   box-shadow:
     0 3px 6px -1px rgba(0, 0, 0, 0.12),
-    0 10px 36px -4px rgba(122, 100, 71, 0.3);
-  background: -webkit-linear-gradient(315deg, #a68b64, #7a6447);
-  background: linear-gradient(135deg, #a68b64, #7a6447);
+    0 10px 36px -4px rgba(74, 61, 44, 0.3);
+  background: -webkit-linear-gradient(315deg, #a68b64, #4a3d2c);
+  background: linear-gradient(135deg, #a68b64, #4a3d2c);
   position: fixed;
   right: 15px;
   opacity: 0;
@@ -880,52 +880,52 @@ canvas {
   width: 70%;
 }
 
-/* Museum palette: the app icon's gold with a sand beige, over warm umber
-   neutrals (panels) and parchment (light theme), for the viewer's accents
-   (active buttons, selection, focus, sliders, loading, documented timeline
-   events). The "blue" names stay for the stylesheets using them.
-   --viewer-brand-blue-strong fills behind white text (5.6:1); the light
-   theme has darker tones, for contrast on its panels.
+/* Museum palette: the app icon's gold with a sand beige, over near-black
+   umber neutrals (panels) and parchment (light theme), for the viewer's
+   accents (active buttons, selection, focus, sliders, loading, documented
+   timeline events). The "blue" names stay for the stylesheets using them.
+   --viewer-brand-blue-strong, a dark coffee brown, fills behind white text
+   (11:1); the light theme has darker tones, for contrast on its panels.
    On :root, so panels outside .viewer-wrapper (manifest form) have them. */
 :root {
   --viewer-brand-blue: #d9c3a0;
-  --viewer-brand-blue-strong: #7a6447;
+  --viewer-brand-blue-strong: #4a3d2c;
   --viewer-brand-gold: #e9b264;
 }
 
 html[data-viewer-theme="light"],
 .viewer-wrapper[data-viewer-theme="light"],
 #form-manifesto[data-viewer-theme="light"] {
-  --viewer-brand-blue: #6b5538;
-  --viewer-brand-blue-strong: #6b5538;
+  --viewer-brand-blue: #4a3d2c;
+  --viewer-brand-blue-strong: #4a3d2c;
   --viewer-brand-gold: #a8701f;
 }
 
 .viewer-wrapper {
   position: relative;
-  --viewer-shell-bg: linear-gradient(180deg, #16120e 0%, #1e1a16 100%);
-  --viewer-panel-bg: rgba(30, 26, 22, 0.82);
-  --viewer-panel-bg-hover: rgba(30, 26, 22, 0.92);
+  --viewer-shell-bg: linear-gradient(180deg, #0f0d0b 0%, #171411 100%);
+  --viewer-panel-bg: rgba(22, 19, 16, 0.82);
+  --viewer-panel-bg-hover: rgba(22, 19, 16, 0.92);
   --viewer-panel-border: rgba(255, 255, 255, 0.12);
-  --viewer-panel-shadow: 0 12px 30px rgba(22, 18, 14, 0.28);
+  --viewer-panel-shadow: 0 12px 30px rgba(12, 10, 8, 0.28);
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
   --viewer-loader-accent: var(--viewer-brand-gold);
-  --viewer-gui-bg: rgba(50, 44, 37, 0.9);
-  --viewer-gui-title-bg: rgba(50, 44, 37, 0.9);
-  --viewer-gui-title-hover-bg: rgba(31, 27, 23, 0.9);
+  --viewer-gui-bg: rgba(38, 34, 29, 0.9);
+  --viewer-gui-title-bg: rgba(38, 34, 29, 0.9);
+  --viewer-gui-title-hover-bg: rgba(24, 21, 18, 0.9);
   --viewer-gui-widget-bg: rgba(255, 255, 255, 0.14);
   --viewer-gui-widget-hover-bg: rgba(255, 255, 255, 0.2);
   --viewer-gui-widget-focus-bg: var(--viewer-brand-blue-strong);
   --viewer-gui-slider-fill: var(--viewer-brand-blue);
   --viewer-gui-checkbox-tick: rgba(255, 255, 255, 0.96);
   --metadata-border: rgba(255, 255, 255, 0.12);
-  --metadata-shadow: 0 12px 30px rgba(22, 18, 14, 0.28);
+  --metadata-shadow: 0 12px 30px rgba(12, 10, 8, 0.28);
   --metadata-label-color: rgba(255, 255, 255, 0.62);
   --metadata-value-color: rgba(255, 255, 255, 0.94);
   --metadata-accent: rgba(255, 255, 255, 0.82);
-  --metadata-card-bg: rgba(30, 26, 22, 0.82);
-  --metadata-card-bg-hover: rgba(30, 26, 22, 0.92);
-  --metadata-card-bg-open: rgba(30, 26, 22, 0.88);
+  --metadata-card-bg: rgba(22, 19, 16, 0.82);
+  --metadata-card-bg-hover: rgba(22, 19, 16, 0.92);
+  --metadata-card-bg-open: rgba(22, 19, 16, 0.88);
   --metadata-row-bg: rgba(255, 255, 255, 0.12);
   --metadata-row-bg-hover: rgba(255, 255, 255, 0.18);
   --metadata-row-bg-first: rgba(255, 255, 255, 0.16);
@@ -935,14 +935,14 @@ html[data-viewer-theme="light"],
   --metadata-row-border-pinned: rgba(176, 160, 138, 0.38);
   --metadata-fade: linear-gradient(
     to bottom,
-    rgba(30, 26, 22, 0),
-    rgba(30, 26, 22, 0.56) 58%,
-    rgba(30, 26, 22, 0.82)
+    rgba(22, 19, 16, 0),
+    rgba(22, 19, 16, 0.56) 58%,
+    rgba(22, 19, 16, 0.82)
   );
-  --viewer-notice-container-bg: rgba(30, 26, 22, 0.9);
+  --viewer-notice-container-bg: rgba(22, 19, 16, 0.9);
   --viewer-notice-container-text: rgba(255, 255, 255, 0.94);
-  --viewer-panel-embed-bg: rgba(30, 26, 22, 0.92);
-  --viewer-panel-bg-embed-hover: rgba(30, 26, 22, 1.0);
+  --viewer-panel-embed-bg: rgba(22, 19, 16, 0.92);
+  --viewer-panel-bg-embed-hover: rgba(22, 19, 16, 1.0);
   background: var(--viewer-shell-bg);
 }
 
@@ -984,7 +984,7 @@ html[data-viewer-theme="light"],
     rgba(236, 230, 220, 0.98)
   );
   --viewer-notice-container-bg: rgba(236, 230, 220, 0.9);
-  --viewer-notice-container-text: rgba(30, 26, 22, 0.92);
+  --viewer-notice-container-text: rgba(22, 19, 16, 0.92);
 }
 
 #metadata-container {
@@ -1473,7 +1473,7 @@ html[data-viewer-theme="light"],
 
   background:
     radial-gradient(circle at center,
-      rgba(44, 38, 32, 0.35),
+      rgba(34, 30, 26, 0.35),
       rgba(2, 6, 23, 0.82));
 
   backdrop-filter: blur(18px);
@@ -2069,10 +2069,10 @@ html[data-viewer-theme="light"],
 /* Appended to <body>, outside .viewer-wrapper and its theme variables:
    it carries its own, following the theme set on <body>. */
 #annotationPOITooltip {
-  --annotation-poi-tooltip-bg: rgba(30, 26, 22, 0.92);
+  --annotation-poi-tooltip-bg: rgba(22, 19, 16, 0.92);
   --annotation-poi-tooltip-border: rgba(255, 255, 255, 0.12);
   --annotation-poi-tooltip-text: rgba(255, 255, 255, 0.94);
-  --annotation-poi-tooltip-shadow: 0 12px 30px rgba(22, 18, 14, 0.28);
+  --annotation-poi-tooltip-shadow: 0 12px 30px rgba(12, 10, 8, 0.28);
   position: fixed;
   left: 0;
   top: 0;
@@ -2429,7 +2429,7 @@ body.presentation-mode {
     padding: 0;
     border: 0;
     border-radius: 50%;
-    background: rgba(30, 26, 22, 0.55);
+    background: rgba(22, 19, 16, 0.55);
     color: rgba(255, 255, 255, 0.92);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
     cursor: pointer;

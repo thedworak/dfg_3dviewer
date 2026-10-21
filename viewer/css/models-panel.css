@@ -31,7 +31,7 @@ body[data-viewer-theme="dark"] #openLocalFileButton,
 body[data-viewer-theme="dark"] #browseManifestsButton,
 body[data-viewer-theme="dark"] #planButton {
   border-color: #444;
-  background: #221e1a;
+  background: #1a1714;
   color: #eee;
 }
 

@@ -798,17 +798,17 @@
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar {
   border-radius: 10px;
   background: var(--viewer-menus-accent);
-  color: #1a1612;
+  color: #14110f;
 }
 
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.is-active {
   background: color-mix(in srgb, var(--viewer-menus-accent) 80%, #ffffff);
-  color: #1a1612;
+  color: #14110f;
 }
 
 /* Locked by the plan: the lock dark on the accent. */
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::after {
-  background-color: #1a1612;
+  background-color: #14110f;
 }
 
 /* Motion look, the video: lit while on (recording). */

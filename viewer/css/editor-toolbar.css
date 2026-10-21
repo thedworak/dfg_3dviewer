@@ -697,9 +697,9 @@
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-tool.is-active {
-  background: rgba(122, 100, 71, 0.12);
+  background: rgba(74, 61, 44, 0.12);
   border-color: color-mix(in srgb, var(--viewer-brand-gold, #a8701f) 70%, transparent);
-  color: #6b5538;
+  color: #4a3d2c;
 }
 
 .viewer-editor-tool:focus-visible {
@@ -767,7 +767,7 @@
   border: 1px solid rgba(150, 138, 122, 0.45);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    rgba(22, 18, 14, 0.18);
+    rgba(12, 10, 8, 0.18);
   position: relative;
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -862,9 +862,9 @@
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option input[type="checkbox"]:checked {
-  border-color: rgba(122, 100, 71, 0.56);
+  border-color: rgba(74, 61, 44, 0.56);
   background: linear-gradient(180deg, #77bae4, #4f90bb);
-  box-shadow: 0 0 0 3px rgba(122, 100, 71, 0.12);
+  box-shadow: 0 0 0 3px rgba(74, 61, 44, 0.12);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option input[type="checkbox"]:checked::after {
@@ -872,19 +872,19 @@
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option:hover {
-  background: rgba(122, 100, 71, 0.08);
-  border-color: rgba(122, 100, 71, 0.2);
+  background: rgba(74, 61, 44, 0.08);
+  border-color: rgba(74, 61, 44, 0.2);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-apply {
-  border-color: rgba(122, 100, 71, 0.22);
-  background: linear-gradient(180deg, rgba(122, 100, 71, 0.18), rgba(122, 100, 71, 0.12));
+  border-color: rgba(74, 61, 44, 0.22);
+  background: linear-gradient(180deg, rgba(74, 61, 44, 0.18), rgba(74, 61, 44, 0.12));
   color: #254766;
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-apply:hover {
-  background: linear-gradient(180deg, rgba(122, 100, 71, 0.24), rgba(122, 100, 71, 0.18));
-  border-color: rgba(122, 100, 71, 0.3);
+  background: linear-gradient(180deg, rgba(74, 61, 44, 0.24), rgba(74, 61, 44, 0.18));
+  border-color: rgba(74, 61, 44, 0.3);
 }
 
 .viewer-editor-hierarchy-submenu-list {
@@ -1072,9 +1072,9 @@
 }
 
 .viewer-wrapper[data-viewer-theme="light"] #viewerActionMenuToggle:checked + .viewer-action-menu_toggle {
-  background: rgba(122, 100, 71, 0.12);
-  border-color: rgba(122, 100, 71, 0.3);
-  color: #6b5538;
+  background: rgba(74, 61, 44, 0.12);
+  border-color: rgba(74, 61, 44, 0.3);
+  color: #4a3d2c;
 }
 
 .viewer-action-icon {

@@ -168,7 +168,7 @@
 }
 
 .manifesto-source-switch input:checked + .manifesto-source-track {
-  background: var(--viewer-brand-blue-strong, #7a6447);
+  background: var(--viewer-brand-blue-strong, #4a3d2c);
 }
 
 .manifesto-source-switch input:checked + .manifesto-source-track::after {
@@ -229,7 +229,7 @@
 
 /* primary */
 #form-manifesto button.primary {
-  background: var(--viewer-brand-blue-strong, #7a6447);
+  background: var(--viewer-brand-blue-strong, #4a3d2c);
   color: #fff;
 }
 
@@ -386,7 +386,7 @@
 }
 
 #form-manifesto[data-viewer-theme="dark"] {
-  background: rgba(34, 30, 26, 0.95);
+  background: rgba(26, 23, 20, 0.95);
   color: #eee;
 }
 
@@ -410,7 +410,7 @@
 #form-manifesto[data-viewer-theme="dark"] input,
 #form-manifesto[data-viewer-theme="dark"] textarea,
 #form-manifesto[data-viewer-theme="dark"] select {
-  background: #221e1a;
+  background: #1a1714;
   color: #eee;
   border-color: #444;
 }
@@ -454,7 +454,7 @@
 }
 
 #form-manifesto[data-viewer-theme="dark"] button.secondary {
-  background: #3b342c;
+  background: #2c2722;
   color: #eee;
 }
 
@@ -474,7 +474,7 @@
   box-shadow: 0 12px 24px rgba(129, 116, 96, 0.12);
   font:
     12px/1.2 "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  color: #1e1a16;
+  color: #171411;
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
@@ -515,7 +515,7 @@
 
 body[data-viewer-theme="dark"] #viewer-account-bar {
   border-color: #444;
-  background: rgba(34, 30, 26, 0.95);
+  background: rgba(26, 23, 20, 0.95);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
@@ -592,7 +592,7 @@ body[data-viewer-theme="dark"] #viewer-account-bar {
 
 body[data-viewer-theme="dark"] #example-model-picker {
   border-color: #444;
-  background: rgba(34, 30, 26, 0.95);
+  background: rgba(26, 23, 20, 0.95);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   color: #eee;
 }
@@ -603,19 +603,19 @@ body[data-viewer-theme="dark"] #example-model-picker label {
 
 body[data-viewer-theme="dark"] #example-model-picker select {
   border-color: #444;
-  background: #221e1a;
+  background: #1a1714;
   color: #eee;
 }
 
 body[data-viewer-theme="dark"] #example-theme-toggle {
   border-color: #444;
-  background: #221e1a;
+  background: #1a1714;
   color: #eee;
 }
 
 body[data-viewer-theme="dark"] #uploadModel {
   border-color: #444;
-  background: #221e1a;
+  background: #1a1714;
   color: #eee;
 }
 
@@ -635,7 +635,7 @@ body[data-viewer-theme="dark"] #uploadModel {
 }
 
 body[data-viewer-theme="dark"] #example-model-picker {
-  --example-picker-bg: rgba(34, 30, 26, 0.98);
+  --example-picker-bg: rgba(26, 23, 20, 0.98);
   --example-picker-text: #eee;
   --example-picker-border: #444;
   --example-picker-hover: rgba(255, 255, 255, 0.08);
@@ -838,7 +838,7 @@ body[data-viewer-theme="dark"] #example-model-picker {
 }
 
 #form-manifesto .manifesto-view-toggle button.active {
-  background: var(--viewer-brand-blue-strong, #7a6447);
+  background: var(--viewer-brand-blue-strong, #4a3d2c);
   color: #fff;
 }
 
@@ -982,7 +982,7 @@ body[data-viewer-theme="dark"] #example-model-picker {
 
 /* dark theme */
 #form-manifesto[data-viewer-theme="dark"] .manifesto-manifest-tree {
-  background: #221e1a;
+  background: #1a1714;
   border-color: #444;
   color: #eee;
 }

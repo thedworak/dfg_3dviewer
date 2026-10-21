@@ -109,7 +109,7 @@ export function attachAnnotations(Viewer) {
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "rgba(30, 26, 22, 0.9)";
+      ctx.fillStyle = "rgba(22, 19, 16, 0.9)";
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size * 0.46, 0, Math.PI * 2);
       ctx.fill();
@@ -176,7 +176,7 @@ export function attachAnnotations(Viewer) {
       ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
       ctx.shadowBlur = size * 0.08;
       ctx.shadowOffsetY = size * 0.015;
-      ctx.fillStyle = "rgba(30, 26, 22, 0.88)";
+      ctx.fillStyle = "rgba(22, 19, 16, 0.88)";
       ctx.beginPath();
       ctx.arc(center, center, radius, 0, Math.PI * 2);
       ctx.fill();

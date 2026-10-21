@@ -3,6 +3,7 @@ import { t } from "../i18n-utils.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./tool-panel-chrome.js";
 // Called at run time only, so the import cycle is harmless.
 import { setStoredToolbarPosition, syncNoticeAboveToolbar } from "../editor-toolbar.js";
+import { bindHoverOpen } from "./hover-open.js";
 
 // The toolbar as menus (a test of the layout proposed for the toolbar): the
 // tools of editor-toolbar.js - the same buttons, with their submenus and
@@ -214,8 +215,19 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     tab.dataset.menu = category.id;
     if (category.more) tab.dataset.more = "true";
     tab.innerHTML = `<span class="viewer-menus_tab-icon" aria-hidden="true">${category.icon}</span><span class="viewer-menus_tab-label"></span><span class="viewer-menus_tab-chevron" aria-hidden="true"></span>`;
+    // On a desktop the menus open on hover too (ui/hover-open.js); a click
+    // then keeps the menu open.
+    const hover = bindHoverOpen(viewer, tab, {
+      panel: () => panel,
+      isOpen: () => state.open === category.id,
+      open: () => openMenu(category.id),
+      close: () => openMenu(null),
+      enabled: () => state.mode === "desktop",
+      immediate: () => Boolean(state.open),
+    });
     viewer.bindEventListener(tab, "click", (event) => {
       event.stopPropagation();
+      if (hover.consumeClick()) return;
       openMenu(state.open === category.id ? null : category.id);
     });
     tabs.appendChild(tab);
@@ -287,16 +299,29 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   }
 
   // Submenus open in place: a tap on a tool with a submenu (not in it).
+  // On a desktop they open on hover too.
+  const setRowOpen = (row, open) => {
+    row.classList.toggle("is-open", open);
+    row.setAttribute("aria-expanded", open ? "true" : "false");
+  };
   viewer.bindEventListener(panel, "click", (event) => {
     const row = event.target.closest(".has-submenu");
     if (!row || !panel.contains(row)) return;
     const submenu = row.querySelector(":scope > .viewer-editor-tool_submenu");
     if (submenu?.contains(event.target)) return;
-    const open = !row.classList.contains("is-open");
-    row.classList.toggle("is-open", open);
-    row.setAttribute("aria-expanded", open ? "true" : "false");
+    if (row.hoverOpen?.consumeClick()) return;
+    setRowOpen(row, !row.classList.contains("is-open"));
   });
-  panel.querySelectorAll(".has-submenu").forEach((row) => row.setAttribute("aria-expanded", "false"));
+  panel.querySelectorAll(".has-submenu").forEach((row) => {
+    row.setAttribute("aria-expanded", "false");
+    row.hoverOpen = bindHoverOpen(viewer, row, {
+      panel: () => row.querySelector(":scope > .viewer-editor-tool_submenu"),
+      isOpen: () => row.classList.contains("is-open"),
+      open: () => setRowOpen(row, true),
+      close: () => setRowOpen(row, false),
+      enabled: () => state.mode === "desktop",
+    });
+  });
 
   // The sheet's height, as last dragged (kept while the viewer is open).
   const SHEET_MIN = 140;

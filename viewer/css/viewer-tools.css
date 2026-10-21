@@ -49,8 +49,8 @@
   padding: 6px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.2 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -68,7 +68,7 @@
 }
 
 .viewer-animation-player select option {
-  color: #1e1a16;
+  color: #171411;
 }
 
 .viewer-animation-player button {
@@ -82,7 +82,7 @@
 }
 
 .viewer-animation-player_loop[aria-pressed="true"] {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447);
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
   color: #fff;
 }
 
@@ -120,8 +120,8 @@
   padding: 8px 12px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.4 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -186,7 +186,7 @@
 }
 
 .viewer-timeline_info-toggle[aria-expanded="true"] {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447);
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
   color: #fff;
 }
 
@@ -236,7 +236,7 @@
   height: 8px;
   border: 2px solid currentColor;
   border-radius: 50%;
-  background: var(--viewer-panel-bg, rgb(30, 26, 22));
+  background: var(--viewer-panel-bg, rgb(22, 19, 16));
   transform: translate(-50%, -50%);
   box-sizing: border-box;
   opacity: 0.75;
@@ -368,7 +368,7 @@
 }
 
 .viewer-timeline_speed option {
-  color: #1e1a16;
+  color: #171411;
 }
 
 .viewer-timeline_legend {
@@ -463,8 +463,8 @@
   padding: 10px 12px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.4 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -547,7 +547,7 @@
 .viewer-tour-panel_spread[aria-pressed="true"],
 .viewer-tour-panel_stack[aria-pressed="true"],
 .viewer-tour-panel_leaders[aria-pressed="true"] {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447);
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
   color: #fff;
 }
 
@@ -572,7 +572,7 @@
 }
 
 .viewer-tour-panel_play[aria-pressed="true"] {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447);
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
   color: #fff;
 }
 
@@ -671,7 +671,7 @@
 
 .annotation-spread-dot {
   fill: #fff;
-  stroke: rgba(30, 26, 22, 0.9);
+  stroke: rgba(22, 19, 16, 0.9);
   stroke-width: 2;
 }
 
@@ -703,8 +703,8 @@
   padding: 7px 9px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 10px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 8px 20px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 8px 20px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 12px/1.35 system-ui, sans-serif;
   text-align: left;
@@ -732,7 +732,7 @@
 
 .annotation-spread-card.is-current {
   border-color: #c9963f;
-  box-shadow: 0 0 0 1px #c9963f, var(--viewer-panel-shadow, 0 8px 20px rgba(22, 18, 14, 0.28));
+  box-shadow: 0 0 0 1px #c9963f, var(--viewer-panel-shadow, 0 8px 20px rgba(12, 10, 8, 0.28));
 }
 
 .annotation-spread-card.is-behind:not(.is-current) {
@@ -757,7 +757,7 @@
   box-sizing: border-box;
   border: 2px solid #c9963f;
   border-radius: 10px;
-  background: rgba(30, 26, 22, 0.88);
+  background: rgba(22, 19, 16, 0.88);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -804,7 +804,7 @@
    slide over each other as the deck scrolls. */
 .annotation-stack {
   --annotation-stack-step: 32px;
-  --annotation-stack-solid: #1e1a16;
+  --annotation-stack-solid: #171411;
   position: relative;
   width: 280px;
   max-width: 100%;
@@ -842,9 +842,9 @@
   /* Opaque, so a card covers the one under it: the panel colour over a
      solid base. */
   background:
-    linear-gradient(var(--viewer-panel-bg, rgba(30, 26, 22, 0.82)), var(--viewer-panel-bg, rgba(30, 26, 22, 0.82))),
+    linear-gradient(var(--viewer-panel-bg, rgba(22, 19, 16, 0.82)), var(--viewer-panel-bg, rgba(22, 19, 16, 0.82))),
     var(--annotation-stack-solid);
-  box-shadow: 0 -4px 14px rgba(22, 18, 14, 0.22);
+  box-shadow: 0 -4px 14px rgba(12, 10, 8, 0.22);
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 12.5px/1.4 system-ui, sans-serif;
   text-align: left;
@@ -864,7 +864,7 @@
 
 .annotation-stack-card.is-current {
   border-color: #c9963f;
-  box-shadow: inset 0 0 0 1px #c9963f, 0 -4px 14px rgba(22, 18, 14, 0.22);
+  box-shadow: inset 0 0 0 1px #c9963f, 0 -4px 14px rgba(12, 10, 8, 0.22);
 }
 
 .annotation-stack-card.is-covered .annotation-stack-card_title {
@@ -889,7 +889,7 @@
   box-sizing: border-box;
   border: 2px solid #c9963f;
   border-radius: 10px;
-  background: rgba(30, 26, 22, 0.88);
+  background: rgba(22, 19, 16, 0.88);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -955,7 +955,7 @@
   left: 0;
   padding: 2px 6px;
   border-radius: 6px;
-  background: rgba(30, 26, 22, 0.85);
+  background: rgba(22, 19, 16, 0.85);
   color: #fff;
   font: 600 12px/1.3 system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -973,8 +973,8 @@
   padding: 10px 12px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.35 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -1152,8 +1152,8 @@
   padding: 10px 12px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.35 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -1229,7 +1229,7 @@
 }
 
 .viewer-clipping-panel_flip[aria-pressed="true"] {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447) !important;
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c) !important;
   color: #fff;
 }
 
@@ -1405,7 +1405,7 @@
   padding: 4px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 999px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 12px/1.3 system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -1424,8 +1424,8 @@
   padding: 8px 12px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.35 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -1485,7 +1485,7 @@
 }
 
 .viewer-pointcloud-panel_row select option {
-  color: #1e1a16;
+  color: #171411;
 }
 
 .viewer-pointcloud-panel_summary {
@@ -1517,7 +1517,7 @@
 }
 
 .viewer-pointcloud-panel_button[aria-pressed="true"] {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447);
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
   color: #fff;
 }
 
@@ -1567,7 +1567,7 @@
 /* Comparison view (editor/compare.js): two variants or two years of the
    timeline, split by a divider over the canvas or side by side. */
 .viewer-timeline_compare.is-active {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447);
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
   color: #fff;
 }
 
@@ -1592,7 +1592,7 @@
   width: 2px;
   margin-left: -1px;
   background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 0 0 1px rgba(22, 18, 14, 0.35);
+  box-shadow: 0 0 0 1px rgba(12, 10, 8, 0.35);
 }
 
 .viewer-compare_handle {
@@ -1605,9 +1605,9 @@
   transform: translate(-50%, -50%);
   border: 2px solid #fff;
   border-radius: 50%;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
   color: #fff;
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   cursor: ew-resize;
   touch-action: none;
   pointer-events: auto;
@@ -1622,7 +1622,7 @@
 }
 
 .viewer-compare.is-dragging .viewer-compare_handle {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447);
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
 }
 
 /* Side by side: the line only separates the halves. */
@@ -1642,8 +1642,8 @@
   padding: 6px 8px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   backdrop-filter: blur(6px);
   pointer-events: auto;
@@ -1670,7 +1670,7 @@
 
 .viewer-compare_bar select option,
 .viewer-compare_bar select optgroup {
-  color: #1e1a16;
+  color: #171411;
 }
 
 .viewer-compare_bar button {
@@ -1717,7 +1717,7 @@
   max-width: 40%;
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(22, 18, 14, 0.72);
+  background: rgba(12, 10, 8, 0.72);
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1766,8 +1766,8 @@
   padding: 8px 12px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.4 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -1817,7 +1817,7 @@
 }
 
 .viewer-variants_compare.is-active {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447) !important;
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c) !important;
   color: #fff;
 }
 
@@ -1950,7 +1950,7 @@
   width: 2px;
   margin-left: -1px;
   background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 0 0 1px rgba(22, 18, 14, 0.35);
+  box-shadow: 0 0 0 1px rgba(12, 10, 8, 0.35);
 }
 
 .viewer-photo-overlay_handle {
@@ -1963,7 +1963,7 @@
   transform: translate(-50%, -50%);
   border: 2px solid #fff;
   border-radius: 50%;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
   color: #fff;
   cursor: ew-resize;
   touch-action: none;
@@ -1981,8 +1981,8 @@
   padding: 8px 12px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.4 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -2147,7 +2147,7 @@
 
 .viewer-photos_button.is-primary,
 .viewer-photos_button.is-active {
-  background: var(--viewer-gui-widget-focus-bg, #7a6447) !important;
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c) !important;
   color: #fff;
 }
 
@@ -2180,8 +2180,8 @@
   padding: 8px 12px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.4 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -2306,8 +2306,8 @@
   padding: 8px 12px 10px;
   border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
-  background: var(--viewer-panel-bg, rgba(30, 26, 22, 0.82));
-  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(22, 18, 14, 0.28));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
   font: 13px/1.4 system-ui, sans-serif;
   backdrop-filter: blur(6px);
@@ -2422,7 +2422,7 @@
   padding: 8px 20px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 22px;
-  background: rgba(30, 26, 22, 0.82);
+  background: rgba(22, 19, 16, 0.82);
   color: #fff;
   font: 15px/1.2 system-ui, sans-serif;
 }

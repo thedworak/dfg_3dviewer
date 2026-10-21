@@ -187,8 +187,8 @@ import { loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
 import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
-import { anchorPanelUnder } from "./ui/panel-window.js";
-import { isPhoneLayout } from "./ui/menu-toolbar.js";
+import { anchorPanelUnder, makePanelWindow } from "./ui/panel-window.js";
+import { bindHoverOpen } from "./ui/hover-open.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 // t() follows the viewer's language (localization-theme.js).
@@ -1536,13 +1536,12 @@ export const Viewer = {
     core.camera.updateProjectionMatrix();
   },
 
-  // Shows or hides the credits line below the viewer.
-  toggleCredits() {
+  // Opens or closes the credits window (sandbox.js).
+  toggleCredits(show = Viewer.creditsWrapper?.hidden) {
     if (!Viewer.creditsWrapper) return;
-    Viewer.creditsWrapper.hidden = !Viewer.creditsWrapper.hidden;
+    Viewer.creditsWrapper.hidden = !show;
     Viewer.updateEditorToolbarLabels();
     Viewer.updateEditorToolbarState();
-    Viewer.updateSize();
   },
 
   renderFatalError(error) {
@@ -2213,15 +2212,6 @@ export const Viewer = {
       placeToolbar();
     } else {
       placeToolbar();
-      if (Viewer.creditsWrapper) {
-        // #credits is a normal-flow block below core.container (see
-        // viewer/css/credits.css and the appendChild call in this file) -
-        // no position/left/right/bottom math needed, it's simply the next
-        // thing in the document after the viewer. Just reveal it - it was
-        // created hidden (see createCreditsElement in sandbox.js) only to
-        // avoid a flash of unstyled content while its own fonts/logo load.
-        Viewer.creditsWrapper.style.visibility = "visible";
-      }
     }
 
     core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width + 10) + 'px !important';
@@ -4101,9 +4091,25 @@ export const Viewer = {
           viewerElement.parentNode.insertBefore(header, viewerElement);
         }
         // The header buttons' panels drop down below them (ui/panel-window.js).
-        const openUnder = (button, open, panelKey) => (event) => {
-          open.call(Viewer, event);
-          anchorPanelUnder(Viewer[panelKey], button);
+        // On a desktop they open on hover too, like submenus (ui/hover-open.js).
+        const openUnder = (button, open, panelKey, close) => {
+          const show = (event) => {
+            open.call(Viewer, event);
+            anchorPanelUnder(Viewer[panelKey], button);
+          };
+          const hover = bindHoverOpen(Viewer, button, {
+            panel: () => Viewer[panelKey],
+            isOpen: () => Viewer[panelKey]?.hidden === false,
+            open: () => show(),
+            close: () => close.call(Viewer),
+          });
+          return (event) => {
+            if (hover.consumeClick()) {
+              event?.preventDefault?.();
+              return;
+            }
+            show(event);
+          };
         };
         if (loginButton) {
           Viewer.loginButton = loginButton;
@@ -4118,14 +4124,14 @@ export const Viewer = {
         if (uploadModelButton) {
           Viewer.uploadModel = uploadModelButton;
           Viewer.updateUploadMenuEntryState();
-          Viewer.bindEventListener(uploadModelButton, "click", openUnder(uploadModelButton, Viewer.openUploadPanel, "uploadPanel"));
+          Viewer.bindEventListener(uploadModelButton, "click", openUnder(uploadModelButton, Viewer.openUploadPanel, "uploadPanel", Viewer.closeUploadPanel));
         }
         if (browseModelsButton) {
           browseModelsButton.innerHTML = '<span class="browse-models-icon" aria-hidden="true"></span>';
           const browseModelsLabel = t("menu.openModelsPanel", "Browse previously generated models");
           browseModelsButton.setAttribute("aria-label", browseModelsLabel);
           browseModelsButton.setAttribute("title", browseModelsLabel);
-          Viewer.bindEventListener(browseModelsButton, "click", openUnder(browseModelsButton, Viewer.openModelsPanel, "modelsPanel"));
+          Viewer.bindEventListener(browseModelsButton, "click", openUnder(browseModelsButton, Viewer.openModelsPanel, "modelsPanel", Viewer.closeModelsPanel));
         }
         if (openLocalFileButton) {
           openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
@@ -4141,7 +4147,7 @@ export const Viewer = {
             "click",
             isAppBuild()
               ? Viewer.toggleModelsSource.bind(Viewer)
-              : openUnder(openLocalFileButton, Viewer.openLibraryPanel, "libraryPanel")
+              : openUnder(openLocalFileButton, Viewer.openLibraryPanel, "libraryPanel", Viewer.closeLibraryPanel)
           );
         }
         // The example manifests, as a list with what each one contains
@@ -4152,7 +4158,7 @@ export const Viewer = {
           const browseManifestsLabel = t("menu.openExampleManifests", "Example manifests");
           browseManifestsButton.setAttribute("aria-label", browseManifestsLabel);
           browseManifestsButton.setAttribute("title", browseManifestsLabel);
-          Viewer.bindEventListener(browseManifestsButton, "click", openUnder(browseManifestsButton, Viewer.toggleExamplesPanel, "examplesPanel"));
+          Viewer.bindEventListener(browseManifestsButton, "click", openUnder(browseManifestsButton, Viewer.toggleExamplesPanel, "examplesPanel", Viewer.closeExamplesPanel));
         }
         // The app build's own controls (app-hooks.js).
         Viewer.initAppUi?.();
@@ -4232,20 +4238,14 @@ export const Viewer = {
       if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
         Viewer.creditsWrapper = await createCreditsElement();
         if (Viewer.creditsWrapper) {
-          // Appended as the last child of the wrapper, after core.container
-          // - #credits is normal-flow (see viewer/css/credits.css), so this
-          // renders it as its own block directly below the viewer rather
-          // than overlapping it. core.container is also the fullscreen
-          // target (.mainContainer.fullscreen gets z-index: 9999 - see
-          // viewer/css/main.css); living outside it here means credits
-          // (like core.editorToolbar - see getEditorToolbarHost() in
-          // editor-toolbar.js) isn't part of that fullscreen overlay.
-          const host = core.viewerWrapper || core.container;
-          // On a phone the line takes room the model needs: hidden until
-          // switched on from the menus (Settings, under "More").
-          const { width, height } = host.getBoundingClientRect();
-          Viewer.creditsWrapper.hidden = isPhoneLayout(width, height);
-          host.appendChild(Viewer.creditsWrapper);
+          // A window over the viewer, like the models panel: closed until
+          // opened from Help → Credits; dragged by its header, one window
+          // at a time, closed by a click on the model or Back.
+          const credits = Viewer.creditsWrapper;
+          core.container.appendChild(credits);
+          const close = () => Viewer.toggleCredits(false);
+          credits.querySelector(".credits-close")?.addEventListener("click", close);
+          makePanelWindow(Viewer, credits, credits.querySelector(".credits-header"), close);
           Viewer.updateEditorToolbarLabels();
           Viewer.updateEditorToolbarState();
         }

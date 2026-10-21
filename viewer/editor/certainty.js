@@ -27,7 +27,7 @@ import {
 function contrastColor(hex) {
   const color = new THREE.Color(hex);
   const luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-  return luminance > 0.45 ? "#1e1a16" : "#ffffff";
+  return luminance > 0.45 ? "#171411" : "#ffffff";
 }
 
 // Filter key of the objects no annotation assesses.

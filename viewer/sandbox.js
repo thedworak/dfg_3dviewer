@@ -1,6 +1,7 @@
 import THREE from "./init.js";
 import { core, setCore } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
+import { t } from './i18n-utils.js';
 
 const BUILD_ID = (typeof __BUILD_ID__ !== "undefined") ? __BUILD_ID__ : "";
 const BUILD_TIME = (typeof __BUILD_TIME__ !== "undefined") ? __BUILD_TIME__ : "";
@@ -30,6 +31,10 @@ function poweredByHtml() {
   return `<span class="credits-item"><a href="https://threejs.org" target="_blank" rel="noopener noreferrer" class="credits-link"${title}>${text}</a></span>`;
 }
 
+// The credits window (opened from Help → Credits, main.js toggleCredits):
+// the logo, then one line per credit - its own logo, its label ("Created
+// by") and text, linked when the settings give a URL - then IIIF and the
+// three.js build.
 export async function createCreditsElement() {
   const credits = core.CONFIG?.viewer?.credits;
 
@@ -39,25 +44,20 @@ export async function createCreditsElement() {
 
   const creditsDiv = document.createElement("div");
   creditsDiv.id = "credits";
-  // #credits has no default left/bottom in CSS (only position: absolute) -
-  // updateSize() is what sets those, and it doesn't run correctly until
-  // layout is settled (typically once a model has loaded). Staying hidden
-  // until then avoids a visible flash at the wrong spot followed by a jump
-  // to the right one; updateSize() reveals it once it applies real coords.
-  creditsDiv.style.visibility = "hidden";
+  creditsDiv.hidden = true;
+  creditsDiv.setAttribute("role", "dialog");
+  creditsDiv.setAttribute("aria-label", t("credits.title", "Credits"));
 
-  // Single line, spanning the full viewer width (see viewer/css/credits.css)
-  // now that this renders below the viewer instead of overlaying it: logo +
-  // item values separated by a middot, rather than stacked labeled
-  // sections. Item labels (e.g. "CREATED BY") are dropped on purpose -
-  // there's no room for them next to the separators on one line.
-  let html = "";
+  let html = `<div class="upload-panel-header credits-header">
+      <span>${t("credits.title", "Credits")}</span>
+      <button type="button" class="credits-close" aria-label="${t("credits.close", "Close")}">X</button>
+    </div>`;
 
   if (credits.logo?.src) {
     const logoImg = `<img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">`;
     html += credits.logo.url
       ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer" class="credits-main-logo-link">${logoImg}</a>`
-      : logoImg;
+      : `<span class="credits-main-logo-link">${logoImg}</span>`;
   }
 
   const itemsHtml = (credits.items ?? [])
@@ -73,14 +73,24 @@ export async function createCreditsElement() {
       const textHtml = item.url
         ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
         : `<span class="credits-text">${item.text}</span>`;
-      return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
+      const labelHtml = item.label ? `<span class="credits-label">${item.label}</span>` : "";
+      return `<span class="credits-item">${logoHtml}<span class="credits-entry">${labelHtml}${textHtml}</span></span>`;
     })
     .concat(iiifCreditHtml(), poweredByHtml())
-    .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
+    .join("");
 
-  html += `<span class="credits-items">${itemsHtml}</span>`;
+  html += `<div class="credits-items">${itemsHtml}</div>`;
 
   creditsDiv.innerHTML = html;
+
+  // A logo that does not load leaves no broken image (nor its link's room).
+  creditsDiv.querySelectorAll("img").forEach((img) => {
+    img.addEventListener("error", () => {
+      const link = img.parentElement?.tagName === "A" && img.parentElement.children.length === 1 ? img.parentElement : null;
+      (link || img).hidden = true;
+      if (img.classList.contains("credits-main-logo")) img.closest(".credits-main-logo-link")?.setAttribute("hidden", "");
+    }, { once: true });
+  });
 
   return creditsDiv;
 }

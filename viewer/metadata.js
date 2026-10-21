@@ -1471,7 +1471,7 @@ export function createManifestUI(type = "iiif") {
   formContainer.appendChild(content);
 
   // Appended into the viewer's own wrapper (same host core.editorToolbar
-  // and #credits already use - see getEditorToolbarHost() in
+  // uses - see getEditorToolbarHost() in
   // editor-toolbar.js and the appendChild call in main.js), not
   // document.body: #form-manifesto is normal-flow now (see
   // viewer/css/external-sources.css), so this renders it as a block below

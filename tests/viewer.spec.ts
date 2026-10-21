@@ -561,6 +561,24 @@ test('tool panels: a ring counts down the tour step, panels move, minimize to an
   await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(false);
 });
 
+test('tool panels on a phone: a tap on the icon restores the panel, the same tap does not close it', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setSunStudy(true));
+  const sun = page.locator('#viewerSun');
+  await sun.locator('.tool-panel-chrome_minimize').tap();
+  // The icon sits where the close button is once the panel is back.
+  await sun.locator('.tool-panel-chrome_pip').tap();
+  await expect(sun.locator('.tool-panel-chrome_pip')).toBeHidden();
+  await expect(sun).not.toHaveClass(/is-minimized/);
+  await page.waitForTimeout(500);
+  await expect(sun).toBeVisible();
+  expect(await page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(true);
+  await context.close();
+});
+
 test('guided tour spreads all annotations around the model', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
@@ -3291,6 +3309,28 @@ test('model units: from the file, a remembered choice for implausible sizes, and
   await expect(warning).toContainText('2.78 km');
 });
 
+test('credits: a window over the viewer, closed until opened, closed again by its button or a click on the model', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  const credits = page.locator('#credits');
+  await expect(credits).toBeHidden();
+  // Inside the viewer, not a line below it.
+  expect(await credits.evaluate((element) => element.parentElement === window.Viewer.container)).toBe(true);
+
+  await page.evaluate(() => window.Viewer.toggleCredits());
+  await expect(credits).toBeVisible();
+  await expect(credits.locator('.credits-header')).toHaveText(/Credits/);
+  await expect(credits.locator('.credits-iiif')).toBeVisible();
+  await credits.locator('.credits-close').click();
+  await expect(credits).toBeHidden();
+
+  await page.evaluate(() => window.Viewer.toggleCredits());
+  await expect(credits).toBeVisible();
+  const canvas = await page.locator('#MainCanvas').boundingBox();
+  await page.mouse.click(canvas.x + canvas.width - 40, canvas.y + canvas.height / 2);
+  await expect(credits).toBeHidden();
+});
+
 test('the IIIF logo: in the credits, and on the metadata card of a model from a manifest, linking to it', async ({ page }) => {
   await openViewer(page, '/examples/box.glb');
   await waitForModel(page);
@@ -3835,6 +3875,56 @@ test('toolbar menus: the loading progress goes round the dock on a desktop, alon
   await context.close();
 });
 
+test('on a desktop, menus open on hover: the header buttons\' windows and the toolbar menus; a click keeps them open', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+
+  // The header: the window drops down under the button and goes when the
+  // mouse leaves both.
+  const button = page.locator('#openLocalFileButton');
+  const library = page.locator('#libraryPanel');
+  await button.hover();
+  await expect(library).toBeVisible();
+  // Straight down into it (sideways the mouse would cross the next button).
+  const from = await button.boundingBox();
+  const box = await library.boundingBox();
+  await page.mouse.move(from.x + from.width / 2, box.y + 10, { steps: 4 });
+  await page.waitForTimeout(500);
+  await expect(library).toBeVisible();
+  await page.mouse.move(700, 500);
+  await expect(library).toBeHidden();
+  // Clicked, it stays.
+  await button.click();
+  await page.mouse.move(700, 500);
+  await page.waitForTimeout(500);
+  await expect(library).toBeVisible();
+  await button.click();
+  await expect(library).toBeHidden();
+
+  // The toolbar: a tab's menu opens on hover, another tab switches to its
+  // own, leaving closes it; clicked, it stays.
+  const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
+  const menu = toolbar.locator('.viewer-menus_panel');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').hover();
+  await expect(menu).toBeVisible();
+  await expect(toolbar.locator('.viewer-menus_group[data-category="look"]')).toHaveClass(/is-shown/);
+  await toolbar.locator('.viewer-menus_tab[data-menu="model"]').hover();
+  await expect(toolbar.locator('.viewer-menus_group[data-category="model"]')).toHaveClass(/is-shown/);
+  await page.mouse.move(700, 300);
+  await expect(menu).toBeHidden();
+  await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
+  await page.mouse.move(700, 300);
+  await page.waitForTimeout(500);
+  await expect(menu).toBeVisible();
+
+  // A submenu in the menu opens on hover as well.
+  const row = menu.locator('.has-submenu:visible').first();
+  await row.hover();
+  await expect(row).toHaveClass(/is-open/);
+  await page.mouse.move(700, 300);
+  await expect(row).not.toHaveClass(/is-open/);
+});
+
 test('toolbar menus on a desktop: the tools sorted into named menus, submenus opening in place', { tag: '@smoke' }, async ({ page }) => {
   await openViewer(page, '/examples/tempietto/Tempietto.glb', 'ui=menus');
   await waitForModel(page);
@@ -3842,13 +3932,14 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   await expect(toolbar).toHaveAttribute('data-mode', 'desktop');
   const tabs = toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label');
   await expect(tabs).toHaveText(['Look', 'Analysis', 'Model', 'Story', 'File', 'Settings']);
-  // Icons only; the name shows over the icon on hover, moving nothing.
+  // Icons only; the name shows over the icon on keyboard focus (on hover
+  // the tab's menu opens, carrying the name), moving nothing.
   const lookTab = toolbar.locator('.viewer-menus_tab[data-menu="look"]');
   const lookLabel = lookTab.locator('.viewer-menus_tab-label');
   const opacity = () => lookLabel.evaluate((el) => getComputedStyle(el).opacity);
   expect(await opacity()).toBe('0');
   const tabBefore = await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox();
-  await lookTab.hover();
+  await lookTab.focus();
   await expect.poll(opacity).toBe('1');
   expect((await lookLabel.boundingBox()).y + 5).toBeLessThan((await lookTab.boundingBox()).y);
   expect(await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox()).toEqual(tabBefore);

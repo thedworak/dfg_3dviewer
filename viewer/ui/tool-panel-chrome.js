@@ -110,6 +110,7 @@ function bindDrag(panel, handle, onTap) {
     let startLeft = 0;
     let startTop = 0;
     let moved = false;
+    handle.chromeDragged = false;
     const pointerId = event.pointerId;
 
     // On the window, capturing: undocking moves the panel in the DOM, which
@@ -135,6 +136,7 @@ function bindDrag(panel, handle, onTap) {
       window.removeEventListener("pointermove", onMove, true);
       window.removeEventListener("pointerup", onEnd, true);
       window.removeEventListener("pointercancel", onEnd, true);
+      handle.chromeDragged = moved;
       if (moved || endEvent.type === "pointercancel") return;
       const now = performance.now();
       onTap?.(now - lastTap);
@@ -189,7 +191,17 @@ function createPip(panel) {
   pip.className = "tool-panel-chrome_pip";
   pip.addEventListener("pointerup", (event) => event.stopPropagation());
   pip.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
-  bindDrag(panel, pip, () => setMinimized(panel, false));
+  bindDrag(panel, pip, null);
+  // On the click, not when the pointer lifts: restored on pointerup, the
+  // panel would be under the finger when the tap's click arrives, and the
+  // click would land on its close button.
+  pip.addEventListener("click", () => {
+    if (pip.chromeDragged) {
+      pip.chromeDragged = false;
+      return;
+    }
+    setMinimized(panel, false);
+  });
   return pip;
 }
 

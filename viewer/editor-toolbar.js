@@ -1400,7 +1400,7 @@ export function createEditorToolbar(viewer) {
     // Help.
     { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
     { key: "help", group: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
-    // The credits line below the viewer (sandbox.js), hidden on a phone.
+    // The credits window (sandbox.js, main.js toggleCredits).
     { key: "credits", group: "help", icon: "credits", onClick: () => viewer.toggleCredits(), pressed: true, primary: false },
   ];
 

@@ -43,6 +43,10 @@ export const VIEWER_I18N = {
       restore: "Restore panel",
       close: "Close panel",
     },
+    credits: {
+      title: "Credits",
+      close: "Close",
+    },
     bugReport: {
       button: "Report a bug",
       title: "Report a bug",
@@ -1670,6 +1674,10 @@ export const VIEWER_I18N = {
       restore: "Rozwiń panel",
       close: "Zamknij panel",
     },
+    credits: {
+      title: "Autorzy i źródła",
+      close: "Zamknij",
+    },
     bugReport: {
       button: "Zgłoś błąd",
       title: "Zgłoś błąd",
@@ -2542,6 +2550,10 @@ export const VIEWER_I18N = {
       minimize: "Panel minimieren",
       restore: "Panel wiederherstellen",
       close: "Panel schließen",
+    },
+    credits: {
+      title: "Credits",
+      close: "Schließen",
     },
     bugReport: {
       button: "Fehler melden",
