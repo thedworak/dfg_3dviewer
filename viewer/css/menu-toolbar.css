@@ -37,9 +37,64 @@
   pointer-events: none;
 }
 
-/* The loading ring goes round the dock, not the whole toolbar box. */
+/* The loading ring (editor-toolbar.css) goes round the dock on a desktop,
+   not the whole toolbar box; on a phone it is a line along the edge of the
+   bar (upright) or the rail (on its side), filling as the model loads. */
 #viewerEditorToolbar.viewer-menus[data-loading]::before {
   display: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"][data-loading] .viewer-menus_dock::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 1;
+  padding: 2.5px;
+  border-radius: 16px;
+  background: conic-gradient(
+    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
+    color-mix(in srgb, var(--viewer-panel-text) 18%, transparent) 0
+  );
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 55%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  transition: opacity 1200ms ease 600ms;
+}
+
+#viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"])[data-loading]::before {
+  display: block;
+  z-index: 2;
+  padding: 0;
+  border-radius: 0;
+  -webkit-mask: none;
+  mask: none;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="bar"][data-loading]::before {
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
+    color-mix(in srgb, var(--viewer-panel-text) 14%, transparent) 0
+  );
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="rail"][data-loading]::before {
+  inset: 0 0 0 auto;
+  width: 3px;
+  background: linear-gradient(
+    to bottom,
+    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
+    color-mix(in srgb, var(--viewer-panel-text) 14%, transparent) 0
+  );
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"][data-loading="complete"] .viewer-menus_dock::before {
+  opacity: 0;
+  transition-delay: 3000ms;
 }
 
 /* Upright: above the navigation bar (over the tabs, 54px tall), not on it. */
@@ -743,17 +798,17 @@
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar {
   border-radius: 10px;
   background: var(--viewer-menus-accent);
-  color: #15191d;
+  color: #1a1612;
 }
 
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.is-active {
   background: color-mix(in srgb, var(--viewer-menus-accent) 80%, #ffffff);
-  color: #15191d;
+  color: #1a1612;
 }
 
 /* Locked by the plan: the lock dark on the accent. */
 #viewerEditorToolbar.viewer-menus:is([data-mode="bar"], [data-mode="rail"]) .viewer-menus_device-ar.plan-locked::after {
-  background-color: #15191d;
+  background-color: #1a1612;
 }
 
 /* Motion look, the video: lit while on (recording). */

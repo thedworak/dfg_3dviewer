@@ -2,7 +2,7 @@ import { core } from "../core.js";
 import { showToast, toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
-import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
 
 export function attachMaterialsEditor(Viewer) {
   Object.assign(Viewer, {
@@ -383,6 +383,7 @@ export function attachMaterialsEditor(Viewer) {
         before: header.querySelector(".materials-dialog__close"),
         movable: false,
         visibilityRoot: dialog,
+        icon: PANEL_ICONS.material,
       });
       this.materialsDialogInputs = {
         color: dialog.querySelector("#materialsDialogColor"),

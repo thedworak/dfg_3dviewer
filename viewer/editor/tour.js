@@ -3,7 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 // Guided tour: steps through the model's annotations in marker order, flying
 // the camera to each one and showing its title and description in a panel.
@@ -134,6 +134,7 @@ export function attachTour(Viewer) {
       const count = state.steps.length;
       const nextIndex = ((index % count) + count) % count;
       clearTimeout(state.timer);
+      Viewer.syncTourProgress(0);
       state.index = nextIndex;
 
       const step = state.steps[nextIndex];
@@ -191,6 +192,7 @@ export function attachTour(Viewer) {
       if (!state?.active || !state.playing) return false;
       state.playing = false;
       clearTimeout(state.timer);
+      Viewer.syncTourProgress(0);
       Viewer.syncTourPanel();
       return true;
     },
@@ -208,10 +210,25 @@ export function attachTour(Viewer) {
       const isLast = state.index >= state.steps.length - 1;
       if (isLast && !state.options.loop) {
         state.playing = false;
+        Viewer.syncTourProgress(0);
         Viewer.syncTourPanel();
         return;
       }
       state.timer = setTimeout(() => Viewer.nextTourStep(), state.options.stepDurationMs);
+      Viewer.syncTourProgress(state.options.stepDurationMs);
+    },
+
+    // The ring around the pause button: fills over `durationMs` while the
+    // tour waits on a step, empty otherwise (camera flight, paused).
+    syncTourProgress(durationMs = 0) {
+      const button = Viewer.tourState?.ui?.playButton;
+      if (!button) return;
+      button.classList.remove("is-counting");
+      if (!(durationMs > 0)) return;
+      button.style.setProperty("--tour-step-duration", `${durationMs}ms`);
+      // Restarts the CSS animation.
+      void button.offsetWidth;
+      button.classList.add("is-counting");
     },
 
     // Camera pose for a step: the annotation's saved view, or one looking at
@@ -412,7 +429,11 @@ export function attachTour(Viewer) {
         <rect x="0.75" y="6.75" width="14.5" height="8.5" rx="1.3" fill="currentColor"/>
       </svg>`;
       header.append(counter, spreadButton, stackButton, leadersButton, closeButton);
-      attachToolPanelChrome(panel, header, { before: closeButton });
+      attachToolPanelChrome(panel, header, {
+        before: closeButton,
+        icon: PANEL_ICONS.tour,
+        label: () => t("tour.panel", "Guided tour"),
+      });
 
       const body = document.createElement("div");
       body.className = "viewer-tour-panel_body";
@@ -433,6 +454,13 @@ export function attachTour(Viewer) {
       const playButton = document.createElement("button");
       playButton.type = "button";
       playButton.className = "viewer-tour-panel_play";
+      // A ring around the button fills while autoplay waits on a step
+      // (syncTourProgress).
+      playButton.innerHTML = `<svg class="viewer-tour-panel_progress" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+        <circle class="viewer-tour-panel_progress-track" cx="18" cy="18" r="16"/>
+        <circle class="viewer-tour-panel_progress-bar" cx="18" cy="18" r="16" pathLength="100"/>
+      </svg><span class="viewer-tour-panel_play-icon"></span>`;
+      const playIcon = playButton.querySelector(".viewer-tour-panel_play-icon");
       const nextButton = document.createElement("button");
       nextButton.type = "button";
       nextButton.className = "viewer-tour-panel_next";
@@ -482,7 +510,7 @@ export function attachTour(Viewer) {
       });
 
       stack.prepend(panel);
-      const ui = { panel, counter, spreadButton, stackButton, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
+      const ui = { panel, counter, spreadButton, stackButton, leadersButton, closeButton, title, description, prevButton, playButton, playIcon, nextButton };
       Viewer.syncTourLeaderToggle(ui);
       Viewer.syncTourSpreadToggle(ui);
       Viewer.syncTourStackToggle(ui);
@@ -585,7 +613,7 @@ export function attachTour(Viewer) {
       ui.closeButton.setAttribute("aria-label", dismissLabel);
       ui.closeButton.title = dismissLabel;
       const startLabel = t("tour.start", "Start guided tour");
-      ui.playButton.textContent = "▶";
+      ui.playIcon.textContent = "▶";
       ui.playButton.setAttribute("aria-label", startLabel);
       ui.playButton.setAttribute("aria-pressed", "false");
       ui.playButton.title = startLabel;
@@ -632,8 +660,10 @@ export function attachTour(Viewer) {
       Viewer.syncTourStackToggle();
       Viewer.rebuildAnnotationSpread?.();
       Viewer.rebuildAnnotationStack?.();
+      refreshToolPanelChrome(Viewer.tourIdleUi?.panel);
       const ui = Viewer.tourState?.ui;
       if (!ui) return;
+      refreshToolPanelChrome(ui.panel);
       ui.panel.setAttribute("aria-label", t("tour.panel", "Guided tour"));
       ui.closeButton.setAttribute("aria-label", t("tour.close", "Close tour (Esc)"));
       ui.closeButton.title = t("tour.close", "Close tour (Esc)");
@@ -659,7 +689,7 @@ export function attachTour(Viewer) {
       ui.description.textContent = step?.entry.description || "";
       ui.description.hidden = !step?.entry.description;
       const playLabel = state.playing ? t("tour.pause", "Pause tour") : t("tour.play", "Play tour");
-      ui.playButton.textContent = state.playing ? "❚❚" : "▶";
+      ui.playIcon.textContent = state.playing ? "❚❚" : "▶";
       ui.playButton.setAttribute("aria-label", playLabel);
       ui.playButton.setAttribute("aria-pressed", state.playing ? "true" : "false");
       ui.playButton.title = playLabel;

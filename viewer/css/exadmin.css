@@ -8,18 +8,18 @@
 
 :root {
   color-scheme: dark;
-  --viewer-brand-blue: #7db6de;
-  --viewer-page-bg: #0f172a;
-  --viewer-panel-bg: rgba(17, 24, 39, 0.82);
-  --viewer-panel-embed-bg: rgba(17, 24, 39, 0.92);
+  --viewer-brand-blue: #d9c3a0;
+  --viewer-page-bg: #16120e;
+  --viewer-panel-bg: rgba(30, 26, 22, 0.82);
+  --viewer-panel-embed-bg: rgba(30, 26, 22, 0.92);
   --viewer-panel-border: rgba(255, 255, 255, 0.12);
-  --viewer-panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+  --viewer-panel-shadow: 0 12px 30px rgba(22, 18, 14, 0.28);
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
 }
 
 :root[data-viewer-theme="light"] {
   color-scheme: light;
-  --viewer-brand-blue: #2a6a9a;
+  --viewer-brand-blue: #6b5538;
   --viewer-page-bg: #f7f5f1;
   --viewer-panel-bg: rgba(252, 250, 246, 0.94);
   --viewer-panel-embed-bg: rgba(255, 253, 249, 0.98);

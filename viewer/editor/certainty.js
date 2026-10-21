@@ -2,7 +2,7 @@ import { core } from "../core.js";
 import THREE from "../init.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
 import {
   certaintyLevelForValue,
   certaintyText,
@@ -27,7 +27,7 @@ import {
 function contrastColor(hex) {
   const color = new THREE.Color(hex);
   const luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-  return luminance > 0.45 ? "#111827" : "#ffffff";
+  return luminance > 0.45 ? "#1e1a16" : "#ffffff";
 }
 
 // Filter key of the objects no annotation assesses.
@@ -396,6 +396,7 @@ export function attachCertainty(Viewer) {
       // other tool panels. Again on every render, which rebuilds the header.
       attachToolPanelChrome(legend, legend.querySelector(".certainty-legend__header"), {
         before: legend.querySelector(".certainty-legend__close"),
+        icon: PANEL_ICONS.certainty,
       });
     },
 

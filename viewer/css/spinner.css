@@ -277,29 +277,29 @@
 }
 
 .lv-determinate_line div:nth-child(1) {
-  background-color: #343a40;
+  background-color: #3b342c;
   height: 100%;
   width: 0;
 }
 .lv-determinate_line div:nth-child(2) {
-  color: #343a40;
+  color: #3b342c;
   left: 101%;
   top: -6px;
   visibility: hidden;
 }
 .lv-determinate_line[data-label]:after {
-  color: #343a40;
+  color: #3b342c;
 }
 
 .lv-spinner[data-label]:after {
-  color: #343a40;
+  color: #3b342c;
 }
 .lv-spinner div {
   height: inherit;
   width: inherit;
   box-sizing: border-box;
   border: 10px solid darkgrey;
-  border-top: 10px solid #343a40;
+  border-top: 10px solid #3b342c;
   border-radius: 50%;
   animation: lv-spinner 2s ease-in-out infinite;
 }
@@ -309,7 +309,7 @@
   width: 100%;
 }
 .lv-determinate_circle[data-label]:after {
-  color: #343a40;
+  color: #3b342c;
 }
 .lv-determinate_circle div:nth-child(1) {
   height: inherit;
@@ -325,7 +325,7 @@
   box-sizing: border-box;
   transform: rotate(-45deg);
   border: 10px solid transparent;
-  border-top: 10px solid #343a40;
+  border-top: 10px solid #3b342c;
   border-radius: 50%;
 }
 .lv-determinate_circle div:nth-child(2) {
@@ -348,7 +348,7 @@
   box-sizing: border-box;
   text-align: center;
   margin-top: 20%;
-  color: #343a40;
+  color: #3b342c;
 }
 .lv-determinate_circle[data-percentage="true"].sm div:nth-child(4) {
   margin-top: 15px;
@@ -370,10 +370,10 @@
 
 /* BORDERLESS LINE ANIMATED */
 .lv-line[data-label]:after {
-  color: #343a40;
+  color: #3b342c;
 }
 .lv-line div {
-  background-color: #343a40;
+  background-color: #3b342c;
   height: 100%;
   width: 0;
   animation: lv-line_animation 3s ease-in-out infinite;

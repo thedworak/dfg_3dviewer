@@ -488,7 +488,7 @@
   border-radius: 12px;
   white-space: nowrap;
   flex-wrap: nowrap;
-  border: 1px solid rgba(133, 133, 145, 0.39);
+  border: 1px solid rgba(150, 138, 122, 0.39);
 }
 
 .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control.viewer-editor-tool_submenu-control-picker-compact {
@@ -508,7 +508,7 @@
   border-radius: 10px;
   gap: 0;
   justify-content: center;
-  border-color: rgba(133, 133, 145, 0.39);
+  border-color: rgba(150, 138, 122, 0.39);
 }
 
 .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-toggle .viewer-editor-tool_submenu-toggle-state {
@@ -677,7 +677,7 @@
 }
 
 .viewer-editor-tool_submenu-preview.is-active .viewer-editor-tool_preview-canvas {
-  outline: 2px solid rgba(92, 185, 255, 0.75);
+  outline: 2px solid rgba(217, 195, 160, 0.75);
 }
 
 .viewer-editor-tool_preview-label {
@@ -690,20 +690,20 @@
    gold glow. */
 .viewer-editor-tool_submenu-button.is-active,
 .viewer-editor-tool.is-active {
-  background: rgba(92, 185, 255, 0.16);
+  background: rgba(217, 195, 160, 0.16);
   border-color: color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 80%, transparent);
-  color: #8fd3ff;
+  color: #e6d5b8;
   box-shadow: 0 0 6px color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 30%, transparent);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-tool.is-active {
-  background: rgba(64, 125, 180, 0.12);
+  background: rgba(122, 100, 71, 0.12);
   border-color: color-mix(in srgb, var(--viewer-brand-gold, #a8701f) 70%, transparent);
-  color: #315f86;
+  color: #6b5538;
 }
 
 .viewer-editor-tool:focus-visible {
-  outline: 2px solid rgba(92, 185, 255, 0.55);
+  outline: 2px solid rgba(217, 195, 160, 0.55);
   outline-offset: 2px;
 }
 
@@ -723,7 +723,7 @@
   gap: 6px;
   min-width: 240px;
   padding: 10px;
-  border: 1px solid rgba(133, 133, 145, 0.22);
+  border: 1px solid rgba(150, 138, 122, 0.22);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
     var(--viewer-panel-bg);
@@ -740,7 +740,7 @@
   min-height: 18px;
   padding: 5px 7px;
   border-radius: 12px;
-  border: 1px solid rgba(133, 133, 145, 0.16);
+  border: 1px solid rgba(150, 138, 122, 0.16);
   color: var(--viewer-panel-text);
   cursor: pointer;
   user-select: none;
@@ -750,8 +750,8 @@
 }
 
 .viewer-editor-save-option:hover {
-  background: rgba(92, 185, 255, 0.08);
-  border-color: rgba(92, 185, 255, 0.24);
+  background: rgba(217, 195, 160, 0.08);
+  border-color: rgba(217, 195, 160, 0.24);
   transform: translateY(-1px);
 }
 
@@ -764,10 +764,10 @@
   block-size: 16px;
   flex: 0 0 auto;
   border-radius: 5px;
-  border: 1px solid rgba(133, 133, 145, 0.45);
+  border: 1px solid rgba(150, 138, 122, 0.45);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    rgba(15, 23, 42, 0.18);
+    rgba(22, 18, 14, 0.18);
   position: relative;
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -787,9 +787,9 @@
 }
 
 .viewer-editor-save-option input[type="checkbox"]:checked {
-  border-color: rgba(92, 185, 255, 0.72);
+  border-color: rgba(217, 195, 160, 0.72);
   background: linear-gradient(180deg, #6ec8ff, #3c98d4);
-  box-shadow: 0 0 0 3px rgba(92, 185, 255, 0.14);
+  box-shadow: 0 0 0 3px rgba(217, 195, 160, 0.14);
 }
 
 .viewer-editor-save-option input[type="checkbox"]:checked::after {
@@ -799,7 +799,7 @@
 
 .viewer-editor-save-option input[type="checkbox"]:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(92, 185, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(217, 195, 160, 0.22);
 }
 
 .viewer-editor-save-option_label {
@@ -816,9 +816,9 @@
 .viewer-editor-save-apply {
   width: 100%;
   min-height: 38px;
-  border: 1px solid rgba(92, 185, 255, 0.28);
+  border: 1px solid rgba(217, 195, 160, 0.28);
   border-radius: 12px;
-  background: linear-gradient(180deg, rgba(92, 185, 255, 0.24), rgba(58, 140, 197, 0.24));
+  background: linear-gradient(180deg, rgba(217, 195, 160, 0.24), rgba(166, 139, 100, 0.24));
   color: var(--viewer-panel-text);
   font-size: 0.9rem;
   font-weight: 600;
@@ -829,13 +829,13 @@
 
 .viewer-editor-save-apply:hover {
   transform: translateY(-1px);
-  background: linear-gradient(180deg, rgba(92, 185, 255, 0.3), rgba(58, 140, 197, 0.3));
-  border-color: rgba(92, 185, 255, 0.42);
+  background: linear-gradient(180deg, rgba(217, 195, 160, 0.3), rgba(166, 139, 100, 0.3));
+  border-color: rgba(217, 195, 160, 0.42);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
 }
 
 .viewer-editor-save-apply:focus-visible {
-  outline: 2px solid rgba(92, 185, 255, 0.55);
+  outline: 2px solid rgba(217, 195, 160, 0.55);
   outline-offset: 2px;
 }
 
@@ -862,9 +862,9 @@
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option input[type="checkbox"]:checked {
-  border-color: rgba(64, 125, 180, 0.56);
+  border-color: rgba(122, 100, 71, 0.56);
   background: linear-gradient(180deg, #77bae4, #4f90bb);
-  box-shadow: 0 0 0 3px rgba(64, 125, 180, 0.12);
+  box-shadow: 0 0 0 3px rgba(122, 100, 71, 0.12);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option input[type="checkbox"]:checked::after {
@@ -872,19 +872,19 @@
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-option:hover {
-  background: rgba(64, 125, 180, 0.08);
-  border-color: rgba(64, 125, 180, 0.2);
+  background: rgba(122, 100, 71, 0.08);
+  border-color: rgba(122, 100, 71, 0.2);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-apply {
-  border-color: rgba(64, 125, 180, 0.22);
-  background: linear-gradient(180deg, rgba(64, 125, 180, 0.18), rgba(64, 125, 180, 0.12));
+  border-color: rgba(122, 100, 71, 0.22);
+  background: linear-gradient(180deg, rgba(122, 100, 71, 0.18), rgba(122, 100, 71, 0.12));
   color: #254766;
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-save-apply:hover {
-  background: linear-gradient(180deg, rgba(64, 125, 180, 0.24), rgba(64, 125, 180, 0.18));
-  border-color: rgba(64, 125, 180, 0.3);
+  background: linear-gradient(180deg, rgba(122, 100, 71, 0.24), rgba(122, 100, 71, 0.18));
+  border-color: rgba(122, 100, 71, 0.3);
 }
 
 .viewer-editor-hierarchy-submenu-list {
@@ -949,7 +949,7 @@
   margin-top: 6px;
   justify-content: center;
   padding: 0 8px;
-  border-top: 1px solid rgba(133, 133, 145, 0.2);
+  border-top: 1px solid rgba(150, 138, 122, 0.2);
   border-radius: 8px;
 }
 
@@ -1066,15 +1066,15 @@
 }
 
 #viewerActionMenuToggle:checked + .viewer-action-menu_toggle {
-  background: rgba(92, 185, 255, 0.16);
-  border-color: rgba(92, 185, 255, 0.4);
-  color: #8fd3ff;
+  background: rgba(217, 195, 160, 0.16);
+  border-color: rgba(217, 195, 160, 0.4);
+  color: #e6d5b8;
 }
 
 .viewer-wrapper[data-viewer-theme="light"] #viewerActionMenuToggle:checked + .viewer-action-menu_toggle {
-  background: rgba(64, 125, 180, 0.12);
-  border-color: rgba(64, 125, 180, 0.3);
-  color: #315f86;
+  background: rgba(122, 100, 71, 0.12);
+  border-color: rgba(122, 100, 71, 0.3);
+  color: #6b5538;
 }
 
 .viewer-action-icon {
@@ -1450,12 +1450,6 @@
 
 .materials-dialog__close:hover {
   background: var(--viewer-panel-bg-hover);
-}
-
-/* Minimized to its header (ui/tool-panel-chrome.js). */
-.materials-dialog__panel.is-minimized .materials-dialog__header {
-  padding-bottom: 4px;
-  border-bottom: none;
 }
 
 .materials-dialog__body {

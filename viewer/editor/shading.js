@@ -2,7 +2,7 @@ import { core } from "../core.js";
 import { showToast, toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
-import { attachToolPanelChrome } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
 
 // "original": the loader's own materials, as loaded. The others are made
 // from them on each switch (see buildMaterialForMode); "clay", "matcap",
@@ -462,6 +462,7 @@ export function attachShadingEditor(Viewer) {
         before: header.querySelector(".materials-dialog__close"),
         movable: false,
         visibilityRoot: dialog,
+        icon: PANEL_ICONS.material,
       });
       this.shadingDialogInputs = {
         vertex: dialog.querySelector("#shadingDialogVertex"),

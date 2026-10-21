@@ -31,7 +31,7 @@ body[data-viewer-theme="dark"] #openLocalFileButton,
 body[data-viewer-theme="dark"] #browseManifestsButton,
 body[data-viewer-theme="dark"] #planButton {
   border-color: #444;
-  background: #1e2024;
+  background: #221e1a;
   color: #eee;
 }
 
@@ -382,7 +382,7 @@ body[data-viewer-theme="dark"] #planButton {
 }
 
 .models-source-toggle button[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--viewer-brand-blue, #7db6de) 22%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-blue, #d9c3a0) 22%, transparent);
   font-weight: 600;
   opacity: 1;
   cursor: default;

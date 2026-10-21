@@ -2,6 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../ui/tool-panel-chrome.js";
 
 // Sun and shadows (Lights > Sun and shadows): the sun where it stood at a
 // place on a day and hour, casting shadows on the model and the ground. With
@@ -471,6 +472,11 @@ export function attachSunStudy(Viewer) {
       longitude.input.addEventListener("change", () => Viewer.setSunOptions({ longitude: longitude.input.value }));
       north.input.addEventListener("change", () => Viewer.setSunOptions({ north: north.input.value }));
 
+      attachToolPanelChrome(panel, header, {
+        before: closeButton,
+        icon: PANEL_ICONS.sun,
+        label: () => t("sun.title", "Sun and shadows"),
+      });
       getViewerSideStack()?.append(panel);
       Viewer.sunPanel = {
         panel, title, clock, closeButton, playButton, time, dateText, date, follow, followLabel, followText,
@@ -489,6 +495,7 @@ export function attachSunStudy(Viewer) {
       if (!ui) return;
       ui.panel.setAttribute("aria-label", t("sun.title", "Sun and shadows"));
       ui.title.textContent = t("sun.title", "Sun and shadows");
+      refreshToolPanelChrome(ui.panel);
       ui.closeButton.title = t("sun.close", "Switch the sun off");
       ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
       ui.time.setAttribute("aria-label", t("sun.time", "Time of day"));

@@ -2,6 +2,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
 import { getViewerSideStack } from "./ui/side-stack.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "./ui/tool-panel-chrome.js";
 
 // Playback of animation clips shipped with the loaded model (glTF/GLB, FBX,
 // DAE, KMZ, three.js JSON). Loaders leave the clips on `object.animations`;
@@ -309,6 +310,16 @@ export function attachAnimations(Viewer) {
       });
       loopButton.addEventListener("click", () => Viewer.setAnimationLoop(!state.loop));
 
+      // The bar is its own header: grip, minimize to an icon, close (pauses
+      // and hides the player until the next model).
+      attachToolPanelChrome(bar, bar, {
+        icon: PANEL_ICONS.animation,
+        label: () => t("animation.player", "Animation player"),
+        onClose: () => {
+          Viewer.pauseAnimation();
+          bar.hidden = true;
+        },
+      });
       const stack = getViewerSideStack();
       stack.prepend(bar);
       state.ui = { bar, playButton, clipSelect, timeline, timeLabel, speedSelect, loopButton };
@@ -319,6 +330,7 @@ export function attachAnimations(Viewer) {
       const ui = Viewer.animationState?.ui;
       if (!ui) return;
       ui.bar.setAttribute("aria-label", t("animation.player", "Animation player"));
+      refreshToolPanelChrome(ui.bar);
       ui.clipSelect.setAttribute("aria-label", t("animation.clip", "Animation clip"));
       ui.timeline.setAttribute("aria-label", t("animation.timeline", "Animation time"));
       ui.speedSelect.setAttribute("aria-label", t("animation.speed", "Playback speed"));

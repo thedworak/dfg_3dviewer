@@ -2,6 +2,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
 import { getViewerSideStack } from "./ui/side-stack.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "./ui/tool-panel-chrome.js";
 
 // 4D timeline: a model shown in time. Each stage is a point on the time axis
 // (a year) with the nodes that show the object at that point; any year can be
@@ -544,9 +545,7 @@ export function attachTimeline(Viewer) {
       compareButton.type = "button";
       compareButton.innerHTML = ICONS.compare;
       compareButton.hidden = state.visualStages.length < 2 || typeof Viewer.toggleCompare !== "function";
-      const collapseButton = el("button", "viewer-timeline_icon-button viewer-timeline_collapse");
-      collapseButton.type = "button";
-      header.append(title, year, infoButton, compareButton, collapseButton);
+      header.append(title, year, infoButton, compareButton);
 
       const body = el("div", "viewer-timeline_body");
       const info = el("p", "viewer-timeline_info");
@@ -667,10 +666,6 @@ export function attachTimeline(Viewer) {
         info.hidden = !info.hidden;
         infoButton.setAttribute("aria-expanded", info.hidden ? "false" : "true");
       });
-      collapseButton.addEventListener("click", () => {
-        panel.classList.toggle("is-collapsed");
-        Viewer.updateTimelineLabels();
-      });
       // The first and the last stage, or the variants when the model has them.
       compareButton.addEventListener("click", () => {
         if (Viewer.isComparing?.("content")) Viewer.closeCompare();
@@ -681,9 +676,19 @@ export function attachTimeline(Viewer) {
         Viewer.syncTimelinePanel(true);
       });
 
+      // Minimized to an icon, or closed until the next model (the timeline
+      // keeps its year).
+      attachToolPanelChrome(panel, header, {
+        icon: PANEL_ICONS.timeline,
+        label: () => readText(state.label) || t("timeline.title", "Timeline"),
+        onClose: () => {
+          Viewer.pauseTimeline();
+          panel.hidden = true;
+        },
+      });
       getViewerSideStack()?.append(panel);
       state.ui = {
-        panel, title, year, info, infoButton, compareButton, collapseButton, range, progress, markerNodes,
+        panel, title, year, info, infoButton, compareButton, range, progress, markerNodes,
         prevButton, playButton, nextButton, speedSelect, legend, badge, stageYear, stageLabel, stageDescription, stageSource,
         shownYear: null, shownStage: null, shownPlaying: null,
       };
@@ -698,16 +703,12 @@ export function attachTimeline(Viewer) {
       const title = readText(state.label) || t("timeline.title", "Timeline");
       ui.panel.setAttribute("aria-label", title);
       ui.title.textContent = title;
+      refreshToolPanelChrome(ui.panel);
       ui.info.textContent = readText(state.description);
       ui.infoButton.title = t("timeline.about", "About this timeline");
       ui.infoButton.setAttribute("aria-label", ui.infoButton.title);
       ui.compareButton.title = t("compare.years", "Compare two years");
       ui.compareButton.setAttribute("aria-label", ui.compareButton.title);
-      const collapsed = ui.panel.classList.contains("is-collapsed");
-      ui.collapseButton.textContent = collapsed ? "▾" : "▴";
-      ui.collapseButton.title = collapsed ? t("timeline.expand", "Show timeline") : t("timeline.collapse", "Hide timeline");
-      ui.collapseButton.setAttribute("aria-label", ui.collapseButton.title);
-      ui.collapseButton.setAttribute("aria-expanded", collapsed ? "false" : "true");
       ui.range.setAttribute("aria-label", t("timeline.year", "Year"));
       ui.prevButton.title = t("timeline.previous", "Previous point");
       ui.prevButton.setAttribute("aria-label", ui.prevButton.title);

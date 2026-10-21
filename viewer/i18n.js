@@ -41,6 +41,7 @@ export const VIEWER_I18N = {
       move: "Move panel (double tap: dock)",
       minimize: "Minimize panel",
       restore: "Restore panel",
+      close: "Close panel",
     },
     bugReport: {
       button: "Report a bug",
@@ -1667,6 +1668,7 @@ export const VIEWER_I18N = {
       move: "Przesuń panel (podwójne dotknięcie: przypnij z powrotem)",
       minimize: "Zminimalizuj panel",
       restore: "Rozwiń panel",
+      close: "Zamknij panel",
     },
     bugReport: {
       button: "Zgłoś błąd",
@@ -2539,6 +2541,7 @@ export const VIEWER_I18N = {
       move: "Panel verschieben (Doppeltipp: andocken)",
       minimize: "Panel minimieren",
       restore: "Panel wiederherstellen",
+      close: "Panel schließen",
     },
     bugReport: {
       button: "Fehler melden",

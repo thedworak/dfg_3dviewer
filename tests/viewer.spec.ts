@@ -499,6 +499,68 @@ test('guided tour steps through annotations and keeps saved views', async ({ pag
   await expect(panel).toHaveCount(0);
 });
 
+test('tool panels: a ring counts down the tour step, panels move, minimize to an icon and close', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const root = viewer.resolveObjectByTargetId('m0:root');
+    let mesh = null;
+    root?.traverse?.((child) => {
+      if (!mesh && child.isMesh) mesh = child;
+    });
+    const targetId = viewer.resolveFaceTargetId(mesh);
+    viewer.hydrateAnnotationsFromMetadataPayload({
+      annotationEntries: [
+        { id: 'a1', targetId, faceNumbers: [0], title: 'First' },
+        { id: 'a2', targetId, faceNumbers: [4], title: 'Second' },
+      ],
+    });
+    viewer.startTour({ autoplay: true, stepDurationMs: 60_000 });
+  });
+
+  // Autoplay waiting on a step: the ring around pause fills; paused, it goes.
+  const panel = page.locator('#viewerTourPanel');
+  const play = panel.locator('.viewer-tour-panel_play');
+  await expect(play).toHaveClass(/is-counting/);
+  await expect(play).toHaveCSS('--tour-step-duration', '60000ms');
+  await play.click();
+  await expect(play).not.toHaveClass(/is-counting/);
+
+  // Dragged by its grip, the panel follows the pointer.
+  const before = await panel.boundingBox();
+  const grip = await panel.locator('.tool-panel-chrome_grip').boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2 - 120, grip.y + grip.height / 2 + 150, { steps: 6 });
+  await page.mouse.up();
+  const after = await panel.boundingBox();
+  expect(Math.round(after.x - before.x)).toBe(-120);
+  expect(Math.round(after.y - before.y)).toBe(150);
+
+  // Minimized: a small round icon alone; a click on it restores the panel.
+  await panel.locator('.tool-panel-chrome_minimize').click();
+  const pip = panel.locator('.tool-panel-chrome_pip');
+  await expect(pip).toBeVisible();
+  await expect(panel.locator('.viewer-tour-panel_title')).toBeHidden();
+  const icon = await panel.boundingBox();
+  expect(icon.width).toBeLessThan(60);
+  expect(icon.height).toBeLessThan(60);
+  await pip.click();
+  await expect(pip).toBeHidden();
+  await expect(panel.locator('.viewer-tour-panel_title')).toHaveText('1. First');
+
+  // The sun panel moves and minimizes too; its close button switches it off.
+  await page.evaluate(() => window.Viewer.setSunStudy(true));
+  const sun = page.locator('#viewerSun');
+  await expect(sun.locator('.tool-panel-chrome_grip')).toBeVisible();
+  await sun.locator('.tool-panel-chrome_minimize').click();
+  await expect(sun.locator('.tool-panel-chrome_pip')).toBeVisible();
+  await sun.locator('.tool-panel-chrome_pip').click();
+  await sun.locator('.viewer-sun_icon').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(false);
+});
+
 test('guided tour spreads all annotations around the model', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
@@ -3746,6 +3808,31 @@ test('sun and shadows: switched on at the day and hour it is now at the place, u
     { enabled: true, date: '06-21', followTimeline: false },
   ));
   expect(await when()).toEqual({ year: 2026, month: 6, day: 21, minutes: 12 * 60 + 30 });
+});
+
+test('toolbar menus: the loading progress goes round the dock on a desktop, along the bar on a phone', async ({ browser, page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const ring = (target) => target.evaluate(() => {
+    const toolbar = document.getElementById('viewerEditorToolbar');
+    toolbar.dataset.loading = 'active';
+    toolbar.style.setProperty('--toolbar-load-progress', '40');
+    const dock = toolbar.querySelector('.viewer-menus_dock');
+    const style = (element) => getComputedStyle(element, '::before');
+    return {
+      mode: toolbar.dataset.mode,
+      dock: style(dock).content !== 'none' && style(dock).display !== 'none',
+      edge: style(toolbar).display !== 'none' ? parseFloat(style(toolbar).height) : 0,
+    };
+  });
+  expect(await ring(page)).toEqual({ mode: 'desktop', dock: true, edge: 0 });
+
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const phone = await context.newPage();
+  await openViewer(phone, '/examples/box.glb', 'ui=menus');
+  await waitForModel(phone);
+  expect(await ring(phone)).toEqual({ mode: 'bar', dock: false, edge: 3 });
+  await context.close();
 });
 
 test('toolbar menus on a desktop: the tools sorted into named menus, submenus opening in place', { tag: '@smoke' }, async ({ page }) => {
