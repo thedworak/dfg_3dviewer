@@ -216,8 +216,18 @@ const SHORTCUT_ICONS = {
 // went on to read a render target that no longer existed: "Uncaught (in
 // promise) Error: No target" on switching away from a splat model. So it
 // leaves the scene at once, sorts no more, and is disposed once the sort in
-// flight is done (or after 5 s, should that never end). Uses Spark's
-// sorting / sortDirty / sortTimeoutId (@sparkjsdev/spark is pinned to 2.2.0).
+// flight is done (or after 5 s, should that never end). The sort waits on
+// a worker, whose answer can take longer than that while the next model
+// loads; dispose() terminates the worker and rejects the call, and that
+// rejection was uncaught too: "Uncaught (in promise) Error: Worker
+// terminate". So the calls still waiting on Spark's workers are let go
+// first - they never settle, and the sort they belong to goes no further.
+// Uses Spark's sorting / sortDirty / sortTimeoutId and its workers' messages
+// (@sparkjsdev/spark is pinned to 2.2.0).
+function sparkWorkerCalls(spark) {
+  return [spark.sortWorker, spark.lodWorker].flatMap((worker) => Object.values(worker?.messages ?? {}));
+}
+
 function disposeSparkRenderer(spark) {
   if (!spark) return;
   spark.removeFromParent();
@@ -228,10 +238,12 @@ function disposeSparkRenderer(spark) {
   spark.sortDirty = false;
   const started = performance.now();
   const disposeWhenIdle = () => {
-    if (spark.sorting && performance.now() - started < 5000) {
+    const busy = spark.sorting || sparkWorkerCalls(spark).length > 0;
+    if (busy && performance.now() - started < 5000) {
       setTimeout(disposeWhenIdle, 50);
       return;
     }
+    sparkWorkerCalls(spark).forEach((call) => { call.reject = () => {}; });
     spark.dispose?.();
   };
   disposeWhenIdle();

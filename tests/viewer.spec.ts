@@ -2497,7 +2497,8 @@ test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, uprig
     return geometry ? { hasBox: !!geometry.boundingBox, vertices: geometry.getAttribute('position').count } : null;
   });
   expect(bounds).toEqual({ hasBox: true, vertices: 8 });
-  expect(await splatPixelShare(page)).toBeGreaterThan(0.02);
+  // Drawn once Spark has sorted them, a frame or more after loading.
+  await expect.poll(() => splatPixelShare(page)).toBeGreaterThan(0.02);
 
   // A PLY of Gaussians (here 600 in a ring) is told apart from a mesh PLY.
   const count = 600;
@@ -2519,7 +2520,7 @@ test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, uprig
     return { count: mesh?.userData.gaussianSplats.count ?? null, format: mesh?.userData.gaussianSplats.format ?? null };
   });
   expect(ring).toEqual({ count, format: 'ply' });
-  expect(await splatPixelShare(page)).toBeGreaterThan(0.005);
+  await expect.poll(() => splatPixelShare(page)).toBeGreaterThan(0.005);
 });
 
 // Tempietto-lod.rad: Tempietto.splat through Spark's build-lod (--rad), as
@@ -2550,7 +2551,9 @@ test('Gaussian splats: a .rad on the server is paged by range requests, loaded w
   // Only ranges: the header, then the tree's chunks.
   expect(radRequests.length).toBeGreaterThan(1);
   expect(radRequests.every((range) => /^bytes=\d+-\d+$/.test(range ?? ''))).toBe(true);
-  expect(await splatPixelShare(page)).toBeGreaterThan(0.02);
+  // Drawn once Spark has walked the tree and sorted what came in, a few
+  // frames after the first page.
+  await expect.poll(() => splatPixelShare(page), { timeout: 30_000 }).toBeGreaterThan(0.02);
 
   // A server that ignores Range (200, the whole file): loaded whole, as before.
   await page.route('**/*.rad', async (route) => {
