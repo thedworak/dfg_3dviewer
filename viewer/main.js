@@ -77,6 +77,7 @@ import { attachTimeline } from "./timeline.js";
 import { attachCompare } from "./editor/compare.js";
 import { attachPhotoOverlay } from "./editor/photo-overlay.js";
 import { attachSunStudy } from "./editor/sun-study.js";
+import { attachWeather } from "./editor/weather.js";
 import { attachWebXR } from "./editor/webxr.js";
 import { attachTour } from "./editor/tour.js";
 import { attachAnnotationSpread } from "./editor/annotation-spread.js";
@@ -1452,6 +1453,7 @@ export const Viewer = {
     Viewer.disposeCertaintyView();
     Viewer.disposeRakingLight();
     Viewer.disposeSunStudy();
+    Viewer.disposeWeather();
     // Spark's splat renderer (splats.js) comes back with the next splat model.
     disposeSparkRenderer(core.sparkRenderer);
     core.sparkRenderer = null;
@@ -2494,6 +2496,7 @@ export const Viewer = {
     Viewer.updatePhotoOverlay(time);
     Viewer.updateRakingLight(delta);
     Viewer.updateSunStudy(delta);
+    Viewer.updateWeather(delta);
     Viewer.updateTimeline(delta);
     Viewer.updateAnnotationSpread();
     Viewer.updateAnnotationStack();
@@ -4398,6 +4401,7 @@ attachTimeline(Viewer);
 attachCompare(Viewer);
 attachPhotoOverlay(Viewer);
 attachSunStudy(Viewer);
+attachWeather(Viewer);
 attachWebXR(Viewer);
 attachTour(Viewer);
 attachAnnotationSpread(Viewer);

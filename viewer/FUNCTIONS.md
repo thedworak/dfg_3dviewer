@@ -188,6 +188,19 @@ Sun and shadows (*Lights > Sun and shadows*): the sun at the model's place (`AIM
 - `solarPosition(timestamp, latitude, longitude)`, `sunriseSunset(...)`, `sunDirection(position, north)` (module exports)
   - The astronomy: the Astronomical Almanac's low-precision solar position, good to a fraction of a degree.
 
+## `viewer/editor/weather.js`, `viewer/editor/weather-webgpu.js`
+
+Weather (*Look > Weather*): a clear sky, fog, rain, snow or a thunderstorm around the model (`AIM3DViewer.weather`, or `?weather=<type>`). Sized from the model (`core.gridSize`); a change blends over a second or two. The sky is three's `Sky` / `SkyMesh` with clouds, its sun the sun study's or the key light's; the rain, splashes and snow are drawn wholly on the GPU from seeds, in a cube that goes with the camera (as large as the view is deep, so as dense close up as from afar) and stopped on the model's roofs by its height map seen from above; the mist is raymarched through a 3D noise over the ground and stopped by the scene's depth (a half-size depth pass with WebGL, `Viewer.renderWeatherMistDepth`; the viewport's depth with WebGPU); storms strike lightning (a bolt, a flash, thunder). The surfaces get wet and take snow where they face up (a patch of the model's materials with WebGL; built into the viewer's node materials with WebGPU, `renderer-backend.js`). The overcast scales the renderer's exposure, not the lights. The GLSL is in `weather.js`; with the WebGPU renderer the same in TSL (`weather-webgpu.js`, loaded with the renderer).
+
+- `Viewer.setWeather(enabled)` / `Viewer.setWeatherOptions({ type, intensity, wind, windDirection, sky, surfaces, sound })`
+  - On or off; any of the options (a type switches it on). `sound` plays rain, wind and thunder synthesised with WebAudio (off by default).
+
+- `Viewer.updateWeather(delta)`
+  - Every frame (`main.js` animate): the blend, the surfaces, the precipitation's uniforms, lightning, the sky, the exposure, the sound.
+
+- `Viewer.apply3IFManifestWeather(weather)` / `Viewer.getWeatherForExport()` / `Viewer.disposeWeather()`
+  - Manifest import and export; switched off when a model is unloaded.
+
 
 ## `viewer/editor/webxr.js`
 

@@ -487,8 +487,11 @@ export default {
       // The WebGPU renderer, TSL and its effects (?renderer=webgpu,
       // viewer/renderer-backend.js) in a chunk of their own: the default
       // WebGL viewer never downloads them. three.core.js, which both builds
-      // share, stays in "three".
-      if (/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?three\/(build\/three\.(webgpu|tsl)|examples\/jsm\/tsl\/)/.test(id)) {
+      // share, stays in "three". So do the node versions of the example
+      // objects (SkyMesh.js for the weather, editor/weather-webgpu.js): they
+      // import three/webgpu, and in "three" they would make the two chunks
+      // import each other (EventDispatcher read before it is defined).
+      if (/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?three\/(build\/three\.(webgpu|tsl)|examples\/jsm\/tsl\/|examples\/jsm\/objects\/\w+Mesh\.js)/.test(id)) {
         return "three-webgpu";
       }
       if (id.includes("node_modules/three")) {

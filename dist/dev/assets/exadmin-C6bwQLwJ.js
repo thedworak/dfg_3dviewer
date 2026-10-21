@@ -1,4 +1,4 @@
-import { t, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, s as setLanguageSource, c as createPasswordField } from './model-thumbnail-DGWc_lrc.js';
+import { t, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, s as setLanguageSource, c as createPasswordField } from './model-thumbnail-CLl24Q_z.js';
 
 // Worker endpoints for the admin pages, same-origin like the viewer's: the
 // session is the worker's cookie (worker/auth.py). /api/auth/* answers

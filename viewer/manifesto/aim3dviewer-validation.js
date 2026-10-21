@@ -8,6 +8,8 @@ import {
 // (not imported: this module also runs in Node without three.js).
 export const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
 export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
+// Keep in sync with WEATHER_TYPES in viewer/editor/weather.js (same reason).
+export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
 export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
 // Keep in sync with UP_AXES in viewer/up-axis.js (same reason).
@@ -651,6 +653,26 @@ function validateSun(sun, path, errors) {
   }
 }
 
+// AIM3DViewer.weather (editor/weather.js): the weather around the model.
+function validateWeather(weather, path, errors) {
+  if (!isPlainObject(weather)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (!WEATHER_TYPES.includes(weather.type)) {
+    pushError(errors, `${path}.type`, `must be one of ${WEATHER_TYPES.join(", ")}`);
+  }
+  ["intensity", "wind", "mistHeight", "mistDensity", "mistSpread"].forEach((key) => {
+    if (weather[key] !== undefined && (!isFiniteNumber(weather[key]) || weather[key] < 0 || weather[key] > 1)) {
+      pushError(errors, `${path}.${key}`, "must be a number from 0 to 1");
+    }
+  });
+  if (weather.windDirection !== undefined) validateNumber(weather.windDirection, `${path}.windDirection`, errors);
+  ["sky", "surfaces"].forEach((key) => {
+    if (weather[key] !== undefined) validateBoolean(weather[key], `${path}.${key}`, errors);
+  });
+}
+
 function validateAIM3DViewerBlock(block, path, errors) {
   if (!isPlainObject(block)) {
     pushError(errors, path, "must be an object");
@@ -677,6 +699,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.photos !== undefined) validatePhotos(block.photos, `${path}.photos`, errors);
   if (block.location !== undefined) validateLocation(block.location, `${path}.location`, errors);
   if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
+  if (block.weather !== undefined) validateWeather(block.weather, `${path}.weather`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));

@@ -3566,7 +3566,7 @@ test('example manifests: one folded group per model, its manifests named by what
   const panel = page.locator('#examplesPanel');
   const groups = panel.locator('details.examples-panel-group');
   await expect(groups.locator('summary > span:first-child')).toHaveText(['Tempietto', 'Wolpa Synagogue', 'ExPlora4D showcase']);
-  await expect(panel.locator('details[data-group="aim3d:showcase"] .examples-panel-count')).toHaveText('12');
+  await expect(panel.locator('details[data-group="aim3d:showcase"] .examples-panel-count')).toHaveText('15');
   // Folded at first; open, only the variants under the model's name.
   const wolpa = panel.locator('details[data-group="aim3d:wolpa"]');
   await expect(wolpa.locator('li').first()).toBeHidden();
@@ -3687,7 +3687,7 @@ test('tone mapping defaults to Neutral and post-processing is switched from the 
     neutral: window.THREE.NeutralToneMapping,
     agx: window.THREE.AgXToneMapping,
   }));
-  // The submenus open on hover; the buttons' own handlers are what matters here.
+  // The buttons' own handlers are what matters here.
   const clickTool = (key) => page.evaluate((tool) => {
     document.querySelector(`button[data-tool="${tool}"]`).click();
   }, key);
@@ -3917,12 +3917,13 @@ test('on a desktop, menus open on hover: the header buttons\' windows and the to
   await page.waitForTimeout(500);
   await expect(menu).toBeVisible();
 
-  // A submenu in the menu opens on hover as well.
+  // A submenu in the menu does not: it opens on a click.
   const row = menu.locator('.has-submenu:visible').first();
   await row.hover();
-  await expect(row).toHaveClass(/is-open/);
-  await page.mouse.move(700, 300);
+  await page.waitForTimeout(500);
   await expect(row).not.toHaveClass(/is-open/);
+  await row.click({ position: { x: 20, y: 18 } });
+  await expect(row).toHaveClass(/is-open/);
 });
 
 test('toolbar menus on a desktop: the tools sorted into named menus, submenus opening in place', { tag: '@smoke' }, async ({ page }) => {
@@ -4839,4 +4840,99 @@ test('page header: the manifests button opens and closes the example manifests l
   await expect(page.locator('#examplesPanel .feature-icons').first()).toBeAttached({ timeout: 20_000 });
   await button.click();
   await expect(page.locator('#examplesPanel')).toBeHidden();
+});
+
+test('weather: rain, snow and a storm around the model; off gives the scene back', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const exposure = await page.evaluate(() => window.viewer.renderer.toneMappingExposure);
+  // The materials' own shader hooks (the viewer sets some), to compare after.
+  await page.evaluate(() => {
+    window.__materialHooks = new Map();
+    window.viewer.scene.traverse((object) => {
+      [].concat(object.material || []).forEach((material) => window.__materialHooks.set(material, [material.onBeforeCompile, material.customProgramCacheKey]));
+    });
+  });
+
+  // Look > Weather opens its window; Rain in it.
+  const toolbar = page.locator('#viewerEditorToolbar');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('.viewer-menus_panel button[data-tool="weather"]').click();
+  const panel = page.locator('#viewerWeather');
+  await expect(panel).toBeVisible();
+  // Off: the weathers alone.
+  await expect(panel.locator('button[data-weather="off"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.viewer-weather_slider:visible')).toHaveCount(0);
+  await panel.locator('button[data-weather="rain"]').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.weather.enabled)).toBe(true);
+  await expect(panel.locator('button[data-weather="rain"]')).toHaveAttribute('aria-pressed', 'true');
+
+  // Only the settings this weather has: the wet surfaces, not the mist's.
+  const setting = (name) => panel.locator('label').filter({ hasText: name });
+  await expect(setting('Wet surfaces and snow cover')).toBeVisible();
+  await expect(setting('Mist height')).toBeHidden();
+
+  // It rains, in fog, under a darker sky; the model keeps it off what lies
+  // under its roofs (its height map, drawn from above).
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.rain.geometry.drawRange.count)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.heightMap.age < 3)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.viewer.scene.fog?.density > 0)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.viewer.renderer.toneMappingExposure)).toBeLessThan(exposure);
+
+  // Fog: the mist's height and density, no wet surfaces.
+  await page.evaluate(() => window.Viewer.setWeatherOptions({ type: 'fog', mistHeight: 0.8 }));
+  await expect(setting('Mist height')).toBeVisible();
+  await expect(setting('Wet surfaces and snow cover')).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.mist.visible)).toBe(true);
+
+  // Snow settles on the model: its materials are patched while it lies.
+  await page.evaluate(() => {
+    window.Viewer.setWeatherOptions({ type: 'snow' });
+    window.Viewer.weatherObjects.snowCover = 1;
+  });
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.snow.geometry.drawRange.count)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.patched.size)).toBeGreaterThan(0);
+
+  // In a manifest while it is on.
+  await page.evaluate(() => window.Viewer.setWeatherOptions({ type: 'storm', intensity: 0.5 }));
+  expect(await page.evaluate(() => window.Viewer.getWeatherForExport())).toMatchObject({ type: 'storm', intensity: 0.5, mistHeight: 0.8 });
+
+  // Off (in the window, which stays open): no fog, the exposure and the
+  // materials' hooks as they were.
+  await panel.locator('button[data-weather="off"]').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.weather.enabled)).toBe(false);
+  expect(await page.evaluate(() => {
+    let weather = 0;
+    let changed = 0;
+    window.viewer.scene.traverse((object) => {
+      if (object.userData?.isWeather) weather += 1;
+    });
+    window.__materialHooks.forEach(([onBeforeCompile, customProgramCacheKey], material) => {
+      if (material.onBeforeCompile !== onBeforeCompile || material.customProgramCacheKey !== customProgramCacheKey) changed += 1;
+    });
+    return { weather, changed, fog: window.viewer.scene.fog, exported: window.Viewer.getWeatherForExport() ?? null };
+  })).toEqual({ weather: 0, changed: 0, fog: null, exported: null });
+  expect(await page.evaluate(() => window.viewer.renderer.toneMappingExposure)).toBe(exposure);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('weather with the WebGPU renderer: the same weathers in TSL', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'renderer=webgpu&webgpuBackend=webgl2&weather=rain');
+  await waitForModel(page);
+  expect(await page.evaluate(() => window.viewer.rendererBackend)).toBe('webgpu');
+  // ?weather=rain: on once the model is there.
+  await expect.poll(() => page.evaluate(() => window.Viewer.weather.enabled && window.Viewer.weather.type)).toBe('rain');
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.rain.geometry.drawRange.count)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.Viewer.weatherObjects.rain.material.isNodeMaterial)).toBe(true);
+  // Snow: quads (WebGPU points are one pixel), the surfaces' uniform shared
+  // with the node materials.
+  await page.evaluate(() => {
+    window.Viewer.setWeatherOptions({ type: 'snow' });
+    window.Viewer.weatherObjects.snowCover = 1;
+  });
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.snow.isMesh)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.surfaceUniforms.weatherSnow.isNode && window.Viewer.weatherObjects.surfaceUniforms.weatherSnow.value > 0.5)).toBe(true);
+  await page.evaluate(() => window.Viewer.setWeather(false));
+  expect(await page.evaluate(() => window.viewer.scene.fog)).toBeNull();
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });

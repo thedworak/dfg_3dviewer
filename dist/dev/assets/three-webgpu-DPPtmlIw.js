@@ -1,4 +1,4 @@
-import { C as Color, e as error, w as warn, T as TimestampQuery, a as warnOnce, c as createCanvasElement, R as REVISION, P as PointLight, D as DirectionalLight, b as RectAreaLight, S as SpotLight, A as AmbientLight, H as HemisphereLight, L as LightProbe, d as LinearToneMapping, f as ReinhardToneMapping, g as CineonToneMapping, h as ACESFilmicToneMapping, i as AgXToneMapping, N as NeutralToneMapping, j as NormalBlending, k as SrcAlphaFactor, O as OneMinusSrcAlphaFactor, l as AddEquation, m as StaticDrawUsage, I as InterleavedBufferAttribute, G as Group, E as EventDispatcher, V as Vector4, F as FramebufferTexture, n as DepthTexture, o as ColorManagement, p as SRGBTransfer, M as Matrix3, q as CubeTexture, r as EquirectangularReflectionMapping, s as EquirectangularRefractionMapping, t as RenderTarget, B as BoxGeometry, u as BackSide, v as NoBlending, x as Mesh, y as Scene, z as LinearMipmapLinearFilter, J as LinearFilter, K as CubeCamera, Q as CubeReflectionMapping, U as CubeRefractionMapping, W as WebGPUCoordinateSystem, X as log$1, Y as NoToneMapping, Z as NoColorSpace, _ as DataTexture, $ as RedIntegerFormat, a0 as RedFormat, a1 as UnsignedByteType, a2 as IntType, a3 as ShortType, a4 as ByteType, a5 as UnsignedIntType, a6 as UnsignedShortType, a7 as FloatType, a8 as LineDashedMaterial, a9 as LineBasicMaterial, aa as RGFormat, ab as RED_GREEN_RGTC2_Format, ac as RG11_EAC_Format, ad as NormalRGPacking, ae as WebGLCoordinateSystem, af as MeshBasicMaterial, ag as MeshLambertMaterial, ah as MeshMatcapMaterial, ai as MeshNormalMaterial, aj as MeshPhongMaterial, ak as MeshPhysicalMaterial, al as MeshStandardMaterial, am as MeshToonMaterial, an as MathUtils, ao as LinearMipmapNearestFilter, ap as NearestMipmapLinearFilter, aq as Vector2, ar as Vector3, as as Float16BufferAttribute, at as yieldToMain, au as Loader, av as FileLoader, aw as Material, ax as MaterialLoader, ay as DynamicDrawUsage, az as RenderObjectRefreshType, aA as ObjectLoader, aB as TangentSpaceNormalMap, aC as NoNormalPacking, aD as NormalGAPacking, aE as ObjectSpaceNormalMap, aF as Sphere, aG as BufferGeometry, aH as OrthographicCamera, aI as PerspectiveCamera, aJ as Texture, aK as CubeUVReflectionMapping, aL as HalfFloatType, aM as BasicShadowMap, aN as CubeDepthTexture, aO as GreaterEqualCompare, aP as LessEqualCompare, aQ as Matrix4, aR as PointsMaterial, aS as InstancedBufferAttribute, aT as SRGBColorSpace, aU as PCFShadowMap, aV as PCFSoftShadowMap, aW as FrustumArray, aX as Frustum, aY as RGBAFormat, aZ as FrontSide, a_ as DoubleSide, a$ as VSMShadowMap, b0 as Compatibility, b1 as NearestFilter, b2 as ShadowMaterial, b3 as SpriteMaterial, b4 as ClampToEdgeWrapping, b5 as BufferAttribute, b6 as LessCompare, b7 as GreaterCompare, b8 as CustomBlending, b9 as InterleavedBuffer, ba as RGIntegerFormat, bb as RGBIntegerFormat, bc as RGBFormat, bd as RGBAIntegerFormat, be as Matrix2, bf as MaterialBlending, bg as AddOperation, bh as MixOperation, bi as MultiplyOperation, bj as LinearSRGBColorSpace, bk as Float32BufferAttribute, bl as Object3D, bm as LinearMipMapLinearFilter, bn as Plane, bo as ArrayCamera, bp as PlaneGeometry, bq as UnsignedInt248Type, br as DepthStencilFormat, bs as DepthFormat, bt as ZeroFactor, bu as CylinderGeometry, bv as Quaternion, bw as WebXRController, bx as SphereGeometry, by as UVMapping, bz as RepeatWrapping, bA as MirroredRepeatWrapping, bB as RGBA_ASTC_12x12_Format, bC as RGBA_ASTC_12x10_Format, bD as RGBA_ASTC_10x10_Format, bE as RGBA_ASTC_10x8_Format, bF as RGBA_ASTC_10x6_Format, bG as RGBA_ASTC_10x5_Format, bH as RGBA_ASTC_8x8_Format, bI as RGBA_ASTC_8x6_Format, bJ as RGBA_ASTC_8x5_Format, bK as RGBA_ASTC_6x6_Format, bL as RGBA_ASTC_6x5_Format, bM as RGBA_ASTC_5x5_Format, bN as RGBA_ASTC_5x4_Format, bO as RGBA_ASTC_4x4_Format, bP as SIGNED_RG11_EAC_Format, bQ as SIGNED_R11_EAC_Format, bR as R11_EAC_Format, bS as RGBA_ETC2_EAC_Format, bT as RGB_ETC1_Format, bU as RGB_ETC2_Format, bV as RGB_BPTC_UNSIGNED_Format, bW as RGB_BPTC_SIGNED_Format, bX as RGBA_BPTC_Format, bY as SIGNED_RED_GREEN_RGTC2_Format, bZ as SIGNED_RED_RGTC1_Format, b_ as RED_RGTC1_Format, b$ as RGBA_S3TC_DXT5_Format, c0 as RGBA_S3TC_DXT3_Format, c1 as RGBA_S3TC_DXT1_Format, c2 as RGB_S3TC_DXT1_Format, c3 as UnsignedInt101111Type, c4 as UnsignedInt5999Type, c5 as LinearTransfer, c6 as getByteLength, c7 as CullFaceNone, c8 as CullFaceBack, c9 as CullFaceFront, ca as MultiplyBlending, cb as SubtractiveBlending, cc as AdditiveBlending, cd as NotEqualDepth, ce as GreaterDepth, cf as GreaterEqualDepth, cg as EqualDepth, ch as LessEqualDepth, ci as LessDepth, cj as AlwaysDepth, ck as NeverDepth, cl as UnsignedShort4444Type, cm as UnsignedShort5551Type, cn as AlphaFormat, co as RGB_PVRTC_4BPPV1_Format, cp as RGB_PVRTC_2BPPV1_Format, cq as RGBA_PVRTC_4BPPV1_Format, cr as RGBA_PVRTC_2BPPV1_Format, cs as OneMinusConstantAlphaFactor, ct as OneMinusConstantColorFactor, cu as ConstantAlphaFactor, cv as ConstantColorFactor, cw as SrcAlphaSaturateFactor, cx as OneMinusDstAlphaFactor, cy as DstAlphaFactor, cz as OneMinusDstColorFactor, cA as DstColorFactor, cB as OneMinusSrcColorFactor, cC as SrcColorFactor, cD as OneFactor, cE as NotEqualStencilFunc, cF as GreaterStencilFunc, cG as GreaterEqualStencilFunc, cH as EqualStencilFunc, cI as LessEqualStencilFunc, cJ as LessStencilFunc, cK as AlwaysStencilFunc, cL as NeverStencilFunc, cM as DecrementWrapStencilOp, cN as IncrementWrapStencilOp, cO as DecrementStencilOp, cP as IncrementStencilOp, cQ as InvertStencilOp, cR as ReplaceStencilOp, cS as ZeroStencilOp, cT as KeepStencilOp, cU as MaxEquation, cV as MinEquation, cW as ReverseSubtractEquation, cX as SubtractEquation, cY as ReversedDepthFuncs, cZ as DataArrayTexture, c_ as RAD2DEG, c$ as Uint32BufferAttribute, d0 as Uint16BufferAttribute, d1 as InstancedInterleavedBuffer, d2 as isTypedArray, d3 as NearestMipmapNearestFilter, d4 as NotEqualCompare, d5 as EqualCompare, d6 as AlwaysCompare, d7 as NeverCompare, d8 as AdditiveAnimationBlendMode, d9 as AnimationAction, da as AnimationClip, db as AnimationLoader, dc as AnimationMixer, dd as AnimationObjectGroup, de as AnimationUtils, df as ArcCurve, dg as ArrowHelper, dh as AttachedBindMode, di as Audio, dj as AudioAnalyser, dk as AudioContext, dl as AudioListener, dm as AudioLoader, dn as AxesHelper, dp as BasicDepthPacking, dq as BatchedMesh, dr as BezierInterpolant, ds as Bone, dt as BooleanKeyframeTrack, du as Box2, dv as Box3, dw as Box3Helper, dx as BoxHelper, dy as BufferGeometryLoader, dz as Cache, dA as Camera, dB as CameraHelper, dC as CanvasTexture, dD as CapsuleGeometry, dE as CatmullRomCurve3, dF as CircleGeometry, dG as Clock, dH as ColorKeyframeTrack, dI as CompressedArrayTexture, dJ as CompressedCubeTexture, dK as CompressedTexture, dL as CompressedTextureLoader, dM as ConeGeometry, dN as Controls, dO as CubeTextureLoader, dP as CubicBezierCurve, dQ as CubicBezierCurve3, dR as CubicInterpolant, dS as CullFaceFrontBack, dT as Curve, dU as CurvePath, dV as CustomToneMapping, dW as Cylindrical, dX as Data3DTexture, dY as DataTextureLoader, dZ as DataUtils, d_ as DefaultLoadingManager, d$ as DetachedBindMode, e0 as DirectionalLightHelper, e1 as DiscreteInterpolant, e2 as DodecahedronGeometry, e3 as DynamicCopyUsage, e4 as DynamicReadUsage, e5 as EdgesGeometry, e6 as EllipseCurve, e7 as Euler, e8 as ExternalTexture, e9 as ExtrudeGeometry, ea as Fog, eb as FogExp2, ec as GLBufferAttribute, ed as GLSL1, ee as GLSL3, ef as GridHelper, eg as HTMLTexture, eh as HemisphereLightHelper, ei as IcosahedronGeometry, ej as ImageBitmapLoader, ek as ImageLoader, el as ImageUtils, em as InstancedBufferGeometry, en as InstancedMesh, eo as Int16BufferAttribute, ep as Int32BufferAttribute, eq as Int8BufferAttribute, er as Interpolant, es as InterpolateBezier, et as InterpolateDiscrete, eu as InterpolateLinear, ev as InterpolateSmooth, ew as InterpolationSamplingMode, ex as InterpolationSamplingType, ey as KeyframeTrack, ez as LOD, eA as LatheGeometry, eB as Layers, eC as Light, eD as LightShadow, eE as Line, eF as Line3, eG as LineCurve, eH as LineCurve3, eI as LineLoop, eJ as LineSegments, eK as LinearInterpolant, eL as LinearMipMapNearestFilter, eM as LoaderUtils, eN as LoadingManager, eO as LoopOnce, eP as LoopPingPong, eQ as LoopRepeat, eR as MOUSE, eS as MeshDepthMaterial, eT as MeshDistanceMaterial, eU as NearestMipMapLinearFilter, eV as NearestMipMapNearestFilter, eW as NormalAnimationBlendMode, eX as NumberKeyframeTrack, eY as OctahedronGeometry, eZ as Path, e_ as PlaneHelper, e$ as PointLightHelper, f0 as Points, f1 as PolarGridHelper, f2 as PolyhedronGeometry, f3 as PositionalAudio, f4 as PropertyBinding, f5 as PropertyMixer, f6 as QuadraticBezierCurve, f7 as QuadraticBezierCurve3, f8 as QuaternionKeyframeTrack, f9 as QuaternionLinearInterpolant, fa as RGBADepthPacking, fb as RGBDepthPacking, fc as RGDepthPacking, fd as RawShaderMaterial, fe as Ray, ff as Raycaster, fg as RenderTarget3D, fh as RingGeometry, fi as ShaderMaterial, fj as Shape, fk as ShapeGeometry, fl as ShapePath, fm as ShapeUtils, fn as Skeleton, fo as SkeletonHelper, fp as SkinnedMesh, fq as Source, fr as Spherical, fs as SphericalHarmonics3, ft as SplineCurve, fu as SpotLightHelper, fv as Sprite, fw as StaticCopyUsage, fx as StaticReadUsage, fy as StereoCamera, fz as StreamCopyUsage, fA as StreamDrawUsage, fB as StreamReadUsage, fC as StringKeyframeTrack, fD as TOUCH, fE as TetrahedronGeometry, fF as TextureLoader, fG as TextureSource, fH as TextureUtils, fI as Timer, fJ as TorusGeometry, fK as TorusKnotGeometry, fL as Triangle, fM as TriangleFanDrawMode, fN as TriangleStripDrawMode, fO as TrianglesDrawMode, fP as TubeGeometry, fQ as Uint8BufferAttribute, fR as Uint8ClampedBufferAttribute, fS as Uniform$1, fT as UniformsGroup$1, fU as VectorKeyframeTrack, fV as VideoFrameTexture, fW as VideoTexture, fX as WebGL3DRenderTarget, fY as WebGLArrayRenderTarget, fZ as WebGLRenderTarget, f_ as WireframeGeometry, f$ as WrapAroundEnding, g0 as ZeroCurvatureEnding, g1 as ZeroSlopeEnding, g2 as getConsoleFunction, g3 as setConsoleFunction } from './three-DtpVwUD_.js';
+import { C as Color, e as error, w as warn, T as TimestampQuery, a as warnOnce, c as createCanvasElement, R as REVISION, P as PointLight, D as DirectionalLight, b as RectAreaLight, S as SpotLight, A as AmbientLight, H as HemisphereLight, L as LightProbe, d as LinearToneMapping, f as ReinhardToneMapping, g as CineonToneMapping, h as ACESFilmicToneMapping, i as AgXToneMapping, N as NeutralToneMapping, j as NormalBlending, k as SrcAlphaFactor, O as OneMinusSrcAlphaFactor, l as AddEquation, m as StaticDrawUsage, I as InterleavedBufferAttribute, G as Group, E as EventDispatcher, V as Vector4, F as FramebufferTexture, n as DepthTexture, o as ColorManagement, p as SRGBTransfer, M as Matrix3, q as CubeTexture, r as EquirectangularReflectionMapping, s as EquirectangularRefractionMapping, t as RenderTarget, B as BoxGeometry, u as BackSide, v as NoBlending, x as Mesh, y as Scene, z as LinearMipmapLinearFilter, J as LinearFilter, K as CubeCamera, Q as CubeReflectionMapping, U as CubeRefractionMapping, W as WebGPUCoordinateSystem, X as log$1, Y as NoToneMapping, Z as NoColorSpace, _ as DataTexture, $ as RedIntegerFormat, a0 as RedFormat, a1 as UnsignedByteType, a2 as IntType, a3 as ShortType, a4 as ByteType, a5 as UnsignedIntType, a6 as UnsignedShortType, a7 as FloatType, a8 as LineDashedMaterial, a9 as LineBasicMaterial, aa as RGFormat, ab as RED_GREEN_RGTC2_Format, ac as RG11_EAC_Format, ad as NormalRGPacking, ae as WebGLCoordinateSystem, af as MeshBasicMaterial, ag as MeshLambertMaterial, ah as MeshMatcapMaterial, ai as MeshNormalMaterial, aj as MeshPhongMaterial, ak as MeshPhysicalMaterial, al as MeshStandardMaterial, am as MeshToonMaterial, an as MathUtils, ao as LinearMipmapNearestFilter, ap as NearestMipmapLinearFilter, aq as Vector2, ar as Vector3, as as Float16BufferAttribute, at as yieldToMain, au as Loader, av as FileLoader, aw as Material, ax as MaterialLoader, ay as DynamicDrawUsage, az as RenderObjectRefreshType, aA as ObjectLoader, aB as TangentSpaceNormalMap, aC as NoNormalPacking, aD as NormalGAPacking, aE as ObjectSpaceNormalMap, aF as Sphere, aG as BufferGeometry, aH as OrthographicCamera, aI as PerspectiveCamera, aJ as Texture, aK as CubeUVReflectionMapping, aL as HalfFloatType, aM as BasicShadowMap, aN as CubeDepthTexture, aO as GreaterEqualCompare, aP as LessEqualCompare, aQ as Matrix4, aR as PointsMaterial, aS as InstancedBufferAttribute, aT as SRGBColorSpace, aU as PCFShadowMap, aV as PCFSoftShadowMap, aW as FrustumArray, aX as Frustum, aY as RGBAFormat, aZ as FrontSide, a_ as DoubleSide, a$ as VSMShadowMap, b0 as Compatibility, b1 as NearestFilter, b2 as ShadowMaterial, b3 as SpriteMaterial, b4 as ClampToEdgeWrapping, b5 as BufferAttribute, b6 as LessCompare, b7 as GreaterCompare, b8 as CustomBlending, b9 as InterleavedBuffer, ba as RGIntegerFormat, bb as RGBIntegerFormat, bc as RGBFormat, bd as RGBAIntegerFormat, be as Matrix2, bf as MaterialBlending, bg as AddOperation, bh as MixOperation, bi as MultiplyOperation, bj as LinearSRGBColorSpace, bk as Float32BufferAttribute, bl as Object3D, bm as LinearMipMapLinearFilter, bn as Plane, bo as ArrayCamera, bp as PlaneGeometry, bq as UnsignedInt248Type, br as DepthStencilFormat, bs as DepthFormat, bt as ZeroFactor, bu as CylinderGeometry, bv as Quaternion, bw as WebXRController, bx as SphereGeometry, by as UVMapping, bz as RepeatWrapping, bA as MirroredRepeatWrapping, bB as RGBA_ASTC_12x12_Format, bC as RGBA_ASTC_12x10_Format, bD as RGBA_ASTC_10x10_Format, bE as RGBA_ASTC_10x8_Format, bF as RGBA_ASTC_10x6_Format, bG as RGBA_ASTC_10x5_Format, bH as RGBA_ASTC_8x8_Format, bI as RGBA_ASTC_8x6_Format, bJ as RGBA_ASTC_8x5_Format, bK as RGBA_ASTC_6x6_Format, bL as RGBA_ASTC_6x5_Format, bM as RGBA_ASTC_5x5_Format, bN as RGBA_ASTC_5x4_Format, bO as RGBA_ASTC_4x4_Format, bP as SIGNED_RG11_EAC_Format, bQ as SIGNED_R11_EAC_Format, bR as R11_EAC_Format, bS as RGBA_ETC2_EAC_Format, bT as RGB_ETC1_Format, bU as RGB_ETC2_Format, bV as RGB_BPTC_UNSIGNED_Format, bW as RGB_BPTC_SIGNED_Format, bX as RGBA_BPTC_Format, bY as SIGNED_RED_GREEN_RGTC2_Format, bZ as SIGNED_RED_RGTC1_Format, b_ as RED_RGTC1_Format, b$ as RGBA_S3TC_DXT5_Format, c0 as RGBA_S3TC_DXT3_Format, c1 as RGBA_S3TC_DXT1_Format, c2 as RGB_S3TC_DXT1_Format, c3 as UnsignedInt101111Type, c4 as UnsignedInt5999Type, c5 as LinearTransfer, c6 as getByteLength, c7 as CullFaceNone, c8 as CullFaceBack, c9 as CullFaceFront, ca as MultiplyBlending, cb as SubtractiveBlending, cc as AdditiveBlending, cd as NotEqualDepth, ce as GreaterDepth, cf as GreaterEqualDepth, cg as EqualDepth, ch as LessEqualDepth, ci as LessDepth, cj as AlwaysDepth, ck as NeverDepth, cl as UnsignedShort4444Type, cm as UnsignedShort5551Type, cn as AlphaFormat, co as RGB_PVRTC_4BPPV1_Format, cp as RGB_PVRTC_2BPPV1_Format, cq as RGBA_PVRTC_4BPPV1_Format, cr as RGBA_PVRTC_2BPPV1_Format, cs as OneMinusConstantAlphaFactor, ct as OneMinusConstantColorFactor, cu as ConstantAlphaFactor, cv as ConstantColorFactor, cw as SrcAlphaSaturateFactor, cx as OneMinusDstAlphaFactor, cy as DstAlphaFactor, cz as OneMinusDstColorFactor, cA as DstColorFactor, cB as OneMinusSrcColorFactor, cC as SrcColorFactor, cD as OneFactor, cE as NotEqualStencilFunc, cF as GreaterStencilFunc, cG as GreaterEqualStencilFunc, cH as EqualStencilFunc, cI as LessEqualStencilFunc, cJ as LessStencilFunc, cK as AlwaysStencilFunc, cL as NeverStencilFunc, cM as DecrementWrapStencilOp, cN as IncrementWrapStencilOp, cO as DecrementStencilOp, cP as IncrementStencilOp, cQ as InvertStencilOp, cR as ReplaceStencilOp, cS as ZeroStencilOp, cT as KeepStencilOp, cU as MaxEquation, cV as MinEquation, cW as ReverseSubtractEquation, cX as SubtractEquation, cY as ReversedDepthFuncs, cZ as DataArrayTexture, c_ as RAD2DEG, c$ as Uint32BufferAttribute, d0 as Uint16BufferAttribute, d1 as InstancedInterleavedBuffer, d2 as isTypedArray, d3 as NearestMipmapNearestFilter, d4 as NotEqualCompare, d5 as EqualCompare, d6 as AlwaysCompare, d7 as NeverCompare, d8 as AdditiveAnimationBlendMode, d9 as AnimationAction, da as AnimationClip, db as AnimationLoader, dc as AnimationMixer, dd as AnimationObjectGroup, de as AnimationUtils, df as ArcCurve, dg as ArrowHelper, dh as AttachedBindMode, di as Audio, dj as AudioAnalyser, dk as AudioContext, dl as AudioListener, dm as AudioLoader, dn as AxesHelper, dp as BasicDepthPacking, dq as BatchedMesh, dr as BezierInterpolant, ds as Bone, dt as BooleanKeyframeTrack, du as Box2, dv as Box3, dw as Box3Helper, dx as BoxHelper, dy as BufferGeometryLoader, dz as Cache, dA as Camera, dB as CameraHelper, dC as CanvasTexture, dD as CapsuleGeometry, dE as CatmullRomCurve3, dF as CircleGeometry, dG as Clock, dH as ColorKeyframeTrack, dI as CompressedArrayTexture, dJ as CompressedCubeTexture, dK as CompressedTexture, dL as CompressedTextureLoader, dM as ConeGeometry, dN as Controls, dO as CubeTextureLoader, dP as CubicBezierCurve, dQ as CubicBezierCurve3, dR as CubicInterpolant, dS as CullFaceFrontBack, dT as Curve, dU as CurvePath, dV as CustomToneMapping, dW as Cylindrical, dX as Data3DTexture, dY as DataTextureLoader, dZ as DataUtils, d_ as DefaultLoadingManager, d$ as DetachedBindMode, e0 as DirectionalLightHelper, e1 as DiscreteInterpolant, e2 as DodecahedronGeometry, e3 as DynamicCopyUsage, e4 as DynamicReadUsage, e5 as EdgesGeometry, e6 as EllipseCurve, e7 as Euler, e8 as ExternalTexture, e9 as ExtrudeGeometry, ea as Fog, eb as FogExp2, ec as GLBufferAttribute, ed as GLSL1, ee as GLSL3, ef as GridHelper, eg as HTMLTexture, eh as HemisphereLightHelper, ei as IcosahedronGeometry, ej as ImageBitmapLoader, ek as ImageLoader, el as ImageUtils, em as InstancedBufferGeometry, en as InstancedMesh, eo as Int16BufferAttribute, ep as Int32BufferAttribute, eq as Int8BufferAttribute, er as Interpolant, es as InterpolateBezier, et as InterpolateDiscrete, eu as InterpolateLinear, ev as InterpolateSmooth, ew as InterpolationSamplingMode, ex as InterpolationSamplingType, ey as KeyframeTrack, ez as LOD, eA as LatheGeometry, eB as Layers, eC as Light, eD as LightShadow, eE as Line, eF as Line3, eG as LineCurve, eH as LineCurve3, eI as LineLoop, eJ as LineSegments, eK as LinearInterpolant, eL as LinearMipMapNearestFilter, eM as LoaderUtils, eN as LoadingManager, eO as LoopOnce, eP as LoopPingPong, eQ as LoopRepeat, eR as MOUSE, eS as MeshDepthMaterial, eT as MeshDistanceMaterial, eU as NearestMipMapLinearFilter, eV as NearestMipMapNearestFilter, eW as NormalAnimationBlendMode, eX as NumberKeyframeTrack, eY as OctahedronGeometry, eZ as Path, e_ as PlaneHelper, e$ as PointLightHelper, f0 as Points, f1 as PolarGridHelper, f2 as PolyhedronGeometry, f3 as PositionalAudio, f4 as PropertyBinding, f5 as PropertyMixer, f6 as QuadraticBezierCurve, f7 as QuadraticBezierCurve3, f8 as QuaternionKeyframeTrack, f9 as QuaternionLinearInterpolant, fa as RGBADepthPacking, fb as RGBDepthPacking, fc as RGDepthPacking, fd as RawShaderMaterial, fe as Ray, ff as Raycaster, fg as RenderTarget3D, fh as RingGeometry, fi as ShaderMaterial, fj as Shape, fk as ShapeGeometry, fl as ShapePath, fm as ShapeUtils, fn as Skeleton, fo as SkeletonHelper, fp as SkinnedMesh, fq as Source, fr as Spherical, fs as SphericalHarmonics3, ft as SplineCurve, fu as SpotLightHelper, fv as Sprite, fw as StaticCopyUsage, fx as StaticReadUsage, fy as StereoCamera, fz as StreamCopyUsage, fA as StreamDrawUsage, fB as StreamReadUsage, fC as StringKeyframeTrack, fD as TOUCH, fE as TetrahedronGeometry, fF as TextureLoader, fG as TextureSource, fH as TextureUtils, fI as Timer, fJ as TorusGeometry, fK as TorusKnotGeometry, fL as Triangle, fM as TriangleFanDrawMode, fN as TriangleStripDrawMode, fO as TrianglesDrawMode, fP as TubeGeometry, fQ as Uint8BufferAttribute, fR as Uint8ClampedBufferAttribute, fS as Uniform$1, fT as UniformsGroup$1, fU as VectorKeyframeTrack, fV as VideoFrameTexture, fW as VideoTexture, fX as WebGL3DRenderTarget, fY as WebGLArrayRenderTarget, fZ as WebGLRenderTarget, f_ as WireframeGeometry, f$ as WrapAroundEnding, g0 as ZeroCurvatureEnding, g1 as ZeroSlopeEnding, g2 as getConsoleFunction, g3 as setConsoleFunction } from './three-VOkZ5KBh.js';
 
 /**
  * @license
@@ -5358,7 +5358,7 @@ const property = ( type, name, placeholderNode = null ) => new PropertyNode( typ
  * @param {?Node} [placeholderNode=null] - The placeholder node if not assigned.
  * @returns {PropertyNode}
  */
-const varyingProperty = ( type, name, placeholderNode = null ) => new PropertyNode( type, name, true, placeholderNode );
+const varyingProperty$1 = ( type, name, placeholderNode = null ) => new PropertyNode( type, name, true, placeholderNode );
 
 /**
  * TSL object that represents the shader variable `DiffuseColor`.
@@ -5366,7 +5366,7 @@ const varyingProperty = ( type, name, placeholderNode = null ) => new PropertyNo
  * @tsl
  * @type {PropertyNode<vec4>}
  */
-const diffuseColor = /*@__PURE__*/ nodeImmutable( PropertyNode, 'vec4', 'DiffuseColor' );
+const diffuseColor$1 = /*@__PURE__*/ nodeImmutable( PropertyNode, 'vec4', 'DiffuseColor' );
 
 /**
  * TSL object that represents the shader variable `DiffuseContribution`.
@@ -7027,7 +7027,7 @@ class OperatorNode extends TempNode {
  * @param {...Node} params - Additional input parameters.
  * @returns {OperatorNode}
  */
-const add = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '+' ).setParameterLength( 2, Infinity ).setName( 'add' );
+const add$1 = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '+' ).setParameterLength( 2, Infinity ).setName( 'add' );
 
 /**
  * Returns the subtraction of two or more value.
@@ -7039,7 +7039,7 @@ const add = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '+' ).setParameterLengt
  * @param {...Node} params - Additional input parameters.
  * @returns {OperatorNode}
  */
-const sub = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '-' ).setParameterLength( 2, Infinity ).setName( 'sub' );
+const sub$1 = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '-' ).setParameterLength( 2, Infinity ).setName( 'sub' );
 
 /**
  * Returns the multiplication of two or more value.
@@ -7051,7 +7051,7 @@ const sub = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '-' ).setParameterLengt
  * @param {...Node} params - Additional input parameters.
  * @returns {OperatorNode}
  */
-const mul = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '*' ).setParameterLength( 2, Infinity ).setName( 'mul' );
+const mul$1 = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '*' ).setParameterLength( 2, Infinity ).setName( 'mul' );
 
 /**
  * Returns the division of two or more value.
@@ -7074,7 +7074,7 @@ const div = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '/' ).setParameterLengt
  * @param {Node} b - The second input.
  * @returns {OperatorNode}
  */
-const mod = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '%' ).setParameterLength( 2 ).setName( 'mod' );
+const mod$1 = /*@__PURE__*/ nodeProxyIntent( OperatorNode, '%' ).setParameterLength( 2 ).setName( 'mod' );
 
 /**
  * Checks if two nodes are equal.
@@ -7311,11 +7311,11 @@ const decrement = /*@__PURE__*/ Fn$1( ( [ a ] ) => {
 
 } );
 
-addMethodChaining( 'add', add );
-addMethodChaining( 'sub', sub );
-addMethodChaining( 'mul', mul );
+addMethodChaining( 'add', add$1 );
+addMethodChaining( 'sub', sub$1 );
+addMethodChaining( 'mul', mul$1 );
 addMethodChaining( 'div', div );
-addMethodChaining( 'mod', mod );
+addMethodChaining( 'mod', mod$1 );
 addMethodChaining( 'equal', equal );
 addMethodChaining( 'notEqual', notEqual );
 addMethodChaining( 'lessThan', lessThan );
@@ -7503,7 +7503,7 @@ class MathNode extends TempNode {
 
 		if ( method === MathNode.ONE_MINUS ) {
 
-			outputNode = sub( 1.0, aNode );
+			outputNode = sub$1( 1.0, aNode );
 
 		} else if ( method === MathNode.RECIPROCAL ) {
 
@@ -7511,7 +7511,7 @@ class MathNode extends TempNode {
 
 		} else if ( method === MathNode.DIFFERENCE ) {
 
-			outputNode = abs$1( sub( aNode, bNode ) );
+			outputNode = abs$1( sub$1( aNode, bNode ) );
 
 		} else if ( method === MathNode.TRANSFORM_DIRECTION ) {
 
@@ -7531,7 +7531,7 @@ class MathNode extends TempNode {
 
 			}
 
-			outputNode = normalize$1( mul( matrixNode, vec4$1( vec3$1( directionNode ), 0.0 ) ).xyz );
+			outputNode = normalize$1( mul$1( matrixNode, vec4$1( vec3$1( directionNode ), 0.0 ) ).xyz );
 
 		}
 
@@ -7824,7 +7824,7 @@ const degrees = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.DEGREES ).setP
  * @param {Node | number} x - The parameter.
  * @returns {Node}
  */
-const exp = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.EXP ).setParameterLength( 1 );
+const exp$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.EXP ).setParameterLength( 1 );
 
 /**
  * Returns 2 raised to the power of the parameter.
@@ -7884,7 +7884,7 @@ const inverseSqrt = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.INVERSE_SQ
  * @param {Node | number} x - The parameter.
  * @returns {Node}
  */
-const floor = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.FLOOR ).setParameterLength( 1 );
+const floor$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.FLOOR ).setParameterLength( 1 );
 
 /**
  * Finds the nearest integer that is greater than or equal to the parameter.
@@ -7914,7 +7914,7 @@ const normalize$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.NORMALIZE 
  * @param {Node | number} x - The parameter.
  * @returns {Node}
  */
-const fract = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.FRACT ).setParameterLength( 1 );
+const fract$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.FRACT ).setParameterLength( 1 );
 
 /**
  * Returns the sine of the parameter.
@@ -8066,7 +8066,7 @@ const sign = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.SIGN ).setParamet
  * @param {Node} x - The parameter.
  * @returns {Node<float>}
  */
-const length = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.LENGTH ).setParameterLength( 1 );
+const length$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.LENGTH ).setParameterLength( 1 );
 
 /**
  * Negates the value of the parameter (-x).
@@ -8209,7 +8209,7 @@ const max$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.MAX ).setParamet
  * @param {Node | number} y - The x parameter.
  * @returns {Node}
  */
-const step = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.STEP ).setParameterLength( 2 );
+const step$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.STEP ).setParameterLength( 2 );
 
 /**
  * Calculates the reflection direction for an incident vector.
@@ -8285,7 +8285,7 @@ const pow$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.POW ).setParamet
  * @param {Node | number} x - The first parameter.
  * @returns {Node}
  */
-const pow2 = ( x ) => mul( x, x );
+const pow2 = ( x ) => mul$1( x, x );
 
 /**
  * Returns the cube of the parameter.
@@ -8295,7 +8295,7 @@ const pow2 = ( x ) => mul( x, x );
  * @param {Node | number} x - The first parameter.
  * @returns {Node}
  */
-const pow3 = ( x ) => mul( x, x, x );
+const pow3 = ( x ) => mul$1( x, x, x );
 
 /**
  * Returns the fourth power of the parameter.
@@ -8305,7 +8305,7 @@ const pow3 = ( x ) => mul( x, x, x );
  * @param {Node | number} x - The first parameter.
  * @returns {Node}
  */
-const pow4 = ( x ) => mul( x, x, x, x );
+const pow4 = ( x ) => mul$1( x, x, x, x );
 
 /**
  * Transforms the direction of a vector by a matrix and then normalizes the result.
@@ -8330,7 +8330,7 @@ const transformDirection = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.TRA
  * @param {Node<mat3|mat4>} viewMatrix - The view matrix.
  * @returns {Node<vec3>} The normal vector in view space.
  */
-const transformNormalByViewMatrix = ( normal, viewMatrix ) => normalize$1( mul( viewMatrix, vec4$1( vec3$1( normal ), 0.0 ) ).xyz );
+const transformNormalByViewMatrix = ( normal, viewMatrix ) => normalize$1( mul$1( viewMatrix, vec4$1( vec3$1( normal ), 0.0 ) ).xyz );
 
 /**
  * Transforms a normal vector by the inverse of the view matrix and then normalizes the result.
@@ -8354,7 +8354,7 @@ const transformNormalByInverseViewMatrix = ( normal, viewMatrix ) => normalize$1
  * @param {Node | number} a - The first parameter.
  * @returns {Node}
  */
-const cbrt = ( a ) => mul( sign( a ), pow$1( abs$1( a ), 1.0 / 3.0 ) );
+const cbrt = ( a ) => mul$1( sign( a ), pow$1( abs$1( a ), 1.0 / 3.0 ) );
 
 /**
  * Calculate the squared length of a vector.
@@ -8422,7 +8422,7 @@ const refract = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.REFRACT ).setP
  * @param {Node | number} x - The source value for interpolation.
  * @returns {Node}
  */
-const smoothstep = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.SMOOTHSTEP ).setParameterLength( 3 );
+const smoothstep$1 = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.SMOOTHSTEP ).setParameterLength( 3 );
 
 /**
  * Returns a vector pointing in the same direction as another.
@@ -8447,9 +8447,9 @@ const faceForward = /*@__PURE__*/ nodeProxyIntent( MathNode, MathNode.FACEFORWAR
 const rand$1 = /*@__PURE__*/ Fn$1( ( [ uv ] ) => {
 
 	const a = 12.9898, b = 78.233, c = 43758.5453;
-	const dt = dot$1( uv.xy, vec2$1( a, b ) ), sn = mod( dt, PI$1 );
+	const dt = dot$1( uv.xy, vec2$1( a, b ) ), sn = mod$1( dt, PI$1 );
 
-	return fract( sin$1( sn ).mul( c ) );
+	return fract$1( sin$1( sn ).mul( c ) );
 
 } );
 
@@ -8475,7 +8475,7 @@ const mixElement = ( t, e1, e2 ) => mix$1( e1, e2, t );
  * @param {Node | number} high - The value of the upper edge of the Hermite function.
  * @returns {Node}
  */
-const smoothstepElement = ( x, low, high ) => smoothstep( low, high, x );
+const smoothstepElement = ( x, low, high ) => smoothstep$1( low, high, x );
 
 /**
  * Alias for `step()` with a different parameter order.
@@ -8486,7 +8486,7 @@ const smoothstepElement = ( x, low, high ) => smoothstep( low, high, x );
  * @param {Node | number} edge - The edge value.
  * @returns {Node}
  */
-const stepElement = ( x, edge ) => step( edge, x );
+const stepElement = ( x, edge ) => step$1( edge, x );
 
 // GLSL alias function
 
@@ -8500,16 +8500,16 @@ addMethodChaining( 'any', any );
 
 addMethodChaining( 'radians', radians );
 addMethodChaining( 'degrees', degrees );
-addMethodChaining( 'exp', exp );
+addMethodChaining( 'exp', exp$1 );
 addMethodChaining( 'exp2', exp2 );
 addMethodChaining( 'log', log );
 addMethodChaining( 'log2', log2 );
 addMethodChaining( 'sqrt', sqrt );
 addMethodChaining( 'inverseSqrt', inverseSqrt );
-addMethodChaining( 'floor', floor );
+addMethodChaining( 'floor', floor$1 );
 addMethodChaining( 'ceil', ceil );
 addMethodChaining( 'normalize', normalize$1 );
-addMethodChaining( 'fract', fract );
+addMethodChaining( 'fract', fract$1 );
 addMethodChaining( 'sin', sin$1 );
 addMethodChaining( 'sinh', sinh );
 addMethodChaining( 'cos', cos$1 );
@@ -8524,7 +8524,7 @@ addMethodChaining( 'atan', atan );
 addMethodChaining( 'atanh', atanh );
 addMethodChaining( 'abs', abs$1 );
 addMethodChaining( 'sign', sign );
-addMethodChaining( 'length', length );
+addMethodChaining( 'length', length$1 );
 addMethodChaining( 'lengthSq', lengthSq );
 addMethodChaining( 'negate', negate );
 addMethodChaining( 'oneMinus', oneMinus );
@@ -8796,9 +8796,9 @@ class ConditionalNode extends Node {
  * @param {?Node} [elseNode=null] - The node that is evaluate when the condition ends up `false`.
  * @returns {ConditionalNode}
  */
-const select = /*@__PURE__*/ nodeProxy( ConditionalNode ).setParameterLength( 2, 3 );
+const select$1 = /*@__PURE__*/ nodeProxy( ConditionalNode ).setParameterLength( 2, 3 );
 
-addMethodChaining( 'select', select );
+addMethodChaining( 'select', select$1 );
 
 /**
  * This node can be used as a context management component for another node.
@@ -9784,7 +9784,7 @@ class VaryingNode extends Node {
  * @param {?string} name - The name of the varying in the shader.
  * @returns {VaryingNode}
  */
-const varying = /*@__PURE__*/ nodeProxy( VaryingNode ).setParameterLength( 1, 2 );
+const varying$1 = /*@__PURE__*/ nodeProxy( VaryingNode ).setParameterLength( 1, 2 );
 
 /**
  * Computes a node in the vertex stage.
@@ -9794,9 +9794,9 @@ const varying = /*@__PURE__*/ nodeProxy( VaryingNode ).setParameterLength( 1, 2 
  * @param {Node} node - The node which should be executed in the vertex stage.
  * @returns {VaryingNode}
  */
-const vertexStage = ( node ) => varying( node );
+const vertexStage = ( node ) => varying$1( node );
 
-addMethodChaining( 'toVarying', varying );
+addMethodChaining( 'toVarying', varying$1 );
 addMethodChaining( 'toVertexStage', vertexStage );
 
 /**
@@ -10838,7 +10838,7 @@ class BufferAttributeNode extends InputNode {
 
 			}
 
-			const nodeVarying = varying( this, varyingName );
+			const nodeVarying = varying$1( this, varyingName );
 
 			output = nodeVarying.build( builder, nodeType );
 
@@ -11081,7 +11081,7 @@ class IndexNode extends Node {
 
 		} else {
 
-			const nodeVarying = varying( this );
+			const nodeVarying = varying$1( this );
 
 			output = nodeVarying.build( builder, nodeType );
 
@@ -11853,7 +11853,7 @@ const expression = /*@__PURE__*/ nodeProxy( ExpressionNode ).setParameterLength(
  * @param {?ConditionalNode} conditional - An optional conditional node. It allows to decide whether the discard should be executed or not.
  * @return {Node} The `discard` expression.
  */
-const Discard = ( conditional ) => ( conditional ? select( conditional, expression( 'discard' ) ) : expression( 'discard' ) ).toStack();
+const Discard = ( conditional ) => ( conditional ? select$1( conditional, expression( 'discard' ) ) : expression( 'discard' ) ).toStack();
 
 /**
  * Represents a `return` shader operation in TSL.
@@ -12553,7 +12553,7 @@ class AttributeNode extends Node {
 
 			} else {
 
-				const nodeVarying = varying( this );
+				const nodeVarying = varying$1( this );
 
 				return nodeVarying.build( builder, nodeType );
 
@@ -13423,11 +13423,11 @@ class TextureNode extends UniformNode {
 
 					if ( compareFunction === GreaterCompare || compareFunction === GreaterEqualCompare ) {
 
-						snippet = step( expression( snippet, nodeType ), expression( compareStepSnippet, 'float' ) ).build( builder, nodeType );
+						snippet = step$1( expression( snippet, nodeType ), expression( compareStepSnippet, 'float' ) ).build( builder, nodeType );
 
 					} else {
 
-						snippet = step( expression( compareStepSnippet, 'float' ), expression( snippet, nodeType ) ).build( builder, nodeType );
+						snippet = step$1( expression( compareStepSnippet, 'float' ), expression( snippet, nodeType ) ).build( builder, nodeType );
 
 					}
 
@@ -14675,7 +14675,7 @@ const cameraIndex = /*@__PURE__*/ uniform$1( 0, 'uint' ).setName( 'u_cameraIndex
  * @tsl
  * @type {UniformNode<float>}
  */
-const cameraNear = /*@__PURE__*/ uniform$1( 'float' ).setName( 'cameraNear' ).setGroup( renderGroup ).onRenderUpdate( ( { camera } ) => camera.near );
+const cameraNear$1 = /*@__PURE__*/ uniform$1( 'float' ).setName( 'cameraNear' ).setGroup( renderGroup ).onRenderUpdate( ( { camera } ) => camera.near );
 
 /**
  * TSL object that represents the `far` value of the camera used for the current render.
@@ -14683,7 +14683,7 @@ const cameraNear = /*@__PURE__*/ uniform$1( 'float' ).setName( 'cameraNear' ).se
  * @tsl
  * @type {UniformNode<float>}
  */
-const cameraFar = /*@__PURE__*/ uniform$1( 'float' ).setName( 'cameraFar' ).setGroup( renderGroup ).onRenderUpdate( ( { camera } ) => camera.far );
+const cameraFar$1 = /*@__PURE__*/ uniform$1( 'float' ).setName( 'cameraFar' ).setGroup( renderGroup ).onRenderUpdate( ( { camera } ) => camera.far );
 
 /**
  * TSL object that represents the projection matrix of the camera used for the current render.
@@ -14691,7 +14691,7 @@ const cameraFar = /*@__PURE__*/ uniform$1( 'float' ).setName( 'cameraFar' ).setG
  * @tsl
  * @type {UniformNode<mat4>}
  */
-const cameraProjectionMatrix = /*@__PURE__*/ ( Fn$1( ( { camera } ) => {
+const cameraProjectionMatrix$1 = /*@__PURE__*/ ( Fn$1( ( { camera } ) => {
 
 	let cameraProjectionMatrix;
 
@@ -14931,7 +14931,7 @@ const cameraNormalMatrix = /*@__PURE__*/ ( Fn$1( ( { camera } ) => {
  * @tsl
  * @type {UniformNode<vec3>}
  */
-const cameraPosition = /*@__PURE__*/ ( Fn$1( ( { camera } ) => {
+const cameraPosition$1 = /*@__PURE__*/ ( Fn$1( ( { camera } ) => {
 
 	let cameraPosition;
 
@@ -15569,7 +15569,7 @@ const clipSpace = /*@__PURE__*/ ( Fn$1( ( builder ) => {
  * @tsl
  * @type {AttributeNode<vec3>}
  */
-const positionGeometry = /*@__PURE__*/ attribute$1( 'position', 'vec3' );
+const positionGeometry$1 = /*@__PURE__*/ attribute$1( 'position', 'vec3' );
 
 /**
  * TSL object that represents the transformed vertex position in local space of the current rendered object.
@@ -15581,7 +15581,7 @@ const positionGeometry = /*@__PURE__*/ attribute$1( 'position', 'vec3' );
  * @tsl
  * @type {AttributeNode<vec3>}
  */
-const positionLocal = /*@__PURE__*/ positionGeometry.toVarying( 'positionLocal' );
+const positionLocal = /*@__PURE__*/ positionGeometry$1.toVarying( 'positionLocal' );
 
 /**
  * TSL object that represents the previous vertex position in local space of the current rendered object.
@@ -15590,7 +15590,7 @@ const positionLocal = /*@__PURE__*/ positionGeometry.toVarying( 'positionLocal' 
  * @tsl
  * @type {AttributeNode<vec3>}
  */
-const positionPrevious = /*@__PURE__*/ positionGeometry.toVarying( 'positionPrevious' );
+const positionPrevious = /*@__PURE__*/ positionGeometry$1.toVarying( 'positionPrevious' );
 
 /**
  * TSL object that represents the vertex position in world space of the current rendered object.
@@ -15598,7 +15598,7 @@ const positionPrevious = /*@__PURE__*/ positionGeometry.toVarying( 'positionPrev
  * @tsl
  * @type {VaryingNode<vec3>}
  */
-const positionWorld = /*@__PURE__*/ ( Fn$1( ( builder ) => {
+const positionWorld$1 = /*@__PURE__*/ ( Fn$1( ( builder ) => {
 
 	return modelWorldMatrix.mul( positionLocal ).xyz.toVarying( builder.getSubBuildProperty( 'v_positionWorld' ) );
 
@@ -15853,7 +15853,7 @@ const normalViewGeometry = /*@__PURE__*/ ( Fn$1( ( builder ) => {
  * @tsl
  * @type {Node<vec3>}
  */
-const normalWorldGeometry = /*@__PURE__*/ ( Fn$1( ( builder ) => {
+const normalWorldGeometry$1 = /*@__PURE__*/ ( Fn$1( ( builder ) => {
 
 	let normal = normalViewGeometry.transformNormalByInverseViewMatrix( cameraViewMatrix );
 
@@ -17825,7 +17825,7 @@ const materialReflectivity = /*@__PURE__*/ nodeImmutable( MaterialNode, Material
  * @tsl
  * @type {Node<float>}
  */
-const materialRoughness = /*@__PURE__*/ nodeImmutable( MaterialNode, MaterialNode.ROUGHNESS );
+const materialRoughness$1 = /*@__PURE__*/ nodeImmutable( MaterialNode, MaterialNode.ROUGHNESS );
 
 /**
  * TSL object that represents the metalness of the current material.
@@ -17834,7 +17834,7 @@ const materialRoughness = /*@__PURE__*/ nodeImmutable( MaterialNode, MaterialNod
  * @tsl
  * @type {Node<float>}
  */
-const materialMetalness = /*@__PURE__*/ nodeImmutable( MaterialNode, MaterialNode.METALNESS );
+const materialMetalness$1 = /*@__PURE__*/ nodeImmutable( MaterialNode, MaterialNode.METALNESS );
 
 /**
  * TSL object that represents the normal of the current material.
@@ -18076,7 +18076,7 @@ const materialAnisotropyVector = /*@__PURE__*/ uniform$1( new Vector2() ).onRefe
  * @tsl
  * @type {VaryingNode<vec4>}
  */
-const modelViewProjection = /*@__PURE__*/ ( Fn$1( ( builder ) => {
+const modelViewProjection$1 = /*@__PURE__*/ ( Fn$1( ( builder ) => {
 
 	return builder.context.setupModelViewProjection();
 
@@ -18740,7 +18740,7 @@ class StorageBufferNode extends BufferNode {
 		if ( this._attribute === null ) {
 
 			this._attribute = bufferAttribute( this.value );
-			this._varying = varying( this._attribute );
+			this._varying = varying$1( this._attribute );
 
 		}
 
@@ -18933,7 +18933,7 @@ function getPreviousInstance( instancedMesh, instanceMatrix, builder ) {
  *
  * @type {VaryingNode<vec3>}
  */
-const instanceColor = /*@__PURE__*/ varyingProperty( 'vec3', 'vInstanceColor' );
+const instanceColor = /*@__PURE__*/ varyingProperty$1( 'vec3', 'vInstanceColor' );
 
 /**
  * TSL function representing the standard instancing vertex shader setup.
@@ -19183,14 +19183,14 @@ function getPreviousNode( batchMesh, id ) {
  *
  * @type {VaryingNode<vec4>}
  */
-const batchColor = /*@__PURE__*/ varyingProperty( 'vec4', 'vBatchColor' );
+const batchColor = /*@__PURE__*/ varyingProperty$1( 'vec4', 'vBatchColor' );
 
 /**
  * TSL object representing a varying property for the batch indirect index (instance ID).
  *
  * @type {VaryingNode<uint>}
  */
-const batchIndirectIndex = /*@__PURE__*/ varyingProperty( 'uint', 'vBatchIndirectId' );
+const batchIndirectIndex = /*@__PURE__*/ varyingProperty$1( 'uint', 'vBatchIndirectId' );
 
 /**
  * TSL function representing the vertex shader batching setup.
@@ -19350,7 +19350,7 @@ function getSkinnedPosition( boneMatrices, position, bindMatrix, bindMatrixInver
 
 	const skinVertex = bindMatrix.mul( position );
 
-	const skinned = add(
+	const skinned = add$1(
 		boneMatX.mul( skinWeight.x ).mul( skinVertex ),
 		boneMatY.mul( skinWeight.y ).mul( skinVertex ),
 		boneMatZ.mul( skinWeight.z ).mul( skinVertex ),
@@ -19382,7 +19382,7 @@ function getSkinnedNormalAndTangent( boneMatrices, normal, tangent, bindMatrix, 
 
 	// NORMAL and TANGENT
 
-	let skinMatrix = add(
+	let skinMatrix = add$1(
 		skinWeight.x.mul( boneMatX ),
 		skinWeight.y.mul( boneMatY ),
 		skinWeight.z.mul( boneMatZ ),
@@ -19967,7 +19967,7 @@ const Continue = () => expression( 'continue' ).toStack();
  * @function
  * @returns {ExpressionNode}
  */
-const Break = () => expression( 'break' ).toStack();
+const Break$1 = () => expression( 'break' ).toStack();
 
 /**
  * The parameters of a loop. A number or int/uint node defines the loop's end value,
@@ -20811,7 +20811,7 @@ class ViewportDepthTextureNode extends ViewportTextureNode {
  * @param {?DepthTexture} [depthTexture=null] - A depth texture. If not provided, a depth texture is created automatically.
  * @returns {ViewportDepthTextureNode}
  */
-const viewportDepthTexture = /*@__PURE__*/ nodeProxy( ViewportDepthTextureNode ).setParameterLength( 0, 3 );
+const viewportDepthTexture$1 = /*@__PURE__*/ nodeProxy( ViewportDepthTextureNode ).setParameterLength( 0, 3 );
 
 /**
  * This node offers a collection of features in context of the depth logic in the fragment shader.
@@ -20903,11 +20903,11 @@ class ViewportDepthNode extends Node {
 
 			if ( camera.isPerspectiveCamera ) {
 
-				node = viewZToPerspectiveDepth$1( positionView.z, cameraNear, cameraFar );
+				node = viewZToPerspectiveDepth$1( positionView.z, cameraNear$1, cameraFar$1 );
 
 			} else {
 
-				node = viewZToOrthographicDepth( positionView.z, cameraNear, cameraFar );
+				node = viewZToOrthographicDepth( positionView.z, cameraNear$1, cameraFar$1 );
 
 			}
 
@@ -20917,9 +20917,9 @@ class ViewportDepthNode extends Node {
 
 				if ( camera.isPerspectiveCamera ) {
 
-					const viewZ = perspectiveDepthToViewZ( value, cameraNear, cameraFar );
+					const viewZ = perspectiveDepthToViewZ$1( value, cameraNear$1, cameraFar$1 );
 
-					node = viewZToOrthographicDepth( viewZ, cameraNear, cameraFar );
+					node = viewZToOrthographicDepth( viewZ, cameraNear$1, cameraFar$1 );
 
 				} else {
 
@@ -20929,7 +20929,7 @@ class ViewportDepthNode extends Node {
 
 			} else {
 
-				node = viewZToOrthographicDepth( positionView.z, cameraNear, cameraFar );
+				node = viewZToOrthographicDepth( positionView.z, cameraNear$1, cameraFar$1 );
 
 			}
 
@@ -20981,7 +20981,7 @@ const viewZToReversedOrthographicDepth = ( viewZ, near, far ) => viewZ.add( far 
  * @param {Node<float>} far - The camera's far value.
  * @returns {Node<float>}
  */
-const orthographicDepthToViewZ = /*@__PURE__*/ Fn$1( ( [ depth, near, far ], builder ) => {
+const orthographicDepthToViewZ$1 = /*@__PURE__*/ Fn$1( ( [ depth, near, far ], builder ) => {
 
 	if ( builder.renderer.reversedDepthBuffer === true ) {
 
@@ -21031,7 +21031,7 @@ const viewZToReversedPerspectiveDepth = ( viewZ, near, far ) => near.mul( viewZ.
  * @param {Node<float>} far - The camera's far value.
  * @returns {Node<float>}
  */
-const perspectiveDepthToViewZ = /*@__PURE__*/ Fn$1( ( [ depth, near, far ], builder ) => {
+const perspectiveDepthToViewZ$1 = /*@__PURE__*/ Fn$1( ( [ depth, near, far ], builder ) => {
 
 	if ( builder.renderer.reversedDepthBuffer === true ) {
 
@@ -21144,7 +21144,7 @@ const linearDepth = /*@__PURE__*/ nodeProxy( ViewportDepthNode, ViewportDepthNod
  * @tsl
  * @type {ViewportDepthNode}
  */
-const viewportLinearDepth = /*@__PURE__*/ linearDepth( viewportDepthTexture() );
+const viewportLinearDepth = /*@__PURE__*/ linearDepth( viewportDepthTexture$1() );
 
 depth.assign = ( value ) => depthBase( value );
 
@@ -21243,7 +21243,7 @@ class ClippingNode extends Node {
 					distanceToPlane.assign( positionView.dot( plane.xyz ).negate().add( plane.w ) );
 					distanceGradient.assign( distanceToPlane.fwidth().div( 2.0 ) );
 
-					clipOpacity.mulAssign( smoothstep( distanceGradient.negate(), distanceGradient, distanceToPlane ) );
+					clipOpacity.mulAssign( smoothstep$1( distanceGradient.negate(), distanceGradient, distanceToPlane ) );
 
 				} );
 
@@ -21263,7 +21263,7 @@ class ClippingNode extends Node {
 					distanceToPlane.assign( positionView.dot( plane.xyz ).negate().add( plane.w ) );
 					distanceGradient.assign( distanceToPlane.fwidth().div( 2.0 ) );
 
-					intersectionClipOpacity.mulAssign( smoothstep( distanceGradient.negate(), distanceGradient, distanceToPlane ).oneMinus() );
+					intersectionClipOpacity.mulAssign( smoothstep$1( distanceGradient.negate(), distanceGradient, distanceToPlane ).oneMinus() );
 
 				} );
 
@@ -21271,9 +21271,9 @@ class ClippingNode extends Node {
 
 			}
 
-			diffuseColor.a.mulAssign( clipOpacity );
+			diffuseColor$1.a.mulAssign( clipOpacity );
 
-			diffuseColor.a.equal( 0.0 ).discard();
+			diffuseColor$1.a.equal( 0.0 ).discard();
 
 		} )();
 
@@ -21397,7 +21397,7 @@ const ALPHA_HASH_SCALE = 0.05; // Derived from trials only, and may be changed.
 
 const hash2D = /*@__PURE__*/ Fn$1( ( [ value ] ) => {
 
-	return fract( mul( 1.0e4, sin$1( mul( 17.0, value.x ).add( mul( 0.1, value.y ) ) ) ).mul( add( 0.1, abs$1( sin$1( mul( 13.0, value.y ).add( value.x ) ) ) ) ) );
+	return fract$1( mul$1( 1.0e4, sin$1( mul$1( 17.0, value.x ).add( mul$1( 0.1, value.y ) ) ) ).mul( add$1( 0.1, abs$1( sin$1( mul$1( 13.0, value.y ).add( value.x ) ) ) ) ) );
 
 } );
 
@@ -21411,36 +21411,36 @@ const getAlphaHashThreshold = /*@__PURE__*/ Fn$1( ( [ position ] ) => {
 
 	// Find the discretized derivatives of our coordinates
 	const maxDeriv = max$1(
-		length( dFdx( position.xyz ) ),
-		length( dFdy( position.xyz ) )
+		length$1( dFdx( position.xyz ) ),
+		length$1( dFdy( position.xyz ) )
 	);
 
 	const pixScale = float$1( 1 ).div( float$1( ALPHA_HASH_SCALE ).mul( maxDeriv ) ).toVar( 'pixScale' );
 
 	// Find two nearest log-discretized noise scales
 	const pixScales = vec2$1(
-		exp2( floor( log2( pixScale ) ) ),
+		exp2( floor$1( log2( pixScale ) ) ),
 		exp2( ceil( log2( pixScale ) ) )
 	);
 
 	// Compute alpha thresholds at our two noise scales
 	const alpha = vec2$1(
-		hash3D( floor( pixScales.x.mul( position.xyz ) ) ),
-		hash3D( floor( pixScales.y.mul( position.xyz ) ) ),
+		hash3D( floor$1( pixScales.x.mul( position.xyz ) ) ),
+		hash3D( floor$1( pixScales.y.mul( position.xyz ) ) ),
 	);
 
 	// Factor to interpolate lerp with
-	const lerpFactor = fract( log2( pixScale ) );
+	const lerpFactor = fract$1( log2( pixScale ) );
 
 	// Interpolate alpha threshold from noise at two scales
-	const x = add( mul( lerpFactor.oneMinus(), alpha.x ), mul( lerpFactor, alpha.y ) );
+	const x = add$1( mul$1( lerpFactor.oneMinus(), alpha.x ), mul$1( lerpFactor, alpha.y ) );
 
 	// Pass into CDF to compute uniformly distrib threshold
 	const a = min$1( lerpFactor, lerpFactor.oneMinus() );
 	const cases = vec3$1(
-		x.mul( x ).div( mul( 2.0, a ).mul( sub( 1.0, a ) ) ),
-		x.sub( mul( 0.5, a ) ).div( sub( 1.0, a ) ),
-		sub( 1.0, sub( 1.0, x ).mul( sub( 1.0, x ) ).div( mul( 2.0, a ).mul( sub( 1.0, a ) ) ) ) );
+		x.mul( x ).div( mul$1( 2.0, a ).mul( sub$1( 1.0, a ) ) ),
+		x.sub( mul$1( 0.5, a ) ).div( sub$1( 1.0, a ) ),
+		sub$1( 1.0, sub$1( 1.0, x ).mul( sub$1( 1.0, x ) ).div( mul$1( 2.0, a ).mul( sub$1( 1.0, a ) ) ) ) );
 
 	// Find our final, uniformly distributed alpha threshold (ατ)
 	const threshold = x.lessThan( a.oneMinus() ).select( x.lessThan( a ).select( cases.x, cases.y ), cases.z );
@@ -22069,7 +22069,7 @@ class NodeMaterial extends Material {
 
 			// force unsigned floats - useful for RenderTargets
 
-			const basicOutput = vec4$1( outgoingLightNode, diffuseColor.a ).max( 0 );
+			const basicOutput = vec4$1( outgoingLightNode, diffuseColor$1.a ).max( 0 );
 
 			resultNode = this.setupOutput( builder, basicOutput );
 
@@ -22229,11 +22229,11 @@ class NodeMaterial extends Material {
 
 				if ( camera.isPerspectiveCamera ) {
 
-					depthNode = viewZToLogarithmicDepth( positionView.z, cameraNear, cameraFar );
+					depthNode = viewZToLogarithmicDepth( positionView.z, cameraNear$1, cameraFar$1 );
 
 				} else {
 
-					depthNode = viewZToOrthographicDepth( positionView.z, cameraNear, cameraFar );
+					depthNode = viewZToOrthographicDepth( positionView.z, cameraNear$1, cameraFar$1 );
 
 				}
 
@@ -22270,7 +22270,7 @@ class NodeMaterial extends Material {
 	 */
 	setupModelViewProjection( /*builder*/ ) {
 
-		return cameraProjectionMatrix.mul( positionView );
+		return cameraProjectionMatrix$1.mul( positionView );
 
 	}
 
@@ -22288,7 +22288,7 @@ class NodeMaterial extends Material {
 
 		builder.context.position = builder.removeStack();
 
-		return modelViewProjection;
+		return modelViewProjection$1;
 
 	}
 
@@ -22393,12 +22393,12 @@ class NodeMaterial extends Material {
 
 		// DIFFUSE COLOR
 
-		diffuseColor.assign( colorNode );
+		diffuseColor$1.assign( colorNode );
 
 		// OPACITY
 
 		const opacityNode = this.opacityNode ? float$1( this.opacityNode ) : materialOpacity;
-		diffuseColor.a.assign( diffuseColor.a.mul( opacityNode ) );
+		diffuseColor$1.a.assign( diffuseColor$1.a.mul( opacityNode ) );
 
 		// ALPHA TEST
 
@@ -22410,12 +22410,12 @@ class NodeMaterial extends Material {
 
 			if ( this.alphaToCoverage === true ) {
 
-				diffuseColor.a = smoothstep( alphaTestNode, alphaTestNode.add( fwidth( diffuseColor.a ) ), diffuseColor.a );
-				diffuseColor.a.lessThanEqual( 0 ).discard();
+				diffuseColor$1.a = smoothstep$1( alphaTestNode, alphaTestNode.add( fwidth( diffuseColor$1.a ) ), diffuseColor$1.a );
+				diffuseColor$1.a.lessThanEqual( 0 ).discard();
 
 			} else {
 
-				diffuseColor.a.lessThanEqual( alphaTestNode ).discard();
+				diffuseColor$1.a.lessThanEqual( alphaTestNode ).discard();
 
 			}
 
@@ -22425,7 +22425,7 @@ class NodeMaterial extends Material {
 
 		if ( this.alphaHash === true ) {
 
-			diffuseColor.a.lessThan( getAlphaHashThreshold( positionLocal ) ).discard();
+			diffuseColor$1.a.lessThan( getAlphaHashThreshold( positionLocal ) ).discard();
 
 		}
 
@@ -22433,7 +22433,7 @@ class NodeMaterial extends Material {
 
 		if ( builder.isOpaque() ) {
 
-			diffuseColor.a.assign( 1.0 );
+			diffuseColor$1.a.assign( 1.0 );
 
 		}
 
@@ -22459,7 +22459,7 @@ class NodeMaterial extends Material {
 	 */
 	setupOutgoingLight() {
 
-		return ( this.lights === true ) ? vec3$1( 0 ) : diffuseColor.rgb;
+		return ( this.lights === true ) ? vec3$1( 0 ) : diffuseColor$1.rgb;
 
 	}
 
@@ -23067,7 +23067,7 @@ class LineDashedNodeMaterial extends NodeMaterial {
 		dashSize.assign( dashSizeNode );
 		gapSize.assign( gapSizeNode );
 
-		const vLineDistance = varying( attribute$1( 'lineDistance' ).mul( dashScaleNode ) );
+		const vLineDistance = varying$1( attribute$1( 'lineDistance' ).mul( dashScaleNode ) );
 		const vLineDistanceOffset = offsetNode ? vLineDistance.add( offsetNode ) : vLineDistance;
 
 		vLineDistanceOffset.mod( dashSize.add( gapSize ) ).greaterThan( dashSize ).discard();
@@ -23083,28 +23083,28 @@ const _defaultValues$b = /*@__PURE__*/ new LineDashedMaterial();
  * Used for distance and coordinate calculations across the fragment shader.
  * @type {VaryingNode<vec3>}
  */
-const worldStart = varyingProperty( 'vec3', 'worldStart' );
+const worldStart = varyingProperty$1( 'vec3', 'worldStart' );
 
 /**
  * Varying node representing the world position of the segment end in view space.
  * Used for distance and coordinate calculations across the fragment shader.
  * @type {VaryingNode<vec3>}
  */
-const worldEnd = varyingProperty( 'vec3', 'worldEnd' );
+const worldEnd = varyingProperty$1( 'vec3', 'worldEnd' );
 
 /**
  * Varying node representing the accumulated distance along the line.
  * Crucial for correctly computing dashed line intervals in fragment stage.
  * @type {VaryingNode<float>}
  */
-const lineDistance = varyingProperty( 'float', 'lineDistance' );
+const lineDistance = varyingProperty$1( 'float', 'lineDistance' );
 
 /**
  * Varying node representing the interpolated world/view position of the current fragment.
  * Used for line/ray distance checks under perspective projection.
  * @type {VaryingNode<vec4>}
  */
-const worldPos = varyingProperty( 'vec4', 'worldPos' );
+const worldPos = varyingProperty$1( 'vec4', 'worldPos' );
 
 /**
  * Trims the line segment to avoid rendering behind the camera near plane.
@@ -23117,8 +23117,8 @@ const worldPos = varyingProperty( 'vec4', 'worldPos' );
  */
 const trimSegmentAlpha = Fn$1( ( { start, end } ) => {
 
-	const a = cameraProjectionMatrix.element( 2 ).element( 2 ); // 3nd entry in 3th column
-	const b = cameraProjectionMatrix.element( 3 ).element( 2 ); // 3nd entry in 4th column
+	const a = cameraProjectionMatrix$1.element( 2 ).element( 2 ); // 3nd entry in 3th column
+	const b = cameraProjectionMatrix$1.element( 3 ).element( 2 ); // 3nd entry in 4th column
 
 	// we need different nearEstimate formula for reversed and default depth buffer
 	// a is positive with a reversed depth buffer so it can be used for controlling the code flow
@@ -23206,7 +23206,7 @@ const mvpLine = Fn$1( ( { material } ) => {
 	// but we need to perform ndc-space calculations in the shader, so we must address this issue directly
 	// perhaps there is a more elegant solution -- WestLangley
 
-	const perspective = cameraProjectionMatrix.element( 2 ).element( 3 ).equal( -1 ); // 4th entry in the 3rd column
+	const perspective = cameraProjectionMatrix$1.element( 2 ).element( 3 ).equal( -1 ); // 4th entry in the 3rd column
 
 	If$1( perspective, () => {
 
@@ -23241,7 +23241,7 @@ const mvpLine = Fn$1( ( { material } ) => {
 		const dashScaleNode = material.dashScaleNode ? float$1( material.dashScaleNode ) : materialLineScale;
 		const offsetNode = material.offsetNode ? float$1( material.offsetNode ) : materialLineDashOffset;
 
-		let lineDist = positionGeometry.y.lessThan( 0.5 ).select( dashScaleNode.mul( distanceStart ), dashScaleNode.mul( distanceEnd ) );
+		let lineDist = positionGeometry$1.y.lessThan( 0.5 ).select( dashScaleNode.mul( distanceStart ), dashScaleNode.mul( distanceEnd ) );
 		lineDist = lineDist.add( offsetNode );
 
 		lineDistance.assign( lineDist );
@@ -23249,8 +23249,8 @@ const mvpLine = Fn$1( ( { material } ) => {
 	}
 
 	// clip space
-	const clipStart = cameraProjectionMatrix.mul( start );
-	const clipEnd = cameraProjectionMatrix.mul( end );
+	const clipStart = cameraProjectionMatrix$1.mul( start );
+	const clipEnd = cameraProjectionMatrix$1.mul( end );
 
 	// ndc space
 	const ndcStart = clipStart.xyz.div( clipStart.w );
@@ -23274,24 +23274,24 @@ const mvpLine = Fn$1( ( { material } ) => {
 		const worldUp = worldDir.cross( tmpFwd ).normalize();
 		const worldFwd = worldDir.cross( worldUp );
 
-		worldPos.assign( positionGeometry.y.lessThan( 0.5 ).select( start, end ) );
+		worldPos.assign( positionGeometry$1.y.lessThan( 0.5 ).select( start, end ) );
 
 		// height offset
 		const hw = materialLineWidth.mul( 0.5 );
-		worldPos.addAssign( vec4$1( positionGeometry.x.lessThan( 0.0 ).select( worldUp.mul( hw ), worldUp.mul( hw ).negate() ), 0 ) );
+		worldPos.addAssign( vec4$1( positionGeometry$1.x.lessThan( 0.0 ).select( worldUp.mul( hw ), worldUp.mul( hw ).negate() ), 0 ) );
 
 		// don't extend the line if we're rendering dashes because we
 		// won't be rendering the endcaps
 		if ( ! useDash ) {
 
 			// cap extension
-			worldPos.addAssign( vec4$1( positionGeometry.y.lessThan( 0.5 ).select( worldDir.mul( hw ).negate(), worldDir.mul( hw ) ), 0 ) );
+			worldPos.addAssign( vec4$1( positionGeometry$1.y.lessThan( 0.5 ).select( worldDir.mul( hw ).negate(), worldDir.mul( hw ) ), 0 ) );
 
 			// add width to the box
 			worldPos.addAssign( vec4$1( worldFwd.mul( hw ), 0 ) );
 
 			// endcaps
-			If$1( positionGeometry.y.greaterThan( 1.0 ).or( positionGeometry.y.lessThan( 0.0 ) ), () => {
+			If$1( positionGeometry$1.y.greaterThan( 1.0 ).or( positionGeometry$1.y.lessThan( 0.0 ) ), () => {
 
 				worldPos.subAssign( vec4$1( worldFwd.mul( 2.0 ).mul( hw ), 0 ) );
 
@@ -23300,13 +23300,13 @@ const mvpLine = Fn$1( ( { material } ) => {
 		}
 
 		// project the worldpos
-		clip.assign( cameraProjectionMatrix.mul( worldPos ) );
+		clip.assign( cameraProjectionMatrix$1.mul( worldPos ) );
 
 		// shift the depth of the projected points so the line
 		// segments overlap neatly
 		const clipPose = vec3$1().toVar();
 
-		clipPose.assign( positionGeometry.y.lessThan( 0.5 ).select( ndcStart, ndcEnd ) );
+		clipPose.assign( positionGeometry$1.y.lessThan( 0.5 ).select( ndcStart, ndcEnd ) );
 		clip.z.assign( clipPose.z.mul( clip.w ) );
 
 	} else {
@@ -23318,14 +23318,14 @@ const mvpLine = Fn$1( ( { material } ) => {
 		offset.x.assign( offset.x.div( aspect ) );
 
 		// sign flip
-		offset.assign( positionGeometry.x.lessThan( 0.0 ).select( offset.negate(), offset ) );
+		offset.assign( positionGeometry$1.x.lessThan( 0.0 ).select( offset.negate(), offset ) );
 
 		// endcaps
-		If$1( positionGeometry.y.lessThan( 0.0 ), () => {
+		If$1( positionGeometry$1.y.lessThan( 0.0 ), () => {
 
 			offset.assign( offset.sub( dir ) );
 
-		} ).ElseIf( positionGeometry.y.greaterThan( 1.0 ), () => {
+		} ).ElseIf( positionGeometry$1.y.greaterThan( 1.0 ), () => {
 
 			offset.assign( offset.add( dir ) );
 
@@ -23338,7 +23338,7 @@ const mvpLine = Fn$1( ( { material } ) => {
 		offset.assign( offset.div( viewport.w.div( screenDPR ) ) );
 
 		// select end
-		clip.assign( positionGeometry.y.lessThan( 0.5 ).select( clipStart, clipEnd ) );
+		clip.assign( positionGeometry$1.y.lessThan( 0.5 ).select( clipStart, clipEnd ) );
 
 		// back to clip space
 		offset.assign( offset.mul( clip.w ) );
@@ -23399,7 +23399,7 @@ const alphaLine = Fn$1( ( { material, renderer } ) => {
 			if ( useAlphaToCoverage && renderer.currentSamples > 0 ) {
 
 				const dnorm = norm.fwidth();
-				alpha.assign( smoothstep( dnorm.negate().add( 0.5 ), dnorm.add( 0.5 ), norm ).oneMinus() );
+				alpha.assign( smoothstep$1( dnorm.negate().add( 0.5 ), dnorm.add( 0.5 ), norm ).oneMinus() );
 
 			} else {
 
@@ -23424,7 +23424,7 @@ const alphaLine = Fn$1( ( { material, renderer } ) => {
 
 			If$1( vUv.y.abs().greaterThan( 1.0 ), () => {
 
-				alpha.assign( smoothstep( dlen.oneMinus(), dlen.add( 1 ), len2 ).oneMinus() );
+				alpha.assign( smoothstep$1( dlen.oneMinus(), dlen.add( 1 ), len2 ).oneMinus() );
 
 			} );
 
@@ -23557,22 +23557,22 @@ class Line2NodeMaterial extends NodeMaterial {
 
 		super.setupDiffuseColor( builder );
 
-		diffuseColor.a.mulAssign( alphaLine );
+		diffuseColor$1.a.mulAssign( alphaLine );
 
 		if ( this.vertexColors === true && builder.geometry.hasAttribute( 'instanceColorStart' ) ) {
 
 			const instanceColorStart = attribute$1( 'instanceColorStart' );
 			const instanceColorEnd = attribute$1( 'instanceColorEnd' );
 
-			const instanceColor = positionGeometry.y.lessThan( 0.5 ).select( instanceColorStart, instanceColorEnd );
+			const instanceColor = positionGeometry$1.y.lessThan( 0.5 ).select( instanceColorStart, instanceColorEnd );
 
-			diffuseColor.rgb.mulAssign( instanceColor );
+			diffuseColor$1.rgb.mulAssign( instanceColor );
 
 		}
 
 		if ( this.transparent ) {
 
-			diffuseColor.rgb.assign( diffuseColor.rgb.mul( diffuseColor.a ).add( viewportOpaqueMipTexture().rgb.mul( diffuseColor.a.oneMinus() ) ) );
+			diffuseColor$1.rgb.assign( diffuseColor$1.rgb.mul( diffuseColor$1.a ).add( viewportOpaqueMipTexture().rgb.mul( diffuseColor$1.a.oneMinus() ) ) );
 
 		}
 
@@ -23741,7 +23741,7 @@ class MeshNormalNodeMaterial extends NodeMaterial {
 
 		// By convention, a normal packed to RGB is in sRGB color space. Convert it to working color space.
 
-		diffuseColor.assign( colorSpaceToWorking( vec4$1( packNormalToRGB( normalView$1 ), opacityNode ), SRGBColorSpace ) );
+		diffuseColor$1.assign( colorSpaceToWorking( vec4$1( packNormalToRGB( normalView$1 ), opacityNode ), SRGBColorSpace ) );
 
 	}
 
@@ -24370,7 +24370,7 @@ class BasicLightingModel extends LightingModel {
 
 		reflectedLight.indirectDiffuse.mulAssign( ambientOcclusion );
 
-		reflectedLight.indirectDiffuse.mulAssign( diffuseColor.rgb );
+		reflectedLight.indirectDiffuse.mulAssign( diffuseColor$1.rgb );
 
 	}
 
@@ -24519,7 +24519,7 @@ class MeshBasicNodeMaterial extends NodeMaterial {
 	 */
 	setupOutgoingLight() {
 
-		return diffuseColor.rgb;
+		return diffuseColor$1.rgb;
 
 	}
 
@@ -24617,7 +24617,7 @@ class PhongLightingModel extends BasicLightingModel {
 		const dotNL = normalView$1.dot( lightDirection ).clamp();
 		const irradiance = dotNL.mul( lightColor );
 
-		reflectedLight.directDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor: diffuseColor.rgb } ) ) );
+		reflectedLight.directDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor: diffuseColor$1.rgb } ) ) );
 
 		if ( this.specular === true ) {
 
@@ -24636,7 +24636,7 @@ class PhongLightingModel extends BasicLightingModel {
 
 		const { ambientOcclusion, irradiance, reflectedLight } = builder.context;
 
-		reflectedLight.indirectDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor } ) ) );
+		reflectedLight.indirectDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor: diffuseColor$1 } ) ) );
 
 		reflectedLight.indirectDiffuse.mulAssign( ambientOcclusion );
 
@@ -25308,30 +25308,30 @@ const LTC_Evaluate_Volume = /*@__PURE__*/ Fn$1( ( { P, p0, p1, p2, p3 } ) => {
 
 const bC = 1.0 / 6.0;
 
-const w0 = ( a ) => mul( bC, mul( a, mul( a, a.negate().add( 3.0 ) ).sub( 3.0 ) ).add( 1.0 ) );
+const w0 = ( a ) => mul$1( bC, mul$1( a, mul$1( a, a.negate().add( 3.0 ) ).sub( 3.0 ) ).add( 1.0 ) );
 
-const w1 = ( a ) => mul( bC, mul( a, mul( a, mul( 3.0, a ).sub( 6.0 ) ) ).add( 4.0 ) );
+const w1 = ( a ) => mul$1( bC, mul$1( a, mul$1( a, mul$1( 3.0, a ).sub( 6.0 ) ) ).add( 4.0 ) );
 
-const w2 = ( a ) => mul( bC, mul( a, mul( a, mul( -3, a ).add( 3.0 ) ).add( 3.0 ) ).add( 1.0 ) );
+const w2 = ( a ) => mul$1( bC, mul$1( a, mul$1( a, mul$1( -3, a ).add( 3.0 ) ).add( 3.0 ) ).add( 1.0 ) );
 
-const w3 = ( a ) => mul( bC, pow$1( a, 3 ) );
+const w3 = ( a ) => mul$1( bC, pow$1( a, 3 ) );
 
 const g0 = ( a ) => w0( a ).add( w1( a ) );
 
 const g1 = ( a ) => w2( a ).add( w3( a ) );
 
 // h0 and h1 are the two offset functions
-const h0 = ( a ) => add( -1, w1( a ).div( w0( a ).add( w1( a ) ) ) );
+const h0 = ( a ) => add$1( -1, w1( a ).div( w0( a ).add( w1( a ) ) ) );
 
-const h1 = ( a ) => add( 1.0, w3( a ).div( w2( a ).add( w3( a ) ) ) );
+const h1 = ( a ) => add$1( 1.0, w3( a ).div( w2( a ).add( w3( a ) ) ) );
 
 const bicubic = ( textureNode, texelSize, lod ) => {
 
 	const uv = textureNode.uvNode;
-	const uvScaled = mul( uv, texelSize.zw ).add( 0.5 );
+	const uvScaled = mul$1( uv, texelSize.zw ).add( 0.5 );
 
-	const iuv = floor( uvScaled );
-	const fuv = fract( uvScaled );
+	const iuv = floor$1( uvScaled );
+	const fuv = fract$1( uvScaled );
 
 	const g0x = g0( fuv.x );
 	const g1x = g1( fuv.x );
@@ -25345,8 +25345,8 @@ const bicubic = ( textureNode, texelSize, lod ) => {
 	const p2 = vec2$1( iuv.x.add( h0x ), iuv.y.add( h1y ) ).sub( 0.5 ).mul( texelSize.xy );
 	const p3 = vec2$1( iuv.x.add( h1x ), iuv.y.add( h1y ) ).sub( 0.5 ).mul( texelSize.xy );
 
-	const a = g0( fuv.y ).mul( add( g0x.mul( textureNode.sample( p0 ).level( lod ) ), g1x.mul( textureNode.sample( p1 ).level( lod ) ) ) );
-	const b = g1( fuv.y ).mul( add( g0x.mul( textureNode.sample( p2 ).level( lod ) ), g1x.mul( textureNode.sample( p3 ).level( lod ) ) ) );
+	const a = g0( fuv.y ).mul( add$1( g0x.mul( textureNode.sample( p0 ).level( lod ) ), g1x.mul( textureNode.sample( p1 ).level( lod ) ) ) );
+	const b = g1( fuv.y ).mul( add$1( g0x.mul( textureNode.sample( p2 ).level( lod ) ), g1x.mul( textureNode.sample( p3 ).level( lod ) ) ) );
 
 	return a.add( b );
 
@@ -25367,10 +25367,10 @@ const textureBicubicLevel = /*@__PURE__*/ Fn$1( ( [ textureNode, lodNode ] ) => 
 	const cLodSize = vec2$1( textureNode.size( int$1( lodNode.add( 1.0 ) ) ) );
 	const fLodSizeInv = div( 1.0, fLodSize );
 	const cLodSizeInv = div( 1.0, cLodSize );
-	const fSample = bicubic( textureNode, vec4$1( fLodSizeInv, fLodSize ), floor( lodNode ) );
+	const fSample = bicubic( textureNode, vec4$1( fLodSizeInv, fLodSize ), floor$1( lodNode ) );
 	const cSample = bicubic( textureNode, vec4$1( cLodSizeInv, cLodSize ), ceil( lodNode ) );
 
-	return fract( lodNode ).mix( fSample, cSample );
+	return fract$1( lodNode ).mix( fSample, cSample );
 
 } );
 
@@ -25402,9 +25402,9 @@ const getVolumeTransmissionRay = /*@__PURE__*/ Fn$1( ( [ n, v, thickness, ior, m
 
 	// Compute rotation-independent scaling of the model matrix.
 	const modelScale = vec3$1(
-		length( modelMatrix[ 0 ].xyz ),
-		length( modelMatrix[ 1 ].xyz ),
-		length( modelMatrix[ 2 ].xyz )
+		length$1( modelMatrix[ 0 ].xyz ),
+		length$1( modelMatrix[ 1 ].xyz ),
+		length$1( modelMatrix[ 2 ].xyz )
 	);
 
 	// The thickness is specified in local space.
@@ -25459,7 +25459,7 @@ const volumeAttenuation = /*@__PURE__*/ Fn$1( ( [ transmissionDistance, attenuat
 
 		// Compute light attenuation using Beer's law.
 		const attenuationCoefficient = log( attenuationColor ).negate().div( attenuationDistance );
-		const transmittance = exp( attenuationCoefficient.negate().mul( transmissionDistance ) );
+		const transmittance = exp$1( attenuationCoefficient.negate().mul( transmissionDistance ) );
 
 		return transmittance;
 
@@ -25510,7 +25510,7 @@ const getIBLVolumeRefraction = /*@__PURE__*/ Fn$1( ( [ n, v, roughness, diffuseC
 			transmittedLight.element( i ).assign( transmissionSample.element( i ) );
 			transmittedLight.a.addAssign( transmissionSample.a );
 
-			transmittance.element( i ).assign( diffuseColor.element( i ).mul( volumeAttenuation( length( transmissionRay ), attenuationColor, attenuationDistance ).element( i ) ) );
+			transmittance.element( i ).assign( diffuseColor.element( i ).mul( volumeAttenuation( length$1( transmissionRay ), attenuationColor, attenuationDistance ).element( i ) ) );
 
 		} );
 
@@ -25530,7 +25530,7 @@ const getIBLVolumeRefraction = /*@__PURE__*/ Fn$1( ( [ n, v, roughness, diffuseC
 
 		// Sample framebuffer to get pixel the refracted ray hits.
 		transmittedLight = getTransmissionSample( refractionCoords, roughness, ior );
-		transmittance = diffuseColor.mul( volumeAttenuation( length( transmissionRay ), attenuationColor, attenuationDistance ) );
+		transmittance = diffuseColor.mul( volumeAttenuation( length$1( transmissionRay ), attenuationColor, attenuationDistance ) );
 
 	}
 
@@ -25604,7 +25604,7 @@ const evalSensitivity = ( OPD, shift ) => {
 const evalIridescence = /*@__PURE__*/ Fn$1( ( { outsideIOR, eta2, cosTheta1, thinFilmThickness, baseF0 } ) => {
 
 	// Force iridescenceIOR -> outsideIOR when thinFilmThickness -> 0.0
-	const iridescenceIOR = mix$1( outsideIOR, eta2, smoothstep( 0.0, 0.03, thinFilmThickness ) );
+	const iridescenceIOR = mix$1( outsideIOR, eta2, smoothstep$1( 0.0, 0.03, thinFilmThickness ) );
 	// Evaluate the cosTheta on the base layer (Snell law)
 	const sinTheta2Sq = outsideIOR.div( iridescenceIOR ).pow2().mul( cosTheta1.pow2().oneMinus() );
 
@@ -25901,7 +25901,7 @@ class PhysicalLightingModel extends LightingModel {
 				eta2: iridescenceIOR,
 				cosTheta1: dotNVi,
 				thinFilmThickness: iridescenceThickness,
-				baseF0: diffuseColor.rgb
+				baseF0: diffuseColor$1.rgb
 			} );
 
 			this.iridescenceFresnel = mix$1( iridescenceFresnelDielectric, iridescenceFresnelMetallic, metalness );
@@ -25913,8 +25913,8 @@ class PhysicalLightingModel extends LightingModel {
 
 		if ( this.transmission === true ) {
 
-			const position = positionWorld;
-			const v = cameraPosition.sub( positionWorld ).normalize(); // TODO: Create Node for this, same issue in MaterialX
+			const position = positionWorld$1;
+			const v = cameraPosition$1.sub( positionWorld$1 ).normalize(); // TODO: Create Node for this, same issue in MaterialX
 			const n = normalWorld;
 
 			const context = builder.context;
@@ -25929,7 +25929,7 @@ class PhysicalLightingModel extends LightingModel {
 				position, // positionWorld
 				modelWorldMatrix, // modelMatrix
 				cameraViewMatrix, // viewMatrix
-				cameraProjectionMatrix, // projMatrix
+				cameraProjectionMatrix$1, // projMatrix
 				ior,
 				thickness,
 				attenuationColor,
@@ -25939,7 +25939,7 @@ class PhysicalLightingModel extends LightingModel {
 
 			context.backdropAlpha = transmission;
 
-			diffuseColor.a.mulAssign( mix$1( 1, context.backdrop.a, transmission ) );
+			diffuseColor$1.a.mulAssign( mix$1( 1, context.backdrop.a, transmission ) );
 
 		}
 
@@ -26200,7 +26200,7 @@ class PhysicalLightingModel extends LightingModel {
 		const multiScatteringMetallic = vec3$1().toVar( 'multiScatteringMetallic' );
 
 		this.computeMultiscattering( singleScatteringDielectric, multiScatteringDielectric, specularF90, specularColor, this.iridescenceF0Dielectric );
-		this.computeMultiscattering( singleScatteringMetallic, multiScatteringMetallic, specularF90, diffuseColor.rgb, this.iridescenceF0Metallic );
+		this.computeMultiscattering( singleScatteringMetallic, multiScatteringMetallic, specularF90, diffuseColor$1.rgb, this.iridescenceF0Metallic );
 
 		// Mix based on metalness
 		const singleScattering = mix$1( singleScatteringDielectric, singleScatteringMetallic, metalness );
@@ -26334,11 +26334,11 @@ const getFace = /*@__PURE__*/ Fn$1( ( [ direction ] ) => {
 
 		If$1( absDirection.x.greaterThan( absDirection.y ), () => {
 
-			face.assign( select( direction.x.greaterThan( 0.0 ), 0.0, 3.0 ) );
+			face.assign( select$1( direction.x.greaterThan( 0.0 ), 0.0, 3.0 ) );
 
 		} ).Else( () => {
 
-			face.assign( select( direction.y.greaterThan( 0.0 ), 1.0, 4.0 ) );
+			face.assign( select$1( direction.y.greaterThan( 0.0 ), 1.0, 4.0 ) );
 
 		} );
 
@@ -26346,11 +26346,11 @@ const getFace = /*@__PURE__*/ Fn$1( ( [ direction ] ) => {
 
 		If$1( absDirection.z.greaterThan( absDirection.y ), () => {
 
-			face.assign( select( direction.z.greaterThan( 0.0 ), 2.0, 5.0 ) );
+			face.assign( select$1( direction.z.greaterThan( 0.0 ), 2.0, 5.0 ) );
 
 		} ).Else( () => {
 
-			face.assign( select( direction.y.greaterThan( 0.0 ), 1.0, 4.0 ) );
+			face.assign( select$1( direction.y.greaterThan( 0.0 ), 1.0, 4.0 ) );
 
 		} );
 
@@ -26397,7 +26397,7 @@ const getUV = /*@__PURE__*/ Fn$1( ( [ direction, face ] ) => {
 
 	} );
 
-	return mul( 0.5, uv.add( 1.0 ) );
+	return mul$1( 0.5, uv.add( 1.0 ) );
 
 } ).setLayout( {
 	name: 'getUV',
@@ -26430,7 +26430,7 @@ const roughnessToMip = /*@__PURE__*/ Fn$1( ( [ roughness ] ) => {
 
 	} ).Else( () => {
 
-		mip.assign( float$1( -2 ).mul( log2( mul( 1.16, roughness ) ) ) ); // 1.16 = 1.79^0.25
+		mip.assign( float$1( -2 ).mul( log2( mul$1( 1.16, roughness ) ) ) ); // 1.16 = 1.79^0.25
 
 	} );
 
@@ -26452,8 +26452,8 @@ const textureCubeUV = /*@__PURE__*/ Fn$1( ( [ envMap, sampleDir_immutable, rough
 	const sampleDir = vec3$1( sampleDir_immutable );
 
 	const mip = clamp$1( roughnessToMip( roughness ), cubeUV_m0, CUBEUV_MAX_MIP );
-	const mipF = fract( mip );
-	const mipInt = floor( mip );
+	const mipF = fract$1( mip );
+	const mipInt = floor$1( mip );
 	const color0 = vec3$1( bilinearCubeUV( envMap, sampleDir, mipInt, CUBEUV_TEXEL_WIDTH, CUBEUV_TEXEL_HEIGHT, CUBEUV_MAX_MIP ) ).toVar();
 
 	If$1( mipF.notEqual( 0.0 ), () => {
@@ -26486,8 +26486,8 @@ const bilinearCubeUV = /*@__PURE__*/ Fn$1( ( [ envMap, direction_immutable, mipI
 	} );
 
 	uv.x.addAssign( face.mul( faceSize ) );
-	uv.x.addAssign( filterInt.mul( mul( 3.0, cubeUV_minTileSize ) ) );
-	uv.y.addAssign( mul( 4.0, exp2( CUBEUV_MAX_MIP ).sub( faceSize ) ) );
+	uv.x.addAssign( filterInt.mul( mul$1( 3.0, cubeUV_minTileSize ) ) );
+	uv.y.addAssign( mul$1( 4.0, exp2( CUBEUV_MAX_MIP ).sub( faceSize ) ) );
 	uv.x.mulAssign( CUBEUV_TEXEL_WIDTH );
 	uv.y.mulAssign( CUBEUV_TEXEL_HEIGHT );
 
@@ -26507,13 +26507,13 @@ const sphericalGaussianBlur = /*@__PURE__*/ Fn$1( ( { SAMPLES, sigma, outputDire
 
 	} ).Else( () => {
 
-		const up = select( abs$1( outputDirection.z ).lessThan( 0.999 ), vec3$1( 0.0, 0.0, 1.0 ), vec3$1( 1.0, 0.0, 0.0 ) );
+		const up = select$1( abs$1( outputDirection.z ).lessThan( 0.999 ), vec3$1( 0.0, 0.0, 1.0 ), vec3$1( 1.0, 0.0, 0.0 ) );
 		const tangent = normalize$1( cross$1( up, outputDirection ) ).toVar();
 		const bitangent = cross$1( outputDirection, tangent ).toVar();
 
 		// Truncate the kernel at three standard deviations or at the antipode.
 		const thetaMax = min$1( sigma.mul( 3.0 ), Math.PI );
-		const truncation = exp( thetaMax.mul( thetaMax ).mul( -0.5 ).div( sigma.mul( sigma ) ) ).oneMinus().toVar();
+		const truncation = exp$1( thetaMax.mul( thetaMax ).mul( -0.5 ).div( sigma.mul( sigma ) ) ).oneMinus().toVar();
 
 		const accumWeight = float$1( 0.0 ).toVar();
 
@@ -26578,10 +26578,10 @@ const importanceSampleGGX_VNDF = /*@__PURE__*/ Fn$1( ( [ Xi, V, roughness ] ) =>
 
 	// Section 4.2: Parameterization of projected area
 	const r = sqrt( Xi.x ).toConst();
-	const phi = mul( 2.0, 3.14159265359 ).mul( Xi.y ).toConst();
+	const phi = mul$1( 2.0, 3.14159265359 ).mul( Xi.y ).toConst();
 	const t1 = r.mul( cos$1( phi ) ).toConst();
 	const t2 = r.mul( sin$1( phi ) ).toVar();
-	const s = mul( 0.5, V.z.add( 1.0 ) ).toConst();
+	const s = mul$1( 0.5, V.z.add( 1.0 ) ).toConst();
 	t2.assign( s.oneMinus().mul( sqrt( t1.mul( t1 ).oneMinus() ) ).add( s.mul( t2 ) ) );
 
 	// Section 4.3: Reprojection onto hemisphere
@@ -26608,7 +26608,7 @@ const ggxConvolution = /*@__PURE__*/ Fn$1( ( { roughness, mipInt, envMap, N_immu
 	} ).Else( () => {
 
 		// Tangent space basis for VNDF sampling
-		const up = select( abs$1( N.z ).lessThan( 0.999 ), vec3$1( 0.0, 0.0, 1.0 ), vec3$1( 1.0, 0.0, 0.0 ) );
+		const up = select$1( abs$1( N.z ).lessThan( 0.999 ), vec3$1( 0.0, 0.0, 1.0 ), vec3$1( 1.0, 0.0, 0.0 ) );
 		const tangent = normalize$1( cross$1( up, N ) ).toVar();
 		const bitangent = cross$1( N, tangent ).toVar();
 
@@ -28311,7 +28311,7 @@ class MeshStandardNodeMaterial extends NodeMaterial {
 	 */
 	setupSpecular() {
 
-		const specularColorNode = mix$1( vec3$1( 0.04 ), diffuseColor.rgb, metalness );
+		const specularColorNode = mix$1( vec3$1( 0.04 ), diffuseColor$1.rgb, metalness );
 
 		specularColor.assign( vec3$1( 0.04 ) );
 		specularColorBlended.assign( specularColorNode );
@@ -28328,13 +28328,13 @@ class MeshStandardNodeMaterial extends NodeMaterial {
 
 		// METALNESS
 
-		const metalnessNode = this.metalnessNode ? float$1( this.metalnessNode ) : materialMetalness;
+		const metalnessNode = this.metalnessNode ? float$1( this.metalnessNode ) : materialMetalness$1;
 
 		metalness.assign( metalnessNode );
 
 		// ROUGHNESS
 
-		let roughnessNode = this.roughnessNode ? float$1( this.roughnessNode ) : materialRoughness;
+		let roughnessNode = this.roughnessNode ? float$1( this.roughnessNode ) : materialRoughness$1;
 		roughnessNode = getRoughness( { roughness: roughnessNode } );
 
 		roughness.assign( roughnessNode );
@@ -28345,7 +28345,7 @@ class MeshStandardNodeMaterial extends NodeMaterial {
 
 		// DIFFUSE COLOR
 
-		diffuseContribution.assign( diffuseColor.rgb.mul( metalnessNode.oneMinus() ) );
+		diffuseContribution.assign( diffuseColor$1.rgb.mul( metalnessNode.oneMinus() ) );
 
 	}
 
@@ -28719,7 +28719,7 @@ class MeshPhysicalNodeMaterial extends MeshStandardNodeMaterial {
 
 		ior.assign( iorNode );
 		specularColor.assign( min$1( pow2( ior.sub( 1.0 ).div( ior.add( 1.0 ) ) ).mul( specularColorNode ), vec3$1( 1.0 ) ).mul( specularIntensityNode ) );
-		specularColorBlended.assign( mix$1( specularColor, diffuseColor.rgb, metalness ) );
+		specularColorBlended.assign( mix$1( specularColor, diffuseColor$1.rgb, metalness ) );
 		specularF90.assign( mix$1( specularIntensityNode, 1.0, metalness ) );
 
 	}
@@ -29037,7 +29037,7 @@ const getGradientIrradiance = /*@__PURE__*/ Fn$1( ( { normal, lightDirection, bu
 
 		const fw = coord.fwidth().mul( 0.5 );
 
-		return mix$1( vec3$1( 0.7 ), vec3$1( 1.0 ), smoothstep( float$1( 0.7 ).sub( fw.x ), float$1( 0.7 ).add( fw.x ), coord.x ) );
+		return mix$1( vec3$1( 0.7 ), vec3$1( 1.0 ), smoothstep$1( float$1( 0.7 ).sub( fw.x ), float$1( 0.7 ).add( fw.x ), coord.x ) );
 
 	}
 
@@ -29061,7 +29061,7 @@ class ToonLightingModel extends LightingModel {
 
 		const irradiance = getGradientIrradiance( { normal: normalView$1, lightDirection, builder } ).mul( lightColor );
 
-		reflectedLight.directDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor: diffuseColor.rgb } ) ) );
+		reflectedLight.directDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor: diffuseColor$1.rgb } ) ) );
 
 	}
 
@@ -29074,7 +29074,7 @@ class ToonLightingModel extends LightingModel {
 
 		const { ambientOcclusion, irradiance, reflectedLight } = builder.context;
 
-		reflectedLight.indirectDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor } ) ) );
+		reflectedLight.indirectDiffuse.addAssign( irradiance.mul( BRDF_Lambert( { diffuseColor: diffuseColor$1 } ) ) );
 
 		reflectedLight.indirectDiffuse.mulAssign( ambientOcclusion );
 
@@ -29221,7 +29221,7 @@ class MeshMatcapNodeMaterial extends NodeMaterial {
 
 		}
 
-		diffuseColor.rgb.mulAssign( matcapColor.rgb );
+		diffuseColor$1.rgb.mulAssign( matcapColor.rgb );
 
 	}
 
@@ -29521,7 +29521,7 @@ class SpriteNodeMaterial extends NodeMaterial {
 
 		}
 
-		let alignedPosition = positionGeometry.xy;
+		let alignedPosition = positionGeometry$1.xy;
 
 		if ( object.center && object.center.isVector2 === true ) {
 
@@ -29685,7 +29685,7 @@ class PointsNodeMaterial extends SpriteNodeMaterial {
 
 		// compute offset
 
-		let offset = positionGeometry.xy;
+		let offset = positionGeometry$1.xy;
 
 		// apply rotation
 
@@ -29810,9 +29810,9 @@ class ShadowMaskModel extends LightingModel {
 	 */
 	finish( { context } ) {
 
-		diffuseColor.a.mulAssign( this.shadowNode.oneMinus() );
+		diffuseColor$1.a.mulAssign( this.shadowNode.oneMinus() );
 
-		context.outgoingLight.rgb.assign( diffuseColor.rgb ); // TODO: Optimize LightsNode to avoid this assignment
+		context.outgoingLight.rgb.assign( diffuseColor$1.rgb ); // TODO: Optimize LightsNode to avoid this assignment
 
 	}
 
@@ -29920,16 +29920,16 @@ class VolumetricLightingModel extends LightingModel {
 
 		const isFrontToBack = property( 'bool' );
 
-		If$1( cameraPosition.sub( positionWorld ).length().greaterThan( modelRadius.mul( 2 ) ), () => {
+		If$1( cameraPosition$1.sub( positionWorld$1 ).length().greaterThan( modelRadius.mul( 2 ) ), () => {
 
-			startPos.assign( cameraPosition );
-			endPos.assign( positionWorld );
+			startPos.assign( cameraPosition$1 );
+			endPos.assign( positionWorld$1 );
 			isFrontToBack.assign( true );
 
 		} ).Else( () => {
 
-			startPos.assign( positionWorld );
-			endPos.assign( cameraPosition );
+			startPos.assign( positionWorld$1 );
+			endPos.assign( cameraPosition$1 );
 			isFrontToBack.assign( false );
 
 		} );
@@ -29961,7 +29961,7 @@ class VolumetricLightingModel extends LightingModel {
 
 			if ( material.depthNode !== null ) {
 
-				linearDepthRay.assign( linearDepth( viewZToPerspectiveDepth$1( positionViewRay.z, cameraNear, cameraFar ) ) );
+				linearDepthRay.assign( linearDepth( viewZToPerspectiveDepth$1( positionViewRay.z, cameraNear$1, cameraFar$1 ) ) );
 
 				builder.context.sceneDepthNode = linearDepth( material.depthNode ).toVar();
 
@@ -36161,7 +36161,7 @@ class StackNode extends Node {
 	If( boolNode, method ) {
 
 		const methodNode = new ShaderNode( method );
-		this._currentCond = select( boolNode, methodNode );
+		this._currentCond = select$1( boolNode, methodNode );
 
 		return this.addToStack( this._currentCond );
 
@@ -36177,7 +36177,7 @@ class StackNode extends Node {
 	ElseIf( boolNode, method ) {
 
 		const methodNode = new ShaderNode( method );
-		const ifNode = select( boolNode, methodNode );
+		const ifNode = select$1( boolNode, methodNode );
 
 		this._currentCond.elseNode = ifNode;
 		this._currentCond = ifNode;
@@ -36258,7 +36258,7 @@ class StackNode extends Node {
 
 		// build condition
 
-		const condNode = select( caseNode, methodNode );
+		const condNode = select$1( caseNode, methodNode );
 
 		if ( this._currentCond === null ) {
 
@@ -37794,7 +37794,7 @@ const hash = /*@__PURE__*/ Fn$1( ( [ seed ] ) => {
  * @param {Node<float>} k - Allows to control the remapping functions shape by rising the parabola to a power `k`.
  * @return {Node<float>} The remapped value.
  */
-const parabola = ( x, k ) => pow$1( mul( 4.0, x.mul( sub( 1.0, x ) ) ), k );
+const parabola = ( x, k ) => pow$1( mul$1( 4.0, x.mul( sub$1( 1.0, x ) ) ), k );
 
 /**
  * A function that remaps the `[0,1]` interval into the `[0,1]` interval.
@@ -37807,10 +37807,10 @@ const parabola = ( x, k ) => pow$1( mul( 4.0, x.mul( sub( 1.0, x ) ) ), k );
  * @param {Node<float>} k - `k=1` is the identity curve,`k<1` produces the classic `gain()` shape, and `k>1` produces "s" shaped curves.
  * @return {Node<float>} The remapped value.
  */
-const gain = ( x, k ) => select(
+const gain = ( x, k ) => select$1(
 	x.lessThan( 0.5 ),
-	pow$1( mul( 2.0, x ), k ).mul( 0.5 ),
-	sub( 1.0, pow$1( mul( 2.0, sub( 1.0, x ) ), k ).mul( 0.5 ) )
+	pow$1( mul$1( 2.0, x ), k ).mul( 0.5 ),
+	sub$1( 1.0, pow$1( mul$1( 2.0, sub$1( 1.0, x ) ), k ).mul( 0.5 ) )
 );
 
 /**
@@ -37825,7 +37825,7 @@ const gain = ( x, k ) => select(
  * @param {Node<float>} b - Second control parameter.
  * @return {Node<float>} The remapped value.
  */
-const pcurve = ( x, a, b ) => pow$1( div( pow$1( x, a ), add( pow$1( x, a ), pow$1( sub( 1.0, x ), b ) ) ), div( 1.0, a ) );
+const pcurve = ( x, a, b ) => pow$1( div( pow$1( x, a ), add$1( pow$1( x, a ), pow$1( sub$1( 1.0, x ), b ) ) ), div( 1.0, a ) );
 
 /**
  * A phase shifted sinus curve that starts at zero and ends at zero, with bouncing behavior.
@@ -38755,7 +38755,7 @@ const overloadingFn = ( functionNodes ) => ( ...params ) => overloadingBaseFn( f
  * @tsl
  * @type {UniformNode<float>}
  */
-const time = /*@__PURE__*/ uniform$1( 0 ).setGroup( renderGroup ).onRenderUpdate( ( frame ) => frame.time );
+const time$1 = /*@__PURE__*/ uniform$1( 0 ).setGroup( renderGroup ).onRenderUpdate( ( frame ) => frame.time );
 
 /**
  * Represents the delta time in seconds.
@@ -38781,7 +38781,7 @@ const frameId = /*@__PURE__*/ uniform$1( 0, 'uint' ).setGroup( renderGroup ).onR
  * @param {Node<float>} t - The timer to generate the oscillation with.
  * @return {Node<float>} The oscillation node.
  */
-const oscSine = ( t = time ) => t.add( 0.75 ).mul( Math.PI * 2 ).sin().mul( 0.5 ).add( 0.5 );
+const oscSine = ( t = time$1 ) => t.add( 0.75 ).mul( Math.PI * 2 ).sin().mul( 0.5 ).add( 0.5 );
 
 /**
  * Generates a square wave oscillation based on a timer.
@@ -38791,7 +38791,7 @@ const oscSine = ( t = time ) => t.add( 0.75 ).mul( Math.PI * 2 ).sin().mul( 0.5 
  * @param {Node<float>} t - The timer to generate the oscillation with.
  * @return {Node<float>} The oscillation node.
  */
-const oscSquare = ( t = time ) => t.fract().round();
+const oscSquare = ( t = time$1 ) => t.fract().round();
 
 /**
  * Generates a triangle wave oscillation based on a timer.
@@ -38801,7 +38801,7 @@ const oscSquare = ( t = time ) => t.fract().round();
  * @param {Node<float>} t - The timer to generate the oscillation with.
  * @return {Node<float>} The oscillation node.
  */
-const oscTriangle = ( t = time ) => t.add( 0.5 ).fract().mul( 2 ).sub( 1 ).abs();
+const oscTriangle = ( t = time$1 ) => t.add( 0.5 ).fract().mul( 2 ).sub( 1 ).abs();
 
 /**
  * Generates a sawtooth wave oscillation based on a timer.
@@ -38811,7 +38811,7 @@ const oscTriangle = ( t = time ) => t.add( 0.5 ).fract().mul( 2 ).sub( 1 ).abs()
  * @param {Node<float>} t - The timer to generate the oscillation with.
  * @return {Node<float>} The oscillation node.
  */
-const oscSawtooth = ( t = time ) => t.fract();
+const oscSawtooth = ( t = time$1 ) => t.fract();
 
 /**
  * Replaces the default UV coordinates used in texture lookups.
@@ -38905,7 +38905,7 @@ const billboarding = /*@__PURE__*/ Fn$1( ( { position = null, horizontal = true,
 
 	} else {
 
-		center = positionWorld.sub( modelWorldMatrix.mul( vec4$1( positionGeometry, 0 ) ).xyz );
+		center = positionWorld$1.sub( modelWorldMatrix.mul( vec4$1( positionGeometry$1, 0 ) ).xyz );
 
 	}
 
@@ -38925,7 +38925,7 @@ const billboarding = /*@__PURE__*/ Fn$1( ( { position = null, horizontal = true,
 	if ( defined( horizontalRotation ) ) {
 
 		const worldPosition = worldMatrix[ 3 ].xyz;
-		const look = cameraPosition.sub( worldPosition );
+		const look = cameraPosition$1.sub( worldPosition );
 		const lookXZ = vec3$1( look.x, 0, look.z ).normalize();
 
 		const right_w = vec3$1( lookXZ.z, 0, lookXZ.x.negate() );
@@ -38967,7 +38967,7 @@ const billboarding = /*@__PURE__*/ Fn$1( ( { position = null, horizontal = true,
 
 	}
 
-	return cameraProjectionMatrix.mul( modelViewMatrix ).mul( positionGeometry );
+	return cameraProjectionMatrix$1.mul( modelViewMatrix ).mul( positionGeometry$1 );
 
 } );
 
@@ -38986,7 +38986,7 @@ const billboarding = /*@__PURE__*/ Fn$1( ( { position = null, horizontal = true,
 const viewportSafeUV = /*@__PURE__*/ Fn$1( ( [ uv = null ] ) => {
 
 	const depth = linearDepth();
-	const depthDiff = linearDepth( viewportDepthTexture( uv ) ).sub( depth );
+	const depthDiff = linearDepth( viewportDepthTexture$1( uv ) ).sub( depth );
 	const finalUV = depthDiff.lessThan( 0 ).select( screenUV$1, uv );
 
 	return finalUV;
@@ -39067,7 +39067,7 @@ const triplanarTextures = /*@__PURE__*/ Fn$1( ( [ textureXNode, textureYNode = n
 	const cy = texture$1( textureY, ty ).mul( bf.y );
 	const cz = texture$1( textureZ, tz ).mul( bf.z );
 
-	return add( cx, cy, cz );
+	return add$1( cx, cy, cz );
 
 } );
 
@@ -40485,10 +40485,10 @@ const getNormalFromDepth$1 = /*@__PURE__*/ Fn$1( ( [ uv, depthTexture, projectio
 	const t1 = textureLoad( depthTexture, p.sub( ivec2( 0, 1 ) ) ).toVar();
 	const t2 = textureLoad( depthTexture, p.sub( ivec2( 0, 2 ) ) ).toVar();
 
-	const dl = abs$1( sub( float$1( 2 ).mul( l1 ).sub( l2 ), c0 ) ).toVar();
-	const dr = abs$1( sub( float$1( 2 ).mul( r1 ).sub( r2 ), c0 ) ).toVar();
-	const db = abs$1( sub( float$1( 2 ).mul( b1 ).sub( b2 ), c0 ) ).toVar();
-	const dt = abs$1( sub( float$1( 2 ).mul( t1 ).sub( t2 ), c0 ) ).toVar();
+	const dl = abs$1( sub$1( float$1( 2 ).mul( l1 ).sub( l2 ), c0 ) ).toVar();
+	const dr = abs$1( sub$1( float$1( 2 ).mul( r1 ).sub( r2 ), c0 ) ).toVar();
+	const db = abs$1( sub$1( float$1( 2 ).mul( b1 ).sub( b2 ), c0 ) ).toVar();
+	const dt = abs$1( sub$1( float$1( 2 ).mul( t1 ).sub( t2 ), c0 ) ).toVar();
 
 	const ce = getViewPosition$1( uv, c0, projectionMatrixInverse ).toVar();
 
@@ -40516,7 +40516,7 @@ const getNormalFromDepth$1 = /*@__PURE__*/ Fn$1( ( [ uv, depthTexture, projectio
  */
 const interleavedGradientNoise$1 = /*@__PURE__*/ Fn$1( ( [ position ] ) => {
 
-	return fract( float$1( 52.9829189 ).mul( fract( dot$1( position, vec2$1( 0.06711056, 0.00583715 ) ) ) ) );
+	return fract$1( float$1( 52.9829189 ).mul( fract$1( dot$1( position, vec2$1( 0.06711056, 0.00583715 ) ) ) ) );
 
 } ).setLayout( {
 	name: 'interleavedGradientNoise',
@@ -41474,7 +41474,7 @@ class Texture3DNode extends TextureNode {
  * @param {?Node<int>} [levelNode=null] - The level node.
  * @returns {Texture3DNode}
  */
-const texture3D = /*@__PURE__*/ nodeProxy( Texture3DNode ).setParameterLength( 1, 3 );
+const texture3D$1 = /*@__PURE__*/ nodeProxy( Texture3DNode ).setParameterLength( 1, 3 );
 
 /**
  * TSL function for creating a texture node that fetches/loads texels without interpolation.
@@ -41487,7 +41487,7 @@ const texture3D = /*@__PURE__*/ nodeProxy( Texture3DNode ).setParameterLength( 1
  * @param {?Node<float>} [biasNode=null] - The bias node.
  * @returns {TextureNode}
  */
-const texture3DLoad = ( ...params ) => texture3D( ...params ).setSampler( false );
+const texture3DLoad = ( ...params ) => texture3D$1( ...params ).setSampler( false );
 
 /**
  * TSL function for creating a texture node that fetches/loads texels without interpolation.
@@ -41499,7 +41499,7 @@ const texture3DLoad = ( ...params ) => texture3D( ...params ).setSampler( false 
  * @param {?Node<int>} [levelNode=null] - The level node.
  * @returns {TextureNode}
  */
-const texture3DLevel = ( value, uvNode, levelNode ) => texture3D( value, uvNode ).level( levelNode );
+const texture3DLevel = ( value, uvNode, levelNode ) => texture3D$1( value, uvNode ).level( levelNode );
 
 /**
  * A special type of reference node that allows to link values in
@@ -41728,7 +41728,7 @@ class VelocityNode extends TempNode {
 	 */
 	setup( /*builder*/ ) {
 
-		const projectionMatrix = ( this.projectionMatrix === null ) ? cameraProjectionMatrix : uniform$1( this.projectionMatrix );
+		const projectionMatrix = ( this.projectionMatrix === null ) ? cameraProjectionMatrix$1 : uniform$1( this.projectionMatrix );
 
 		const previousModelViewMatrix = this.previousCameraViewMatrix.mul( this.previousModelWorldMatrix );
 
@@ -41738,7 +41738,7 @@ class VelocityNode extends TempNode {
 		const ndcPositionCurrent = clipPositionCurrent.xy.div( clipPositionCurrent.w );
 		const ndcPositionPrevious = clipPositionPrevious.xy.div( clipPositionPrevious.w );
 
-		const velocity = sub( ndcPositionCurrent, ndcPositionPrevious );
+		const velocity = sub$1( ndcPositionCurrent, ndcPositionPrevious );
 
 		return velocity;
 
@@ -41879,7 +41879,7 @@ const blendScreen = /*@__PURE__*/ Fn$1( ( [ base, blend ] ) => {
  */
 const blendOverlay = /*@__PURE__*/ Fn$1( ( [ base, blend ] ) => {
 
-	return mix$1( base.mul( 2.0 ).mul( blend ), base.oneMinus().mul( 2.0 ).mul( blend.oneMinus() ).oneMinus(), step( 0.5, base ) );
+	return mix$1( base.mul( 2.0 ).mul( blend ), base.oneMinus().mul( 2.0 ).mul( blend.oneMinus() ).oneMinus(), step$1( 0.5, base ) );
 
 } ).setLayout( {
 	name: 'blendOverlay',
@@ -41957,7 +41957,7 @@ const saturation = /*@__PURE__*/ Fn$1( ( [ color, adjustment = float$1( 1 ) ] ) 
  */
 const vibrance = /*@__PURE__*/ Fn$1( ( [ color, adjustment = float$1( 0 ) ] ) => {
 
-	const average = add( color.r, color.g, color.b ).div( 3.0 );
+	const average = add$1( color.r, color.g, color.b ).div( 3.0 );
 
 	const mx = color.r.max( color.g.max( color.b ) );
 	const amt = mx.sub( average ).mul( adjustment ).mul( -3 );
@@ -42856,7 +42856,7 @@ class PassNode extends TempNode {
 			const cameraNear = this._cameraNear;
 			const cameraFar = this._cameraFar;
 
-			this._viewZNodes[ name ] = viewZNode = perspectiveDepthToViewZ( this.getTextureNode( name ), cameraNear, cameraFar );
+			this._viewZNodes[ name ] = viewZNode = perspectiveDepthToViewZ$1( this.getTextureNode( name ), cameraNear, cameraFar );
 
 		}
 
@@ -43349,7 +43349,7 @@ class ToonOutlinePassNode extends PassNode {
 		// vertex node
 
 		const outlineNormal = normalLocal.negate();
-		const mvp = cameraProjectionMatrix.mul( modelViewMatrix );
+		const mvp = cameraProjectionMatrix$1.mul( modelViewMatrix );
 
 		const ratio = float$1( 1.0 ); // TODO: support outline thickness ratio for each vertex
 		const pos = mvp.mul( vec4$1( positionLocal, 1.0 ) );
@@ -43553,7 +43553,7 @@ const agxDefaultContrastApprox = /*@__PURE__*/ Fn$1( ( [ x_immutable ] ) => {
 	const x2 = vec3$1( x.mul( x ) ).toVar();
 	const x4 = vec3$1( x2.mul( x2 ) ).toVar();
 
-	return float$1( 15.5 ).mul( x4.mul( x2 ) ).sub( mul( 40.14, x4.mul( x ) ) ).add( mul( 31.96, x4 ).sub( mul( 6.868, x2.mul( x ) ) ).add( mul( 0.4298, x2 ).add( mul( 0.1191, x ).sub( 0.00232 ) ) ) );
+	return float$1( 15.5 ).mul( x4.mul( x2 ) ).sub( mul$1( 40.14, x4.mul( x ) ) ).add( mul$1( 31.96, x4 ).sub( mul$1( 6.868, x2.mul( x ) ) ).add( mul$1( 0.4298, x2 ).add( mul$1( 0.1191, x ).sub( 0.00232 ) ) ) );
 
 } );
 
@@ -43616,7 +43616,7 @@ const neutralToneMapping = /*@__PURE__*/ Fn$1( ( [ color, exposure ] ) => {
 	color = color.mul( exposure );
 
 	const x = min$1( color.r, min$1( color.g, color.b ) );
-	const offset = select( x.lessThan( 0.08 ), x.sub( mul( 6.25, x.mul( x ) ) ), 0.04 );
+	const offset = select$1( x.lessThan( 0.08 ), x.sub( mul$1( 6.25, x.mul( x ) ) ), 0.04 );
 
 	color.subAssign( offset );
 
@@ -43628,10 +43628,10 @@ const neutralToneMapping = /*@__PURE__*/ Fn$1( ( [ color, exposure ] ) => {
 
 	} );
 
-	const d = sub( 1, StartCompression );
-	const newPeak = sub( 1, d.mul( d ).div( peak.add( d.sub( StartCompression ) ) ) );
+	const d = sub$1( 1, StartCompression );
+	const newPeak = sub$1( 1, d.mul( d ).div( peak.add( d.sub( StartCompression ) ) ) );
 	color.mulAssign( newPeak.div( peak ) );
-	const g = sub( 1, div( 1, Desaturation.mul( peak.sub( newPeak ) ).add( 1 ) ) );
+	const g = sub$1( 1, div( 1, Desaturation.mul( peak.sub( newPeak ) ).add( 1 ) ) );
 
 	return mix$1( color, vec3$1( newPeak ), g );
 
@@ -44034,7 +44034,7 @@ const rangeFogFactor = /*@__PURE__*/ Fn$1( ( [ near, far ], builder ) => {
 
 	const viewZ = getViewZNode( builder );
 
-	return smoothstep( near, far, viewZ );
+	return smoothstep$1( near, far, viewZ );
 
 } );
 
@@ -44067,7 +44067,7 @@ const exponentialHeightFogFactor = /*@__PURE__*/ Fn$1( ( [ density, height ], bu
 
 	const viewZ = getViewZNode( builder );
 
-	const distance = height.sub( positionWorld.y ).max( 0 ).toConst();
+	const distance = height.sub( positionWorld$1.y ).max( 0 ).toConst();
 	const m = distance.mul( viewZ ).toConst();
 
 	return density.mul( density, m, m ).negate().exp().oneMinus();
@@ -45830,7 +45830,7 @@ function lightShadowMatrix( light ) {
  * @param {Node<vec3>} [position=positionWorld] -The position to project.
  * @returns {Node<vec3>} The projected uvs.
  */
-function lightProjectionUV( light, position = positionWorld ) {
+function lightProjectionUV( light, position = positionWorld$1 ) {
 
 	const spotLightCoord = lightShadowMatrix( light ).mul( position );
 	const projectionUV = spotLightCoord.xyz.div( spotLightCoord.w );
@@ -46613,7 +46613,7 @@ class ShadowBaseNode extends Node {
 
 		// Use assign inside an Fn()
 
-		shadowPositionWorld.assign( material.receivedShadowPositionNode || context.shadowPositionWorld || positionWorld );
+		shadowPositionWorld.assign( material.receivedShadowPositionNode || context.shadowPositionWorld || positionWorld$1 );
 
 	}
 
@@ -46691,7 +46691,7 @@ const PCFShadowFilter = /*@__PURE__*/ Fn$1( ( { depthTexture, shadowCoord, shado
 	const phi = interleavedGradientNoise$1( screenCoordinate$1.xy ).mul( 6.28318530718 );
 
 	// 5 samples using Vogel disk distribution
-	return add(
+	return add$1(
 		depthCompare( shadowCoord.xy.add( vogelDiskSample( 0, 5, phi ).mul( radiusScaled ) ), shadowCoord.z ),
 		depthCompare( shadowCoord.xy.add( vogelDiskSample( 1, 5, phi ).mul( radiusScaled ) ), shadowCoord.z ),
 		depthCompare( shadowCoord.xy.add( vogelDiskSample( 2, 5, phi ).mul( radiusScaled ) ), shadowCoord.z ),
@@ -46725,7 +46725,7 @@ const VSMShadowFilter = /*@__PURE__*/ Fn$1( ( { depthTexture, shadowCoord, depth
 	const mean = distribution.x;
 	const variance = max$1( 0.0000001, distribution.y.mul( distribution.y ) );
 
-	const hardShadow = ( builder.renderer.reversedDepthBuffer ) ? step( mean, shadowCoord.z ) : step( shadowCoord.z, mean );
+	const hardShadow = ( builder.renderer.reversedDepthBuffer ) ? step$1( mean, shadowCoord.z ) : step$1( shadowCoord.z, mean );
 
 	const output = float$1( 1 ).toVar(); // default, fully lit
 
@@ -46738,7 +46738,7 @@ const VSMShadowFilter = /*@__PURE__*/ Fn$1( ( { depthTexture, shadowCoord, depth
 		let p_max = variance.div( variance.add( d.mul( d ) ) );
 
 		// Reduce light bleeding by remapping [amount, 1] to [0, 1]
-		p_max = clamp$1( sub( p_max, 0.3 ).div( 0.65 ) );
+		p_max = clamp$1( sub$1( p_max, 0.3 ).div( 0.65 ) );
 
 		output.assign( max$1( hardShadow, p_max ) );
 
@@ -46771,7 +46771,7 @@ const VSMPassVertical = /*@__PURE__*/ Fn$1( ( { samples, radius, size, shadowPas
 
 		const uvOffset = uvStart.add( float$1( i ).mul( uvStride ) );
 
-		let depth = shadowPass.sample( add( screenCoordinate$1.xy, vec2$1( 0, uvOffset ).mul( radius ) ).div( size ) );
+		let depth = shadowPass.sample( add$1( screenCoordinate$1.xy, vec2$1( 0, uvOffset ).mul( radius ) ).div( size ) );
 
 		if ( shadowPass.value.isArrayTexture ) {
 
@@ -46818,7 +46818,7 @@ const VSMPassHorizontal = /*@__PURE__*/ Fn$1( ( { samples, radius, size, shadowP
 
 		const uvOffset = uvStart.add( float$1( i ).mul( uvStride ) );
 
-		let distribution = shadowPass.sample( add( screenCoordinate$1.xy, vec2$1( uvOffset, 0 ).mul( radius ) ).div( size ) );
+		let distribution = shadowPass.sample( add$1( screenCoordinate$1.xy, vec2$1( uvOffset, 0 ).mul( radius ) ).div( size ) );
 
 		if ( shadowPass.value.isArrayTexture ) {
 
@@ -46827,7 +46827,7 @@ const VSMPassHorizontal = /*@__PURE__*/ Fn$1( ( { samples, radius, size, shadowP
 		}
 
 		mean.addAssign( distribution.x );
-		squaredMean.addAssign( add( distribution.y.mul( distribution.y ), distribution.x.mul( distribution.x ) ) );
+		squaredMean.addAssign( add$1( distribution.y.mul( distribution.y ), distribution.x.mul( distribution.x ) ) );
 
 	} );
 
@@ -47294,11 +47294,11 @@ class ShadowNode extends ShadowBaseNode {
 
 			if ( this.shadow.camera.isPerspectiveCamera ) {
 
-				linearDepth = perspectiveDepthToViewZ( depthNode, shadowCameraNear, shadowCameraFar );
+				linearDepth = perspectiveDepthToViewZ$1( depthNode, shadowCameraNear, shadowCameraFar );
 
 			} else {
 
-				linearDepth = orthographicDepthToViewZ( depthNode, shadowCameraNear, shadowCameraFar );
+				linearDepth = orthographicDepthToViewZ$1( depthNode, shadowCameraNear, shadowCameraFar );
 
 			}
 
@@ -48331,11 +48331,11 @@ const shapeCircle = /*@__PURE__*/ Fn$1( ( [ coord = uv$1() ], { renderer, materi
 
 		const dlen = float$1( len2.fwidth() ).toVar();
 
-		alpha = smoothstep( dlen.oneMinus(), dlen.add( 1 ), len2 ).oneMinus();
+		alpha = smoothstep$1( dlen.oneMinus(), dlen.add( 1 ), len2 ).oneMinus();
 
 	} else {
 
-		alpha = select( len2.greaterThan( 1.0 ), 0, 1 );
+		alpha = select$1( len2.greaterThan( 1.0 ), 0, 1 );
 
 	}
 
@@ -48348,13 +48348,13 @@ const mx_rotate2d = ( input, amount = 0 ) => {
 	input = vec2$1( input );
 	amount = float$1( amount );
 
-	const rotationRadians = mul( amount, Math.PI / 180.0 );
+	const rotationRadians = mul$1( amount, Math.PI / 180.0 );
 	const sa = sin$1( rotationRadians );
 	const ca = cos$1( rotationRadians );
 	const x = input.x;
 	const y = input.y;
 
-	return vec2$1( add( mul( ca, x ), mul( sa, y ) ), sub( mul( ca, y ), mul( sa, x ) ) );
+	return vec2$1( add$1( mul$1( ca, x ), mul$1( sa, y ) ), sub$1( mul$1( ca, y ), mul$1( sa, x ) ) );
 
 };
 
@@ -48365,10 +48365,10 @@ const mx_rotate3d = ( input, amount = 0, axis = vec3$1( 0, 1, 0 ) ) => {
 	axis = vec3$1( axis );
 
 	const normalizedAxis = normalize$1( axis );
-	const rotationRadians = mul( amount, Math.PI / 180.0 );
+	const rotationRadians = mul$1( amount, Math.PI / 180.0 );
 	const s = sin$1( rotationRadians );
 	const c = cos$1( rotationRadians );
-	const oc = sub( 1, c );
+	const oc = sub$1( 1, c );
 
 	// based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
 	// but the code in the Wikipedia article is for v' = M * v, where as
@@ -48385,7 +48385,7 @@ const mx_select = /*@__PURE__*/ Fn$1( ( [ b_immutable, t_immutable, f_immutable 
 	const t = float$1( t_immutable ).toVar();
 	const b = bool( b_immutable ).toVar();
 
-	return select( b, t, f ).uniformFlow();
+	return select$1( b, t, f ).uniformFlow();
 
 } ).setLayout( {
 	name: 'mx_select',
@@ -48402,7 +48402,7 @@ const mx_negate_if = /*@__PURE__*/ Fn$1( ( [ val_immutable, b_immutable ] ) => {
 	const b = bool( b_immutable ).toVar();
 	const val = float$1( val_immutable ).toVar();
 
-	return select( b, val.negate(), val ).uniformFlow();
+	return select$1( b, val.negate(), val ).uniformFlow();
 
 } ).setLayout( {
 	name: 'mx_negate_if',
@@ -48417,7 +48417,7 @@ const mx_floor = /*@__PURE__*/ Fn$1( ( [ x_immutable ] ) => {
 
 	const x = float$1( x_immutable ).toVar();
 
-	return int$1( floor( x ) );
+	return int$1( floor$1( x ) );
 
 } ).setLayout( {
 	name: 'mx_floor',
@@ -48438,16 +48438,16 @@ const mx_floorfrac = /*@__PURE__*/ Fn$1( ( [ x_immutable, i ] ) => {
 
 const mxBilerpValue = ( v0, v1, v2, v3, s, t ) => {
 
-	const s1 = float$1( sub( 1.0, s ) ).toVar();
-	return sub( 1.0, t ).mul( v0.mul( s1 ).add( v1.mul( s ) ) ).add( t.mul( v2.mul( s1 ).add( v3.mul( s ) ) ) );
+	const s1 = float$1( sub$1( 1.0, s ) ).toVar();
+	return sub$1( 1.0, t ).mul( v0.mul( s1 ).add( v1.mul( s ) ) ).add( t.mul( v2.mul( s1 ).add( v3.mul( s ) ) ) );
 
 };
 
 const mxTrilerpValue = ( v0, v1, v2, v3, v4, v5, v6, v7, s, t, r ) => {
 
-	const s1 = float$1( sub( 1.0, s ) ).toVar();
-	const t1 = float$1( sub( 1.0, t ) ).toVar();
-	const r1 = float$1( sub( 1.0, r ) ).toVar();
+	const s1 = float$1( sub$1( 1.0, s ) ).toVar();
+	const t1 = float$1( sub$1( 1.0, t ) ).toVar();
+	const r1 = float$1( sub$1( 1.0, r ) ).toVar();
 	return r1.mul( t1.mul( v0.mul( s1 ).add( v1.mul( s ) ) ).add( t.mul( v2.mul( s1 ).add( v3.mul( s ) ) ) ) ).add( r.mul( t1.mul( v4.mul( s1 ).add( v5.mul( s ) ) ).add( t.mul( v6.mul( s1 ).add( v7.mul( s ) ) ) ) ) );
 
 };
@@ -48579,7 +48579,7 @@ const mx_gradient_float_0 = /*@__PURE__*/ Fn$1( ( [ hash_immutable, x_immutable,
 	const hash = uint( hash_immutable ).toVar();
 	const h = uint( hash.bitAnd( uint( 7 ) ) ).toVar();
 	const u = float$1( mx_select( h.lessThan( uint( 4 ) ), x, y ) ).toVar();
-	const v = float$1( mul( 2.0, mx_select( h.lessThan( uint( 4 ) ), y, x ) ) ).toVar();
+	const v = float$1( mul$1( 2.0, mx_select( h.lessThan( uint( 4 ) ), y, x ) ) ).toVar();
 
 	return mx_negate_if( u, bool( h.bitAnd( uint( 1 ) ) ) ).add( mx_negate_if( v, bool( h.bitAnd( uint( 2 ) ) ) ) );
 
@@ -48662,7 +48662,7 @@ const mx_gradient_scale2d_0 = /*@__PURE__*/ Fn$1( ( [ v_immutable ] ) => {
 
 	const v = float$1( v_immutable ).toVar();
 
-	return mul( 0.6616, v );
+	return mul$1( 0.6616, v );
 
 } ).setLayout( {
 	name: 'mx_gradient_scale2d_0',
@@ -48676,7 +48676,7 @@ const mx_gradient_scale3d_0 = /*@__PURE__*/ Fn$1( ( [ v_immutable ] ) => {
 
 	const v = float$1( v_immutable ).toVar();
 
-	return mul( 0.9820, v );
+	return mul$1( 0.9820, v );
 
 } ).setLayout( {
 	name: 'mx_gradient_scale3d_0',
@@ -48690,7 +48690,7 @@ const mx_gradient_scale2d_1 = /*@__PURE__*/ Fn$1( ( [ v_immutable ] ) => {
 
 	const v = vec3$1( v_immutable ).toVar();
 
-	return mul( 0.6616, v );
+	return mul$1( 0.6616, v );
 
 } ).setLayout( {
 	name: 'mx_gradient_scale2d_1',
@@ -48706,7 +48706,7 @@ const mx_gradient_scale3d_1 = /*@__PURE__*/ Fn$1( ( [ v_immutable ] ) => {
 
 	const v = vec3$1( v_immutable ).toVar();
 
-	return mul( 0.9820, v );
+	return mul$1( 0.9820, v );
 
 } ).setLayout( {
 	name: 'mx_gradient_scale3d_1',
@@ -49202,9 +49202,9 @@ const mx_cell_noise_vec3_1 = /*@__PURE__*/ Fn$1( ( [ p_immutable ] ) => {
 const mx_cell_noise_vec3_2 = /*@__PURE__*/ Fn$1( ( [ positionInput ] ) => {
 
 	const position = vec3$1( positionInput ).toVar();
-	const ix = int$1( floor( position.x ) ).toVar();
-	const iy = int$1( floor( position.y ) ).toVar();
-	const iz = int$1( floor( position.z ) ).toVar();
+	const ix = int$1( floor$1( position.x ) ).toVar();
+	const iy = int$1( floor$1( position.y ) ).toVar();
+	const iz = int$1( floor$1( position.z ) ).toVar();
 	const seed = uint( 0xdeadbeef + ( 4 << 2 ) + 13 ).toVar();
 	const a = uint().toVar(), b = uint().toVar(), c = uint().toVar();
 	a.assign( b.assign( c.assign( seed ) ) );
@@ -49214,8 +49214,8 @@ const mx_cell_noise_vec3_2 = /*@__PURE__*/ Fn$1( ( [ positionInput ] ) => {
 
 	const mixed = uvec3( mx_bjmix( a, b, c ) ).toVar();
 	const hash0 = mx_bjfinal( mixed.x, mixed.y, mixed.z );
-	const hash1 = mx_bjfinal( add( mixed.x, uint( 1 ) ), mixed.y, mixed.z );
-	const hash2 = mx_bjfinal( add( mixed.x, uint( 2 ) ), mixed.y, mixed.z );
+	const hash1 = mx_bjfinal( add$1( mixed.x, uint( 1 ) ), mixed.y, mixed.z );
+	const hash2 = mx_bjfinal( add$1( mixed.x, uint( 2 ) ), mixed.y, mixed.z );
 
 	return vec3$1(
 		mx_bits_to_01( hash0 ),
@@ -49253,8 +49253,8 @@ const mx_cell_noise_vec3_3 = /*@__PURE__*/ Fn$1( ( [ p_immutable ] ) => {
 
 	return vec3$1(
 		mx_bits_to_01( mx_bjfinal( a, b, c ) ),
-		mx_bits_to_01( mx_bjfinal( a, add( b, uint( 1 ) ), c ) ),
-		mx_bits_to_01( mx_bjfinal( a, add( b, uint( 2 ) ), c ) )
+		mx_bits_to_01( mx_bjfinal( a, add$1( b, uint( 1 ) ), c ) ),
+		mx_bits_to_01( mx_bjfinal( a, add$1( b, uint( 2 ) ), c ) )
 	);
 
 } ).setLayout( {
@@ -49270,9 +49270,9 @@ const mx_cell_noise_vec3$1 = /*@__PURE__*/ overloadingFn( [ mx_cell_noise_vec3_0
 const mx_cell_noise_vec3_3d = /*@__PURE__*/ Fn$1( ( [ positionInput ] ) => {
 
 	const position = vec3$1( positionInput ).toVar();
-	const ix = int$1( floor( position.x ) ).toVar();
-	const iy = int$1( floor( position.y ) ).toVar();
-	const iz = int$1( floor( position.z ) ).toVar();
+	const ix = int$1( floor$1( position.x ) ).toVar();
+	const iy = int$1( floor$1( position.y ) ).toVar();
+	const iz = int$1( floor$1( position.z ) ).toVar();
 	const seed = uint( 0xdeadbeef + ( 4 << 2 ) + 13 ).toVar();
 	const a = uint().toVar(), b = uint().toVar(), c = uint().toVar();
 	a.assign( b.assign( c.assign( seed ) ) );
@@ -49282,8 +49282,8 @@ const mx_cell_noise_vec3_3d = /*@__PURE__*/ Fn$1( ( [ positionInput ] ) => {
 
 	const mixed = uvec3( mx_bjmix( a, b, c ) ).toVar();
 	const hash0 = mx_bjfinal( mixed.x, mixed.y, mixed.z );
-	const hash1 = mx_bjfinal( add( mixed.x, uint( 1 ) ), mixed.y, mixed.z );
-	const hash2 = mx_bjfinal( add( mixed.x, uint( 2 ) ), mixed.y, mixed.z );
+	const hash1 = mx_bjfinal( add$1( mixed.x, uint( 1 ) ), mixed.y, mixed.z );
+	const hash2 = mx_bjfinal( add$1( mixed.x, uint( 2 ) ), mixed.y, mixed.z );
 
 	return vec3$1(
 		mx_bits_to_01( hash0 ),
@@ -49577,8 +49577,8 @@ const mx_worley_noise_float_2d$1 = /*@__PURE__*/ Fn$1( ( [ texcoordInput, jitter
 	const texcoord = vec2$1( texcoordInput ).toVar();
 	const jitter = float$1( jitterInput ).toVar();
 	const style = int$1( styleInput ).toVar();
-	const floorPos = floor( texcoord ).toVar();
-	const localpos = vec2$1( fract( texcoord.x ), fract( texcoord.y ) ).toVar();
+	const floorPos = floor$1( texcoord ).toVar();
+	const localpos = vec2$1( fract$1( texcoord.x ), fract$1( texcoord.y ) ).toVar();
 	const sqdist = float$1( 1e6 ).toVar();
 	const minpos = vec2$1( 0, 0 ).toVar();
 
@@ -49978,9 +49978,9 @@ const mx_unifiednoise2d$1 = /*@__PURE__*/ Fn$1( ( [
 	const diminish = float$1( diminishInput ).toVar();
 	const style = int$1( styleInput ).toVar();
 
-	const applyFreq = mul( texcoord, freq ).toVar();
-	const applyOffset = add( applyFreq, offset ).toVar();
-	const cellJitterMult = mul( sub( jitter, 1 ), 90000 ).toVar();
+	const applyFreq = mul$1( texcoord, freq ).toVar();
+	const applyOffset = add$1( applyFreq, offset ).toVar();
+	const cellJitterMult = mul$1( sub$1( jitter, 1 ), 90000 ).toVar();
 	const applyCellJitter = mx_rotate2d( applyOffset, cellJitterMult ).toVar();
 	const fractalInput = vec3$1( applyOffset.x, applyOffset.y, cellJitterMult ).toVar();
 	const result = float$1( 0 ).toVar();
@@ -50006,7 +50006,7 @@ const mx_unifiednoise2d$1 = /*@__PURE__*/ Fn$1( ( [
 
 	} );
 
-	const ranged = add( outmin, mul( result, sub( outmax, outmin ) ) ).toVar();
+	const ranged = add$1( outmin, mul$1( result, sub$1( outmax, outmin ) ) ).toVar();
 	const clamped = clamp$1( ranged, outmin, outmax ).toVar();
 	const output = ranged.toVar();
 
@@ -50049,9 +50049,9 @@ const mx_unifiednoise3d$1 = /*@__PURE__*/ Fn$1( ( [
 	const diminish = float$1( diminishInput ).toVar();
 	const style = int$1( styleInput ).toVar();
 
-	const applyFreq = mul( position, freq ).toVar();
-	const applyOffset = add( applyFreq, offset ).toVar();
-	const cellJitterMult = mul( sub( jitter, 1 ), 90000 ).toVar();
+	const applyFreq = mul$1( position, freq ).toVar();
+	const applyOffset = add$1( applyFreq, offset ).toVar();
+	const cellJitterMult = mul$1( sub$1( jitter, 1 ), 90000 ).toVar();
 	const applyCellJitter = mx_rotate3d( applyOffset, cellJitterMult, vec3$1( 0.1, 1, 0 ) ).toVar();
 	const perlin = mx_perlin_noise_float_scaled( applyCellJitter, 0.5, 0.5 );
 	const cell = mx_cell_noise_float$1( applyCellJitter );
@@ -50075,7 +50075,7 @@ const mx_unifiednoise3d$1 = /*@__PURE__*/ Fn$1( ( [
 
 	} );
 
-	const ranged = add( outmin, mul( result, sub( outmax, outmin ) ) ).toVar();
+	const ranged = add$1( outmin, mul$1( result, sub$1( outmax, outmin ) ) ).toVar();
 	const clamped = clamp$1( ranged, outmin, outmax ).toVar();
 	const output = ranged.toVar();
 
@@ -50103,7 +50103,7 @@ const mx_hsvtorgb = /*@__PURE__*/ Fn$1( ( [ hsv ] ) => {
 	} ).Else( () => {
 
 		let h = hsv.x;
-		h = h.sub( floor( h ) ).mul( 6.0 ).toVar(); // TODO: check what .toVar() is needed in node system cache
+		h = h.sub( floor$1( h ) ).mul( 6.0 ).toVar(); // TODO: check what .toVar() is needed in node system cache
 		const hi = int$1( trunc( h ) );
 		const f = h.sub( float$1( hi ) );
 		const p = v.mul( s.oneMinus() );
@@ -50182,11 +50182,11 @@ const mx_rgbtohsv = /*@__PURE__*/ Fn$1( ( [ c_immutable ] ) => {
 
 		} ).ElseIf( g.greaterThanEqual( maxcomp ), () => {
 
-			h.assign( add( 2.0, b.sub( r ).div( delta ) ) );
+			h.assign( add$1( 2.0, b.sub( r ).div( delta ) ) );
 
 		} ).Else( () => {
 
-			h.assign( add( 4.0, r.sub( g ).div( delta ) ) );
+			h.assign( add$1( 4.0, r.sub( g ).div( delta ) ) );
 
 		} );
 
@@ -50234,7 +50234,7 @@ const mx_aastep = ( threshold, value ) => {
 
 	const afwidth = vec2$1( value.dFdx(), value.dFdy() ).length().mul( 0.70710678118654757 );
 
-	return smoothstep( threshold.sub( afwidth ), threshold.add( afwidth ), value );
+	return smoothstep$1( threshold.sub( afwidth ), threshold.add( afwidth ), value );
 
 };
 
@@ -50286,12 +50286,12 @@ const mx_noise_vec4 = ( texcoord = uv$1(), amplitude = 1, pivot = 0 ) => {
 
 const mx_smoothstep = ( inNode, low = 0, high = 1 ) => {
 
-	const range = sub( high, low );
+	const range = sub$1( high, low );
 	const safeRange = max$1( abs$1( range ), float$1( 1e-6 ) );
-	const t = clamp$1( div( sub( inNode, low ), safeRange ), float$1( 0 ), float$1( 1 ) );
-	const hermite = mul( mul( t, t ), sub( float$1( 3 ), mul( float$1( 2 ), t ) ) );
-	const fallback = step( high, inNode );
-	const useFallback = step( high, low );
+	const t = clamp$1( div( sub$1( inNode, low ), safeRange ), float$1( 0 ), float$1( 1 ) );
+	const hermite = mul$1( mul$1( t, t ), sub$1( float$1( 3 ), mul$1( float$1( 2 ), t ) ) );
+	const fallback = step$1( high, inNode );
+	const useFallback = step$1( high, low );
 	return mix$1( hermite, fallback, useFallback );
 
 };
@@ -50318,16 +50318,16 @@ const mx_fractal_noise_vec4 = ( position = uv$1(), octaves = 3, lacunarity = 2, 
 // === Moved from MaterialXLoader.js ===
 
 // Math ops
-const mx_add = ( in1, in2 = float$1( 0 ) ) => add( in1, in2 );
-const mx_subtract = ( in1, in2 = float$1( 0 ) ) => sub( in1, in2 );
-const mx_multiply = ( in1, in2 = float$1( 1 ) ) => mul( in1, in2 );
+const mx_add = ( in1, in2 = float$1( 0 ) ) => add$1( in1, in2 );
+const mx_subtract = ( in1, in2 = float$1( 0 ) ) => sub$1( in1, in2 );
+const mx_multiply = ( in1, in2 = float$1( 1 ) ) => mul$1( in1, in2 );
 const mx_divide = ( in1, in2 = float$1( 1 ) ) => div( in1, in2 );
-const mx_modulo = ( in1, in2 = float$1( 1 ) ) => sub( in1, mul( in2, floor( div( in1, in2 ) ) ) );
+const mx_modulo = ( in1, in2 = float$1( 1 ) ) => sub$1( in1, mul$1( in2, floor$1( div( in1, in2 ) ) ) );
 const mx_power = ( in1, in2 = float$1( 1 ) ) => pow$1( in1, in2 );
 const mx_atan2 = ( in1 = float$1( 0 ), in2 = float$1( 1 ) ) => atan( in1, in2 );
-const mx_timer = () => time;
+const mx_timer = () => time$1;
 const mx_frame = () => frameId;
-const mx_invert = ( in1, amount = float$1( 1 ) ) => sub( amount, in1 );
+const mx_invert = ( in1, amount = float$1( 1 ) ) => sub$1( amount, in1 );
 const mx_ifgreater = ( value1, value2, in1, in2 ) => value1.greaterThan( value2 ).mix( in2, in1 );
 const mx_ifgreatereq = ( value1, value2, in1, in2 ) => value1.greaterThanEqual( value2 ).mix( in2, in1 );
 const mx_ifequal = ( value1, value2, in1, in2 ) => value1.equal( value2 ).mix( in2, in1 );
@@ -50364,13 +50364,13 @@ const mx_place2d = (
 	texcoord, pivot = vec2$1( 0, 0 ), scale = vec2$1( 1, 1 ), rotate = float$1( 0 ), offset = vec2$1( 0, 0 ), operationorder = int$1( 0 )
 ) => {
 
-	const centered = sub( texcoord, pivot );
-	const srt = add( sub( mx_rotate2d( div( centered, scale ), rotate ), offset ), pivot );
-	const trs = add( div( mx_rotate2d( sub( centered, offset ), rotate ), scale ), pivot );
+	const centered = sub$1( texcoord, pivot );
+	const srt = add$1( sub$1( mx_rotate2d( div( centered, scale ), rotate ), offset ), pivot );
+	const trs = add$1( div( mx_rotate2d( sub$1( centered, offset ), rotate ), scale ), pivot );
 
 	if ( typeof operationorder === 'number' ) return Math.abs( operationorder ) > Number.EPSILON ? trs : srt;
 
-	return mix$1( srt, trs, step( 0.5, float$1( operationorder ) ) );
+	return mix$1( srt, trs, step$1( 0.5, float$1( operationorder ) ) );
 
 };
 
@@ -50413,15 +50413,15 @@ const mx_heighttonormal = ( input, scale = 1, texcoord = uv$1() ) => {
 const getParallaxCorrectNormal = /*@__PURE__*/ Fn$1( ( [ normal, cubeSize, cubePos ] ) => {
 
 	const nDir = normalize$1( normal ).toVar();
-	const rbmax = cubeSize.mul( 0.5 ).add( cubePos ).sub( positionWorld ).div( nDir ).toVar();
-	const rbmin = cubeSize.mul( -0.5 ).add( cubePos ).sub( positionWorld ).div( nDir ).toVar();
+	const rbmax = cubeSize.mul( 0.5 ).add( cubePos ).sub( positionWorld$1 ).div( nDir ).toVar();
+	const rbmin = cubeSize.mul( -0.5 ).add( cubePos ).sub( positionWorld$1 ).div( nDir ).toVar();
 	const rbminmax = vec3$1().toVar();
 	rbminmax.x = nDir.x.greaterThan( float$1( 0 ) ).select( rbmax.x, rbmin.x );
 	rbminmax.y = nDir.y.greaterThan( float$1( 0 ) ).select( rbmax.y, rbmin.y );
 	rbminmax.z = nDir.z.greaterThan( float$1( 0 ) ).select( rbmax.z, rbmin.z );
 
 	const correction = min$1( rbminmax.x, rbminmax.y, rbminmax.z ).toVar();
-	const boxIntersection = positionWorld.add( nDir.mul( correction ) ).toVar();
+	const boxIntersection = positionWorld$1.add( nDir.mul( correction ) ).toVar();
 	return boxIntersection.sub( cubePos );
 
 } );
@@ -50445,7 +50445,7 @@ const getShIrradianceAt = /*@__PURE__*/ Fn$1( ( [ normal, shCoefficients ] ) => 
 	result = result.add( shCoefficients.element( 5 ).mul( 2.0 * 0.429043 ).mul( y ).mul( z ) );
 	result = result.add( shCoefficients.element( 6 ).mul( z.mul( z ).mul( 0.743125 ).sub( 0.247708 ) ) );
 	result = result.add( shCoefficients.element( 7 ).mul( 2.0 * 0.429043 ).mul( x ).mul( z ) );
-	result = result.add( shCoefficients.element( 8 ).mul( 0.429043 ).mul( mul( x, x ).sub( mul( y, y ) ) ) );
+	result = result.add( shCoefficients.element( 8 ).mul( 0.429043 ).mul( mul$1( x, x ).sub( mul$1( y, y ) ) ) );
 
 	return result;
 
@@ -50460,7 +50460,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	BRDF_Sheen: BRDF_Sheen,
 	BasicPointShadowFilter: BasicPointShadowFilter,
 	BasicShadowFilter: BasicShadowFilter,
-	Break: Break,
+	Break: Break$1,
 	Const: Const,
 	Continue: Continue,
 	DFGLUT: DFGLUT,
@@ -50511,7 +50511,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	acesFilmicToneMapping: acesFilmicToneMapping,
 	acos: acos$1,
 	acosh: acosh,
-	add: add,
+	add: add$1,
 	addMethodChaining: addMethodChaining,
 	addNodeElement: addNodeElement,
 	agxToneMapping: agxToneMapping,
@@ -50580,12 +50580,12 @@ var TSL = /*#__PURE__*/Object.freeze({
 	bypass: bypass,
 	cache: cache,
 	call: call,
-	cameraFar: cameraFar,
+	cameraFar: cameraFar$1,
 	cameraIndex: cameraIndex,
-	cameraNear: cameraNear,
+	cameraNear: cameraNear$1,
 	cameraNormalMatrix: cameraNormalMatrix,
-	cameraPosition: cameraPosition,
-	cameraProjectionMatrix: cameraProjectionMatrix,
+	cameraPosition: cameraPosition$1,
+	cameraProjectionMatrix: cameraProjectionMatrix$1,
 	cameraProjectionMatrixInverse: cameraProjectionMatrixInverse,
 	cameraViewMatrix: cameraViewMatrix,
 	cameraViewport: cameraViewport,
@@ -50637,7 +50637,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	depthPass: depthPass,
 	determinant: determinant,
 	difference: difference,
-	diffuseColor: diffuseColor,
+	diffuseColor: diffuseColor$1,
 	diffuseContribution: diffuseContribution,
 	directPointLight: directPointLight,
 	directionToColor: directionToColor,
@@ -50655,7 +50655,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	equal: equal,
 	equirectDirection: equirectDirection,
 	equirectUV: equirectUV,
-	exp: exp,
+	exp: exp$1,
 	exp2: exp2,
 	exponentialHeightFogFactor: exponentialHeightFogFactor,
 	expression: expression,
@@ -50665,9 +50665,9 @@ var TSL = /*#__PURE__*/Object.freeze({
 	float: float$1,
 	floatBitsToInt: floatBitsToInt,
 	floatBitsToUint: floatBitsToUint,
-	floor: floor,
+	floor: floor$1,
 	fog: fog,
-	fract: fract,
+	fract: fract$1,
 	frameGroup: frameGroup,
 	frameId: frameId,
 	frontFacing: frontFacing,
@@ -50725,7 +50725,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	ivec4: ivec4,
 	js: js,
 	label: label,
-	length: length,
+	length: length$1,
 	lengthSq: lengthSq,
 	lessThan: lessThan,
 	lessThanEqual: lessThanEqual,
@@ -50772,7 +50772,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	materialLineGapSize: materialLineGapSize,
 	materialLineScale: materialLineScale,
 	materialLineWidth: materialLineWidth,
-	materialMetalness: materialMetalness,
+	materialMetalness: materialMetalness$1,
 	materialNormal: materialNormal,
 	materialOpacity: materialOpacity,
 	materialPointSize: materialPointSize,
@@ -50781,7 +50781,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	materialRefractionRatio: materialRefractionRatio,
 	materialRetroreflectivity: materialRetroreflectivity,
 	materialRotation: materialRotation,
-	materialRoughness: materialRoughness,
+	materialRoughness: materialRoughness$1,
 	materialSheen: materialSheen,
 	materialSheenRoughness: materialSheenRoughness,
 	materialShininess: materialShininess,
@@ -50798,7 +50798,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	min: min$1,
 	mix: mix$1,
 	mixElement: mixElement,
-	mod: mod,
+	mod: mod$1,
 	modelDirection: modelDirection,
 	modelNormalMatrix: modelNormalMatrix,
 	modelPosition: modelPosition,
@@ -50806,12 +50806,12 @@ var TSL = /*#__PURE__*/Object.freeze({
 	modelScale: modelScale,
 	modelViewMatrix: modelViewMatrix,
 	modelViewPosition: modelViewPosition,
-	modelViewProjection: modelViewProjection,
+	modelViewProjection: modelViewProjection$1,
 	modelWorldMatrix: modelWorldMatrix,
 	modelWorldMatrixInverse: modelWorldMatrixInverse,
 	morphReference: morphReference,
 	mrt: mrt$1,
-	mul: mul,
+	mul: mul$1,
 	mx_aastep: mx_aastep,
 	mx_add: mx_add,
 	mx_atan2: mx_atan2,
@@ -50879,7 +50879,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	normalView: normalView$1,
 	normalViewGeometry: normalViewGeometry,
 	normalWorld: normalWorld,
-	normalWorldGeometry: normalWorldGeometry,
+	normalWorldGeometry: normalWorldGeometry$1,
 	normalize: normalize$1,
 	not: not,
 	notEqual: notEqual,
@@ -50893,7 +50893,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	objectWorldMatrix: objectWorldMatrix,
 	oneMinus: oneMinus,
 	or: or,
-	orthographicDepthToViewZ: orthographicDepthToViewZ,
+	orthographicDepthToViewZ: orthographicDepthToViewZ$1,
 	oscSawtooth: oscSawtooth,
 	oscSine: oscSine,
 	oscSquare: oscSquare,
@@ -50920,17 +50920,17 @@ var TSL = /*#__PURE__*/Object.freeze({
 	pass: pass$1,
 	passTexture: passTexture$1,
 	pcurve: pcurve,
-	perspectiveDepthToViewZ: perspectiveDepthToViewZ,
+	perspectiveDepthToViewZ: perspectiveDepthToViewZ$1,
 	pmremTexture: pmremTexture,
 	pointShadow: pointShadow,
 	pointUV: pointUV,
 	pointWidth: pointWidth,
-	positionGeometry: positionGeometry,
+	positionGeometry: positionGeometry$1,
 	positionLocal: positionLocal,
 	positionPrevious: positionPrevious,
 	positionView: positionView,
 	positionViewDirection: positionViewDirection,
-	positionWorld: positionWorld,
+	positionWorld: positionWorld$1,
 	positionWorldDirection: positionWorldDirection,
 	posterize: posterize,
 	pow: pow$1,
@@ -50981,7 +50981,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	screenDPR: screenDPR,
 	screenSize: screenSize,
 	screenUV: screenUV$1,
-	select: select,
+	select: select$1,
 	setCurrentStack: setCurrentStack,
 	setName: setName,
 	shaderStages: shaderStages,
@@ -50999,7 +50999,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	sinc: sinc,
 	sinh: sinh,
 	skinning: skinning,
-	smoothstep: smoothstep,
+	smoothstep: smoothstep$1,
 	smoothstepElement: smoothstepElement,
 	specularColor: specularColor,
 	specularColorBlended: specularColorBlended,
@@ -51009,7 +51009,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	spritesheetUV: spritesheetUV,
 	sqrt: sqrt,
 	stack: stack,
-	step: step,
+	step: step$1,
 	stepElement: stepElement,
 	storage: storage,
 	storageBarrier: storageBarrier,
@@ -51017,7 +51017,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	storageTexture: storageTexture,
 	storageTexture3D: storageTexture3D,
 	struct: struct,
-	sub: sub,
+	sub: sub$1,
 	subBuild: subBuild,
 	subgroupAdd: subgroupAdd,
 	subgroupAll: subgroupAll,
@@ -51050,7 +51050,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	tangentWorld: tangentWorld,
 	tanh: tanh,
 	texture: texture$1,
-	texture3D: texture3D,
+	texture3D: texture3D$1,
 	texture3DLevel: texture3DLevel,
 	texture3DLoad: texture3DLoad,
 	textureBarrier: textureBarrier,
@@ -51061,7 +51061,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	textureSize: textureSize$1,
 	textureStore: textureStore,
 	thickness: thickness,
-	time: time,
+	time: time$1,
 	toneMapping: toneMapping,
 	toneMappingExposure: toneMappingExposure,
 	toonOutlinePass: toonOutlinePass,
@@ -51102,8 +51102,8 @@ var TSL = /*#__PURE__*/Object.freeze({
 	uvec2: uvec2,
 	uvec3: uvec3,
 	uvec4: uvec4,
-	varying: varying,
-	varyingProperty: varyingProperty,
+	varying: varying$1,
+	varyingProperty: varyingProperty$1,
 	vec2: vec2$1,
 	vec3: vec3$1,
 	vec4: vec4$1,
@@ -51120,7 +51120,7 @@ var TSL = /*#__PURE__*/Object.freeze({
 	viewZToReversedPerspectiveDepth: viewZToReversedPerspectiveDepth,
 	viewport: viewport,
 	viewportCoordinate: viewportCoordinate,
-	viewportDepthTexture: viewportDepthTexture,
+	viewportDepthTexture: viewportDepthTexture$1,
 	viewportLinearDepth: viewportLinearDepth,
 	viewportMipTexture: viewportMipTexture,
 	viewportOpaqueMipTexture: viewportOpaqueMipTexture,
@@ -51221,19 +51221,19 @@ class Background extends DataMap {
 
 				const backgroundMeshNode = vec4$1( backgroundNode ).mul( backgroundIntensity ).context( {
 					// @TODO: Add Texture2D support using node context
-					getUV: () => backgroundRotation.mul( normalWorldGeometry ),
+					getUV: () => backgroundRotation.mul( normalWorldGeometry$1 ),
 					getTextureLevel: () => backgroundBlurriness
 				} );
 
 				// when using orthographic cameras, we must scale the skybox sphere
 				// up to exceed the dimensions of the camera's viewing box.
-				const isOrtho = cameraProjectionMatrix.element( 3 ).element( 3 ).equal( 1.0 );
+				const isOrtho = cameraProjectionMatrix$1.element( 3 ).element( 3 ).equal( 1.0 );
 
 				// calculate the orthographic scale
 				// projectionMatrix[1][1] is (1 / top). Invert it to get the height and multiply by 3.0
 				// (an arbitrary safety factor) to ensure the skybox is large enough to cover the corners
 				// of the rectangular screen
-				const orthoScale = div( 1.0, cameraProjectionMatrix.element( 1 ).element( 1 ) ).mul( 3.0 );
+				const orthoScale = div( 1.0, cameraProjectionMatrix$1.element( 1 ).element( 1 ) ).mul( 3.0 );
 
 				// compute vertex position
 				const modifiedPosition = isOrtho.select( positionLocal.mul( orthoScale ), positionLocal );
@@ -51242,7 +51242,7 @@ class Background extends DataMap {
 				const viewPosition = modelViewMatrix.mul( vec4$1( modifiedPosition, 0.0 ) );
 
 				// we force w=1.0 here to prevent the w_clip=0 divide-by-zero error for ortho cameras.
-				let viewProj = cameraProjectionMatrix.mul( vec4$1( viewPosition.xyz, 1.0 ) );
+				let viewProj = cameraProjectionMatrix$1.mul( vec4$1( viewPosition.xyz, 1.0 ) );
 
 				// force background to far plane so it does not occlude objects
 				viewProj = viewProj.setZ( viewProj.w );
@@ -56770,7 +56770,7 @@ class SpotLightNode extends AnalyticLightNode {
 
 		const { coneCosNode, penumbraCosNode } = this;
 
-		return smoothstep( coneCosNode, penumbraCosNode, angleCosine );
+		return smoothstep$1( coneCosNode, penumbraCosNode, angleCosine );
 
 	}
 
@@ -56992,7 +56992,7 @@ const sdBox = /*@__PURE__*/ Fn$1( ( [ p, b ] ) => {
 
 	const d = p.abs().sub( b );
 
-	return length( max$1( d, 0.0 ) ).add( min$1( max$1( d.x, d.y ), 0.0 ) );
+	return length$1( max$1( d, 0.0 ) ).add( min$1( max$1( d.x, d.y ), 0.0 ) );
 
 } );
 
@@ -57050,7 +57050,7 @@ class ProjectorLightNode extends SpotLightNode {
 
 		// compute the fragment's position in the light's clip space
 
-		const spotLightCoord = lightShadowMatrix( this.light ).mul( builder.context.positionWorld || positionWorld );
+		const spotLightCoord = lightShadowMatrix( this.light ).mul( builder.context.positionWorld || positionWorld$1 );
 
 		// the sign of w determines whether the current fragment is in front or behind the light.
 		// to avoid a back-projection, it's important to only compute an attenuation if w is positive
@@ -57059,7 +57059,7 @@ class ProjectorLightNode extends SpotLightNode {
 
 			const projectionUV = spotLightCoord.xyz.div( spotLightCoord.w );
 			const boxDist = sdBox( projectionUV.xy.sub( vec2$1( 0.5 ) ), vec2$1( 0.5 ) );
-			const angleFactor = div( -1, sub( 1.0, acos$1( penumbraCos ) ).sub( 1.0 ) );
+			const angleFactor = div( -1, sub$1( 1.0, acos$1( penumbraCos ) ).sub( 1.0 ) );
 			attenuation.assign( saturate( boxDist.mul( -2 ).mul( angleFactor ) ) );
 
 		} );
@@ -92648,6 +92648,7 @@ var three_webgpu = /*#__PURE__*/Object.freeze({
  * Copyright 2010-2026 Three.js Authors
  * SPDX-License-Identifier: MIT
  */
+const Break = TSL.Break;
 const Fn = TSL.Fn;
 const If = TSL.If;
 const Loop = TSL.Loop;
@@ -92655,44 +92656,73 @@ const NodeUpdateType = TSL.NodeUpdateType;
 const PI = TSL.PI;
 const abs = TSL.abs;
 const acos = TSL.acos;
+const add = TSL.add;
 const attribute = TSL.attribute;
 const builtinAOContext = TSL.builtinAOContext;
+const cameraFar = TSL.cameraFar;
+const cameraNear = TSL.cameraNear;
+const cameraPosition = TSL.cameraPosition;
+const cameraProjectionMatrix = TSL.cameraProjectionMatrix;
 const clamp = TSL.clamp;
 const context = TSL.context;
 const cos = TSL.cos;
 const cross = TSL.cross;
+const diffuseColor = TSL.diffuseColor;
 const dot = TSL.dot;
+const exp = TSL.exp;
 const float = TSL.float;
+const floor = TSL.floor;
+const fract = TSL.fract;
 const getNormalFromDepth = TSL.getNormalFromDepth;
 const getScreenPositionFromClip = TSL.getScreenPositionFromClip;
 const getViewPosition = TSL.getViewPosition;
 const int = TSL.int;
 const interleavedGradientNoise = TSL.interleavedGradientNoise;
+const length = TSL.length;
 const logarithmicDepthToViewZ = TSL.logarithmicDepthToViewZ;
 const mat3 = TSL.mat3;
+const materialMetalness = TSL.materialMetalness;
+const materialRoughness = TSL.materialRoughness;
 const max = TSL.max;
 const min = TSL.min;
 const mix = TSL.mix;
+const mod = TSL.mod;
+const modelViewProjection = TSL.modelViewProjection;
 const mrt = TSL.mrt;
+const mul = TSL.mul;
 const nodeObject = TSL.nodeObject;
 const normalView = TSL.normalView;
+const normalWorldGeometry = TSL.normalWorldGeometry;
 const normalize = TSL.normalize;
+const orthographicDepthToViewZ = TSL.orthographicDepthToViewZ;
 const pass = TSL.pass;
 const passTexture = TSL.passTexture;
+const perspectiveDepthToViewZ = TSL.perspectiveDepthToViewZ;
+const positionGeometry = TSL.positionGeometry;
+const positionWorld = TSL.positionWorld;
 const pow = TSL.pow;
 const rand = TSL.rand;
 const reference = TSL.reference;
 const screenCoordinate = TSL.screenCoordinate;
 const screenUV = TSL.screenUV;
+const select = TSL.select;
 const sin = TSL.sin;
+const smoothstep = TSL.smoothstep;
+const step = TSL.step;
+const sub = TSL.sub;
 const texture = TSL.texture;
+const texture3D = TSL.texture3D;
 const textureSize = TSL.textureSize;
+const time = TSL.time;
 const uniform = TSL.uniform;
 const uv = TSL.uv;
+const varying = TSL.varying;
+const varyingProperty = TSL.varyingProperty;
 const vec2 = TSL.vec2;
 const vec3 = TSL.vec3;
 const vec4 = TSL.vec4;
 const viewZToPerspectiveDepth = TSL.viewZToPerspectiveDepth;
+const viewportDepthTexture = TSL.viewportDepthTexture;
 
 const _quadMesh = /*@__PURE__*/ new QuadMesh();
 const _size = /*@__PURE__*/ new Vector2();
@@ -93409,5 +93439,390 @@ function generateMagicSquare( size ) {
  */
 const ao = ( depthNode, normalNode, camera ) => new GTAONode( nodeObject( depthNode ), nodeObject( normalNode ), camera );
 
-export { MeshBasicNodeMaterial as M, RenderPipeline as R, attribute as a, vec3 as b, ao as c, builtinAOContext as d, mix as e, float as f, mrt as m, normalView as n, pass as p, screenUV as s, three_webgpu as t, uniform as u, vec4 as v };
-//# sourceMappingURL=three-webgpu-9xGy1m8h.js.map
+/**
+ * Represents a skydome for scene backgrounds. Based on [A Practical Analytic Model for Daylight](https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight)
+ * aka The Preetham Model, the de facto standard for analytical skydomes.
+ *
+ * Note that this class can only be used with {@link WebGPURenderer}.
+ * When using {@link WebGLRenderer}, use {@link Sky}.
+ *
+ * More references:
+ *
+ * - {@link http://simonwallner.at/project/atmospheric-scattering/}
+ * - {@link http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR}
+ *
+ * ```js
+ * const sky = new SkyMesh();
+ * sky.scale.setScalar( 10000 );
+ * scene.add( sky );
+ * ```
+ *
+ * It can be useful to hide the sun disc when generating an environment map to avoid artifacts
+ *
+ * ```js
+ * // disable before rendering environment map
+ * sky.showSunDisc.value = false;
+ * // ...
+ * // re-enable before scene sky box rendering
+ * sky.showSunDisc.value = true;
+ * ```
+ *
+ * @augments Mesh
+ * @three_import import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
+ */
+class SkyMesh extends Mesh {
+
+	/**
+	 * Constructs a new skydome.
+	 */
+	constructor() {
+
+		const material = new NodeMaterial();
+
+		super( new BoxGeometry( 1, 1, 1 ), material );
+
+		/**
+		 * The turbidity uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.turbidity = uniform( 2 );
+
+		/**
+		 * The rayleigh uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.rayleigh = uniform( 1 );
+
+		/**
+		 * The mieCoefficient uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.mieCoefficient = uniform( 0.005 );
+
+		/**
+		 * The mieDirectionalG uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.mieDirectionalG = uniform( 0.8 );
+
+		/**
+		 * The sun position uniform.
+		 *
+		 * @type {UniformNode<vec3>}
+		 */
+		this.sunPosition = uniform( new Vector3() );
+
+		/**
+		 * The cloud scale uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.cloudScale = uniform( 0.0002 );
+
+		/**
+		 * The cloud speed uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.cloudSpeed = uniform( 0.00002 );
+
+		/**
+		 * The cloud coverage uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.cloudCoverage = uniform( 0.4 );
+
+		/**
+		 * The cloud density uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.cloudDensity = uniform( 0.4 );
+
+		/**
+		 * The cloud elevation uniform.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.cloudElevation = uniform( 0.5 );
+
+		/**
+		 * Whether to render the solar disc.
+		 *
+		 * @type {UniformNode<float>}
+		 */
+		this.showSunDisc = uniform( 1 );
+
+		/**
+		 * This flag can be used for type testing.
+		 *
+		 * @type {boolean}
+		 * @readonly
+		 * @default true
+		 * @deprecated Use isSkyMesh instead.
+		 */
+		this.isSky = true; // @deprecated, r182
+
+		/**
+		 * This flag can be used for type testing.
+		 *
+		 * @type {boolean}
+		 * @readonly
+		 * @default true
+		 */
+		this.isSkyMesh = true;
+
+		// Varyings
+
+		const vSunDirection = varyingProperty( 'vec3' );
+		const vSunE = varyingProperty( 'float' );
+		const vBetaR = varyingProperty( 'vec3' );
+		const vBetaM = varyingProperty( 'vec3' );
+
+		const vertexNode = /*@__PURE__*/ Fn( () => {
+
+			// constants for atmospheric scattering
+			const e = float( 2.718281828459045 );
+			// const pi = float( 3.141592653589793 );
+
+			// wavelength of used primaries, according to preetham
+			// const lambda = vec3( 680E-9, 550E-9, 450E-9 );
+			// this pre-calculation replaces older TotalRayleigh(vec3 lambda) function:
+			// (8.0 * pow(pi, 3.0) * pow(pow(n, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * pn)) / (3.0 * N * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * pn))
+			const totalRayleigh = vec3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );
+
+			// mie stuff
+			// K coefficient for the primaries
+			// const v = float( 4.0 );
+			// const K = vec3( 0.686, 0.678, 0.666 );
+			// MieConst = pi * pow( ( 2.0 * pi ) / lambda, vec3( v - 2.0 ) ) * K
+			const MieConst = vec3( 1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
+
+			// earth shadow hack
+			// cutoffAngle = pi / 1.95;
+			const cutoffAngle = float( 1.6110731556870734 );
+			const steepness = float( 1.5 );
+			const EE = float( 1000.0 );
+
+			// varying sun position
+
+			const sunDirection = normalize( this.sunPosition );
+			vSunDirection.assign( sunDirection );
+
+			// varying sun intensity
+
+			const angle = sunDirection.y;
+			const zenithAngleCos = clamp( angle, -1, 1 );
+			const sunIntensity = EE.mul( max( 0.0, float( 1.0 ).sub( pow( e, cutoffAngle.sub( acos( zenithAngleCos ) ).div( steepness ).negate() ) ) ) );
+			vSunE.assign( sunIntensity );
+
+			// sun fade
+
+			const sunfade = float( 1.0 ).sub( clamp( float( 1.0 ).sub( exp( this.sunPosition.y.div( 450000.0 ) ) ), 0, 1 ) );
+
+			// varying vBetaR
+
+			const rayleighCoefficient = this.rayleigh.sub( float( 1.0 ).mul( float( 1.0 ).sub( sunfade ) ) );
+
+			// extinction (absorption + out scattering)
+			// rayleigh coefficients
+			vBetaR.assign( totalRayleigh.mul( rayleighCoefficient ) );
+
+			// varying vBetaM
+
+			const c = float( 0.2 ).mul( this.turbidity ).mul( 10E-18 );
+			const totalMie = float( 0.434 ).mul( c ).mul( MieConst );
+
+			vBetaM.assign( totalMie.mul( this.mieCoefficient ) );
+
+			// position
+
+			const position = modelViewProjection;
+			position.z.assign( position.w ); // set z to camera.far
+
+			return position;
+
+		} )();
+
+		const colorNode = /*@__PURE__*/ Fn( () => {
+
+			// constants for atmospheric scattering
+			const pi = float( 3.141592653589793 );
+
+			// optical length at zenith for molecules
+			const rayleighZenithLength = float( 8.4E3 );
+			const mieZenithLength = float( 1.25E3 );
+			// 66 arc seconds -> degrees, and the cosine of that
+			const sunAngularDiameterCos = float( 0.9999566769464484 );
+
+			// 3.0 / ( 16.0 * pi )
+			const THREE_OVER_SIXTEENPI = float( 0.05968310365946075 );
+			// 1.0 / ( 4.0 * pi )
+			const ONE_OVER_FOURPI = float( 0.07957747154594767 );
+
+			//
+
+			const direction = normalize( positionWorld.sub( cameraPosition ) );
+
+			// optical length
+			// cutoff angle at 90 to avoid singularity in next formula.
+			const zenithAngle = acos( max( 0.0, direction.y ) );
+			const inverse = float( 1.0 ).div( cos( zenithAngle ).add( float( 0.15 ).mul( pow( float( 93.885 ).sub( zenithAngle.mul( 180.0 ).div( pi ) ), -1.253 ) ) ) );
+			const sR = rayleighZenithLength.mul( inverse );
+			const sM = mieZenithLength.mul( inverse );
+
+			// combined extinction factor
+			const Fex = exp( mul( vBetaR, sR ).add( mul( vBetaM, sM ) ).negate() );
+
+			// in scattering
+			const cosTheta = dot( direction, vSunDirection );
+
+			// betaRTheta
+
+			const c = cosTheta.mul( 0.5 ).add( 0.5 );
+			const rPhase = THREE_OVER_SIXTEENPI.mul( float( 1.0 ).add( pow( c, 2.0 ) ) );
+			const betaRTheta = vBetaR.mul( rPhase );
+
+			// betaMTheta
+
+			const g2 = pow( this.mieDirectionalG, 2.0 );
+			const inv = float( 1.0 ).div( pow( float( 1.0 ).sub( float( 2.0 ).mul( this.mieDirectionalG ).mul( cosTheta ) ).add( g2 ), 1.5 ) );
+			const mPhase = ONE_OVER_FOURPI.mul( float( 1.0 ).sub( g2 ) ).mul( inv );
+			const betaMTheta = vBetaM.mul( mPhase );
+
+			const Lin = pow( vSunE.mul( add( betaRTheta, betaMTheta ).div( add( vBetaR, vBetaM ) ) ).mul( sub( 1.0, Fex ) ), vec3( 1.5 ) );
+			Lin.mulAssign( mix( vec3( 1.0 ), pow( vSunE.mul( add( betaRTheta, betaMTheta ).div( add( vBetaR, vBetaM ) ) ).mul( Fex ), vec3( 1.0 / 2.0 ) ), clamp( pow( sub( 1.0, vSunDirection.y ), 5.0 ), 0.0, 1.0 ) ) );
+
+			// nightsky
+
+			const L0 = vec3( 0.1 ).mul( Fex );
+
+			// composition + solar disc
+			const sundisc = clamp( cosTheta.sub( sunAngularDiameterCos ).mul( 50000.0 ), 0.0, 1.0 ).mul( this.showSunDisc );
+			const sundiscColor = min( vSunE.mul( Fex ), 80.0 ).mul( 760.0 ).mul( sundisc );
+
+			const texColor = add( Lin, L0 ).mul( 0.04 ).add( sundiscColor ).add( vec3( 0.0, 0.0003, 0.00075 ) ).toVar();
+
+			// gradient at a lattice corner; sinless hash so every GPU produces the same clouds
+			const gradient = Fn( ( [ i ] ) => {
+
+				const p = fract( i.xyx.mul( vec3( 0.1031, 0.1030, 0.0973 ) ) ).toVar();
+				p.addAssign( dot( p, p.yzx.add( 33.33 ) ) );
+
+				return fract( p.xx.add( p.yz ).mul( p.zy ) ).mul( 2.0 ).sub( 1.0 );
+
+			} );
+
+			// 2D gradient noise: isotropic lobes like Perlin at value-noise cost
+			const noise = Fn( ( [ p ] ) => {
+
+				const i = floor( p );
+				const f = fract( p );
+				const u = f.mul( f ).mul( f ).mul( f.mul( f.mul( 6.0 ).sub( 15.0 ) ).add( 10.0 ) ); // quintic fade
+
+				const a = dot( gradient( i ), f );
+				const b = dot( gradient( i.add( vec2( 1.0, 0.0 ) ) ), f.sub( vec2( 1.0, 0.0 ) ) );
+				const c = dot( gradient( i.add( vec2( 0.0, 1.0 ) ) ), f.sub( vec2( 0.0, 1.0 ) ) );
+				const d = dot( gradient( i.add( vec2( 1.0, 1.0 ) ) ), f.sub( vec2( 1.0, 1.0 ) ) );
+
+				return mix( mix( a, b, u.x ), mix( c, d, u.x ), u.y ).mul( 1.6 ); // ~[-1,1]
+
+			} );
+
+			// fbm; per-octave drift makes clouds billow instead of scrolling as a rigid stamp
+			const fbm = Fn( ( [ position, drift ] ) => {
+
+				const p = vec2( position ).toVar();
+				const result = float( 0.0 ).toVar();
+				const amplitude = float( 1.0 ).toVar();
+
+				Loop( 4, () => {
+
+					result.addAssign( amplitude.mul( noise( p ) ) );
+					amplitude.mulAssign( 0.5 );
+					p.mulAssign( 2.0 ).addAssign( drift );
+
+				} );
+
+				return result;
+
+			} );
+
+			// Clouds
+			If( direction.y.greaterThan( 0.0 ).and( this.cloudCoverage.greaterThan( 0.0 ) ), () => {
+
+				// Project to cloud plane (higher elevation = clouds appear lower/closer)
+				const elevation = mix( 1.0, 0.1, this.cloudElevation );
+				const cloudUV = direction.xz.div( direction.y.mul( elevation ) ).toVar();
+				cloudUV.mulAssign( this.cloudScale );
+				cloudUV.addAssign( time.mul( this.cloudSpeed ) );
+
+				// Cloud density field
+				const evolve = time.mul( this.cloudSpeed ).mul( 300.0 );
+				const cloudNoise = fbm( cloudUV.mul( 1000.0 ), evolve ).mul( 0.7 ).add( 0.5 ).clamp( 0.0, 1.0 ).toVar();
+
+				// Large-scale coverage variation: clear gaps next to dense banks
+				const region = noise( cloudUV.mul( 300.0 ) ).mul( 0.37 ).add( 0.5 );
+				const cov = clamp( this.cloudCoverage.add( region.sub( 0.5 ).mul( 0.6 ) ), 0.0, 1.0 );
+
+				// Carve clouds where noise rises above the coverage level
+				const threshold = sub( 1.0, cov ).toVar();
+				const cloudMask = smoothstep( threshold, threshold.add( 0.3 ), cloudNoise ).toVar();
+
+				// Fade clouds near horizon (adjusted by elevation)
+				const horizonFade = smoothstep( 0.0, add( 0.03, mul( 0.06, this.cloudElevation ) ), direction.y );
+				cloudMask.mulAssign( horizonFade );
+
+				// Cloud lighting from the sky's own radiance
+				const dayFactor = smoothstep( -0.08, 0.3, vSunDirection.y );
+				const sunColor = vSunE.mul( Fex ).mul( 0.22 ).mul( 0.04 ).toVar(); // 0.22 ~ albedo/pi, 0.04 = exposure; the aerial composite adds the eye-leg extinction
+				const skyAmbient = Lin.mul( 0.04 ).add( vec3( 0.0, 0.0003, 0.00075 ) );
+
+				// Beer-powder self-shadow from the sampled density
+				const depth = max( 0.0, cloudNoise.sub( threshold ) ).toVar();
+				const beer = exp( depth.mul( -4 ) ).toVar();
+				const powder = sub( 1.0, beer.mul( beer ) ); // beer*beer == exp(-8*depth)
+				const shade = mix( 0.45, 1.0, beer.mul( powder ).mul( 2.6 ).clamp( 0.0, 1.0 ) ); // 2.6 = 1/0.385, normalizes beer*powder peak to 1
+
+				// Henyey-Greenstein forward lobe ( g = 0.7 ): silver lining on rims toward the sun
+				const silver = float( 0.51 ).div( pow( sub( 1.49, cosTheta.mul( 1.4 ) ), 1.5 ) ).clamp( 0.0, 3.0 ); // 0.51=1-g^2, 1.49=1+g^2, 1.4=2g
+				const edge = cloudMask.mul( sub( 1.0, cloudMask ) ).mul( 4.0 );
+
+				const cloudColor = skyAmbient.add( sunColor.mul( shade ) ).toVar();
+				cloudColor.addAssign( sunColor.mul( silver ).mul( edge ).mul( 0.6 ) );
+				cloudColor.mulAssign( dayFactor.max( 0.03 ) );
+
+				// Cloud opacity via Beer's law: density sets how solid the clouds get
+				const alpha = sub( 1.0, exp( depth.mul( this.cloudDensity ).mul( -12 ) ) ).mul( horizonFade ).toVar();
+
+				// Occlude the sun disc/glow behind opaque cloud
+				texColor.subAssign( L0.mul( 0.04 ).add( sundiscColor ).mul( alpha ) );
+
+				// Composite through the atmosphere so distant clouds dissolve into haze
+				const cloudAerial = mix( texColor, cloudColor, Fex );
+				texColor.assign( mix( texColor, cloudAerial, alpha ) );
+
+			} );
+
+			return vec4( texColor, 1.0 );
+
+		} )();
+
+		material.side = BackSide;
+		material.depthWrite = false;
+		material.fog = false;
+
+		material.vertexNode = vertexNode;
+		material.colorNode = colorNode;
+
+	}
+
+}
+
+export { texture as $, fract as A, screenCoordinate as B, vec2 as C, pow as D, exp as E, Fn as F, Break as G, length as H, If as I, cross as J, positionGeometry as K, Loop as L, MeshBasicNodeMaterial as M, step as N, varying as O, abs as P, normalWorldGeometry as Q, RenderPipeline as R, SkyMesh as S, diffuseColor as T, materialRoughness as U, materialMetalness as V, sin as W, cos as X, texture3D as Y, mod as Z, cameraProjectionMatrix as _, attribute as a, three_webgpu as a0, vec3 as b, ao as c, builtinAOContext as d, mix as e, float as f, normalize as g, positionWorld as h, cameraPosition as i, select as j, max as k, smoothstep as l, mrt as m, normalView as n, dot as o, pass as p, min as q, viewportDepthTexture as r, screenUV as s, orthographicDepthToViewZ as t, uniform as u, vec4 as v, cameraNear as w, cameraFar as x, logarithmicDepthToViewZ as y, perspectiveDepthToViewZ as z };
+//# sourceMappingURL=three-webgpu-Gnc0vrZr.js.map

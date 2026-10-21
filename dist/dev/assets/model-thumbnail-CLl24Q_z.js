@@ -41,6 +41,11 @@ const VIEWER_I18N = {
       move: "Move panel (double tap: dock)",
       minimize: "Minimize panel",
       restore: "Restore panel",
+      close: "Close panel",
+    },
+    credits: {
+      title: "Credits",
+      close: "Close",
     },
     bugReport: {
       button: "Report a bug",
@@ -540,6 +545,7 @@ const VIEWER_I18N = {
         photos: "Historical photos",
         location: "Geographic location",
         sun: "Sun study",
+        weather: "Weather",
         certainty: "Level of certainty",
         thumbnails: "Thumbnails",
         transform: "Model transform and shading",
@@ -955,6 +961,25 @@ const VIEWER_I18N = {
       position: "Sun {azimuth}° {compass}, {elevation}° above the horizon",
       night: "The sun is below the horizon",
       riseSet: "sunrise {sunrise}, sunset {sunset}",
+    },
+    weather: {
+      title: "Weather",
+      off: "Off",
+      close: "Close",
+      clear: "Clear sky",
+      fog: "Fog",
+      rain: "Rain",
+      snow: "Snow",
+      storm: "Thunderstorm",
+      intensity: "Intensity",
+      wind: "Wind",
+      windDirection: "Wind direction",
+      mistHeight: "Mist height",
+      mistDensity: "Mist density",
+      mistSpread: "Mist spread",
+      sky: "Sky",
+      surfaces: "Wet surfaces and snow cover",
+      sound: "Sound",
     },
     photos: {
       title: "Historical photos",
@@ -1647,6 +1672,7 @@ const VIEWER_I18N = {
         photos: "Zdjęcia historyczne",
         location: "Położenie geograficzne",
         sun: "Analiza nasłonecznienia",
+        weather: "Pogoda",
         certainty: "Poziom pewności",
         thumbnails: "Miniatury",
         transform: "Transformacja i cieniowanie",
@@ -1667,6 +1693,11 @@ const VIEWER_I18N = {
       move: "Przesuń panel (podwójne dotknięcie: przypnij z powrotem)",
       minimize: "Zminimalizuj panel",
       restore: "Rozwiń panel",
+      close: "Zamknij panel",
+    },
+    credits: {
+      title: "Autorzy i źródła",
+      close: "Zamknij",
     },
     bugReport: {
       button: "Zgłoś błąd",
@@ -2079,6 +2110,25 @@ const VIEWER_I18N = {
       position: "Słońce {azimuth}° {compass}, {elevation}° nad horyzontem",
       night: "Słońce jest pod horyzontem",
       riseSet: "wschód {sunrise}, zachód {sunset}",
+    },
+    weather: {
+      title: "Pogoda",
+      off: "Wyłączona",
+      close: "Zamknij",
+      clear: "Bezchmurnie",
+      fog: "Mgła",
+      rain: "Deszcz",
+      snow: "Śnieg",
+      storm: "Burza",
+      intensity: "Natężenie",
+      wind: "Wiatr",
+      windDirection: "Kierunek wiatru",
+      mistHeight: "Wysokość mgły",
+      mistDensity: "Gęstość mgły",
+      mistSpread: "Rozproszenie mgły",
+      sky: "Niebo",
+      surfaces: "Mokre powierzchnie i pokrywa śnieżna",
+      sound: "Dźwięk",
     },
     photos: {
       title: "Zdjęcia historyczne",
@@ -2539,6 +2589,11 @@ const VIEWER_I18N = {
       move: "Panel verschieben (Doppeltipp: andocken)",
       minimize: "Panel minimieren",
       restore: "Panel wiederherstellen",
+      close: "Panel schließen",
+    },
+    credits: {
+      title: "Credits",
+      close: "Schließen",
     },
     bugReport: {
       button: "Fehler melden",
@@ -2787,6 +2842,7 @@ const VIEWER_I18N = {
         photos: "Historische Fotos",
         location: "Geografische Lage",
         sun: "Sonnenstudie",
+        weather: "Wetter",
         certainty: "Grad der Gewissheit",
         thumbnails: "Vorschaubilder",
         transform: "Modelltransformation und Schattierung",
@@ -3202,6 +3258,25 @@ const VIEWER_I18N = {
       position: "Sonne {azimuth}° {compass}, {elevation}° über dem Horizont",
       night: "Die Sonne steht unter dem Horizont",
       riseSet: "Aufgang {sunrise}, Untergang {sunset}",
+    },
+    weather: {
+      title: "Wetter",
+      off: "Aus",
+      close: "Schließen",
+      clear: "Klarer Himmel",
+      fog: "Nebel",
+      rain: "Regen",
+      snow: "Schnee",
+      storm: "Gewitter",
+      intensity: "Stärke",
+      wind: "Wind",
+      windDirection: "Windrichtung",
+      mistHeight: "Nebelhöhe",
+      mistDensity: "Nebeldichte",
+      mistSpread: "Nebelverteilung",
+      sky: "Himmel",
+      surfaces: "Nasse Oberflächen und Schneedecke",
+      sound: "Ton",
     },
     photos: {
       title: "Historische Fotos",
@@ -3721,6 +3796,8 @@ function certaintyAssessmentErrors(raw, path, scale) {
 // (not imported: this module also runs in Node without three.js).
 const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
 const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
+// Keep in sync with WEATHER_TYPES in viewer/editor/weather.js (same reason).
+const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
 const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
 // Keep in sync with UP_AXES in viewer/up-axis.js (same reason).
@@ -4364,6 +4441,26 @@ function validateSun(sun, path, errors) {
   }
 }
 
+// AIM3DViewer.weather (editor/weather.js): the weather around the model.
+function validateWeather(weather, path, errors) {
+  if (!isPlainObject(weather)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (!WEATHER_TYPES.includes(weather.type)) {
+    pushError(errors, `${path}.type`, `must be one of ${WEATHER_TYPES.join(", ")}`);
+  }
+  ["intensity", "wind", "mistHeight", "mistDensity", "mistSpread"].forEach((key) => {
+    if (weather[key] !== undefined && (!isFiniteNumber$1(weather[key]) || weather[key] < 0 || weather[key] > 1)) {
+      pushError(errors, `${path}.${key}`, "must be a number from 0 to 1");
+    }
+  });
+  if (weather.windDirection !== undefined) validateNumber(weather.windDirection, `${path}.windDirection`, errors);
+  ["sky", "surfaces"].forEach((key) => {
+    if (weather[key] !== undefined) validateBoolean(weather[key], `${path}.${key}`, errors);
+  });
+}
+
 function validateAIM3DViewerBlock(block, path, errors) {
   if (!isPlainObject(block)) {
     pushError(errors, path, "must be an object");
@@ -4390,6 +4487,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.photos !== undefined) validatePhotos(block.photos, `${path}.photos`, errors);
   if (block.location !== undefined) validateLocation(block.location, `${path}.location`, errors);
   if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
+  if (block.weather !== undefined) validateWeather(block.weather, `${path}.weather`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
@@ -4559,6 +4657,7 @@ const MANIFEST_FEATURES = [
   { id: "photos", label: "Historical photos", count: (m) => length(block(m).photos) },
   { id: "location", label: "Geographic location", count: (m) => has(block(m).location) },
   { id: "sun", label: "Sun study", count: (m) => has(block(m).sun) },
+  { id: "weather", label: "Weather", count: (m) => has(block(m).weather) },
   {
     id: "certainty",
     label: "Level of certainty",
@@ -4899,6 +4998,17 @@ const AIM3D_BLOCK = obj({
     utcOffset: leaf(number({ min: -14, max: 14 })),
   }, { expect: [["latitude", "error"], ["longitude", "error"]] })),
   sun: tag("sun", obj({ enabled: BOOL, followTimeline: BOOL, animate: BOOL, date: leaf(sunDate), time: leaf(sunTime) })),
+  weather: tag("weather", obj({
+    type: leaf(oneOf(WEATHER_TYPES)),
+    intensity: leaf(number({ min: 0, max: 1 })),
+    wind: leaf(number({ min: 0, max: 1 })),
+    windDirection: leaf(number({ min: -360, max: 360, level: "warning" })),
+    mistHeight: leaf(number({ min: 0, max: 1 })),
+    mistDensity: leaf(number({ min: 0, max: 1 })),
+    mistSpread: leaf(number({ min: 0, max: 1 })),
+    sky: BOOL,
+    surfaces: BOOL,
+  }, { expect: [["type", "error"]] })),
   thumbnails: tag("thumbnails", arr(alt({ string: FILE_URL, object: obj({ src: FILE_URL, label: LANG }, { expect: [["src", "error"]] }) }))),
   modelTransform: tag("transform", obj({
     position: VEC3,
@@ -5362,6 +5472,7 @@ const SHAPES = {
   photos: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.4"/>',
   location: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
+  weather: '<path d="M7 15.5a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.2 8.1 3.75 3.75 0 0 1 17 15.5z"/><path d="M8 18.5l-1 2.5M12 18.5l-1 2.5M16 18.5l-1 2.5"/>',
   certainty: '<path d="M12 3 19 6v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
   thumbnails: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
   transform: '<path d="M12 3v18M3 12h18M9.5 5.5 12 3l2.5 2.5M9.5 18.5 12 21l2.5-2.5M5.5 9.5 3 12l2.5 2.5M18.5 9.5 21 12l-2.5 2.5"/>',
@@ -5477,4 +5588,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-CKWd859N.js.map
+//# sourceMappingURL=model-thumbnail-B_GHYa6S.js.map

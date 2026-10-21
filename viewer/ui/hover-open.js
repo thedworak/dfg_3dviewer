@@ -1,6 +1,6 @@
 // Menus that open on hover, on a desktop (a mouse that can hover): the page
-// header's buttons with their windows (main.js) and the toolbar's menus and
-// submenus (ui/menu-toolbar.js). Moving onto the trigger opens what it
+// header's buttons with their windows (main.js) and the toolbar's menus
+// (ui/menu-toolbar.js; not the submenus inside them, which open on a click). Moving onto the trigger opens what it
 // opens; moving off both the trigger and what opened closes it again after
 // a moment. A click on the trigger or a press inside keeps it open, as if
 // it had been opened by a click - forms in it are not lost to a slip of

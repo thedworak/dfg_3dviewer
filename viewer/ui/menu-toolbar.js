@@ -27,7 +27,7 @@ const CATEGORIES = [
     id: "look",
     label: () => t("menus.look", "Look"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["projection", "lights", "environmentMap", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
+    tools: ["projection", "lights", "weather", "environmentMap", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
   },
   {
     id: "analysis",
@@ -298,8 +298,9 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     toolbar.classList.toggle("viewer-menus--below", above < 360 && below > above);
   }
 
-  // Submenus open in place: a tap on a tool with a submenu (not in it).
-  // On a desktop they open on hover too.
+  // Submenus open in place: a tap or click on a tool with a submenu (not in
+  // it) - never on hover, which is for the menus of the bar only: a pointer
+  // passing down the menu would unfold every submenu on its way.
   const setRowOpen = (row, open) => {
     row.classList.toggle("is-open", open);
     row.setAttribute("aria-expanded", open ? "true" : "false");
@@ -309,19 +310,9 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     if (!row || !panel.contains(row)) return;
     const submenu = row.querySelector(":scope > .viewer-editor-tool_submenu");
     if (submenu?.contains(event.target)) return;
-    if (row.hoverOpen?.consumeClick()) return;
     setRowOpen(row, !row.classList.contains("is-open"));
   });
-  panel.querySelectorAll(".has-submenu").forEach((row) => {
-    row.setAttribute("aria-expanded", "false");
-    row.hoverOpen = bindHoverOpen(viewer, row, {
-      panel: () => row.querySelector(":scope > .viewer-editor-tool_submenu"),
-      isOpen: () => row.classList.contains("is-open"),
-      open: () => setRowOpen(row, true),
-      close: () => setRowOpen(row, false),
-      enabled: () => state.mode === "desktop",
-    });
-  });
+  panel.querySelectorAll(".has-submenu").forEach((row) => row.setAttribute("aria-expanded", "false"));
 
   // The sheet's height, as last dragged (kept while the viewer is open).
   const SHEET_MIN = 140;

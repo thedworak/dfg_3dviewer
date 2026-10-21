@@ -1624,6 +1624,8 @@ export function attachAnnotations(Viewer) {
           // Where the model stands, and the sun while it is on.
           location: this.getLocationForExport?.(),
           sun: this.getSunForExport?.(),
+          // The weather, while it is on.
+          weather: this.getWeatherForExport?.(),
 
           // The 4D timeline: its stages and the year shown.
           timeline: this.getTimelineForExport?.(),
@@ -2225,6 +2227,7 @@ export function attachAnnotations(Viewer) {
       // is about to set: off first, on again (if the manifest has it) after.
       this.setRakingLight?.(false);
       this.setSunStudy?.(false);
+      this.setWeather?.(false);
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
         const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
@@ -2234,6 +2237,7 @@ export function attachAnnotations(Viewer) {
         const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
         const appliedRakingLight = this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
         const appliedSun = this.apply3IFManifestSun?.(aim3dConfig.location, aim3dConfig.sun) === true;
+        const appliedWeather = this.apply3IFManifestWeather?.(aim3dConfig.weather) === true;
         const appliedTimeline = this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
         const appliedVariants = this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
         const appliedPhotos = this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
@@ -2247,6 +2251,7 @@ export function attachAnnotations(Viewer) {
           appliedModelTransform,
           appliedRakingLight,
           appliedSun,
+          appliedWeather,
           appliedTimeline,
           appliedVariants,
           appliedPhotos,

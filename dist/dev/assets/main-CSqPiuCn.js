@@ -1,5 +1,5 @@
-import { g4 as THREE, gc as exports$1, gd as unzipSync$1, ge as GTAOPass, gf as EffectComposer, gg as RenderPass, gh as SMAAPass, gi as OutputPass, gj as FXAAPass, gk as USDZExporter, gl as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gm as Vector3$1, gn as Matrix4, go as Quaternion, gp as Euler, gq as MathUtils$1, gr as FontLoader, gs as TextGeometry, gt as OrbitControls, gu as TransformControls } from './three-DtpVwUD_.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-DGWc_lrc.js';
+import { g4 as THREE, gc as exports$1, gd as unzipSync$1, ge as GTAOPass, gf as EffectComposer, gg as RenderPass, gh as SMAAPass, gi as OutputPass, gj as FXAAPass, gk as Sky, gl as USDZExporter, gm as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gn as Vector3$1, go as Matrix4, gp as Quaternion, gq as Euler, gr as MathUtils$1, gs as FontLoader, gt as TextGeometry, gu as OrbitControls, gv as TransformControls } from './three-VOkZ5KBh.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-CLl24Q_z.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -4415,6 +4415,48 @@ var aim3d = [
 		}
 	},
 	{
+		url: "./manifests/tempietto-aim3d-morning-mist.json",
+		name: {
+			en: "Tempietto - morning mist at sunrise (localhost)",
+			pl: "Tempietto - poranna mgła o wschodzie słońca (localhost)",
+			de: "Tempietto - Morgennebel bei Sonnenaufgang (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Morning mist at sunrise",
+			pl: "Poranna mgła o wschodzie słońca",
+			de: "Morgennebel bei Sonnenaufgang"
+		}
+	},
+	{
+		url: "./manifests/tempietto-aim3d-storm.json",
+		name: {
+			en: "Tempietto - thunderstorm (localhost)",
+			pl: "Tempietto - burza (localhost)",
+			de: "Tempietto - Gewitter (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Thunderstorm",
+			pl: "Burza",
+			de: "Gewitter"
+		}
+	},
+	{
+		url: "./manifests/tempietto-aim3d-snow.json",
+		name: {
+			en: "Tempietto - snowfall, snow on the dome (localhost)",
+			pl: "Tempietto - śnieżyca, śnieg na kopule (localhost)",
+			de: "Tempietto - Schneefall, Schnee auf der Kuppel (localhost)"
+		},
+		group: "tempietto",
+		variant: {
+			en: "Snowfall, snow on the dome",
+			pl: "Śnieżyca, śnieg na kopule",
+			de: "Schneefall, Schnee auf der Kuppel"
+		}
+	},
+	{
 		url: "./manifests/wolpa-synagogue-aim3d-local.json",
 		i18n: "aim3if.optionWolpaLocal",
 		fallback: "Wolpa Synagogue (localhost)",
@@ -4604,6 +4646,48 @@ var aim3d = [
 		}
 	},
 	{
+		url: "./manifests/wolpa-synagogue-aim3d-local-winter.json",
+		name: {
+			en: "Wolpa Synagogue - winter, snow on the roofs (localhost)",
+			pl: "Synagoga w Wołpie - zima, śnieg na dachach (localhost)",
+			de: "Synagoge Wolpa - Winter, Schnee auf den Dächern (localhost)"
+		},
+		group: "wolpa",
+		variant: {
+			en: "Winter, snow on the roofs",
+			pl: "Zima, śnieg na dachach",
+			de: "Winter, Schnee auf den Dächern"
+		}
+	},
+	{
+		url: "./manifests/wolpa-synagogue-aim3d-local-mist.json",
+		name: {
+			en: "Wolpa Synagogue - autumn morning mist (localhost)",
+			pl: "Synagoga w Wołpie - jesienna poranna mgła (localhost)",
+			de: "Synagoge Wolpa - herbstlicher Morgennebel (localhost)"
+		},
+		group: "wolpa",
+		variant: {
+			en: "Autumn morning mist",
+			pl: "Jesienna poranna mgła",
+			de: "Herbstlicher Morgennebel"
+		}
+	},
+	{
+		url: "./manifests/wolpa-synagogue-aim3d-local-downpour.json",
+		name: {
+			en: "Wolpa Synagogue - downpour on the shingle roofs (localhost)",
+			pl: "Synagoga w Wołpie - ulewa na gontowych dachach (localhost)",
+			de: "Synagoge Wolpa - Platzregen auf den Schindeldächern (localhost)"
+		},
+		group: "wolpa",
+		variant: {
+			en: "Downpour on the shingle roofs",
+			pl: "Ulewa na gontowych dachach",
+			de: "Platzregen auf den Schindeldächern"
+		}
+	},
+	{
 		url: "./manifests/showcase-aim3d-studio.json",
 		name: {
 			en: "Showcase - PBR materials in the studio, AgX",
@@ -4780,6 +4864,51 @@ var aim3d = [
 			en: "Section through the hollow pedestal",
 			pl: "Przekrój przez pusty postument",
 			de: "Schnitt durch den hohlen Sockel"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-rain.json",
+		name: {
+			en: "Showcase - downpour: wet materials, splashes",
+			pl: "Showcase - ulewa: mokre materiały, rozbryzgi",
+			de: "Showcase - Platzregen: nasse Materialien, Spritzer"
+		},
+		group: "showcase",
+		variant: {
+			en: "Downpour: wet materials, splashes",
+			pl: "Ulewa: mokre materiały, rozbryzgi",
+			de: "Platzregen: nasse Materialien, Spritzer"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-fog.json",
+		name: {
+			en: "Showcase - morning fog at sunrise",
+			pl: "Showcase - poranna mgła o wschodzie słońca",
+			de: "Showcase - Morgennebel bei Sonnenaufgang"
+		},
+		group: "showcase",
+		variant: {
+			en: "Morning fog at sunrise",
+			pl: "Poranna mgła o wschodzie słońca",
+			de: "Morgennebel bei Sonnenaufgang"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/showcase-aim3d-storm.json",
+		name: {
+			en: "Showcase - thunderstorm",
+			pl: "Showcase - burza",
+			de: "Showcase - Gewitter"
+		},
+		group: "showcase",
+		variant: {
+			en: "Thunderstorm",
+			pl: "Burza",
+			de: "Gewitter"
 		},
 		excludeFromMobile: true
 	}
@@ -6324,7 +6453,7 @@ function createManifestUI(type = "iiif") {
   formContainer.appendChild(content);
 
   // Appended into the viewer's own wrapper (same host core.editorToolbar
-  // and #credits already use - see getEditorToolbarHost() in
+  // uses - see getEditorToolbarHost() in
   // editor-toolbar.js and the appendChild call in main.js), not
   // document.body: #form-manifesto is normal-flow now (see
   // viewer/css/external-sources.css), so this renders it as a block below
@@ -6356,8 +6485,8 @@ function displayManifestInForm(manifestJson) {
 // but its meshes come and go with the level of detail, so face-based
 // features (annotations, area selection) are not available for it.
 
-const loadTilesModule = () => import('./index.three-e8n9GGBt.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BpTp5hZ-.js');
+const loadTilesModule = () => import('./index.three-CpzwEGSw.js').then(function (n) { return n.i; });
+const loadTilesPlugins = () => import('./index.three-plugins-Ct2RjZTp.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -6968,9 +7097,10 @@ function modelNeedsWebGL(fileName) {
 }
 
 // Three's MeshStandard/MeshPhysical node materials with the direct specular
-// light scaled down, as the WebGL renderer's patched shader does. Registered
-// for the plain material types, so the renderer's own conversion uses them.
-function registerDampedSpecular(renderer, webgpu) {
+// light scaled down, as the WebGL renderer's patched shader does, and taking
+// the weather's wet and snow (editor/weather-webgpu.js). Registered for the
+// plain material types, so the renderer's own conversion uses them.
+function registerViewerMaterials(renderer, webgpu, weather) {
   const { MeshStandardNodeMaterial, MeshPhysicalNodeMaterial, PhysicalLightingModel } = webgpu;
   class DampedSpecularLightingModel extends PhysicalLightingModel {
     start(builder) {
@@ -6978,9 +7108,23 @@ function registerDampedSpecular(renderer, webgpu) {
       builder.context.reflectedLight.directSpecular.mulAssign(DIRECT_SPECULAR_SCALE);
     }
   }
+  // The weather's roughness and metalness for this build only: the
+  // material keeps its own nodes.
+  const withWeather = (material, setup) => {
+    const { roughnessNode, metalnessNode } = material;
+    Object.assign(material, weather.setupWeatherSurface(material));
+    try {
+      return setup();
+    } finally {
+      Object.assign(material, { roughnessNode, metalnessNode });
+    }
+  };
   class ViewerStandardNodeMaterial extends MeshStandardNodeMaterial {
     setupLightingModel() {
       return new DampedSpecularLightingModel();
+    }
+    setupVariants(builder) {
+      return withWeather(this, () => super.setupVariants(builder));
     }
   }
   class ViewerPhysicalNodeMaterial extends MeshPhysicalNodeMaterial {
@@ -6990,9 +7134,16 @@ function registerDampedSpecular(renderer, webgpu) {
         this.useTransmission, this.useDispersion, this.useRetroreflection
       );
     }
+    setupVariants(builder) {
+      return withWeather(this, () => super.setupVariants(builder));
+    }
   }
-  renderer.library.addMaterial(ViewerStandardNodeMaterial, "MeshStandardMaterial");
-  renderer.library.addMaterial(ViewerPhysicalNodeMaterial, "MeshPhysicalMaterial");
+  // addMaterial keeps a type already registered (three's own, here): taken
+  // out first.
+  [[ViewerStandardNodeMaterial, "MeshStandardMaterial"], [ViewerPhysicalNodeMaterial, "MeshPhysicalMaterial"]].forEach(([nodeClass, type]) => {
+    renderer.library.materialNodes.delete(type);
+    renderer.library.addMaterial(nodeClass, type);
+  });
 }
 
 // three sets `swizzle: "rgba"` (the identity) on every texture view;
@@ -7015,7 +7166,11 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import('./three-webgpu-DfUCPSX0.js').then(function (n) { return n.t; }), import('./rendering-webgpu-B-PM4CdT.js')]);
+  const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
+    import('./three-webgpu-DPPtmlIw.js').then(function (n) { return n.a0; }),
+    import('./rendering-webgpu-CDv5537J.js'),
+    import('./weather-webgpu-BAUmU6Hv.js'),
+  ]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -7031,8 +7186,9 @@ async function createWebGPURenderer(options) {
     renderer.dispose();
     throw new Error("No WebGPU device");
   }
-  registerDampedSpecular(renderer, webgpu);
+  registerViewerMaterials(renderer, webgpu, weatherWebGPU);
   setCore("threeWebGPU", webgpu);
+  setCore("weatherWebGPU", weatherWebGPU);
   // What the WebGPU renderer runs on: "webgpu", or "webgl2" when forced.
   setCore("rendererDevice", renderer.backend?.isWebGPUBackend ? "webgpu" : "webgl2");
   setCore("webgpuRendering", webgpuRendering);
@@ -7119,34 +7275,34 @@ function maybeShowFirstRunHints() {
   }, START_DELAY_MS);
 }
 
-const loadDDSLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gx; })).DDSLoader;
-const loadMTLLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gy; })).MTLLoader;
-const loadOBJLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gz; })).OBJLoader;
-const loadFBXLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gA; })).FBXLoader;
-const loadPLYLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gB; })).PLYLoader;
-const loadColladaLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gC; })).ColladaLoader;
-const loadSTLLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gD; })).STLLoader;
-const loadXYZLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gE; })).XYZLoader;
-const loadTDSLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gF; })).TDSLoader;
-const loadPCDLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gG; })).PCDLoader;
-const loadGLTFLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gw; })).GLTFLoader;
-const loadDRACOLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gH; })).DRACOLoader;
-const loadKTX2Loader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gI; })).KTX2Loader;
-const loadMeshoptDecoder = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gJ; })).MeshoptDecoder;
-const loadUSDLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gK; })).USDLoader;
-const loadThreeMFLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gL; })).ThreeMFLoader;
-const loadAMFLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gM; })).AMFLoader;
-const loadVRMLLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gN; })).VRMLLoader;
-const loadKMZLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gO; })).KMZLoader;
-const loadVOXLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gP; })).VOXLoader;
-const loadVOXBuildMesh = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gP; })).buildMesh;
-const loadLWOLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gQ; })).LWOLoader;
-const loadIFCLoader = async () => (await import('./IFCLoader-BrLbK6jt.js')).IFCLoader;
-const loadRoomEnvironment = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gR; })).RoomEnvironment;
+const loadDDSLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gy; })).DDSLoader;
+const loadMTLLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gz; })).MTLLoader;
+const loadOBJLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gA; })).OBJLoader;
+const loadFBXLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gB; })).FBXLoader;
+const loadPLYLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gC; })).PLYLoader;
+const loadColladaLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gD; })).ColladaLoader;
+const loadSTLLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gE; })).STLLoader;
+const loadXYZLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gF; })).XYZLoader;
+const loadTDSLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gG; })).TDSLoader;
+const loadPCDLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gH; })).PCDLoader;
+const loadGLTFLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gx; })).GLTFLoader;
+const loadDRACOLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gI; })).DRACOLoader;
+const loadKTX2Loader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gJ; })).KTX2Loader;
+const loadMeshoptDecoder = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gK; })).MeshoptDecoder;
+const loadUSDLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gL; })).USDLoader;
+const loadThreeMFLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gM; })).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gN; })).AMFLoader;
+const loadVRMLLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gO; })).VRMLLoader;
+const loadKMZLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gP; })).KMZLoader;
+const loadVOXLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gQ; })).VOXLoader;
+const loadVOXBuildMesh = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gQ; })).buildMesh;
+const loadLWOLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gR; })).LWOLoader;
+const loadIFCLoader = async () => (await import('./IFCLoader-DmMwmBCV.js')).IFCLoader;
+const loadRoomEnvironment = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gS; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BOgqXWKz.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BDEUiGzp.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-Aeth6NWb.js');
+const loadSplats = async () => import('./splats-CK1NI_oa.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -7159,7 +7315,7 @@ function isSplatPly(buffer) {
   const has = (name) => new RegExp(`\\bproperty\\s+\\w+\\s+${name}\\b`).test(text);
   return (has("f_dc_0") && has("scale_0") && has("rot_0")) || has("packed_position");
 }
-const loadHDRLoader = async () => (await import('./three-DtpVwUD_.js').then(function (n) { return n.gS; })).HDRLoader;
+const loadHDRLoader = async () => (await import('./three-VOkZ5KBh.js').then(function (n) { return n.gT; })).HDRLoader;
 
 var outlineClipping;
 let environmentTextureCache = {};
@@ -10388,7 +10544,7 @@ const NOT_ELEMENTS = /(type|style)$|^ifcproject$/i;
 const SPATIAL = new Set(["ifcsite", "ifcbuilding", "ifcbuildingstorey", "ifcspace"]);
 const isSpatial = (type) => SPATIAL.has(String(type || "").toLowerCase());
 
-function isPlainObject$7(value) {
+function isPlainObject$8(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -10396,7 +10552,7 @@ function isPlainObject$7(value) {
 function plainValue(value) {
   if (value === ".T.") return true;
   if (value === ".F.") return false;
-  if (isPlainObject$7(value)) return value.name ?? value.guid ?? value.type ?? null;
+  if (isPlainObject$8(value)) return value.name ?? value.guid ?? value.type ?? null;
   if (Array.isArray(value)) return value.map(plainValue).join(", ");
   return value;
 }
@@ -10450,7 +10606,7 @@ function buildIfcSummary(data) {
     bump(typeNames, entry.typeRef?.name);
     bump(predefinedTypes, entry.predefinedType);
     Object.entries(entry.psets || {}).forEach(([psetName, props]) => {
-      if (!isPlainObject$7(props)) return;
+      if (!isPlainObject$8(props)) return;
       if (!psets.has(psetName)) psets.set(psetName, { count: 0, properties: new Map() });
       const pset = psets.get(psetName);
       pset.count += 1;
@@ -10503,10 +10659,10 @@ function findProperty(entry, pset, property) {
   const sets = entry.psets || {};
   if (pset) {
     const props = sets[pset];
-    return isPlainObject$7(props) && property in props ? { found: true, value: plainValue(props[property]) } : { found: false };
+    return isPlainObject$8(props) && property in props ? { found: true, value: plainValue(props[property]) } : { found: false };
   }
   for (const props of Object.values(sets)) {
-    if (isPlainObject$7(props) && property in props) return { found: true, value: plainValue(props[property]) };
+    if (isPlainObject$8(props) && property in props) return { found: true, value: plainValue(props[property]) };
   }
   return { found: false };
 }
@@ -12498,6 +12654,7 @@ function attachLocalizationTheme(viewer) {
       this.updateVariantsLabels?.();
       this.updatePhotosLabels?.();
       this.updateSunLabels?.();
+      this.updateWeatherLabels?.();
       this.updateXRLabels?.();
       this.syncPointCloudPanel?.();
       this.renderUploadLimits?.();
@@ -12731,7 +12888,7 @@ let composerAntialias = null;
 let composerAo = null;
 const canvasSize = new THREE.Vector2();
 
-function isPlainObject$6(value) {
+function isPlainObject$7(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -12746,7 +12903,7 @@ function cloneSettings(settings) {
 // `input` merged over `base`; unknown or malformed values keep the base value.
 function normalizeRenderingSettings(input, base = RENDERING_DEFAULTS) {
   const result = cloneSettings(base);
-  if (!isPlainObject$6(input)) return result;
+  if (!isPlainObject$7(input)) return result;
 
   const toneMapping = typeof input.toneMapping === "string" ? input.toneMapping.trim().toLowerCase() : "";
   if (toneMapping in TONE_MAPPING_MODES) result.toneMapping = toneMapping;
@@ -12756,7 +12913,7 @@ function normalizeRenderingSettings(input, base = RENDERING_DEFAULTS) {
     result.exposure = exposure;
   }
 
-  if (isPlainObject$6(input.postprocessing)) {
+  if (isPlainObject$7(input.postprocessing)) {
     const { enabled, antialias, ao, aoIntensity } = input.postprocessing;
     if (typeof enabled === "boolean") result.postprocessing.enabled = enabled;
     if (ANTIALIAS_MODES.includes(antialias)) result.postprocessing.antialias = antialias;
@@ -13022,7 +13179,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "9d27614" ;
+const BUILD_ID$2 = "9e24e40e" ;
 const BUILD = "dev" ;
 
 let initPromise = null;
@@ -13073,8 +13230,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "9d27614" ;
-const BUILD_TIME$1 = "2026-10-20T07:28:47.361Z" ;
+const BUILD_ID$1 = "9e24e40e" ;
+const BUILD_TIME$1 = "2026-10-21T11:24:22.330Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -13277,10 +13434,11 @@ function reportBug() {
   dialog.querySelector("textarea").focus();
 }
 
-// Floating tool panels (section planes, measurements, point cloud, tour) take
-// a lot of a phone screen. On touch devices and in the app their header gets a
-// grip to drag the panel anywhere over the viewer (double tap: back to the
-// side stack) and a button that minimizes it to the header alone.
+// Floating tool panels (section planes, measurements, point cloud, tour, sun,
+// timeline) get a grip in their header to drag the panel anywhere over the
+// viewer (double tap: back to the side stack), a button that minimizes it to
+// a small round icon (tap: restore, drag: move) and, for panels without one
+// of their own, a close button.
 
 const DOUBLE_TAP_MS$1 = 320;
 const TAP_SLOP_PX = 6;
@@ -13292,7 +13450,10 @@ const TOOL_PANEL_OPEN_EVENT = "viewer-tool-panel-open";
 
 function watchPanelVisibility(panel, root) {
   const isShown = () => !panel.hidden && !root.hidden;
-  const announce = () => document.dispatchEvent(new CustomEvent(TOOL_PANEL_OPEN_EVENT, { detail: { panel } }));
+  // Only where the toolbar folds for them (touch devices and the app).
+  const announce = () => {
+    if (isToolPanelChromeEnabled()) document.dispatchEvent(new CustomEvent(TOOL_PANEL_OPEN_EVENT, { detail: { panel } }));
+  };
   let shown = isShown();
   if (shown) announce();
   const observer = new MutationObserver(() => {
@@ -13309,22 +13470,22 @@ function isToolPanelChromeEnabled() {
   return isAppBuild() || window.matchMedia?.("(pointer: coarse)").matches === true;
 }
 
-// The panel is positioned inside its side stack (position: absolute there),
-// kept within the viewer container.
+// Undocked, the panel sits in the viewer container itself (not in the side
+// stack, which shrinks and moves as its other panels change), kept within it.
 function clampPanel(panel) {
-  const stack = panel.offsetParent;
+  const parent = panel.offsetParent;
   const container = core.container;
-  if (!stack || !container) return;
-  const stackRect = stack.getBoundingClientRect();
+  if (!parent || !container) return;
+  const parentRect = parent.getBoundingClientRect();
   const bounds = container.getBoundingClientRect();
   // A fullscreen viewer runs on under the app's ad banner (main.css).
   const bannerHeight = document.fullscreenElement
     ? parseFloat(getComputedStyle(document.body).getPropertyValue("--app-ad-banner-height")) || 0
     : 0;
-  const minLeft = bounds.left - stackRect.left;
-  const minTop = bounds.top - stackRect.top;
-  const maxLeft = bounds.right - stackRect.left - panel.offsetWidth;
-  const maxTop = bounds.bottom - bannerHeight - stackRect.top - panel.offsetHeight;
+  const minLeft = bounds.left - parentRect.left;
+  const minTop = bounds.top - parentRect.top;
+  const maxLeft = bounds.right - parentRect.left - panel.offsetWidth;
+  const maxTop = bounds.bottom - bannerHeight - parentRect.top - panel.offsetHeight;
   const left = Math.min(Math.max(parseFloat(panel.style.left) || 0, minLeft), Math.max(minLeft, maxLeft));
   const top = Math.min(Math.max(parseFloat(panel.style.top) || 0, minTop), Math.max(minTop, maxTop));
   panel.style.left = `${left}px`;
@@ -13333,14 +13494,29 @@ function clampPanel(panel) {
 
 function undockPanel(panel) {
   if (panel.classList.contains("is-undocked")) return;
-  panel.style.width = `${panel.offsetWidth}px`;
-  panel.style.left = `${panel.offsetLeft}px`;
-  panel.style.top = `${panel.offsetTop}px`;
+  const rect = panel.getBoundingClientRect();
+  // Minimized, the panel is only its icon: it gets back its own width.
+  if (!panel.classList.contains("is-minimized")) panel.style.width = `${rect.width}px`;
+  const container = core.container;
+  if (container && panel.parentElement !== container) {
+    // Where it goes back to on docking.
+    const placeholder = document.createComment("tool panel");
+    panel.before(placeholder);
+    panel.toolPanelChrome.placeholder = placeholder;
+    container.append(panel);
+  }
   panel.classList.add("is-undocked");
+  const parentRect = (panel.offsetParent || panel.parentElement).getBoundingClientRect();
+  panel.style.left = `${rect.left - parentRect.left}px`;
+  panel.style.top = `${rect.top - parentRect.top}px`;
   undockedPanels.add(panel);
 }
 
 function dockPanel(panel) {
+  const placeholder = panel.toolPanelChrome?.placeholder;
+  if (placeholder?.isConnected) placeholder.replaceWith(panel);
+  else placeholder?.remove();
+  if (panel.toolPanelChrome) panel.toolPanelChrome.placeholder = null;
   panel.classList.remove("is-undocked");
   panel.style.removeProperty("left");
   panel.style.removeProperty("top");
@@ -13348,26 +13524,32 @@ function dockPanel(panel) {
   undockedPanels.delete(panel);
 }
 
-window.addEventListener("resize", () => undockedPanels.forEach(clampPanel));
+window.addEventListener("resize", () => undockedPanels.forEach((panel) => {
+  if (panel.isConnected) clampPanel(panel);
+  else undockedPanels.delete(panel);
+}));
 
-function createGrip(panel) {
-  const grip = document.createElement("button");
-  grip.type = "button";
-  grip.className = "tool-panel-chrome_grip";
-  grip.textContent = "⠿";
+// Dragging `handle` moves the panel out of the side stack; a tap (no drag)
+// calls onTap with the time since the previous tap.
+function bindDrag(panel, handle, onTap) {
   let lastTap = 0;
-
-  grip.addEventListener("pointerdown", (event) => {
+  handle.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
+    event.stopPropagation();
     const startX = event.clientX;
     const startY = event.clientY;
     let startLeft = 0;
     let startTop = 0;
     let moved = false;
-    grip.setPointerCapture?.(event.pointerId);
+    handle.chromeDragged = false;
+    const pointerId = event.pointerId;
 
+    // On the window, capturing: undocking moves the panel in the DOM, which
+    // would end a pointer capture on the handle, and panels stop pointer
+    // events from bubbling out of them.
     const onMove = (moveEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
       if (!moved) {
@@ -13382,24 +13564,96 @@ function createGrip(panel) {
       clampPanel(panel);
     };
     const onEnd = (endEvent) => {
-      grip.releasePointerCapture?.(endEvent.pointerId);
-      grip.removeEventListener("pointermove", onMove);
-      grip.removeEventListener("pointerup", onEnd);
-      grip.removeEventListener("pointercancel", onEnd);
+      if (endEvent.pointerId !== pointerId) return;
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onEnd, true);
+      window.removeEventListener("pointercancel", onEnd, true);
+      handle.chromeDragged = moved;
       if (moved || endEvent.type === "pointercancel") return;
       const now = performance.now();
-      if (now - lastTap < DOUBLE_TAP_MS$1) {
-        dockPanel(panel);
-        lastTap = 0;
-      } else {
-        lastTap = now;
-      }
+      onTap?.(now - lastTap);
+      lastTap = now;
     };
-    grip.addEventListener("pointermove", onMove);
-    grip.addEventListener("pointerup", onEnd);
-    grip.addEventListener("pointercancel", onEnd);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onEnd, true);
+    window.addEventListener("pointercancel", onEnd, true);
+  });
+  // Keyboard and assistive technology: a click without a pointer press.
+  handle.addEventListener("click", (event) => {
+    if (event.detail === 0) onTap?.(Infinity);
+  });
+}
+
+function createGrip(panel) {
+  const grip = document.createElement("button");
+  grip.type = "button";
+  grip.className = "tool-panel-chrome_grip";
+  grip.textContent = "⠿";
+  bindDrag(panel, grip, (sinceLastTap) => {
+    if (sinceLastTap < DOUBLE_TAP_MS$1) dockPanel(panel);
   });
   return grip;
+}
+
+const WINDOW_ICON = `<svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" focusable="false">
+  <rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/>
+  <line x1="1.5" y1="5.5" x2="14.5" y2="5.5" stroke="currentColor" stroke-width="1.4"/>
+</svg>`;
+
+// Icons of the minimized panels (attachToolPanelChrome's `icon`).
+const svg = (body) => `<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+const PANEL_ICONS = {
+  tour: svg('<path d="M3 14V2.5h8.5l-1.8 2.75 1.8 2.75H3"/>'),
+  weather: svg('<path d="M4.5 10.5a2.8 2.8 0 0 1-.3-5.6 3.9 3.9 0 0 1 7.5.4 2.6 2.6 0 0 1-.2 5.2z"/><path d="M5.5 12.8l-.6 1.4M8.5 12.8l-.6 1.4M11.5 12.8l-.6 1.4"/>'),
+  sun: svg('<circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/>'),
+  timeline: svg('<path d="M1.5 8h13"/><circle cx="4" cy="8" r="1.4" fill="currentColor"/><circle cx="9.5" cy="8" r="1.4" fill="currentColor"/><path d="M4 4v1.5M9.5 4v1.5M12.5 10.5V12"/>'),
+  measure: svg('<rect x="1" y="5" width="14" height="6" rx="1" transform="rotate(-30 8 8)"/><path d="m4.6 8.6.9 1.5M7.2 7.1l.9 1.5M9.8 5.6l.9 1.5"/>'),
+  clipping: svg('<path d="M2 11 8 14l6-3V5L8 2 2 5z"/><path d="M1 8.5h14" stroke-dasharray="2 1.5"/>'),
+  pointCloud: svg('<circle cx="4" cy="5" r="1" fill="currentColor"/><circle cx="8" cy="3.5" r="1" fill="currentColor"/><circle cx="12" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="9" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/><circle cx="4" cy="12.5" r="1" fill="currentColor"/><circle cx="8.5" cy="13" r="1" fill="currentColor"/>'),
+  certainty: svg('<path d="M8 2 14.5 5.5 8 9 1.5 5.5z"/><path d="m1.5 8.5 6.5 3.5 6.5-3.5M1.5 11.5 8 15l6.5-3.5"/>'),
+  material: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13c1 0 1.5-.7 1.2-1.6-.4-1 .3-1.9 1.3-1.9h1.6a2.9 2.9 0 0 0 2.9-2.9C15 4.4 11.9 1.5 8 1.5z"/><circle cx="4.8" cy="7" r=".9" fill="currentColor"/><circle cx="7.5" cy="4.5" r=".9" fill="currentColor"/><circle cx="10.8" cy="5.5" r=".9" fill="currentColor"/>'),
+  animation: svg('<circle cx="8" cy="8" r="6.5"/><path d="m6.5 5.3 4 2.7-4 2.7z" fill="currentColor"/>')};
+
+// The minimized panel: a round icon that restores it on a tap and moves it
+// when dragged.
+function createPip(panel) {
+  const pip = document.createElement("button");
+  pip.type = "button";
+  pip.className = "tool-panel-chrome_pip";
+  pip.addEventListener("pointerup", (event) => event.stopPropagation());
+  pip.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
+  bindDrag(panel, pip, null);
+  // On the click, not when the pointer lifts: restored on pointerup, the
+  // panel would be under the finger when the tap's click arrives, and the
+  // click would land on its close button.
+  pip.addEventListener("click", () => {
+    if (pip.chromeDragged) {
+      pip.chromeDragged = false;
+      return;
+    }
+    setMinimized(panel, false);
+  });
+  return pip;
+}
+
+function setMinimized(panel, minimized) {
+  panel.classList.toggle("is-minimized", minimized);
+  const { minimize, pip } = panel.toolPanelChrome || {};
+  if (minimize) syncMinimize(panel, minimize);
+  if (pip) pip.hidden = !minimized;
+  if (minimized) pip?.focus({ preventScroll: true });
+  else minimize?.focus({ preventScroll: true });
+  if (panel.classList.contains("is-undocked")) clampPanel(panel);
+}
+
+function createClose(onClose) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "tool-panel-chrome_close";
+  button.textContent = "×";
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", () => onClose());
+  return button;
 }
 
 function createMinimize(panel) {
@@ -13409,58 +13663,181 @@ function createMinimize(panel) {
   // Headers that drag their dialog (materials, shading) must not start a
   // drag - and capture the pointer - from this button.
   button.addEventListener("pointerdown", (event) => event.stopPropagation());
-  button.addEventListener("click", () => {
-    panel.classList.toggle("is-minimized");
-    syncMinimize(panel, button);
-    if (panel.classList.contains("is-undocked")) clampPanel(panel);
-  });
+  button.addEventListener("click", () => setMinimized(panel, !panel.classList.contains("is-minimized")));
   return button;
 }
 
 function syncMinimize(panel, button) {
   const minimized = panel.classList.contains("is-minimized");
   const label = minimized ? t$1("toolPanel.restore", "Restore panel") : t$1("toolPanel.minimize", "Minimize panel");
-  button.textContent = minimized ? "▢" : "–";
+  button.textContent = "–";
   button.title = label;
   button.setAttribute("aria-label", label);
   button.setAttribute("aria-expanded", String(!minimized));
 }
 
-// Adds the grip (first in `header`) and the minimize button (before `before`,
-// or last) to a panel. `movable: false` for dialogs that already drag by
-// their header; `visibilityRoot`: the element whose `hidden` shows and hides
-// the panel, when that is not the panel itself. Safe to call again on every
-// render: panels that rebuild their header get the same buttons put back.
-// While minimized, only the header stays visible (tool-panel-chrome in
-// viewer-tools.css).
+function syncPip(panel, pip, icon, label) {
+  if (pip.chromeIcon !== icon) {
+    pip.innerHTML = icon;
+    pip.chromeIcon = icon;
+  }
+  const name = (typeof label === "function" ? label() : label) || panel.getAttribute("aria-label") || "";
+  const text = name
+    ? `${t$1("toolPanel.restore", "Restore panel")}: ${name}`
+    : t$1("toolPanel.restore", "Restore panel");
+  pip.title = text;
+  pip.setAttribute("aria-label", text);
+  pip.hidden = !panel.classList.contains("is-minimized");
+}
+
+// Adds the grip (first in `header`), the minimize button (before `before`,
+// or last) and the round icon the minimized panel shrinks to (`icon`: SVG
+// markup, `label`: the panel's name, or a function returning it) to a panel.
+// `onClose`: adds a close button (last) for panels without one of their own.
+// `movable: false` for dialogs that already drag by their header;
+// `visibilityRoot`: the element whose `hidden` shows and hides the panel,
+// when that is not the panel itself. Safe to call again on every render:
+// panels that rebuild their contents get the same buttons put back.
 function attachToolPanelChrome(panel, header, {
   before = null,
   minimizable = true,
   movable = true,
   visibilityRoot = panel,
+  icon = WINDOW_ICON,
+  label = null,
+  onClose = null,
 } = {}) {
-  if (!panel || !header || !isToolPanelChromeEnabled()) return;
+  if (!panel || !header) return;
   if (!panel.toolPanelChrome) {
     panel.toolPanelChrome = {
       grip: movable ? createGrip(panel) : null,
       minimize: minimizable ? createMinimize(panel) : null,
+      pip: minimizable ? createPip(panel) : null,
+      close: onClose ? createClose(onClose) : null,
     };
     panel.classList.add("has-tool-chrome");
     watchPanelVisibility(panel, visibilityRoot);
   }
-  const { grip, minimize } = panel.toolPanelChrome;
+  Object.assign(panel.toolPanelChrome, { header, options: { before, icon, label } });
+  const { grip, minimize, pip, close } = panel.toolPanelChrome;
   header.classList.add("tool-panel-chrome");
   if (grip) {
-    const label = t$1("toolPanel.move", "Move panel (double tap: dock)");
-    grip.title = label;
-    grip.setAttribute("aria-label", label);
+    const moveLabel = t$1("toolPanel.move", "Move panel (double tap: dock)");
+    grip.title = moveLabel;
+    grip.setAttribute("aria-label", moveLabel);
     if (header.firstChild !== grip) header.prepend(grip);
+  }
+  if (close) {
+    const closeLabel = t$1("toolPanel.close", "Close panel");
+    close.title = closeLabel;
+    close.setAttribute("aria-label", closeLabel);
+    if (header.lastChild !== close) header.append(close);
   }
   if (minimize) {
     syncMinimize(panel, minimize);
-    const anchor = before && before.parentNode === header ? before : null;
+    const anchor = before && before.parentNode === header ? before : close;
     if (minimize.nextSibling !== anchor || minimize.parentNode !== header) header.insertBefore(minimize, anchor);
   }
+  if (pip) {
+    syncPip(panel, pip, icon, label);
+    if (pip.parentNode !== panel) panel.append(pip);
+  }
+}
+
+// The chrome's texts again, in the current language (ui/localization-theme.js).
+function refreshToolPanelChrome(panel) {
+  const chrome = panel?.toolPanelChrome;
+  if (chrome?.header) attachToolPanelChrome(panel, chrome.header, chrome.options);
+}
+
+// Menus that open on hover, on a desktop (a mouse that can hover): the page
+// header's buttons with their windows (main.js) and the toolbar's menus
+// (ui/menu-toolbar.js; not the submenus inside them, which open on a click). Moving onto the trigger opens what it
+// opens; moving off both the trigger and what opened closes it again after
+// a moment. A click on the trigger or a press inside keeps it open, as if
+// it had been opened by a click - forms in it are not lost to a slip of
+// the mouse. Touch and pen keep the taps.
+
+const CLOSE_DELAY_MS = 300;
+// Passing over a trigger on the way elsewhere opens nothing.
+const OPEN_DELAY_MS = 150;
+
+function canHoverOpen() {
+  return window.matchMedia?.("(hover: hover) and (pointer: fine)").matches === true;
+}
+
+// `panel()`: the element that opens (created on the first opening, maybe);
+// `isOpen()`, `open()`, `close()`; `enabled()`: false where hover should do
+// nothing (e.g. the phone layouts); `immediate()`: true to open without the
+// short wait (another menu of the bar already open). Returns
+// `consumeClick()`, for the trigger's click handler: true when the click
+// only kept a hover-opened panel open (and the handler should do nothing
+// else).
+function bindHoverOpen(Viewer, trigger, { panel, isOpen, open, close, enabled = () => true, immediate = () => false }) {
+  let hoverOpened = false;
+  let timer = null;
+  let openTimer = null;
+  const boundPanels = new WeakSet();
+
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+  const pin = () => {
+    hoverOpened = false;
+    cancel();
+  };
+  const isInside = (node) => Boolean(node) && (trigger.contains(node) || panel()?.contains(node));
+  const leave = (event) => {
+    if (event.pointerType !== "mouse" || isInside(event.relatedTarget)) return;
+    clearTimeout(openTimer);
+    openTimer = null;
+    if (!hoverOpened) return;
+    cancel();
+    timer = setTimeout(() => {
+      timer = null;
+      if (hoverOpened && isOpen()) close();
+      hoverOpened = false;
+    }, CLOSE_DELAY_MS);
+  };
+  const bindPanel = () => {
+    const element = panel();
+    if (!element || boundPanels.has(element)) return;
+    boundPanels.add(element);
+    Viewer.bindEventListener(element, "pointerenter", (event) => {
+      if (event.pointerType === "mouse") cancel();
+    });
+    Viewer.bindEventListener(element, "pointerleave", leave);
+    Viewer.bindEventListener(element, "pointerdown", pin);
+    Viewer.bindEventListener(element, "input", pin);
+  };
+
+  const openNow = () => {
+    openTimer = null;
+    if (isOpen() || !enabled()) return;
+    open();
+    hoverOpened = isOpen();
+    if (hoverOpened) bindPanel();
+  };
+  Viewer.bindEventListener(trigger, "pointerenter", (event) => {
+    if (event.pointerType !== "mouse" || !canHoverOpen() || !enabled()) return;
+    cancel();
+    if (isOpen()) return;
+    clearTimeout(openTimer);
+    if (immediate()) openNow();
+    else openTimer = setTimeout(openNow, OPEN_DELAY_MS);
+  });
+  Viewer.bindEventListener(trigger, "pointerleave", leave);
+
+  return {
+    consumeClick() {
+      clearTimeout(openTimer);
+      openTimer = null;
+      if (!hoverOpened || !isOpen()) return false;
+      pin();
+      return true;
+    },
+  };
 }
 
 // The toolbar as menus (a test of the layout proposed for the toolbar): the
@@ -13485,7 +13862,7 @@ const CATEGORIES = [
     id: "look",
     label: () => t$1("menus.look", "Look"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["projection", "lights", "environmentMap", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
+    tools: ["projection", "lights", "weather", "environmentMap", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
   },
   {
     id: "analysis",
@@ -13565,11 +13942,6 @@ function layoutFor(width, height) {
   if (coarse && width > height && height <= PHONE_SHORT_SIDE) return "rail";
   if (width < PHONE_WIDTH) return "bar";
   return "desktop";
-}
-
-// Whether a viewer of this size gets a phone layout ("bar" or "rail").
-function isPhoneLayout(width, height) {
-  return layoutFor(width, height) !== "desktop";
 }
 
 function categoryOf(key) {
@@ -13673,8 +14045,19 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
     tab.dataset.menu = category.id;
     if (category.more) tab.dataset.more = "true";
     tab.innerHTML = `<span class="viewer-menus_tab-icon" aria-hidden="true">${category.icon}</span><span class="viewer-menus_tab-label"></span><span class="viewer-menus_tab-chevron" aria-hidden="true"></span>`;
+    // On a desktop the menus open on hover too (ui/hover-open.js); a click
+    // then keeps the menu open.
+    const hover = bindHoverOpen(viewer, tab, {
+      panel: () => panel,
+      isOpen: () => state.open === category.id,
+      open: () => openMenu(category.id),
+      close: () => openMenu(null),
+      enabled: () => state.mode === "desktop",
+      immediate: () => Boolean(state.open),
+    });
     viewer.bindEventListener(tab, "click", (event) => {
       event.stopPropagation();
+      if (hover.consumeClick()) return;
       openMenu(state.open === category.id ? null : category.id);
     });
     tabs.appendChild(tab);
@@ -13745,15 +14128,19 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
     toolbar.classList.toggle("viewer-menus--below", above < 360 && below > above);
   }
 
-  // Submenus open in place: a tap on a tool with a submenu (not in it).
+  // Submenus open in place: a tap or click on a tool with a submenu (not in
+  // it) - never on hover, which is for the menus of the bar only: a pointer
+  // passing down the menu would unfold every submenu on its way.
+  const setRowOpen = (row, open) => {
+    row.classList.toggle("is-open", open);
+    row.setAttribute("aria-expanded", open ? "true" : "false");
+  };
   viewer.bindEventListener(panel, "click", (event) => {
     const row = event.target.closest(".has-submenu");
     if (!row || !panel.contains(row)) return;
     const submenu = row.querySelector(":scope > .viewer-editor-tool_submenu");
     if (submenu?.contains(event.target)) return;
-    const open = !row.classList.contains("is-open");
-    row.classList.toggle("is-open", open);
-    row.setAttribute("aria-expanded", open ? "true" : "false");
+    setRowOpen(row, !row.classList.contains("is-open"));
   });
   panel.querySelectorAll(".has-submenu").forEach((row) => row.setAttribute("aria-expanded", "false"));
 
@@ -14089,6 +14476,7 @@ function getEditorToolbarIcon(icon) {
     shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    weather: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15.5a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.2 8.1 3.75 3.75 0 0 1 17 15.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 18.5l-1 2.5M12 18.5l-1 2.5M16 18.5l-1 2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     rendering: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5 15.5 12M20.5 12l-8.5 3.5M12 20.5 8.5 12M3.5 12l8.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     toneMapping: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20c5 0 6-11 16-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -15414,6 +15802,8 @@ function createEditorToolbar(viewer) {
     // Appearance.
     { key: "lights", group: "appearance", icon: "lights", onClick: () => {}, pressed: false, primary: false },
     { key: "environmentMap", group: "appearance", icon: "environmentMap", onClick: () => {}, pressed: true, primary: false },
+    // Rain, snow, fog and storms: their window (editor/weather.js).
+    { key: "weather", group: "appearance", icon: "weather", onClick: () => viewer.toggleWeatherPanel(), pressed: true, primary: false },
     { key: "rendering", group: "appearance", icon: "rendering", onClick: () => {}, pressed: false, primary: false },
     { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
     { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
@@ -15435,7 +15825,7 @@ function createEditorToolbar(viewer) {
     // Help.
     { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
     { key: "help", group: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
-    // The credits line below the viewer (sandbox.js), hidden on a phone.
+    // The credits window (sandbox.js, main.js toggleCredits).
     { key: "credits", group: "help", icon: "credits", onClick: () => viewer.toggleCredits(), pressed: true, primary: false },
   ];
 
@@ -16438,6 +16828,7 @@ function updateEditorToolbarLabels(viewer) {
     upAxis: t$1("gui.upAxis", "Up axis of the model"),
     lights: t$1("gui.lights", "Lights"),
     environmentMap: t$1("gui.environmentMap", "Environment map"),
+    weather: t$1("weather.title", "Weather"),
     rendering: t$1("gui.rendering", "Rendering"),
     picking: viewer.pickingMode
       ? t$1("controls.disablePickingMode", "Disable picking mode")
@@ -16725,6 +17116,7 @@ function updateEditorToolbarState(viewer) {
     ifcQuery: viewer.isIfcQueryOpen?.() === true,
     wireframe: viewer.wireframeMode === true,
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,
+    weather: viewer.weather?.enabled === true || viewer.isWeatherPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,
@@ -16746,6 +17138,8 @@ function updateEditorToolbarState(viewer) {
   if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
+  const weatherButton = viewer.editorToolbarButtons.weather;
+  if (weatherButton) weatherButton.hidden = viewer.isWeatherAvailable?.() !== true;
   const ifcQueryButton = viewer.editorToolbarButtons.ifcQuery;
   if (ifcQueryButton) {
     const state = viewer.ifcQueryAIState?.() || "off";
@@ -17817,6 +18211,7 @@ function attachMaterialsEditor(Viewer) {
         before: header.querySelector(".materials-dialog__close"),
         movable: false,
         visibilityRoot: dialog,
+        icon: PANEL_ICONS.material,
       });
       this.materialsDialogInputs = {
         color: dialog.querySelector("#materialsDialogColor"),
@@ -18445,6 +18840,7 @@ function attachShadingEditor(Viewer) {
         before: header.querySelector(".materials-dialog__close"),
         movable: false,
         visibilityRoot: dialog,
+        icon: PANEL_ICONS.material,
       });
       this.shadingDialogInputs = {
         vertex: dialog.querySelector("#shadingDialogVertex"),
@@ -19929,7 +20325,7 @@ function attachAnnotations(Viewer) {
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "rgba(17, 24, 39, 0.9)";
+      ctx.fillStyle = "rgba(22, 19, 16, 0.9)";
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size * 0.46, 0, Math.PI * 2);
       ctx.fill();
@@ -19996,14 +20392,14 @@ function attachAnnotations(Viewer) {
       ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
       ctx.shadowBlur = size * 0.08;
       ctx.shadowOffsetY = size * 0.015;
-      ctx.fillStyle = "rgba(17, 24, 39, 0.88)";
+      ctx.fillStyle = "rgba(22, 19, 16, 0.88)";
       ctx.beginPath();
       ctx.arc(center, center, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
       ctx.lineWidth = ringWidth;
-      ctx.strokeStyle = "#0062fd";
+      ctx.strokeStyle = "#c9963f";
       ctx.beginPath();
       ctx.arc(center, center, radius, 0, Math.PI * 2);
       ctx.stroke();
@@ -21444,6 +21840,8 @@ function attachAnnotations(Viewer) {
           // Where the model stands, and the sun while it is on.
           location: this.getLocationForExport?.(),
           sun: this.getSunForExport?.(),
+          // The weather, while it is on.
+          weather: this.getWeatherForExport?.(),
 
           // The 4D timeline: its stages and the year shown.
           timeline: this.getTimelineForExport?.(),
@@ -22045,6 +22443,7 @@ function attachAnnotations(Viewer) {
       // is about to set: off first, on again (if the manifest has it) after.
       this.setRakingLight?.(false);
       this.setSunStudy?.(false);
+      this.setWeather?.(false);
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
         const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
@@ -22054,6 +22453,7 @@ function attachAnnotations(Viewer) {
         const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
         const appliedRakingLight = this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
         const appliedSun = this.apply3IFManifestSun?.(aim3dConfig.location, aim3dConfig.sun) === true;
+        const appliedWeather = this.apply3IFManifestWeather?.(aim3dConfig.weather) === true;
         const appliedTimeline = this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
         const appliedVariants = this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
         const appliedPhotos = this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
@@ -22067,6 +22467,7 @@ function attachAnnotations(Viewer) {
           appliedModelTransform,
           appliedRakingLight,
           appliedSun,
+          appliedWeather,
           appliedTimeline,
           appliedVariants,
           appliedPhotos,
@@ -22557,7 +22958,7 @@ function overlayMaterialProps() {
   return { depthTest: false, depthWrite: false, transparent: true };
 }
 
-function createPoints(points) {
+function createPoints$1(points) {
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
   const material = new THREE.PointsMaterial({
     ...overlayMaterialProps(),
@@ -22808,7 +23209,7 @@ function attachMeasurement(Viewer) {
         const fill = createPolygonFill(points);
         if (fill) group.add(fill);
       }
-      group.add(createPoints(points));
+      group.add(createPoints$1(points));
 
       const result = Viewer.describeMeasurement(draft);
       if (mode === "distance") {
@@ -23150,7 +23551,11 @@ function attachMeasurement(Viewer) {
         }
       });
       header.appendChild(close);
-      attachToolPanelChrome(panel, header, { before: close });
+      attachToolPanelChrome(panel, header, {
+        before: close,
+        icon: PANEL_ICONS.measure,
+        label: () => t$1("measurement.title", "Measurements"),
+      });
       panel.appendChild(header);
 
       const list = document.createElement("ul");
@@ -23526,6 +23931,16 @@ function attachAnimations(Viewer) {
       });
       loopButton.addEventListener("click", () => Viewer.setAnimationLoop(!state.loop));
 
+      // The bar is its own header: grip, minimize to an icon, close (pauses
+      // and hides the player until the next model).
+      attachToolPanelChrome(bar, bar, {
+        icon: PANEL_ICONS.animation,
+        label: () => t$1("animation.player", "Animation player"),
+        onClose: () => {
+          Viewer.pauseAnimation();
+          bar.hidden = true;
+        },
+      });
       const stack = getViewerSideStack();
       stack.prepend(bar);
       state.ui = { bar, playButton, clipSelect, timeline, timeLabel, speedSelect, loopButton };
@@ -23536,6 +23951,7 @@ function attachAnimations(Viewer) {
       const ui = Viewer.animationState?.ui;
       if (!ui) return;
       ui.bar.setAttribute("aria-label", t$1("animation.player", "Animation player"));
+      refreshToolPanelChrome(ui.bar);
       ui.clipSelect.setAttribute("aria-label", t$1("animation.clip", "Animation clip"));
       ui.timeline.setAttribute("aria-label", t$1("animation.timeline", "Animation time"));
       ui.speedSelect.setAttribute("aria-label", t$1("animation.speed", "Playback speed"));
@@ -23642,7 +24058,7 @@ const ICONS = {
 // Original material state while a material is drawn as the fading stage.
 const savedMaterials = new WeakMap();
 
-function isPlainObject$5(value) {
+function isPlainObject$6(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -23656,7 +24072,7 @@ function readText$2(value) {
   if (value == null) return "";
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(readText$2).filter(Boolean).join("\n");
-  if (isPlainObject$5(value)) {
+  if (isPlainObject$6(value)) {
     const lang = core.currentLanguage || "en";
     return readText$2(value[lang] ?? value.en ?? value.none ?? Object.values(value)[0]);
   }
@@ -23718,7 +24134,7 @@ function splitYearPrefix(label, year) {
 function readModelTimeline(roots) {
   let found = null;
   roots.forEach((root) => root.traverse((object) => {
-    if (!found && isPlainObject$5(object.userData?.timeline)) found = object.userData.timeline;
+    if (!found && isPlainObject$6(object.userData?.timeline)) found = object.userData.timeline;
   }));
   if (found) {
     return {
@@ -23753,7 +24169,7 @@ function findObject$1(roots, name) {
 // model's stage of the same year.
 function buildTimeline(roots, manifestConfig) {
   const model = readModelTimeline(roots);
-  const config = isPlainObject$5(manifestConfig) ? manifestConfig : {};
+  const config = isPlainObject$6(manifestConfig) ? manifestConfig : {};
   if (config.enabled === false) return null;
 
   const modelStages = (model?.stages || []).filter((stage) => Number.isFinite(Number(stage?.year)));
@@ -23789,7 +24205,7 @@ function buildTimeline(roots, manifestConfig) {
 
   if (!stages.length) return null;
 
-  const playback = isPlainObject$5(config.playback) ? config.playback : {};
+  const playback = isPlainObject$6(config.playback) ? config.playback : {};
   const startYear = Number.isFinite(config.startYear) ? config.startYear
     : Number.isFinite(model?.startYear) ? model.startYear : stages[0].year;
   const endYear = Number.isFinite(config.endYear) ? config.endYear
@@ -24134,9 +24550,7 @@ function attachTimeline(Viewer) {
       compareButton.type = "button";
       compareButton.innerHTML = ICONS.compare;
       compareButton.hidden = state.visualStages.length < 2 || typeof Viewer.toggleCompare !== "function";
-      const collapseButton = el("button", "viewer-timeline_icon-button viewer-timeline_collapse");
-      collapseButton.type = "button";
-      header.append(title, year, infoButton, compareButton, collapseButton);
+      header.append(title, year, infoButton, compareButton);
 
       const body = el("div", "viewer-timeline_body");
       const info = el("p", "viewer-timeline_info");
@@ -24257,10 +24671,6 @@ function attachTimeline(Viewer) {
         info.hidden = !info.hidden;
         infoButton.setAttribute("aria-expanded", info.hidden ? "false" : "true");
       });
-      collapseButton.addEventListener("click", () => {
-        panel.classList.toggle("is-collapsed");
-        Viewer.updateTimelineLabels();
-      });
       // The first and the last stage, or the variants when the model has them.
       compareButton.addEventListener("click", () => {
         if (Viewer.isComparing?.("content")) Viewer.closeCompare();
@@ -24271,9 +24681,19 @@ function attachTimeline(Viewer) {
         Viewer.syncTimelinePanel(true);
       });
 
+      // Minimized to an icon, or closed until the next model (the timeline
+      // keeps its year).
+      attachToolPanelChrome(panel, header, {
+        icon: PANEL_ICONS.timeline,
+        label: () => readText$2(state.label) || t$1("timeline.title", "Timeline"),
+        onClose: () => {
+          Viewer.pauseTimeline();
+          panel.hidden = true;
+        },
+      });
       getViewerSideStack()?.append(panel);
       state.ui = {
-        panel, title, year, info, infoButton, compareButton, collapseButton, range, progress, markerNodes,
+        panel, title, year, info, infoButton, compareButton, range, progress, markerNodes,
         prevButton, playButton, nextButton, speedSelect, legend, badge, stageYear, stageLabel, stageDescription, stageSource,
         shownYear: null, shownStage: null, shownPlaying: null,
       };
@@ -24288,16 +24708,12 @@ function attachTimeline(Viewer) {
       const title = readText$2(state.label) || t$1("timeline.title", "Timeline");
       ui.panel.setAttribute("aria-label", title);
       ui.title.textContent = title;
+      refreshToolPanelChrome(ui.panel);
       ui.info.textContent = readText$2(state.description);
       ui.infoButton.title = t$1("timeline.about", "About this timeline");
       ui.infoButton.setAttribute("aria-label", ui.infoButton.title);
       ui.compareButton.title = t$1("compare.years", "Compare two years");
       ui.compareButton.setAttribute("aria-label", ui.compareButton.title);
-      const collapsed = ui.panel.classList.contains("is-collapsed");
-      ui.collapseButton.textContent = collapsed ? "▾" : "▴";
-      ui.collapseButton.title = collapsed ? t$1("timeline.expand", "Show timeline") : t$1("timeline.collapse", "Hide timeline");
-      ui.collapseButton.setAttribute("aria-label", ui.collapseButton.title);
-      ui.collapseButton.setAttribute("aria-expanded", collapsed ? "false" : "true");
       ui.range.setAttribute("aria-label", t$1("timeline.year", "Year"));
       ui.prevButton.title = t$1("timeline.previous", "Previous point");
       ui.prevButton.setAttribute("aria-label", ui.prevButton.title);
@@ -24415,7 +24831,7 @@ function attachTimeline(Viewer) {
     // animations are set up again: the stages' clip may change hands.
     apply3IFManifestTimeline(config) {
       const hadConfig = Viewer.timelineManifestConfig != null;
-      Viewer.timelineManifestConfig = isPlainObject$5(config) ? config : null;
+      Viewer.timelineManifestConfig = isPlainObject$6(config) ? config : null;
       const roots = Viewer.timelineRoots;
       if (!roots?.length) return false;
       // Nothing to change: the model's animations are left playing.
@@ -24681,7 +25097,7 @@ const EDGE = 0.02;
 // Arrow keys move the divider by this share of the canvas.
 const KEY_STEP = 0.02;
 
-function isPlainObject$4(value) {
+function isPlainObject$5(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -24695,7 +25111,7 @@ function readText$1(value) {
   if (value == null) return "";
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(readText$1).filter(Boolean).join("\n");
-  if (isPlainObject$4(value)) {
+  if (isPlainObject$5(value)) {
     const lang = core.currentLanguage || "en";
     return readText$1(value[lang] ?? value.en ?? value.none ?? Object.values(value)[0]);
   }
@@ -24741,7 +25157,7 @@ function readModelVariants(roots) {
   let found = null;
   roots.forEach((root) => root.traverse((object) => {
     const value = object.userData?.variants;
-    if (!found && (Array.isArray(value) || isPlainObject$4(value))) found = value;
+    if (!found && (Array.isArray(value) || isPlainObject$5(value))) found = value;
   }));
   if (found) return Array.isArray(found) ? { items: found } : found;
 
@@ -24763,7 +25179,7 @@ function readModelVariants(roots) {
 // manifest variant without nodes takes those of the model's variant with the
 // same id.
 function buildVariants(roots, manifestConfig) {
-  const config = isPlainObject$4(manifestConfig) ? manifestConfig : {};
+  const config = isPlainObject$5(manifestConfig) ? manifestConfig : {};
   if (config.enabled === false) return null;
   const model = readModelVariants(roots) || {};
   const modelItems = Array.isArray(model.items) ? model.items : [];
@@ -24772,7 +25188,7 @@ function buildVariants(roots, manifestConfig) {
 
   const items = rawItems
     .map((raw, index) => {
-      if (!isPlainObject$4(raw)) return null;
+      if (!isPlainObject$5(raw)) return null;
       const id = String(raw.id ?? `variant-${index + 1}`);
       const inherited = modelById.get(id) || {};
       const nodes = toArray(raw.nodes ?? raw.node ?? inherited.nodes ?? inherited.node);
@@ -24805,7 +25221,7 @@ function buildVariants(roots, manifestConfig) {
 // A side as written in manifests and URLs: { variant: id } | { year: n } |
 // { shading: mode, lighting: id }, or a bare id / year / "mode,lighting".
 function normalizeSide(raw) {
-  if (isPlainObject$4(raw)) {
+  if (isPlainObject$5(raw)) {
     const shading = raw.shading != null && raw.shading !== "" ? String(raw.shading) : null;
     const lighting = raw.lighting != null && raw.lighting !== "" ? String(raw.lighting) : null;
     if (shading || lighting) return { ...(shading ? { shading } : {}), ...(lighting ? { lighting } : {}) };
@@ -24979,7 +25395,7 @@ function attachCompare(Viewer) {
     // The comparison the manifest or URL asks for, or null.
     getRequestedCompare() {
       const params = new URLSearchParams(window.location.search);
-      const config = isPlainObject$4(Viewer.compareManifestConfig) ? Viewer.compareManifestConfig : null;
+      const config = isPlainObject$5(Viewer.compareManifestConfig) ? Viewer.compareManifestConfig : null;
       const mode = params.get("compare") ?? (config && config.enabled !== false ? (config.mode || "swipe") : null);
       if (!mode || mode === "0" || mode === "false" || mode === "off") return null;
       const kind = params.get("compareKind") ?? config?.kind;
@@ -25648,8 +26064,8 @@ function attachCompare(Viewer) {
     // A manifest's variants and comparison (absent: the model's own
     // variants, no comparison).
     apply3IFManifestVariants(variantsConfig, compareConfig) {
-      Viewer.variantsManifestConfig = isPlainObject$4(variantsConfig) ? variantsConfig : null;
-      Viewer.compareManifestConfig = isPlainObject$4(compareConfig) ? compareConfig : null;
+      Viewer.variantsManifestConfig = isPlainObject$5(variantsConfig) ? variantsConfig : null;
+      Viewer.compareManifestConfig = isPlainObject$5(compareConfig) ? compareConfig : null;
       const roots = Viewer.variantsRoots;
       if (!roots?.length) return false;
       Viewer.closeCompare();
@@ -25704,7 +26120,7 @@ const FOV_TOLERANCE = 0.5;
 // Size asked of a IIIF Image API service (fits in this box).
 const IIIF_SIZE = 2000;
 
-function isPlainObject$3(value) {
+function isPlainObject$4(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -25712,7 +26128,7 @@ function readText(value) {
   if (value == null) return "";
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(readText).filter(Boolean).join("\n");
-  if (isPlainObject$3(value)) {
+  if (isPlainObject$4(value)) {
     const lang = core.currentLanguage || "en";
     return readText(value[lang] ?? value.en ?? value.none ?? Object.values(value)[0]);
   }
@@ -25728,7 +26144,7 @@ function toVector(value) {
   if (Array.isArray(values) && values.length >= 3 && values.slice(0, 3).every((v) => Number.isFinite(Number(v)))) {
     return new THREE.Vector3(Number(values[0]), Number(values[1]), Number(values[2]));
   }
-  if (isPlainObject$3(value) && ["x", "y", "z"].every((key) => Number.isFinite(Number(value[key])))) {
+  if (isPlainObject$4(value) && ["x", "y", "z"].every((key) => Number.isFinite(Number(value[key])))) {
     return new THREE.Vector3(Number(value.x), Number(value.y), Number(value.z));
   }
   return null;
@@ -25752,10 +26168,10 @@ function resolvePhotoSource(raw) {
 }
 
 function normalizePhoto(raw, index) {
-  if (!isPlainObject$3(raw)) return null;
+  if (!isPlainObject$4(raw)) return null;
   const src = resolvePhotoSource(raw);
   if (!src) return null;
-  const view = isPlainObject$3(raw.view) ? raw.view : {};
+  const view = isPlainObject$4(raw.view) ? raw.view : {};
   const position = toVector(view.position);
   const target = toVector(view.target);
   const fov = Number(view.fov);
@@ -26498,11 +26914,11 @@ function sunNow(utcOffset = 0, now = Date.now()) {
 const horizonColor = new THREE.Color(0xffb36b);
 const noonColor = new THREE.Color(0xfff6e8);
 
-function isPlainObject$2(value) {
+function isPlainObject$3(value) {
   return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
-function finite(value, fallback = null) {
+function finite$1(value, fallback = null) {
   const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
   return typeof number === "number" && Number.isFinite(number) ? number : fallback;
 }
@@ -26652,7 +27068,7 @@ function attachSunStudy(Viewer) {
         state.dateSet = true;
       }
       ["year", "month", "day"].forEach((key) => {
-        const value = finite(options[key]);
+        const value = finite$1(options[key]);
         if (value != null) {
           state[key] = Math.round(value);
           state.dateSet = true;
@@ -26660,13 +27076,13 @@ function attachSunStudy(Viewer) {
       });
       state.month = Math.min(Math.max(state.month, 1), 12);
       state.day = Math.min(Math.max(state.day, 1), 31);
-      const minutes = typeof options.time === "string" ? parseSunTime(options.time) : finite(options.minutes);
+      const minutes = typeof options.time === "string" ? parseSunTime(options.time) : finite$1(options.minutes);
       if (minutes != null) {
         state.minutes = Math.min(Math.max(minutes, 0), 1440);
         state.dateSet = true;
       }
-      const latitude = finite(options.latitude);
-      const longitude = finite(options.longitude);
+      const latitude = finite$1(options.latitude);
+      const longitude = finite$1(options.longitude);
       if (latitude != null) {
         state.latitude = Math.min(Math.max(latitude, -90), 90);
         state.locationSet = true;
@@ -26675,10 +27091,10 @@ function attachSunStudy(Viewer) {
         state.longitude = ((longitude + 540) % 360) - 180;
         state.locationSet = true;
       }
-      const north = finite(options.north);
+      const north = finite$1(options.north);
       if (north != null) state.north = ((north % 360) + 360) % 360;
       if (options.utcOffset === null) state.utcOffset = null;
-      else if (finite(options.utcOffset) != null) state.utcOffset = finite(options.utcOffset);
+      else if (finite$1(options.utcOffset) != null) state.utcOffset = finite$1(options.utcOffset);
       if (typeof options.followTimeline === "boolean") state.followTimeline = options.followTimeline;
       Viewer.updateSunStudy(0, { force: true });
       Viewer.syncSunPanel(true);
@@ -26916,6 +27332,11 @@ function attachSunStudy(Viewer) {
       longitude.input.addEventListener("change", () => Viewer.setSunOptions({ longitude: longitude.input.value }));
       north.input.addEventListener("change", () => Viewer.setSunOptions({ north: north.input.value }));
 
+      attachToolPanelChrome(panel, header, {
+        before: closeButton,
+        icon: PANEL_ICONS.sun,
+        label: () => t$1("sun.title", "Sun and shadows"),
+      });
       getViewerSideStack()?.append(panel);
       Viewer.sunPanel = {
         panel, title, clock, closeButton, playButton, time, dateText, date, follow, followLabel, followText,
@@ -26934,6 +27355,7 @@ function attachSunStudy(Viewer) {
       if (!ui) return;
       ui.panel.setAttribute("aria-label", t$1("sun.title", "Sun and shadows"));
       ui.title.textContent = t$1("sun.title", "Sun and shadows");
+      refreshToolPanelChrome(ui.panel);
       ui.closeButton.title = t$1("sun.close", "Switch the sun off");
       ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
       ui.time.setAttribute("aria-label", t$1("sun.time", "Time of day"));
@@ -27020,7 +27442,7 @@ function attachSunStudy(Viewer) {
     apply3IFManifestSun(location, sun) {
       const state = Viewer.sunStudy;
       Object.assign(state, { ...DEFAULT_LOCATION, utcOffset: null, locationSet: false });
-      if (isPlainObject$2(location)) {
+      if (isPlainObject$3(location)) {
         Viewer.setSunOptions({
           latitude: location.latitude,
           longitude: location.longitude,
@@ -27028,9 +27450,9 @@ function attachSunStudy(Viewer) {
           utcOffset: location.utcOffset ?? null,
         });
       }
-      if (!isPlainObject$2(sun) || sun.enabled === false) {
+      if (!isPlainObject$3(sun) || sun.enabled === false) {
         Viewer.setSunStudy(false);
-        return isPlainObject$2(location);
+        return isPlainObject$3(location);
       }
       // What the manifest leaves out is now, at its place.
       Object.assign(state, sunNow(Viewer.getSunUtcOffset()), { dateSet: false });
@@ -27044,6 +27466,1884 @@ function attachSunStudy(Viewer) {
     // Before a new model: its lights are rebuilt, the sun goes with them.
     disposeSunStudy() {
       Viewer.setSunStudy(false);
+    },
+  });
+}
+
+// Weather (Look > Weather): clear sky, fog, rain, snow and a thunderstorm
+// around the model. The shaders below are GLSL; under the WebGPU renderer
+// the same in TSL (editor/weather-webgpu.js) is used.
+//
+// Everything is measured in the model's own size (core.gridSize), so a coin
+// and a cathedral get the same drops on screen. Changing the weather blends
+// over a second or two instead of switching; the surfaces follow more slowly
+// (they get wet in a few seconds, dry in half a minute; snow settles while it
+// snows and melts when it stops).
+//
+// - The sky: three's Sky (Preetham, with clouds), the sun where the sun study
+//   puts it (sun-study.js) or else where the viewer's key light comes from;
+//   hazed towards the horizon in the fog colour, so the two meet.
+// - Fog: scene.fog (FogExp2) for the distance, and mist: clumps of it over
+//   the ground, rising higher where they are thicker, with gaps between,
+//   drifting with the wind, shadowing themselves and lit by the sun (warm
+//   towards a low sun) - a volume raymarched through a 3D noise, stopped by
+//   the scene's depth (a half-size depth pass with WebGL, the viewport's
+//   depth with WebGPU), so it lies in front of and behind the model.
+// - Rain: streaks drawn as camera-facing quads, wholly on the GPU (each drop
+//   is a seed; its place is a function of time). The model keeps it off
+//   what lies under it: a height map of the model seen from above (redrawn
+//   when it moves) stops the drops on its roofs, where they splash and
+//   bounce as they do on the ground. At full intensity a downpour.
+// - Snow: soft points, swaying as they fall, settling on the roofs too.
+// - Storm: heavy rain, wind, lightning bolts with a flash, thunder after.
+// - Surfaces: the model's standard, Phong and Lambert materials get darker
+//   and glossier when wet, white where they face up when snow settles (a
+//   patch of their fragment shader, removed again when the weather ends;
+//   with WebGPU the viewer's standard and physical node materials have it
+//   built in, renderer-backend.js); a disc on the ground does the same for
+//   the ground.
+// - Sound (off by default): rain, wind and thunder, synthesised with
+//   WebAudio from noise - no files to load.
+// - The window (Look > Weather): the weathers, and the settings the one
+//   shown has; it can be moved, minimized and closed (ui/tool-panel-chrome.js)
+//   and the weather stays as it is when it closes.
+//
+// The overcast is darker: the renderer's exposure is scaled (the setting
+// itself, rendering.js, stays as it was), so the viewer's own lights keep
+// the intensities the other tools set.
+
+const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
+const WEATHER_DEFAULTS = Object.freeze({
+  type: "rain",
+  intensity: 0.6,
+  wind: 0.2,
+  windDirection: 230,
+  sky: true,
+  surfaces: true,
+  sound: false,
+  // The mist's height (0..1: 0.15 to 1.15 model sizes) and density.
+  mistHeight: 0.4,
+  mistDensity: 0.5,
+  // 0: clumps with gaps (low clouds); 1: an even blanket thinning upwards.
+  mistSpread: 0.6,
+});
+
+// What each weather is at full intensity. fog: the density of the fog in
+// model sizes; clouds: the sky's cover; light: the exposure kept; sky: the
+// sky's brightness; wind: the least wind it brings.
+const PRESETS = {
+  clear: { fog: 0.05, mist: 0, rain: 0, snow: 0, clouds: 0.25, light: 1, sky: 1, wind: 0, lightning: 0 },
+  fog: { fog: 0.2, mist: 1, rain: 0, snow: 0, clouds: 0.6, light: 0.9, sky: 0.8, wind: 0, lightning: 0 },
+  rain: { fog: 0.26, mist: 0.15, rain: 1, snow: 0, clouds: 0.95, light: 0.7, sky: 0.55, wind: 0, lightning: 0 },
+  snow: { fog: 0.42, mist: 0.15, rain: 0, snow: 1, clouds: 0.9, light: 0.92, sky: 0.8, wind: 0, lightning: 0 },
+  storm: { fog: 0.3, mist: 0.18, rain: 1.3, snow: 0, clouds: 1, light: 0.5, sky: 0.32, wind: 0.55, lightning: 1 },
+};
+const BLEND_KEYS = ["fog", "mist", "rain", "snow", "clouds", "light", "sky", "wind", "lightning"];
+// Seconds to blend from one weather to another.
+const BLEND_TIME = 1.6;
+// Seconds to get wet, to dry, for snow to settle, to melt.
+const WET_TIME = 6;
+const DRY_TIME = 30;
+const SETTLE_TIME = 25;
+const MELT_TIME = 12;
+
+const PHONE = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true;
+const RAIN_MAX = PHONE ? 10000 : 40000;
+const SPLASH_MAX = PHONE ? 1500 : 5000;
+// The height map of the model, texels a side.
+const HEIGHT_MAP_SIZE = PHONE ? 256 : 512;
+// The render layer the model is drawn on for it.
+const HEIGHT_LAYER = 31;
+// Seconds between redrawing it while it rains or snows (streamed models
+// fill in).
+const HEIGHT_REFRESH = 3;
+const SNOW_MAX = PHONE ? 6000 : 18000;
+// Steps of the mist's raymarch.
+const MIST_STEPS = PHONE ? 14 : 28;
+
+// Fog colours (sRGB) of a clear day, of fog, of rain and of a storm.
+const FOG_COLORS = {
+  clear: new THREE.Color(0xc5d2de),
+  fog: new THREE.Color(0xc9ccd0),
+  rain: new THREE.Color(0x8a939c),
+  snow: new THREE.Color(0xd6dbe2),
+  storm: new THREE.Color(0x4d555e),
+};
+// The haze in the light of a low sun.
+const SUNLIT_HAZE = new THREE.Color(0xf2c48f);
+const WHITE = new THREE.Color(0xffffff);
+const WET_GROUND = new THREE.Color(0x2c2f33);
+const SNOW_GROUND = new THREE.Color(0xf0f3f8);
+
+// ---- shaders -----------------------------------------------------------------
+
+// The viewer's WebGL renderer has a logarithmic depth buffer (main.js): the
+// shaders write their depth as three's own materials do (logdepthbuf_*),
+// or the model and the ground would cover them where they should not.
+
+// Rain and snow fall through a cube that goes with the camera (uBoxMin,
+// uBoxSize; updateWeather): as large as the view is deep, so they are as
+// dense close up as from afar. Each drop or flake starts from its seed and
+// is wherever time has taken it, wrapped into the cube - in the world, so
+// they stay put as the camera moves, leaving one side, coming back at the
+// other. Faded at the cube's faces and right in front of the camera.
+const FALLING_PARS = /* glsl */`
+  uniform vec3 uBoxMin;
+  uniform float uBoxSize;
+  uniform float uTime;
+  uniform float uFall;
+  uniform vec2 uWind;
+  vec3 fallen( vec4 seed, float fall, vec2 drift ) {
+    vec3 travel = vec3( uWind.x * uTime + drift.x, -fall * uTime, uWind.y * uTime + drift.y );
+    return uBoxMin + mod( seed.xyz * uBoxSize + travel - uBoxMin, uBoxSize );
+  }
+  float boxFade( vec3 p, float width ) {
+    vec3 f = ( p - uBoxMin ) / uBoxSize;
+    vec3 e = min( f, 1.0 - f );
+    return smoothstep( 0.0, width, min( min( e.x, e.y ), e.z ) );
+  }
+`;
+
+// The model's top (or the ground) under a place, in the world: its height
+// map (renderWeatherHeight) covers the model's surroundings (uMapOrigin,
+// uMapSize); outside it, the ground.
+const SURFACE_PARS = /* glsl */`
+  uniform sampler2D uHeight;
+  uniform vec3 uMapOrigin;
+  uniform vec3 uMapSize;
+  float surfaceAt( vec2 xz ) {
+    vec2 uv = ( xz - uMapOrigin.xz ) / uMapSize.xz;
+    float inside = step( 0.0, uv.x ) * step( uv.x, 1.0 ) * step( 0.0, uv.y ) * step( uv.y, 1.0 );
+    return uMapOrigin.y + texture2D( uHeight, vec2( uv.x, 1.0 - uv.y ) ).r * uMapSize.y * inside;
+  }
+`;
+
+// A streak is at least `uMinPixels` wide and long on screen; gone once it
+// has reached a roof or the ground.
+const RAIN_VERTEX = /* glsl */`
+  uniform float uLength;
+  uniform float uWidth;
+  uniform vec2 uMinPixels;
+  uniform float uViewportHeight;
+  attribute vec4 aSeed;
+  varying vec2 vCorner;
+  varying float vAlpha;
+  ${FALLING_PARS}
+  ${SURFACE_PARS}
+  #include <common>
+  #include <fog_pars_vertex>
+  #include <logdepthbuf_pars_vertex>
+
+  void main() {
+    float fall = uFall * ( 0.85 + 0.3 * aSeed.w );
+    vec3 head = fallen( aSeed, fall, vec2( 0.0 ) );
+    vec3 axis = normalize( vec3( uWind.x, -fall, uWind.y ) );
+    vec3 toCamera = cameraPosition - head;
+    float range = length( toCamera );
+    vec3 side = normalize( cross( axis, toCamera / max( range, 1e-6 ) ) );
+    // The size of a pixel there.
+    float pixel = 2.0 / ( projectionMatrix[ 1 ][ 1 ] * uViewportHeight ) * ( isOrthographic ? 1.0 : range );
+    float width = max( uWidth, pixel * uMinPixels.x );
+    float streak = max( uLength, pixel * uMinPixels.y );
+    vec3 transformed = head - axis * position.y * streak + side * position.x * width;
+    vCorner = position.xy;
+    float sheltered = step( head.y, surfaceAt( head.xz ) );
+    float near = smoothstep( uBoxSize * 0.015, uBoxSize * 0.05, range );
+    vAlpha = boxFade( head, 0.12 ) * near * ( 1.0 - sheltered );
+    vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
+    gl_Position = projectionMatrix * mvPosition;
+    #include <logdepthbuf_vertex>
+    #include <fog_vertex>
+  }
+`;
+
+const RAIN_FRAGMENT = /* glsl */`
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying vec2 vCorner;
+  varying float vAlpha;
+  #include <fog_pars_fragment>
+  #include <logdepthbuf_pars_fragment>
+
+  void main() {
+    #include <logdepthbuf_fragment>
+    float alpha = uOpacity * vAlpha * ( 1.0 - abs( vCorner.x ) ) * ( 1.0 - vCorner.y * 0.7 );
+    if ( alpha < 0.004 ) discard;
+    gl_FragColor = vec4( uColor, alpha );
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+  }
+`;
+
+// Where a drop of the rain went below a roof or the ground (the same seeds
+// and formulas) and the seconds since; negative while it has not.
+const LANDING_PARS = /* glsl */`
+  vec3 landing( vec4 seed, out float since ) {
+    float fall = uFall * ( 0.85 + 0.3 * seed.w );
+    vec3 p = fallen( seed, fall, vec2( 0.0 ) );
+    float surface = surfaceAt( p.xz );
+    since = ( surface - p.y ) / fall;
+    return vec3( p.x, surface, p.z );
+  }
+`;
+
+// A short ring where a drop landed.
+const SPLASH_VERTEX = /* glsl */`
+  uniform float uPointSize;
+  uniform float uViewportHeight;
+  uniform float uDuration;
+  attribute vec4 aSeed;
+  varying float vProgress;
+  varying float vFade;
+  ${FALLING_PARS}
+  ${SURFACE_PARS}
+  ${LANDING_PARS}
+  #include <common>
+  #include <fog_pars_vertex>
+  #include <logdepthbuf_pars_vertex>
+
+  void main() {
+    float since;
+    vec3 transformed = landing( aSeed, since );
+    vProgress = since >= 0.0 ? since / uDuration : 2.0;
+    vFade = boxFade( transformed, 0.12 );
+    vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
+    gl_Position = projectionMatrix * mvPosition;
+    #include <logdepthbuf_vertex>
+    float scale = isOrthographic ? projectionMatrix[ 1 ][ 1 ] : projectionMatrix[ 1 ][ 1 ] / -mvPosition.z;
+    gl_PointSize = vProgress < 1.0 ? max( uPointSize * scale * uViewportHeight * 0.5 * ( 0.35 + vProgress ), 1.5 ) : 0.0;
+    #include <fog_vertex>
+  }
+`;
+
+const SPLASH_FRAGMENT = /* glsl */`
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying float vProgress;
+  varying float vFade;
+  #include <fog_pars_fragment>
+  #include <logdepthbuf_pars_fragment>
+
+  void main() {
+    #include <logdepthbuf_fragment>
+    if ( vProgress >= 1.0 ) discard;
+    // Seen from the side: flattened.
+    vec2 point = ( gl_PointCoord - 0.5 ) * vec2( 2.0, 6.0 );
+    float d = length( point );
+    float ring = smoothstep( 0.35, 0.0, abs( d - vProgress ) ) * ( 1.0 - vProgress );
+    float alpha = uOpacity * ring * vFade;
+    if ( alpha < 0.004 ) discard;
+    gl_FragColor = vec4( uColor, alpha );
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+  }
+`;
+
+// Drops bouncing off where the rain lands (the splashes' seeds): thrown up
+// and out, falling back within uDuration.
+const SPRAY_VERTEX = /* glsl */`
+  uniform float uPointSize;
+  uniform float uViewportHeight;
+  uniform float uDuration;
+  uniform float uSpeed;
+  attribute vec4 aSeed;
+  varying float vAlive;
+  ${FALLING_PARS}
+  ${SURFACE_PARS}
+  ${LANDING_PARS}
+  #include <common>
+  #include <fog_pars_vertex>
+  #include <logdepthbuf_pars_vertex>
+
+  void main() {
+    float since;
+    vec3 ground = landing( aSeed, since );
+    float angle = fract( aSeed.x * 7.13 + aSeed.z * 3.7 ) * 6.2832;
+    vec2 spread = vec2( cos( angle ), sin( angle ) ) * uSpeed * ( 0.2 + 0.5 * aSeed.w );
+    float rise = uSpeed * ( 0.8 + 0.5 * aSeed.z );
+    // Back down at uDuration.
+    float gravity = 2.0 * rise / uDuration;
+    float t = max( since, 0.0 );
+    vec3 transformed = ground + vec3( spread.x * t, rise * t - 0.5 * gravity * t * t, spread.y * t );
+    vAlive = since >= 0.0 && since < uDuration ? ( 1.0 - since / uDuration ) * boxFade( ground, 0.12 ) : 0.0;
+    vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
+    gl_Position = projectionMatrix * mvPosition;
+    #include <logdepthbuf_vertex>
+    float scale = isOrthographic ? projectionMatrix[ 1 ][ 1 ] : projectionMatrix[ 1 ][ 1 ] / -mvPosition.z;
+    gl_PointSize = vAlive > 0.0 ? max( uPointSize * scale * uViewportHeight * 0.5, 1.5 ) : 0.0;
+    #include <fog_vertex>
+  }
+`;
+
+const SPRAY_FRAGMENT = /* glsl */`
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying float vAlive;
+  #include <fog_pars_fragment>
+  #include <logdepthbuf_pars_fragment>
+
+  void main() {
+    #include <logdepthbuf_fragment>
+    float alpha = uOpacity * vAlive * smoothstep( 1.0, 0.3, length( gl_PointCoord - 0.5 ) * 2.0 );
+    if ( alpha < 0.004 ) discard;
+    gl_FragColor = vec4( uColor, alpha );
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+  }
+`;
+
+// The height map: the model seen from above, its height over the ground in
+// the map's box (0..1).
+const HEIGHT_VERTEX = /* glsl */`
+  uniform float uGround;
+  uniform float uTop;
+  varying float vHeight;
+
+  void main() {
+    vec4 local = vec4( position, 1.0 );
+    #ifdef USE_INSTANCING
+      local = instanceMatrix * local;
+    #endif
+    vec4 world = modelMatrix * local;
+    vHeight = ( world.y - uGround ) / ( uTop - uGround );
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+const HEIGHT_FRAGMENT = /* glsl */`
+  varying float vHeight;
+
+  void main() {
+    gl_FragColor = vec4( clamp( vHeight, 0.0, 1.0 ), 0.0, 0.0, 1.0 );
+  }
+`;
+
+// Swaying as they fall; settled once on a roof or the ground.
+const SNOW_VERTEX = /* glsl */`
+  uniform float uPointSize;
+  uniform float uViewportHeight;
+  uniform float uSway;
+  attribute vec4 aSeed;
+  varying float vAlpha;
+  ${FALLING_PARS}
+  ${SURFACE_PARS}
+  #include <common>
+  #include <fog_pars_vertex>
+  #include <logdepthbuf_pars_vertex>
+
+  void main() {
+    float fall = uFall * ( 0.7 + 0.6 * aSeed.w );
+    float t = uTime * ( 0.6 + aSeed.w ) + aSeed.x * 40.0;
+    vec2 sway = vec2( sin( t ), cos( t * 0.8 + aSeed.z * 9.0 ) ) * uSway;
+    vec3 transformed = fallen( aSeed, fall, sway );
+    float settled = step( transformed.y, surfaceAt( transformed.xz ) );
+    vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
+    float near = smoothstep( uBoxSize * 0.01, uBoxSize * 0.04, -mvPosition.z );
+    vAlpha = boxFade( transformed, 0.12 ) * near * ( 1.0 - settled );
+    gl_Position = projectionMatrix * mvPosition;
+    #include <logdepthbuf_vertex>
+    float scale = isOrthographic ? projectionMatrix[ 1 ][ 1 ] : projectionMatrix[ 1 ][ 1 ] / -mvPosition.z;
+    gl_PointSize = max( uPointSize * ( 0.6 + 0.8 * aSeed.w ) * scale * uViewportHeight * 0.5, 2.0 );
+    #include <fog_vertex>
+  }
+`;
+
+const SNOW_FRAGMENT = /* glsl */`
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying float vAlpha;
+  #include <fog_pars_fragment>
+  #include <logdepthbuf_pars_fragment>
+
+  void main() {
+    #include <logdepthbuf_fragment>
+    float d = length( gl_PointCoord - 0.5 ) * 2.0;
+    float alpha = uOpacity * vAlpha * smoothstep( 1.0, 0.25, d );
+    if ( alpha < 0.004 ) discard;
+    gl_FragColor = vec4( uColor, alpha );
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+  }
+`;
+
+// Mist: raymarched through the box it fills (drawn by its back faces, so
+// from inside it too), up to the scene's depth. Density: a 3D noise (two
+// octaves, drifting) less the coverage and less again the higher up - so
+// the thicker a clump, the higher it rises. Each step's light: the fog
+// colour, lighter higher up, and the sun's, through one step of the mist
+// towards it and brighter looking towards it.
+const MIST_VERTEX = /* glsl */`
+  varying vec3 vWorld;
+
+  void main() {
+    vec4 world = modelMatrix * vec4( position, 1.0 );
+    vWorld = world.xyz;
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`;
+
+const MIST_FRAGMENT = /* glsl */`
+  #include <packing>
+  uniform sampler3D uNoise;
+  uniform sampler2D uDepth;
+  uniform vec2 uResolution;
+  uniform float uNear;
+  uniform float uFar;
+  uniform float uLogDepth;
+  uniform float uOrthographic;
+  uniform vec3 uCameraForward;
+  uniform vec3 uBoxMin;
+  uniform vec3 uBoxMax;
+  uniform float uScale;
+  uniform vec3 uDrift;
+  uniform float uDensity;
+  uniform float uCoverage;
+  uniform float uSpread;
+  uniform float uSigma;
+  uniform float uShadowReach;
+  uniform float uMaxMarch;
+  uniform vec3 uFogColor;
+  uniform vec3 uSunColor;
+  uniform vec3 uSunDir;
+  varying vec3 vWorld;
+
+  float mistDensity( vec3 p, bool fine ) {
+    vec3 q = p * uScale;
+    float n = texture( uNoise, q + uDrift ).r;
+    if ( fine ) n = n * 0.65 + texture( uNoise, q * 2.7 - uDrift * 1.6 ).r * 0.35;
+    float h = ( p.y - uBoxMin.y ) / ( uBoxMax.y - uBoxMin.y );
+    vec2 center = ( uBoxMin.xz + uBoxMax.xz ) * 0.5;
+    float r = length( p.xz - center ) / ( ( uBoxMax.x - uBoxMin.x ) * 0.5 );
+    // Clumps: the noise above the coverage, less with height; a blanket:
+    // densest on the ground, thinning upwards, the noise only shading it.
+    float clumps = clamp( ( n - ( 1.0 - uCoverage ) - h * 0.55 ) * 4.0, 0.0, 1.0 );
+    float blanket = ( 0.25 + 0.75 * n ) * exp( -h * 3.5 ) * ( 1.0 - smoothstep( 0.75, 1.0, h ) );
+    float d = mix( clumps, blanket * 0.3, uSpread );
+    return d * smoothstep( 0.0, 0.04, h ) * ( 1.0 - smoothstep( 0.6, 1.0, r ) );
+  }
+
+  void main() {
+    vec3 origin = cameraPosition;
+    vec3 direction = normalize( vWorld - cameraPosition );
+    if ( uOrthographic > 0.5 ) {
+      direction = uCameraForward;
+      origin = vWorld - direction * dot( vWorld - cameraPosition, direction );
+    }
+    vec3 inverse = 1.0 / direction;
+    vec3 t0 = ( uBoxMin - origin ) * inverse;
+    vec3 t1 = ( uBoxMax - origin ) * inverse;
+    vec3 tMin = min( t0, t1 );
+    vec3 tMax = max( t0, t1 );
+    float tNear = max( max( tMin.x, tMin.y ), max( tMin.z, 0.0 ) );
+    float tFar = min( min( tMax.x, tMax.y ), tMax.z );
+
+    // The scene in front: its depth, as far along the ray.
+    float depth = texture2D( uDepth, gl_FragCoord.xy / uResolution ).x;
+    float viewDepth = uOrthographic > 0.5 ? -orthographicDepthToViewZ( depth, uNear, uFar )
+      : uLogDepth > 0.5 ? exp2( depth * log2( uFar + 1.0 ) ) - 1.0
+      : -perspectiveDepthToViewZ( depth, uNear, uFar );
+    if ( depth < 1.0 ) tFar = min( tFar, viewDepth / max( dot( direction, uCameraForward ), 1e-4 ) );
+    tFar = min( tFar, tNear + uMaxMarch );
+    if ( tFar <= tNear ) discard;
+
+    float stepLength = ( tFar - tNear ) / float( STEPS );
+    // Interleaved gradient noise: the steps start a fraction apart from
+    // pixel to pixel, finer grained than random.
+    float jitter = fract( 52.9829189 * fract( dot( gl_FragCoord.xy, vec2( 0.06711056, 0.00583715 ) ) ) );
+    float forward = 0.25 + 1.3 * pow( max( dot( direction, uSunDir ), 0.0 ), 6.0 );
+    float transmittance = 1.0;
+    vec3 light = vec3( 0.0 );
+    for ( int i = 0; i < STEPS; i ++ ) {
+      vec3 p = origin + direction * ( tNear + ( float( i ) + jitter ) * stepLength );
+      float d = mistDensity( p, true ) * uDensity;
+      if ( d > 0.001 ) {
+        float shade = exp( -mistDensity( p + uSunDir * uShadowReach, false ) * uDensity * 2.5 );
+        float h = ( p.y - uBoxMin.y ) / ( uBoxMax.y - uBoxMin.y );
+        vec3 lit = uFogColor * ( 0.72 + 0.35 * h ) + uSunColor * shade * forward;
+        float a = 1.0 - exp( -d * uSigma * stepLength );
+        light += transmittance * a * lit;
+        transmittance *= 1.0 - a;
+        if ( transmittance < 0.02 ) break;
+      }
+    }
+    float alpha = 1.0 - transmittance;
+    if ( alpha < 0.003 ) discard;
+    gl_FragColor = vec4( light / alpha, alpha );
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
+
+// Added to the model's materials while the weather is on; `normal` is in
+// view space, so up is the view matrix's.
+const SURFACE_UNIFORMS = "uniform float weatherWet;\nuniform float weatherSnow;\n";
+function surfaceChunk(physical) {
+  return /* glsl */`
+    float weatherUp = dot( normal, normalize( ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz ) );
+    float weatherCover = weatherSnow * smoothstep( 0.3, 0.75, weatherUp );
+    float weatherWetness = weatherWet * ( 0.55 + 0.45 * clamp( weatherUp, 0.0, 1.0 ) ) * ( 1.0 - weatherCover );
+    diffuseColor.rgb *= 1.0 - 0.45 * weatherWetness;
+    diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.93, 0.95, 1.0 ), weatherCover );
+    ${physical ? `
+    roughnessFactor = mix( roughnessFactor, 0.12, weatherWetness * 0.85 );
+    roughnessFactor = mix( roughnessFactor, 0.85, weatherCover );
+    metalnessFactor = mix( metalnessFactor, 0.0, weatherCover );` : ""}
+  `;
+}
+
+// ---- building blocks ---------------------------------------------------------
+
+function random4(count) {
+  const seeds = new Float32Array(count * 4);
+  for (let i = 0; i < seeds.length; i += 1) seeds[i] = Math.random();
+  return seeds;
+}
+
+// The TSL side (editor/weather-webgpu.js) under the WebGPU renderer, else null.
+function webgpu() {
+  return core.rendererBackend === "webgpu" ? core.weatherWebGPU || null : null;
+}
+
+// Uniforms with these first values, GLSL ({ value }, with the fog's) or TSL
+// nodes; kept as object.userData.uniforms either way.
+function createUniforms(spec) {
+  const gpu = webgpu();
+  if (gpu) return gpu.createUniforms(spec);
+  return THREE.UniformsUtils.merge([
+    THREE.UniformsLib.fog,
+    Object.fromEntries(Object.entries(spec).map(([key, value]) => [key, { value }])),
+  ]);
+}
+
+function precipitationUniforms(extra = {}) {
+  return createUniforms({
+    uTime: 0,
+    uBoxMin: new THREE.Vector3(),
+    uBoxSize: 1,
+    uMapOrigin: new THREE.Vector3(),
+    uMapSize: new THREE.Vector3(1, 1, 1),
+    uFall: 1,
+    uWind: new THREE.Vector2(),
+    uColor: new THREE.Color(),
+    uOpacity: 1,
+    uViewportHeight: 1,
+    uOrthographic: 0,
+    ...extra,
+  });
+}
+
+function weatherMaterial(vertexShader, fragmentShader, uniforms) {
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader,
+    fragmentShader,
+    transparent: true,
+    depthWrite: false,
+    // The rain's quads turn either way to the camera.
+    side: THREE.DoubleSide,
+    fog: true,
+  });
+}
+
+// Not part of the model: no picking, no culling against a box that is not theirs.
+function asOverlay(object, name) {
+  object.name = name;
+  object.frustumCulled = false;
+  object.raycast = () => {};
+  object.userData.isWeather = true;
+  return object;
+}
+
+// A precipitation drawn as quads: four corners per seed, from `shape`.
+// `perItem` is what the draw range counts per drop or flake.
+function createQuads(seeds, shape, material, uniforms, name) {
+  const count = seeds.length / 4;
+  const corners = new Float32Array(count * 4 * 3);
+  const vertexSeeds = new Float32Array(count * 4 * 4);
+  const index = count * 4 > 65535 ? new Uint32Array(count * 6) : new Uint16Array(count * 6);
+  for (let i = 0; i < count; i += 1) {
+    for (let corner = 0; corner < 4; corner += 1) {
+      const v = i * 4 + corner;
+      corners[v * 3] = shape[corner * 2];
+      corners[v * 3 + 1] = shape[corner * 2 + 1];
+      vertexSeeds.set(seeds.subarray(i * 4, i * 4 + 4), v * 4);
+    }
+    index.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3], i * 6);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(corners, 3));
+  geometry.setAttribute("aSeed", new THREE.BufferAttribute(vertexSeeds, 4));
+  geometry.setIndex(new THREE.BufferAttribute(index, 1));
+  geometry.setDrawRange(0, 0);
+  const mesh = asOverlay(new THREE.Mesh(geometry, material), name);
+  Object.assign(mesh.userData, { uniforms, perItem: 6 });
+  return mesh;
+}
+
+// Corners: x across (-1..1), y along the streak (0 head, 1 tail).
+const STREAK = [-1, 0, 1, 0, 1, 1, -1, 1];
+const SQUARE = [-1, -1, 1, -1, 1, 1, -1, 1];
+
+// `height`: the height map's texture (createHeightMap).
+function createRain(seeds, height) {
+  const uniforms = precipitationUniforms({
+    uLength: 0.04,
+    uWidth: 0.001,
+    uMinPixels: new THREE.Vector2(1.6, 18),
+  });
+  const gpu = webgpu();
+  if (!gpu) uniforms.uHeight = { value: height };
+  const material = gpu ? gpu.rainMaterial(uniforms, height) : weatherMaterial(RAIN_VERTEX, RAIN_FRAGMENT, uniforms);
+  return createQuads(seeds, STREAK, material, uniforms, "weather-rain");
+}
+
+// Points with WebGL; with WebGPU (one pixel points) quads, from `gpuMaterial`.
+function createPoints(seeds, vertexShader, fragmentShader, gpuMaterial, extra, name, height) {
+  const uniforms = precipitationUniforms({ uPointSize: 0.01, uRight: new THREE.Vector3(1, 0, 0), uUp: new THREE.Vector3(0, 1, 0), ...extra });
+  const gpu = webgpu();
+  if (gpu) return createQuads(seeds, SQUARE, gpu[gpuMaterial](uniforms, height), uniforms, name);
+  uniforms.uHeight = { value: height };
+  const geometry = new THREE.BufferGeometry();
+  // The position is not read; three wants one to count the points.
+  geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(seeds.length / 4 * 3), 3));
+  geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 4));
+  geometry.setDrawRange(0, 0);
+  const points = asOverlay(new THREE.Points(geometry, weatherMaterial(vertexShader, fragmentShader, uniforms)), name);
+  Object.assign(points.userData, { uniforms, perItem: 1 });
+  return points;
+}
+
+// The height map's target, the camera that looks down at the box and the
+// material the model is drawn with (renderWeatherHeight).
+function createHeightMap() {
+  const gpu = webgpu();
+  const options = { type: THREE.HalfFloatType, depthBuffer: true };
+  const target = gpu
+    ? new THREE.RenderTarget(HEIGHT_MAP_SIZE, HEIGHT_MAP_SIZE, options)
+    : new THREE.WebGLRenderTarget(HEIGHT_MAP_SIZE, HEIGHT_MAP_SIZE, options);
+  const uniforms = createUniforms({ uGround: 0, uTop: 1 });
+  const material = gpu
+    ? gpu.heightMaterial(uniforms)
+    : new THREE.ShaderMaterial({ uniforms, vertexShader: HEIGHT_VERTEX, fragmentShader: HEIGHT_FRAGMENT, side: THREE.DoubleSide });
+  const camera = new THREE.OrthographicCamera();
+  camera.layers.set(HEIGHT_LAYER);
+  // North (-Z) up in the map: its v runs from +Z to -Z.
+  camera.up.set(0, 0, -1);
+  return { target, material, uniforms, camera, key: "", age: Infinity };
+}
+
+// A tiling 3D value noise, 64 voxels a side, four octaves, stretched (summed
+// noise gathers round 0.5). Made once: it takes a moment.
+let mistNoise = null;
+function getMistNoise(size = 64) {
+  if (mistNoise) return mistNoise;
+  const values = new Float32Array(size * size * size);
+  let amplitude = 1;
+  let total = 0;
+  const smooth = (t) => t * t * (3 - 2 * t);
+  for (let octave = 0; octave < 4; octave += 1) {
+    const cells = 4 << octave;
+    const lattice = Float32Array.from({ length: cells * cells * cells }, () => Math.random());
+    const at = (x, y, z) => lattice[((z % cells) * cells + (y % cells)) * cells + (x % cells)];
+    const cell = size / cells;
+    let i = 0;
+    for (let z = 0; z < size; z += 1) {
+      const z0 = Math.floor(z / cell);
+      const tz = smooth((z / cell) % 1);
+      for (let y = 0; y < size; y += 1) {
+        const y0 = Math.floor(y / cell);
+        const ty = smooth((y / cell) % 1);
+        for (let x = 0; x < size; x += 1, i += 1) {
+          const x0 = Math.floor(x / cell);
+          const tx = smooth((x / cell) % 1);
+          const lerp = (a, b, t) => a + (b - a) * t;
+          const front = lerp(lerp(at(x0, y0, z0), at(x0 + 1, y0, z0), tx), lerp(at(x0, y0 + 1, z0), at(x0 + 1, y0 + 1, z0), tx), ty);
+          const back = lerp(lerp(at(x0, y0, z0 + 1), at(x0 + 1, y0, z0 + 1), tx), lerp(at(x0, y0 + 1, z0 + 1), at(x0 + 1, y0 + 1, z0 + 1), tx), ty);
+          values[i] += amplitude * lerp(front, back, tz);
+        }
+      }
+    }
+    total += amplitude;
+    amplitude *= 0.5;
+  }
+  const data = new Uint8Array(values.length);
+  values.forEach((value, i) => {
+    data[i] = Math.round(clamp01((value / total - 0.5) * 2 + 0.5) * 255);
+  });
+  const texture = new THREE.Data3DTexture(data, size, size, size);
+  texture.format = THREE.RedFormat;
+  texture.type = THREE.UnsignedByteType;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.wrapR = THREE.RepeatWrapping;
+  texture.unpackAlignment = 1;
+  texture.needsUpdate = true;
+  mistNoise = texture;
+  return texture;
+}
+
+// The mist's box (a unit cube, placed and scaled in updateWeatherBounds).
+function createMist(noise) {
+  const uniforms = createUniforms({
+    uResolution: new THREE.Vector2(1, 1),
+    uNear: 0.1,
+    uFar: 1000,
+    uLogDepth: 0,
+    uOrthographic: 0,
+    uCameraForward: new THREE.Vector3(0, 0, -1),
+    uBoxMin: new THREE.Vector3(),
+    uBoxMax: new THREE.Vector3(1, 1, 1),
+    uScale: 1,
+    uDrift: new THREE.Vector3(),
+    uDensity: 0,
+    uCoverage: 0.5,
+    uSpread: 0.6,
+    uSigma: 1,
+    uShadowReach: 1,
+    uMaxMarch: 1,
+    uFogColor: new THREE.Color(),
+    uSunColor: new THREE.Color(),
+    uSunDir: new THREE.Vector3(0, 1, 0),
+  });
+  const gpu = webgpu();
+  let material;
+  if (gpu) {
+    material = gpu.mistMaterial(uniforms, noise, MIST_STEPS);
+  } else {
+    uniforms.uNoise = { value: noise };
+    uniforms.uDepth = { value: null };
+    material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: MIST_VERTEX,
+      fragmentShader: MIST_FRAGMENT,
+      defines: { STEPS: MIST_STEPS },
+      transparent: true,
+      depthWrite: false,
+      // The scene's depth is read instead (it stops the ray).
+      depthTest: false,
+      side: THREE.BackSide,
+    });
+  }
+  const mesh = asOverlay(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material), "weather-mist");
+  mesh.userData.uniforms = uniforms;
+  // After the rest of the scene.
+  mesh.renderOrder = 10;
+  return mesh;
+}
+
+// A disc on the ground that turns wet or white, fading out at its rim.
+function createGround() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, "#fff");
+  gradient.addColorStop(0.6, "#fff");
+  gradient.addColorStop(1, "#000");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+  const material = new THREE.MeshStandardMaterial({
+    color: WET_GROUND,
+    roughness: 0.2,
+    metalness: 0,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    alphaMap: new THREE.CanvasTexture(canvas),
+  });
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(0.5, 64), material);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  ground.renderOrder = -1;
+  return asOverlay(ground, "weather-ground");
+}
+
+// The sky, hazed towards (and below) the horizon in the fog colour, mixed
+// in after the colour space conversion as three's fog is.
+function createSky() {
+  const gpu = webgpu();
+  if (gpu) {
+    const sky = gpu.createSky();
+    sky.renderOrder = -2;
+    return asOverlay(sky, "weather-sky");
+  }
+  const sky = new Sky();
+  const material = sky.material;
+  material.uniforms.weatherHaze = { value: 0 };
+  material.uniforms.weatherHazeColor = { value: new THREE.Color() };
+  material.uniforms.weatherSkyGain = { value: 1 };
+  material.fragmentShader = material.fragmentShader
+    .replace("void main() {", "uniform float weatherHaze;\nuniform vec3 weatherHazeColor;\nuniform float weatherSkyGain;\n\nvoid main() {")
+    .replace("gl_FragColor = vec4( texColor, 1.0 );", "gl_FragColor = vec4( texColor * weatherSkyGain, 1.0 );")
+    .replace("#include <colorspace_fragment>", `#include <colorspace_fragment>
+      float weatherHorizon = direction.y < 0.0 ? max( weatherHaze, 0.85 ) : weatherHaze * ( 1.0 - smoothstep( 0.0, 0.5, direction.y ) );
+      gl_FragColor.rgb = mix( gl_FragColor.rgb, weatherHazeColor, weatherHorizon );`);
+  material.uniforms.cloudScale.value = 0.0003;
+  sky.userData.uniforms = material.uniforms;
+  sky.renderOrder = -2;
+  return asOverlay(sky, "weather-sky");
+}
+
+// A lightning bolt from `from` down to `to`: midpoint displacement, with
+// branches; returned as segments [a, b, width] for the ribbons.
+function boltSegments(from, to, scale) {
+  const segments = [];
+  const split = (a, b, width, depth, branchChance) => {
+    if (depth === 0) {
+      segments.push([a, b, width]);
+      return;
+    }
+    const length = a.distanceTo(b);
+    const middle = a.clone().lerp(b, 0.5 + (Math.random() - 0.5) * 0.2);
+    middle.x += (Math.random() - 0.5) * length * 0.32;
+    middle.z += (Math.random() - 0.5) * length * 0.32;
+    split(a, middle, width, depth - 1, branchChance);
+    split(middle, b, width, depth - 1, branchChance);
+    if (Math.random() < branchChance) {
+      const end = middle.clone().add(new THREE.Vector3(
+        (Math.random() - 0.5) * length * 0.9,
+        -length * (0.3 + Math.random() * 0.4),
+        (Math.random() - 0.5) * length * 0.9,
+      ));
+      split(middle, end, width * 0.5, Math.max(depth - 2, 1), branchChance * 0.5);
+    }
+  };
+  split(from, to, scale, 7, 0.22);
+  return segments;
+}
+
+// The ribbons face the camera where it stands when the bolt strikes (it
+// lasts a fraction of a second); at least `minPixels` wide on screen.
+function createBolt(segments, camera, viewportHeight, minPixels) {
+  const pixelAngle = camera.isPerspectiveCamera
+    ? 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / viewportHeight
+    : 0;
+  const positions = new Float32Array(segments.length * 6 * 3);
+  const along = new THREE.Vector3();
+  const toCamera = new THREE.Vector3();
+  const side = new THREE.Vector3();
+  segments.forEach(([a, b, width], i) => {
+    along.subVectors(b, a);
+    toCamera.subVectors(camera.position, a);
+    const w = Math.max(width, toCamera.length() * pixelAngle * minPixels) * 0.5;
+    side.crossVectors(along, toCamera).normalize().multiplyScalar(w);
+    const quad = [
+      a.x - side.x, a.y - side.y, a.z - side.z,
+      a.x + side.x, a.y + side.y, a.z + side.z,
+      b.x + side.x, b.y + side.y, b.z + side.z,
+      a.x - side.x, a.y - side.y, a.z - side.z,
+      b.x + side.x, b.y + side.y, b.z + side.z,
+      b.x - side.x, b.y - side.y, b.z - side.z,
+    ];
+    positions.set(quad, i * 18);
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xe8eeff,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    fog: false,
+    toneMapped: false,
+  });
+  return asOverlay(new THREE.Mesh(geometry, material), "weather-lightning");
+}
+
+// The flicker of a strike over its lifetime (0..1): flashes and a return stroke.
+function strikeBrightness(t) {
+  if (t >= 1) return 0;
+  const pulses = [[0, 0.12, 1], [0.22, 0.32, 0.55], [0.4, 0.62, 0.9]];
+  return pulses.reduce((value, [start, end, peak]) => {
+    if (t < start || t > end) return value;
+    return Math.max(value, peak * (1 - (t - start) / (end - start)));
+  }, 0);
+}
+
+// ---- sound -------------------------------------------------------------------
+
+function noiseBuffer(context, seconds, brown = false) {
+  const buffer = context.createBuffer(1, Math.floor(context.sampleRate * seconds), context.sampleRate);
+  const data = buffer.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < data.length; i += 1) {
+    const white = Math.random() * 2 - 1;
+    if (brown) {
+      last = (last + 0.02 * white) / 1.02;
+      data[i] = last * 3.5;
+    } else {
+      data[i] = white;
+    }
+  }
+  return buffer;
+}
+
+function createSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  const context = new AudioContext();
+  const master = context.createGain();
+  master.gain.value = 0.8;
+  master.connect(context.destination);
+  const loop = (buffer, filters, gain) => {
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    let node = source;
+    filters.forEach((filter) => {
+      node.connect(filter);
+      node = filter;
+    });
+    node.connect(gain);
+    gain.gain.value = 0;
+    gain.connect(master);
+    source.start();
+    return source;
+  };
+  const filter = (type, frequency, Q = 0.7) => {
+    const node = context.createBiquadFilter();
+    node.type = type;
+    node.frequency.value = frequency;
+    node.Q.value = Q;
+    return node;
+  };
+  const rainGain = context.createGain();
+  loop(noiseBuffer(context, 2), [filter("highpass", 900), filter("lowpass", 7000)], rainGain);
+  const windGain = context.createGain();
+  const windFilter = filter("bandpass", 380, 1.8);
+  loop(noiseBuffer(context, 3, true), [windFilter], windGain);
+  return { context, master, rainGain, windGain, windFilter, brown: noiseBuffer(context, 6, true) };
+}
+
+// A clap and a long rumble; further away is softer and duller.
+function playThunder(sound, distance) {
+  const { context } = sound;
+  const now = context.currentTime;
+  const source = context.createBufferSource();
+  source.buffer = sound.brown;
+  const lowpass = context.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.setValueAtTime(900 - 500 * distance, now);
+  lowpass.frequency.exponentialRampToValueAtTime(120, now + 4);
+  const gain = context.createGain();
+  const peak = 1.4 - 0.8 * distance;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(peak, now + 0.04 + 0.3 * distance);
+  gain.gain.exponentialRampToValueAtTime(peak * 0.35, now + 0.9);
+  gain.gain.exponentialRampToValueAtTime(peak * 0.5, now + 1.4);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 5.5);
+  source.connect(lowpass);
+  lowpass.connect(gain);
+  gain.connect(sound.master);
+  source.start(now, Math.random() * 0.5, 6);
+}
+
+function isPlainObject$2(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function finite(value, fallback = null) {
+  const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return typeof number === "number" && Number.isFinite(number) ? number : fallback;
+}
+
+const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
+// Eases `current` towards `target` at `rate` (per second).
+const approach = (current, target, step) => (current < target ? Math.min(current + step, target) : Math.max(current - step, target));
+
+function attachWeather(Viewer) {
+  const urlType = (() => {
+    try {
+      return new URL(window.location.href).searchParams.get("weather");
+    } catch (_error) {
+      return null;
+    }
+  })();
+
+  Object.assign(Viewer, {
+    weather: {
+      enabled: false,
+      ...WEATHER_DEFAULTS,
+      // ?weather=rain: once the first model is there.
+      pending: WEATHER_TYPES.includes(urlType) ? urlType : null,
+    },
+    weatherObjects: null,
+
+    // With WebGPU, once its TSL side is loaded (renderer-backend.js).
+    isWeatherAvailable() {
+      return core.rendererBackend !== "webgpu" || Boolean(core.weatherWebGPU);
+    },
+
+    setWeather(enabled) {
+      const on = enabled === true && Viewer.isWeatherAvailable();
+      if (on === Viewer.weather.enabled) return on;
+      if (on) Viewer.enableWeather();
+      else Viewer.disableWeather();
+      Viewer.syncWeatherPanel();
+      Viewer.updateEditorToolbarState?.();
+      return on;
+    },
+
+    // Any of type, intensity, wind, windDirection, sky, surfaces, sound.
+    setWeatherOptions(options = {}) {
+      const state = Viewer.weather;
+      if (WEATHER_TYPES.includes(options.type)) state.type = options.type;
+      const intensity = finite(options.intensity);
+      if (intensity != null) state.intensity = clamp01(intensity);
+      const wind = finite(options.wind);
+      if (wind != null) state.wind = clamp01(wind);
+      const direction = finite(options.windDirection);
+      if (direction != null) state.windDirection = ((direction % 360) + 360) % 360;
+      ["mistHeight", "mistDensity", "mistSpread"].forEach((key) => {
+        const value = finite(options[key]);
+        if (value != null) state[key] = clamp01(value);
+      });
+      ["sky", "surfaces", "sound"].forEach((key) => {
+        if (typeof options[key] === "boolean") state[key] = options[key];
+      });
+      if (WEATHER_TYPES.includes(options.type) && !state.enabled) Viewer.setWeather(true);
+      Viewer.applyWeatherToggles();
+      Viewer.syncWeatherPanel();
+    },
+
+    enableWeather() {
+      if (!core.scene) return;
+      const rainSeeds = random4(RAIN_MAX);
+      const heightMap = createHeightMap();
+      const heightTexture = heightMap.target.texture;
+      const objects = {
+        group: asOverlay(new THREE.Group(), "weather"),
+        sky: createSky(),
+        heightMap,
+        rain: createRain(rainSeeds, heightTexture),
+        splashes: createPoints(rainSeeds.slice(0, SPLASH_MAX * 4), SPLASH_VERTEX, SPLASH_FRAGMENT, "splashMaterial", { uDuration: 0.22 }, "weather-splashes", heightTexture),
+        spray: createPoints(rainSeeds.slice(0, SPLASH_MAX * 4), SPRAY_VERTEX, SPRAY_FRAGMENT, "sprayMaterial", { uDuration: 0.32, uSpeed: 0.1 }, "weather-spray", heightTexture),
+        snow: createPoints(random4(SNOW_MAX), SNOW_VERTEX, SNOW_FRAGMENT, "snowMaterial", { uSway: 0.01 }, "weather-snow", heightTexture),
+        mist: null,
+        // The scene's depth for the mist (WebGL).
+        mistDepth: null,
+        ground: createGround(),
+        flashLight: new THREE.DirectionalLight(0xdfe6ff, 0),
+        flashTarget: new THREE.Object3D(),
+        bolt: null,
+        strike: null,
+        nextStrike: 2 + Math.random() * 3,
+        fog: new THREE.FogExp2(0xffffff, 0),
+        previousFog: core.scene.fog,
+        // What the weather is now, blending towards the chosen one.
+        current: { ...PRESETS.clear, light: 1, sky: 1, fog: 0, clouds: 0 },
+        fogColor: FOG_COLORS.clear.clone(),
+        wet: 0,
+        snowCover: 0,
+        time: 0,
+        // With WebGPU the node materials' own (weather-webgpu.js).
+        surfaceUniforms: webgpu()?.surfaceUniforms || { weatherWet: { value: 0 }, weatherSnow: { value: 0 } },
+        patched: new Map(),
+        patchScan: 0,
+        bounds: null,
+        boundsKey: "",
+        sound: null,
+      };
+      objects.flashLight.name = "weather-flash";
+      objects.flashLight.target = objects.flashTarget;
+      objects.splashes.userData.uniforms.uColor.value.set(0xc8d2dc);
+      objects.spray.userData.uniforms.uColor.value.set(0xd6dee6);
+      objects.snow.userData.uniforms.uColor.value.set(0xffffff);
+      objects.rain.userData.uniforms.uColor.value.set(0xb4c0cc);
+      objects.mist = createMist(getMistNoise());
+      objects.group.add(objects.sky, objects.ground, objects.mist, objects.rain, objects.splashes, objects.spray, objects.snow, objects.flashLight, objects.flashTarget);
+      core.scene.add(objects.group);
+      core.scene.fog = objects.fog;
+      Viewer.weatherObjects = objects;
+      Viewer.weather.enabled = true;
+      Viewer.applyWeatherToggles();
+      Viewer.updateWeather(0);
+    },
+
+    disableWeather() {
+      const objects = Viewer.weatherObjects;
+      Viewer.weather.enabled = false;
+      Viewer.weatherObjects = null;
+      if (!objects) return;
+      Viewer.unpatchWeatherSurfaces(objects);
+      objects.surfaceUniforms.weatherWet.value = 0;
+      objects.surfaceUniforms.weatherSnow.value = 0;
+      objects.bolt?.removeFromParent();
+      objects.group.removeFromParent();
+      objects.group.traverse((object) => {
+        // Sprites share one geometry of three's.
+        if (!object.isSprite) object.geometry?.dispose();
+        object.material?.alphaMap?.dispose();
+        object.material?.dispose();
+      });
+      objects.bolt?.geometry.dispose();
+      objects.bolt?.material.dispose();
+      // The noise stays made (its GPU copy goes).
+      mistNoise?.dispose();
+      objects.mistDepth?.target.dispose();
+      objects.heightMap.target.dispose();
+      objects.heightMap.material.dispose();
+      objects.mistDepth?.material.dispose();
+      if (core.scene && core.scene.fog === objects.fog) core.scene.fog = objects.previousFog ?? null;
+      if (core.renderer) core.renderer.toneMappingExposure = getRenderingSettings().exposure;
+      objects.sound?.context.close();
+    },
+
+    // The sky shown or not, the sound started or stopped: from the state.
+    applyWeatherToggles() {
+      const objects = Viewer.weatherObjects;
+      const state = Viewer.weather;
+      if (!objects) return;
+      objects.sky.visible = state.sky;
+      if (state.sound && !objects.sound) objects.sound = createSound();
+      if (objects.sound) {
+        if (state.sound) objects.sound.context.resume();
+        else objects.sound.context.suspend();
+      }
+      if (!state.surfaces) Viewer.unpatchWeatherSurfaces(objects);
+    },
+
+    getWeatherModelRoots() {
+      const slots = Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject];
+      return slots.flat().filter((item) => item?.isObject3D && !item.userData?.isWeather);
+    },
+
+    // The box the weather fills: the model's footprint and some, from the
+    // ground to well above it. The ground is the viewer's grid and shadow
+    // plane (viewer-utils.js), which a model may reach below; else the
+    // model's base.
+    updateWeatherBounds(objects) {
+      const box = new THREE.Box3();
+      Viewer.getWeatherModelRoots().forEach((root) => box.expandByObject(root));
+      const size = core.gridSize || (box.isEmpty() ? 1 : box.getSize(new THREE.Vector3()).length()) || 1;
+      if (box.isEmpty()) box.setFromCenterAndSize(new THREE.Vector3(), new THREE.Vector3(size, size, size));
+      const ground = core.basicGrid?.isObject3D ? core.basicGrid.getWorldPosition(new THREE.Vector3()).y : box.min.y;
+      const key = [box.min.toArray(), box.max.toArray(), size, ground].join("|");
+      if (key === objects.boundsKey) return objects.bounds;
+      objects.boundsKey = key;
+      const center = box.getCenter(new THREE.Vector3());
+      const half = size * 2.6;
+      const height = Math.max(box.max.y - ground, 0) + size * 3;
+      const origin = new THREE.Vector3(center.x - half, ground, center.z - half);
+      const volume = new THREE.Vector3(half * 2, height, half * 2);
+      objects.bounds = { box, center, size, origin, volume, ground };
+      // The height map covers the model's surroundings (`origin`, `volume`).
+      [objects.rain, objects.splashes, objects.spray, objects.snow].forEach((mesh) => {
+        mesh.userData.uniforms.uMapOrigin.value.copy(origin);
+        mesh.userData.uniforms.uMapSize.value.copy(volume);
+      });
+      // The model moved or changed: its height map again.
+      objects.heightMap.age = Infinity;
+      // Just under the shadow plane, so the shadows lie on it.
+      objects.ground.position.set(center.x, ground - size * 0.0005, center.z);
+      objects.ground.scale.setScalar(size * 3.2);
+      // The mist: its clumps a fraction of the model across; marched no
+      // further than three model sizes (the fog is beyond). Its box: in
+      // updateWeather (its height is a setting).
+      const mist = objects.mist.userData.uniforms;
+      mist.uScale.value = 1 / (size * 1.6);
+      mist.uSigma.value = 14 / size;
+      mist.uShadowReach.value = size * 0.08;
+      mist.uMaxMarch.value = size * 3;
+      objects.flashTarget.position.copy(center);
+      return objects.bounds;
+    },
+
+    // Every frame (main.js animate).
+    updateWeather(delta = 0) {
+      const state = Viewer.weather;
+      if (state.pending && !state.enabled && core.scene && Viewer.getWeatherModelRoots().length) {
+        const type = state.pending;
+        state.pending = null;
+        Viewer.setWeatherOptions({ type });
+      }
+      const objects = Viewer.weatherObjects;
+      if (!objects || !core.scene || !core.camera) return;
+      const dt = Math.min(delta, 0.1);
+      objects.time += dt;
+      const bounds = Viewer.updateWeatherBounds(objects);
+      const size = bounds.size;
+
+      // Blend towards the chosen weather at its intensity.
+      const preset = PRESETS[state.type] || PRESETS.clear;
+      const amount = 0.25 + 0.75 * state.intensity;
+      // A downpour hides the distance, hazes the ground and darkens the day.
+      const pour = clamp01(preset.rain * state.intensity) ** 2;
+      const target = {
+        fog: preset.fog * (state.type === "fog" ? 0.35 + 0.65 * state.intensity : amount) + pour * 0.18,
+        mist: preset.mist * amount + pour * 0.06,
+        rain: preset.rain * state.intensity,
+        snow: preset.snow * state.intensity,
+        clouds: PRESETS.clear.clouds + (preset.clouds - PRESETS.clear.clouds) * amount,
+        light: (1 + (preset.light - 1) * amount) * (1 - pour * 0.25),
+        sky: (1 + (preset.sky - 1) * amount) * (1 - pour * 0.3),
+        wind: Math.max(state.wind, preset.wind * amount),
+        lightning: preset.lightning * state.intensity,
+      };
+      const step = dt / BLEND_TIME;
+      BLEND_KEYS.forEach((key) => {
+        objects.current[key] += (target[key] - objects.current[key]) * Math.min(step * 3, 1);
+      });
+      const current = objects.current;
+
+      // The sun: how much of it comes through the clouds, how low (warm) it is.
+      const sunDir = Viewer.getWeatherSunDirection();
+      const sunlight = THREE.MathUtils.smoothstep(sunDir.y, -0.05, 0.15) * (1 - current.clouds * 0.55);
+      const warm = 1 - clamp01(sunDir.y / 0.5);
+      // A low sun gilds the haze.
+      const fogTarget = (FOG_COLORS[state.type] || FOG_COLORS.clear).clone().lerp(SUNLIT_HAZE, warm * sunlight * 0.55);
+      objects.fogColor.lerp(fogTarget, Math.min(step * 3, 1));
+
+      // The surfaces: wet while it rains, snow settling while it snows.
+      if (state.surfaces) {
+        objects.wet = current.rain > 0.05
+          ? approach(objects.wet, Math.min(current.rain * 1.4, 1), dt / WET_TIME)
+          : approach(objects.wet, 0, dt / DRY_TIME);
+        objects.snowCover = current.snow > 0.05
+          ? approach(objects.snowCover, Math.min(0.35 + current.snow, 1), dt / SETTLE_TIME)
+          : approach(objects.snowCover, 0, dt * (current.rain > 0.05 ? 3 : 1) / MELT_TIME);
+      } else {
+        objects.wet = 0;
+        objects.snowCover = 0;
+      }
+      Viewer.updateWeatherSurfaces(objects, dt);
+
+      // Wind: blowing towards `windDirection` (degrees clockwise from -Z,
+      // seen from above, as the sun study's north).
+      const bearing = THREE.MathUtils.degToRad(state.windDirection);
+      const windX = Math.sin(bearing);
+      const windZ = -Math.cos(bearing);
+
+      // Fog. Without post-processing three's WebGL materials mix it in after
+      // converting to sRGB: given in sRGB there, so it looks the same with
+      // either pipeline and with WebGPU (the sky's haze takes it too).
+      objects.fog.color.copy(objects.fogColor);
+      if (!webgpu() && !isPostProcessingActive()) objects.fog.color.convertLinearToSRGB();
+      objects.fog.density = current.fog / size;
+      if (core.scene.fog !== objects.fog) core.scene.fog = objects.fog;
+
+      // Rain and its splashes.
+      const viewportHeight = core.renderer?.getDrawingBufferSize(new THREE.Vector2()).y || 1;
+      const orthographic = core.camera.isOrthographicCamera ? 1 : 0;
+      // Which way the camera's right and up point: the WebGPU flakes face it.
+      const right = new THREE.Vector3().setFromMatrixColumn(core.camera.matrixWorld, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(core.camera.matrixWorld, 1);
+      [objects.rain, objects.splashes, objects.spray, objects.snow].forEach((mesh) => {
+        const uniforms = mesh.userData.uniforms;
+        uniforms.uTime.value = objects.time;
+        uniforms.uViewportHeight.value = viewportHeight;
+        uniforms.uOrthographic.value = orthographic;
+        uniforms.uRight?.value.copy(right);
+        uniforms.uUp?.value.copy(up);
+      });
+      const setCount = (mesh, count) => {
+        mesh.geometry.setDrawRange(0, count * mesh.userData.perItem);
+        mesh.visible = count > 0;
+      };
+
+      // The cube the rain and the snow fall through: as large as the view
+      // is deep (in steps of √2, so it keeps still while the camera moves a
+      // little), mostly ahead of the camera. Everything in it is measured
+      // in its size, so they look the same close up and from afar.
+      const camera = core.camera;
+      const viewDepth = camera.isOrthographicCamera
+        ? (camera.top - camera.bottom) / camera.zoom
+        : camera.position.distanceTo(core.controls?.target || bounds.center);
+      const cube = 2 ** (Math.round(Math.log2(Math.max(viewDepth * 1.5, size * 0.02)) * 2) / 2);
+      // The sizes below: in the view's depth, which the cube follows.
+      const reach = cube / 1.5;
+      const ahead = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(cube * 0.3);
+      const boxMin = camera.position.clone().add(ahead).subScalar(cube / 2);
+      [objects.rain, objects.splashes, objects.spray, objects.snow].forEach((mesh) => {
+        mesh.userData.uniforms.uBoxMin.value.copy(boxMin);
+        mesh.userData.uniforms.uBoxSize.value = cube;
+      });
+      // How hard it rains (0..1); the drops grow with its square, so the
+      // middle stays a rain and the top is a downpour.
+      const rainAmount = clamp01(current.rain);
+      const rain = objects.rain.userData.uniforms;
+      setCount(objects.rain, Math.round(RAIN_MAX * rainAmount * rainAmount));
+      // A drop: a few hundredths of the view's depth long, falling nearly
+      // two of them a second; splashes and bounces to scale.
+      [rain, objects.splashes.userData.uniforms, objects.spray.userData.uniforms].forEach((uniforms) => {
+        uniforms.uFall.value = reach * 1.75;
+        uniforms.uWind.value.set(windX, windZ).multiplyScalar(current.wind * reach * 0.9);
+      });
+      rain.uOpacity.value = 0.16 + 0.24 * rainAmount;
+      rain.uLength.value = reach * 0.024 * (1 + 0.9 * rainAmount);
+      rain.uWidth.value = reach * 0.0009 * (1 + 0.6 * rainAmount);
+      objects.splashes.userData.uniforms.uPointSize.value = reach * 0.015;
+      objects.spray.userData.uniforms.uSpeed.value = reach * 0.05;
+      objects.spray.userData.uniforms.uPointSize.value = reach * 0.0018;
+      rain.uColor.value.copy(objects.fogColor).lerp(new THREE.Color(0xdde6ee), 0.6);
+      setCount(objects.splashes, Math.round(SPLASH_MAX * rainAmount));
+      objects.splashes.userData.uniforms.uOpacity.value = 0.55;
+      setCount(objects.spray, Math.round(SPLASH_MAX * rainAmount));
+      objects.spray.userData.uniforms.uOpacity.value = 0.7;
+
+      // The model's height map: when it moved, and now and then while
+      // something falls on it.
+      objects.heightMap.age += dt;
+      if ((objects.rain.visible || objects.snow.visible) && objects.heightMap.age > HEIGHT_REFRESH) {
+        objects.heightMap.age = 0;
+        Viewer.renderWeatherHeight(objects, bounds);
+      }
+
+      // Snow: like the rain, more of it and in bigger flakes as it thickens.
+      const snowAmount = clamp01(current.snow);
+      const snow = objects.snow.userData.uniforms;
+      setCount(objects.snow, Math.round(SNOW_MAX * snowAmount ** 1.5));
+      snow.uFall.value = reach * 0.11;
+      snow.uWind.value.set(windX, windZ).multiplyScalar(current.wind * reach * 0.33);
+      snow.uPointSize.value = reach * 0.0048 * (0.8 + 0.5 * snowAmount);
+      snow.uSway.value = reach * 0.015;
+      snow.uOpacity.value = 0.9;
+
+      // Mist: drifting with the wind (in noise tiles), lit by the sun - warm
+      // when it is low, little of it through thick clouds.
+      const mist = objects.mist.userData.uniforms;
+      objects.mist.visible = current.mist > 0.005 && !core.renderer?.xr?.isPresenting;
+      mist.uDensity.value = current.mist * (0.2 + 1.6 * state.mistDensity);
+      // Rain's haze stays even.
+      mist.uSpread.value = state.type === "fog" ? state.mistSpread : 1;
+      // Its box: out to where the fog takes over, as high as set.
+      const mistRadius = size * 3.5;
+      const mistHeight = size * (0.15 + state.mistHeight);
+      objects.mist.position.set(bounds.center.x, bounds.ground + mistHeight / 2, bounds.center.z);
+      objects.mist.scale.set(mistRadius * 2, mistHeight, mistRadius * 2);
+      mist.uBoxMin.value.set(bounds.center.x - mistRadius, bounds.ground, bounds.center.z - mistRadius);
+      mist.uBoxMax.value.set(bounds.center.x + mistRadius, bounds.ground + mistHeight, bounds.center.z + mistRadius);
+      // Rain's haze: lighter than its grey air, and even rather than in clumps.
+      mist.uCoverage.value = 0.3 + 0.25 * clamp01(current.mist) + 0.25 * rainAmount;
+      // In noise tiles: drifting with the wind, slowly churning upwards.
+      objects.mistDrift = (objects.mistDrift || 0) + dt * (0.008 + current.wind * 0.05);
+      mist.uDrift.value.set(windX * objects.mistDrift, objects.time * 0.004, windZ * objects.mistDrift);
+      mist.uNear.value = camera.near;
+      mist.uFar.value = camera.far;
+      mist.uLogDepth.value = core.renderer?.logarithmicDepthBuffer || core.renderer?.capabilities?.logarithmicDepthBuffer ? 1 : 0;
+      mist.uOrthographic.value = orthographic;
+      camera.getWorldDirection(mist.uCameraForward.value);
+      core.renderer?.getDrawingBufferSize(mist.uResolution.value);
+      if (objects.mist.visible && !webgpu()) Viewer.renderWeatherMistDepth(objects);
+      mist.uFogColor.value.copy(objects.fogColor).lerp(WHITE, 0.35 * rainAmount);
+      mist.uSunDir.value.copy(sunDir);
+      mist.uSunColor.value.setRGB(1, 0.86 - 0.22 * warm, 0.7 - 0.4 * warm).multiplyScalar(sunlight * 0.9);
+
+      // The ground: wet, then white.
+      const groundMaterial = objects.ground.material;
+      groundMaterial.color.copy(WET_GROUND).lerp(SNOW_GROUND, objects.snowCover);
+      groundMaterial.roughness = THREE.MathUtils.lerp(0.15, 0.9, objects.snowCover);
+      groundMaterial.opacity = Math.max(objects.wet * 0.45 * (1 - objects.snowCover), objects.snowCover * 0.95);
+      objects.ground.visible = groundMaterial.opacity > 0.002;
+
+      // Lightning.
+      const flash = Viewer.updateWeatherLightning(objects, dt, bounds);
+
+      // The sky.
+      const sky = objects.sky;
+      if (sky.visible) {
+        const far = core.camera.far || size * 100;
+        sky.scale.setScalar(far * 1.1);
+        sky.position.copy(core.camera.position);
+        const uniforms = sky.userData.uniforms;
+        uniforms.sunPosition.value.copy(sunDir);
+        uniforms.cloudCoverage.value = current.clouds;
+        uniforms.cloudDensity.value = 0.35 + 0.6 * current.clouds;
+        uniforms.cloudSpeed.value = 0.00002 * (1 + current.wind * 6);
+        uniforms.time.value = objects.time;
+        uniforms.turbidity.value = 2 + 8 * current.clouds;
+        uniforms.rayleigh.value = 1 + current.clouds;
+        uniforms.showSunDisc.value = current.clouds < 0.7 ? 1 : 0;
+        uniforms.weatherHaze.value = clamp01(0.2 + current.fog * 0.9);
+        uniforms.weatherHazeColor.value.copy(objects.fog.color);
+        uniforms.weatherSkyGain.value = current.sky * (1 + flash * 3);
+      }
+
+      // Darker under clouds, brighter in a flash; the setting stays.
+      if (core.renderer) core.renderer.toneMappingExposure = getRenderingSettings().exposure * current.light * (1 + flash * 1.2);
+
+      Viewer.updateWeatherSound(objects, current);
+    },
+
+    // The model seen from above into its height map: only the model (on a
+    // layer of its own for this), its height in the precipitation's box;
+    // the ground (cleared to 0) where there is none.
+    renderWeatherHeight(objects, bounds) {
+      const renderer = core.renderer;
+      const scene = core.scene;
+      if (!renderer || !scene) return;
+      const { origin, volume, size } = bounds;
+      const map = objects.heightMap;
+      const camera = map.camera;
+      camera.left = -volume.x / 2;
+      camera.right = volume.x / 2;
+      camera.top = volume.z / 2;
+      camera.bottom = -volume.z / 2;
+      camera.near = 0;
+      camera.far = volume.y + size;
+      camera.position.set(origin.x + volume.x / 2, origin.y + volume.y + size * 0.5, origin.z + volume.z / 2);
+      camera.lookAt(origin.x + volume.x / 2, origin.y, origin.z + volume.z / 2);
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld();
+      map.uniforms.uGround.value = origin.y;
+      map.uniforms.uTop.value = origin.y + volume.y;
+      const roots = Viewer.getWeatherModelRoots();
+      roots.forEach((root) => root.traverse((object) => object.layers.enable(HEIGHT_LAYER)));
+      const previous = {
+        target: renderer.getRenderTarget(),
+        override: scene.overrideMaterial,
+        shadows: renderer.shadowMap.autoUpdate,
+        clearColor: renderer.getClearColor(new THREE.Color()),
+        clearAlpha: renderer.getClearAlpha(),
+      };
+      scene.overrideMaterial = map.material;
+      renderer.shadowMap.autoUpdate = false;
+      try {
+        renderer.setRenderTarget(map.target);
+        renderer.setClearColor(0x000000, 1);
+        renderer.clear();
+        renderer.render(scene, camera);
+      } finally {
+        renderer.setRenderTarget(previous.target);
+        renderer.setClearColor(previous.clearColor, previous.clearAlpha);
+        scene.overrideMaterial = previous.override;
+        renderer.shadowMap.autoUpdate = previous.shadows;
+        roots.forEach((root) => root.traverse((object) => object.layers.disable(HEIGHT_LAYER)));
+      }
+    },
+
+    // The scene's depth for the mist, at half size (WebGL; WebGPU reads the
+    // viewport's): the scene drawn once more with a material that writes
+    // depth only - without the weather, the sky and the shadow maps.
+    renderWeatherMistDepth(objects) {
+      const renderer = core.renderer;
+      const scene = core.scene;
+      if (!renderer || !scene || !core.camera) return;
+      const full = renderer.getDrawingBufferSize(new THREE.Vector2());
+      const width = Math.max(1, Math.ceil(full.x / 2));
+      const height = Math.max(1, Math.ceil(full.y / 2));
+      if (!objects.mistDepth) {
+        const target = new THREE.WebGLRenderTarget(width, height, { depthBuffer: true });
+        target.depthTexture = new THREE.DepthTexture(width, height);
+        objects.mistDepth = { target, material: new THREE.MeshBasicMaterial({ colorWrite: false }) };
+        objects.mist.userData.uniforms.uDepth.value = target.depthTexture;
+      } else if (objects.mistDepth.target.width !== width || objects.mistDepth.target.height !== height) {
+        objects.mistDepth.target.setSize(width, height);
+      }
+      const previous = {
+        target: renderer.getRenderTarget(),
+        override: scene.overrideMaterial,
+        shadows: renderer.shadowMap.autoUpdate,
+      };
+      objects.group.visible = false;
+      scene.overrideMaterial = objects.mistDepth.material;
+      renderer.shadowMap.autoUpdate = false;
+      try {
+        renderer.setRenderTarget(objects.mistDepth.target);
+        renderer.clear();
+        renderer.render(scene, core.camera);
+      } finally {
+        renderer.setRenderTarget(previous.target);
+        scene.overrideMaterial = previous.override;
+        renderer.shadowMap.autoUpdate = previous.shadows;
+        objects.group.visible = true;
+      }
+    },
+
+    // Where the sky's sun is: the sun study's, else where the key light
+    // comes from (not below 12°).
+    getWeatherSunDirection() {
+      const direction = new THREE.Vector3(0.4, 0.55, 0.7);
+      if (Viewer.sunStudy?.enabled) {
+        sunDirection(Viewer.getSunPosition(), Viewer.sunStudy.north, direction);
+        return direction;
+      }
+      const light = core.dirLight;
+      if (light?.isDirectionalLight) {
+        direction.subVectors(light.position, light.target?.position || new THREE.Vector3());
+        if (direction.lengthSq() < 1e-12) direction.set(0.4, 0.55, 0.7);
+      }
+      direction.normalize();
+      const minimum = Math.sin(THREE.MathUtils.degToRad(12));
+      if (direction.y < minimum) {
+        const horizontal = Math.hypot(direction.x, direction.z) || 1;
+        const scale = Math.sqrt(1 - minimum * minimum) / horizontal;
+        direction.set(direction.x * scale, minimum, direction.z * scale);
+      }
+      return direction;
+    },
+
+    // A strike now and then while it storms; its brightness this frame (0..1).
+    updateWeatherLightning(objects, dt, bounds) {
+      const strength = objects.current.lightning;
+      let strike = objects.strike;
+      if (!strike && strength > 0.05) {
+        objects.nextStrike -= dt * strength;
+        if (objects.nextStrike <= 0) {
+          objects.nextStrike = 3 + Math.random() * 8;
+          strike = Viewer.startWeatherStrike(objects, bounds);
+        }
+      }
+      if (!strike) {
+        objects.flashLight.intensity = 0;
+        return 0;
+      }
+      strike.age += dt;
+      const brightness = strikeBrightness(strike.age / strike.duration) * strike.strength;
+      objects.flashLight.intensity = brightness * 6;
+      if (objects.bolt) objects.bolt.material.opacity = Math.min(brightness * 1.6, 1);
+      if (!strike.thundered && objects.sound && Viewer.weather.sound && strike.age >= strike.thunderDelay) {
+        strike.thundered = true;
+        playThunder(objects.sound, strike.distance);
+      }
+      if (strike.age >= Math.max(strike.duration, strike.thunderDelay + 0.05)) {
+        objects.strike = null;
+        if (objects.bolt) {
+          objects.bolt.removeFromParent();
+          objects.bolt.geometry.dispose();
+          objects.bolt.material.dispose();
+          objects.bolt = null;
+        }
+      }
+      return brightness;
+    },
+
+    // A bolt somewhere around the model (or only its flash, from inside the
+    // clouds); the thunder follows later the further away it struck.
+    startWeatherStrike(objects, bounds) {
+      const size = bounds.size;
+      const angle = Math.random() * Math.PI * 2;
+      // 0 near, 1 far.
+      const distance = Math.random();
+      const reach = size * (1.3 + distance * 2.2);
+      const ground = new THREE.Vector3(bounds.center.x + Math.cos(angle) * reach, bounds.ground, bounds.center.z + Math.sin(angle) * reach);
+      const top = ground.clone().add(new THREE.Vector3((Math.random() - 0.5) * size, bounds.volume.y + size * 1.5, (Math.random() - 0.5) * size));
+      const visible = Math.random() < 0.7;
+      if (visible) {
+        const viewportHeight = core.renderer?.getDrawingBufferSize(new THREE.Vector2()).y || 1;
+        objects.bolt = createBolt(boltSegments(top, ground, size * 0.004), core.camera, viewportHeight, 2.5);
+        objects.group.add(objects.bolt);
+      }
+      objects.flashLight.position.copy(top);
+      objects.strike = {
+        age: 0,
+        duration: 0.55 + Math.random() * 0.3,
+        strength: (visible ? 1 : 0.55) * (1 - distance * 0.5),
+        distance,
+        thunderDelay: 0.3 + distance * 2.5,
+        thundered: false,
+      };
+      return objects.strike;
+    },
+
+    updateWeatherSound(objects, current) {
+      const sound = objects.sound;
+      if (!sound || !Viewer.weather.sound) return;
+      const now = sound.context.currentTime;
+      const rainAmount = clamp01(current.rain);
+      sound.rainGain.gain.setTargetAtTime(rainAmount * (0.1 + 0.3 * rainAmount), now, 0.3);
+      sound.windGain.gain.setTargetAtTime(current.wind * current.wind * 0.6, now, 0.5);
+      // Gusts.
+      sound.windFilter.frequency.setTargetAtTime(300 + 260 * (0.5 + 0.5 * Math.sin(objects.time * 0.7) * Math.sin(objects.time * 0.23)), now, 0.4);
+    },
+
+    // ---- window ---------------------------------------------------------------
+
+    isWeatherPanelOpen() {
+      return Boolean(Viewer.weatherPanel);
+    },
+
+    toggleWeatherPanel(open = !Viewer.weatherPanel) {
+      if (open) Viewer.createWeatherPanel();
+      else Viewer.removeWeatherPanel();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    createWeatherPanel() {
+      if (Viewer.weatherPanel || !core.container || Viewer.urlOptions?.hideUi === true) return;
+      const el = (tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text != null) node.textContent = text;
+        return node;
+      };
+      const panel = el("section", "viewer-weather");
+      panel.id = "viewerWeather";
+      panel.setAttribute("role", "group");
+      const header = el("div", "viewer-weather_header");
+      const title = el("span", "viewer-weather_title");
+      const closeButton = el("button", "viewer-weather_icon", "×");
+      closeButton.type = "button";
+      header.append(title, closeButton);
+
+      // The weathers, and off.
+      const chips = el("div", "viewer-weather_types");
+      const typeButtons = {};
+      [["off", "⏻"], ["clear", "☀️"], ["fog", "🌫️"], ["rain", "🌧️"], ["snow", "🌨️"], ["storm", "⛈️"]].forEach(([type, icon]) => {
+        const button = el("button", "viewer-weather_type");
+        button.type = "button";
+        button.dataset.weather = type;
+        const glyph = el("span", "viewer-weather_type-icon", icon);
+        glyph.setAttribute("aria-hidden", "true");
+        const label = el("span", "viewer-weather_type-label");
+        button.append(glyph, label);
+        button.addEventListener("click", () => {
+          if (type === "off") Viewer.setWeather(false);
+          else Viewer.setWeatherOptions({ type });
+        });
+        chips.append(button);
+        typeButtons[type] = { button, label };
+      });
+
+      // Sliders: 0..1 shown in per cent, the direction in degrees.
+      const sliders = {};
+      const slider = (key, max = 1, step = 0.01) => {
+        const row = el("label", "viewer-weather_slider");
+        const text = el("span", "viewer-weather_slider-label");
+        const value = el("output", "viewer-weather_slider-value");
+        const input = el("input");
+        input.type = "range";
+        input.min = "0";
+        input.max = String(max);
+        input.step = String(step);
+        input.addEventListener("input", () => Viewer.setWeatherOptions({ [key]: Number(input.value) }));
+        row.append(text, input, value);
+        sliders[key] = { row, text, value, input, max };
+        return row;
+      };
+      const settings = el("div", "viewer-weather_settings");
+      settings.append(
+        slider("intensity"),
+        slider("wind"),
+        slider("windDirection", 359, 1),
+        slider("mistHeight"),
+        slider("mistDensity"),
+        slider("mistSpread"),
+      );
+
+      const checks = {};
+      const toggles = el("div", "viewer-weather_checks");
+      ["sky", "surfaces", "sound"].forEach((key) => {
+        const row = el("label", "viewer-weather_check");
+        const input = el("input");
+        input.type = "checkbox";
+        input.addEventListener("change", () => Viewer.setWeatherOptions({ [key]: input.checked }));
+        const text = el("span");
+        row.append(input, text);
+        toggles.append(row);
+        checks[key] = { row, input, text };
+      });
+
+      panel.append(header, chips, settings, toggles);
+      ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
+        panel.addEventListener(type, (event) => event.stopPropagation());
+      });
+      closeButton.addEventListener("click", () => Viewer.toggleWeatherPanel(false));
+      attachToolPanelChrome(panel, header, {
+        before: closeButton,
+        icon: PANEL_ICONS.weather,
+        label: () => t$1("weather.title", "Weather"),
+      });
+      getViewerSideStack()?.append(panel);
+      Viewer.weatherPanel = { panel, title, closeButton, typeButtons, sliders, checks };
+      Viewer.updateWeatherLabels();
+    },
+
+    removeWeatherPanel() {
+      Viewer.weatherPanel?.panel.remove();
+      Viewer.weatherPanel = null;
+    },
+
+    updateWeatherLabels() {
+      const ui = Viewer.weatherPanel;
+      if (!ui) return;
+      const name = t$1("weather.title", "Weather");
+      ui.panel.setAttribute("aria-label", name);
+      ui.title.textContent = name;
+      refreshToolPanelChrome(ui.panel);
+      ui.closeButton.title = t$1("weather.close", "Close");
+      ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
+      const typeNames = {
+        off: t$1("weather.off", "Off"),
+        clear: t$1("weather.clear", "Clear sky"),
+        fog: t$1("weather.fog", "Fog"),
+        rain: t$1("weather.rain", "Rain"),
+        snow: t$1("weather.snow", "Snow"),
+        storm: t$1("weather.storm", "Thunderstorm"),
+      };
+      Object.entries(ui.typeButtons).forEach(([type, { button, label }]) => {
+        label.textContent = typeNames[type];
+        button.title = typeNames[type];
+      });
+      const sliderNames = {
+        intensity: t$1("weather.intensity", "Intensity"),
+        wind: t$1("weather.wind", "Wind"),
+        windDirection: t$1("weather.windDirection", "Wind direction"),
+        mistHeight: t$1("weather.mistHeight", "Mist height"),
+        mistDensity: t$1("weather.mistDensity", "Mist density"),
+        mistSpread: t$1("weather.mistSpread", "Mist spread"),
+      };
+      Object.entries(ui.sliders).forEach(([key, { text }]) => {
+        text.textContent = sliderNames[key];
+      });
+      const checkNames = {
+        sky: t$1("weather.sky", "Sky"),
+        surfaces: t$1("weather.surfaces", "Wet surfaces and snow cover"),
+        sound: t$1("weather.sound", "Sound"),
+      };
+      Object.entries(ui.checks).forEach(([key, { text }]) => {
+        text.textContent = checkNames[key];
+      });
+      Viewer.syncWeatherPanel();
+    },
+
+    // The window shows the state: the weather chosen, and only the settings
+    // it has - the wet and the snow where something falls, the mist's with
+    // fog, the wind's direction once there is wind.
+    syncWeatherPanel() {
+      const ui = Viewer.weatherPanel;
+      if (!ui) return;
+      const state = Viewer.weather;
+      const on = state.enabled;
+      const current = on ? state.type : "off";
+      Object.entries(ui.typeButtons).forEach(([type, { button }]) => {
+        const active = type === current;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+      const fog = on && state.type === "fog";
+      const shown = {
+        intensity: on,
+        wind: on,
+        windDirection: on && (state.wind > 0 || state.type === "storm"),
+        mistHeight: fog,
+        mistDensity: fog,
+        mistSpread: fog,
+      };
+      Object.entries(ui.sliders).forEach(([key, { row, input, value, max }]) => {
+        row.hidden = !shown[key];
+        const number = key === "windDirection" ? Math.round(state[key]) : state[key];
+        if (document.activeElement !== input) input.value = String(number);
+        value.textContent = max > 1 ? `${Math.round(number)}°` : `${Math.round(number * 100)}%`;
+      });
+      const checksShown = { sky: on, surfaces: on && ["rain", "snow", "storm"].includes(state.type), sound: on };
+      Object.entries(ui.checks).forEach(([key, { row, input }]) => {
+        row.hidden = !checksShown[key];
+        input.checked = state[key] === true;
+      });
+    },
+
+    // ---- surfaces -------------------------------------------------------------
+
+    // The materials of the model take the wet and the snow (patched as they
+    // turn up: a streamed model brings new ones), and give them back when
+    // both are gone.
+    updateWeatherSurfaces(objects, dt) {
+      const uniforms = objects.surfaceUniforms;
+      uniforms.weatherWet.value = objects.wet;
+      uniforms.weatherSnow.value = objects.snowCover;
+      // The node materials have it built in (renderer-backend.js).
+      if (webgpu()) return;
+      const needed = Viewer.weather.surfaces && (objects.wet > 0.001 || objects.snowCover > 0.001);
+      if (!needed) {
+        if (objects.patched.size) Viewer.unpatchWeatherSurfaces(objects);
+        return;
+      }
+      objects.patchScan -= dt;
+      if (objects.patchScan > 0) return;
+      objects.patchScan = 1;
+      Viewer.getWeatherModelRoots().forEach((root) => root.traverse((object) => {
+        if (!object.isMesh || object.userData?.isWeather) return;
+        (Array.isArray(object.material) ? object.material : [object.material]).forEach((material) => {
+          Viewer.patchWeatherSurface(objects, material);
+        });
+      }));
+    },
+
+    patchWeatherSurface(objects, material) {
+      if (!material || objects.patched.has(material)) return;
+      const kind = material.isMeshStandardMaterial ? "physical"
+        : material.isMeshPhongMaterial ? "phong"
+          : material.isMeshLambertMaterial ? "lambert"
+            : null;
+      if (!kind) return;
+      const own = (key) => Object.prototype.hasOwnProperty.call(material, key);
+      const previous = {
+        onBeforeCompile: own("onBeforeCompile") ? material.onBeforeCompile : undefined,
+        customProgramCacheKey: own("customProgramCacheKey") ? material.customProgramCacheKey : undefined,
+      };
+      const baseCompile = material.onBeforeCompile;
+      const baseKey = material.customProgramCacheKey;
+      const chunk = surfaceChunk(kind === "physical");
+      const include = `#include <lights_${kind}_fragment>`;
+      const uniforms = objects.surfaceUniforms;
+      material.onBeforeCompile = function (shader, renderer) {
+        baseCompile.call(this, shader, renderer);
+        if (!shader.fragmentShader.includes(include)) return;
+        shader.uniforms.weatherWet = uniforms.weatherWet;
+        shader.uniforms.weatherSnow = uniforms.weatherSnow;
+        shader.fragmentShader = SURFACE_UNIFORMS + shader.fragmentShader.replace(include, `${chunk}\n${include}`);
+      };
+      material.customProgramCacheKey = function () {
+        return `${baseKey.call(this)}|weather`;
+      };
+      material.needsUpdate = true;
+      objects.patched.set(material, previous);
+    },
+
+    unpatchWeatherSurfaces(objects) {
+      objects.patched.forEach((previous, material) => {
+        ["onBeforeCompile", "customProgramCacheKey"].forEach((key) => {
+          if (previous[key]) material[key] = previous[key];
+          else delete material[key];
+        });
+        material.needsUpdate = true;
+      });
+      objects.patched.clear();
+      objects.patchScan = 0;
+    },
+
+    // ---- manifests ------------------------------------------------------------
+
+    // AIM3DViewer.weather of an exported manifest: only while it is on.
+    getWeatherForExport() {
+      const state = Viewer.weather;
+      if (!state.enabled) return undefined;
+      return {
+        type: state.type,
+        intensity: Math.round(state.intensity * 100) / 100,
+        wind: Math.round(state.wind * 100) / 100,
+        windDirection: Math.round(state.windDirection),
+        ...(state.sky ? {} : { sky: false }),
+        ...(state.surfaces ? {} : { surfaces: false }),
+        mistHeight: Math.round(state.mistHeight * 100) / 100,
+        mistDensity: Math.round(state.mistDensity * 100) / 100,
+        mistSpread: Math.round(state.mistSpread * 100) / 100,
+      };
+    },
+
+    // A manifest's weather (absent: none).
+    apply3IFManifestWeather(weather) {
+      if (!isPlainObject$2(weather) || !WEATHER_TYPES.includes(weather.type)) {
+        Viewer.setWeather(false);
+        return false;
+      }
+      Viewer.setWeatherOptions({ ...weather, sound: false });
+      return true;
+    },
+
+    // Before a new model: the weather goes with the old one, as the sun does.
+    disposeWeather() {
+      Viewer.setWeather(false);
     },
   });
 }
@@ -27757,6 +30057,7 @@ function attachTour(Viewer) {
       const count = state.steps.length;
       const nextIndex = ((index % count) + count) % count;
       clearTimeout(state.timer);
+      Viewer.syncTourProgress(0);
       state.index = nextIndex;
 
       const step = state.steps[nextIndex];
@@ -27814,6 +30115,7 @@ function attachTour(Viewer) {
       if (!state?.active || !state.playing) return false;
       state.playing = false;
       clearTimeout(state.timer);
+      Viewer.syncTourProgress(0);
       Viewer.syncTourPanel();
       return true;
     },
@@ -27831,10 +30133,23 @@ function attachTour(Viewer) {
       const isLast = state.index >= state.steps.length - 1;
       if (isLast && !state.options.loop) {
         state.playing = false;
+        Viewer.syncTourProgress(0);
         Viewer.syncTourPanel();
         return;
       }
       state.timer = setTimeout(() => Viewer.nextTourStep(), state.options.stepDurationMs);
+      Viewer.syncTourProgress(state.options.stepDurationMs);
+    },
+
+    // The ring around the pause button: fills over `durationMs` while the
+    // tour waits on a step, empty otherwise (camera flight, paused).
+    syncTourProgress(durationMs = 0) {
+      const button = Viewer.tourState?.ui?.playButton;
+      if (!button) return;
+      button.classList.remove("is-counting");
+      if (!(durationMs > 0)) return;
+      button.style.setProperty("--tour-step-duration", `${durationMs}ms`);
+      button.classList.add("is-counting");
     },
 
     // Camera pose for a step: the annotation's saved view, or one looking at
@@ -28035,7 +30350,11 @@ function attachTour(Viewer) {
         <rect x="0.75" y="6.75" width="14.5" height="8.5" rx="1.3" fill="currentColor"/>
       </svg>`;
       header.append(counter, spreadButton, stackButton, leadersButton, closeButton);
-      attachToolPanelChrome(panel, header, { before: closeButton });
+      attachToolPanelChrome(panel, header, {
+        before: closeButton,
+        icon: PANEL_ICONS.tour,
+        label: () => t$1("tour.panel", "Guided tour"),
+      });
 
       const body = document.createElement("div");
       body.className = "viewer-tour-panel_body";
@@ -28056,6 +30375,13 @@ function attachTour(Viewer) {
       const playButton = document.createElement("button");
       playButton.type = "button";
       playButton.className = "viewer-tour-panel_play";
+      // A ring around the button fills while autoplay waits on a step
+      // (syncTourProgress).
+      playButton.innerHTML = `<svg class="viewer-tour-panel_progress" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+        <circle class="viewer-tour-panel_progress-track" cx="18" cy="18" r="16"/>
+        <circle class="viewer-tour-panel_progress-bar" cx="18" cy="18" r="16" pathLength="100"/>
+      </svg><span class="viewer-tour-panel_play-icon"></span>`;
+      const playIcon = playButton.querySelector(".viewer-tour-panel_play-icon");
       const nextButton = document.createElement("button");
       nextButton.type = "button";
       nextButton.className = "viewer-tour-panel_next";
@@ -28105,7 +30431,7 @@ function attachTour(Viewer) {
       });
 
       stack.prepend(panel);
-      const ui = { panel, counter, spreadButton, stackButton, leadersButton, closeButton, title, description, prevButton, playButton, nextButton };
+      const ui = { panel, counter, spreadButton, stackButton, leadersButton, closeButton, title, description, prevButton, playButton, playIcon, nextButton };
       Viewer.syncTourLeaderToggle(ui);
       Viewer.syncTourSpreadToggle(ui);
       Viewer.syncTourStackToggle(ui);
@@ -28208,7 +30534,7 @@ function attachTour(Viewer) {
       ui.closeButton.setAttribute("aria-label", dismissLabel);
       ui.closeButton.title = dismissLabel;
       const startLabel = t$1("tour.start", "Start guided tour");
-      ui.playButton.textContent = "▶";
+      ui.playIcon.textContent = "▶";
       ui.playButton.setAttribute("aria-label", startLabel);
       ui.playButton.setAttribute("aria-pressed", "false");
       ui.playButton.title = startLabel;
@@ -28255,8 +30581,10 @@ function attachTour(Viewer) {
       Viewer.syncTourStackToggle();
       Viewer.rebuildAnnotationSpread?.();
       Viewer.rebuildAnnotationStack?.();
+      refreshToolPanelChrome(Viewer.tourIdleUi?.panel);
       const ui = Viewer.tourState?.ui;
       if (!ui) return;
+      refreshToolPanelChrome(ui.panel);
       ui.panel.setAttribute("aria-label", t$1("tour.panel", "Guided tour"));
       ui.closeButton.setAttribute("aria-label", t$1("tour.close", "Close tour (Esc)"));
       ui.closeButton.title = t$1("tour.close", "Close tour (Esc)");
@@ -28282,7 +30610,7 @@ function attachTour(Viewer) {
       ui.description.textContent = step?.entry.description || "";
       ui.description.hidden = !step?.entry.description;
       const playLabel = state.playing ? t$1("tour.pause", "Pause tour") : t$1("tour.play", "Play tour");
-      ui.playButton.textContent = state.playing ? "❚❚" : "▶";
+      ui.playIcon.textContent = state.playing ? "❚❚" : "▶";
       ui.playButton.setAttribute("aria-label", playLabel);
       ui.playButton.setAttribute("aria-pressed", state.playing ? "true" : "false");
       ui.playButton.title = playLabel;
@@ -29070,7 +31398,7 @@ function attachAnnotationStack(Viewer) {
 function contrastColor(hex) {
   const color = new THREE.Color(hex);
   const luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-  return luminance > 0.45 ? "#111827" : "#ffffff";
+  return luminance > 0.45 ? "#171411" : "#ffffff";
 }
 
 // Filter key of the objects no annotation assesses.
@@ -29439,6 +31767,7 @@ function attachCertainty(Viewer) {
       // other tool panels. Again on every render, which rebuilds the header.
       attachToolPanelChrome(legend, legend.querySelector(".certainty-legend__header"), {
         before: legend.querySelector(".certainty-legend__close"),
+        icon: PANEL_ICONS.certainty,
       });
     },
 
@@ -30224,7 +32553,12 @@ function attachClipping(Viewer) {
       if (panel.root.hidden) return;
 
       panel.title.textContent = t$1("clipping.title", "Section planes");
-      attachToolPanelChrome(panel.root, panel.title.parentNode);
+      attachToolPanelChrome(panel.root, panel.title.parentNode, {
+        icon: PANEL_ICONS.clipping,
+        label: () => t$1("clipping.title", "Section planes"),
+        // Like the toolbar button: the planes go, the panel with them.
+        onClose: () => Viewer.toggleClippingPlanesPanel(),
+      });
       CLIPPING_AXES.forEach((axis) => {
         const { row, toggle, slider, value, flip } = panel.rows[axis];
         const enabled = Viewer.isClippingAxisEnabled(axis);
@@ -33616,8 +35950,12 @@ function attachPointCloudPanel(Viewer) {
         Viewer.syncPointCloudPanel();
       });
       header.append(title, collapse);
-      // The panel's own collapse button already minimizes it: only the grip.
-      attachToolPanelChrome(root, header, { minimizable: false });
+      // Its own collapse button folds the settings; minimize turns the
+      // window into an icon, close hides it like the toolbar button.
+      attachToolPanelChrome(root, header, {
+        icon: PANEL_ICONS.pointCloud,
+        onClose: () => Viewer.togglePointCloudPanel(),
+      });
 
       const body = document.createElement("div");
       body.className = "viewer-pointcloud-panel_body";
@@ -41751,8 +44089,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "9d27614" ;
-const BUILD_TIME = "2026-10-20T07:28:47.361Z" ;
+const BUILD_ID = "9e24e40e" ;
+const BUILD_TIME = "2026-10-21T11:24:22.330Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -41779,6 +44117,10 @@ function poweredByHtml() {
   return `<span class="credits-item"><a href="https://threejs.org" target="_blank" rel="noopener noreferrer" class="credits-link"${title}>${text}</a></span>`;
 }
 
+// The credits window (opened from Help → Credits, main.js toggleCredits):
+// the logo, then one line per credit - its own logo, its label ("Created
+// by") and text, linked when the settings give a URL - then IIIF and the
+// three.js build.
 async function createCreditsElement() {
   const credits = core.CONFIG?.viewer?.credits;
 
@@ -41788,25 +44130,20 @@ async function createCreditsElement() {
 
   const creditsDiv = document.createElement("div");
   creditsDiv.id = "credits";
-  // #credits has no default left/bottom in CSS (only position: absolute) -
-  // updateSize() is what sets those, and it doesn't run correctly until
-  // layout is settled (typically once a model has loaded). Staying hidden
-  // until then avoids a visible flash at the wrong spot followed by a jump
-  // to the right one; updateSize() reveals it once it applies real coords.
-  creditsDiv.style.visibility = "hidden";
+  creditsDiv.hidden = true;
+  creditsDiv.setAttribute("role", "dialog");
+  creditsDiv.setAttribute("aria-label", t$1("credits.title", "Credits"));
 
-  // Single line, spanning the full viewer width (see viewer/css/credits.css)
-  // now that this renders below the viewer instead of overlaying it: logo +
-  // item values separated by a middot, rather than stacked labeled
-  // sections. Item labels (e.g. "CREATED BY") are dropped on purpose -
-  // there's no room for them next to the separators on one line.
-  let html = "";
+  let html = `<div class="upload-panel-header credits-header">
+      <span>${t$1("credits.title", "Credits")}</span>
+      <button type="button" class="credits-close" aria-label="${t$1("credits.close", "Close")}">X</button>
+    </div>`;
 
   if (credits.logo?.src) {
     const logoImg = `<img src="${credits.logo.src}" class="credits-main-logo" alt="Logo">`;
     html += credits.logo.url
       ? `<a href="${credits.logo.url}" target="_blank" rel="noopener noreferrer" class="credits-main-logo-link">${logoImg}</a>`
-      : logoImg;
+      : `<span class="credits-main-logo-link">${logoImg}</span>`;
   }
 
   const itemsHtml = (credits.items ?? [])
@@ -41822,14 +44159,24 @@ async function createCreditsElement() {
       const textHtml = item.url
         ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="credits-link">${item.text}</a>`
         : `<span class="credits-text">${item.text}</span>`;
-      return `<span class="credits-item">${logoHtml}${textHtml}</span>`;
+      const labelHtml = item.label ? `<span class="credits-label">${item.label}</span>` : "";
+      return `<span class="credits-item">${logoHtml}<span class="credits-entry">${labelHtml}${textHtml}</span></span>`;
     })
     .concat(iiifCreditHtml(), poweredByHtml())
-    .join(`<span class="credits-sep" aria-hidden="true">&middot;</span>`);
+    .join("");
 
-  html += `<span class="credits-items">${itemsHtml}</span>`;
+  html += `<div class="credits-items">${itemsHtml}</div>`;
 
   creditsDiv.innerHTML = html;
+
+  // A logo that does not load leaves no broken image (nor its link's room).
+  creditsDiv.querySelectorAll("img").forEach((img) => {
+    img.addEventListener("error", () => {
+      const link = img.parentElement?.tagName === "A" && img.parentElement.children.length === 1 ? img.parentElement : null;
+      (link || img).hidden = true;
+      if (img.classList.contains("credits-main-logo")) img.closest(".credits-main-logo-link")?.setAttribute("hidden", "");
+    }, { once: true });
+  });
 
   return creditsDiv;
 }
@@ -43271,6 +45618,7 @@ const Viewer$1 = {
     Viewer$1.disposeCertaintyView();
     Viewer$1.disposeRakingLight();
     Viewer$1.disposeSunStudy();
+    Viewer$1.disposeWeather();
     // Spark's splat renderer (splats.js) comes back with the next splat model.
     disposeSparkRenderer(core.sparkRenderer);
     core.sparkRenderer = null;
@@ -43355,13 +45703,12 @@ const Viewer$1 = {
     core.camera.updateProjectionMatrix();
   },
 
-  // Shows or hides the credits line below the viewer.
-  toggleCredits() {
+  // Opens or closes the credits window (sandbox.js).
+  toggleCredits(show = Viewer$1.creditsWrapper?.hidden) {
     if (!Viewer$1.creditsWrapper) return;
-    Viewer$1.creditsWrapper.hidden = !Viewer$1.creditsWrapper.hidden;
+    Viewer$1.creditsWrapper.hidden = !show;
     Viewer$1.updateEditorToolbarLabels();
     Viewer$1.updateEditorToolbarState();
-    Viewer$1.updateSize();
   },
 
   renderFatalError(error) {
@@ -44019,15 +46366,6 @@ const Viewer$1 = {
       placeToolbar();
     } else {
       placeToolbar();
-      if (Viewer$1.creditsWrapper) {
-        // #credits is a normal-flow block below core.container (see
-        // viewer/css/credits.css and the appendChild call in this file) -
-        // no position/left/right/bottom math needed, it's simply the next
-        // thing in the document after the viewer. Just reveal it - it was
-        // created hidden (see createCreditsElement in sandbox.js) only to
-        // avoid a flash of unstyled content while its own fonts/logo load.
-        Viewer$1.creditsWrapper.style.visibility = "visible";
-      }
     }
 
     core.guiContainer.style.right = (-core.guiContainer.getBoundingClientRect().width + 10) + 'px !important';
@@ -44310,6 +46648,7 @@ const Viewer$1 = {
     Viewer$1.updatePhotoOverlay(time);
     Viewer$1.updateRakingLight(delta);
     Viewer$1.updateSunStudy(delta);
+    Viewer$1.updateWeather(delta);
     Viewer$1.updateTimeline(delta);
     Viewer$1.updateAnnotationSpread();
     Viewer$1.updateAnnotationStack();
@@ -45907,9 +48246,25 @@ const Viewer$1 = {
           viewerElement.parentNode.insertBefore(header, viewerElement);
         }
         // The header buttons' panels drop down below them (ui/panel-window.js).
-        const openUnder = (button, open, panelKey) => (event) => {
-          open.call(Viewer$1, event);
-          anchorPanelUnder(Viewer$1[panelKey], button);
+        // On a desktop they open on hover too, like submenus (ui/hover-open.js).
+        const openUnder = (button, open, panelKey, close) => {
+          const show = (event) => {
+            open.call(Viewer$1, event);
+            anchorPanelUnder(Viewer$1[panelKey], button);
+          };
+          const hover = bindHoverOpen(Viewer$1, button, {
+            panel: () => Viewer$1[panelKey],
+            isOpen: () => Viewer$1[panelKey]?.hidden === false,
+            open: () => show(),
+            close: () => close.call(Viewer$1),
+          });
+          return (event) => {
+            if (hover.consumeClick()) {
+              event?.preventDefault?.();
+              return;
+            }
+            show(event);
+          };
         };
         if (loginButton) {
           Viewer$1.loginButton = loginButton;
@@ -45924,14 +48279,14 @@ const Viewer$1 = {
         if (uploadModelButton) {
           Viewer$1.uploadModel = uploadModelButton;
           Viewer$1.updateUploadMenuEntryState();
-          Viewer$1.bindEventListener(uploadModelButton, "click", openUnder(uploadModelButton, Viewer$1.openUploadPanel, "uploadPanel"));
+          Viewer$1.bindEventListener(uploadModelButton, "click", openUnder(uploadModelButton, Viewer$1.openUploadPanel, "uploadPanel", Viewer$1.closeUploadPanel));
         }
         if (browseModelsButton) {
           browseModelsButton.innerHTML = '<span class="browse-models-icon" aria-hidden="true"></span>';
           const browseModelsLabel = t$1("menu.openModelsPanel", "Browse previously generated models");
           browseModelsButton.setAttribute("aria-label", browseModelsLabel);
           browseModelsButton.setAttribute("title", browseModelsLabel);
-          Viewer$1.bindEventListener(browseModelsButton, "click", openUnder(browseModelsButton, Viewer$1.openModelsPanel, "modelsPanel"));
+          Viewer$1.bindEventListener(browseModelsButton, "click", openUnder(browseModelsButton, Viewer$1.openModelsPanel, "modelsPanel", Viewer$1.closeModelsPanel));
         }
         if (openLocalFileButton) {
           openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
@@ -45947,7 +48302,7 @@ const Viewer$1 = {
             "click",
             isAppBuild()
               ? Viewer$1.toggleModelsSource.bind(Viewer$1)
-              : openUnder(openLocalFileButton, Viewer$1.openLibraryPanel, "libraryPanel")
+              : openUnder(openLocalFileButton, Viewer$1.openLibraryPanel, "libraryPanel", Viewer$1.closeLibraryPanel)
           );
         }
         // The example manifests, as a list with what each one contains
@@ -45958,7 +48313,7 @@ const Viewer$1 = {
           const browseManifestsLabel = t$1("menu.openExampleManifests", "Example manifests");
           browseManifestsButton.setAttribute("aria-label", browseManifestsLabel);
           browseManifestsButton.setAttribute("title", browseManifestsLabel);
-          Viewer$1.bindEventListener(browseManifestsButton, "click", openUnder(browseManifestsButton, Viewer$1.toggleExamplesPanel, "examplesPanel"));
+          Viewer$1.bindEventListener(browseManifestsButton, "click", openUnder(browseManifestsButton, Viewer$1.toggleExamplesPanel, "examplesPanel", Viewer$1.closeExamplesPanel));
         }
         // The app build's own controls (app-hooks.js).
         Viewer$1.initAppUi?.();
@@ -46033,20 +48388,14 @@ const Viewer$1 = {
       if ((core.isLocalPreview || core.SANDBOX_MODE) && !core.PRESENTATION_MODE) {
         Viewer$1.creditsWrapper = await createCreditsElement();
         if (Viewer$1.creditsWrapper) {
-          // Appended as the last child of the wrapper, after core.container
-          // - #credits is normal-flow (see viewer/css/credits.css), so this
-          // renders it as its own block directly below the viewer rather
-          // than overlapping it. core.container is also the fullscreen
-          // target (.mainContainer.fullscreen gets z-index: 9999 - see
-          // viewer/css/main.css); living outside it here means credits
-          // (like core.editorToolbar - see getEditorToolbarHost() in
-          // editor-toolbar.js) isn't part of that fullscreen overlay.
-          const host = core.viewerWrapper || core.container;
-          // On a phone the line takes room the model needs: hidden until
-          // switched on from the menus (Settings, under "More").
-          const { width, height } = host.getBoundingClientRect();
-          Viewer$1.creditsWrapper.hidden = isPhoneLayout(width, height);
-          host.appendChild(Viewer$1.creditsWrapper);
+          // A window over the viewer, like the models panel: closed until
+          // opened from Help → Credits; dragged by its header, one window
+          // at a time, closed by a click on the model or Back.
+          const credits = Viewer$1.creditsWrapper;
+          core.container.appendChild(credits);
+          const close = () => Viewer$1.toggleCredits(false);
+          credits.querySelector(".credits-close")?.addEventListener("click", close);
+          makePanelWindow(Viewer$1, credits, credits.querySelector(".credits-header"), close);
           Viewer$1.updateEditorToolbarLabels();
           Viewer$1.updateEditorToolbarState();
         }
@@ -46197,6 +48546,7 @@ attachTimeline(Viewer$1);
 attachCompare(Viewer$1);
 attachPhotoOverlay(Viewer$1);
 attachSunStudy(Viewer$1);
+attachWeather(Viewer$1);
 attachWebXR(Viewer$1);
 attachTour(Viewer$1);
 attachAnnotationSpread(Viewer$1);
@@ -46250,4 +48600,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-BbbCu6p1.js.map
+//# sourceMappingURL=main-D4ziJ65d.js.map

@@ -28,6 +28,7 @@ import {
   SHADING_MODES,
   TIMELINE_STAGE_TYPES,
   TIMELINE_TRANSITIONS,
+  WEATHER_TYPES,
   normalizeAIM3DManifest,
   validateAIM3DManifest,
 } from "./aim3dviewer-validation.js";
@@ -109,6 +110,7 @@ export const MANIFEST_FEATURES = [
   { id: "photos", label: "Historical photos", count: (m) => length(block(m).photos) },
   { id: "location", label: "Geographic location", count: (m) => has(block(m).location) },
   { id: "sun", label: "Sun study", count: (m) => has(block(m).sun) },
+  { id: "weather", label: "Weather", count: (m) => has(block(m).weather) },
   {
     id: "certainty",
     label: "Level of certainty",
@@ -449,6 +451,17 @@ const AIM3D_BLOCK = obj({
     utcOffset: leaf(number({ min: -14, max: 14 })),
   }, { expect: [["latitude", "error"], ["longitude", "error"]] })),
   sun: tag("sun", obj({ enabled: BOOL, followTimeline: BOOL, animate: BOOL, date: leaf(sunDate), time: leaf(sunTime) })),
+  weather: tag("weather", obj({
+    type: leaf(oneOf(WEATHER_TYPES)),
+    intensity: leaf(number({ min: 0, max: 1 })),
+    wind: leaf(number({ min: 0, max: 1 })),
+    windDirection: leaf(number({ min: -360, max: 360, level: "warning" })),
+    mistHeight: leaf(number({ min: 0, max: 1 })),
+    mistDensity: leaf(number({ min: 0, max: 1 })),
+    mistSpread: leaf(number({ min: 0, max: 1 })),
+    sky: BOOL,
+    surfaces: BOOL,
+  }, { expect: [["type", "error"]] })),
   thumbnails: tag("thumbnails", arr(alt({ string: FILE_URL, object: obj({ src: FILE_URL, label: LANG }, { expect: [["src", "error"]] }) }))),
   modelTransform: tag("transform", obj({
     position: VEC3,

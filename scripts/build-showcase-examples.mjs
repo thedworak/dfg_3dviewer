@@ -5,8 +5,8 @@
 //   node scripts/build-showcase-examples.mjs
 //
 // One model, read in as many ways as the viewer has: lighting (studio,
-// golden hour, overcast, night), shading modes, a custom GLSL shader,
-// raking light and a section. The model is a test scene in the repository
+// golden hour, overcast, night), weather (rain, morning fog, a storm),
+// shading modes, a custom GLSL shader, raking light and a section. The model is a test scene in the repository
 // (explora4d.eu/viewer): PBR spheres from smooth to rough, dielectric and
 // metal, the material extensions (clearcoat, sheen, iridescence,
 // anisotropy, transmission, dispersion), colour charts lit and unlit,
@@ -86,6 +86,12 @@ void main() {
 }
 `,
 };
+
+// Weather (editor/weather.js) over a plain daylight: the weather darkens it
+// and sets the sky.
+const WEATHER_LIGHT = [ambient('#ffffff', 0.5), directional([6, 10, 8], '#ffffff', 1.8), hemisphere('#dfe6ee', '#5c5a55', 0.6)];
+// Somewhere in Germany, for a sun at a given hour.
+const LOCATION = { latitude: 51.34, longitude: 12.37, north: 0, utcOffset: 1 };
 
 const LOOKS = [
   {
@@ -211,6 +217,38 @@ const LOOKS = [
   },
 ];
 
+LOOKS.push(
+  {
+    key: 'rain',
+    name: { en: 'Showcase - downpour: wet materials, splashes', pl: 'Showcase - ulewa: mokre materiały, rozbryzgi', de: 'Showcase - Platzregen: nasse Materialien, Spritzer' },
+    camera: OVERVIEW,
+    environmentMap: environment('sunny', 0.6),
+    rendering: rendering('neutral', 1),
+    lights: WEATHER_LIGHT,
+    weather: { type: 'rain', intensity: 0.9, wind: 0.15, windDirection: 230 },
+  },
+  {
+    key: 'fog',
+    name: { en: 'Showcase - morning fog at sunrise', pl: 'Showcase - poranna mgła o wschodzie słońca', de: 'Showcase - Morgennebel bei Sonnenaufgang' },
+    camera: OVERVIEW,
+    environmentMap: environment('sunny', 0.5),
+    rendering: rendering('neutral', 1),
+    lights: WEATHER_LIGHT,
+    location: LOCATION,
+    sun: { enabled: true, date: '2026-09-20', time: '07:40', followTimeline: false },
+    weather: { type: 'fog', intensity: 0.8, wind: 0.05, windDirection: 90, mistHeight: 0.25, mistDensity: 0.55, mistSpread: 0.75 },
+  },
+  {
+    key: 'storm',
+    name: { en: 'Showcase - thunderstorm', pl: 'Showcase - burza', de: 'Showcase - Gewitter' },
+    camera: OVERVIEW,
+    environmentMap: environment('sunny', 0.5),
+    rendering: rendering('neutral', 1),
+    lights: WEATHER_LIGHT,
+    weather: { type: 'storm', intensity: 0.85, wind: 0.6, windDirection: 250 },
+  },
+);
+
 const THUMBNAILS = [
   { src: `${VIEWS}_side0.png`, label: { en: ['Front'], pl: ['Przód'], de: ['Vorderseite'] } },
   `${VIEWS}_side45.png`,
@@ -283,6 +321,9 @@ function manifest(look) {
       },
       lights: look.lights,
       ...(look.rakingLight ? { rakingLight: look.rakingLight } : {}),
+      ...(look.location ? { location: look.location } : {}),
+      ...(look.sun ? { sun: look.sun } : {}),
+      ...(look.weather ? { weather: look.weather } : {}),
       thumbnails: THUMBNAILS,
       modelTransform: {
         position: [0, 0, 0],

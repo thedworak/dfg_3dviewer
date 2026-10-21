@@ -2299,6 +2299,205 @@
   font-size: 12px;
 }
 
+/* Weather (editor/weather.js): the weathers and their settings. */
+.viewer-weather {
+  width: 340px;
+  max-width: 100%;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.4 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+  max-height: min(620px, calc(100vh - 160px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.viewer-weather [hidden] {
+  display: none !important;
+}
+
+.viewer-weather button {
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-weather button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-weather button:focus-visible,
+.viewer-weather input:focus-visible {
+  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline-offset: 2px;
+}
+
+.viewer-weather_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-weather_title {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.viewer-weather_icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 16px !important;
+}
+
+/* Three a row: big enough to tap. */
+.viewer-weather_types {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.viewer-weather_type {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 4px;
+}
+
+.viewer-weather_type-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.viewer-weather_type-label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-weather_type.is-active {
+  border-color: var(--viewer-brand-gold, #e9b264);
+  background: rgba(233, 178, 100, 0.18);
+}
+
+.viewer-weather_settings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viewer-weather_slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.viewer-weather_slider-label {
+  grid-column: 1 / -1;
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.viewer-weather_slider input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-weather_slider-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.viewer-weather_checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viewer-weather_check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  cursor: pointer;
+}
+
+.viewer-weather_check input {
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+/* On a phone: compact, so the model stays in view - the weathers in one
+   row, each setting on one line - and easier to hit. */
+@media (max-width: 640px) {
+  .viewer-weather {
+    max-height: 46vh;
+  }
+
+  .viewer-weather_types {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .viewer-weather_type {
+    min-height: 46px;
+    padding: 4px 2px;
+  }
+
+  .viewer-weather_type-label {
+    font-size: 9px;
+  }
+
+  .viewer-weather_slider {
+    grid-template-columns: 34% minmax(0, 1fr) 40px;
+  }
+
+  .viewer-weather_slider-label {
+    grid-column: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .viewer-weather_checks {
+    flex-flow: row wrap;
+    column-gap: 14px;
+  }
+}
+
+@media (pointer: coarse) {
+  .viewer-weather_slider input {
+    height: 28px;
+  }
+
+  .viewer-weather_check {
+    min-height: 36px;
+  }
+
+  .viewer-weather_check input {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* VR and AR (editor/webxr.js) */
 .viewer-xr {
   width: 300px;

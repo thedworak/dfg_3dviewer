@@ -54,6 +54,7 @@ export function getEditorToolbarIcon(icon) {
     shadingCustom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
+    weather: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15.5a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.2 8.1 3.75 3.75 0 0 1 17 15.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 18.5l-1 2.5M12 18.5l-1 2.5M16 18.5l-1 2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     rendering: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5 15.5 12M20.5 12l-8.5 3.5M12 20.5 8.5 12M3.5 12l8.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     toneMapping: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20c5 0 6-11 16-12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -1379,6 +1380,8 @@ export function createEditorToolbar(viewer) {
     // Appearance.
     { key: "lights", group: "appearance", icon: "lights", onClick: () => {}, pressed: false, primary: false },
     { key: "environmentMap", group: "appearance", icon: "environmentMap", onClick: () => {}, pressed: true, primary: false },
+    // Rain, snow, fog and storms: their window (editor/weather.js).
+    { key: "weather", group: "appearance", icon: "weather", onClick: () => viewer.toggleWeatherPanel(), pressed: true, primary: false },
     { key: "rendering", group: "appearance", icon: "rendering", onClick: () => {}, pressed: false, primary: false },
     { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
     { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
@@ -2404,6 +2407,7 @@ export function updateEditorToolbarLabels(viewer) {
     upAxis: t("gui.upAxis", "Up axis of the model"),
     lights: t("gui.lights", "Lights"),
     environmentMap: t("gui.environmentMap", "Environment map"),
+    weather: t("weather.title", "Weather"),
     rendering: t("gui.rendering", "Rendering"),
     picking: viewer.pickingMode
       ? t("controls.disablePickingMode", "Disable picking mode")
@@ -2691,6 +2695,7 @@ export function updateEditorToolbarState(viewer) {
     ifcQuery: viewer.isIfcQueryOpen?.() === true,
     wireframe: viewer.wireframeMode === true,
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,
+    weather: viewer.weather?.enabled === true || viewer.isWeatherPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,
@@ -2712,6 +2717,8 @@ export function updateEditorToolbarState(viewer) {
   if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
+  const weatherButton = viewer.editorToolbarButtons.weather;
+  if (weatherButton) weatherButton.hidden = viewer.isWeatherAvailable?.() !== true;
   const ifcQueryButton = viewer.editorToolbarButtons.ifcQuery;
   if (ifcQueryButton) {
     const state = viewer.ifcQueryAIState?.() || "off";

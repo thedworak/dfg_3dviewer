@@ -116829,6 +116829,338 @@ _defaultRT.depthTexture = new DepthTexture( 1, 1 );
 vec3( 0.04 );
 float( 1 );
 
+/**
+ * Represents a skydome for scene backgrounds. Based on [A Practical Analytic Model for Daylight](https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight)
+ * aka The Preetham Model, the de facto standard for analytical skydomes.
+ *
+ * Note that this class can only be used with {@link WebGLRenderer}.
+ * When using {@link WebGPURenderer}, use {@link SkyMesh}.
+ *
+ * More references:
+ *
+ * - {@link http://simonwallner.at/project/atmospheric-scattering/}
+ * - {@link http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR}
+ *
+ *
+ * ```js
+ * const sky = new Sky();
+ * sky.scale.setScalar( 10000 );
+ * scene.add( sky );
+ * ```
+ *
+ * It can be useful to hide the sun disc when generating an environment map to avoid artifacts
+ *
+ * ```js
+ * // disable before rendering environment map
+ * sky.material.uniforms.showSunDisc.value = false;
+ * // ...
+ * // re-enable before scene sky box rendering
+ * sky.material.uniforms.showSunDisc.value = true;
+ * ```
+ *
+ * @augments Mesh
+ * @three_import import { Sky } from 'three/addons/objects/Sky.js';
+ */
+class Sky extends Mesh {
+
+	/**
+	 * Constructs a new skydome.
+	 */
+	constructor() {
+
+		const shader = Sky.SkyShader;
+
+		const material = new ShaderMaterial( {
+			name: shader.name,
+			uniforms: UniformsUtils.clone( shader.uniforms ),
+			vertexShader: shader.vertexShader,
+			fragmentShader: shader.fragmentShader,
+			side: BackSide$1,
+			depthWrite: false
+		} );
+
+		super( new BoxGeometry( 1, 1, 1 ), material );
+
+		/**
+		 * This flag can be used for type testing.
+		 *
+		 * @type {boolean}
+		 * @readonly
+		 * @default true
+		 */
+		this.isSky = true;
+
+	}
+
+}
+
+Sky.SkyShader = {
+
+	name: 'SkyShader',
+
+	uniforms: {
+		'turbidity': { value: 2 },
+		'rayleigh': { value: 1 },
+		'mieCoefficient': { value: 0.005 },
+		'mieDirectionalG': { value: 0.8 },
+		'sunPosition': { value: new Vector3$2() },
+		'cloudScale': { value: 0.0002 },
+		'cloudSpeed': { value: 0.00002 },
+		'cloudCoverage': { value: 0.4 },
+		'cloudDensity': { value: 0.4 },
+		'cloudElevation': { value: 0.5 },
+		'showSunDisc': { value: 1 },
+		'time': { value: 0.0 }
+	},
+
+	vertexShader: /* glsl */`
+		uniform vec3 sunPosition;
+		uniform float rayleigh;
+		uniform float turbidity;
+		uniform float mieCoefficient;
+
+		varying vec3 vWorldPosition;
+		varying vec3 vSunDirection;
+		varying float vSunfade;
+		varying vec3 vBetaR;
+		varying vec3 vBetaM;
+		varying float vSunE;
+
+		// constants for atmospheric scattering
+		const float e = 2.71828182845904523536028747135266249775724709369995957;
+		const float pi = 3.141592653589793238462643383279502884197169;
+
+		// wavelength of used primaries, according to preetham
+		const vec3 lambda = vec3( 680E-9, 550E-9, 450E-9 );
+		// this pre-calculation replaces older TotalRayleigh(vec3 lambda) function:
+		// (8.0 * pow(pi, 3.0) * pow(pow(n, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * pn)) / (3.0 * N * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * pn))
+		const vec3 totalRayleigh = vec3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );
+
+		// mie stuff
+		// K coefficient for the primaries
+		const float v = 4.0;
+		const vec3 K = vec3( 0.686, 0.678, 0.666 );
+		// MieConst = pi * pow( ( 2.0 * pi ) / lambda, vec3( v - 2.0 ) ) * K
+		const vec3 MieConst = vec3( 1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
+
+		// earth shadow hack
+		// cutoffAngle = pi / 1.95;
+		const float cutoffAngle = 1.6110731556870734;
+		const float steepness = 1.5;
+		const float EE = 1000.0;
+
+		float sunIntensity( float zenithAngleCos ) {
+			zenithAngleCos = clamp( zenithAngleCos, -1.0, 1.0 );
+			return EE * max( 0.0, 1.0 - pow( e, -( ( cutoffAngle - acos( zenithAngleCos ) ) / steepness ) ) );
+		}
+
+		vec3 totalMie( float T ) {
+			float c = ( 0.2 * T ) * 10E-18;
+			return 0.434 * c * MieConst;
+		}
+
+		void main() {
+
+			vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+			vWorldPosition = worldPosition.xyz;
+
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+			gl_Position.z = gl_Position.w; // set z to camera.far
+
+			vSunDirection = normalize( sunPosition );
+
+			vSunE = sunIntensity( vSunDirection.y );
+
+			vSunfade = 1.0 - clamp( 1.0 - exp( ( sunPosition.y / 450000.0 ) ), 0.0, 1.0 );
+
+			float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );
+
+			// extinction (absorption + out scattering)
+			// rayleigh coefficients
+			vBetaR = totalRayleigh * rayleighCoefficient;
+
+			// mie coefficients
+			vBetaM = totalMie( turbidity ) * mieCoefficient;
+
+		}`,
+
+	fragmentShader: /* glsl */`
+		varying vec3 vWorldPosition;
+		varying vec3 vSunDirection;
+		varying vec3 vBetaR;
+		varying vec3 vBetaM;
+		varying float vSunE;
+
+		uniform float mieDirectionalG;
+		uniform float cloudScale;
+		uniform float cloudSpeed;
+		uniform float cloudCoverage;
+		uniform float cloudDensity;
+		uniform float cloudElevation;
+		uniform float showSunDisc;
+		uniform float time;
+
+		// gradient at a lattice corner; sinless hash so every GPU produces the same clouds
+		vec2 gradient( vec2 i ) {
+			vec3 p = fract( i.xyx * vec3( 0.1031, 0.1030, 0.0973 ) );
+			p += dot( p, p.yzx + 33.33 );
+			return fract( ( p.xx + p.yz ) * p.zy ) * 2.0 - 1.0;
+		}
+
+		// 2D gradient noise: isotropic lobes like Perlin at value-noise cost
+		float noise( vec2 p ) {
+			vec2 i = floor( p );
+			vec2 f = fract( p );
+			vec2 u = f * f * f * ( f * ( f * 6.0 - 15.0 ) + 10.0 ); // quintic fade
+			float a = dot( gradient( i ), f );
+			float b = dot( gradient( i + vec2( 1.0, 0.0 ) ), f - vec2( 1.0, 0.0 ) );
+			float c = dot( gradient( i + vec2( 0.0, 1.0 ) ), f - vec2( 0.0, 1.0 ) );
+			float d = dot( gradient( i + vec2( 1.0, 1.0 ) ), f - vec2( 1.0, 1.0 ) );
+			return mix( mix( a, b, u.x ), mix( c, d, u.x ), u.y ) * 1.6; // ~[-1,1]
+		}
+
+		// fbm; per-octave drift makes clouds billow instead of scrolling as a rigid stamp
+		float fbm( vec2 p, float drift ) {
+			float result = 0.0;
+			float amplitude = 1.0;
+			for ( int i = 0; i < 4; i ++ ) {
+				result += amplitude * noise( p );
+				amplitude *= 0.5;
+				p = p * 2.0 + drift;
+			}
+			return result;
+		}
+
+		// constants for atmospheric scattering
+		const float pi = 3.141592653589793238462643383279502884197169;
+
+		const float n = 1.0003; // refractive index of air
+		const float N = 2.545E25; // number of molecules per unit volume for air at 288.15K and 1013mb (sea level -45 celsius)
+
+		// optical length at zenith for molecules
+		const float rayleighZenithLength = 8.4E3;
+		const float mieZenithLength = 1.25E3;
+		// 66 arc seconds -> degrees, and the cosine of that
+		const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
+
+		// 3.0 / ( 16.0 * pi )
+		const float THREE_OVER_SIXTEENPI = 0.05968310365946075;
+		// 1.0 / ( 4.0 * pi )
+		const float ONE_OVER_FOURPI = 0.07957747154594767;
+
+		float rayleighPhase( float cosTheta ) {
+			return THREE_OVER_SIXTEENPI * ( 1.0 + pow( cosTheta, 2.0 ) );
+		}
+
+		float hgPhase( float cosTheta, float g ) {
+			float g2 = pow( g, 2.0 );
+			float inverse = 1.0 / pow( 1.0 - 2.0 * g * cosTheta + g2, 1.5 );
+			return ONE_OVER_FOURPI * ( ( 1.0 - g2 ) * inverse );
+		}
+
+		void main() {
+
+			vec3 direction = normalize( vWorldPosition - cameraPosition );
+
+			// optical length
+			// cutoff angle at 90 to avoid singularity in next formula.
+			float zenithAngle = acos( max( 0.0, direction.y ) );
+			float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - ( ( zenithAngle * 180.0 ) / pi ), -1.253 ) );
+			float sR = rayleighZenithLength * inverse;
+			float sM = mieZenithLength * inverse;
+
+			// combined extinction factor
+			vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );
+
+			// in scattering
+			float cosTheta = dot( direction, vSunDirection );
+
+			float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5 );
+			vec3 betaRTheta = vBetaR * rPhase;
+
+			float mPhase = hgPhase( cosTheta, mieDirectionalG );
+			vec3 betaMTheta = vBetaM * mPhase;
+
+			vec3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), vec3( 1.5 ) );
+			Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 1.0 / 2.0 ) ), clamp( pow( 1.0 - vSunDirection.y, 5.0 ), 0.0, 1.0 ) );
+
+			// nightsky
+			float theta = acos( direction.y ); // elevation --> y-axis, [-pi/2, pi/2]
+			float phi = atan( direction.z, direction.x ); // azimuth --> x-axis [-pi/2, pi/2]
+			vec2 uv = vec2( phi, theta ) / vec2( 2.0 * pi, pi ) + vec2( 0.5, 0.0 );
+			vec3 L0 = vec3( 0.1 ) * Fex;
+
+			// composition + solar disc
+			float sundisc = clamp( ( cosTheta - sunAngularDiameterCos ) * 50000.0, 0.0, 1.0 ) * showSunDisc;
+			vec3 sundiscColor = ( 760.0 * sundisc ) * min( vSunE * Fex, 80.0 );
+
+			vec3 texColor = ( Lin + L0 ) * 0.04 + sundiscColor + vec3( 0.0, 0.0003, 0.00075 );
+
+			// Clouds
+			if ( direction.y > 0.0 && cloudCoverage > 0.0 ) {
+
+				// Project to cloud plane (higher elevation = clouds appear lower/closer)
+				float elevation = mix( 1.0, 0.1, cloudElevation );
+				vec2 cloudUV = direction.xz / ( direction.y * elevation );
+				cloudUV *= cloudScale;
+				cloudUV += time * cloudSpeed;
+
+				// Cloud density field
+				float evolve = time * cloudSpeed * 300.0;
+				float cloudNoise = clamp( fbm( cloudUV * 1000.0, evolve ) * 0.7 + 0.5, 0.0, 1.0 );
+
+				// Large-scale coverage variation: clear gaps next to dense banks
+				float region = noise( cloudUV * 300.0 ) * 0.37 + 0.5;
+				float cov = clamp( cloudCoverage + ( region - 0.5 ) * 0.6, 0.0, 1.0 );
+
+				// Carve clouds where noise rises above the coverage level
+				float threshold = 1.0 - cov;
+				float cloudMask = smoothstep( threshold, threshold + 0.3, cloudNoise );
+
+				// Fade clouds near horizon (adjusted by elevation)
+				float horizonFade = smoothstep( 0.0, 0.03 + 0.06 * cloudElevation, direction.y );
+				cloudMask *= horizonFade;
+
+				// Cloud lighting from the sky's own radiance
+				float dayFactor = smoothstep( -0.08, 0.3, vSunDirection.y );
+				vec3 sunColor = vSunE * Fex * 0.22 * 0.04; // 0.22 ~ albedo/pi, 0.04 = exposure; the aerial composite adds the eye-leg extinction
+				vec3 skyAmbient = Lin * 0.04 + vec3( 0.0, 0.0003, 0.00075 );
+
+				// Beer-powder self-shadow from the sampled density
+				float depth = max( 0.0, cloudNoise - threshold );
+				float beer = exp( depth * -4.0 );
+				float powder = 1.0 - beer * beer; // beer*beer == exp(-8*depth)
+				float shade = mix( 0.45, 1.0, clamp( beer * powder * 2.6, 0.0, 1.0 ) ); // 2.6 = 1/0.385, normalizes beer*powder peak to 1
+
+				// Henyey-Greenstein forward lobe ( g = 0.7 ): silver lining on rims toward the sun
+				float silver = clamp( 0.51 / pow( 1.49 - cosTheta * 1.4, 1.5 ), 0.0, 3.0 ); // 0.51=1-g^2, 1.49=1+g^2, 1.4=2g
+				float edge = cloudMask * ( 1.0 - cloudMask ) * 4.0;
+
+				vec3 cloudColor = skyAmbient + sunColor * shade;
+				cloudColor += sunColor * silver * edge * 0.6;
+				cloudColor *= max( dayFactor, 0.03 );
+
+				// Cloud opacity via Beer's law: density sets how solid the clouds get
+				float alpha = ( 1.0 - exp( depth * cloudDensity * -12.0 ) ) * horizonFade;
+
+				// Occlude the sun disc/glow behind opaque cloud
+				texColor -= L0 * 0.04 * alpha;
+
+				// Composite through the atmosphere so distant clouds dissolve into haze
+				vec3 cloudAerial = mix( texColor, cloudColor, Fex );
+				texColor = mix( texColor, cloudAerial, alpha );
+
+			}
+
+			gl_FragColor = vec4( texColor, 1.0 );
+
+			#include <tonemapping_fragment>
+			#include <colorspace_fragment>
+
+		}`
+
+};
+
 class USDNode {
 
 	constructor( name, type = '', metadata = [], properties = [] ) {
@@ -167846,5 +168178,5 @@ var HDRLoader$1 = /*#__PURE__*/Object.freeze({
 	HDRLoader: HDRLoader
 });
 
-export { RedIntegerFormat$1 as $, AmbientLight as A, BoxGeometry as B, Color$1 as C, DirectionalLight as D, EventDispatcher$1 as E, FramebufferTexture$1 as F, Group$1 as G, HemisphereLight as H, InterleavedBufferAttribute$1 as I, LinearFilter$1 as J, CubeCamera as K, LightProbe as L, Matrix3$1 as M, NeutralToneMapping as N, OneMinusSrcAlphaFactor as O, PointLight as P, CubeReflectionMapping$1 as Q, REVISION as R, SpotLight as S, TimestampQuery as T, CubeRefractionMapping$1 as U, Vector4$1 as V, WebGPUCoordinateSystem$1 as W, log$2 as X, NoToneMapping$1 as Y, NoColorSpace$1 as Z, DataTexture as _, warnOnce$1 as a, VSMShadowMap as a$, RedFormat$1 as a0, UnsignedByteType$1 as a1, IntType$1 as a2, ShortType as a3, ByteType as a4, UnsignedIntType$1 as a5, UnsignedShortType as a6, FloatType$1 as a7, LineDashedMaterial as a8, LineBasicMaterial as a9, ObjectLoader as aA, TangentSpaceNormalMap$1 as aB, NoNormalPacking$1 as aC, NormalGAPacking$1 as aD, ObjectSpaceNormalMap$1 as aE, Sphere$1 as aF, BufferGeometry as aG, OrthographicCamera as aH, PerspectiveCamera as aI, Texture$1 as aJ, CubeUVReflectionMapping as aK, HalfFloatType as aL, BasicShadowMap as aM, CubeDepthTexture as aN, GreaterEqualCompare$1 as aO, LessEqualCompare$1 as aP, Matrix4$2 as aQ, PointsMaterial as aR, InstancedBufferAttribute as aS, SRGBColorSpace$1 as aT, PCFShadowMap as aU, PCFSoftShadowMap as aV, FrustumArray as aW, Frustum as aX, RGBAFormat$1 as aY, FrontSide as aZ, DoubleSide$1 as a_, RGFormat$1 as aa, RED_GREEN_RGTC2_Format$1 as ab, RG11_EAC_Format$1 as ac, NormalRGPacking$1 as ad, WebGLCoordinateSystem$1 as ae, MeshBasicMaterial as af, MeshLambertMaterial as ag, MeshMatcapMaterial as ah, MeshNormalMaterial as ai, MeshPhongMaterial as aj, MeshPhysicalMaterial as ak, MeshStandardMaterial as al, MeshToonMaterial as am, MathUtils$2 as an, LinearMipmapNearestFilter as ao, NearestMipmapLinearFilter as ap, Vector2$1 as aq, Vector3$2 as ar, Float16BufferAttribute as as, yieldToMain as at, Loader as au, FileLoader as av, Material as aw, MaterialLoader as ax, DynamicDrawUsage as ay, RenderObjectRefreshType as az, RectAreaLight as b, RGBA_S3TC_DXT5_Format as b$, Compatibility$1 as b0, NearestFilter$1 as b1, ShadowMaterial as b2, SpriteMaterial as b3, ClampToEdgeWrapping$1 as b4, BufferAttribute$1 as b5, LessCompare$1 as b6, GreaterCompare$1 as b7, CustomBlending as b8, InterleavedBuffer$1 as b9, MirroredRepeatWrapping$1 as bA, RGBA_ASTC_12x12_Format as bB, RGBA_ASTC_12x10_Format as bC, RGBA_ASTC_10x10_Format as bD, RGBA_ASTC_10x8_Format as bE, RGBA_ASTC_10x6_Format as bF, RGBA_ASTC_10x5_Format as bG, RGBA_ASTC_8x8_Format as bH, RGBA_ASTC_8x6_Format as bI, RGBA_ASTC_8x5_Format as bJ, RGBA_ASTC_6x6_Format as bK, RGBA_ASTC_6x5_Format as bL, RGBA_ASTC_5x5_Format as bM, RGBA_ASTC_5x4_Format as bN, RGBA_ASTC_4x4_Format as bO, SIGNED_RG11_EAC_Format as bP, SIGNED_R11_EAC_Format as bQ, R11_EAC_Format as bR, RGBA_ETC2_EAC_Format as bS, RGB_ETC1_Format as bT, RGB_ETC2_Format as bU, RGB_BPTC_UNSIGNED_Format as bV, RGB_BPTC_SIGNED_Format as bW, RGBA_BPTC_Format as bX, SIGNED_RED_GREEN_RGTC2_Format as bY, SIGNED_RED_RGTC1_Format as bZ, RED_RGTC1_Format as b_, RGIntegerFormat$1 as ba, RGBIntegerFormat$1 as bb, RGBFormat$1 as bc, RGBAIntegerFormat as bd, Matrix2$1 as be, MaterialBlending as bf, AddOperation as bg, MixOperation as bh, MultiplyOperation as bi, LinearSRGBColorSpace$1 as bj, Float32BufferAttribute as bk, Object3D as bl, LinearMipMapLinearFilter as bm, Plane as bn, ArrayCamera as bo, PlaneGeometry as bp, UnsignedInt248Type as bq, DepthStencilFormat$1 as br, DepthFormat$1 as bs, ZeroFactor as bt, CylinderGeometry as bu, Quaternion$2 as bv, WebXRController as bw, SphereGeometry as bx, UVMapping$1 as by, RepeatWrapping$1 as bz, createCanvasElement as c, Uint32BufferAttribute as c$, RGBA_S3TC_DXT3_Format as c0, RGBA_S3TC_DXT1_Format as c1, RGB_S3TC_DXT1_Format as c2, UnsignedInt101111Type as c3, UnsignedInt5999Type as c4, LinearTransfer$1 as c5, getByteLength as c6, CullFaceNone as c7, CullFaceBack as c8, CullFaceFront as c9, DstColorFactor as cA, OneMinusSrcColorFactor as cB, SrcColorFactor as cC, OneFactor as cD, NotEqualStencilFunc as cE, GreaterStencilFunc as cF, GreaterEqualStencilFunc as cG, EqualStencilFunc as cH, LessEqualStencilFunc as cI, LessStencilFunc as cJ, AlwaysStencilFunc as cK, NeverStencilFunc as cL, DecrementWrapStencilOp as cM, IncrementWrapStencilOp as cN, DecrementStencilOp as cO, IncrementStencilOp as cP, InvertStencilOp as cQ, ReplaceStencilOp as cR, ZeroStencilOp as cS, KeepStencilOp as cT, MaxEquation as cU, MinEquation as cV, ReverseSubtractEquation as cW, SubtractEquation as cX, ReversedDepthFuncs as cY, DataArrayTexture as cZ, RAD2DEG$2 as c_, MultiplyBlending as ca, SubtractiveBlending as cb, AdditiveBlending as cc, NotEqualDepth as cd, GreaterDepth as ce, GreaterEqualDepth as cf, EqualDepth as cg, LessEqualDepth as ch, LessDepth as ci, AlwaysDepth as cj, NeverDepth as ck, UnsignedShort4444Type as cl, UnsignedShort5551Type as cm, AlphaFormat$1 as cn, RGB_PVRTC_4BPPV1_Format as co, RGB_PVRTC_2BPPV1_Format as cp, RGBA_PVRTC_4BPPV1_Format as cq, RGBA_PVRTC_2BPPV1_Format as cr, OneMinusConstantAlphaFactor as cs, OneMinusConstantColorFactor as ct, ConstantAlphaFactor as cu, ConstantColorFactor as cv, SrcAlphaSaturateFactor as cw, OneMinusDstAlphaFactor as cx, DstAlphaFactor as cy, OneMinusDstColorFactor as cz, LinearToneMapping as d, DetachedBindMode as d$, Uint16BufferAttribute as d0, InstancedInterleavedBuffer as d1, isTypedArray as d2, NearestMipmapNearestFilter as d3, NotEqualCompare as d4, EqualCompare as d5, AlwaysCompare as d6, NeverCompare as d7, AdditiveAnimationBlendMode as d8, AnimationAction as d9, Camera as dA, CameraHelper as dB, CanvasTexture as dC, CapsuleGeometry as dD, CatmullRomCurve3 as dE, CircleGeometry as dF, Clock as dG, ColorKeyframeTrack as dH, CompressedArrayTexture as dI, CompressedCubeTexture as dJ, CompressedTexture as dK, CompressedTextureLoader as dL, ConeGeometry as dM, Controls as dN, CubeTextureLoader as dO, CubicBezierCurve as dP, CubicBezierCurve3 as dQ, CubicInterpolant as dR, CullFaceFrontBack as dS, Curve as dT, CurvePath as dU, CustomToneMapping as dV, Cylindrical as dW, Data3DTexture as dX, DataTextureLoader as dY, DataUtils as dZ, DefaultLoadingManager as d_, AnimationClip as da, AnimationLoader as db, AnimationMixer as dc, AnimationObjectGroup as dd, AnimationUtils as de, ArcCurve as df, ArrowHelper as dg, AttachedBindMode as dh, Audio as di, AudioAnalyser as dj, AudioContext as dk, AudioListener as dl, AudioLoader as dm, AxesHelper as dn, BasicDepthPacking as dp, BatchedMesh as dq, BezierInterpolant as dr, Bone as ds, BooleanKeyframeTrack as dt, Box2 as du, Box3$1 as dv, Box3Helper as dw, BoxHelper as dx, BufferGeometryLoader as dy, Cache as dz, error$1 as e, PointLightHelper as e$, DirectionalLightHelper as e0, DiscreteInterpolant as e1, DodecahedronGeometry as e2, DynamicCopyUsage as e3, DynamicReadUsage as e4, EdgesGeometry as e5, EllipseCurve as e6, Euler$1 as e7, ExternalTexture as e8, ExtrudeGeometry as e9, LatheGeometry as eA, Layers as eB, Light as eC, LightShadow as eD, Line as eE, Line3 as eF, LineCurve as eG, LineCurve3 as eH, LineLoop as eI, LineSegments as eJ, LinearInterpolant as eK, LinearMipMapNearestFilter as eL, LoaderUtils as eM, LoadingManager as eN, LoopOnce as eO, LoopPingPong as eP, LoopRepeat as eQ, MOUSE as eR, MeshDepthMaterial as eS, MeshDistanceMaterial as eT, NearestMipMapLinearFilter as eU, NearestMipMapNearestFilter as eV, NormalAnimationBlendMode as eW, NumberKeyframeTrack as eX, OctahedronGeometry as eY, Path as eZ, PlaneHelper as e_, Fog as ea, FogExp2 as eb, GLBufferAttribute as ec, GLSL1 as ed, GLSL3 as ee, GridHelper as ef, HTMLTexture as eg, HemisphereLightHelper as eh, IcosahedronGeometry as ei, ImageBitmapLoader as ej, ImageLoader as ek, ImageUtils$1 as el, InstancedBufferGeometry as em, InstancedMesh as en, Int16BufferAttribute as eo, Int32BufferAttribute as ep, Int8BufferAttribute as eq, Interpolant as er, InterpolateBezier as es, InterpolateDiscrete as et, InterpolateLinear as eu, InterpolateSmooth as ev, InterpolationSamplingMode as ew, InterpolationSamplingType as ex, KeyframeTrack as ey, LOD as ez, ReinhardToneMapping as f, WrapAroundEnding as f$, Points as f0, PolarGridHelper as f1, PolyhedronGeometry as f2, PositionalAudio as f3, PropertyBinding as f4, PropertyMixer as f5, QuadraticBezierCurve as f6, QuadraticBezierCurve3 as f7, QuaternionKeyframeTrack as f8, QuaternionLinearInterpolant as f9, StreamDrawUsage as fA, StreamReadUsage as fB, StringKeyframeTrack as fC, TOUCH as fD, TetrahedronGeometry as fE, TextureLoader as fF, TextureSource$1 as fG, TextureUtils as fH, Timer as fI, TorusGeometry as fJ, TorusKnotGeometry as fK, Triangle as fL, TriangleFanDrawMode as fM, TriangleStripDrawMode as fN, TrianglesDrawMode as fO, TubeGeometry as fP, Uint8BufferAttribute as fQ, Uint8ClampedBufferAttribute as fR, Uniform as fS, UniformsGroup as fT, VectorKeyframeTrack as fU, VideoFrameTexture as fV, VideoTexture as fW, WebGL3DRenderTarget as fX, WebGLArrayRenderTarget as fY, WebGLRenderTarget as fZ, WireframeGeometry as f_, RGBADepthPacking as fa, RGBDepthPacking as fb, RGDepthPacking as fc, RawShaderMaterial as fd, Ray as fe, Raycaster as ff, RenderTarget3D as fg, RingGeometry as fh, ShaderMaterial as fi, Shape as fj, ShapeGeometry as fk, ShapePath as fl, ShapeUtils as fm, Skeleton as fn, SkeletonHelper as fo, SkinnedMesh as fp, Source as fq, Spherical as fr, SphericalHarmonics3 as fs, SplineCurve as ft, SpotLightHelper as fu, Sprite as fv, StaticCopyUsage as fw, StaticReadUsage as fx, StereoCamera as fy, StreamCopyUsage as fz, CineonToneMapping as g, ZeroCurvatureEnding as g0, ZeroSlopeEnding as g1, getConsoleFunction as g2, setConsoleFunction as g3, THREE as g4, FullScreenQuad as g5, GLTFLoader as g6, WebGLRenderer as g7, mergeGeometries as g8, WebGLCubeRenderTarget as g9, FBXLoader$1 as gA, PLYLoader$1 as gB, ColladaLoader$1 as gC, STLLoader$1 as gD, XYZLoader$1 as gE, TDSLoader$1 as gF, PCDLoader$1 as gG, DRACOLoader$1 as gH, KTX2Loader$1 as gI, meshopt_decoder_module as gJ, USDLoader$1 as gK, _3MFLoader as gL, AMFLoader$1 as gM, VRMLLoader$1 as gN, KMZLoader$1 as gO, VOXLoader$1 as gP, LWOLoader$1 as gQ, RoomEnvironment$1 as gR, HDRLoader$1 as gS, PMREMGenerator as ga, ShaderChunk as gb, exports$1 as gc, unzipSync as gd, GTAOPass as ge, EffectComposer as gf, RenderPass as gg, SMAAPass as gh, OutputPass as gi, FXAAPass as gj, USDZExporter as gk, ViewHelper as gl, Vector3 as gm, Matrix4 as gn, Quaternion as go, Euler as gp, MathUtils$1 as gq, FontLoader as gr, TextGeometry as gs, OrbitControls as gt, TransformControls as gu, estimateBytesUsed as gv, GLTFLoader$1 as gw, DDSLoader$1 as gx, MTLLoader$1 as gy, OBJLoader$1 as gz, ACESFilmicToneMapping as h, AgXToneMapping as i, NormalBlending as j, SrcAlphaFactor as k, AddEquation as l, StaticDrawUsage$1 as m, DepthTexture$1 as n, ColorManagement$1 as o, SRGBTransfer$1 as p, CubeTexture$1 as q, EquirectangularReflectionMapping as r, EquirectangularRefractionMapping as s, RenderTarget$1 as t, BackSide$1 as u, NoBlending as v, warn$1 as w, Mesh as x, Scene as y, LinearMipmapLinearFilter$1 as z };
-//# sourceMappingURL=three-CTfqsKhP.js.map
+export { RedIntegerFormat$1 as $, AmbientLight as A, BoxGeometry as B, Color$1 as C, DirectionalLight as D, EventDispatcher$1 as E, FramebufferTexture$1 as F, Group$1 as G, HemisphereLight as H, InterleavedBufferAttribute$1 as I, LinearFilter$1 as J, CubeCamera as K, LightProbe as L, Matrix3$1 as M, NeutralToneMapping as N, OneMinusSrcAlphaFactor as O, PointLight as P, CubeReflectionMapping$1 as Q, REVISION as R, SpotLight as S, TimestampQuery as T, CubeRefractionMapping$1 as U, Vector4$1 as V, WebGPUCoordinateSystem$1 as W, log$2 as X, NoToneMapping$1 as Y, NoColorSpace$1 as Z, DataTexture as _, warnOnce$1 as a, VSMShadowMap as a$, RedFormat$1 as a0, UnsignedByteType$1 as a1, IntType$1 as a2, ShortType as a3, ByteType as a4, UnsignedIntType$1 as a5, UnsignedShortType as a6, FloatType$1 as a7, LineDashedMaterial as a8, LineBasicMaterial as a9, ObjectLoader as aA, TangentSpaceNormalMap$1 as aB, NoNormalPacking$1 as aC, NormalGAPacking$1 as aD, ObjectSpaceNormalMap$1 as aE, Sphere$1 as aF, BufferGeometry as aG, OrthographicCamera as aH, PerspectiveCamera as aI, Texture$1 as aJ, CubeUVReflectionMapping as aK, HalfFloatType as aL, BasicShadowMap as aM, CubeDepthTexture as aN, GreaterEqualCompare$1 as aO, LessEqualCompare$1 as aP, Matrix4$2 as aQ, PointsMaterial as aR, InstancedBufferAttribute as aS, SRGBColorSpace$1 as aT, PCFShadowMap as aU, PCFSoftShadowMap as aV, FrustumArray as aW, Frustum as aX, RGBAFormat$1 as aY, FrontSide as aZ, DoubleSide$1 as a_, RGFormat$1 as aa, RED_GREEN_RGTC2_Format$1 as ab, RG11_EAC_Format$1 as ac, NormalRGPacking$1 as ad, WebGLCoordinateSystem$1 as ae, MeshBasicMaterial as af, MeshLambertMaterial as ag, MeshMatcapMaterial as ah, MeshNormalMaterial as ai, MeshPhongMaterial as aj, MeshPhysicalMaterial as ak, MeshStandardMaterial as al, MeshToonMaterial as am, MathUtils$2 as an, LinearMipmapNearestFilter as ao, NearestMipmapLinearFilter as ap, Vector2$1 as aq, Vector3$2 as ar, Float16BufferAttribute as as, yieldToMain as at, Loader as au, FileLoader as av, Material as aw, MaterialLoader as ax, DynamicDrawUsage as ay, RenderObjectRefreshType as az, RectAreaLight as b, RGBA_S3TC_DXT5_Format as b$, Compatibility$1 as b0, NearestFilter$1 as b1, ShadowMaterial as b2, SpriteMaterial as b3, ClampToEdgeWrapping$1 as b4, BufferAttribute$1 as b5, LessCompare$1 as b6, GreaterCompare$1 as b7, CustomBlending as b8, InterleavedBuffer$1 as b9, MirroredRepeatWrapping$1 as bA, RGBA_ASTC_12x12_Format as bB, RGBA_ASTC_12x10_Format as bC, RGBA_ASTC_10x10_Format as bD, RGBA_ASTC_10x8_Format as bE, RGBA_ASTC_10x6_Format as bF, RGBA_ASTC_10x5_Format as bG, RGBA_ASTC_8x8_Format as bH, RGBA_ASTC_8x6_Format as bI, RGBA_ASTC_8x5_Format as bJ, RGBA_ASTC_6x6_Format as bK, RGBA_ASTC_6x5_Format as bL, RGBA_ASTC_5x5_Format as bM, RGBA_ASTC_5x4_Format as bN, RGBA_ASTC_4x4_Format as bO, SIGNED_RG11_EAC_Format as bP, SIGNED_R11_EAC_Format as bQ, R11_EAC_Format as bR, RGBA_ETC2_EAC_Format as bS, RGB_ETC1_Format as bT, RGB_ETC2_Format as bU, RGB_BPTC_UNSIGNED_Format as bV, RGB_BPTC_SIGNED_Format as bW, RGBA_BPTC_Format as bX, SIGNED_RED_GREEN_RGTC2_Format as bY, SIGNED_RED_RGTC1_Format as bZ, RED_RGTC1_Format as b_, RGIntegerFormat$1 as ba, RGBIntegerFormat$1 as bb, RGBFormat$1 as bc, RGBAIntegerFormat as bd, Matrix2$1 as be, MaterialBlending as bf, AddOperation as bg, MixOperation as bh, MultiplyOperation as bi, LinearSRGBColorSpace$1 as bj, Float32BufferAttribute as bk, Object3D as bl, LinearMipMapLinearFilter as bm, Plane as bn, ArrayCamera as bo, PlaneGeometry as bp, UnsignedInt248Type as bq, DepthStencilFormat$1 as br, DepthFormat$1 as bs, ZeroFactor as bt, CylinderGeometry as bu, Quaternion$2 as bv, WebXRController as bw, SphereGeometry as bx, UVMapping$1 as by, RepeatWrapping$1 as bz, createCanvasElement as c, Uint32BufferAttribute as c$, RGBA_S3TC_DXT3_Format as c0, RGBA_S3TC_DXT1_Format as c1, RGB_S3TC_DXT1_Format as c2, UnsignedInt101111Type as c3, UnsignedInt5999Type as c4, LinearTransfer$1 as c5, getByteLength as c6, CullFaceNone as c7, CullFaceBack as c8, CullFaceFront as c9, DstColorFactor as cA, OneMinusSrcColorFactor as cB, SrcColorFactor as cC, OneFactor as cD, NotEqualStencilFunc as cE, GreaterStencilFunc as cF, GreaterEqualStencilFunc as cG, EqualStencilFunc as cH, LessEqualStencilFunc as cI, LessStencilFunc as cJ, AlwaysStencilFunc as cK, NeverStencilFunc as cL, DecrementWrapStencilOp as cM, IncrementWrapStencilOp as cN, DecrementStencilOp as cO, IncrementStencilOp as cP, InvertStencilOp as cQ, ReplaceStencilOp as cR, ZeroStencilOp as cS, KeepStencilOp as cT, MaxEquation as cU, MinEquation as cV, ReverseSubtractEquation as cW, SubtractEquation as cX, ReversedDepthFuncs as cY, DataArrayTexture as cZ, RAD2DEG$2 as c_, MultiplyBlending as ca, SubtractiveBlending as cb, AdditiveBlending as cc, NotEqualDepth as cd, GreaterDepth as ce, GreaterEqualDepth as cf, EqualDepth as cg, LessEqualDepth as ch, LessDepth as ci, AlwaysDepth as cj, NeverDepth as ck, UnsignedShort4444Type as cl, UnsignedShort5551Type as cm, AlphaFormat$1 as cn, RGB_PVRTC_4BPPV1_Format as co, RGB_PVRTC_2BPPV1_Format as cp, RGBA_PVRTC_4BPPV1_Format as cq, RGBA_PVRTC_2BPPV1_Format as cr, OneMinusConstantAlphaFactor as cs, OneMinusConstantColorFactor as ct, ConstantAlphaFactor as cu, ConstantColorFactor as cv, SrcAlphaSaturateFactor as cw, OneMinusDstAlphaFactor as cx, DstAlphaFactor as cy, OneMinusDstColorFactor as cz, LinearToneMapping as d, DetachedBindMode as d$, Uint16BufferAttribute as d0, InstancedInterleavedBuffer as d1, isTypedArray as d2, NearestMipmapNearestFilter as d3, NotEqualCompare as d4, EqualCompare as d5, AlwaysCompare as d6, NeverCompare as d7, AdditiveAnimationBlendMode as d8, AnimationAction as d9, Camera as dA, CameraHelper as dB, CanvasTexture as dC, CapsuleGeometry as dD, CatmullRomCurve3 as dE, CircleGeometry as dF, Clock as dG, ColorKeyframeTrack as dH, CompressedArrayTexture as dI, CompressedCubeTexture as dJ, CompressedTexture as dK, CompressedTextureLoader as dL, ConeGeometry as dM, Controls as dN, CubeTextureLoader as dO, CubicBezierCurve as dP, CubicBezierCurve3 as dQ, CubicInterpolant as dR, CullFaceFrontBack as dS, Curve as dT, CurvePath as dU, CustomToneMapping as dV, Cylindrical as dW, Data3DTexture as dX, DataTextureLoader as dY, DataUtils as dZ, DefaultLoadingManager as d_, AnimationClip as da, AnimationLoader as db, AnimationMixer as dc, AnimationObjectGroup as dd, AnimationUtils as de, ArcCurve as df, ArrowHelper as dg, AttachedBindMode as dh, Audio as di, AudioAnalyser as dj, AudioContext as dk, AudioListener as dl, AudioLoader as dm, AxesHelper as dn, BasicDepthPacking as dp, BatchedMesh as dq, BezierInterpolant as dr, Bone as ds, BooleanKeyframeTrack as dt, Box2 as du, Box3$1 as dv, Box3Helper as dw, BoxHelper as dx, BufferGeometryLoader as dy, Cache as dz, error$1 as e, PointLightHelper as e$, DirectionalLightHelper as e0, DiscreteInterpolant as e1, DodecahedronGeometry as e2, DynamicCopyUsage as e3, DynamicReadUsage as e4, EdgesGeometry as e5, EllipseCurve as e6, Euler$1 as e7, ExternalTexture as e8, ExtrudeGeometry as e9, LatheGeometry as eA, Layers as eB, Light as eC, LightShadow as eD, Line as eE, Line3 as eF, LineCurve as eG, LineCurve3 as eH, LineLoop as eI, LineSegments as eJ, LinearInterpolant as eK, LinearMipMapNearestFilter as eL, LoaderUtils as eM, LoadingManager as eN, LoopOnce as eO, LoopPingPong as eP, LoopRepeat as eQ, MOUSE as eR, MeshDepthMaterial as eS, MeshDistanceMaterial as eT, NearestMipMapLinearFilter as eU, NearestMipMapNearestFilter as eV, NormalAnimationBlendMode as eW, NumberKeyframeTrack as eX, OctahedronGeometry as eY, Path as eZ, PlaneHelper as e_, Fog as ea, FogExp2 as eb, GLBufferAttribute as ec, GLSL1 as ed, GLSL3 as ee, GridHelper as ef, HTMLTexture as eg, HemisphereLightHelper as eh, IcosahedronGeometry as ei, ImageBitmapLoader as ej, ImageLoader as ek, ImageUtils$1 as el, InstancedBufferGeometry as em, InstancedMesh as en, Int16BufferAttribute as eo, Int32BufferAttribute as ep, Int8BufferAttribute as eq, Interpolant as er, InterpolateBezier as es, InterpolateDiscrete as et, InterpolateLinear as eu, InterpolateSmooth as ev, InterpolationSamplingMode as ew, InterpolationSamplingType as ex, KeyframeTrack as ey, LOD as ez, ReinhardToneMapping as f, WrapAroundEnding as f$, Points as f0, PolarGridHelper as f1, PolyhedronGeometry as f2, PositionalAudio as f3, PropertyBinding as f4, PropertyMixer as f5, QuadraticBezierCurve as f6, QuadraticBezierCurve3 as f7, QuaternionKeyframeTrack as f8, QuaternionLinearInterpolant as f9, StreamDrawUsage as fA, StreamReadUsage as fB, StringKeyframeTrack as fC, TOUCH as fD, TetrahedronGeometry as fE, TextureLoader as fF, TextureSource$1 as fG, TextureUtils as fH, Timer as fI, TorusGeometry as fJ, TorusKnotGeometry as fK, Triangle as fL, TriangleFanDrawMode as fM, TriangleStripDrawMode as fN, TrianglesDrawMode as fO, TubeGeometry as fP, Uint8BufferAttribute as fQ, Uint8ClampedBufferAttribute as fR, Uniform as fS, UniformsGroup as fT, VectorKeyframeTrack as fU, VideoFrameTexture as fV, VideoTexture as fW, WebGL3DRenderTarget as fX, WebGLArrayRenderTarget as fY, WebGLRenderTarget as fZ, WireframeGeometry as f_, RGBADepthPacking as fa, RGBDepthPacking as fb, RGDepthPacking as fc, RawShaderMaterial as fd, Ray as fe, Raycaster as ff, RenderTarget3D as fg, RingGeometry as fh, ShaderMaterial as fi, Shape as fj, ShapeGeometry as fk, ShapePath as fl, ShapeUtils as fm, Skeleton as fn, SkeletonHelper as fo, SkinnedMesh as fp, Source as fq, Spherical as fr, SphericalHarmonics3 as fs, SplineCurve as ft, SpotLightHelper as fu, Sprite as fv, StaticCopyUsage as fw, StaticReadUsage as fx, StereoCamera as fy, StreamCopyUsage as fz, CineonToneMapping as g, ZeroCurvatureEnding as g0, ZeroSlopeEnding as g1, getConsoleFunction as g2, setConsoleFunction as g3, THREE as g4, FullScreenQuad as g5, GLTFLoader as g6, WebGLRenderer as g7, mergeGeometries as g8, WebGLCubeRenderTarget as g9, OBJLoader$1 as gA, FBXLoader$1 as gB, PLYLoader$1 as gC, ColladaLoader$1 as gD, STLLoader$1 as gE, XYZLoader$1 as gF, TDSLoader$1 as gG, PCDLoader$1 as gH, DRACOLoader$1 as gI, KTX2Loader$1 as gJ, meshopt_decoder_module as gK, USDLoader$1 as gL, _3MFLoader as gM, AMFLoader$1 as gN, VRMLLoader$1 as gO, KMZLoader$1 as gP, VOXLoader$1 as gQ, LWOLoader$1 as gR, RoomEnvironment$1 as gS, HDRLoader$1 as gT, PMREMGenerator as ga, ShaderChunk as gb, exports$1 as gc, unzipSync as gd, GTAOPass as ge, EffectComposer as gf, RenderPass as gg, SMAAPass as gh, OutputPass as gi, FXAAPass as gj, Sky as gk, USDZExporter as gl, ViewHelper as gm, Vector3 as gn, Matrix4 as go, Quaternion as gp, Euler as gq, MathUtils$1 as gr, FontLoader as gs, TextGeometry as gt, OrbitControls as gu, TransformControls as gv, estimateBytesUsed as gw, GLTFLoader$1 as gx, DDSLoader$1 as gy, MTLLoader$1 as gz, ACESFilmicToneMapping as h, AgXToneMapping as i, NormalBlending as j, SrcAlphaFactor as k, AddEquation as l, StaticDrawUsage$1 as m, DepthTexture$1 as n, ColorManagement$1 as o, SRGBTransfer$1 as p, CubeTexture$1 as q, EquirectangularReflectionMapping as r, EquirectangularRefractionMapping as s, RenderTarget$1 as t, BackSide$1 as u, NoBlending as v, warn$1 as w, Mesh as x, Scene as y, LinearMipmapLinearFilter$1 as z };
+//# sourceMappingURL=three-Clf1rYwY.js.map

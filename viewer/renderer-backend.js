@@ -72,9 +72,10 @@ export function isWebGPUBackend() {
 }
 
 // Three's MeshStandard/MeshPhysical node materials with the direct specular
-// light scaled down, as the WebGL renderer's patched shader does. Registered
-// for the plain material types, so the renderer's own conversion uses them.
-function registerDampedSpecular(renderer, webgpu) {
+// light scaled down, as the WebGL renderer's patched shader does, and taking
+// the weather's wet and snow (editor/weather-webgpu.js). Registered for the
+// plain material types, so the renderer's own conversion uses them.
+function registerViewerMaterials(renderer, webgpu, weather) {
   const { MeshStandardNodeMaterial, MeshPhysicalNodeMaterial, PhysicalLightingModel } = webgpu;
   class DampedSpecularLightingModel extends PhysicalLightingModel {
     start(builder) {
@@ -82,9 +83,23 @@ function registerDampedSpecular(renderer, webgpu) {
       builder.context.reflectedLight.directSpecular.mulAssign(DIRECT_SPECULAR_SCALE);
     }
   }
+  // The weather's roughness and metalness for this build only: the
+  // material keeps its own nodes.
+  const withWeather = (material, setup) => {
+    const { roughnessNode, metalnessNode } = material;
+    Object.assign(material, weather.setupWeatherSurface(material));
+    try {
+      return setup();
+    } finally {
+      Object.assign(material, { roughnessNode, metalnessNode });
+    }
+  };
   class ViewerStandardNodeMaterial extends MeshStandardNodeMaterial {
     setupLightingModel() {
       return new DampedSpecularLightingModel();
+    }
+    setupVariants(builder) {
+      return withWeather(this, () => super.setupVariants(builder));
     }
   }
   class ViewerPhysicalNodeMaterial extends MeshPhysicalNodeMaterial {
@@ -94,9 +109,16 @@ function registerDampedSpecular(renderer, webgpu) {
         this.useTransmission, this.useDispersion, this.useRetroreflection
       );
     }
+    setupVariants(builder) {
+      return withWeather(this, () => super.setupVariants(builder));
+    }
   }
-  renderer.library.addMaterial(ViewerStandardNodeMaterial, "MeshStandardMaterial");
-  renderer.library.addMaterial(ViewerPhysicalNodeMaterial, "MeshPhysicalMaterial");
+  // addMaterial keeps a type already registered (three's own, here): taken
+  // out first.
+  [[ViewerStandardNodeMaterial, "MeshStandardMaterial"], [ViewerPhysicalNodeMaterial, "MeshPhysicalMaterial"]].forEach(([nodeClass, type]) => {
+    renderer.library.materialNodes.delete(type);
+    renderer.library.addMaterial(nodeClass, type);
+  });
 }
 
 // three sets `swizzle: "rgba"` (the identity) on every texture view;
@@ -119,7 +141,11 @@ function dropIdentitySwizzle() {
 
 async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
-  const [webgpu, webgpuRendering] = await Promise.all([import("three/webgpu"), import("./rendering-webgpu.js")]);
+  const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
+    import("three/webgpu"),
+    import("./rendering-webgpu.js"),
+    import("./editor/weather-webgpu.js"),
+  ]);
   const forceWebGL = forcesWebGL2Backend();
   const renderer = new webgpu.WebGPURenderer({
     forceWebGL,
@@ -135,8 +161,9 @@ async function createWebGPURenderer(options) {
     renderer.dispose();
     throw new Error("No WebGPU device");
   }
-  registerDampedSpecular(renderer, webgpu);
+  registerViewerMaterials(renderer, webgpu, weatherWebGPU);
   setCore("threeWebGPU", webgpu);
+  setCore("weatherWebGPU", weatherWebGPU);
   // What the WebGPU renderer runs on: "webgpu", or "webgl2" when forced.
   setCore("rendererDevice", renderer.backend?.isWebGPUBackend ? "webgpu" : "webgl2");
   setCore("webgpuRendering", webgpuRendering);
