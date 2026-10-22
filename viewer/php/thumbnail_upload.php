@@ -60,7 +60,6 @@ try {
 		curl_setopt($ch, CURLOPT_POST, count($params));
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
 		$response = curl_exec($ch);
-		curl_close($ch);
 		if($response !== false) {
 			echo json_encode([
 				'message' => "Image uploaded and saved to $savePath ($bytes bytes) $response"

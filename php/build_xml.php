@@ -20,7 +20,6 @@ function file_get_content_curl( $url ) {
 
 	$data = curl_exec( $ch );
 	
-	curl_close( $ch );
 
 	if($data === false) {
 		echo 'Curl ERROR: ' . curl_error($ch);
