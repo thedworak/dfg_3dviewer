@@ -2493,7 +2493,7 @@ export function updateEditorToolbarLabels(viewer) {
     hierarchy: t("gui.hierarchy", "Hierarchy"),
     materials: t("gui.materials", "Materials"),
     shading: t("gui.shading", "Shading"),
-    background: t("gui.backgroundColor", "Background Color"),
+    background: t("gui.backgroundAndGround", "Background and ground"),
     statistics: t("gui.statistics", "Statistics"),
     credits: viewer.creditsWrapper && !viewer.creditsWrapper.hidden
       ? t("gui.hideCredits", "Hide credits")

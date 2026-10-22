@@ -84,6 +84,7 @@ export const VIEWER_I18N = {
       annotateImport: "Import annotations",
       annotateExport: "Export annotations",
       backgroundColorOuter: "Background colour (outer)",
+      backgroundAndGround: "Background and ground",
       ground: {
         contact: "Ground: contact shadow",
         mirror: "Ground: mirror",
@@ -1374,6 +1375,7 @@ export const VIEWER_I18N = {
       cameraLight: "Światło kamery",
       backgroundColor: "Kolor tła",
       backgroundColorOuter: "Kolor tła zewnętrznego",
+      backgroundAndGround: "Tło i podłoże",
       ground: {
         contact: "Podłoże: cień kontaktowy",
         mirror: "Podłoże: lustro",
@@ -2667,6 +2669,7 @@ export const VIEWER_I18N = {
       cameraLight: "Kamera-Licht",
       backgroundColor: "Hintergrundfarbe",
       backgroundColorOuter: "Äußere Hintergrundfarbe",
+      backgroundAndGround: "Hintergrund und Boden",
       ground: {
         contact: "Boden: Kontaktschatten",
         mirror: "Boden: Spiegel",
