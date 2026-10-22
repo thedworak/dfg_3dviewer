@@ -141,6 +141,7 @@ export function attachLocalizationTheme(viewer) {
       this.updatePhotosLabels?.();
       this.updateSunLabels?.();
       this.updateWeatherLabels?.();
+      this.updateSceneSuggestLabels?.();
       this.updateXRLabels?.();
       this.syncPointCloudPanel?.();
       this.renderUploadLimits?.();

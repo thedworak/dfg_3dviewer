@@ -5,6 +5,8 @@ import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validatio
 import { inspectAIM3DManifest, manifestFeatureIcons } from '../viewer/manifesto/manifest-inspection.js';
 import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
+import { findSceneCoordinates, findSceneYear, sceneProportions, suggestScene } from '../viewer/editor/scene-rules.js';
+import { getSemanticSettings, scoreSemantic, splitSemanticText } from '../viewer/editor/scene-semantic.js';
 
 const defaultModel = '/examples/box.stl';
 const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD';
@@ -4938,4 +4940,299 @@ test('weather with the WebGPU renderer: the same weathers in TSL', async ({ page
   await page.evaluate(() => window.Viewer.setWeather(false));
   expect(await page.evaluate(() => window.viewer.scene.fog)).toBeNull();
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('suggested scene rules: purpose, setting and what each suggestion rests on', () => {
+  const item = (result, key) => result.items.find((entry) => entry.key === key);
+
+  // A reconstruction of a castle in winter: presented outdoors, the sun of
+  // its century, snow, AgX.
+  const castle = suggestScene({
+    size: { x: 60, y: 25, z: 40 },
+    unitSource: 'file',
+    text: 'Rekonstrukcja zamku w Malborku, XIV w., zimą. 54.0396, 19.0280',
+  });
+  expect(castle.purpose).toBe('presentation');
+  expect(castle.setting.setting).toBe('outdoor');
+  expect(item(castle, 'sun').value).toMatchObject({ enabled: true, latitude: 54.0396, longitude: 19.028, year: 1350, month: 1 });
+  expect(item(castle, 'sun').preselected).toBe(true);
+  expect(item(castle, 'weather').value).toMatchObject({ enabled: true, type: 'snow' });
+  expect(item(castle, 'toneMapping').value.toneMapping).toBe('agx');
+  expect(item(castle, 'rakingLight').value.enabled).toBe(false);
+  expect(castle.uncertain).toEqual([]);
+
+  // The same castle documented: no sun, no weather.
+  const documented = suggestScene({ size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'Zamek w Malborku' }, 'documentation');
+  expect(documented.autoPurpose).toBe('presentation');
+  expect(item(documented, 'sun').value.enabled).toBe(false);
+  expect(item(documented, 'weather').value.enabled).toBe(false);
+  expect(item(documented, 'sun').reasons).toContainEqual({ key: 'documentationNeutral' });
+
+  // A coin: documentation with raking light.
+  const coin = suggestScene({ size: { x: 0.02, y: 0.02, z: 0.002 }, unitSource: 'manifest', text: 'Denar, moneta z inskrypcją' });
+  expect(coin.purpose).toBe('documentation');
+  expect(coin.setting.setting).toBe('studio');
+  expect(item(coin, 'rakingLight')).toMatchObject({ value: { enabled: true }, preselected: true });
+
+  // The inside of a church is indoors, though a church is a building.
+  const nave = suggestScene({ size: { x: 30, y: 20, z: 50 }, unitSource: 'file', text: 'Wnętrze kościoła' });
+  expect(nave.setting.setting).toBe('indoor');
+  expect(item(nave, 'sun').value.enabled).toBe(false);
+
+  // Splats carry their lighting: no sun, no ambient occlusion.
+  const splats = suggestScene({ kind: 'splats', size: { x: 20, y: 10, z: 20 }, unitSource: 'file', text: 'church' }, 'presentation');
+  expect(item(splats, 'sun').value.enabled).toBe(false);
+  expect(item(splats, 'sun').reasons).toContainEqual({ key: 'splatsBaked' });
+  expect(item(splats, 'ao').value.ao).toBe(false);
+
+  // Unknown place: said, and the sun is less sure.
+  const unplaced = suggestScene({ size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'castle' }, 'presentation');
+  expect(unplaced.uncertain).toContainEqual({ key: 'place' });
+  // What is on already is not ticked again.
+  const already = suggestScene({ size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'castle', current: { sun: true, toneMapping: 'agx' } }, 'presentation');
+  expect(item(already, 'sun')).toMatchObject({ changes: false, preselected: false });
+
+  // A town the texts name (worker/geonames.py) puts the sun there; coordinates
+  // written in the texts come first, a guess is said to be one.
+  const named = { name: 'Malbork', country: 'PL', latitude: 54.0359, longitude: 19.0266, confidence: 0.75, source: 'geonames' };
+  const malbork = suggestScene({ size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'Zamek w Malborku', location: named }, 'presentation');
+  expect(item(malbork, 'sun').value).toMatchObject({ latitude: 54.0359, longitude: 19.0266 });
+  expect(item(malbork, 'sun').reasons).toContainEqual({ key: 'placeNamed', name: 'Malbork', country: 'PL' });
+  expect(malbork.uncertain).toEqual([]);
+  const written = suggestScene({ size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'Malbork 54.0712, 19.1043', location: named }, 'presentation');
+  expect(item(written, 'sun').value).toMatchObject({ latitude: 54.0712, longitude: 19.1043 });
+  const guess = suggestScene({ size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'York', location: { ...named, name: 'York', country: 'GB', confidence: 0.45 } }, 'presentation');
+  expect(guess.uncertain).toContainEqual({ key: 'placeGuess', name: 'York', country: 'GB' });
+  expect(item(guess, 'sun').confidence).toBeLessThan(item(malbork, 'sun').confidence);
+
+  expect(findSceneYear('built 1410, rebuilt 1650; scanned 2021')).toEqual({ year: 1410, kind: 'year' });
+  expect(findSceneYear('14th century')?.year).toBe(1350);
+  expect(findSceneYear('XII wiek')?.year).toBe(1150);
+  expect(findSceneYear('texture 1920x1080, 2048 px')).toBeNull();
+  expect(findSceneCoordinates('33.86° S, 151.21° E')).toEqual({ latitude: -33.86, longitude: 151.21 });
+  expect(findSceneCoordinates('version 1.20 2.30')).toBeNull();
+});
+
+test('suggested scene: the window suggests, applies the ticked and undoes', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  // The box as a castle of the 15th century (the facts the rules get).
+  await page.evaluate(() => {
+    const gather = window.Viewer.gatherSceneFacts;
+    window.Viewer.gatherSceneFacts = () => ({
+      ...gather(),
+      size: { x: 60, y: 25, z: 40 },
+      unitSource: 'file',
+      text: 'Castle, 15th century, in winter. 54.0396, 19.0280',
+    });
+  });
+
+  const toolbar = page.locator('#viewerEditorToolbar');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('.viewer-menus_panel button[data-tool="sceneSuggest"]').click();
+  const panel = page.locator('#viewerScene');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('button[data-purpose="presentation"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(panel.locator('.viewer-scene_item[data-item="sun"] input')).toBeChecked();
+  await expect(panel.locator('.viewer-scene_item[data-item="weather"] .viewer-scene_item-value')).toContainText('Snow');
+  // Weather left out.
+  await panel.locator('.viewer-scene_item[data-item="weather"] input').uncheck();
+
+  await panel.locator('.viewer-scene_apply').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(true);
+  const sun = await page.evaluate(() => {
+    const { latitude, longitude, year, month, followTimeline } = window.Viewer.sunStudy;
+    return { latitude, longitude, year, month, followTimeline, weather: window.Viewer.weather.enabled, toneMapping: window.viewer.renderer.toneMapping };
+  });
+  expect(sun).toMatchObject({ latitude: 54.0396, year: 1450, month: 1, followTimeline: false, weather: false });
+  expect(sun.longitude).toBeCloseTo(19.028, 6);
+  // AgX (THREE.AgXToneMapping) for the sun's highlights.
+  expect(sun.toneMapping).toBe(6);
+  expect(await page.evaluate(() => window.Viewer.sceneSuggestion.result.items.find((item) => item.key === 'sun').changes)).toBe(false);
+
+  // Documentation instead: the sun goes off.
+  await panel.locator('button[data-purpose="documentation"]').click();
+  await expect(panel.locator('.viewer-scene_item[data-item="sun"] .viewer-scene_item-value')).toHaveText('off');
+  await expect(panel.locator('.viewer-scene_item[data-item="sun"] input')).toBeChecked();
+
+  // Undo puts back the scene before Apply.
+  await panel.locator('.viewer-scene_undo').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(false);
+  expect(await page.evaluate(() => window.Viewer.sunStudy.locationSet)).toBe(false);
+  await expect(panel.locator('.viewer-scene_undo')).toBeHidden();
+
+  // A new model: the window goes.
+  await page.evaluate(() => window.Viewer.disposeSceneSuggest());
+  await expect(panel).toHaveCount(0);
+});
+
+test('suggested scene: a town the texts name is found by the worker (GeoNames) and the sun put there', async ({ page }) => {
+  const asked = [];
+  await page.route('**/api/geo/places', async (route) => {
+    asked.push(route.request().postDataJSON());
+    await route.fulfill({ json: { places: [{ name: 'Malbork', country: 'PL', latitude: 54.0359, longitude: 19.0266, population: 38478, timezone: 'Europe/Warsaw', matched: 'Malborku', confidence: 0.75 }] } });
+  });
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(() => {
+    const gather = window.Viewer.gatherSceneFacts;
+    window.Viewer.gatherSceneFacts = () => ({ ...gather(), size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'Zamek w Malborku, XV w.' });
+    window.Viewer.toggleSceneSuggestPanel(true);
+  });
+  const panel = page.locator('#viewerScene');
+  await expect(panel.locator('.viewer-scene_basis li', { hasText: 'Malbork, PL' })).toHaveCount(1);
+  await expect(panel.locator('.viewer-scene_item[data-item="sun"] .viewer-scene_reasons')).toContainText('Malbork, PL');
+  await expect(panel.locator('.viewer-scene_uncertain')).toBeHidden();
+  expect(asked).toEqual([{ text: 'Zamek w Malborku, XV w.' }]);
+
+  await panel.locator('.viewer-scene_apply').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(true);
+  const sun = await page.evaluate(() => ({ ...window.Viewer.sunStudy }));
+  expect(sun.latitude).toBeCloseTo(54.0359, 4);
+  expect(sun.longitude).toBeCloseTo(19.0266, 4);
+  expect(sun.locationSet).toBe(true);
+  // Once per model: reopening the window asks no more.
+  await page.evaluate(() => {
+    window.Viewer.toggleSceneSuggestPanel(false);
+    window.Viewer.toggleSceneSuggestPanel(true);
+  });
+  await expect(panel).toBeVisible();
+  expect(asked).toHaveLength(1);
+});
+
+test('suggested scene, language model: passages, probabilities, and how the rules weigh them', () => {
+  expect(splitSemanticText('Kolegiata w Tumie. Nawa główna z ołtarzem!\nhttps://example.org/x 2021\nNawa główna z ołtarzem!'))
+    .toEqual(['Kolegiata w Tumie.', 'Nawa główna z ołtarzem!']);
+  const unit = (vector) => {
+    const length = Math.hypot(...vector);
+    return vector.map((value) => value / length);
+  };
+  const scored = scoreSemantic([unit([1, 0, 0])], {
+    setting: { outdoor: [unit([0, 1, 0])], indoor: [unit([1, 0.1, 0])], studio: [unit([0, 0, 1])] },
+    relief: { yes: [unit([0, 0, 1])], no: [unit([1, 0, 0])] },
+  });
+  expect(scored.setting.indoor).toBeGreaterThan(0.99);
+  expect(scored.relief).toBeLessThan(0.01);
+  expect(getSemanticSettings(false).enabled).toBe(false);
+  expect(getSemanticSettings({ model: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2' })).toMatchObject({ enabled: true, model: 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', dtype: 'q8' });
+
+  const item = (result, key) => result.items.find((entry) => entry.key === key);
+  const nave = { size: { x: 30, y: 20, z: 50 }, unitSource: 'file', text: 'Nawa główna z ołtarzem' };
+  // Without the model the size says outdoors; with it, an interior.
+  expect(suggestScene(nave).setting.setting).toBe('outdoor');
+  const read = suggestScene({ ...nave, semantic: { model: 'multilingual-e5-small', setting: { outdoor: 0.1, indoor: 0.85, studio: 0.05 } } });
+  expect(read.setting.setting).toBe('indoor');
+  expect(read.setting.reasons).toContainEqual({ key: 'semantic', setting: 'indoor', percent: 85 });
+  expect(read.basis).toContainEqual({ key: 'semantic', model: 'multilingual-e5-small' });
+  // Words found weigh more.
+  expect(suggestScene({ ...nave, text: 'Castle', semantic: { setting: { outdoor: 0.1, indoor: 0.85, studio: 0.05 } } }).setting.setting).toBe('outdoor');
+  // The purpose and relief where no words say.
+  expect(suggestScene({ ...nave, text: 'Zamek', semantic: { purpose: { documentation: 0.8, presentation: 0.2 } } }).purpose).toBe('documentation');
+  const relief = suggestScene({ size: { x: 3, y: 2, z: 0.5 }, unitSource: 'file', text: 'Płyta', semantic: { relief: 0.8 } }, 'documentation');
+  expect(item(relief, 'rakingLight')).toMatchObject({ value: { enabled: true }, preselected: true });
+  expect(item(relief, 'rakingLight').reasons).toContainEqual({ key: 'semanticRelief', percent: 80 });
+});
+
+test('suggested scene, language model: read on a click, then by itself where the rules are unsure', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(() => {
+    try { window.localStorage.removeItem('dfg3dviewer.sceneSemantic'); } catch (_error) { /* none */ }
+    // An embedder of a few words per class (the descriptions' and the
+    // text's) instead of downloading the model.
+    const words = [
+      ['nawa', 'naw', 'interior', 'inside', 'wnętrz', 'crypt', 'krypt', 'innenraum', 'room', 'komnat', 'piwnic', 'cellar', 'gewölbe', 'ołtarz', 'altar', 'sklepien'],
+      ['exterior', 'zewnętrz', 'castle', 'ruin', 'außenansicht', 'facade', 'elewacj', 'landscape', 'square', 'street', 'site', 'field'],
+      ['coin', 'monet', 'vase', 'figurine', 'sculpture', 'rzeźb', 'artefact', 'museum', 'münze', 'skulptur', 'fundstück', 'pottery', 'naczyni'],
+      ['scan', 'survey', 'dokumentac', 'inwentaryzac', 'bauaufnahme'],
+      ['reconstruct', 'rekonstruk', 'visualis', 'wizualiz'],
+      ['inscription', 'napis', 'relief', 'ornament', 'inschrift', 'carved'],
+      ['plain', 'smooth', 'gładkie', 'glatte', 'overall'],
+    ];
+    window.__embedded = 0;
+    window.Viewer.setSceneEmbedder(async (texts) => texts.map((text) => {
+      window.__embedded += 1;
+      const lower = text.toLowerCase();
+      const vector = words.map((list) => list.filter((word) => lower.includes(word)).length);
+      vector.push(0.3);
+      const length = Math.hypot(...vector);
+      return vector.map((value) => value / length);
+    }));
+    const gather = window.Viewer.gatherSceneFacts;
+    window.Viewer.gatherSceneFacts = () => ({ ...gather(), size: { x: 30, y: 20, z: 50 }, unitSource: 'file', text: 'Nawa główna kolegiaty, sklepienie i ołtarz.' });
+    window.Viewer.toggleSceneSuggestPanel(true);
+  });
+  const panel = page.locator('#viewerScene');
+  const button = panel.locator('.viewer-scene_semantic-button');
+  await expect(button).toContainText('120 MB');
+  // Not before the click.
+  expect(await page.evaluate(() => window.__embedded)).toBe(0);
+  await expect(panel.locator('.viewer-scene_basis li', { hasText: 'Setting: outdoors' })).toHaveCount(1);
+  await button.click();
+  await expect(panel.locator('.viewer-scene_semantic-status')).toContainText('read 1 passages');
+  await expect(button).toBeHidden();
+  await expect(panel.locator('.viewer-scene_basis li', { hasText: 'Setting: indoors' })).toHaveCount(1);
+  await expect(panel.locator('.viewer-scene_basis li', { hasText: 'language model' })).toHaveCount(1);
+  await expect(panel.locator('.viewer-scene_item[data-item="sun"] .viewer-scene_reasons')).toContainText('not outdoors: indoors');
+  expect(await page.evaluate(() => window.localStorage.getItem('dfg3dviewer.sceneSemantic'))).toBe('1');
+
+  // Consented: the next model's texts are read by themselves.
+  await page.evaluate(() => {
+    window.Viewer.disposeSceneSuggest();
+    window.__embedded = 0;
+    window.Viewer.toggleSceneSuggestPanel(true);
+  });
+  await expect(panel.locator('.viewer-scene_basis li', { hasText: 'Setting: indoors' })).toHaveCount(1);
+  expect(await page.evaluate(() => window.__embedded)).toBeGreaterThan(0);
+});
+
+test('suggested scene, geometry: walls seen from inside, a ceiling, an open ground, flat sites and thin plates', async ({ page }) => {
+  const item = (result, key) => result.items.find((entry) => entry.key === key);
+  const hall = { size: { x: 12, y: 8, z: 20 }, unitSource: 'file', text: '' };
+  // Walls all round from inside: an interior, the building's size with it.
+  const inside = suggestScene({ ...hall, shape: { up: 0.3, down: 0.25, sideways: 0.4, groundCover: 0.9, enclosure: 0.85, shell: 0 } });
+  expect(inside.setting).toMatchObject({ setting: 'indoor', confidence: 0.9 });
+  expect(inside.setting.reasons).toContainEqual({ key: 'enclosed', percent: 85 });
+  expect(inside.basis.find((fact) => fact.key === 'shape')).toMatchObject({ enclosure: 0.85 });
+  // Walls all round seen from a manifest's camera outside: a building with
+  // its interior modelled, outdoors; with the camera unknown its name wins.
+  const modelled = { size: { x: 30, y: 20, z: 40 }, unitSource: 'manifest', text: 'Wolpa Synagogue', shape: { up: 0.3, down: 0.2, sideways: 0.4, groundCover: 0.8, enclosure: 0.8, shell: 0.1 } };
+  expect(suggestScene({ ...modelled, cameraInside: false }).setting).toMatchObject({ setting: 'outdoor', confidence: 0.85 });
+  expect(suggestScene(modelled).setting.setting).toBe('outdoor');
+  expect(suggestScene({ ...modelled, cameraInside: true }).setting.setting).toBe('indoor');
+  // A closed building seen from its own inside is no interior.
+  expect(suggestScene({ ...hall, shape: { up: 0.3, down: 0.01, sideways: 0.6, groundCover: 0.1, enclosure: 0, shell: 0.9 } }).setting.setting).toBe('outdoor');
+  // An open, flat site.
+  const site = suggestScene({ size: { x: 200, y: 10, z: 150 }, unitSource: 'file', text: '', shape: { up: 0.8, down: 0, sideways: 0.1, groundCover: 0.9, enclosure: 0.1, shell: 0 } });
+  expect(site.setting.reasons).toEqual(expect.arrayContaining([{ key: 'ground', percent: 90 }, { key: 'flat' }]));
+  // A thin plate: raking light to read it.
+  expect(sceneProportions({ x: 0.8, y: 0.6, z: 0.05 }).thinness).toBeCloseTo(0.0625, 4);
+  const plate = suggestScene({ size: { x: 0.8, y: 0.6, z: 0.05 }, unitSource: 'file', text: 'Płyta' }, 'documentation');
+  expect(item(plate, 'rakingLight')).toMatchObject({ value: { enabled: true }, preselected: true, reasons: [{ key: 'thinPlate' }] });
+
+  // The measures, in the browser, of a room (faces turned inwards), a closed
+  // box (outwards) and a ground with a small block on it.
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const shapes = await page.evaluate(() => {
+    const THREE = window.THREE;
+    const material = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+    const room = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 8).scale(-1, 1, 1), material);
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 8), material);
+    const ground = new THREE.Group();
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100).rotateX(-Math.PI / 2), material);
+    const block = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 4), material);
+    block.position.set(0, 3, 0);
+    ground.add(plane, block);
+    return [room, shell, ground].map((root) => window.Viewer.measureSceneShape([root]));
+  });
+  const [room, shell, ground] = shapes;
+  expect(room.enclosure).toBeGreaterThan(0.9);
+  expect(room.down).toBeGreaterThan(0.2);
+  expect(room.groundCover).toBeGreaterThan(0.9);
+  expect(shell.enclosure).toBe(0);
+  expect(shell.shell).toBeGreaterThan(0.9);
+  expect(ground.groundCover).toBeGreaterThan(0.9);
+  expect(ground.down).toBeLessThan(0.05);
+  expect(ground.enclosure).toBeLessThan(0.5);
 });

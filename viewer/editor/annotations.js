@@ -1830,6 +1830,9 @@ export function attachAnnotations(Viewer) {
       // "Reset camera" returns to the manifest's camera.
       core.cameraCoords = core.camera.position.clone();
       if (core.controls) core.controlsTarget = core.controls.target.clone();
+      // Where the manifest looks from (editor/scene-suggest.js: from inside
+      // the model or outside it).
+      this.manifestCameraPosition = core.camera.position.clone();
       return true;
     },
 

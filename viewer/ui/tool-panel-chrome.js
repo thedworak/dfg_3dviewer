@@ -173,6 +173,7 @@ const svg = (body) => `<svg viewBox="0 0 16 16" width="18" height="18" fill="non
 export const PANEL_ICONS = {
   tour: svg('<path d="M3 14V2.5h8.5l-1.8 2.75 1.8 2.75H3"/>'),
   weather: svg('<path d="M4.5 10.5a2.8 2.8 0 0 1-.3-5.6 3.9 3.9 0 0 1 7.5.4 2.6 2.6 0 0 1-.2 5.2z"/><path d="M5.5 12.8l-.6 1.4M8.5 12.8l-.6 1.4M11.5 12.8l-.6 1.4"/>'),
+  scene: svg('<path d="m2.5 13.5 7-7"/><path d="M12 2v2M11 3h2M14 6.5v1.5M13.25 7.25h1.5"/>'),
   sun: svg('<circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/>'),
   timeline: svg('<path d="M1.5 8h13"/><circle cx="4" cy="8" r="1.4" fill="currentColor"/><circle cx="9.5" cy="8" r="1.4" fill="currentColor"/><path d="M4 4v1.5M9.5 4v1.5M12.5 10.5V12"/>'),
   measure: svg('<rect x="1" y="5" width="14" height="6" rx="1" transform="rotate(-30 8 8)"/><path d="m4.6 8.6.9 1.5M7.2 7.1l.9 1.5M9.8 5.6l.9 1.5"/>'),

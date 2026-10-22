@@ -78,6 +78,7 @@ import { attachCompare } from "./editor/compare.js";
 import { attachPhotoOverlay } from "./editor/photo-overlay.js";
 import { attachSunStudy } from "./editor/sun-study.js";
 import { attachWeather } from "./editor/weather.js";
+import { attachSceneSuggest } from "./editor/scene-suggest.js";
 import { attachWebXR } from "./editor/webxr.js";
 import { attachTour } from "./editor/tour.js";
 import { attachAnnotationSpread } from "./editor/annotation-spread.js";
@@ -1466,6 +1467,7 @@ export const Viewer = {
     Viewer.disposeRakingLight();
     Viewer.disposeSunStudy();
     Viewer.disposeWeather();
+    Viewer.disposeSceneSuggest();
     // Spark's splat renderer (splats.js) comes back with the next splat model.
     disposeSparkRenderer(core.sparkRenderer);
     core.sparkRenderer = null;
@@ -1480,6 +1482,7 @@ export const Viewer = {
     Viewer.resetCameraLens();
     Viewer.currentManifest = null;
     Viewer.manifestCameras = [];
+    Viewer.manifestCameraPosition = null;
     document.getElementById("manifesto-camera-switch")?.remove();
     document.getElementById("manifesto-scene-switch")?.remove();
     Viewer.restoreLastPickedFace();
@@ -4414,6 +4417,7 @@ attachCompare(Viewer);
 attachPhotoOverlay(Viewer);
 attachSunStudy(Viewer);
 attachWeather(Viewer);
+attachSceneSuggest(Viewer);
 attachWebXR(Viewer);
 attachTour(Viewer);
 attachAnnotationSpread(Viewer);

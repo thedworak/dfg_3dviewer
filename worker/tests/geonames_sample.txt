@@ -1,0 +1,17 @@
+3092472	Malbork	Malbork	Malbork,Marienburg,Marienburg in Westpreussen	54.0359	19.0266	P	PPL	PL						38478			Europe/Warsaw	2024-01-01
+3094802	Kraków	Krakow	Cracovia,Cracovie,Cracow,Krakau,Krakov,Krakova,Krakow,Kraków	50.06143	19.93658	P	PPLA	PL						755050			Europe/Warsaw	2024-01-01
+756135	Warsaw	Warsaw	Varsovie,Warsaw,Warschau,Warszawa	52.22977	21.01178	P	PPLC	PL						1702139			Europe/Warsaw	2024-01-01
+3093133	Łęczyca	Leczyca	Leczyca,Lenczyca,Łęczyca	52.05959	19.19972	P	PPL	PL						14365			Europe/Warsaw	2024-01-01
+3083260	Tum	Tum	Tum	52.06333	19.2358	P	PPL	PL						600			Europe/Warsaw	2024-01-01
+3099434	Gdańsk	Gdansk	Danzig,Gdansk,Gdańsk	54.35205	18.64637	P	PPLA	PL						461865			Europe/Warsaw	2024-01-01
+3756062	Nowy Sącz	Nowy Sacz	Neu Sandez,Nowy Sacz,Nowy Sącz	49.62177	20.69705	P	PPLA2	PL						84129			Europe/Warsaw	2024-01-01
+3083271	Toruń	Torun	Thorn,Torun,Toruń	53.01375	18.59814	P	PPLA	PL						203447			Europe/Warsaw	2024-01-01
+3080000	Zamek	Zamek	Zamek	50.5	20.5	P	PPL	PL						650			Europe/Warsaw	2024-01-01
+2925533	Frankfurt am Main	Frankfurt am Main	Francfort,Frankfurt,Frankfurt am Main,Frankfurt nad Menem	50.11552	8.68417	P	PPLA2	DE						650000			Europe/Berlin	2024-01-01
+2925535	Frankfurt (Oder)	Frankfurt (Oder)	Frankfurt,Frankfurt an der Oder,Frankfurt nad Odra	52.34714	14.55062	P	PPLA3	DE						58537			Europe/Berlin	2024-01-01
+2886242	Köln	Koeln	Cologne,Colonia,Koeln,Kolonia,Köln	50.93333	6.95	P	PPLA2	DE						963395			Europe/Berlin	2024-01-01
+2633352	York	York	Eboracum,Jork,York	53.95763	-1.08271	P	PPLA2	GB						153717			Europe/London	2024-01-01
+5219488	York	York	York	39.9626	-76.72774	P	PPLA2	US						43718			America/New_York	2024-01-01
+2988507	Paris	Paris	Lutetia,Paris,Paryz,Paryż	48.85341	2.3488	P	PPLC	FR						2138551			Europe/Paris	2024-01-01
+4717560	Paris	Paris	Paris	33.66094	-95.55551	P	PPLA2	US						25171			America/Chicago	2024-01-01
+2634249	Wells	Wells	Wells	51.20946	-2.646	P	PPL	GB						10536			Europe/London	2024-01-01

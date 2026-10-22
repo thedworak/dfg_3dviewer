@@ -16,6 +16,9 @@ could talk to either backend interchangeably:
   POST /api/ai/validation/<id>     (Claude API, off by default - worker/ai.py):
   POST /api/ai/ifc-query           the validation report explained, IFC
   POST /api/ai/variants            questions as filters, variants compared
+  GET  /api/geo/config          -> {enabled, state}   places named in a text,
+  POST /api/geo/places {text}   -> {places: [...]}    from GeoNames offline
+                                                      (worker/geonames.py)
   GET  /api/jobs                -> {jobs: [...]} previously converted models
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
@@ -64,6 +67,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import ai
 import cloudflare
+import geonames
 import mailer
 import optimize
 import remote_fetch
@@ -832,6 +836,33 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_json(200, answer)
 
+    def _handle_geo_places(self) -> None:
+        """POST /api/geo/places (worker/geonames.py): the places a text names,
+        for the viewer's suggested scene. Offline, so open to everyone."""
+        if geonames.INDEX.state != "ready":
+            state = geonames.INDEX.state
+            status = 503 if state == "building" else 404
+            self._send_json(status, {"error": "Place search is not available.", "code": f"geo_{state}"})
+            return
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length > 256 * 1024:
+            self._send_json(413, {"error": "Request too large.", "code": "too_large"})
+            return
+        try:
+            data = json.loads(self.rfile.read(length)) if length > 0 else {}
+        except ValueError:
+            data = None
+        if not isinstance(data, dict) or not isinstance(data.get("text", ""), str):
+            self._send_json(400, {"error": "Body must be a JSON object with a text.", "code": "bad_request"})
+            return
+        try:
+            places = geonames.INDEX.find(data.get("text", ""))
+        except Exception:  # noqa: BLE001 - an answer instead of a dropped connection
+            traceback.print_exc()
+            self._send_json(500, {"error": "Place search failed.", "code": "geo_internal"})
+            return
+        self._send_json(200, {"places": places, "source": "GeoNames (CC BY 4.0)"})
+
     def _cookie_is_secure(self) -> bool:
         return self.headers.get("X-Forwarded-Proto", "").lower() == "https"
 
@@ -1058,6 +1089,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, report)
             return
 
+        if path == "/api/geo/config":
+            self._send_json(200, {"enabled": geonames.INDEX.state == "ready", "state": geonames.INDEX.state})
+            return
+
         if path == "/api/ai/config":
             user = self._current_user()
             self._send_json(200, ai.config(user, self._is_business_caller(user)))
@@ -1139,6 +1174,9 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
         if match:
             self._handle_auth(match.group(1))
+            return
+        if path == "/api/geo/places":
+            self._handle_geo_places()
             return
         match = re.fullmatch(r"/api/ai/(validation)/([A-Za-z0-9_-]+)|/api/ai/(ifc-query|variants)", path)
         if match:
@@ -1589,6 +1627,9 @@ def main() -> None:
         print(f"AI assistance on ({ai.model()}): {', '.join(ai.enabled_features()) or 'no features'}, access: {ai.access_level()}.")
     elif os.environ.get("WORKER_AI_ENABLED", "").lower() in ("1", "true", "yes", "on"):
         print("WORKER_AI_ENABLED is set but the anthropic package is missing - AI assistance stays off.")
+    geonames.INDEX.start()
+    if geonames.INDEX.state != "off":
+        print(f"Place search (GeoNames): {geonames.INDEX.state}, index {geonames.INDEX.db_path}.")
     if not CONVERT_SCRIPT.is_file():
         sys.exit(f"convert.sh not found at {CONVERT_SCRIPT} - set WORKER_SCRIPTS_DIR")
     if not CONVERT_MESH_SCRIPT.is_file():

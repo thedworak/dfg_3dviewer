@@ -201,6 +201,35 @@ Weather (*Look > Weather*): a clear sky, fog, rain, snow or a thunderstorm aroun
 - `Viewer.apply3IFManifestWeather(weather)` / `Viewer.getWeatherForExport()` / `Viewer.disposeWeather()`
   - Manifest import and export; switched off when a model is unloaded.
 
+## `viewer/editor/scene-rules.js`, `viewer/editor/scene-suggest.js`
+
+Suggested scene (*Look > Suggested scene*): the sun, the weather, the raking light, the tone mapping and ambient occlusion picked for the model by rules, with no AI and nothing sent anywhere. The rules (`scene-rules.js`, pure, no three.js) read the facts `scene-suggest.js` gathers: the file name, the metadata shown, the manifest's describing texts (labels, summaries, metadata, annotations), the place the manifest sets, the timeline's year, the model's size in metres (`resolveModelUnit`), its kind (mesh, point cloud, Gaussian splats; IFC) and materials (textures, vertex colours, normals, unlit, triangles).
+
+They decide first the purpose - documentation (even light, raking light for relief, no weather that would hide the geometry) or presentation (the sun of the place and time, the sky, a weather the texts name) - then the setting: outdoors, indoors or an object on its own, from keywords (English, Polish, German, matched by stem without diacritics) and the size. A year comes from the timeline, else the earliest year (1000-1989) or century ("XIV w.", "14th century", "14. Jh.") in the texts; a place from the manifest, else coordinates in the texts, else a town they name (`Viewer.lookupScenePlace`: the worker's `POST /api/geo/places`, GeoNames offline, `worker/geonames.py`; once per model, when the window opens). Splats and scans keep the lighting baked into them (no sun, no AO); a phone gets no AO and lighter weather.
+
+Each suggestion has a confidence and its reasons; the window ticks those at least fairly sure (0.5) that change something. Nothing changes until *Apply*; *Undo* restores the sun, weather, raking light and rendering settings from before.
+
+- `suggestScene(facts, purpose)` (`scene-rules.js`)
+  - `{ purpose, autoPurpose, setting, basis, items: [{ key, value, confidence, reasons, changes, preselected }], uncertain }`; `purpose` (`"documentation"` / `"presentation"`) overrides the rules' choice. Also `findSceneKeywords`, `findSceneYear`, `findSceneCoordinates`, `sizeClass`.
+
+- `Viewer.gatherSceneFacts()` / `Viewer.computeSceneSuggestion(purpose)`
+  - The facts of the model shown; the suggestion for them (kept in `Viewer.sceneSuggestion`).
+
+- `analyzeSceneText(text, { settings, onProgress })` (`scene-semantic.js`) / `Viewer.readSceneTextWithModel()`
+  - The texts read by a sentence-embedding model in the browser (transformers.js, loaded from `viewer.sceneSuggest.semantic.library` on first use): `{ model, passages, setting, purpose, relief }` as probabilities (`scoreSemantic` of the passages against `PROTOTYPES`), kept in `Viewer.sceneSuggestion.semantic` and weighed by the rules. On a click the first time; afterwards by itself where the setting is unsure (`localStorage` `dfg3dviewer.sceneSemantic`). `Viewer.setSceneEmbedder(fn)` replaces the model (tests).
+
+- `computeSceneShape(roots, box)` (`scene-shape.js`) / `Viewer.measureSceneShape(roots)`
+  - The geometry's measures for the rules, once per model (`Viewer.sceneSuggestion.shape`): `{ up, down, sideways, groundCover, enclosure, shell, rays, triangles }`. One pass over at most 150 000 sampled triangles gives the area-weighted orientations and fills a voxel grid (48 along the longest side) with the faces' normals; 26 rays from the box's centre and from a third of its height march through it. `enclosure`: the share meeting faces turned towards them (an interior); `shell`: meeting their backs (a closed shell). The rules (`scene-rules.js`, `sceneProportions`) add them to the setting and the raking light.
+
+- `Viewer.lookupScenePlace(facts)`
+  - The place the texts name, asked of the worker once per model where none is set; the window is recomputed when it comes (`Viewer.sceneSuggestion.place`).
+
+- `Viewer.applySceneSuggestion(keys)` / `Viewer.undoSceneSuggestion()`
+  - Applies the ticked (or the given) suggestions through `setSunOptions`/`setSunStudy`, `setWeatherOptions`/`setWeather`, `setRakingLight` and `applyRenderingSettings`; puts back the scene from before.
+
+- `Viewer.toggleSceneSuggestPanel(open)` / `Viewer.disposeSceneSuggest()`
+  - The window; closed and forgotten when a model is unloaded.
+
 
 ## `viewer/editor/webxr.js`
 

@@ -113,6 +113,32 @@ Only **Potree 2** output keeps the classes (the default when PotreeConverter is 
 
 Standalone: `python3 worker/classify.py in.las out.las`.
 
+## 5. Suggested scene
+
+Not a Claude feature either: rules in the viewer (`viewer/editor/scene-rules.js`). They need no worker and no key, and send nothing anywhere. Look > **Suggested scene** picks the sun, the weather, the raking light, the tone mapping and ambient occlusion for the model shown, from what the viewer knows of it:
+
+- the texts: the file name, the metadata shown, and the manifest's labels, summaries, metadata and annotations (keywords in English, Polish and German: "castle", "wnętrze", "Inschrift", "winter", "fog"...; a year or century; coordinates);
+- the manifest's place (`AIM3DViewer.location`), else coordinates written in the texts, else a town they name, found by the worker in GeoNames (below);
+- the timeline's year;
+- the model: its size in metres (in its unit) and proportions, its kind (mesh, point cloud, Gaussian splats, IFC) and its materials (textures, vertex colours, normals);
+- the geometry's measures (`viewer/editor/scene-shape.js`, once per model, about 0.2 s for half a million triangles): the share of the surface facing up, down and sideways; the ground (upward faces at the bottom, over the footprint); and the enclosure. For the enclosure, 26 rays go from inside the box through a voxel grid of the surface. Walls turned towards the rays mean an interior (a room, a nave, a crypt); the backs of faces mean a closed building or statue seen from its own inside, which is no interior.
+
+The geometry adds evidence to the setting: walls all round, seen from inside (indoors, the building's size counting with it); a ceiling over a floor (indoors, weakly); an open ground without a ceiling, or a flat, wide box (outdoors). A thin plate (its thinnest side under an eighth of its longest: a tablet, a tombstone, a coin) gets the raking light when documented.
+
+First the **purpose**: *documentation* (an even light that hides nothing, raking light for inscriptions and relief, no weather) or *presentation* (the sun where and when the object stood, late in the afternoon by default, the sky, a weather the texts name). The rules suggest one, and the window switches to the other. Then the **setting**: outdoors, indoors or an object on its own. Scans and splats keep the lighting baked into them: no strong sun and no ambient occlusion. A phone gets no ambient occlusion and lighter weather.
+
+Each suggestion shows how sure the rules are and why. The confident ones that change something are ticked. Nothing changes until **Apply**, and **Undo** restores the scene from before. Where the place is unknown, the window says so: the sun then stands at the default place. A place found with little certainty is shown as a guess, to check in Sun and shadows.
+
+**Place names (GeoNames).** When the window opens and no place is set, the viewer sends the texts once per model to its own worker (`POST /api/geo/places`, `worker/geonames.py`). The worker finds the towns they name in a GeoNames dump, offline: "Zamek w Malborku" gives Malbork (54.04° N, 19.03° E). The texts go no further than the worker, and no key is needed. A worker without the dump, or no worker at all, leaves the place unknown. Setup: "Place search" in `worker/README.md`. GeoNames data is CC BY 4.0, and the window names GeoNames as the source.
+
+**A language model in the browser.** Keywords miss synonyms and phrasing: "nawa główna", "Kreuzgang", "the altar seen from the choir". Below the suggestions, a button reads the texts with a small multilingual model ([multilingual-e5-small](https://huggingface.co/Xenova/multilingual-e5-small), about 120 MB, MIT), run in the browser by [transformers.js](https://huggingface.co/docs/transformers.js) (`viewer/editor/scene-semantic.js`). It cuts the texts into short passages and compares their embeddings with a few descriptions of each class in English, Polish and German: outdoors, an interior or an object on its own; documentation or a reconstruction; relief to read or not. The best matches become probabilities. The rules take them as weaker evidence than words found (a setting at 85 % counts for about as much as a building's name). Where no words decide, they settle the purpose and the raking light.
+
+- Nothing is sent: the library and the weights are downloaded, once, and kept in the browser's cache. The texts stay in the browser.
+- The first time, it runs on the user's click. After that the browser remembers the consent, and the model reads the texts by itself whenever the rules are unsure of the setting (below 60 %).
+- `viewer.sceneSuggest.semantic` in `viewer-settings.json` turns it off (`false`) or points it at other hosts: the library, the model and ONNX Runtime's `.wasm` files can be served by the deployment itself (see [viewer-settings](viewer-settings.md)). By default they come from jsDelivr and the Hugging Face hub.
+
+A later step can ask Claude when both are unsure. It would get the same facts (the texts and the measured descriptors, never the model) and answer in the same structure.
+
 ## Tests
 
 ```bash

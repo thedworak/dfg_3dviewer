@@ -27,7 +27,7 @@ const CATEGORIES = [
     id: "look",
     label: () => t("menus.look", "Look"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["projection", "lights", "weather", "environmentMap", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
+    tools: ["projection", "lights", "weather", "sceneSuggest", "environmentMap", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
   },
   {
     id: "analysis",
