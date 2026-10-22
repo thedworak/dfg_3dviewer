@@ -2244,6 +2244,7 @@ export function attachAnnotations(Viewer) {
         const appliedTimeline = this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
         const appliedVariants = this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
         const appliedPhotos = this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
+        const appliedSceneSuggest = this.apply3IFManifestSceneSuggest?.(aim3dConfig.sceneSuggest) === true;
 
         appliedAIM3DConfig = [
           appliedCamera,
@@ -2258,6 +2259,7 @@ export function attachAnnotations(Viewer) {
           appliedTimeline,
           appliedVariants,
           appliedPhotos,
+          appliedSceneSuggest,
         ].some(Boolean);
       }
 

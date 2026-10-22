@@ -1,0 +1,217 @@
+/* The admin pages (/exadmin/, viewer/exadmin/). Lists, rows, buttons and the
+   confirmation dialog come from the viewer's panel stylesheets; their colours
+   (--viewer-panel-*) are set here for the whole page, dark by default like
+   the viewer (main.css .viewer-wrapper). */
+@import "./upload-panel.css?v=a4115301";
+@import "./models-panel.css?v=a4115301";
+@import "./admin-users.css?v=a4115301";
+
+:root {
+  color-scheme: dark;
+  --viewer-brand-blue: #d9c3a0;
+  --viewer-page-bg: #0f0d0b;
+  --viewer-panel-bg: rgba(22, 19, 16, 0.82);
+  --viewer-panel-embed-bg: rgba(22, 19, 16, 0.92);
+  --viewer-panel-border: rgba(255, 255, 255, 0.12);
+  --viewer-panel-shadow: 0 12px 30px rgba(12, 10, 8, 0.28);
+  --viewer-panel-text: rgba(255, 255, 255, 0.94);
+}
+
+:root[data-viewer-theme="light"] {
+  color-scheme: light;
+  --viewer-brand-blue: #4a3d2c;
+  --viewer-page-bg: #f7f5f1;
+  --viewer-panel-bg: rgba(252, 250, 246, 0.94);
+  --viewer-panel-embed-bg: rgba(255, 253, 249, 0.98);
+  --viewer-panel-border: rgba(164, 151, 132, 0.28);
+  --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
+  --viewer-panel-text: rgba(37, 33, 28, 0.92);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--viewer-page-bg);
+  color: var(--viewer-panel-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.exadmin-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  backdrop-filter: blur(6px);
+}
+
+.exadmin-header h1 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.exadmin-header a {
+  color: inherit;
+}
+
+.exadmin-nav {
+  display: flex;
+  gap: 4px;
+  flex: 1 1 auto;
+}
+
+.exadmin-nav a {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  opacity: 0.75;
+}
+
+.exadmin-nav a:hover {
+  opacity: 1;
+}
+
+.exadmin-nav a[aria-current="page"] {
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+  opacity: 1;
+}
+
+.exadmin-account {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.exadmin-account button,
+.exadmin-account select,
+.exadmin-login button,
+.exadmin-login input {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  padding: 5px 10px;
+}
+
+.exadmin-account button,
+.exadmin-login button {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exadmin-account button:hover,
+.exadmin-login button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+}
+
+.exadmin-account select option {
+  color: initial;
+}
+
+.exadmin-main {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+
+.exadmin-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.exadmin-section-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.exadmin-section-header .admin-users-sort {
+  margin: 0;
+}
+
+.exadmin-message {
+  margin: 24px 0;
+  opacity: 0.8;
+}
+
+.exadmin-message[data-tone="error"] {
+  color: #d54646;
+  opacity: 1;
+}
+
+.exadmin-login {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(340px, 100%);
+  margin: 48px auto;
+  padding: 18px 20px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-embed-bg);
+  box-shadow: var(--viewer-panel-shadow);
+}
+
+.exadmin-login h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.exadmin-login .exadmin-message {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 12px;
+}
+
+/* The viewer's dialog covers its container; here the window. */
+.exadmin-confirm-backdrop {
+  position: fixed;
+}
+
+.exadmin-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 100001;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exadmin-toast {
+  padding: 8px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: var(--viewer-panel-embed-bg);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.exadmin-toast[data-tone="success"] {
+  border-color: color-mix(in srgb, #3caa5b 60%, var(--viewer-panel-border));
+}
+
+.exadmin-toast[data-tone="error"] {
+  border-color: color-mix(in srgb, #d54646 60%, var(--viewer-panel-border));
+  color: #d54646;
+}

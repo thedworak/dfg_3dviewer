@@ -201,7 +201,7 @@
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(12, 10, 8, 0.45);
   z-index: 100000;
 }
 
@@ -289,6 +289,24 @@
   cursor: pointer;
 }
 
+/* On touch screens a grip says the window can be dragged by its header. */
+@media (pointer: coarse) {
+  .panel-window-handle::before {
+    content: "⠿";
+    flex: none;
+    margin-right: 8px;
+    opacity: 0.6;
+  }
+
+  .panel-window-handle {
+    justify-content: flex-start;
+  }
+
+  .panel-window-handle > :last-child {
+    margin-left: auto;
+  }
+}
+
 /* Password input with a show/hide button inside it (ui/password-field.js). */
 .password-field {
   position: relative;
@@ -330,7 +348,7 @@
 }
 
 .password-field > button.password-toggle:focus-visible {
-  outline: 2px solid var(--viewer-brand-blue, #7db6de);
+  outline: 2px solid var(--viewer-brand-blue, #d9c3a0);
   outline-offset: 1px;
 }
 

@@ -227,7 +227,7 @@ Each suggestion has a confidence and its reasons; the window ticks those at leas
 - `Viewer.applySceneSuggestion(keys)` / `Viewer.undoSceneSuggestion()`
   - Applies the ticked (or the given) suggestions through `setSunOptions`/`setSunStudy`, `setWeatherOptions`/`setWeather`, `setRakingLight` and `applyRenderingSettings`; puts back the scene from before.
 
-- `Viewer.toggleSceneSuggestPanel(open)` / `Viewer.disposeSceneSuggest()`
+- `Viewer.toggleSceneSuggestPanel(open)` / `Viewer.apply3IFManifestSceneSuggest(config)` / `Viewer.disposeSceneSuggest()`
   - The window; closed and forgotten when a model is unloaded.
 
 

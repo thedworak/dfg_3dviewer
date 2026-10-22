@@ -734,6 +734,20 @@ export function attachSceneSuggest(Viewer) {
       ui.undoButton.hidden = !Viewer.sceneSuggestion.undo;
     },
 
+    // A manifest's AIM3DViewer.sceneSuggest: the window open on load, for
+    // the purpose it names (else the rules'). Nothing is applied. After the
+    // manifest's camera and the models' own features are in place.
+    apply3IFManifestSceneSuggest(config) {
+      if (!config || typeof config !== "object" || config.open !== true) return false;
+      const manifest = Viewer.currentManifest;
+      setTimeout(() => {
+        if (Viewer.currentManifest !== manifest) return;
+        Viewer.sceneSuggestion.purpose = config.purpose === "documentation" || config.purpose === "presentation" ? config.purpose : null;
+        Viewer.toggleSceneSuggestPanel(true);
+      }, 0);
+      return true;
+    },
+
     // Before a new model: what was suggested was for the old one.
     disposeSceneSuggest() {
       Viewer.removeSceneSuggestPanel();

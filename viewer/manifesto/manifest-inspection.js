@@ -111,6 +111,7 @@ export const MANIFEST_FEATURES = [
   { id: "location", label: "Geographic location", count: (m) => has(block(m).location) },
   { id: "sun", label: "Sun study", count: (m) => has(block(m).sun) },
   { id: "weather", label: "Weather", count: (m) => has(block(m).weather) },
+  { id: "scene-suggest", label: "Suggested scene", count: (m) => has(block(m).sceneSuggest) },
   {
     id: "certainty",
     label: "Level of certainty",
@@ -462,6 +463,7 @@ const AIM3D_BLOCK = obj({
     sky: BOOL,
     surfaces: BOOL,
   }, { expect: [["type", "error"]] })),
+  sceneSuggest: tag("scene-suggest", obj({ open: BOOL, purpose: leaf(oneOf(["documentation", "presentation"])) })),
   thumbnails: tag("thumbnails", arr(alt({ string: FILE_URL, object: obj({ src: FILE_URL, label: LANG }, { expect: [["src", "error"]] }) }))),
   modelTransform: tag("transform", obj({
     position: VEC3,

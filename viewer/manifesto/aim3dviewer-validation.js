@@ -673,6 +673,17 @@ function validateWeather(weather, path, errors) {
   });
 }
 
+// AIM3DViewer.sceneSuggest (editor/scene-suggest.js): the Suggested scene
+// window open on load, for a purpose.
+function validateSceneSuggest(sceneSuggest, path, errors) {
+  if (!isPlainObject(sceneSuggest)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (sceneSuggest.open !== undefined) validateBoolean(sceneSuggest.open, `${path}.open`, errors);
+  if (sceneSuggest.purpose !== undefined) validateEnum(sceneSuggest.purpose, ["documentation", "presentation"], `${path}.purpose`, errors);
+}
+
 function validateAIM3DViewerBlock(block, path, errors) {
   if (!isPlainObject(block)) {
     pushError(errors, path, "must be an object");
@@ -700,6 +711,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.location !== undefined) validateLocation(block.location, `${path}.location`, errors);
   if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
   if (block.weather !== undefined) validateWeather(block.weather, `${path}.weather`, errors);
+  if (block.sceneSuggest !== undefined) validateSceneSuggest(block.sceneSuggest, `${path}.sceneSuggest`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));

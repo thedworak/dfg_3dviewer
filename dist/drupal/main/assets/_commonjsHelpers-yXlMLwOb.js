@@ -1,0 +1,2 @@
+var e="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof self?self:{};function t(e){return e&&e.__esModule&&Object.prototype.hasOwnProperty.call(e,"default")?e.default:e}function l(e){return e&&Object.prototype.hasOwnProperty.call(e,"default")&&1===Object.keys(e).length?e.default:e}export{t as a,e as c,l as g};
+//# sourceMappingURL=_commonjsHelpers-BM3SlaW3.js.map

@@ -458,6 +458,48 @@ taken as proleptic Gregorian. While the sun is on, the other lights and the
 environment are dimmed to a sky light (the raking light is switched off).
 `location` is exported once a place is set; `sun` while it is on.
 
+## `AIM3DViewer.weather`
+
+The weather around the model (*Look > Weather*): a clear sky, fog, rain,
+snow or a thunderstorm, with wind; the rain and the snow stop on the
+model's roofs (no rain under them), the rain splashes and bounces there, the
+model gets wet and snow settles on what faces up; fog lies in clumps of
+mist. At full intensity rain is a downpour. Exported while it is on.
+
+```json
+"weather": { "type": "snow", "intensity": 0.6, "wind": 0.2, "windDirection": 230 }
+```
+
+- `type` (required): `"clear"`, `"fog"`, `"rain"`, `"snow"` or `"storm"`
+- `intensity`: 0 to 1 (default `0.6`)
+- `wind`: 0 to 1 (default `0.2`); a storm brings at least some
+- `windDirection`: where the wind blows to - degrees clockwise from -Z, seen from above, as `location.north` (default `230`)
+- `mistHeight`, `mistDensity`: the mist's height (0 to 1: 0.15 to 1.15 model sizes, default `0.4`) and density (default `0.5`)
+- `mistSpread`: 0 lays the mist in clumps with gaps (low clouds), 1 as an even blanket thinning upwards (default `0.6`)
+- `sky`: show the sky (three's `Sky`, with clouds) around the model (default `true`); the sun stands where the sun study puts it, else where the key light comes from
+- `surfaces`: wet surfaces and snow cover on the model (default `true`)
+
+The sound (rain, wind, thunder) is the viewer's own choice and is not
+stored. The URL parameter `?weather=<type>` switches it on as well.
+
+## `AIM3DViewer.sceneSuggest`
+
+The Suggested scene window (*Look > Suggested scene*) open when the manifest
+loads: what the rules make of the model's texts, place, year, size and shape
+(see [docs/ai.md](../../docs/ai.md), section 5). Nothing changes until the
+user applies the suggestions.
+
+```json
+"sceneSuggest": { "open": true, "purpose": "documentation" }
+```
+
+- `open`: open the window on load (default `false`)
+- `purpose`: `"documentation"` or `"presentation"`, the purpose shown first (default: the one the rules pick)
+
+It is not exported. The examples `*-scene-*.json` use it: each sets the
+texts, the place or the camera the rules read, and leaves the lighting to
+the suggestions.
+
 ## `AIM3DViewer.photos`
 
 Historical photographs (or drawings, paintings) laid over the model from the
@@ -599,7 +641,7 @@ lists (`manifestFeatureIcons(inspection)`):
 
 `model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
 `raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
-`location`, `sun`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`location`, `sun`, `weather`, `certainty`, `thumbnails`, `transform`, `rendering`,
 `tour`, `settings`, `manifest` (the IIIF structure itself).
 
 Each attribute gets a level:

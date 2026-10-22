@@ -1,0 +1,168 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/tempietto/Tempietto.glb/manifest-object-scene.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Tempietto - suggested scene: a table-top model (AIM3D, localhost)"
+    ],
+    "pl": [
+      "Tempietto - sugerowana scena: makieta na stole (AIM3D, localhost)"
+    ],
+    "de": [
+      "Tempietto - vorgeschlagene Szene: ein Tischmodell (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/tempietto/Tempietto.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 0.05,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Tempietto"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-22T00:00:00.000Z",
+    "camera": {
+      "position": [
+        6.5,
+        4.5,
+        9.5
+      ],
+      "target": [
+        0,
+        2.3,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 11.72,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#404040",
+        "intensity": 1
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          0,
+          30,
+          15
+        ],
+        "target": [
+          0,
+          2.3,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 1
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "standard"
+    },
+    "sceneSuggest": {
+      "open": true
+    }
+  },
+  "modified": "2026-10-22T00:00:00.000Z",
+  "summary": {
+    "en": [
+      "The Tempietto as a museum artefact: an architectural model 30 cm long (Scene.spatialScale 5 cm). Its size makes it an object on its own, lit as in a studio, without the sun of a place."
+    ],
+    "pl": [
+      "Tempietto jako artefakt muzealny: makieta architektoniczna długości 30 cm (Scene.spatialScale 5 cm). Rozmiar czyni z niej obiekt sam w sobie, oświetlony jak w studiu, bez słońca danego miejsca."
+    ],
+    "de": [
+      "Das Tempietto als Museumsartefakt: ein Architekturmodell von 30 cm Länge (Scene.spatialScale 5 cm). Seine Größe macht es zu einem Objekt für sich, wie im Studio beleuchtet, ohne die Sonne eines Ortes."
+    ]
+  }
+}

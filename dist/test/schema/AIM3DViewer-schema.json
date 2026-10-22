@@ -256,6 +256,32 @@
           },
           "additionalProperties": true
         },
+        "weather": {
+          "description": "The weather around the model (Look > Weather); exported while on.",
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "enum": ["clear", "fog", "rain", "snow", "storm"] },
+            "intensity": { "type": "number", "minimum": 0, "maximum": 1, "description": "Default 0.6." },
+            "wind": { "type": "number", "minimum": 0, "maximum": 1, "description": "Default 0.2; a storm brings at least some." },
+            "windDirection": { "type": "number", "description": "Where the wind blows to: degrees clockwise from -Z, seen from above (default 230)." },
+            "mistHeight": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's height: 0 to 1 is 0.15 to 1.15 model sizes (default 0.4)." },
+            "mistDensity": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's density (default 0.5)." },
+            "mistSpread": { "type": "number", "minimum": 0, "maximum": 1, "description": "0: clumps with gaps; 1: an even blanket thinning upwards (default 0.6)." },
+            "sky": { "type": "boolean", "description": "Show the sky with clouds around the model (default true)." },
+            "surfaces": { "type": "boolean", "description": "Wet surfaces and snow cover on the model (default true)." }
+          },
+          "additionalProperties": true
+        },
+        "sceneSuggest": {
+          "description": "The Suggested scene window (Look > Suggested scene) open when the manifest loads; nothing is applied until the user does.",
+          "type": "object",
+          "properties": {
+            "open": { "type": "boolean", "description": "Open the window on load (default false)." },
+            "purpose": { "enum": ["documentation", "presentation"], "description": "The purpose shown first (default: the one the rules pick)." }
+          },
+          "additionalProperties": true
+        },
         "photos": {
           "description": "Historical photos laid over the model from the camera they were taken from.",
           "type": "array",

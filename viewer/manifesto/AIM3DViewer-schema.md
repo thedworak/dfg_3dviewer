@@ -482,6 +482,24 @@ mist. At full intensity rain is a downpour. Exported while it is on.
 The sound (rain, wind, thunder) is the viewer's own choice and is not
 stored. The URL parameter `?weather=<type>` switches it on as well.
 
+## `AIM3DViewer.sceneSuggest`
+
+The Suggested scene window (*Look > Suggested scene*) open when the manifest
+loads: what the rules make of the model's texts, place, year, size and shape
+(see [docs/ai.md](../../docs/ai.md), section 5). Nothing changes until the
+user applies the suggestions.
+
+```json
+"sceneSuggest": { "open": true, "purpose": "documentation" }
+```
+
+- `open`: open the window on load (default `false`)
+- `purpose`: `"documentation"` or `"presentation"`, the purpose shown first (default: the one the rules pick)
+
+It is not exported. The examples `*-scene-*.json` use it: each sets the
+texts, the place or the camera the rules read, and leaves the lighting to
+the suggestions.
+
 ## `AIM3DViewer.photos`
 
 Historical photographs (or drawings, paintings) laid over the model from the

@@ -2625,3 +2625,229 @@
   color: #fff;
   font: 15px/1.2 system-ui, sans-serif;
 }
+
+/* Suggested scene (editor/scene-suggest.js): what the rules suggest, how
+   sure they are and why. */
+.viewer-scene {
+  width: 360px;
+  max-width: 100%;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.4 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+  max-height: min(640px, calc(100vh - 160px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.viewer-scene [hidden] {
+  display: none !important;
+}
+
+.viewer-scene button {
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-scene button:hover:not(:disabled) {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-scene button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.viewer-scene button:focus-visible,
+.viewer-scene input:focus-visible,
+.viewer-scene summary:focus-visible {
+  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline-offset: 2px;
+}
+
+.viewer-scene_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-scene_title {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.viewer-scene_icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 16px !important;
+}
+
+.viewer-scene_intro,
+.viewer-scene_uncertain,
+.viewer-scene_status {
+  margin: 6px 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.viewer-scene_uncertain {
+  color: var(--viewer-brand-gold, #e9b264);
+  opacity: 1;
+}
+
+.viewer-scene_purposes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.viewer-scene_purpose {
+  min-height: 34px;
+  padding: 4px 6px;
+  font-size: 12px !important;
+}
+
+.viewer-scene_purpose.is-active {
+  border-color: var(--viewer-brand-gold, #e9b264) !important;
+  background: rgba(233, 178, 100, 0.18) !important;
+}
+
+.viewer-scene_items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.viewer-scene_item label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  cursor: pointer;
+}
+
+.viewer-scene_item input {
+  grid-row: span 2;
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-scene_item-name {
+  font-weight: 600;
+}
+
+.viewer-scene_item-value {
+  grid-column: 2;
+  font-size: 12px;
+}
+
+.viewer-scene_confidence {
+  grid-column: 3;
+  grid-row: 1;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.viewer-scene_confidence[data-level="high"] {
+  background: rgba(120, 190, 120, 0.28);
+}
+
+.viewer-scene_confidence[data-level="low"] {
+  background: rgba(233, 178, 100, 0.22);
+}
+
+.viewer-scene_item.is-unchanged {
+  opacity: 0.6;
+}
+
+.viewer-scene_item.is-unchanged .viewer-scene_confidence {
+  background: transparent;
+}
+
+.viewer-scene_reasons {
+  display: block;
+  margin: 2px 0 0 26px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.viewer-scene_actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.viewer-scene_actions button {
+  min-height: 32px;
+  padding: 4px 12px;
+}
+
+.viewer-scene_apply:not(:disabled) {
+  border-color: var(--viewer-brand-gold, #e9b264) !important;
+}
+
+.viewer-scene_basis {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.viewer-scene_basis summary {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.viewer-scene_basis ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+@media (max-width: 640px) {
+  .viewer-scene {
+    max-height: 46vh;
+  }
+}
+
+@media (pointer: coarse) {
+  .viewer-scene_item input {
+    width: 20px;
+    height: 20px;
+  }
+
+  .viewer-scene_actions button {
+    min-height: 40px;
+  }
+}
+
+.viewer-scene_semantic {
+  margin-top: 8px;
+}
+
+.viewer-scene_semantic-button {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px !important;
+  text-align: left;
+}
+
+.viewer-scene_semantic-status {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}

@@ -1,0 +1,287 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/tempietto/Tempietto.glb/manifest-variants.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Tempietto - reconstruction variants, compared (AIM3D, localhost)"
+    ],
+    "pl": [
+      "Tempietto - warianty rekonstrukcji w porównaniu (AIM3D, localhost)"
+    ],
+    "de": [
+      "Tempietto - Rekonstruktionsvarianten im Vergleich (AIM3D, localhost)"
+    ]
+  },
+  "items": [
+    {
+      "id": "./examples/tempietto/Tempietto.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Tempietto"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-07T00:00:00.000Z",
+    "camera": {
+      "position": [
+        6.5,
+        4.5,
+        9.5
+      ],
+      "target": [
+        0,
+        2.3,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 11.72,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": true,
+          "antialias": "smaa",
+          "ao": true,
+          "aoIntensity": 0.8
+        }
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0.6
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          6,
+          10,
+          4
+        ],
+        "target": [
+          0,
+          2.3,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 2.2
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          8,
+          0
+        ],
+        "color": "#ffffff",
+        "groundColor": "#7aa0b0",
+        "intensity": 0.4
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "standard"
+    },
+    "variants": {
+      "label": {
+        "en": [
+          "Roof and fourth column: two hypotheses"
+        ],
+        "pl": [
+          "Dach i czwarta kolumna: dwie hipotezy"
+        ],
+        "de": [
+          "Dach und vierte Säule: zwei Hypothesen"
+        ]
+      },
+      "description": {
+        "en": [
+          "An invented example of how variants work: the same building with two readings of the lost parts. Tempietto is a sample model made for ExPlora4D, not a survey of a real building."
+        ],
+        "pl": [
+          "Wymyślony przykład działania wariantów: ten sam budynek w dwóch odczytaniach utraconych części. Tempietto to przykładowy model przygotowany dla ExPlora4D, a nie pomiar istniejącego budynku."
+        ],
+        "de": [
+          "Ein erfundenes Beispiel für Varianten: dasselbe Gebäude mit zwei Lesarten der verlorenen Teile. Das Tempietto ist ein für ExPlora4D erstelltes Beispielmodell, keine Vermessung eines realen Gebäudes."
+        ]
+      },
+      "active": "roofed",
+      "items": [
+        {
+          "id": "roofed",
+          "label": {
+            "en": [
+              "A: roofed temple"
+            ],
+            "pl": [
+              "A: świątynia zadaszona"
+            ],
+            "de": [
+              "A: überdachter Tempel"
+            ]
+          },
+          "description": {
+            "en": [
+              "Gabled roof with a skylight; the fourth column stood complete."
+            ],
+            "pl": [
+              "Dach dwuspadowy ze świetlikiem; czwarta kolumna stała w całości."
+            ],
+            "de": [
+              "Satteldach mit Oberlicht; die vierte Säule stand vollständig."
+            ]
+          },
+          "source": {
+            "en": [
+              "Analogy with temples of the same period (invented)"
+            ],
+            "pl": [
+              "Analogia do świątyń z tego okresu (wymyślona)"
+            ],
+            "de": [
+              "Analogie zu Tempeln derselben Zeit (erfunden)"
+            ]
+          },
+          "certainty": 4,
+          "nodes": [
+            "Roof_Hypothesis",
+            "Column_4_Reconstructed",
+            "Glazing"
+          ]
+        },
+        {
+          "id": "open",
+          "label": {
+            "en": [
+              "B: open monopteros"
+            ],
+            "pl": [
+              "B: otwarty monopteros"
+            ],
+            "de": [
+              "B: offener Monopteros"
+            ]
+          },
+          "description": {
+            "en": [
+              "No roof ever built; the fourth column broke early and its drum lies where it fell."
+            ],
+            "pl": [
+              "Dachu nigdy nie zbudowano; czwarta kolumna pękła wcześnie, a jej bęben leży tam, gdzie upadł."
+            ],
+            "de": [
+              "Nie überdacht; die vierte Säule brach früh, ihre Trommel liegt, wo sie fiel."
+            ]
+          },
+          "source": {
+            "en": [
+              "Survey of the remains (invented)"
+            ],
+            "pl": [
+              "Pomiar pozostałości (wymyślony)"
+            ],
+            "de": [
+              "Aufmaß der Reste (erfunden)"
+            ]
+          },
+          "certainty": 8,
+          "nodes": [
+            "Column_4_Stump",
+            "Fallen_Drum"
+          ]
+        }
+      ]
+    },
+    "compare": {
+      "mode": "swipe",
+      "position": 0.5,
+      "left": {
+        "variant": "roofed"
+      },
+      "right": {
+        "variant": "open"
+      }
+    }
+  },
+  "modified": "2026-10-13T00:00:00.000Z"
+}

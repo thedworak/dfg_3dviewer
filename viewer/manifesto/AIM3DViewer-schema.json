@@ -273,6 +273,15 @@
           },
           "additionalProperties": true
         },
+        "sceneSuggest": {
+          "description": "The Suggested scene window (Look > Suggested scene) open when the manifest loads; nothing is applied until the user does.",
+          "type": "object",
+          "properties": {
+            "open": { "type": "boolean", "description": "Open the window on load (default false)." },
+            "purpose": { "enum": ["documentation", "presentation"], "description": "The purpose shown first (default: the one the rules pick)." }
+          },
+          "additionalProperties": true
+        },
         "photos": {
           "description": "Historical photos laid over the model from the camera they were taken from.",
           "type": "array",

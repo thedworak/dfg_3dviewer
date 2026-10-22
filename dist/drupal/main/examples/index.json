@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "models": [
+    {"url": "./examples/tempietto/Tempietto.dae", "name": "DAE"},
+    {"url": "./examples/tempietto/Tempietto.stl", "name": "STL"},
+    {"url": "./examples/tempietto/Tempietto.ply", "name": "PLY"},
+    {"url": "./examples/tempietto/Tempietto.obj", "name": "OBJ"},
+    {"url": "./examples/tempietto/Tempietto.xyz", "name": "XYZ"},
+    {"url": "./examples/tempietto/Tempietto.pcd", "name": "PCD"},
+    {"url": "./examples/tempietto/Tempietto.3ds", "name": "3DS"},
+    {"url": "./examples/tempietto/Tempietto.ifc", "name": "IFC"},
+    {"url": "./examples/tempietto/Tempietto.fbx", "name": "FBX"},
+    {"url": "./examples/tempietto/Tempietto.glb", "name": "GLB"},
+    {"url": "./examples/tempietto/Tempietto.usdz", "name": "USDZ"},
+    {"url": "./examples/tempietto/Tempietto.usda", "name": "USDA"},
+    {"url": "./examples/tempietto/Tempietto.3mf", "name": "3MF"},
+    {"url": "./examples/tempietto/Tempietto.amf", "name": "AMF"},
+    {"url": "./examples/tempietto/Tempietto.wrl", "name": "WRL (VRML)"},
+    {"url": "./examples/tempietto/Tempietto.kmz", "name": "KMZ"},
+    {"url": "./examples/tempietto/Tempietto.vox", "name": "VOX"},
+    {"url": "./examples/tempietto/Tempietto.splat", "name": "Gaussian splats (SPLAT)", "app": false},
+    {"url": "./examples/tempietto/Tempietto-lod.rad", "name": "Gaussian splats (RAD, paged)", "app": false},
+    {"url": "./examples/box-missing-mtl.obj", "name": "OBJ (missing MTL)", "app": false},
+    {"url": "./examples/broken.glb", "name": "Broken GLB", "app": false},
+    {"url": "./examples/WolpaSynagogue.glb", "name": "Wolpa Synagogue", "app": false},
+    {"url": "./examples/WolpaSynagogue-progressive.glb", "name": "Wolpa Synagogue (progressive, Meshopt + KTX2)"},
+    {"url": "./examples/tiles/wolpa-points/tileset.json", "name": "Wolpa Synagogue (point cloud, 3D Tiles)"},
+    {"url": "./examples/points.laz", "name": "Point cloud (LAZ, UTM coordinates)"},
+    {"url": "./examples/potree/scan/metadata.json", "name": "Point cloud (Potree 2, classified)", "app": false},
+    {"url": "./examples/animated.glb", "name": "Animated GLB"}
+  ]
+}

@@ -15,6 +15,7 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
     "lights": [],
     "rakingLight": {},
     "timeline": {},
+    "thumbnails": [],
     "modelTransform": {}
   }
 }
@@ -226,10 +227,34 @@ Stores model transform and rendering flags.
     "order": "XYZ"
   },
   "scale": [1, 1, 1],
+  "upAxis": "Z+",
   "wireframe": false,
   "shadingMode": "clay"
 }
 ```
+
+`upAxis` (optional) names the axis of the model file that points up, for
+models that do not come in Y-up (three.js and glTF are Y-up). The viewer
+turns that axis to +Y when the model is loaded, before placing it on the grid
+and before `position`, `rotation` and `scale`, which are those of the upright
+model. Left out, the model is used as loaded (`Y+`).
+
+| Value | Model |
+|---|---|
+| `Y+` | Y-up (the default; not written on export) |
+| `Y-` | upside down |
+| `Z+` | Z-up: CAD, scans and photogrammetry exports (STL, PLY, OBJ, ...) |
+| `Z-` | Z-up, flipped |
+| `X+`, `X-` | X-up |
+
+The fix is applied under the model root (an inner pivot node, or the geometry
+of a single mesh), so `rotation` stays the rotation set in the editor.
+Streamed models (3D Tiles, Potree) are oriented by their loader and do not
+take `upAxis`; LAS/LAZ point clouds and Gaussian splats are already turned to
+Y-up when loaded, so `upAxis` turns them further. The same setting comes from
+the `upAxis` URL parameter (`?upAxis=Z` or `?upAxis=-Y`; a `+` in a URL reads as a space, which is fine, as a bare axis means its + side; the URL wins over the manifest), the
+`upAxis` of a model's entry in `viewer-settings.json` / `objectsConfig.models`,
+and the model's saved `_viewer.json` metadata.
 
 `shadingMode` (optional) sets how the model's surfaces are drawn; left out,
 the model keeps the materials it was loaded with:
@@ -310,9 +335,10 @@ around it into each other, so jumps and playback run smoothly.
   - `interpolate` (default): a year between two stages blends them in proportion, e.g. 1795 shows 1790 and 1810 half and half. Suits gradual change (weathering, growth)
   - `step`: the last stage reached is shown as it is; changing stage fades over `transitionDuration`. Suits building phases
 - `transitionDuration`: seconds a jump to another year (or a `step` fade) takes, `>= 0` (default `0.8`)
-- `playback.autoplay`, `playback.loop`: start playing on open, start over after the end (default `false`)
+- `playback.autoplay`: start playing on open (default `false`)
+- `playback.loop`: start over after the end (default `true`)
 - `playback.yearsPerSecond`: playback speed (default: the whole axis in 24 seconds)
-- `playback.speed`: multiple of `yearsPerSecond`, set in the panel (0.25× to 3×) and exported with the manifest (default `1`)
+- `playback.speed`: multiple of `yearsPerSecond`, set in the panel (0.25× to 3×) and exported with the manifest (default `0.5`)
 - `playback.pauseAtEvents`: seconds held on each `documented` stage while playing (default `1.5`)
 - `showPanel`: `false` hides the panel; the model stays at `year` (a fixed point in time, e.g. for an embed)
 - `stages[]`:
@@ -344,6 +370,190 @@ Fading draws the earlier stage as it is and the later one over it,
 transparent. Stages that share the geometry (the same building with other
 textures or vertex colours) blend cleanly; stages with different geometry
 cross over, the earlier one leaving at the end of the fade.
+
+## `AIM3DViewer.variants`
+
+Reconstruction variants: alternative hypotheses of the same object (two
+roofs, three versions of a lost tower), each a set of model nodes. One
+variant is shown at a time, chosen in the variants panel; nodes that belong
+to no variant are always shown.
+
+```json
+{
+  "label": { "en": ["Roof and fourth column: two hypotheses"] },
+  "active": "roofed",
+  "items": [
+    {
+      "id": "roofed",
+      "label": { "en": ["A: roofed temple"] },
+      "description": { "en": ["Gabled roof with a skylight; the fourth column stood complete."] },
+      "source": { "en": ["Analogy with temples of the same period"] },
+      "certainty": 4,
+      "nodes": ["Roof_Hypothesis", "Column_4_Reconstructed"]
+    },
+    { "id": "open", "label": { "en": ["B: open monopteros"] }, "certainty": 8, "nodes": ["Column_4_Stump", "Fallen_Drum"] }
+  ]
+}
+```
+
+- `enabled`: `false` turns off variants the model carries itself (default `true`)
+- `active`: id of the variant shown (default the first); exported as the one shown
+- `label`, `description`: panel title and the text under it
+- `showPanel`: `false` hides the panel; `active` stays shown
+- `items[]` (at least two):
+  - `id` (required, unique): used by `active`, `AIM3DViewer.compare` and the `variant` URL parameter
+  - `label`, `description`, `source`: shown in the panel
+  - `certainty`: a value on the Level of Certainty scale (`AIM3DViewer.certainty`, else the default one), shown as the level's code and symbol in its colour
+  - `nodes`: names of the model nodes of the variant. Left out, the nodes of the model's variant with the same id are used
+
+Keep the variants' nodes apart from the timeline's stage nodes: the timeline
+shows and hides its own nodes by year, the variants theirs by choice.
+
+### Variants in the model (glTF)
+
+- `scenes[n].extras.variants`: the same object as above, or just its `items` array, or
+- `nodes[n].extras.variant`: the variant id on each node of it (optional `variantLabel`, `variantDescription`); at least two ids make a set of variants
+
+## `AIM3DViewer.compare`
+
+The comparison view, open when the manifest loads. The scene is drawn twice
+per frame, once for each side: a variant, or a year of the timeline (the last
+stage reached in that year).
+
+```json
+{ "mode": "swipe", "position": 0.5, "left": { "variant": "roofed" }, "right": { "variant": "open" } }
+```
+
+- `mode`: `swipe` (default) - one view split by a divider dragged across the canvas (arrow keys move it once it has focus); `split` - the two sides side by side, the camera shared
+- `position`: where the divider stands in `swipe` mode, `0` to `1` across the canvas (default `0.5`)
+- `left`, `right`: `{ "variant": "<id>" }` or `{ "year": 1730 }`. Left out: the variant shown and the next one, or the first and last stage of the timeline
+- `enabled`: `false` keeps the comparison closed
+
+The comparison is exported while it is open. The URL parameters `compare`
+(`swipe` or `split`), `compareLeft`, `compareRight` (a variant id or a year)
+and `variant` (the variant shown) override the manifest.
+
+## `AIM3DViewer.location` and `AIM3DViewer.sun`
+
+The sun where it stood at the model's place on a day and hour, casting
+shadows on the model and the ground (*Lights > Sun and shadows*). With a 4D
+timeline the year is the timeline's, so a building is lit as in its own time.
+
+```json
+"location": { "latitude": 41.8894, "longitude": 12.4702, "north": 30, "utcOffset": 1 },
+"sun": { "enabled": true, "date": "06-21", "time": "17:30" }
+```
+
+- `location.latitude`, `location.longitude` (required): degrees, north and east positive
+- `location.north`: where north lies in the scene - degrees clockwise from -Z, seen from above (default `0`: north is -Z, east +X). The model's up is +Y
+- `location.utcOffset`: hours the local time is ahead of UTC (default: the longitude / 15, rounded - local mean time)
+- `sun.date`: `"MM-DD"`, or `"YYYY-MM-DD"`; `sun.time`: local `"HH:MM"` (default: the day and time now, at the model's place)
+- `sun.followTimeline`: take the year from the timeline (default `true`); without a timeline the date's year is used
+- `sun.animate`: play the day on open (default `false`)
+
+The panel sets the time of day (or plays the day), the day, the place and
+north, and shows the sun's azimuth and elevation, sunrise and sunset. The
+solar position is good to a fraction of a degree; dates before 1582 are
+taken as proleptic Gregorian. While the sun is on, the other lights and the
+environment are dimmed to a sky light (the raking light is switched off).
+`location` is exported once a place is set; `sun` while it is on.
+
+## `AIM3DViewer.weather`
+
+The weather around the model (*Look > Weather*): a clear sky, fog, rain,
+snow or a thunderstorm, with wind; the rain and the snow stop on the
+model's roofs (no rain under them), the rain splashes and bounces there, the
+model gets wet and snow settles on what faces up; fog lies in clumps of
+mist. At full intensity rain is a downpour. Exported while it is on.
+
+```json
+"weather": { "type": "snow", "intensity": 0.6, "wind": 0.2, "windDirection": 230 }
+```
+
+- `type` (required): `"clear"`, `"fog"`, `"rain"`, `"snow"` or `"storm"`
+- `intensity`: 0 to 1 (default `0.6`)
+- `wind`: 0 to 1 (default `0.2`); a storm brings at least some
+- `windDirection`: where the wind blows to - degrees clockwise from -Z, seen from above, as `location.north` (default `230`)
+- `mistHeight`, `mistDensity`: the mist's height (0 to 1: 0.15 to 1.15 model sizes, default `0.4`) and density (default `0.5`)
+- `mistSpread`: 0 lays the mist in clumps with gaps (low clouds), 1 as an even blanket thinning upwards (default `0.6`)
+- `sky`: show the sky (three's `Sky`, with clouds) around the model (default `true`); the sun stands where the sun study puts it, else where the key light comes from
+- `surfaces`: wet surfaces and snow cover on the model (default `true`)
+
+The sound (rain, wind, thunder) is the viewer's own choice and is not
+stored. The URL parameter `?weather=<type>` switches it on as well.
+
+## `AIM3DViewer.sceneSuggest`
+
+The Suggested scene window (*Look > Suggested scene*) open when the manifest
+loads: what the rules make of the model's texts, place, year, size and shape
+(see [docs/ai.md](../../docs/ai.md), section 5). Nothing changes until the
+user applies the suggestions.
+
+```json
+"sceneSuggest": { "open": true, "purpose": "documentation" }
+```
+
+- `open`: open the window on load (default `false`)
+- `purpose`: `"documentation"` or `"presentation"`, the purpose shown first (default: the one the rules pick)
+
+It is not exported. The examples `*-scene-*.json` use it: each sets the
+texts, the place or the camera the rules read, and leaves the lighting to
+the suggestions.
+
+## `AIM3DViewer.photos`
+
+Historical photographs (or drawings, paintings) laid over the model from the
+camera they were taken from, so the reconstruction can be checked against
+its sources. Opening a photo in the panel (*Annotations > Historical photos*)
+flies the camera to its view and shows the photo over the canvas, faded in,
+or cut by a divider. Moving the camera hides the photo until its view is
+restored.
+
+```json
+[
+  {
+    "id": "postcard-1912",
+    "src": "./examples/tempietto/photos/Tempietto_1912.webp",
+    "label": { "en": ["Postcard, about 1912"] },
+    "source": { "en": ["Private collection"] },
+    "year": 1912,
+    "opacity": 0.6,
+    "view": { "position": [9.1, 3.2, 11.4], "target": [0, 1.6, 0], "fov": 38, "roll": 0 }
+  },
+  { "service": "https://iiif.example.org/iiif/3/photo-17", "label": { "en": ["Survey photo"] } }
+]
+```
+
+- `src`: image URL; a URL ending in `info.json`, or `service` (a IIIF Image API service, its URL or `{ "id": ... }`), asks the service for the image at up to 2000 px
+- `label`, `description`, `source`: shown in the panel
+- `year`: the 4D timeline goes to this year when the photo opens
+- `opacity`: how strongly the photo covers the model, `0` to `1` (default `0.6`)
+- `view`: the camera the photo was taken from, in scene coordinates: `position`, `target`, `fov` (vertical field of view, degrees) and `roll` (the photo's tilt, degrees clockwise). The photo is fitted to the canvas height, which the vertical field of view spans, so it lines up at any canvas width. Without a view the photo is shown over whatever the camera sees
+
+A photo is added in the panel from a URL or a file and taken from the
+current view; *Align* keeps it on screen while the camera, the lens and the
+tilt are matched to it, *Save view* keeps that pose. Photos from a file are
+shown for the session only and are left out of an export (they have no URL).
+
+## `AIM3DViewer.thumbnails`
+
+Renders of the model shown in the thumbnail gallery, in this order. The list
+may have any length. Each entry is a URL or an object with `src` and an
+optional `label` (a string or a language map, used as the image's alt text).
+
+```json
+[
+  "./examples/gallery/tempietto/Tempietto_side0.png",
+  { "src": "./examples/gallery/tempietto/Tempietto_top.png", "label": { "en": ["Top view"], "pl": ["Widok z góry"] } }
+]
+```
+
+- Relative URLs (`./...`) resolve like the manifest's model URLs.
+- A manifest without `thumbnails` (or with an empty list) shows the viewer's
+  generic placeholder images, never the renders of a previous manifest.
+- An image that fails to load is replaced by a generic placeholder.
+
+See [tempietto-aim3d-thumbnails.json](./examples/tempietto-aim3d-thumbnails.json).
 
 ## `AIM3DViewer.certainty`
 
@@ -422,3 +632,45 @@ The XML export for Drupal (`iiif:annotations`) carries the same as
 - `AIM3DViewer.viewer.menuToolbar` is kept as a backward-compatibility field for older manifests.
 - The importer also accepts `AIM3DViewer.clipping` as a backward-compatibility fallback.
 - `camera.zoom` is read from the camera state and should be treated as the source of truth for orthographic view restoration.
+## Inspection: what a manifest contains, value by value
+
+`manifest-inspection.js` (`inspectAIM3DManifest(manifest)`) checks every
+attribute of a manifest - every leaf of the JSON, the IIIF part as well as
+`AIM3DViewer` - and groups them into features, one icon each in the manifest
+lists (`manifestFeatureIcons(inspection)`):
+
+`model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
+`raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
+`location`, `sun`, `weather`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`tour`, `settings`, `manifest` (the IIIF structure itself).
+
+Each attribute gets a level:
+
+- `error` - the viewer cannot use the value: wrong type, out of range, an
+  unknown enum value, a required key missing. Everything
+  `validateAIM3DManifest` rejects is an error here too.
+- `warning` - it loads, but is probably wrong: an empty text, a URL with
+  spaces or pointing at `localhost`, a colour the browser does not know, a
+  date that is not ISO 8601, a language key that is not a language code, a
+  media type like `glb`, a zero `camera.up` or `modelTransform.scale`, a
+  compared variant that does not exist, an annotation targeting a scene the
+  manifest does not have, a duplicate IIIF id, a stage outside the timeline.
+- `info` - worth knowing: an attribute the viewer does not know and ignores,
+  a recommended one not set (`summary`, `rights`, labels of photos and
+  variants), `rights` that is neither Creative Commons nor
+  RightsStatements.org, a file served over http.
+
+```json
+{
+  "status": "warning",
+  "summary": { "errors": 0, "warnings": 1, "infos": 2, "attributes": 154, "unknown": 0 },
+  "features": [{ "id": "timeline", "icon": "timeline", "label": "4D timeline", "present": true, "count": 3, "status": "ok", "errors": 0, "warnings": 0 }],
+  "attributes": [{ "path": "$.AIM3DViewer.viewer.backgroundColor", "value": "#12345", "level": "warning", "feature": "rendering", "known": true, "issues": [{ "level": "warning", "message": "is not a colour (#rrggbb expected)" }] }]
+}
+```
+
+From the command line: `node scripts/inspect-manifest.mjs manifest.json`
+(issues and the features it contains), `--all` for every attribute, `--json`
+for the full report; it exits 1 when a manifest has errors. Models
+themselves are checked by the conversion worker (`validation.json`, see
+`worker/README.md`).

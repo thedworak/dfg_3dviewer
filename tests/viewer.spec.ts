@@ -5186,6 +5186,41 @@ test('suggested scene, language model: read on a click, then by itself where the
   expect(await page.evaluate(() => window.__embedded)).toBeGreaterThan(0);
 });
 
+test('suggested scene from a manifest: the window open on load, for its purpose; the examples read as they say', async ({ page }) => {
+  const examples = fs.readdirSync('viewer/manifesto/examples').filter((file) => file.includes('-scene-'));
+  expect(examples).toHaveLength(5);
+  examples.forEach((file) => {
+    const manifest = JSON.parse(fs.readFileSync(`viewer/manifesto/examples/${file}`, 'utf8'));
+    expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+    expect(manifest.AIM3DViewer.sceneSuggest.open).toBe(true);
+  });
+  const broken = { ...JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-scene-winter.json', 'utf8')) };
+  broken.AIM3DViewer = { ...broken.AIM3DViewer, sceneSuggest: { open: 'yes', purpose: 'mood' } };
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual(['$.AIM3DViewer.sceneSuggest.open', '$.AIM3DViewer.sceneSuggest.purpose']);
+
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const read = (file) => page.evaluate(async (url) => {
+    await window.Viewer.setupManifesto(url, 'url', 'aim3if');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const result = window.Viewer.sceneSuggestion.result;
+    const item = (key) => result.items.find((entry) => entry.key === key);
+    return { open: window.Viewer.isSceneSuggestPanelOpen(), purpose: result.purpose, setting: result.setting.setting, sun: item('sun').value, weather: item('weather').value };
+  }, `./manifests/${file}`);
+  // A foggy winter morning in Rome: the January sun after sunrise, fog.
+  expect(await read('tempietto-aim3d-scene-winter.json')).toMatchObject({
+    open: true, purpose: 'presentation', setting: 'outdoor', sun: { enabled: true, month: 1 }, weather: { type: 'fog' },
+  });
+  // Its size (5 cm a unit) makes it an object on its own.
+  expect(await read('tempietto-aim3d-scene-object.json')).toMatchObject({ open: true, setting: 'studio', sun: { enabled: false } });
+  // The camera among the walls: an interior.
+  expect(await read('wolpa-synagogue-aim3d-local-scene-interior.json')).toMatchObject({ open: true, setting: 'indoor', sun: { enabled: false } });
+  expect(await read('wolpa-synagogue-aim3d-local-scene-documentation.json')).toMatchObject({ open: true, purpose: 'documentation', setting: 'outdoor' });
+  // A manifest without it leaves the window closed.
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-aim3d-local.json', 'url', 'aim3if'));
+  await expect.poll(() => page.evaluate(() => window.Viewer.isSceneSuggestPanelOpen())).toBe(false);
+});
+
 test('suggested scene, geometry: walls seen from inside, a ceiling, an open ground, flat sites and thin plates', async ({ page }) => {
   const item = (result, key) => result.items.find((entry) => entry.key === key);
   const hall = { size: { x: 12, y: 8, z: 20 }, unitSource: 'file', text: '' };
