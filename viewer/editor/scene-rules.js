@@ -221,12 +221,15 @@ function decideSetting(facts, keywords, size) {
   // stands among them. Walls all round seen from outside are a building
   // with its interior modelled (the camera of a manifest outside the box);
   // with the camera unknown (the viewer's own framing) they count, but not
-  // against a building's name.
+  // against a building's name. So do the words: an "Interior" (a part's
+  // name) of a named building seen from a manifest's camera outside is
+  // the building's, and weighs less than its name and size.
   const shape = facts.shape;
   const walls = Number.isFinite(shape?.enclosure) && shape.enclosure >= 0.7;
   const enclosed = walls && facts.cameraInside !== false;
-  const built = keywords.indoor || (enclosed && (facts.cameraInside === true || !keywords.building)) ? "indoor" : "outdoor";
-  if (keywords.indoor) add("indoor", 0.9, { key: "keywords", words: keywords.indoor });
+  const seenOutside = facts.cameraInside === false && Boolean(keywords.building);
+  const built = (keywords.indoor && !seenOutside) || (enclosed && (facts.cameraInside === true || !keywords.building)) ? "indoor" : "outdoor";
+  if (keywords.indoor) add("indoor", seenOutside ? 0.3 : 0.9, { key: "keywords", words: keywords.indoor });
   if (keywords.building) add(built, 0.5, { key: "keywords", words: keywords.building });
   if (keywords.object) add("studio", 0.5, { key: "keywords", words: keywords.object });
   if (facts.ifc) add(built, 0.3, { key: "ifc" });

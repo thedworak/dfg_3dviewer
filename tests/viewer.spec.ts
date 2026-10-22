@@ -5200,6 +5200,9 @@ test('suggested scene, geometry: walls seen from inside, a ceiling, an open grou
   expect(suggestScene({ ...modelled, cameraInside: false }).setting).toMatchObject({ setting: 'outdoor', confidence: 0.85 });
   expect(suggestScene(modelled).setting.setting).toBe('outdoor');
   expect(suggestScene({ ...modelled, cameraInside: true }).setting.setting).toBe('indoor');
+  // A part named "Interior" of a temple seen from outside: still outdoors.
+  expect(suggestScene({ ...modelled, text: 'Tempietto. Interior, Roof', cameraInside: false }).setting.setting).toBe('outdoor');
+  expect(suggestScene({ ...modelled, text: 'Tempietto. Interior, Roof', cameraInside: true }).setting.setting).toBe('indoor');
   // A closed building seen from its own inside is no interior.
   expect(suggestScene({ ...hall, shape: { up: 0.3, down: 0.01, sideways: 0.6, groundCover: 0.1, enclosure: 0, shell: 0.9 } }).setting.setting).toBe('outdoor');
   // An open, flat site.
