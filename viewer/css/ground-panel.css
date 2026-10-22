@@ -1,0 +1,86 @@
+/* The Ground window (ui/ground-panel.js): one tile per ground. */
+
+#groundPanel[hidden] {
+  display: none !important;
+}
+
+#groundPanel {
+  position: absolute;
+  left: 50%;
+  top: min(8%, 48px);
+  transform: translateX(-50%);
+  width: min(380px, calc(100vw - 36px));
+  max-height: min(calc(100% - min(8%, 48px) - 8px), 560px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 14px 16px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.3;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.ground-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ground-panel-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 6px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: var(--viewer-panel-bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ground-panel-tile:hover {
+  border-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent);
+}
+
+.ground-panel-tile:focus-visible {
+  outline: 2px solid #d9a35a;
+  outline-offset: 2px;
+}
+
+.ground-panel-tile.is-active {
+  border-color: #d9a35a;
+  background: color-mix(in srgb, #d9a35a 18%, var(--viewer-panel-bg));
+}
+
+.ground-panel-icon {
+  display: block;
+  width: 56px;
+  height: 56px;
+}
+
+.ground-panel-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ground-panel-label {
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 360px) {
+  .ground-panel-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -113,12 +113,7 @@ export function getEditorToolbarIcon(icon) {
     backgroundGradient: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5.7" fill="currentColor" fill-opacity="0.18"/><circle cx="12" cy="12" r="3.1" fill="currentColor" fill-opacity="0.56"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/></svg>',
     backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
-    groundContact: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="5" width="8" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="18.5" rx="7" ry="1.8" fill="currentColor" fill-opacity="0.45"/></svg>',
-    groundMirror: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 13.5h18" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="15" width="8" height="6" rx="1" fill="currentColor" fill-opacity="0.3"/></svg>',
-    groundGrid: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 20 7 9h10l5 11zM12 9v11M4.5 14.5h15M9.5 9 7 20M14.5 9 17 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    groundTurntable: '<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="15" rx="9" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 15v2c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5v-2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 3.5 14 9h-4z" fill="currentColor"/></svg>',
-    groundSpotlight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 3h-4z" fill="currentColor"/><path d="M10 6 4 18M14 6l6 12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="1.6 1.6"/><ellipse cx="12" cy="18.5" rx="8" ry="2.3" fill="currentColor" fill-opacity="0.45"/></svg>',
-    groundDots: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="7" r="1.3"/><circle cx="12" cy="7" r="1.3"/><circle cx="19" cy="7" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="5" cy="17" r="1.3"/><circle cx="12" cy="17" r="1.3"/><circle cx="19" cy="17" r="1.3"/></g></svg>',
+    ground: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="5" width="8" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="18.5" rx="7" ry="1.8" fill="currentColor" fill-opacity="0.45"/></svg>',
     pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
     reportBug: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5a4 4 0 0 1 8 0V14a4 4 0 0 1-8 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M20 11h-4M8 15.5l-3 2M16 15.5l3 2M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     compare: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 10l-2 2 2 2M16 10l2 2-2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -1397,6 +1392,8 @@ export function createEditorToolbar(viewer) {
     { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
     { key: "wireframe", group: "appearance", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
     { key: "background", group: "appearance", icon: "background", onClick: () => {}, pressed: false, primary: false },
+    // What the model stands on: a window of tiles (ui/ground-panel.js).
+    { key: "ground", group: "appearance", icon: "ground", onClick: () => viewer.toggleGroundPanel(), pressed: true, primary: false },
     { key: "resetSettings", group: "appearance", icon: "resetSettings", onClick: () => viewer.resetModelSettings(), primary: false },
     // Inspect, measure, annotate.
     { key: "picking", group: "inspect", icon: "picking", onClick: () => viewer.togglePickingMode(), pressed: true, primary: false },
@@ -1955,13 +1952,6 @@ export function createEditorToolbar(viewer) {
             );
           },
         },
-        // What the model stands on (ground.js).
-        ...GROUND_SUBMENU_ITEMS.map(({ key, preset, icon }) => ({
-          key,
-          icon,
-          label: groundPresetLabel(preset),
-          onClick: () => viewer.setGroundPreset(preset),
-        })),
       ], submenu);
 
       button.appendChild(submenu);
@@ -2369,29 +2359,6 @@ export function updateLightsSubmenuState(viewer) {
   });
 }
 
-// The ground presets in the Background menu, in the order of ground.js.
-const GROUND_SUBMENU_ITEMS = [
-  { key: "groundContact", preset: "contact", icon: "groundContact" },
-  { key: "groundMirror", preset: "mirror", icon: "groundMirror" },
-  { key: "groundGrid", preset: "grid", icon: "groundGrid" },
-  { key: "groundTurntable", preset: "turntable", icon: "groundTurntable" },
-  { key: "groundSpotlight", preset: "spotlight", icon: "groundSpotlight" },
-  { key: "groundDots", preset: "dots", icon: "groundDots" },
-];
-
-const GROUND_PRESET_LABELS = {
-  contact: "Ground: contact shadow",
-  mirror: "Ground: mirror",
-  grid: "Ground: grid",
-  turntable: "Ground: turntable with compass and scale",
-  spotlight: "Ground: spotlight",
-  dots: "Ground: dot grid",
-};
-
-function groundPresetLabel(preset) {
-  return t(`gui.ground.${preset}`, GROUND_PRESET_LABELS[preset]);
-}
-
 export function updateBackgroundSubmenuState(viewer) {
   if (!viewer.backgroundSubmenuButtons) return;
 
@@ -2433,13 +2400,6 @@ export function updateBackgroundSubmenuState(viewer) {
     "is-disabled",
     isLinear
   );
-
-  const groundPreset = viewer.getGroundPreset?.();
-  GROUND_SUBMENU_ITEMS.forEach(({ key, preset }) => {
-    const isActive = groundPreset === preset;
-    viewer.backgroundSubmenuButtons[key]?.classList.toggle("is-active", isActive);
-    viewer.backgroundSubmenuButtons[key]?.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
 }
 
 export function updateEditorToolbarLabels(viewer) {
@@ -2493,7 +2453,8 @@ export function updateEditorToolbarLabels(viewer) {
     hierarchy: t("gui.hierarchy", "Hierarchy"),
     materials: t("gui.materials", "Materials"),
     shading: t("gui.shading", "Shading"),
-    background: t("gui.backgroundAndGround", "Background and ground"),
+    background: t("gui.backgroundColor", "Background Color"),
+    ground: t("gui.groundTitle", "Ground"),
     statistics: t("gui.statistics", "Statistics"),
     credits: viewer.creditsWrapper && !viewer.creditsWrapper.hidden
       ? t("gui.hideCredits", "Hide credits")
@@ -2626,9 +2587,6 @@ export function updateEditorToolbarLabels(viewer) {
       backgroundColor: t("gui.backgroundColor", "Background Color"),
       backgroundColorOuter: t("gui.backgroundColorOuter", "Background Color Outer"),
     };
-    GROUND_SUBMENU_ITEMS.forEach(({ key, preset }) => {
-      backgroundSubmenuLabels[key] = groundPresetLabel(preset);
-    });
     Object.entries(viewer.backgroundSubmenuButtons).forEach(([key, button]) => {
       const label = backgroundSubmenuLabels[key] || key;
       button.setAttribute("title", label);
@@ -2743,6 +2701,7 @@ export function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     credits: Boolean(viewer.creditsWrapper && !viewer.creditsWrapper.hidden),
     validationReport: viewer.isValidationReportOpen?.() === true,
+    ground: viewer.isGroundPanelOpen?.() === true,
     ifcQuery: viewer.isIfcQueryOpen?.() === true,
     wireframe: viewer.wireframeMode === true,
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,

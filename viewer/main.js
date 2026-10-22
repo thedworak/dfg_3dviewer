@@ -58,6 +58,7 @@ import { attachLibraryPanel } from "./ui/library-panel.js";
 import { attachModelsSource } from "./ui/models-source.js";
 import { attachExamplesPanel } from "./ui/examples-panel.js";
 import { attachValidationReport } from "./ui/validation-report.js";
+import { attachGroundPanel } from "./ui/ground-panel.js";
 import { attachIfcQuery } from "./ai/ifc-query.js";
 import { attachVariantsReview } from "./ai/variants-review.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
@@ -592,6 +593,7 @@ export const Viewer = {
   // What the model stands on; see ground.js.
   setGroundPreset(preset) {
     setGroundPreset(preset);
+    this.refreshGroundPanel?.();
     this.updateEditorToolbarState();
   },
 
@@ -4448,6 +4450,7 @@ attachLibraryPanel(Viewer);
 attachModelsSource(Viewer);
 attachExamplesPanel(Viewer);
 attachValidationReport(Viewer);
+attachGroundPanel(Viewer);
 attachIfcQuery(Viewer);
 attachVariantsReview(Viewer);
 attachAppUi(Viewer);

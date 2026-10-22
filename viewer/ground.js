@@ -16,7 +16,7 @@ import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js";
 //   dots       dot grid on "paper", fading out
 // Chosen by, first wins: ?ground= (URL), the manifest (scenes[id].ground,
 // scene.ground, globals.ground, AIM3DViewer viewer.ground), the toolbar
-// (Background menu), viewer.ground (viewer-settings.json).
+// (Look -> Ground, ui/ground-panel.js), viewer.ground (viewer-settings.json).
 //
 // Every preset keeps the shadow catcher for the directional light (the sun
 // study draws its shadows on it) and the axes helper. With the WebGPU
