@@ -5,6 +5,7 @@ import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
 import { normalizeColor, parseCssColor } from './utils.js';
 import { t } from "./i18n-utils.js";
 import { applyUpAxis, getFirstModelChild, getUpAxis, normalizeUpAxis } from "./up-axis.js";
+import { buildGround, setManifestGround } from "./ground.js";
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -546,6 +547,7 @@ export async function setupCamera(_object, _data) {
   const _light = core.lightObjects[0];
   const cfg = _data ?? core.CONFIG ?? null;
   const fallback = _data ?? null;
+  setManifestGround(fallback, core.activeScene);
   const urlCameraPosition = normalizeVec3(window.Viewer?.urlOptions?.cameraPosition);
   const urlCameraTarget = normalizeVec3(window.Viewer?.urlOptions?.cameraTarget);
   const urlCameraFov = Number.isFinite(window.Viewer?.urlOptions?.cameraFov)
@@ -866,30 +868,7 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   core.dirLight.target = core.dirLightTarget;
   core.dirLight.target.updateMatrixWorld();
 
-  var gridSizeScale = core.gridSize * 2.5;
-  if (core.basicGrid !== undefined) core.scene.remove(core.basicGrid);
-  core.basicGrid = new THREE.Group();
-  var planeMaterial = new THREE.ShadowMaterial({ opacity: 0.35 })
-
-  var planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(gridSizeScale, gridSizeScale), planeMaterial);
-
-  planeMesh.rotation.x = -Math.PI / 2;
-  planeMesh.position.set(0, 0, 0);
-  planeMesh.receiveShadow = true;
-  core.basicGrid.add(planeMesh);
-
-  core.axesHelper = new THREE.AxesHelper(core.gridSize);
-  core.axesHelper.position.set(0, 0, 0);
-  core.axesHelper.visible = false;
-  core.basicGrid.add(core.axesHelper);
-
-  const grid = new THREE.GridHelper(gridSizeScale, 25, 0xaeaeae, 0x000000);
-  grid.material.opacity = 0.05;
-  grid.material.transparent = true;
-  grid.position.set(0, 0, 0);
-  core.basicGrid.add(grid);
-
-  core.scene.add(core.basicGrid);
+  buildGround(boundingBox);
  
   // === fit camera distance ===
   const halfHeight = size.y / 2;

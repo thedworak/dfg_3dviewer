@@ -42,6 +42,7 @@
       "testImages": []
     },
     "background": "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+    "ground": "contact",
     "performanceMode": {
       "Performance": "high-performance"
     },

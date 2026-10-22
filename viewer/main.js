@@ -99,6 +99,7 @@ import { captureAndUploadThumbnail, generateAllThumbnails } from "./editor/thumb
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
+import { getGroundPreset, normalizeGroundPreset, setGroundPreset, updateGround } from "./ground.js";
 import { attachBrandLogo } from "./ui/brand-logo.js";
 import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, displayManifestInForm, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
 import { initRendering, applyRenderingSettings, getRenderingSettings, isAmbientOcclusionActive, isPostProcessingActive, renderFrame } from "./rendering.js";
@@ -588,6 +589,16 @@ export const Viewer = {
     await this.setEnvironmentMapEnabled(!this.environmentMapEnabled);
   },
 
+  // What the model stands on; see ground.js.
+  setGroundPreset(preset) {
+    setGroundPreset(preset);
+    this.updateEditorToolbarState();
+  },
+
+  getGroundPreset() {
+    return getGroundPreset();
+  },
+
   addHierarchySubmenuItem(name, meshId) {
     if (!this.hierarchySubmenu) return;
     
@@ -915,6 +926,8 @@ export const Viewer = {
       // model upside down); see up-axis.js.
       upAxis: normalizeUpAxis(params.get("upAxis")),
       showNotifications: this.parseBooleanParam(params.get("showNotifications")),
+      // What the model stands on (ground.js).
+      ground: normalizeGroundPreset(params.get("ground")),
     };
   },
 
@@ -2521,6 +2534,7 @@ export const Viewer = {
       Viewer.mixer.update(delta);
       Viewer.updateAnimationTimeline();
     }
+    updateGround();
 
     // The comparison view (editor/compare.js) draws its two sides itself.
     if (!Viewer.renderCompareFrame(renderFrame)) renderFrame();

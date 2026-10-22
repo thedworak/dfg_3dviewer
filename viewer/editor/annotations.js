@@ -6,6 +6,7 @@ import THREE from "../init.js";
 import { unitNameToMeters } from "./model-units.js";
 import { DEFAULT_UP_AXIS, getUpAxis, normalizeUpAxis } from "../up-axis.js";
 import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
+import { getGroundPreset, normalizeGroundPreset, setGroundPreset } from "../ground.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
 import {
   formatAIM3DManifestValidationErrors,
@@ -1494,6 +1495,7 @@ export function attachAnnotations(Viewer) {
               preset: core.environmentMapPreset || "neutral",
               enabled: core.environmentMapEnabled || true
             },
+            ground: getGroundPreset(),
             rendering: getRenderingSettings(),
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
@@ -1872,6 +1874,12 @@ export function attachAnnotations(Viewer) {
           this.urlOptions.language = normalizedLanguage;
           this.applyLanguage?.({ persist: false });
         }
+      }
+
+      const ground = normalizeGroundPreset(viewerConfig.ground);
+      if (ground) {
+        core.groundPresetManifest = ground;
+        setGroundPreset(ground, { user: false });
       }
 
       if (viewerConfig.environmentMap && typeof viewerConfig.environmentMap === "object") {

@@ -39,6 +39,7 @@
       "testImages": []
     },
     "background": "radial-gradient(circle, #ffffff 0%, #999999 100%)",
+    "ground": "contact",
     "rendering": {
       "toneMapping": "neutral",
       "exposure": 1,
