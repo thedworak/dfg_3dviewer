@@ -94,6 +94,10 @@ function sendWithProgress(url, { method, body, headers }, onProgress) {
 // Attempts per piece of an upload sent in pieces, after a network error or
 // an error of the server, a few seconds apart.
 const PIECE_ATTEMPTS = 4;
+// Pieces sent at once: Cloudflare and the proxies take each piece whole
+// before passing it on, which leaves the connection idle between pieces
+// sent one by one.
+const PIECES_AT_ONCE = 3;
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -127,34 +131,64 @@ async function sendFileInPieces(file, onProgress) {
     return sendWithProgress(apiUrl("/api/model/create"), { method: "POST", body: formData, headers }, onProgress);
   }
 
-  let offset = 0;
-  let failures = 0;
-  while (offset < file.size) {
-    const pieceStart = offset;
-    let response = null;
+  const offsets = [];
+  for (let offset = 0; offset < file.size; offset += chunkBytes) offsets.push(offset);
+  // Bytes sent of each piece, for one total across the pieces in flight.
+  const sent = new Map();
+  const reportProgress = () => {
+    let total = 0;
+    sent.forEach((bytes) => { total += bytes; });
+    onProgress?.(Math.min(total, file.size), file.size);
+  };
+  let refused = null;
+
+  const sendPiece = async (offset) => {
+    for (let attempt = 1; ; attempt += 1) {
+      let response = null;
+      let error = null;
+      try {
+        response = await sendWithProgress(
+          apiUrl(`/api/model/upload/${uploadId}?offset=${offset}`),
+          { method: "PUT", body: file.slice(offset, offset + chunkBytes), headers },
+          (loaded) => { sent.set(offset, loaded); reportProgress(); },
+        );
+      } catch (caught) {
+        error = caught;
+      }
+      if (response?.ok) {
+        sent.set(offset, Math.min(chunkBytes, file.size - offset));
+        reportProgress();
+        return;
+      }
+      sent.set(offset, 0);
+      reportProgress();
+      // Refused (limits, login, a bad piece): no use sending it again.
+      if (response && response.status < 500) {
+        refused = refused || response;
+        return;
+      }
+      if (attempt >= PIECE_ATTEMPTS || refused || failure) {
+        if (response) refused = refused || response;
+        else throw error;
+        return;
+      }
+      await wait(2000 * attempt);
+    }
+  };
+
+  // A piece that failed for good stops the others from starting new ones.
+  let failure = null;
+  const queue = [...offsets];
+  const sender = async () => {
     try {
-      response = await sendWithProgress(
-        apiUrl(`/api/model/upload/${uploadId}?offset=${pieceStart}`),
-        { method: "PUT", body: file.slice(pieceStart, pieceStart + chunkBytes), headers },
-        (loaded) => onProgress?.(pieceStart + loaded, file.size),
-      );
+      while (queue.length && !refused && !failure) await sendPiece(queue.shift());
     } catch (error) {
-      if (++failures >= PIECE_ATTEMPTS) throw error;
+      failure = failure || error;
     }
-    if (response?.ok || response?.status === 409) {
-      // 409: the worker has a different number of bytes (a lost answer to a
-      // piece it did get) - carry on from there.
-      const received = Number((await response.json()).received);
-      if (response.ok) failures = 0;
-      else if (++failures >= PIECE_ATTEMPTS) return response;
-      offset = Number.isFinite(received) ? received : offset;
-      onProgress?.(offset, file.size);
-      continue;
-    }
-    if (response && response.status < 500) return response;
-    if (response && ++failures >= PIECE_ATTEMPTS) return response;
-    await wait(2000 * failures);
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(PIECES_AT_ONCE, offsets.length) }, sender));
+  if (failure) throw failure;
+  if (refused) return refused;
   return fetch(apiUrl(`/api/model/upload/${uploadId}/finish`), { method: "POST", headers });
 }
 

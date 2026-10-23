@@ -24,6 +24,10 @@ Configuration (environment):
   WORKER_PREVIEW_MAX_ERROR     simplification error allowed for the preview (default 0.05 = 5%)
   WORKER_PREVIEW_MIN_BYTES     only make a preview for optimized models at least this big (default 2 MB)
   WORKER_OPTIMIZE_TIMEOUT      seconds per gltfpack run (default 900)
+  WORKER_GLTFPACK_JOBS         textures encoded at once (default: one per CPU);
+                               each takes up to a few GB for a large texture.
+                               A run killed for lack of memory is tried again
+                               with one.
 
 Also usable on its own, e.g. from the Drupal pipeline:
   python3 optimize.py model.glb [--preview]
@@ -42,6 +46,7 @@ PREVIEW_TEXTURE_SIZE = int(os.environ.get("WORKER_PREVIEW_TEXTURE_SIZE", "512"))
 PREVIEW_MAX_ERROR = float(os.environ.get("WORKER_PREVIEW_MAX_ERROR", "0.05"))
 PREVIEW_MIN_BYTES = int(os.environ.get("WORKER_PREVIEW_MIN_BYTES", str(2 * 1024 * 1024)))
 OPTIMIZE_TIMEOUT = int(os.environ.get("WORKER_OPTIMIZE_TIMEOUT", "900"))
+TEXTURE_JOBS = max(1, int(os.environ.get("WORKER_GLTFPACK_JOBS", "0") or 0) or os.cpu_count() or 1)
 
 if TEXTURE_FORMAT not in ("ktx2", "webp", "keep"):
     raise ValueError(f"WORKER_TEXTURE_FORMAT must be ktx2, webp or keep, got {TEXTURE_FORMAT!r}")
@@ -66,15 +71,26 @@ def enabled() -> bool:
 
 
 def _run(args, log_prefix: str) -> None:
-    command = [gltfpack_path() or GLTFPACK_BIN, *args, "-tj", str(os.cpu_count() or 1)]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=OPTIMIZE_TIMEOUT)
-    print(
-        f"{log_prefix} gltfpack exit={result.returncode}: {' '.join(args)}\n"
-        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}",
-        file=sys.stderr,
-    )
-    if result.returncode != 0:
+    jobs = TEXTURE_JOBS
+    while True:
+        command = [gltfpack_path() or GLTFPACK_BIN, *args, "-tj", str(jobs)]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=OPTIMIZE_TIMEOUT)
+        print(
+            f"{log_prefix} gltfpack exit={result.returncode} (-tj {jobs}): {' '.join(args)}\n"
+            f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}",
+            file=sys.stderr,
+        )
+        if result.returncode == 0:
+            return
+        # Killed (-9: by the kernel, out of memory) while encoding textures
+        # in parallel: once more, one texture at a time.
+        if result.returncode < 0 and jobs > 1:
+            print(f"{log_prefix} gltfpack killed (signal {-result.returncode}), trying again with -tj 1", file=sys.stderr)
+            jobs = 1
+            continue
         detail = (result.stderr.strip() or result.stdout.strip())[:300]
+        if result.returncode == -9:
+            detail = detail or "killed, most likely out of memory"
         raise RuntimeError(f"gltfpack failed (exit={result.returncode}): {detail}")
 
 

@@ -3477,15 +3477,15 @@ test('upload panel shows limit usage and limit errors from the worker', { tag: '
 });
 
 // A file goes to the worker in pieces (worker/server.py, /api/model/upload/),
-// each under Cloudflare's 100 MB request limit; a piece the worker failed on
-// is sent again.
+// each under Cloudflare's 100 MB request limit, several at once; a piece the
+// worker failed on is sent again.
 test('uploads are sent in pieces, a failed piece again, then converted', async ({ page }) => {
   await page.route('**/api/auth/config', (route) =>
     route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
   );
   const uploadId = 'a'.repeat(32);
   const content = Buffer.from('solid box\nendsolid box\n'.repeat(2));
-  let received = Buffer.alloc(0);
+  const received = new Map();
   const pieces = [];
   let failedOnce = false;
   await page.route('**/api/model/upload/start', (route) => {
@@ -3500,8 +3500,8 @@ test('uploads are sent in pieces, a failed piece again, then converted', async (
       failedOnce = true;
       return route.fulfill({ status: 502, body: 'Bad gateway' });
     }
-    received = Buffer.concat([received.subarray(0, offset), body]);
-    return route.fulfill({ json: { received: received.length } });
+    received.set(offset, body);
+    return route.fulfill({ json: { received: [...received.values()].reduce((sum, piece) => sum + piece.length, 0) } });
   });
   await page.route(`**/api/model/upload/${uploadId}/finish`, (route) =>
     route.fulfill({ json: { entity_id: 'job1', status: 'started' } })
@@ -3517,8 +3517,8 @@ test('uploads are sent in pieces, a failed piece again, then converted', async (
   await page.click('#uploadPanelSubmit');
 
   await expect(page.locator('#uploadModelPanel')).toBeHidden({ timeout: 15_000 });
-  expect(pieces).toEqual([0, 20, 20, 40]);
-  expect(received.equals(content)).toBe(true);
+  expect(pieces.sort((a, b) => a - b)).toEqual([0, 20, 20, 40]);
+  expect(Buffer.concat([0, 20, 40].map((offset) => received.get(offset))).equals(content)).toBe(true);
   // The upload step done, the worker's steps after it.
   await expect(page.locator('#ultra-loader-steps .ultra-step').first()).toHaveText('✓ Uploading file');
 });

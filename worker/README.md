@@ -282,6 +282,7 @@ Set via environment variables on the `worker` container (see
 | `WORKER_VALIDATE_TIMEOUT`  | `300`          | Seconds before a validator run is killed  |
 | `WORKER_OPTIMIZE`          | `auto`         | gltfpack step (see "GLB optimization"): `auto` = on when `gltfpack` is installed (it is in the image), `true`, `false` |
 | `WORKER_TEXTURE_FORMAT`    | `ktx2`         | `ktx2` (Basis Universal), `webp` or `keep` |
+| `WORKER_GLTFPACK_JOBS`     | one per CPU    | Textures gltfpack encodes at once; each can take a few GB for a large texture. A run killed for lack of memory is tried again with `1`; set it lower on a machine with little memory |
 | `WORKER_PREVIEW_RATIO`     | `0.1`          | Triangle ratio of the progressive-loading preview; `0` disables previews |
 | `WORKER_PREVIEW_TEXTURE_SIZE` / `_MAX_ERROR` / `_MIN_BYTES` | `512` / `0.05` / `2097152` | Preview texture limit (px), allowed simplification error, and the optimized model size below which no preview is made |
 

@@ -7298,7 +7298,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DGMkuKMj.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DX0XsFT6.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -7980,7 +7980,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-BfMCW6_c.js'),
+    import('./rendering-webgpu-r7PDVCyN.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -8112,9 +8112,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BEpet51I.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-Bu6_i6GZ.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-BVoLI2wh.js');
+const loadSplats = async () => import('./splats-B4fO_H7b.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -9320,6 +9320,10 @@ function sendWithProgress(url, { method, body, headers }, onProgress) {
 // Attempts per piece of an upload sent in pieces, after a network error or
 // an error of the server, a few seconds apart.
 const PIECE_ATTEMPTS = 4;
+// Pieces sent at once: Cloudflare and the proxies take each piece whole
+// before passing it on, which leaves the connection idle between pieces
+// sent one by one.
+const PIECES_AT_ONCE = 3;
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -9353,34 +9357,64 @@ async function sendFileInPieces(file, onProgress) {
     return sendWithProgress(apiUrl("/api/model/create"), { method: "POST", body: formData, headers }, onProgress);
   }
 
-  let offset = 0;
-  let failures = 0;
-  while (offset < file.size) {
-    const pieceStart = offset;
-    let response = null;
+  const offsets = [];
+  for (let offset = 0; offset < file.size; offset += chunkBytes) offsets.push(offset);
+  // Bytes sent of each piece, for one total across the pieces in flight.
+  const sent = new Map();
+  const reportProgress = () => {
+    let total = 0;
+    sent.forEach((bytes) => { total += bytes; });
+    onProgress?.(Math.min(total, file.size), file.size);
+  };
+  let refused = null;
+
+  const sendPiece = async (offset) => {
+    for (let attempt = 1; ; attempt += 1) {
+      let response = null;
+      let error = null;
+      try {
+        response = await sendWithProgress(
+          apiUrl(`/api/model/upload/${uploadId}?offset=${offset}`),
+          { method: "PUT", body: file.slice(offset, offset + chunkBytes), headers },
+          (loaded) => { sent.set(offset, loaded); reportProgress(); },
+        );
+      } catch (caught) {
+        error = caught;
+      }
+      if (response?.ok) {
+        sent.set(offset, Math.min(chunkBytes, file.size - offset));
+        reportProgress();
+        return;
+      }
+      sent.set(offset, 0);
+      reportProgress();
+      // Refused (limits, login, a bad piece): no use sending it again.
+      if (response && response.status < 500) {
+        refused = refused || response;
+        return;
+      }
+      if (attempt >= PIECE_ATTEMPTS || refused || failure) {
+        if (response) refused = refused || response;
+        else throw error;
+        return;
+      }
+      await wait(2000 * attempt);
+    }
+  };
+
+  // A piece that failed for good stops the others from starting new ones.
+  let failure = null;
+  const queue = [...offsets];
+  const sender = async () => {
     try {
-      response = await sendWithProgress(
-        apiUrl(`/api/model/upload/${uploadId}?offset=${pieceStart}`),
-        { method: "PUT", body: file.slice(pieceStart, pieceStart + chunkBytes), headers },
-        (loaded) => onProgress?.(pieceStart + loaded, file.size),
-      );
+      while (queue.length && !refused && !failure) await sendPiece(queue.shift());
     } catch (error) {
-      if (++failures >= PIECE_ATTEMPTS) throw error;
+      failure = failure || error;
     }
-    if (response?.ok || response?.status === 409) {
-      // 409: the worker has a different number of bytes (a lost answer to a
-      // piece it did get) - carry on from there.
-      const received = Number((await response.json()).received);
-      if (response.ok) failures = 0;
-      else if (++failures >= PIECE_ATTEMPTS) return response;
-      offset = Number.isFinite(received) ? received : offset;
-      onProgress?.(offset, file.size);
-      continue;
-    }
-    if (response && response.status < 500) return response;
-    if (response && ++failures >= PIECE_ATTEMPTS) return response;
-    await wait(2000 * failures);
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(PIECES_AT_ONCE, offsets.length) }, sender));
+  if (failure) throw failure;
+  if (refused) return refused;
   return fetch(apiUrl(`/api/model/upload/${uploadId}/finish`), { method: "POST", headers });
 }
 
@@ -14917,7 +14951,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "7228b2c4" ;
+const BUILD_ID$2 = "a1875ee0" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -14968,8 +15002,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "7228b2c4" ;
-const BUILD_TIME$1 = "2026-10-23T11:04:30.312Z" ;
+const BUILD_ID$1 = "a1875ee0" ;
+const BUILD_TIME$1 = "2026-10-23T11:28:35.460Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -47263,8 +47297,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "7228b2c4" ;
-const BUILD_TIME = "2026-10-23T11:04:30.312Z" ;
+const BUILD_ID = "a1875ee0" ;
+const BUILD_TIME = "2026-10-23T11:28:35.460Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -51804,4 +51838,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-CSktbOwQ.js.map
+//# sourceMappingURL=main-B6PFcHv4.js.map

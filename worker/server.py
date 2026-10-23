@@ -10,7 +10,8 @@ could talk to either backend interchangeably:
   POST /api/model/create        multipart file upload -> {entity_id, status}
   POST /api/model/upload/start  {name, size} -> {uploadId, chunkBytes}: the
   PUT  /api/model/upload/<id>?offset=N   same upload in pieces (each under
-  POST /api/model/upload/<id>/finish     Cloudflare's 100 MB request limit)
+  POST /api/model/upload/<id>/finish     Cloudflare's 100 MB request limit,
+                                several at once, in any order)
                                 -> {entity_id, status}
   GET  /api/model/status/<id>   -> {progress, status, message, modelUrl,
                                     previewUrl (point clouds, while converting),
@@ -644,8 +645,9 @@ class UploadTooLarge(ValueError):
     pass
 
 
-# Uploads sent in pieces, until finished: <id>/meta.json and <id>/data, in a
-# dot-directory the job listing and the storage quotas skip.
+# Uploads sent in pieces, until finished: <id>/meta.json and a file per
+# piece, <id>/pieces/<offset>, in a dot-directory the job listing and the
+# storage quotas skip.
 UPLOADS_DIR = JOBS_DIR / ".uploads"
 UPLOAD_ID_RE = re.compile(r"[0-9a-f]{32}")
 UPLOADS_LOCK = threading.Lock()
@@ -661,6 +663,18 @@ def remove_expired_uploads() -> None:
                 shutil.rmtree(upload_dir, ignore_errors=True)
         except OSError:
             continue
+
+
+def upload_received(upload_dir: Path) -> int:
+    """Bytes of the pieces an upload has so far."""
+    total = 0
+    for piece in (upload_dir / "pieces").glob("*"):
+        if piece.name.isdigit():
+            try:
+                total += piece.stat().st_size
+            except OSError:
+                continue
+    return total
 
 
 def read_upload(upload_id: str):
@@ -1417,9 +1431,10 @@ class Handler(BaseHTTPRequestHandler):
         remove_expired_uploads()
         upload_id = uuid.uuid4().hex
         upload_dir = UPLOADS_DIR / upload_id
-        upload_dir.mkdir(parents=True)
-        (upload_dir / "data").touch()
-        (upload_dir / "meta.json").write_text(json.dumps({"key": key, "name": filename, "size": size}), "utf-8")
+        (upload_dir / "pieces").mkdir(parents=True)
+        (upload_dir / "meta.json").write_text(json.dumps({
+            "key": key, "name": filename, "size": size, "chunkBytes": UPLOAD_CHUNK_BYTES,
+        }), "utf-8")
         self._send_json(200, {"uploadId": upload_id, "chunkBytes": UPLOAD_CHUNK_BYTES})
 
     def _own_upload(self, upload_id: str):
@@ -1437,47 +1452,66 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_upload_chunk(self, upload_id: str) -> None:
         """PUT /api/model/upload/<id>?offset=N: the piece of the file that
-        starts at byte N. A piece sent again (a retry) is accepted; one that
-        would leave a gap gets 409 with the bytes received so far."""
+        starts at byte N, a multiple of the upload's chunkBytes; all but the
+        last are that long. Pieces come several at once, in any order; one
+        sent again (a retry) replaces itself."""
         owned = self._own_upload(upload_id)
         if owned is None:
             return
         upload_dir, meta = owned[4], owned[5]
-        length = int(self.headers.get("Content-Length", "0") or 0)
-        if length <= 0 or length > UPLOAD_CHUNK_BYTES:
-            self._send_json(413 if length > 0 else 400, {"error": "Invalid piece size"})
-            return
+        chunk = meta["chunkBytes"]
         try:
             offset = int(parse_qs(urlparse(self.path).query).get("offset", ["-1"])[0])
         except ValueError:
             offset = -1
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if offset < 0 or offset >= meta["size"] or offset % chunk:
+            self._send_json(400, {"error": "Invalid offset"})
+            return
+        if length != min(chunk, meta["size"] - offset):
+            self._send_json(413 if length > chunk else 400, {"error": "Invalid piece size"})
+            return
         content = self.rfile.read(length)
-        data_path = upload_dir / "data"
-        with UPLOADS_LOCK:
-            received = data_path.stat().st_size
-            if offset < 0 or offset > received or offset + len(content) > meta["size"]:
-                self._send_json(409, {"error": "Unexpected offset", "received": received})
-                return
-            if offset + len(content) > received:
-                with data_path.open("r+b") as handle:
-                    handle.seek(offset)
-                    handle.write(content)
-                received = data_path.stat().st_size
-        self._send_json(200, {"received": received})
+        if len(content) != length:
+            self._send_json(400, {"error": "Incomplete piece"})
+            return
+        # Written aside and renamed: a piece is there whole or not at all.
+        piece = upload_dir / "pieces" / str(offset)
+        partial = piece.with_name(f"{offset}.{uuid.uuid4().hex}.tmp")
+        partial.write_bytes(content)
+        partial.replace(piece)
+        self._send_json(200, {"received": upload_received(upload_dir)})
 
     def _handle_upload_finish(self, upload_id: str) -> None:
-        """POST /api/model/upload/<id>/finish: converts the complete file,
-        like POST /api/model/create."""
+        """POST /api/model/upload/<id>/finish: joins the pieces and converts
+        the file, like POST /api/model/create. 409 with the missing offsets
+        while any piece is missing."""
         owned = self._own_upload(upload_id)
         if owned is None:
             return
         user, key, username, limits, upload_dir, meta = owned
-        data_path = upload_dir / "data"
         with UPLOADS_LOCK:
-            received = data_path.stat().st_size
-            if received != meta["size"]:
-                self._send_json(409, {"error": "Upload incomplete", "received": received})
+            if read_upload(upload_id) is None:
+                self._send_json(404, {"error": "No such upload"})
                 return
+            chunk, size = meta["chunkBytes"], meta["size"]
+            pieces = upload_dir / "pieces"
+            missing = [
+                offset for offset in range(0, size, chunk)
+                if not (pieces / str(offset)).is_file()
+                or (pieces / str(offset)).stat().st_size != min(chunk, size - offset)
+            ]
+            if missing:
+                self._send_json(409, {
+                    "error": "Upload incomplete", "received": upload_received(upload_dir), "missing": missing[:100],
+                })
+                return
+            data_path = upload_dir / "data"
+            with data_path.open("wb") as joined:
+                for offset in range(0, size, chunk):
+                    with (pieces / str(offset)).open("rb") as part:
+                        shutil.copyfileobj(part, joined, 1024 * 1024)
+            shutil.rmtree(pieces, ignore_errors=True)
             self._start_job(user, key, username, limits, meta["name"], source=data_path, cleanup=upload_dir)
 
     def _handle_thumbnail_upload(self) -> None:
