@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-CxL0nSul.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-Di3rg7J6.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -536,7 +536,7 @@ var DEFAULT_LIST$1 = {
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
-const IS_MOBILE_BUILD$1 = "dev" === "mobile";
+const IS_MOBILE_BUILD$1 = "test" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -3372,7 +3372,7 @@ function attachEmbedConfigurator(Viewer) {
 
 class StatusPoller {
 
-    constructor(id, { forcePoll = false, onUpdate = null } = {}) {
+    constructor(id, { forcePoll = false, onUpdate = null, onError = null } = {}) {
         this.id=id;
         this.interval=2000;
         this.timer=null;
@@ -3384,6 +3384,8 @@ class StatusPoller {
         // to poll" assumption baked into isLocalPreview elsewhere below.
         this.forcePoll = forcePoll === true;
         this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
+        // Called when polling gives up on a connection error.
+        this.onError = typeof onError === "function" ? onError : null;
     }
 
     async start() {
@@ -3474,6 +3476,7 @@ class StatusPoller {
             if (!core.isLocalPreview || this.forcePoll) {
                 UltraLoader.error("Connection error");
                 this.stop();
+                this.onError?.(e);
             }
         }
         this.timer=setTimeout(()=>this.tick(),this.interval);
@@ -3492,6 +3495,14 @@ const UltraLoader$1 = {
   // language change also applies to a run already in progress.
   steps:[],
   activeStep:0,
+  // Added to the indexes passed to step(): an upload puts a step of its own
+  // before the processing steps the status poller counts.
+  stepOffset:0,
+  // Where set()'s 0-100 starts on the bar (the upload fills what is before).
+  progressFrom:0,
+  // The active step's own progress, e.g. the bytes of an upload sent so far:
+  // { fraction, label } - label is a function, so it is re-translated.
+  detailInfo:null,
   hasError:false,
   isFinished:false,
   hideTimer:null,
@@ -3525,7 +3536,7 @@ const UltraLoader$1 = {
     this.stepsContainer=stepsContainer;
   },
 
-  start(steps) {
+  start(steps, { stepOffset = 0, progressFrom = 0, initialProgress = 5 } = {}) {
     this.init();
 
     if (this.hideTimer) {
@@ -3538,13 +3549,16 @@ const UltraLoader$1 = {
     }
 
     this.steps=steps;
+    this.stepOffset=stepOffset;
+    this.progressFrom=progressFrom;
+    this.detailInfo=null;
     this.hasError=false;
     this.panel.querySelector("#ultra-loader-error")?.remove();
     this.updateHeader();
-    this.progress=5;
+    this.progress=initialProgress;
     this.isFinished=false;
 
-    this.bar.style.width = "5%";
+    this.bar.style.width = initialProgress+"%";
     this.bar.style.background = "";
 
     this.renderSteps(0);
@@ -3555,17 +3569,65 @@ const UltraLoader$1 = {
     },
 
   set(progress,message) {
-    this.progress=Math.max(this.progress,progress);
+    const mapped=this.progressFrom+(Number(progress)||0)*(100-this.progressFrom)/100;
+    this.progress=Math.max(this.progress,mapped);
     this.render();
   },
 
   step(index) {
-    this.renderSteps(index);
+    this.detailInfo=null;
+    this.renderSteps(index+this.stepOffset);
+  },
+
+  // Moves on to the next part of a run: later step() and set() calls are
+  // shifted by these (see stepOffset, progressFrom).
+  phase({ stepOffset = this.stepOffset, progressFrom = this.progressFrom } = {}) {
+    this.stepOffset=stepOffset;
+    this.progressFrom=progressFrom;
+    this.step(0);
+  },
+
+  // A small bar and a line under the active step; null removes them.
+  detail(fraction, label) {
+    this.detailInfo=fraction==null ? null : { fraction, label };
+    const row=this.stepsContainer?.querySelector(".ultra-step.active");
+    if (!row) return;
+    let detail=row.querySelector(".ultra-step-detail");
+    if (!this.detailInfo) {
+      detail?.remove();
+      return;
+    }
+    if (!detail) {
+      detail=document.createElement("div");
+      detail.className="ultra-step-detail";
+      detail.innerHTML='<div class="ultra-step-detail-bar"><span></span></div><span class="ultra-step-detail-text"></span>';
+      row.appendChild(detail);
+    }
+    const percent=Math.round(Math.min(1,Math.max(0,fraction))*100);
+    detail.querySelector(".ultra-step-detail-bar span").style.width=percent+"%";
+    const text=typeof label==="function" ? label() : (label || "");
+    detail.querySelector(".ultra-step-detail-text").textContent=text;
+  },
+
+  // Hides it at once, e.g. when an upload is refused before any processing
+  // (the upload panel then says why).
+  hide() {
+    if (!this.panel) return;
+    window.clearTimeout(this.hideTimer);
+    window.clearTimeout(this.resetTimer);
+    this.hideTimer=null;
+    this.resetTimer=null;
+    this.isFinished=true;
+    this.detailInfo=null;
+    this.panel.classList.remove("show");
+    this.bar.style.width="0%";
+    this.progress=0;
   },
 
   finish() {
     this.progress=100;
     this.isFinished=true;
+    this.detailInfo=null;
     this.render();
     this.renderSteps(this.steps.length);
 
@@ -3624,6 +3686,7 @@ const UltraLoader$1 = {
       }
       this.stepsContainer.appendChild(row);
     });
+    if (this.detailInfo) this.detail(this.detailInfo.fraction, this.detailInfo.label);
   },
 
   error(message="Processing error") {
@@ -5686,7 +5749,7 @@ var DEFAULT_LIST = {
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const IS_MOBILE_BUILD = "dev" === "mobile";
+const IS_MOBILE_BUILD = "test" === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
 const DEFAULT_URL = "./manifests/index.json";
@@ -7235,7 +7298,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BRbb2EZ-.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DMrnqEQG.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -7917,7 +7980,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-13OSKT3T.js'),
+    import('./rendering-webgpu-BjBdtdHa.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -8049,9 +8112,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BhfibaAg.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BFhH7Z3B.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-DIo8b1ml.js');
+const loadSplats = async () => import('./splats-p9QQMiLM.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -8254,7 +8317,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "dev";
+const ENV_BUILD = "test";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -9230,6 +9293,30 @@ function formatMegabytes(bytes) {
   return value >= 10 ? String(Math.round(value)) : value.toFixed(1);
 }
 
+// How much of the top progress bar the upload itself takes; the worker's
+// 0-100 fills the rest.
+const UPLOAD_PROGRESS_SHARE = 30;
+
+// fetch() cannot report how much of a request body has been sent, so the
+// upload goes through XMLHttpRequest; it resolves to a Response like fetch().
+function sendWithProgress(url, { method, body, headers }, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    Object.entries(headers || {}).forEach(([name, value]) => xhr.setRequestHeader(name, value));
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total);
+    });
+    xhr.addEventListener("load", () => {
+      const body = [204, 205, 304].includes(xhr.status) ? null : xhr.responseText;
+      resolve(new Response(body, { status: xhr.status, statusText: xhr.statusText }));
+    });
+    xhr.addEventListener("error", () => reject(new TypeError("Network error during upload")));
+    xhr.addEventListener("abort", () => reject(new TypeError("Upload aborted")));
+    xhr.send(body);
+  });
+}
+
 function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
     renderUploadHint() {
@@ -9302,6 +9389,33 @@ function attachUploadPanel(Viewer) {
         default:
           return data?.error || t$1("uploadPanel.uploadError", "Upload failed. Please try again.");
       }
+    },
+
+    // Which layer refused an upload as too large: the worker answers with
+    // JSON, Cloudflare (100 MB on Free/Pro) and nginx with an HTML page.
+    async describeTooLarge(response) {
+      let body = "";
+      try {
+        body = await response.text();
+      } catch (_error) {
+        // No body - the generic message below.
+      }
+      try {
+        const reason = JSON.parse(body)?.error;
+        if (reason) return t$1("uploadPanel.tooLargeWorker", { reason }, "The server refused the file: {reason}");
+      } catch (_error) {
+        // Not the worker's JSON.
+      }
+      if (/cloudflare/i.test(body)) {
+        return t$1(
+          "uploadPanel.tooLargeCloudflare",
+          "The file is larger than Cloudflare lets through (100 MB on the Free and Pro plans), so it never reached the server."
+        );
+      }
+      if (/nginx/i.test(body)) {
+        return t$1("uploadPanel.tooLargeProxy", "A proxy in front of the server refused the file as too large (nginx client_max_body_size).");
+      }
+      return t$1("uploadPanel.tooLarge", "That file is too large to upload.");
     },
 
     // Login itself lives in its own panel (ui/login-panel.js); the upload
@@ -9387,6 +9501,24 @@ function attachUploadPanel(Viewer) {
         input.removeAttribute("aria-invalid");
         if (this.uploadInputs.status?.dataset.tone === "error") this.setUploadStatusText("");
       }
+    },
+
+    // Blurs the viewer and the thumbnail gallery while a model is uploaded
+    // and converted (upload-panel.css); `gallery: false` leaves the gallery
+    // as it is, e.g. until the new model's thumbnails replace it.
+    setUploadBusy(busy, { viewer = true, gallery = true } = {}) {
+      const targets = [];
+      if (viewer && core.container) targets.push(core.container);
+      if (gallery) {
+        const imageList = document.getElementById("image-list");
+        const galleryElement = imageList?.closest(".image-list-scroller") || imageList;
+        if (galleryElement) targets.push(galleryElement);
+      }
+      targets.forEach((element) => {
+        element.classList.toggle("viewer-upload-busy", busy);
+        if (busy) element.setAttribute("aria-busy", "true");
+        else element.removeAttribute("aria-busy");
+      });
     },
 
     setUploadStatusText(message, tone = "info") {
@@ -9566,7 +9698,9 @@ function attachUploadPanel(Viewer) {
       await this.sendUploadRequest({ method: "POST", body: formData, headers: appRequestHeaders() }, "/api/model/create");
     },
 
-    // Starts a conversion (an uploaded file or a link) and follows it.
+    // Starts a conversion (an uploaded file or a link) and follows it: the
+    // upload is the first of the processing steps, with the bytes sent so
+    // far under it, and the viewer stays blurred until the model is in.
     async sendUploadRequest(request, endpoint) {
       const fromUrl = endpoint.endsWith("-from-url");
       this.uploadInputs.submit.disabled = true;
@@ -9574,9 +9708,23 @@ function attachUploadPanel(Viewer) {
         fromUrl ? t$1("uploadPanel.downloading", "Downloading the file...") : t$1("uploadPanel.uploading", "Uploading..."),
         "info"
       );
+      const firstStep = fromUrl ? "processingSteps.downloadingFile" : "processingSteps.uploadingFile";
+      UltraLoader$1.start([firstStep, ...this.processingLoadingStepKeys], { initialProgress: 0 });
+      this.setUploadBusy(true);
+      let started = false;
+
+      const onProgress = (loaded, total) => {
+        const fraction = total ? loaded / total : 0;
+        UltraLoader$1.set(fraction * UPLOAD_PROGRESS_SHARE);
+        UltraLoader$1.detail(fraction, () => t$1(
+          "processingSteps.uploadedBytes",
+          { percent: Math.round(fraction * 100), loaded: formatMegabytes(loaded), total: formatMegabytes(total) },
+          "{percent}% · {loaded} / {total} MB"
+        ));
+      };
 
       try {
-        const response = await fetch(apiUrl(endpoint), request);
+        const response = await sendWithProgress(apiUrl(endpoint), request, fromUrl ? null : onProgress);
         if (response.status === 401) {
           await this.refreshAuthState();
           this.setUploadStatusText(t$1("uploadPanel.loginRequired", "Log in to upload models."), "error");
@@ -9594,7 +9742,7 @@ function attachUploadPanel(Viewer) {
           return;
         }
         if (response.status === 413) {
-          this.setUploadStatusText(t$1("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+          this.setUploadStatusText(await this.describeTooLarge(response), "error");
           return;
         }
         // The worker's reason a link cannot be imported (remote_fetch.py).
@@ -9625,14 +9773,16 @@ function attachUploadPanel(Viewer) {
           throw new Error("No job id returned by the conversion service.");
         }
 
+        started = true;
         this.closeUploadPanel();
         this.refreshUploadLimits();
         toastHelper("uploadStarted", "info");
 
-        UltraLoader$1.start([...this.processingLoadingStepKeys]);
+        UltraLoader$1.phase({ stepOffset: 1, progressFrom: UPLOAD_PROGRESS_SHARE });
         const poller = new StatusPoller(jobId, {
           forcePoll: true,
           onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData, jobId),
+          onError: () => this.setUploadBusy(false),
         });
         poller.start();
       } catch (error) {
@@ -9640,6 +9790,11 @@ function attachUploadPanel(Viewer) {
         this.setUploadStatusText(t$1("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
         toastHelper("uploadError", "error");
       } finally {
+        // Refused or failed before any processing: the panel says why.
+        if (!started) {
+          UltraLoader$1.hide();
+          this.setUploadBusy(false);
+        }
         if (this.uploadInputs?.submit) {
           const state = this.authState;
           this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
@@ -9652,7 +9807,10 @@ function attachUploadPanel(Viewer) {
     handleUploadStatusUpdate(data, jobId) {
       this.uploadStatusQueue = (this.uploadStatusQueue || Promise.resolve())
         .then(() => this.applyUploadStatus(data, jobId))
-        .catch((error) => this.reportError(error, { context: "Upload status update failed" }));
+        .catch((error) => {
+          this.setUploadBusy(false);
+          this.reportError(error, { context: "Upload status update failed" });
+        });
       return this.uploadStatusQueue;
     },
 
@@ -9664,6 +9822,8 @@ function attachUploadPanel(Viewer) {
       if (!finished && data.previewUrl && this.uploadPreviewJob !== jobId) {
         this.uploadPreviewJob = jobId;
         core.autoPath = remoteAssetUrl(data.previewUrl);
+        // The preview is there to be looked at while the rest is built.
+        this.setUploadBusy(false, { gallery: false });
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();
         showPreviewBadge(t$1("loadingLog.pointCloudPreview", "Preview · building the full point cloud..."));
@@ -9677,6 +9837,9 @@ function attachUploadPanel(Viewer) {
       if (data.status === "ready" && data.modelUrl) {
         toastHelper("uploadReady", "success");
         core.autoPath = remoteAssetUrl(data.modelUrl);
+        // The model's own loading progress shows on the viewer; the gallery
+        // waits for the new thumbnails.
+        this.setUploadBusy(false, { gallery: false });
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();
 
@@ -9696,6 +9859,9 @@ function attachUploadPanel(Viewer) {
       } else if (data.status === "failed" || data.status === "error") {
         toastHelper("uploadError", "error");
       }
+      // renderModelGalleryImages built a new, unblurred gallery; one left as
+      // it was (and the viewer, after a failure) is unblurred here.
+      if (finished) this.setUploadBusy(false);
     },
   });
 }
@@ -13097,7 +13263,7 @@ function getConfiguredTestImages() {
   const normalizedImages = configuredImages.map((entry, index) => {
     if (typeof entry === "string") {
       const src = normalizeGalleryUrl(entry);
-      return src ? { src, alt: `Preview ${index + 1}` } : null;
+      return src ? { src, alt: `Preview ${index + 1}`, label: "" } : null;
     }
     if (entry && typeof entry === "object") {
       const src = normalizeGalleryUrl(entry.src || entry.url || "");
@@ -13105,6 +13271,7 @@ function getConfiguredTestImages() {
       return {
         src,
         alt: String(entry.alt || entry.label || `Preview ${index + 1}`),
+        label: String(entry.label || ""),
       };
     }
     return null;
@@ -13121,6 +13288,7 @@ function createDefaultTestImages() {
   return Array.from({ length: GENERIC_GALLERY_IMAGE_COUNT }, (_unused, index) => ({
     src: getGenericGalleryImageUrl(index),
     alt: `Preview ${index + 1}`,
+    label: "",
   }));
 }
 
@@ -13145,10 +13313,12 @@ function getPerModelGalleryImages() {
   const images = GALLERY_RENDER_ANGLES.map((angle) => ({
     src: normalizeGalleryUrl(`examples/gallery/${dir}/${basename}_side${angle}.${GALLERY_IMAGE_EXT}`),
     alt: `${basename} - ${angle}°`,
+    label: `${angle}°`,
   }));
   images.push({
     src: normalizeGalleryUrl(`examples/gallery/${dir}/${basename}_top.${GALLERY_IMAGE_EXT}`),
     alt: `${basename} - top`,
+    label: t$1("gallery.top", "Top"),
   });
   return images.filter((img) => img.src);
 }
@@ -13166,10 +13336,23 @@ function probeImageExists(src) {
   });
 }
 
+// The caption of a turntable render (scripts/render.py, worker/server.py:
+// <basename>_side<angle>.<ext>, <basename>_top.<ext>) from its URL, for
+// galleries that come as bare URL lists.
+function labelFromRenderUrl(src) {
+  const name = String(src || "").split(/[?#]/)[0].split("/").pop() || "";
+  const side = name.match(/_side(\d{1,3})\.[a-z0-9]+$/i);
+  if (side) return `${side[1]}°`;
+  if (/_top\.[a-z0-9]+$/i.test(name)) return t$1("gallery.top", "Top");
+  return "";
+}
+
 function createFakeGalleryElements(testImages) {
   return testImages.map((entry) => {
     const wrapper = document.createElement("div");
     wrapper.className = "field__item";
+    const label = entry.label ?? labelFromRenderUrl(entry.src);
+    if (label) wrapper.dataset.label = label;
     // Built with properties, not markup: the alt text may come from a
     // manifest (AIM3DViewer.thumbnails labels).
     const img = document.createElement("img");
@@ -13270,6 +13453,8 @@ const SCROLL_HINT_ICONS = {
 function wrapWithScrollHints(Viewer, imageList) {
   const scroller = document.createElement("div");
   scroller.className = "image-list-scroller";
+  scroller.setAttribute("role", "region");
+  scroller.setAttribute("aria-label", t$1("gallery.label", "Views of the model"));
   scroller.appendChild(imageList);
 
   const [prevButton, nextButton] = ["prev", "next"].map((direction) => {
@@ -13327,114 +13512,334 @@ function markThumbnailLoaded(img, container) {
   }
 }
 
+const GALLERY_ICONS = {
+  close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.7 5.3a1 1 0 0 0-1.4 1.4L10.59 12l-5.3 5.3a1 1 0 1 0 1.42 1.4L12 13.41l5.3 5.3a1 1 0 0 0 1.4-1.42L13.41 12l5.3-5.3a1 1 0 0 0-1.42-1.4L12 10.59Z"/></svg>',
+  zoomReset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.96 12.05l4.25 4.24a1 1 0 0 1-1.42 1.42l-4.24-4.25A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM8 9.5h5a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2Z"/></svg>',
+};
+
+const GALLERY_ZOOM_MIN = 1;
+const GALLERY_ZOOM_MAX = 6;
+const GALLERY_ZOOM_DETAIL = 2.5;
+
+// The caption a thumbnail shows: its own label (data-label: an angle, a
+// manifest's label), else the image's alt text from the page (Drupal
+// fields), else nothing.
+function thumbnailCaption(container, img) {
+  return container?.dataset?.label || (img.getAttribute("alt") || "").trim();
+}
+
 function handleImages(Viewer, mainElement, imageElements, imageElementsChildren) {
   if (imageElementsChildren === undefined) {
     imageElementsChildren = imageElements;
   }
   removeExistingGalleryDom();
-  var imageList = document.createElement("div");
+  // Layout comes from main.css: one row, scrolling sideways when it is
+  // longer than the page.
+  const imageList = document.createElement("div");
   imageList.setAttribute("id", "image-list");
-  imageList.style.display = "flex";
-  imageList.style.flexWrap = "wrap";
-  imageList.style.gap = "16px";
-  imageList.style.alignItems = "center";
-  var modalGallery = document.createElement("div");
-  var modalImageWrap = document.createElement("div");
-  var modalImage = document.createElement("img");
-  var modalPrev = document.createElement("button");
-  var modalNext = document.createElement("button");
-  var modalCounter = document.createElement("span");
-  const galleryImageSources = [];
-  const galleryThumbEls = [];
-  let currentGalleryIndex = -1;
-  modalImageWrap.setAttribute("class", "modalImageWrap");
-  modalCounter.setAttribute("class", "galleryCounter");
-  modalImage.setAttribute("class", "modalImage");
-  // Start from whatever zoom the user last left the gallery at (Viewer.zoomImage
-  // persists on the Viewer instance across images and across open/close), so a
-  // fresh build still reflects the remembered zoom instead of always resetting.
-  modalImage.style.transform = `scale(${Viewer.zoomImage})`;
-  Viewer.bindEventListener(modalGallery, "wheel", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.deltaY > 0 && Viewer.zoomImage > 0.15) {
-      modalImage.style.transform = `scale(${(Viewer.zoomImage -= Viewer.ZOOM_SPEED_IMAGE)})`;
-    } else if (e.deltaY < 0 && Viewer.zoomImage < 5) {
-      modalImage.style.transform = `scale(${(Viewer.zoomImage += Viewer.ZOOM_SPEED_IMAGE)})`;
-    }
-    return false;
-  });
-  var modalClose = document.createElement("span");
-  modalGallery.setAttribute("id", "modalGallery");
-  modalGallery.setAttribute("class", "modalGallery");
-  modalClose.setAttribute("class", "closeGallery");
-  modalClose.setAttribute("title", "Close");
-  modalClose.innerHTML = "&times";
-  modalPrev.setAttribute("type", "button");
-  modalPrev.setAttribute("class", "galleryNav galleryNavPrev");
-  modalPrev.setAttribute("title", "Previous image");
-  modalPrev.setAttribute("aria-label", "Previous image");
-  modalPrev.innerHTML =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.41 0Z"/></svg>';
-  modalNext.setAttribute("type", "button");
-  modalNext.setAttribute("class", "galleryNav galleryNavNext");
-  modalNext.setAttribute("title", "Next image");
-  modalNext.setAttribute("aria-label", "Next image");
-  modalNext.innerHTML =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 18.7a1 1 0 0 1 0-1.4l5.29-5.3-5.3-5.3a1 1 0 1 1 1.42-1.4l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.41 0Z"/></svg>';
+  imageList.setAttribute("role", "list");
 
-  const showGalleryImageAtIndex = function (index) {
-    if (galleryImageSources.length === 0) {
-      return;
-    }
-    const normalizedIndex =
-      (index + galleryImageSources.length) % galleryImageSources.length;
-    if (galleryThumbEls[currentGalleryIndex]) {
-      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
-    }
-    currentGalleryIndex = normalizedIndex;
-    modalImage.src = galleryImageSources[normalizedIndex];
-    modalCounter.textContent = `${normalizedIndex + 1} / ${galleryImageSources.length}`;
-    if (galleryThumbEls[normalizedIndex]) {
-      galleryThumbEls[normalizedIndex].classList.add("is-active-thumb");
-    }
+  const galleryImages = []; // { src, caption }
+  const galleryThumbEls = [];
+  const filmstripItems = [];
+  let currentGalleryIndex = -1;
+  let lastFocus = null;
+
+  const el = (tag, className, attrs = {}) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, value));
+    return node;
+  };
+  const iconButton = (className, label, icon) => {
+    const button = el("button", className, { type: "button", title: label, "aria-label": label });
+    button.innerHTML = icon;
+    return button;
   };
 
+  // The lightbox: the image on the viewer's own backdrop (a studio plate,
+  // like the canvas), its caption and number, and a filmstrip of all views.
+  const modalGallery = el("div", "modalGallery", {
+    id: "modalGallery",
+    role: "dialog",
+    "aria-modal": "true",
+    "aria-label": t$1("gallery.dialog", "Image viewer"),
+  });
+  const modalStage = el("div", "galleryStage");
+  const modalImageWrap = el("div", "modalImageWrap");
+  const modalImage = el("img", "modalImage", { alt: "", draggable: "false" });
+  const modalPrev = iconButton("galleryNav galleryNavPrev", t$1("gallery.previous", "Previous view"), SCROLL_HINT_ICONS.prev);
+  const modalNext = iconButton("galleryNav galleryNavNext", t$1("gallery.next", "Next view"), SCROLL_HINT_ICONS.next);
+  const modalClose = iconButton("closeGallery", t$1("gallery.close", "Close"), GALLERY_ICONS.close);
+  const modalFooter = el("div", "galleryFooter");
+  const modalCaption = el("div", "galleryCaption", { "aria-live": "polite" });
+  const modalCaptionNumber = el("span", "galleryCaptionNumber");
+  const modalCaptionText = el("span", "galleryCaptionText");
+  const modalCounter = el("span", "galleryCounter");
+  const modalZoomReset = el("button", "galleryZoomReset", { type: "button", title: t$1("gallery.zoomReset", "Reset zoom") });
+  const modalHint = el("p", "galleryHint");
+  const modalFilmstrip = el("div", "galleryFilmstrip");
+  modalHint.textContent = t$1("gallery.hint", "");
+  modalZoomReset.hidden = true;
+
+  modalCaption.append(modalCaptionNumber, modalCounter, modalCaptionText, modalZoomReset);
+  modalFooter.append(modalCaption, modalFilmstrip, modalHint);
+  modalImageWrap.appendChild(modalImage);
+  modalStage.appendChild(modalImageWrap);
+  modalGallery.append(modalStage, modalPrev, modalNext, modalClose, modalFooter);
+
+  // Zoom (Viewer.zoomImage, kept across images and across open/close, as
+  // before) and the pan of the zoomed image, which each image starts without.
+  const pan = { x: 0, y: 0 };
+  const clampZoom = (zoom) => Math.min(GALLERY_ZOOM_MAX, Math.max(GALLERY_ZOOM_MIN, zoom));
+  Viewer.zoomImage = clampZoom(Number(Viewer.zoomImage) || 1);
+
+  const clampPan = () => {
+    const zoom = Viewer.zoomImage;
+    // The image fills its plate, which clips it: it pans as far as its edges.
+    const maxX = Math.max(0, (modalImage.clientWidth * (zoom - 1)) / 2);
+    const maxY = Math.max(0, (modalImage.clientHeight * (zoom - 1)) / 2);
+    pan.x = Math.min(maxX, Math.max(-maxX, pan.x));
+    pan.y = Math.min(maxY, Math.max(-maxY, pan.y));
+  };
+
+  const applyTransform = () => {
+    clampPan();
+    modalImage.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${Viewer.zoomImage})`;
+    const zoomed = Viewer.zoomImage > 1.001;
+    modalGallery.classList.toggle("is-zoomed", zoomed);
+    modalZoomReset.hidden = !zoomed;
+    modalZoomReset.textContent = `${Math.round(Viewer.zoomImage * 100)}%`;
+    modalZoomReset.insertAdjacentHTML("afterbegin", GALLERY_ICONS.zoomReset);
+  };
+
+  // Zooms keeping the point under (clientX, clientY) where it is.
+  const zoomTo = (zoom, clientX, clientY) => {
+    const previous = Viewer.zoomImage;
+    const next = clampZoom(zoom);
+    if (next === previous) return;
+    const rect = modalImageWrap.getBoundingClientRect();
+    const px = (clientX ?? rect.left + rect.width / 2) - (rect.left + rect.width / 2);
+    const py = (clientY ?? rect.top + rect.height / 2) - (rect.top + rect.height / 2);
+    pan.x = px - (px - pan.x) * (next / previous);
+    pan.y = py - (py - pan.y) * (next / previous);
+    Viewer.zoomImage = next;
+    applyTransform();
+  };
+
+  const resetZoom = () => {
+    pan.x = 0;
+    pan.y = 0;
+    Viewer.zoomImage = 1;
+    applyTransform();
+  };
+
+  const preload = (index) => {
+    const entry = galleryImages[(index + galleryImages.length) % galleryImages.length];
+    if (entry) new Image().src = entry.src;
+  };
+
+  const showGalleryImageAtIndex = function (index) {
+    if (galleryImages.length === 0) {
+      return;
+    }
+    const count = galleryImages.length;
+    const normalizedIndex = (index + count) % count;
+    galleryThumbEls[currentGalleryIndex]?.classList.remove("is-active-thumb");
+    filmstripItems[currentGalleryIndex]?.classList.remove("is-active");
+    filmstripItems[currentGalleryIndex]?.removeAttribute("aria-current");
+    currentGalleryIndex = normalizedIndex;
+
+    const { src, caption } = galleryImages[normalizedIndex];
+    if (modalImage.getAttribute("src") !== src) {
+      modalImageWrap.classList.add("is-loading");
+      modalImage.src = src;
+    }
+    modalImage.alt = caption;
+    pan.x = 0;
+    pan.y = 0;
+    applyTransform();
+
+    modalCaptionNumber.textContent = String(normalizedIndex + 1).padStart(2, "0");
+    modalCaptionText.textContent = caption || t$1("gallery.view", { number: normalizedIndex + 1 }, `View ${normalizedIndex + 1}`);
+    modalCounter.textContent = `/ ${String(count).padStart(2, "0")}`;
+    modalGallery.classList.toggle("is-single", count < 2);
+
+    galleryThumbEls[normalizedIndex]?.classList.add("is-active-thumb");
+    const filmItem = filmstripItems[normalizedIndex];
+    if (filmItem) {
+      filmItem.classList.add("is-active");
+      filmItem.setAttribute("aria-current", "true");
+      if (modalGallery.classList.contains("is-open")) {
+        filmItem.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+      }
+    }
+    preload(normalizedIndex + 1);
+    preload(normalizedIndex - 1);
+  };
+
+  const markModalImageLoaded = () => modalImageWrap.classList.remove("is-loading");
+  modalImage.addEventListener("load", markModalImageLoaded);
+  modalImage.addEventListener("error", markModalImageLoaded);
+
   const openModalGalleryAtIndex = function (index) {
+    lastFocus = document.activeElement;
     showGalleryImageAtIndex(index);
     modalGallery.classList.add("is-open");
-    imageList.style.zIndex = 0;
-    imageList.style.display = "hidden";
+    filmstripItems[currentGalleryIndex]?.scrollIntoView({ block: "nearest", inline: "center" });
+    modalClose.focus({ preventScroll: true });
   };
 
   const closeModalGallery = function () {
+    if (!modalGallery.classList.contains("is-open")) return;
     modalGallery.classList.remove("is-open");
-    if (galleryThumbEls[currentGalleryIndex]) {
-      galleryThumbEls[currentGalleryIndex].classList.remove("is-active-thumb");
+    const thumb = galleryThumbEls[currentGalleryIndex];
+    thumb?.classList.remove("is-active-thumb");
+    // Back to the thumbnail of the view last shown (not the one opened), or
+    // wherever the focus was.
+    if (thumb && (!lastFocus || imageList.contains(lastFocus) || modalGallery.contains(lastFocus))) {
+      thumb.scrollIntoView({ block: "nearest", inline: "nearest" });
+      thumb.focus({ preventScroll: true });
+    } else {
+      lastFocus?.focus?.({ preventScroll: true });
     }
-    // Intentionally leave Viewer.zoomImage / modalImage's transform as-is so the
-    // zoom level the user scrolled to carries over to the next image and the
-    // next time the gallery is opened, instead of snapping back to a default.
+    lastFocus = null;
   };
 
-  modalClose.onclick = function () {
+  modalClose.addEventListener("click", (event) => {
+    event.stopPropagation();
     closeModalGallery();
-  };
-
-  modalPrev.onclick = function (event) {
-    event.preventDefault();
+  });
+  modalPrev.addEventListener("click", (event) => {
     event.stopPropagation();
     showGalleryImageAtIndex(currentGalleryIndex - 1);
-  };
-
-  modalNext.onclick = function (event) {
-    event.preventDefault();
+  });
+  modalNext.addEventListener("click", (event) => {
     event.stopPropagation();
     showGalleryImageAtIndex(currentGalleryIndex + 1);
+  });
+  modalZoomReset.addEventListener("click", (event) => {
+    event.stopPropagation();
+    resetZoom();
+  });
+
+  Viewer.bindEventListener(modalGallery, "wheel", function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const factor = 1 + (Viewer.ZOOM_SPEED_IMAGE || 0.1) * 1.5;
+    zoomTo(Viewer.zoomImage * (event.deltaY > 0 ? 1 / factor : factor), event.clientX, event.clientY);
+  }, { passive: false });
+
+  // Pointers on the stage: one drags a zoomed image or swipes to the next
+  // view, two pinch-zoom, a double click or tap zooms into a detail (and
+  // back out).
+  const pointers = new Map();
+  let gesture = null;
+  let lastTap = null;
+  let suppressClick = false;
+
+  const pinchDistance = () => {
+    const [a, b] = [...pointers.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y) || 1;
   };
 
+  modalStage.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    suppressClick = false;
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      gesture = {
+        type: "pinch",
+        distance: pinchDistance(),
+        zoom: Viewer.zoomImage,
+        cx: (a.x + b.x) / 2,
+        cy: (a.y + b.y) / 2,
+      };
+    } else if (pointers.size === 1) {
+      gesture = {
+        type: Viewer.zoomImage > 1.001 ? "pan" : "swipe",
+        startX: event.clientX,
+        startY: event.clientY,
+        panX: pan.x,
+        panY: pan.y,
+        moved: false,
+      };
+    }
+  });
+
+  modalStage.addEventListener("pointermove", (event) => {
+    if (!pointers.has(event.pointerId) || !gesture) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (gesture.type === "pinch" && pointers.size === 2) {
+      zoomTo(gesture.zoom * (pinchDistance() / gesture.distance), gesture.cx, gesture.cy);
+      suppressClick = true;
+      modalStage.setPointerCapture?.(event.pointerId);
+      return;
+    }
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    if (!gesture.moved && Math.hypot(dx, dy) > 6) {
+      gesture.moved = true;
+      suppressClick = true;
+      // Captured only once it is a drag: a plain click keeps its own target
+      // (the image, or the backdrop that closes).
+      modalStage.setPointerCapture?.(event.pointerId);
+    }
+    if (gesture.type === "pan") {
+      pan.x = gesture.panX + dx;
+      pan.y = gesture.panY + dy;
+      modalImage.classList.add("is-dragging");
+      applyTransform();
+    } else if (gesture.type === "swipe" && gesture.moved) {
+      modalImageWrap.style.transform = `translateX(${dx * 0.35}px)`;
+    }
+  });
+
+  const endPointer = (event) => {
+    if (!pointers.has(event.pointerId)) return;
+    pointers.delete(event.pointerId);
+    modalImage.classList.remove("is-dragging");
+    modalImageWrap.style.transform = "";
+    if (!gesture) return;
+    if (gesture.type === "pinch") {
+      // The finger left on the glass carries on as a pan.
+      const rest = [...pointers.values()][0];
+      gesture = rest
+        ? { type: "pan", startX: rest.x, startY: rest.y, panX: pan.x, panY: pan.y, moved: true }
+        : null;
+      return;
+    }
+    if (pointers.size > 0 || event.type === "pointercancel") {
+      gesture = null;
+      return;
+    }
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    if (gesture.type === "swipe" && gesture.moved && Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      showGalleryImageAtIndex(currentGalleryIndex + (dx < 0 ? 1 : -1));
+    } else if (!gesture.moved && event.target === modalImage) {
+      const now = performance.now();
+      if (lastTap && now - lastTap.time < 320 && Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) < 30) {
+        if (Viewer.zoomImage > 1.001) resetZoom();
+        else zoomTo(GALLERY_ZOOM_DETAIL, event.clientX, event.clientY);
+        lastTap = null;
+      } else {
+        lastTap = { time: now, x: event.clientX, y: event.clientY };
+      }
+    }
+    gesture = null;
+  };
+  modalStage.addEventListener("pointerup", endPointer);
+  modalStage.addEventListener("pointercancel", endPointer);
+
+  // A click on the backdrop (not the image, not after a drag) closes.
   Viewer.bindEventListener(modalGallery, "click", function (event) {
-    if (event.target === modalGallery) {
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
+    if (event.target === modalGallery || event.target === modalStage || event.target === modalImageWrap) {
       closeModalGallery();
     }
   });
@@ -13452,24 +13857,99 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     if (!modalGallery.classList.contains("is-open")) {
       return;
     }
-    if (event.key === "ArrowLeft") {
+    const keys = {
+      ArrowLeft: () => showGalleryImageAtIndex(currentGalleryIndex - 1),
+      ArrowRight: () => showGalleryImageAtIndex(currentGalleryIndex + 1),
+      Home: () => showGalleryImageAtIndex(0),
+      End: () => showGalleryImageAtIndex(galleryImages.length - 1),
+      Escape: () => closeModalGallery(),
+      "+": () => zoomTo(Viewer.zoomImage * 1.25),
+      "=": () => zoomTo(Viewer.zoomImage * 1.25),
+      "-": () => zoomTo(Viewer.zoomImage / 1.25),
+      0: () => resetZoom(),
+    };
+    if (keys[event.key]) {
       event.preventDefault();
-      showGalleryImageAtIndex(currentGalleryIndex - 1);
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      showGalleryImageAtIndex(currentGalleryIndex + 1);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      closeModalGallery();
+      event.stopPropagation();
+      keys[event.key]();
+      return;
+    }
+    // Tab stays inside the dialog.
+    if (event.key === "Tab") {
+      const focusable = [...modalGallery.querySelectorAll("button")].filter(
+        (button) => !button.hidden && button.offsetParent !== null
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const outside = !modalGallery.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || outside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || outside)) {
+        event.preventDefault();
+        first.focus();
+      }
     }
   });
 
-  modalImageWrap.appendChild(modalImage);
-  modalGallery.appendChild(modalPrev);
-  modalGallery.appendChild(modalImageWrap);
-  modalGallery.appendChild(modalNext);
-  modalGallery.appendChild(modalCounter);
-  modalGallery.appendChild(modalClose);
+  Viewer.bindEventListener(window, "resize", () => {
+    if (modalGallery.classList.contains("is-open")) applyTransform();
+  });
+
+  // A thumbnail: the whole card opens its view, by mouse, touch or keyboard.
+  const addThumbnail = (img, thumbContainer) => {
+    const index = galleryImages.length;
+    const caption = thumbnailCaption(thumbContainer, img);
+    galleryImages.push({ src: img.src, caption });
+    galleryThumbEls[index] = thumbContainer;
+
+    if (thumbContainer instanceof HTMLElement) {
+      thumbContainer.dataset.number = String(index + 1).padStart(2, "0");
+      if (caption) thumbContainer.dataset.label = caption;
+      thumbContainer.setAttribute("role", "listitem");
+    }
+    const target = thumbContainer instanceof HTMLElement ? thumbContainer : img;
+    target.tabIndex = 0;
+    target.setAttribute(
+      "aria-label",
+      caption
+        ? t$1("gallery.open", { number: index + 1, label: caption }, `Open view ${index + 1}: ${caption}`)
+        : t$1("gallery.openPlain", { number: index + 1 }, `Open view ${index + 1}`)
+    );
+    target.addEventListener("click", (event) => {
+      event.preventDefault();
+      openModalGalleryAtIndex(index);
+    });
+    target.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openModalGalleryAtIndex(index);
+      }
+    });
+    img.draggable = false;
+
+    const filmItem = el("button", "galleryFilmstripItem", {
+      type: "button",
+      "aria-label": caption || t$1("gallery.view", { number: index + 1 }, `View ${index + 1}`),
+    });
+    const filmImg = el("img", "", { alt: "", loading: "lazy", draggable: "false" });
+    filmImg.src = img.src;
+    filmItem.appendChild(filmImg);
+    filmItem.addEventListener("click", (event) => {
+      event.stopPropagation();
+      showGalleryImageAtIndex(index);
+    });
+    filmstripItems[index] = filmItem;
+    modalFilmstrip.appendChild(filmItem);
+
+    useGenericImageOnError(img, index, (src) => {
+      galleryImages[index].src = src;
+      filmImg.src = src;
+    });
+    markThumbnailLoaded(img, thumbContainer);
+  };
+
   for (let i = 0; imageElementsChildren.length - i >= 0; i++) {
     if (
       imageElementsChildren[i] !== undefined &&
@@ -13480,6 +13960,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         imgList[j].setAttribute("href", "#");
         imgList[j].setAttribute("src", imgList[j].firstChild.src);
         imgList[j].setAttribute("class", "image-list-item");
+        imgList[j].tabIndex = -1; // the card is the control
       }
       imgList = imageElementsChildren[i].getElementsByTagName("img");
       if (imgList.length == 1) {
@@ -13487,17 +13968,9 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         imgList[0].style.maxHeight = "180px";
       }
       for (let j = 0; j < imgList.length; j++) {
-        const nextIndex = galleryImageSources.push(imgList[j].src) - 1;
         const thumbContainer =
           imgList[j].closest(".field__item") || imageElementsChildren[i];
-        galleryThumbEls[nextIndex] = thumbContainer;
-        imgList[j].onclick = function () {
-          openModalGalleryAtIndex(nextIndex);
-        };
-        useGenericImageOnError(imgList[j], nextIndex, (src) => {
-          galleryImageSources[nextIndex] = src;
-        });
-        markThumbnailLoaded(imgList[j], thumbContainer);
+        addThumbnail(imgList[j], thumbContainer);
       }
       if (imageElementsChildren[i] instanceof HTMLElement) {
         imageElementsChildren[i].style.display = "block";
@@ -13537,7 +14010,7 @@ function renderModelGalleryImages$1(Viewer, imageUrls = []) {
   const gallery = getGalleryConfig();
   const mainElement = gallery.container ? document.getElementById(gallery.container) : null;
   let images = (Array.isArray(imageUrls) ? imageUrls : [])
-    .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}` }))
+    .map((src, index) => ({ src: normalizeGalleryUrl(src), alt: `Preview ${index + 1}`, label: labelFromRenderUrl(src) }))
     .filter((img) => img.src);
   if (images.length === 0) images = createDefaultTestImages();
   const elements = createFakeGalleryElements(images);
@@ -13582,9 +14055,11 @@ function renderManifestGalleryImages(Viewer, thumbnails) {
       const src = typeof entry === "string" ? entry : entry?.src;
       if (typeof src !== "string" || !src.trim()) return null;
       const fallbackAlt = `Preview ${index + 1}`;
+      const label = typeof entry === "string" ? "" : thumbnailLabel(entry.label, "");
       return {
         src: resolveManifestThumbnailUrl(src),
-        alt: typeof entry === "string" ? fallbackAlt : thumbnailLabel(entry.label, fallbackAlt),
+        alt: label || fallbackAlt,
+        label: label || labelFromRenderUrl(src),
       };
     })
     .filter((img) => img?.src);
@@ -14373,8 +14848,8 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "9d8c91c0" ;
-const BUILD = "dev" ;
+const BUILD_ID$2 = "eccb31e1" ;
+const BUILD = "test" ;
 
 let initPromise = null;
 
@@ -14424,8 +14899,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "9d8c91c0" ;
-const BUILD_TIME$1 = "2026-10-23T09:05:41.633Z" ;
+const BUILD_ID$1 = "eccb31e1" ;
+const BUILD_TIME$1 = "2026-10-23T10:12:16.640Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -46719,8 +47194,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "9d8c91c0" ;
-const BUILD_TIME = "2026-10-23T09:05:41.633Z" ;
+const BUILD_ID = "eccb31e1" ;
+const BUILD_TIME = "2026-10-23T10:12:16.640Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -46970,7 +47445,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "IIIF" ;
+const SOURCE = "" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
@@ -48602,9 +49077,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    {
+    if (!core.CONFIG.entity.metadata.sourceType) {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -51260,4 +51735,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-DR5qZWG0.js.map
+//# sourceMappingURL=main-CumfRnMN.js.map

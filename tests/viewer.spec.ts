@@ -1569,6 +1569,41 @@ test('manifest thumbnails: the gallery shows the manifest\'s own renders, generi
   expect((await gallery()).length).toBe(9);
 });
 
+test('gallery lightbox: views open from the keyboard, browse, zoom and close back to their thumbnail', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
+  await expect(page.locator('#image-list img')).toHaveCount(5);
+  const lightbox = page.locator('#modalGallery');
+
+  const thumb = page.locator('#image-list .field__item').nth(1);
+  await expect(thumb).toHaveAttribute('data-number', '02');
+  await thumb.focus();
+  await page.keyboard.press('Enter');
+  await expect(lightbox).toHaveClass(/is-open/);
+  await expect(page.locator('.closeGallery')).toBeFocused();
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('02');
+  await expect(page.locator('.galleryFilmstripItem')).toHaveCount(5);
+
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.galleryCaptionText')).toHaveText('Back');
+  await page.keyboard.press('End');
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('05');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('01');
+
+  await page.keyboard.press('+');
+  await expect(page.locator('.galleryZoomReset')).toBeVisible();
+  await page.keyboard.press('0');
+  await expect(page.locator('.galleryZoomReset')).toBeHidden();
+
+  await page.locator('.galleryFilmstripItem').nth(3).click();
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('04');
+  await page.keyboard.press('Escape');
+  await expect(lightbox).not.toHaveClass(/is-open/);
+  await expect(page.locator('#image-list .field__item').nth(3)).toBeFocused();
+});
+
 test('manifest thumbnails stay above the viewer when the manifest makes it a movable window', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);

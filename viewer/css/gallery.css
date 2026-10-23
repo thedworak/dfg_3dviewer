@@ -1,0 +1,757 @@
+/* ==========================================================================
+   Gallery (ui/thumbnail-gallery.js): the row of views above the viewer and
+   the lightbox that opens one of them.
+
+   It sits outside .viewer-wrapper, so it has its own tokens, in the viewer's
+   palette: umber panels, the app icon's gold for the accent, and the
+   viewer's studio backdrop (the canvas gradient, warmed a little) as the
+   plate every render stands on - the renders are transparent, so a view in
+   the row looks like the model does in the viewer.
+   ========================================================================== */
+
+:root {
+  --gallery-accent: var(--viewer-brand-gold, #e9b264);
+  --gallery-plate: radial-gradient(circle at 50% 42%, #fdfcf9 0%, #e7e2d9 52%, #b9b2a6 100%);
+  --gallery-surface: rgba(26, 23, 20, 0.95);
+  --gallery-border: rgba(255, 255, 255, 0.1);
+  --gallery-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --gallery-text: rgba(255, 255, 255, 0.94);
+  --gallery-text-muted: rgba(255, 255, 255, 0.58);
+  --gallery-thumb-border: rgba(255, 255, 255, 0.12);
+  --gallery-control-bg: rgba(22, 19, 16, 0.78);
+  --gallery-control-bg-hover: rgba(22, 19, 16, 0.94);
+  --gallery-backdrop:
+    radial-gradient(ellipse at 50% 38%, rgba(48, 41, 33, 0.9), rgba(12, 10, 8, 0.97) 72%);
+}
+
+html[data-viewer-theme="light"] {
+  --gallery-surface: rgba(250, 247, 242, 0.94);
+  --gallery-border: rgba(164, 151, 132, 0.24);
+  --gallery-shadow: 0 12px 24px rgba(129, 116, 96, 0.12);
+  --gallery-text: rgba(37, 33, 28, 0.92);
+  --gallery-text-muted: rgba(96, 82, 66, 0.78);
+  --gallery-thumb-border: rgba(136, 122, 102, 0.26);
+  --gallery-control-bg: rgba(252, 250, 246, 0.9);
+  --gallery-control-bg-hover: rgba(255, 253, 249, 1);
+  --gallery-backdrop:
+    radial-gradient(ellipse at 50% 38%, rgba(250, 247, 242, 0.94), rgba(222, 214, 201, 0.98) 72%);
+}
+
+/* --------------------------------------------------------------------------
+   The row of views
+   -------------------------------------------------------------------------- */
+
+/* A panel like the model picker above it; the scroll hints sit on its
+   edges. */
+.image-list-scroller {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 4px 0 8px;
+  padding: 8px;
+  border: 1px solid var(--gallery-border);
+  border-radius: 12px;
+  background: var(--gallery-surface);
+  box-shadow: var(--gallery-shadow);
+}
+
+/* One row; longer than the page, it scrolls sideways (the hints say so). */
+#image-list {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  justify-content: safe center;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 2px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 2px;
+  scrollbar-width: none;
+}
+
+#image-list::-webkit-scrollbar {
+  display: none;
+}
+
+/* A view: a plate with the render on it, its number in the corner like a
+   catalogue plate, its caption (angle, label) on hover and focus. */
+#image-list .field__item {
+  position: relative;
+  flex: 0 1 128px;
+  min-width: 72px;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid var(--gallery-thumb-border);
+  border-radius: 10px;
+  background-image:
+    linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%),
+    var(--gallery-plate);
+  background-size: 200% 100%, 100% 100%;
+  animation: thumbShimmer 1.4s ease-in-out infinite;
+  box-shadow:
+    inset 0 -18px 24px -18px rgba(37, 33, 28, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+  cursor: zoom-in;
+  scroll-snap-align: start;
+  transition:
+    transform 0.25s cubic-bezier(.22, 1, .36, 1),
+    border-color 0.2s ease,
+    box-shadow 0.25s ease;
+}
+
+#image-list .field__item.is-loaded {
+  background-image: var(--gallery-plate);
+  background-size: 100% 100%;
+  animation: none;
+}
+
+#image-list .field__item::before {
+  content: attr(data-number);
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 1;
+  color: rgba(37, 33, 28, 0.55);
+  font: 600 10px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+#image-list .field__item[data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  padding: 16px 6px 5px;
+  overflow: hidden;
+  background: linear-gradient(to bottom, transparent, rgba(22, 19, 16, 0.78));
+  color: rgba(255, 255, 255, 0.96);
+  font: 500 11px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+#image-list .field__item img {
+  display: block;
+  box-sizing: border-box;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  padding: 6%;
+  object-fit: contain;
+  opacity: 0;
+  filter: drop-shadow(0 6px 6px rgba(37, 33, 28, 0.22));
+  transition: transform 0.35s cubic-bezier(.22, 1, .36, 1), opacity 0.35s ease;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+#image-list .field__item img.is-loaded {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  #image-list .field__item:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--gallery-accent) 70%, transparent);
+    box-shadow:
+      inset 0 -18px 24px -18px rgba(37, 33, 28, 0.35),
+      0 8px 18px rgba(0, 0, 0, 0.26),
+      0 0 0 1px color-mix(in srgb, var(--gallery-accent) 35%, transparent);
+  }
+
+  #image-list .field__item:hover img {
+    transform: scale(1.06);
+  }
+
+  #image-list .field__item:hover::after {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+#image-list .field__item:focus-visible {
+  outline: 2px solid var(--gallery-accent);
+  outline-offset: 2px;
+}
+
+#image-list .field__item:focus-visible::after,
+#image-list .field__item.is-active-thumb::after {
+  opacity: 1;
+  transform: none;
+}
+
+/* The view open in the lightbox. */
+#image-list .field__item.is-active-thumb {
+  border-color: var(--gallery-accent);
+  box-shadow:
+    0 0 0 1px var(--gallery-accent),
+    0 0 16px 2px color-mix(in srgb, var(--gallery-accent) 35%, transparent);
+}
+
+@keyframes thumbShimmer {
+  0% { background-position: 200% 0, 0 0; }
+  100% { background-position: -200% 0, 0 0; }
+}
+
+/* Images from the page (Drupal image fields) keep their class. */
+.image-style-wisski-preview {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
+}
+
+/* More views off screen: that edge fades out and a small chevron sits on it
+   (clicking it scrolls). */
+.image-list-hint {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--gallery-border);
+  border-radius: 50%;
+  background: var(--gallery-control-bg);
+  color: var(--gallery-text);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.image-list-hint[hidden] {
+  display: none;
+}
+
+.image-list-hint:hover {
+  color: var(--gallery-accent);
+  border-color: color-mix(in srgb, var(--gallery-accent) 60%, transparent);
+}
+
+.image-list-hint svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.image-list-hint--prev {
+  left: 4px;
+}
+
+.image-list-hint--next {
+  right: 4px;
+}
+
+.image-list-scroller.can-scroll-prev .image-list-hint--prev,
+.image-list-scroller.can-scroll-next .image-list-hint--next {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.image-list-scroller.can-scroll-next #image-list {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+}
+
+.image-list-scroller.can-scroll-prev #image-list {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
+}
+
+.image-list-scroller.can-scroll-prev.can-scroll-next #image-list {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+}
+
+/* Until the row is first moved, the right chevron nudges once. */
+.image-list-scroller.can-scroll-next:not(.can-scroll-prev) .image-list-hint--next {
+  animation: imageListHintNudge 1.2s ease-in-out 0.6s 2;
+}
+
+@keyframes imageListHintNudge {
+  0%, 100% { transform: translate(0, -50%); }
+  50% { transform: translate(4px, -50%); }
+}
+
+/* --------------------------------------------------------------------------
+   Lightbox
+   -------------------------------------------------------------------------- */
+
+/* The lightbox covers the whole screen, which in the app (edge to edge)
+   includes the status bar and the notch: its controls keep clear of them. */
+.modalGallery {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--gallery-backdrop);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--gallery-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 280ms ease, visibility 280ms ease;
+}
+
+.modalGallery.is-open {
+  opacity: 1;
+  visibility: visible;
+  /* Visible at once, so the close button can take the focus on opening. */
+  transition: opacity 280ms ease, visibility 0s;
+}
+
+.galleryStage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding:
+    calc(72px + env(safe-area-inset-top))
+    calc(96px + env(safe-area-inset-right))
+    8px
+    calc(96px + env(safe-area-inset-left));
+  touch-action: none;
+}
+
+/* The plate the view stands on, like the viewer's canvas; the zoomed image
+   stays inside it. */
+.modalImageWrap {
+  position: relative;
+  width: 100%;
+  max-width: 1400px;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: var(--gallery-plate);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.45),
+    0 10px 30px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  transition:
+    transform 420ms cubic-bezier(.22, 1, .36, 1),
+    opacity 320ms ease;
+}
+
+.modalGallery.is-open .modalImageWrap {
+  opacity: 1;
+  transform: none;
+}
+
+/* Loading the next view: the current one dims under a soft sheen. */
+.modalImageWrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  background-size: 200% 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.modalImageWrap.is-loading::after {
+  opacity: 1;
+  animation: gallerySheen 1.2s ease-in-out infinite;
+}
+
+@keyframes gallerySheen {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.modalImage {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 3%;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 18px rgba(37, 33, 28, 0.25));
+  cursor: zoom-in;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* transform is driven by JS (zoom, pan); kept snappy so it doesn't fight
+     the wheel, but smoothed enough not to feel abrupt. */
+  transform-origin: center;
+  transition: transform 120ms ease-out, opacity 0.2s ease;
+}
+
+.modalImageWrap.is-loading .modalImage {
+  opacity: 0.4;
+}
+
+.modalGallery.is-zoomed .modalImage {
+  cursor: grab;
+}
+
+.modalImage.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+/* Round controls, like the viewer's panel buttons. */
+.galleryNav,
+.closeGallery {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--gallery-border);
+  border-radius: 50%;
+  background: var(--gallery-control-bg);
+  color: var(--gallery-text);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform 0.2s ease,
+    color 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.galleryNav:hover,
+.closeGallery:hover {
+  background: var(--gallery-control-bg-hover);
+  border-color: color-mix(in srgb, var(--gallery-accent) 60%, transparent);
+  color: var(--gallery-accent);
+}
+
+.galleryNav:focus-visible,
+.closeGallery:focus-visible,
+.galleryFilmstripItem:focus-visible,
+.galleryZoomReset:focus-visible {
+  outline: 2px solid var(--gallery-accent);
+  outline-offset: 2px;
+}
+
+.galleryNav {
+  top: calc(50% - 48px);
+  width: 52px;
+  height: 52px;
+  transform: translateY(-50%);
+}
+
+.galleryNav:hover {
+  transform: translateY(-50%) scale(1.06);
+}
+
+.galleryNav svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}
+
+.galleryNavPrev {
+  left: calc(24px + env(safe-area-inset-left));
+}
+
+.galleryNavNext {
+  right: calc(24px + env(safe-area-inset-right));
+}
+
+.closeGallery {
+  top: calc(20px + env(safe-area-inset-top));
+  right: calc(20px + env(safe-area-inset-right));
+  width: 44px;
+  height: 44px;
+}
+
+.closeGallery:hover {
+  transform: scale(1.06);
+}
+
+.closeGallery svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+/* Caption, number and the filmstrip of all views. */
+.galleryFooter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding:
+    10px
+    calc(16px + env(safe-area-inset-right))
+    calc(16px + env(safe-area-inset-bottom))
+    calc(16px + env(safe-area-inset-left));
+}
+
+.galleryCaption {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 4px 6px 4px 14px;
+  border: 1px solid var(--gallery-border);
+  border-radius: 999px;
+  background: var(--gallery-control-bg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+/* "02 / 09", then the caption. */
+.galleryCaptionNumber {
+  margin-right: -8px;
+  color: var(--gallery-accent);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.galleryCaptionText {
+  min-width: 0;
+  padding-right: 8px;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.galleryCounter {
+  padding-right: 12px;
+  border-right: 1px solid var(--gallery-border);
+  color: var(--gallery-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.galleryZoomReset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border: 1px solid color-mix(in srgb, var(--gallery-accent) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gallery-accent) 14%, transparent);
+  color: var(--gallery-accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.galleryZoomReset[hidden] {
+  display: none;
+}
+
+.galleryZoomReset svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.galleryFilmstrip {
+  display: flex;
+  gap: 6px;
+  max-width: min(100%, 760px);
+  padding: 4px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.galleryFilmstrip::-webkit-scrollbar {
+  display: none;
+}
+
+.galleryFilmstripItem {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--gallery-thumb-border);
+  border-radius: 8px;
+  background: var(--gallery-plate);
+  cursor: pointer;
+  opacity: 0.62;
+  scroll-snap-align: center;
+  transition: opacity 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.galleryFilmstripItem img {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 8%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.galleryFilmstripItem:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.galleryFilmstripItem.is-active {
+  opacity: 1;
+  border-color: var(--gallery-accent);
+  box-shadow: 0 0 0 1px var(--gallery-accent), 0 0 12px color-mix(in srgb, var(--gallery-accent) 35%, transparent);
+}
+
+.galleryHint {
+  margin: 0;
+  color: var(--gallery-text-muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.galleryHint:empty {
+  display: none;
+}
+
+/* One image: nothing to browse. */
+.modalGallery.is-single .galleryNav,
+.modalGallery.is-single .galleryFilmstrip,
+.modalGallery.is-single .galleryCounter,
+.modalGallery.is-single .galleryCaptionNumber {
+  display: none;
+}
+
+/* Touch: the hint is about a mouse and keys. */
+@media (hover: none) {
+  .galleryHint {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Phones
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .galleryStage {
+    padding:
+      calc(68px + env(safe-area-inset-top))
+      calc(12px + env(safe-area-inset-right))
+      4px
+      calc(12px + env(safe-area-inset-left));
+  }
+
+  /* Over the plate's edges: swiping does the same. */
+  .galleryNav {
+    width: 40px;
+    height: 40px;
+    opacity: 0.88;
+  }
+
+  .galleryNav svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .galleryNavPrev {
+    left: calc(18px + env(safe-area-inset-left));
+  }
+
+  .galleryNavNext {
+    right: calc(18px + env(safe-area-inset-right));
+  }
+
+  .galleryFilmstripItem {
+    width: 46px;
+    height: 46px;
+  }
+}
+
+/* The standalone viewer page on a phone: one compact row of small views. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  .image-list-scroller {
+    width: auto;
+    margin: 0 8px 8px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  #image-list {
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 2px;
+  }
+
+  #image-list .field__item {
+    flex: 0 0 60px;
+    min-width: 60px;
+    border-radius: 8px;
+  }
+
+  /* Too small for a caption; the number stays. */
+  #image-list .field__item::after {
+    display: none;
+  }
+
+  #image-list .field__item::before {
+    top: 4px;
+    left: 5px;
+    font-size: 9px;
+  }
+
+  .image-list-hint {
+    width: 24px;
+    height: 24px;
+  }
+
+  .image-list-hint svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-list-hint,
+  #image-list .field__item,
+  .modalImageWrap.is-loading::after {
+    animation: none !important;
+  }
+
+  #image-list .field__item,
+  #image-list .field__item img,
+  .modalImageWrap,
+  .modalImage,
+  .galleryNav,
+  .closeGallery {
+    transition: none;
+  }
+}

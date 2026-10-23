@@ -7766,7 +7766,7 @@ var fc = {
 	}
 }, gc = Math.PI / 180, _c = null;
 function vc() {
-	return _c ??= import('./index-BhknI5Hb.js').then((e) => e.PMTiles);
+	return _c ??= import('./index-BQNr_wbv.js').then((e) => e.PMTiles);
 }
 var yc = class extends St {
 	constructor(e, t) {

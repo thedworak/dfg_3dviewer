@@ -43,6 +43,19 @@ const VIEWER_I18N = {
       restore: "Restore panel",
       close: "Close panel",
     },
+    gallery: {
+      label: "Views of the model",
+      dialog: "Image viewer",
+      open: "Open view {number}: {label}",
+      openPlain: "Open view {number}",
+      previous: "Previous view",
+      next: "Next view",
+      close: "Close (Esc)",
+      top: "Top",
+      view: "View {number}",
+      zoomReset: "Reset zoom",
+      hint: "Scroll or pinch to zoom · double-click for detail · arrows to browse",
+    },
     credits: {
       title: "Credits",
       close: "Close",
@@ -1859,6 +1872,19 @@ const VIEWER_I18N = {
       restore: "Rozwiń panel",
       close: "Zamknij panel",
     },
+    gallery: {
+      label: "Widoki modelu",
+      dialog: "Przeglądarka obrazów",
+      open: "Otwórz widok {number}: {label}",
+      openPlain: "Otwórz widok {number}",
+      previous: "Poprzedni widok",
+      next: "Następny widok",
+      close: "Zamknij (Esc)",
+      top: "Z góry",
+      view: "Widok {number}",
+      zoomReset: "Przywróć powiększenie",
+      hint: "Kółko lub dwa palce: powiększenie · dwuklik: szczegół · strzałki: kolejne widoki",
+    },
     credits: {
       title: "Autorzy i źródła",
       close: "Zamknij",
@@ -2903,6 +2929,19 @@ const VIEWER_I18N = {
       minimize: "Panel minimieren",
       restore: "Panel wiederherstellen",
       close: "Panel schließen",
+    },
+    gallery: {
+      label: "Ansichten des Modells",
+      dialog: "Bildbetrachter",
+      open: "Ansicht {number} öffnen: {label}",
+      openPlain: "Ansicht {number} öffnen",
+      previous: "Vorherige Ansicht",
+      next: "Nächste Ansicht",
+      close: "Schließen (Esc)",
+      top: "Draufsicht",
+      view: "Ansicht {number}",
+      zoomReset: "Zoom zurücksetzen",
+      hint: "Mausrad oder zwei Finger: Zoom · Doppelklick: Detail · Pfeiltasten: blättern",
     },
     credits: {
       title: "Credits",
@@ -6018,7 +6057,7 @@ function featureIconsCaption(inspection, modelValidation = null) {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "dev") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -6058,4 +6097,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-DMvYrdQH.js.map
+//# sourceMappingURL=model-thumbnail-DhniTETU.js.map
