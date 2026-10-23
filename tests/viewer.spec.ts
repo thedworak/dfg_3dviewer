@@ -1202,13 +1202,15 @@ async function pickAtCanvasCenter(page) {
 }
 
 test('point clouds are picked on the GPU: the point under the cursor, classes and profile respected', async ({ page }) => {
-  test.setTimeout(60_000);
+  // 300,000 points drawn by SwiftShader: about 10 s on a desktop, close to
+  // a minute on the self-hosted runner next to other tests.
+  test.setTimeout(120_000);
   await page.context().route('**/examples/generated-scan.las', (route) => route.fulfill({
     body: buildLas14(300_000),
     contentType: 'application/octet-stream',
   }));
   await openViewer(page, '/examples/generated-scan.las');
-  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
   await waitForCameraIdle(page);
 
   const hit = await pickAtCanvasCenter(page);

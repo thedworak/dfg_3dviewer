@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-CDJe51sy.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-DdVwirfY.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -3372,7 +3372,7 @@ function attachEmbedConfigurator(Viewer) {
 
 class StatusPoller {
 
-    constructor(id, { forcePoll = false, onUpdate = null } = {}) {
+    constructor(id, { forcePoll = false, onUpdate = null, onError = null } = {}) {
         this.id=id;
         this.interval=2000;
         this.timer=null;
@@ -3384,6 +3384,8 @@ class StatusPoller {
         // to poll" assumption baked into isLocalPreview elsewhere below.
         this.forcePoll = forcePoll === true;
         this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
+        // Called when polling gives up on a connection error.
+        this.onError = typeof onError === "function" ? onError : null;
     }
 
     async start() {
@@ -3474,6 +3476,7 @@ class StatusPoller {
             if (!core.isLocalPreview || this.forcePoll) {
                 UltraLoader.error("Connection error");
                 this.stop();
+                this.onError?.(e);
             }
         }
         this.timer=setTimeout(()=>this.tick(),this.interval);
@@ -3492,6 +3495,14 @@ const UltraLoader$1 = {
   // language change also applies to a run already in progress.
   steps:[],
   activeStep:0,
+  // Added to the indexes passed to step(): an upload puts a step of its own
+  // before the processing steps the status poller counts.
+  stepOffset:0,
+  // Where set()'s 0-100 starts on the bar (the upload fills what is before).
+  progressFrom:0,
+  // The active step's own progress, e.g. the bytes of an upload sent so far:
+  // { fraction, label } - label is a function, so it is re-translated.
+  detailInfo:null,
   hasError:false,
   isFinished:false,
   hideTimer:null,
@@ -3525,7 +3536,7 @@ const UltraLoader$1 = {
     this.stepsContainer=stepsContainer;
   },
 
-  start(steps) {
+  start(steps, { stepOffset = 0, progressFrom = 0, initialProgress = 5 } = {}) {
     this.init();
 
     if (this.hideTimer) {
@@ -3538,13 +3549,16 @@ const UltraLoader$1 = {
     }
 
     this.steps=steps;
+    this.stepOffset=stepOffset;
+    this.progressFrom=progressFrom;
+    this.detailInfo=null;
     this.hasError=false;
     this.panel.querySelector("#ultra-loader-error")?.remove();
     this.updateHeader();
-    this.progress=5;
+    this.progress=initialProgress;
     this.isFinished=false;
 
-    this.bar.style.width = "5%";
+    this.bar.style.width = initialProgress+"%";
     this.bar.style.background = "";
 
     this.renderSteps(0);
@@ -3555,17 +3569,65 @@ const UltraLoader$1 = {
     },
 
   set(progress,message) {
-    this.progress=Math.max(this.progress,progress);
+    const mapped=this.progressFrom+(Number(progress)||0)*(100-this.progressFrom)/100;
+    this.progress=Math.max(this.progress,mapped);
     this.render();
   },
 
   step(index) {
-    this.renderSteps(index);
+    this.detailInfo=null;
+    this.renderSteps(index+this.stepOffset);
+  },
+
+  // Moves on to the next part of a run: later step() and set() calls are
+  // shifted by these (see stepOffset, progressFrom).
+  phase({ stepOffset = this.stepOffset, progressFrom = this.progressFrom } = {}) {
+    this.stepOffset=stepOffset;
+    this.progressFrom=progressFrom;
+    this.step(0);
+  },
+
+  // A small bar and a line under the active step; null removes them.
+  detail(fraction, label) {
+    this.detailInfo=fraction==null ? null : { fraction, label };
+    const row=this.stepsContainer?.querySelector(".ultra-step.active");
+    if (!row) return;
+    let detail=row.querySelector(".ultra-step-detail");
+    if (!this.detailInfo) {
+      detail?.remove();
+      return;
+    }
+    if (!detail) {
+      detail=document.createElement("div");
+      detail.className="ultra-step-detail";
+      detail.innerHTML='<div class="ultra-step-detail-bar"><span></span></div><span class="ultra-step-detail-text"></span>';
+      row.appendChild(detail);
+    }
+    const percent=Math.round(Math.min(1,Math.max(0,fraction))*100);
+    detail.querySelector(".ultra-step-detail-bar span").style.width=percent+"%";
+    const text=typeof label==="function" ? label() : (label || "");
+    detail.querySelector(".ultra-step-detail-text").textContent=text;
+  },
+
+  // Hides it at once, e.g. when an upload is refused before any processing
+  // (the upload panel then says why).
+  hide() {
+    if (!this.panel) return;
+    window.clearTimeout(this.hideTimer);
+    window.clearTimeout(this.resetTimer);
+    this.hideTimer=null;
+    this.resetTimer=null;
+    this.isFinished=true;
+    this.detailInfo=null;
+    this.panel.classList.remove("show");
+    this.bar.style.width="0%";
+    this.progress=0;
   },
 
   finish() {
     this.progress=100;
     this.isFinished=true;
+    this.detailInfo=null;
     this.render();
     this.renderSteps(this.steps.length);
 
@@ -3624,6 +3686,7 @@ const UltraLoader$1 = {
       }
       this.stepsContainer.appendChild(row);
     });
+    if (this.detailInfo) this.detail(this.detailInfo.fraction, this.detailInfo.label);
   },
 
   error(message="Processing error") {
@@ -7235,7 +7298,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-CpMWqoE7.js');
+const loadTilesPlugins = () => import('./index.three-plugins-gpDDyi4f.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -7917,7 +7980,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-C_725wAa.js'),
+    import('./rendering-webgpu-By8n9kpt.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -8049,9 +8112,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-C2Rbun9q.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BIRKU3XD.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-BIgjJtfr.js');
+const loadSplats = async () => import('./splats-CLURAfx0.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -9230,6 +9293,30 @@ function formatMegabytes(bytes) {
   return value >= 10 ? String(Math.round(value)) : value.toFixed(1);
 }
 
+// How much of the top progress bar the upload itself takes; the worker's
+// 0-100 fills the rest.
+const UPLOAD_PROGRESS_SHARE = 30;
+
+// fetch() cannot report how much of a request body has been sent, so the
+// upload goes through XMLHttpRequest; it resolves to a Response like fetch().
+function sendWithProgress(url, { method, body, headers }, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    Object.entries(headers || {}).forEach(([name, value]) => xhr.setRequestHeader(name, value));
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total);
+    });
+    xhr.addEventListener("load", () => {
+      const body = [204, 205, 304].includes(xhr.status) ? null : xhr.responseText;
+      resolve(new Response(body, { status: xhr.status, statusText: xhr.statusText }));
+    });
+    xhr.addEventListener("error", () => reject(new TypeError("Network error during upload")));
+    xhr.addEventListener("abort", () => reject(new TypeError("Upload aborted")));
+    xhr.send(body);
+  });
+}
+
 function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
     renderUploadHint() {
@@ -9302,6 +9389,33 @@ function attachUploadPanel(Viewer) {
         default:
           return data?.error || t$1("uploadPanel.uploadError", "Upload failed. Please try again.");
       }
+    },
+
+    // Which layer refused an upload as too large: the worker answers with
+    // JSON, Cloudflare (100 MB on Free/Pro) and nginx with an HTML page.
+    async describeTooLarge(response) {
+      let body = "";
+      try {
+        body = await response.text();
+      } catch (_error) {
+        // No body - the generic message below.
+      }
+      try {
+        const reason = JSON.parse(body)?.error;
+        if (reason) return t$1("uploadPanel.tooLargeWorker", { reason }, "The server refused the file: {reason}");
+      } catch (_error) {
+        // Not the worker's JSON.
+      }
+      if (/cloudflare/i.test(body)) {
+        return t$1(
+          "uploadPanel.tooLargeCloudflare",
+          "The file is larger than Cloudflare lets through (100 MB on the Free and Pro plans), so it never reached the server."
+        );
+      }
+      if (/nginx/i.test(body)) {
+        return t$1("uploadPanel.tooLargeProxy", "A proxy in front of the server refused the file as too large (nginx client_max_body_size).");
+      }
+      return t$1("uploadPanel.tooLarge", "That file is too large to upload.");
     },
 
     // Login itself lives in its own panel (ui/login-panel.js); the upload
@@ -9387,6 +9501,24 @@ function attachUploadPanel(Viewer) {
         input.removeAttribute("aria-invalid");
         if (this.uploadInputs.status?.dataset.tone === "error") this.setUploadStatusText("");
       }
+    },
+
+    // Blurs the viewer and the thumbnail gallery while a model is uploaded
+    // and converted (upload-panel.css); `gallery: false` leaves the gallery
+    // as it is, e.g. until the new model's thumbnails replace it.
+    setUploadBusy(busy, { viewer = true, gallery = true } = {}) {
+      const targets = [];
+      if (viewer && core.container) targets.push(core.container);
+      if (gallery) {
+        const imageList = document.getElementById("image-list");
+        const galleryElement = imageList?.closest(".image-list-scroller") || imageList;
+        if (galleryElement) targets.push(galleryElement);
+      }
+      targets.forEach((element) => {
+        element.classList.toggle("viewer-upload-busy", busy);
+        if (busy) element.setAttribute("aria-busy", "true");
+        else element.removeAttribute("aria-busy");
+      });
     },
 
     setUploadStatusText(message, tone = "info") {
@@ -9566,7 +9698,9 @@ function attachUploadPanel(Viewer) {
       await this.sendUploadRequest({ method: "POST", body: formData, headers: appRequestHeaders() }, "/api/model/create");
     },
 
-    // Starts a conversion (an uploaded file or a link) and follows it.
+    // Starts a conversion (an uploaded file or a link) and follows it: the
+    // upload is the first of the processing steps, with the bytes sent so
+    // far under it, and the viewer stays blurred until the model is in.
     async sendUploadRequest(request, endpoint) {
       const fromUrl = endpoint.endsWith("-from-url");
       this.uploadInputs.submit.disabled = true;
@@ -9574,9 +9708,23 @@ function attachUploadPanel(Viewer) {
         fromUrl ? t$1("uploadPanel.downloading", "Downloading the file...") : t$1("uploadPanel.uploading", "Uploading..."),
         "info"
       );
+      const firstStep = fromUrl ? "processingSteps.downloadingFile" : "processingSteps.uploadingFile";
+      UltraLoader$1.start([firstStep, ...this.processingLoadingStepKeys], { initialProgress: 0 });
+      this.setUploadBusy(true);
+      let started = false;
+
+      const onProgress = (loaded, total) => {
+        const fraction = total ? loaded / total : 0;
+        UltraLoader$1.set(fraction * UPLOAD_PROGRESS_SHARE);
+        UltraLoader$1.detail(fraction, () => t$1(
+          "processingSteps.uploadedBytes",
+          { percent: Math.round(fraction * 100), loaded: formatMegabytes(loaded), total: formatMegabytes(total) },
+          "{percent}% · {loaded} / {total} MB"
+        ));
+      };
 
       try {
-        const response = await fetch(apiUrl(endpoint), request);
+        const response = await sendWithProgress(apiUrl(endpoint), request, fromUrl ? null : onProgress);
         if (response.status === 401) {
           await this.refreshAuthState();
           this.setUploadStatusText(t$1("uploadPanel.loginRequired", "Log in to upload models."), "error");
@@ -9594,7 +9742,7 @@ function attachUploadPanel(Viewer) {
           return;
         }
         if (response.status === 413) {
-          this.setUploadStatusText(t$1("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+          this.setUploadStatusText(await this.describeTooLarge(response), "error");
           return;
         }
         // The worker's reason a link cannot be imported (remote_fetch.py).
@@ -9625,14 +9773,16 @@ function attachUploadPanel(Viewer) {
           throw new Error("No job id returned by the conversion service.");
         }
 
+        started = true;
         this.closeUploadPanel();
         this.refreshUploadLimits();
         toastHelper("uploadStarted", "info");
 
-        UltraLoader$1.start([...this.processingLoadingStepKeys]);
+        UltraLoader$1.phase({ stepOffset: 1, progressFrom: UPLOAD_PROGRESS_SHARE });
         const poller = new StatusPoller(jobId, {
           forcePoll: true,
           onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData, jobId),
+          onError: () => this.setUploadBusy(false),
         });
         poller.start();
       } catch (error) {
@@ -9640,6 +9790,11 @@ function attachUploadPanel(Viewer) {
         this.setUploadStatusText(t$1("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
         toastHelper("uploadError", "error");
       } finally {
+        // Refused or failed before any processing: the panel says why.
+        if (!started) {
+          UltraLoader$1.hide();
+          this.setUploadBusy(false);
+        }
         if (this.uploadInputs?.submit) {
           const state = this.authState;
           this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
@@ -9652,7 +9807,10 @@ function attachUploadPanel(Viewer) {
     handleUploadStatusUpdate(data, jobId) {
       this.uploadStatusQueue = (this.uploadStatusQueue || Promise.resolve())
         .then(() => this.applyUploadStatus(data, jobId))
-        .catch((error) => this.reportError(error, { context: "Upload status update failed" }));
+        .catch((error) => {
+          this.setUploadBusy(false);
+          this.reportError(error, { context: "Upload status update failed" });
+        });
       return this.uploadStatusQueue;
     },
 
@@ -9664,6 +9822,8 @@ function attachUploadPanel(Viewer) {
       if (!finished && data.previewUrl && this.uploadPreviewJob !== jobId) {
         this.uploadPreviewJob = jobId;
         core.autoPath = remoteAssetUrl(data.previewUrl);
+        // The preview is there to be looked at while the rest is built.
+        this.setUploadBusy(false, { gallery: false });
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();
         showPreviewBadge(t$1("loadingLog.pointCloudPreview", "Preview · building the full point cloud..."));
@@ -9677,6 +9837,9 @@ function attachUploadPanel(Viewer) {
       if (data.status === "ready" && data.modelUrl) {
         toastHelper("uploadReady", "success");
         core.autoPath = remoteAssetUrl(data.modelUrl);
+        // The model's own loading progress shows on the viewer; the gallery
+        // waits for the new thumbnails.
+        this.setUploadBusy(false, { gallery: false });
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();
 
@@ -9696,6 +9859,9 @@ function attachUploadPanel(Viewer) {
       } else if (data.status === "failed" || data.status === "error") {
         toastHelper("uploadError", "error");
       }
+      // renderModelGalleryImages built a new, unblurred gallery; one left as
+      // it was (and the viewer, after a failure) is unblurred here.
+      if (finished) this.setUploadBusy(false);
     },
   });
 }
@@ -14373,7 +14539,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "9d8c91c0" ;
+const BUILD_ID$2 = "a0e5d012" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -14424,8 +14590,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "9d8c91c0" ;
-const BUILD_TIME$1 = "2026-10-23T09:05:50.860Z" ;
+const BUILD_ID$1 = "a0e5d012" ;
+const BUILD_TIME$1 = "2026-10-23T09:58:15.702Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -46719,8 +46885,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "9d8c91c0" ;
-const BUILD_TIME = "2026-10-23T09:05:50.860Z" ;
+const BUILD_ID = "a0e5d012" ;
+const BUILD_TIME = "2026-10-23T09:58:15.702Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -51260,4 +51426,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-CzNIbSex.js.map
+//# sourceMappingURL=main-BNTlVJrq.js.map

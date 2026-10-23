@@ -356,3 +356,23 @@
 .password-field > input[type]::-ms-reveal {
   display: none;
 }
+
+/* While a model is uploaded and converted, the viewer (all but the upload
+   panel and dialogs) and the thumbnail gallery are blurred and inert -
+   they still show the previous model (see setUploadBusy). */
+.viewer-upload-busy > :not(#uploadModelPanel):not(.viewer-confirm-backdrop),
+.image-list-scroller.viewer-upload-busy,
+#image-list.viewer-upload-busy {
+  filter: blur(8px) grayscale(0.5);
+  pointer-events: none;
+  user-select: none;
+  transition: filter .3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer-upload-busy > :not(#uploadModelPanel):not(.viewer-confirm-backdrop),
+  .image-list-scroller.viewer-upload-busy,
+  #image-list.viewer-upload-busy {
+    transition: none;
+  }
+}

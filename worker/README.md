@@ -307,6 +307,10 @@ docker compose exec worker python3 /app/worker/server.py admin plan alice busine
 docker compose exec worker python3 /app/worker/server.py admin plan acme enterprise      # grant Enterprise, no end
 docker compose exec worker python3 /app/worker/server.py admin plan alice purchase      # drop the grant
 docker compose exec worker python3 /app/worker/server.py admin rebuild-splats          # .rad for splat uploads without one (--force: all)
+# a file too large for the proxies (Cloudflare lets 100 MB through on Free/Pro): copy it in, convert it
+docker compose cp model.zip worker:/tmp/model.zip
+docker compose exec worker python3 /app/worker/server.py admin import /tmp/model.zip --user alice
+docker compose exec worker rm /tmp/model.zip
 ```
 
 The viewer-side switch lives in the AIM3D manifest (`AIM3DViewer.viewer.auth`, see `viewer/manifesto/AIM3DViewer-schema.md`), but that only controls whether the login UI is shown - **the worker setting is what actually enforces access**, because a manifest is client-side data.

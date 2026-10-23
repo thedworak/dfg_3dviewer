@@ -1512,13 +1512,65 @@ def rebuild_splats_cli(args) -> None:
                 print(f"Cloudflare purge failed: {exc}")
 
 
+def import_cli(args) -> None:
+    """admin import <file> [--user <name>]: converts a file already on the
+    server (e.g. copied in with docker cp) like an upload through the viewer,
+    without the proxies' upload size limits. Runs in this process and waits
+    for the result; GET /api/jobs reads the jobs from disk, so the model is
+    listed without a restart. The running server's conversion slots
+    (WORKER_MAX_CONCURRENT_CONVERSIONS) do not count it."""
+    username = None
+    paths = []
+    rest = list(args)
+    while rest:
+        arg = rest.pop(0)
+        if arg == "--user" and rest:
+            username = rest.pop(0)
+        else:
+            paths.append(arg)
+    if len(paths) != 1:
+        sys.exit("usage: server.py admin import <file> [--user <name>]")
+    source = Path(paths[0])
+    if not source.is_file():
+        sys.exit(f"No such file: {source}")
+    ext = source.suffix.lower().lstrip(".")
+    if ext not in SUPPORTED_FORMATS | ARCHIVE_FORMATS:
+        sys.exit(f"Unsupported file format: .{ext}")
+    if username and not any(u["username"] == username for u in AUTH.list_users()):
+        sys.exit(f"No such user: {username}")
+
+    job_id = new_job()
+    filename = re.sub(r"[^A-Za-z0-9_.-]", "_", source.name).lstrip(".") or "model"
+    input_dir = JOBS_DIR / job_id / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    input_path = input_dir / filename
+    print(f"{job_id}  copying {source} ({source.stat().st_size / 1048576:.1f} MB) ...", flush=True)
+    shutil.copyfile(source, input_path)
+    write_owner(job_id, username, input_path.name, input_path.stat().st_size)
+
+    thread = threading.Thread(target=run_pipeline, args=(job_id, input_path, ext), daemon=True)
+    thread.start()
+    last = None
+    while thread.is_alive():
+        thread.join(1)
+        job = get_job(job_id) or {}
+        state = (job.get("status"), job.get("progress"), job.get("message"))
+        if state != last:
+            last = state
+            print(f"{job_id}  {state[1]:>3}%  {state[0]:<10} {state[2]}", flush=True)
+    job = get_job(job_id) or {}
+    if job.get("status") != "ready":
+        sys.exit(f"{job_id}  failed: {job.get('message')}")
+    print(f"{job_id}  ready  {job.get('model_url')}")
+
+
 def admin_cli(args) -> None:
     """docker compose exec worker python3 /app/worker/server.py admin <command>"""
     commands = (
         "users | uploads | usage | limits <user> [key=value|key=default ...] | "
         "plan <user> [free|pro|business|enterprise|purchase] [days] | "
         "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user> | "
-        "rebuild-splats [--force] [<job id> ...]"
+        "rebuild-splats [--force] [<job id> ...] | import <file> [--user <name>]"
     )
     if not args:
         sys.exit(f"usage: server.py admin {commands}")
@@ -1586,6 +1638,8 @@ def admin_cli(args) -> None:
             print(json.dumps(record["plan"], indent=2))
         elif command == "rebuild-splats":
             rebuild_splats_cli(rest)
+        elif command == "import":
+            import_cli(rest)
         elif command in ("approve", "disable", "promote", "demote", "delete-user") and len(rest) == 1:
             user = rest[0]
             if command == "approve":
