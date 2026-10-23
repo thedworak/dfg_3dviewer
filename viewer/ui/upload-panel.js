@@ -107,12 +107,12 @@ const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 // refused request, or of the finish that starts the conversion - answered
 // like POST /api/model/create. A backend without it (the Drupal module, an
 // older worker) gets the file in one request instead.
-async function sendFileInPieces(file, onProgress) {
+async function sendFileInPieces(file, onProgress, { isPrivate = false } = {}) {
   const headers = appRequestHeaders();
   const start = await fetch(apiUrl("/api/model/upload/start"), {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size }),
+    body: JSON.stringify({ name: file.name, size: file.size, private: isPrivate }),
   });
   let session = null;
   if (start.ok) {
@@ -128,7 +128,8 @@ async function sendFileInPieces(file, onProgress) {
   if (!uploadId || !(chunkBytes > 0)) {
     const formData = new FormData();
     formData.append("file", file);
-    return sendWithProgress(apiUrl("/api/model/create"), { method: "POST", body: formData, headers }, onProgress);
+    const createUrl = apiUrl(isPrivate ? "/api/model/create?private=1" : "/api/model/create");
+    return sendWithProgress(createUrl, { method: "POST", body: formData, headers }, onProgress);
   }
 
   const offsets = [];
@@ -303,6 +304,8 @@ export function attachUploadPanel(Viewer) {
       section.hidden = canUpload;
       section.textContent = "";
       if (this.uploadInputs.submit) this.uploadInputs.submit.disabled = !canUpload;
+      // Private needs an owner: only with accounts, logged in.
+      if (this.uploadInputs.privateField) this.uploadInputs.privateField.hidden = !(state.required && state.user);
       if (canUpload) return;
 
       const hint = document.createElement("p");
@@ -313,6 +316,11 @@ export function attachUploadPanel(Viewer) {
       login.textContent = t("uploadPanel.login", "Log in");
       this.bindEventListener(login, "click", () => this.openLoginPanel());
       section.append(hint, login);
+    },
+
+    isUploadPrivate() {
+      const field = this.uploadInputs?.privateField;
+      return Boolean(field && !field.hidden && this.uploadInputs.private.checked);
     },
 
     isUploadPanelOpen() {
@@ -358,6 +366,7 @@ export function attachUploadPanel(Viewer) {
       if (!this.uploadInputs) return;
       this.uploadInputs.file.value = "";
       this.uploadInputs.url.value = "";
+      this.uploadInputs.private.checked = false;
       this.markUploadUrl(null);
       const state = this.authState;
       this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
@@ -416,6 +425,8 @@ export function attachUploadPanel(Viewer) {
           "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
         ),
         submit: t("uploadPanel.submit", "Upload & convert"),
+        privateLabel: t("uploadPanel.private", "Private"),
+        privateHint: t("uploadPanel.privateHint", "Only you and admins see it in the model list; anyone with its link can still open it."),
       };
 
       const panel = document.createElement("div");
@@ -436,6 +447,10 @@ export function attachUploadPanel(Viewer) {
           </label>
           <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
           <p id="uploadPanelLimits" class="upload-panel-hint upload-panel-limits" hidden></p>
+          <label id="uploadPanelPrivateField" class="upload-panel-private" title="${panelText.privateHint}" hidden>
+            <input id="uploadPanelPrivate" type="checkbox" />
+            <span>${panelText.privateLabel}</span>
+          </label>
           <div class="upload-panel-actions">
             <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
           </div>
@@ -453,6 +468,8 @@ export function attachUploadPanel(Viewer) {
         auth: panel.querySelector("#uploadPanelAuth"),
         hint: panel.querySelector("#uploadPanelHint"),
         limits: panel.querySelector("#uploadPanelLimits"),
+        private: panel.querySelector("#uploadPanelPrivate"),
+        privateField: panel.querySelector("#uploadPanelPrivateField"),
         hintBase: panelText.formatsHint,
       };
       const form = panel.querySelector("#uploadPanelForm");
@@ -544,7 +561,7 @@ export function attachUploadPanel(Viewer) {
         // The worker downloads it (browsers would mostly be blocked by CORS).
         await this.sendUploadRequest({
           method: "POST",
-          body: JSON.stringify({ url: result.url }),
+          body: JSON.stringify({ url: result.url, private: this.isUploadPrivate() }),
           headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
         }, "/api/model/create-from-url");
         return;
@@ -568,7 +585,8 @@ export function attachUploadPanel(Viewer) {
         return;
       }
 
-      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress), "/api/model/create");
+      const isPrivate = this.isUploadPrivate();
+      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress, { isPrivate }), "/api/model/create");
     },
 
     // Starts a conversion (an uploaded file or a link) and follows it: the

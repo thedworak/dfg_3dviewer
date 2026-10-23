@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-Di3rg7J6.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-BKbV2bYl.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -7298,7 +7298,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DX0XsFT6.js');
+const loadTilesPlugins = () => import('./index.three-plugins-Dph7GDFN.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -7980,7 +7980,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-r7PDVCyN.js'),
+    import('./rendering-webgpu-5pKXkkmD.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -8112,9 +8112,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-Bu6_i6GZ.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DtjDZfP0.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-B4fO_H7b.js');
+const loadSplats = async () => import('./splats-qWcr8Zk_.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -9333,12 +9333,12 @@ const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 // refused request, or of the finish that starts the conversion - answered
 // like POST /api/model/create. A backend without it (the Drupal module, an
 // older worker) gets the file in one request instead.
-async function sendFileInPieces(file, onProgress) {
+async function sendFileInPieces(file, onProgress, { isPrivate = false } = {}) {
   const headers = appRequestHeaders();
   const start = await fetch(apiUrl("/api/model/upload/start"), {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size }),
+    body: JSON.stringify({ name: file.name, size: file.size, private: isPrivate }),
   });
   let session = null;
   if (start.ok) {
@@ -9354,7 +9354,8 @@ async function sendFileInPieces(file, onProgress) {
   if (!uploadId || !(chunkBytes > 0)) {
     const formData = new FormData();
     formData.append("file", file);
-    return sendWithProgress(apiUrl("/api/model/create"), { method: "POST", body: formData, headers }, onProgress);
+    const createUrl = apiUrl(isPrivate ? "/api/model/create?private=1" : "/api/model/create");
+    return sendWithProgress(createUrl, { method: "POST", body: formData, headers }, onProgress);
   }
 
   const offsets = [];
@@ -9529,6 +9530,8 @@ function attachUploadPanel(Viewer) {
       section.hidden = canUpload;
       section.textContent = "";
       if (this.uploadInputs.submit) this.uploadInputs.submit.disabled = !canUpload;
+      // Private needs an owner: only with accounts, logged in.
+      if (this.uploadInputs.privateField) this.uploadInputs.privateField.hidden = !(state.required && state.user);
       if (canUpload) return;
 
       const hint = document.createElement("p");
@@ -9539,6 +9542,11 @@ function attachUploadPanel(Viewer) {
       login.textContent = t$1("uploadPanel.login", "Log in");
       this.bindEventListener(login, "click", () => this.openLoginPanel());
       section.append(hint, login);
+    },
+
+    isUploadPrivate() {
+      const field = this.uploadInputs?.privateField;
+      return Boolean(field && !field.hidden && this.uploadInputs.private.checked);
     },
 
     isUploadPanelOpen() {
@@ -9584,6 +9592,7 @@ function attachUploadPanel(Viewer) {
       if (!this.uploadInputs) return;
       this.uploadInputs.file.value = "";
       this.uploadInputs.url.value = "";
+      this.uploadInputs.private.checked = false;
       this.markUploadUrl(null);
       const state = this.authState;
       this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
@@ -9642,6 +9651,8 @@ function attachUploadPanel(Viewer) {
           "Supported: abc, dae, fbx, obj, ply, stl, wrl, x3d, ifc, blend, gml, glb, or a .zip archive containing one of these."
         ),
         submit: t$1("uploadPanel.submit", "Upload & convert"),
+        privateLabel: t$1("uploadPanel.private", "Private"),
+        privateHint: t$1("uploadPanel.privateHint", "Only you and admins see it in the model list; anyone with its link can still open it."),
       };
 
       const panel = document.createElement("div");
@@ -9662,6 +9673,10 @@ function attachUploadPanel(Viewer) {
           </label>
           <p id="uploadPanelHint" class="upload-panel-hint">${panelText.formatsHint}</p>
           <p id="uploadPanelLimits" class="upload-panel-hint upload-panel-limits" hidden></p>
+          <label id="uploadPanelPrivateField" class="upload-panel-private" title="${panelText.privateHint}" hidden>
+            <input id="uploadPanelPrivate" type="checkbox" />
+            <span>${panelText.privateLabel}</span>
+          </label>
           <div class="upload-panel-actions">
             <button id="uploadPanelSubmit" type="submit">${panelText.submit}</button>
           </div>
@@ -9679,6 +9694,8 @@ function attachUploadPanel(Viewer) {
         auth: panel.querySelector("#uploadPanelAuth"),
         hint: panel.querySelector("#uploadPanelHint"),
         limits: panel.querySelector("#uploadPanelLimits"),
+        private: panel.querySelector("#uploadPanelPrivate"),
+        privateField: panel.querySelector("#uploadPanelPrivateField"),
         hintBase: panelText.formatsHint,
       };
       const form = panel.querySelector("#uploadPanelForm");
@@ -9770,7 +9787,7 @@ function attachUploadPanel(Viewer) {
         // The worker downloads it (browsers would mostly be blocked by CORS).
         await this.sendUploadRequest({
           method: "POST",
-          body: JSON.stringify({ url: result.url }),
+          body: JSON.stringify({ url: result.url, private: this.isUploadPrivate() }),
           headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
         }, "/api/model/create-from-url");
         return;
@@ -9794,7 +9811,8 @@ function attachUploadPanel(Viewer) {
         return;
       }
 
-      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress), "/api/model/create");
+      const isPrivate = this.isUploadPrivate();
+      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress, { isPrivate }), "/api/model/create");
     },
 
     // Starts a conversion (an uploaded file or a link) and follows it: the
@@ -10320,8 +10338,9 @@ function attachModelsPanel(Viewer) {
       // before accounts were enabled) - the caption then just falls back to
       // the date. job.validation: the worker's check of the model file
       // (validation.json), null for formats it does not check.
-      if (job.owner || job.createdAt || job.validation) {
+      if (job.owner || job.createdAt || job.validation || job.private) {
         text.appendChild(metaCaption([
+          job.private ? metaPart("private", t$1("modelsMeta.private", "Private: only its owner and admins see it in this list")) : null,
           job.owner ? metaPart("user", t$1("modelsMeta.uploadedBy", "Uploaded by"), job.owner) : null,
           job.createdAt
             ? metaPart("date", t$1("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleDateString())
@@ -10359,6 +10378,12 @@ function attachModelsPanel(Viewer) {
         return item;
       }
 
+      // Private or listed for everyone: for a model with an owner (accounts
+      // on), switched by its owner or an admin - the ones who may delete it.
+      if (job.owner && this.authState?.required) {
+        item.appendChild(this.createVisibilityButton(job, name));
+      }
+
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "models-panel-delete";
@@ -10373,6 +10398,45 @@ function attachModelsPanel(Viewer) {
       item.appendChild(deleteButton);
 
       return item;
+    },
+
+    createVisibilityButton(job, name) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "models-panel-visibility";
+      const render = () => {
+        const label = job.private
+          ? t$1("modelsPanel.makePublic", { name }, "{name} is private - show it to everyone")
+          : t$1("modelsPanel.makePrivate", { name }, "Make {name} private - only you and admins see it in this list");
+        button.dataset.state = job.private ? "private" : "public";
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-pressed", String(Boolean(job.private)));
+        button.title = label;
+      };
+      render();
+      this.bindEventListener(button, "click", async (event) => {
+        event.stopPropagation();
+        button.disabled = true;
+        try {
+          const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}/visibility`), {
+            method: "POST",
+            headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ private: !job.private }),
+          });
+          if (!response.ok) throw new Error(`Visibility change failed (HTTP ${response.status})`);
+          job.private = (await response.json()).private === true;
+          render();
+          // The "Private" mark in the caption follows.
+          this.loadModelsList();
+          toastHelper(job.private ? "modelMadePrivate" : "modelMadePublic", "info");
+        } catch (error) {
+          this.reportError(error, { context: "Failed to change model visibility" });
+          toastHelper("modelVisibilityError", "error");
+        } finally {
+          button.disabled = false;
+        }
+      });
+      return button;
     },
 
     async deleteModelFromList(job, item) {
@@ -14951,7 +15015,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "a1875ee0" ;
+const BUILD_ID$2 = "2e260096" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -15002,8 +15066,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "a1875ee0" ;
-const BUILD_TIME$1 = "2026-10-23T11:28:35.460Z" ;
+const BUILD_ID$1 = "2e260096" ;
+const BUILD_TIME$1 = "2026-10-23T12:12:31.732Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -47297,8 +47361,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "a1875ee0" ;
-const BUILD_TIME = "2026-10-23T11:28:35.460Z" ;
+const BUILD_ID = "2e260096" ;
+const BUILD_TIME = "2026-10-23T12:12:31.732Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -51838,4 +51902,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-B6PFcHv4.js.map
+//# sourceMappingURL=main-CQc-poGu.js.map

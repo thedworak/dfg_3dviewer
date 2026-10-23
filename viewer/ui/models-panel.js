@@ -290,8 +290,9 @@ export function attachModelsPanel(Viewer) {
       // before accounts were enabled) - the caption then just falls back to
       // the date. job.validation: the worker's check of the model file
       // (validation.json), null for formats it does not check.
-      if (job.owner || job.createdAt || job.validation) {
+      if (job.owner || job.createdAt || job.validation || job.private) {
         text.appendChild(metaCaption([
+          job.private ? metaPart("private", t("modelsMeta.private", "Private: only its owner and admins see it in this list")) : null,
           job.owner ? metaPart("user", t("modelsMeta.uploadedBy", "Uploaded by"), job.owner) : null,
           job.createdAt
             ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleDateString())
@@ -329,6 +330,12 @@ export function attachModelsPanel(Viewer) {
         return item;
       }
 
+      // Private or listed for everyone: for a model with an owner (accounts
+      // on), switched by its owner or an admin - the ones who may delete it.
+      if (job.owner && this.authState?.required) {
+        item.appendChild(this.createVisibilityButton(job, name));
+      }
+
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "models-panel-delete";
@@ -343,6 +350,45 @@ export function attachModelsPanel(Viewer) {
       item.appendChild(deleteButton);
 
       return item;
+    },
+
+    createVisibilityButton(job, name) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "models-panel-visibility";
+      const render = () => {
+        const label = job.private
+          ? t("modelsPanel.makePublic", { name }, "{name} is private - show it to everyone")
+          : t("modelsPanel.makePrivate", { name }, "Make {name} private - only you and admins see it in this list");
+        button.dataset.state = job.private ? "private" : "public";
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-pressed", String(Boolean(job.private)));
+        button.title = label;
+      };
+      render();
+      this.bindEventListener(button, "click", async (event) => {
+        event.stopPropagation();
+        button.disabled = true;
+        try {
+          const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}/visibility`), {
+            method: "POST",
+            headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ private: !job.private }),
+          });
+          if (!response.ok) throw new Error(`Visibility change failed (HTTP ${response.status})`);
+          job.private = (await response.json()).private === true;
+          render();
+          // The "Private" mark in the caption follows.
+          this.loadModelsList();
+          toastHelper(job.private ? "modelMadePrivate" : "modelMadePublic", "info");
+        } catch (error) {
+          this.reportError(error, { context: "Failed to change model visibility" });
+          toastHelper("modelVisibilityError", "error");
+        } finally {
+          button.disabled = false;
+        }
+      });
+      return button;
     },
 
     async deleteModelFromList(job, item) {

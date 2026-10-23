@@ -3489,7 +3489,7 @@ test('uploads are sent in pieces, a failed piece again, then converted', async (
   const pieces = [];
   let failedOnce = false;
   await page.route('**/api/model/upload/start', (route) => {
-    expect(route.request().postDataJSON()).toEqual({ name: 'box.stl', size: content.length });
+    expect(route.request().postDataJSON()).toEqual({ name: 'box.stl', size: content.length, private: false });
     return route.fulfill({ json: { uploadId, chunkBytes: 20 } });
   });
   await page.route(`**/api/model/upload/${uploadId}?offset=*`, (route) => {
@@ -3521,6 +3521,59 @@ test('uploads are sent in pieces, a failed piece again, then converted', async (
   expect(Buffer.concat([0, 20, 40].map((offset) => received.get(offset))).equals(content)).toBe(true);
   // The upload step done, the worker's steps after it.
   await expect(page.locator('#ultra-loader-steps .ultra-step').first()).toHaveText('✓ Uploading file');
+});
+
+// Private models (worker/server.py, can_see_job): left out of the list for
+// others. Marked in the upload panel by a logged-in user, switched in the
+// models panel by the owner.
+test('private models: chosen when uploading, switched in the models panel', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'required', registration: 'open', maxUploadBytes: 104857600 } })
+  );
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({ json: { user: { id: 2, username: 'alice' }, role: 'user' } })
+  );
+  const job = {
+    id: 'j1', name: 'castle.glb', status: 'ready', modelUrl: '/examples/box.glb', imageUrls: [],
+    createdAt: 1767225600, owner: 'alice', private: false, canDelete: true, validation: null,
+  };
+  await page.route('**/api/jobs', (route) => route.fulfill({ json: { jobs: [job] } }));
+  const visibility = [];
+  await page.route('**/api/jobs/j1/visibility', (route) => {
+    const { private: isPrivate } = route.request().postDataJSON();
+    visibility.push(isPrivate);
+    job.private = isPrivate;
+    return route.fulfill({ json: { status: 'ok', private: isPrivate } });
+  });
+  let started = null;
+  await page.route('**/api/model/upload/start', (route) => {
+    started = route.request().postDataJSON();
+    return route.fulfill({ status: 429, json: { error: 'Upload limit reached', code: 'rate_hour', limit: 20, retryAfter: 60 } });
+  });
+
+  await openViewer(page);
+  await waitForModel(page);
+
+  // Upload panel: the checkbox for a logged-in user, sent with the upload.
+  await page.evaluate(() => window.Viewer.openUploadPanel());
+  const privateBox = page.locator('#uploadPanelPrivate');
+  await expect(privateBox).toBeVisible();
+  await privateBox.check();
+  await page.setInputFiles('#uploadPanelFileInput', { name: 'box.stl', mimeType: 'model/stl', buffer: Buffer.from('solid box\nendsolid box\n') });
+  await page.click('#uploadPanelSubmit');
+  await expect.poll(() => started).toEqual({ name: 'box.stl', size: 23, private: true });
+  await page.evaluate(() => window.Viewer.closeUploadPanel());
+
+  // Models panel: the owner's padlock switches it, the caption follows.
+  await page.evaluate(() => window.Viewer.openModelsPanel());
+  const row = page.locator('#modelsPanel .models-panel-row, #modelsPanel li', { hasText: 'castle.glb' }).first();
+  const lock = row.locator('.models-panel-visibility');
+  await expect(lock).toHaveAttribute('data-state', 'public');
+  await expect(row.locator('.meta-icon[data-icon="private"]')).toHaveCount(0);
+  await lock.click();
+  await expect.poll(() => visibility).toEqual([true]);
+  await expect(row.locator('.models-panel-visibility')).toHaveAttribute('data-state', 'private');
+  await expect(row.locator('.meta-icon[data-icon="private"]')).toHaveCount(1);
 });
 
 // "Save settings" (File menu) for a model uploaded to the worker: posted to

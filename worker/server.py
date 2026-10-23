@@ -25,6 +25,8 @@ could talk to either backend interchangeably:
   POST /api/geo/places {text}   -> {places: [...]}    from GeoNames offline
                                                       (worker/geonames.py)
   GET  /api/jobs                -> {jobs: [...]} previously converted models
+                                (private ones only to their owner and admins)
+  POST /api/jobs/<id>/visibility {private} - owner or admin
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
   GET  /api/auth/me                 POST /api/auth/register|login|logout -
@@ -358,12 +360,16 @@ def read_owner(job_id: str):
         return None
 
 
-def write_owner(job_id: str, username, filename: str, size: int) -> None:
+def write_owner(job_id: str, username, filename: str, size: int, private: bool = False) -> None:
     (JOBS_DIR / job_id / "owner.json").write_text(json.dumps({
         "user": username,
         "filename": filename,
         "size": size,
         "createdAt": int(time.time()),
+        # Left out of GET /api/jobs for everyone but its owner and admins
+        # (can_see_job); its files stay reachable by their URLs. Only for an
+        # upload with an account - nobody else could list it.
+        "private": bool(private and username),
     }), "utf-8")
 
 
@@ -375,6 +381,15 @@ def update_owner(job_id: str, fields: dict) -> dict:
     owner.update(fields)
     (JOBS_DIR / job_id / "owner.json").write_text(json.dumps(owner), "utf-8")
     return owner
+
+
+def can_see_job(owner, user) -> bool:
+    """Whether GET /api/jobs lists a job (owner: its owner.json) to user."""
+    if not AUTH.enabled or not (owner and owner.get("private")):
+        return True
+    if not user:
+        return False
+    return user["role"] == "admin" or owner.get("user") == user["username"]
 
 
 def can_delete_job(job_id: str, user) -> bool:
@@ -397,6 +412,9 @@ def list_jobs(user=None):
     for job_dir in JOBS_DIR.iterdir():
         if not job_dir.is_dir() or not JOB_ID_RE.fullmatch(job_dir.name):
             continue
+        owner = read_owner(job_dir.name)
+        if not can_see_job(owner, user):
+            continue
         try:
             job = scan_job(job_dir.name, job_dir)
         except OSError:
@@ -411,8 +429,8 @@ def list_jobs(user=None):
             # GET /api/jobs. Jobs uploaded anonymously (accounts off, or
             # from before accounts were enabled) have no owner and the
             # field comes back null.
-            owner = read_owner(job["id"])
             job["owner"] = owner.get("user") if owner else None
+            job["private"] = bool(owner and owner.get("private"))
             # The upload time (editable by admins) over the model file's mtime.
             if owner and owner.get("createdAt"):
                 job["createdAt"] = int(owner["createdAt"])
@@ -1247,6 +1265,10 @@ class Handler(BaseHTTPRequestHandler):
         if match:
             self._handle_app_plan(match.group(1))
             return
+        match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)/visibility", path)
+        if match:
+            self._handle_visibility(match.group(1))
+            return
         match = re.fullmatch(r"/api/admin/jobs/([A-Za-z0-9_-]+)", path)
         if match:
             self._handle_admin_update_job(match.group(1))
@@ -1284,6 +1306,38 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_delete(match.group(1))
             return
         self._send_json(404, {"error": "not found"})
+
+    def _handle_visibility(self, job_id: str) -> None:
+        """POST /api/jobs/<id>/visibility {"private": bool}: whether others
+        see the model in their list - for its owner and admins (who may
+        delete it, can_delete_job). Needs accounts: without them nobody
+        owns a model."""
+        user = self._require_user()
+        if user is None:
+            return
+        if not AUTH.enabled:
+            self._send_json(404, {"error": "Accounts are not enabled."})
+            return
+        if not (JOBS_DIR / job_id).is_dir():
+            self._send_json(404, {"error": "not found"})
+            return
+        if not can_delete_job(job_id, user):
+            self._send_json(403, {"error": "You can only change your own uploads"})
+            return
+        try:
+            private = self._read_json_body().get("private")
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        if not isinstance(private, bool):
+            self._send_json(400, {"error": "private must be true or false"})
+            return
+        owner = read_owner(job_id)
+        if private and not (owner and owner.get("user")):
+            self._send_json(400, {"error": "A model without an owner cannot be private"})
+            return
+        update_owner(job_id, {"private": private})
+        self._send_json(200, {"status": "ok", "private": private})
 
     def _handle_delete(self, job_id: str) -> None:
         user = self._require_user()
@@ -1330,7 +1384,10 @@ class Handler(BaseHTTPRequestHandler):
         if ext not in SUPPORTED_FORMATS | ARCHIVE_FORMATS:
             self._send_json(400, {"error": f"Unsupported file type: .{ext}"})
             return
-        self._start_job(user, key, username, limits, filename, content)
+        self._start_job(user, key, username, limits, filename, content, private=self._query_flag("private"))
+
+    def _query_flag(self, name: str) -> bool:
+        return parse_qs(urlparse(self.path).query).get(name, [""])[0].lower() in ("1", "true", "yes")
 
     def _handle_create_from_url(self) -> None:
         """POST /api/model/create-from-url {"url": ...}: the worker downloads
@@ -1340,7 +1397,9 @@ class Handler(BaseHTTPRequestHandler):
         if user is None:
             return
         try:
-            url = str(self._read_json_body().get("url", "")).strip()
+            data = self._read_json_body()
+            url = str(data.get("url", "")).strip()
+            private = data.get("private") is True
             remote_fetch.check_url(url)
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
@@ -1362,12 +1421,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(exc.status, {"error": str(exc)})
             return
         filename = re.sub(r"[^A-Za-z0-9_.-]", "_", Path(filename).name).lstrip(".") or "model"
-        self._start_job(user, key, username, limits, filename, content)
+        self._start_job(user, key, username, limits, filename, content, private=private)
 
     def _start_job(self, user, key, username, limits, filename: str, content: bytes = None, source: Path = None,
-                   cleanup: Path = None) -> None:
+                   cleanup: Path = None, private: bool = False) -> None:
         """Converts `content`, or the file `source` (moved into the job;
-        the folder `cleanup` is then deleted, before the answer)."""
+        the folder `cleanup` is then deleted, before the answer). `private`:
+        left out of the model list for others (write_owner)."""
         ext = Path(filename).suffix.lower().lstrip(".")
         size = len(content) if content is not None else source.stat().st_size
         try:
@@ -1388,7 +1448,7 @@ class Handler(BaseHTTPRequestHandler):
             shutil.move(str(source), input_path)
             if cleanup:
                 shutil.rmtree(cleanup, ignore_errors=True)
-        write_owner(job_id, user.get("username") if user else None, input_path.name, size)
+        write_owner(job_id, user.get("username") if user else None, input_path.name, size, private)
 
         thread = threading.Thread(target=run_pipeline, args=(job_id, input_path, ext), daemon=True)
         thread.start()
@@ -1434,6 +1494,7 @@ class Handler(BaseHTTPRequestHandler):
         (upload_dir / "pieces").mkdir(parents=True)
         (upload_dir / "meta.json").write_text(json.dumps({
             "key": key, "name": filename, "size": size, "chunkBytes": UPLOAD_CHUNK_BYTES,
+            "private": data.get("private") is True,
         }), "utf-8")
         self._send_json(200, {"uploadId": upload_id, "chunkBytes": UPLOAD_CHUNK_BYTES})
 
@@ -1512,7 +1573,10 @@ class Handler(BaseHTTPRequestHandler):
                     with (pieces / str(offset)).open("rb") as part:
                         shutil.copyfileobj(part, joined, 1024 * 1024)
             shutil.rmtree(pieces, ignore_errors=True)
-            self._start_job(user, key, username, limits, meta["name"], source=data_path, cleanup=upload_dir)
+            self._start_job(
+                user, key, username, limits, meta["name"], source=data_path, cleanup=upload_dir,
+                private=meta.get("private") is True,
+            )
 
     def _handle_thumbnail_upload(self) -> None:
         """The viewer's thumbnails: a PNG saved as the model's <name>_<view>.png
@@ -1783,7 +1847,8 @@ def admin_cli(args) -> None:
                 if job_dir.is_dir() and JOB_ID_RE.fullmatch(job_dir.name):
                     owner = read_owner(job_dir.name) or {}
                     rows.append((owner.get("createdAt", 0), job_dir.name, owner.get("user") or "(none)",
-                                 owner.get("filename", "?"), owner.get("size", 0)))
+                                 owner.get("filename", "?") + ("  [private]" if owner.get("private") else ""),
+                                 owner.get("size", 0)))
             for created, job_id, user, filename, size in sorted(rows):
                 when = time.strftime("%Y-%m-%d %H:%M", time.localtime(created)) if created else "unknown"
                 print(f"{when}  {job_id}  {user:<20} {size / 1048576:8.1f} MB  {filename}")

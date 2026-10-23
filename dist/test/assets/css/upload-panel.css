@@ -83,6 +83,18 @@
   font-weight: 600;
 }
 
+.upload-panel-private[hidden] {
+  display: none;
+}
+
+.upload-panel-private {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .upload-panel-field input[type="file"],
 .upload-panel-field input[type="url"] {
   width: 100%;
