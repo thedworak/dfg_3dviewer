@@ -165,6 +165,33 @@ export function attachUploadPanel(Viewer) {
       }
     },
 
+    // Which layer refused an upload as too large: the worker answers with
+    // JSON, Cloudflare (100 MB on Free/Pro) and nginx with an HTML page.
+    async describeTooLarge(response) {
+      let body = "";
+      try {
+        body = await response.text();
+      } catch (_error) {
+        // No body - the generic message below.
+      }
+      try {
+        const reason = JSON.parse(body)?.error;
+        if (reason) return t("uploadPanel.tooLargeWorker", { reason }, "The server refused the file: {reason}");
+      } catch (_error) {
+        // Not the worker's JSON.
+      }
+      if (/cloudflare/i.test(body)) {
+        return t(
+          "uploadPanel.tooLargeCloudflare",
+          "The file is larger than Cloudflare lets through (100 MB on the Free and Pro plans), so it never reached the server."
+        );
+      }
+      if (/nginx/i.test(body)) {
+        return t("uploadPanel.tooLargeProxy", "A proxy in front of the server refused the file as too large (nginx client_max_body_size).");
+      }
+      return t("uploadPanel.tooLarge", "That file is too large to upload.");
+    },
+
     // Login itself lives in its own panel (ui/login-panel.js); the upload
     // panel only says when a login is needed and points there.
     renderUploadAuthNotice() {
@@ -489,7 +516,7 @@ export function attachUploadPanel(Viewer) {
           return;
         }
         if (response.status === 413) {
-          this.setUploadStatusText(t("uploadPanel.tooLarge", "That file is too large to upload."), "error");
+          this.setUploadStatusText(await this.describeTooLarge(response), "error");
           return;
         }
         // The worker's reason a link cannot be imported (remote_fetch.py).
