@@ -67,6 +67,30 @@ function formatMegabytes(bytes) {
   return value >= 10 ? String(Math.round(value)) : value.toFixed(1);
 }
 
+// How much of the top progress bar the upload itself takes; the worker's
+// 0-100 fills the rest.
+const UPLOAD_PROGRESS_SHARE = 30;
+
+// fetch() cannot report how much of a request body has been sent, so the
+// upload goes through XMLHttpRequest; it resolves to a Response like fetch().
+function sendWithProgress(url, { method, body, headers }, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    Object.entries(headers || {}).forEach(([name, value]) => xhr.setRequestHeader(name, value));
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total);
+    });
+    xhr.addEventListener("load", () => {
+      const body = [204, 205, 304].includes(xhr.status) ? null : xhr.responseText;
+      resolve(new Response(body, { status: xhr.status, statusText: xhr.statusText }));
+    });
+    xhr.addEventListener("error", () => reject(new TypeError("Network error during upload")));
+    xhr.addEventListener("abort", () => reject(new TypeError("Upload aborted")));
+    xhr.send(body);
+  });
+}
+
 export function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
     renderUploadHint() {
@@ -224,6 +248,24 @@ export function attachUploadPanel(Viewer) {
         input.removeAttribute("aria-invalid");
         if (this.uploadInputs.status?.dataset.tone === "error") this.setUploadStatusText("");
       }
+    },
+
+    // Blurs the viewer and the thumbnail gallery while a model is uploaded
+    // and converted (upload-panel.css); `gallery: false` leaves the gallery
+    // as it is, e.g. until the new model's thumbnails replace it.
+    setUploadBusy(busy, { viewer = true, gallery = true } = {}) {
+      const targets = [];
+      if (viewer && core.container) targets.push(core.container);
+      if (gallery) {
+        const imageList = document.getElementById("image-list");
+        const galleryElement = imageList?.closest(".image-list-scroller") || imageList;
+        if (galleryElement) targets.push(galleryElement);
+      }
+      targets.forEach((element) => {
+        element.classList.toggle("viewer-upload-busy", busy);
+        if (busy) element.setAttribute("aria-busy", "true");
+        else element.removeAttribute("aria-busy");
+      });
     },
 
     setUploadStatusText(message, tone = "info") {
@@ -403,7 +445,9 @@ export function attachUploadPanel(Viewer) {
       await this.sendUploadRequest({ method: "POST", body: formData, headers: appRequestHeaders() }, "/api/model/create");
     },
 
-    // Starts a conversion (an uploaded file or a link) and follows it.
+    // Starts a conversion (an uploaded file or a link) and follows it: the
+    // upload is the first of the processing steps, with the bytes sent so
+    // far under it, and the viewer stays blurred until the model is in.
     async sendUploadRequest(request, endpoint) {
       const fromUrl = endpoint.endsWith("-from-url");
       this.uploadInputs.submit.disabled = true;
@@ -411,9 +455,23 @@ export function attachUploadPanel(Viewer) {
         fromUrl ? t("uploadPanel.downloading", "Downloading the file...") : t("uploadPanel.uploading", "Uploading..."),
         "info"
       );
+      const firstStep = fromUrl ? "processingSteps.downloadingFile" : "processingSteps.uploadingFile";
+      UltraLoader.start([firstStep, ...this.processingLoadingStepKeys], { initialProgress: 0 });
+      this.setUploadBusy(true);
+      let started = false;
+
+      const onProgress = (loaded, total) => {
+        const fraction = total ? loaded / total : 0;
+        UltraLoader.set(fraction * UPLOAD_PROGRESS_SHARE);
+        UltraLoader.detail(fraction, () => t(
+          "processingSteps.uploadedBytes",
+          { percent: Math.round(fraction * 100), loaded: formatMegabytes(loaded), total: formatMegabytes(total) },
+          "{percent}% · {loaded} / {total} MB"
+        ));
+      };
 
       try {
-        const response = await fetch(apiUrl(endpoint), request);
+        const response = await sendWithProgress(apiUrl(endpoint), request, fromUrl ? null : onProgress);
         if (response.status === 401) {
           await this.refreshAuthState();
           this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");
@@ -462,14 +520,16 @@ export function attachUploadPanel(Viewer) {
           throw new Error("No job id returned by the conversion service.");
         }
 
+        started = true;
         this.closeUploadPanel();
         this.refreshUploadLimits();
         toastHelper("uploadStarted", "info");
 
-        UltraLoader.start([...this.processingLoadingStepKeys]);
+        UltraLoader.phase({ stepOffset: 1, progressFrom: UPLOAD_PROGRESS_SHARE });
         const poller = new StatusPoller(jobId, {
           forcePoll: true,
           onUpdate: (statusData) => this.handleUploadStatusUpdate(statusData, jobId),
+          onError: () => this.setUploadBusy(false),
         });
         poller.start();
       } catch (error) {
@@ -477,6 +537,11 @@ export function attachUploadPanel(Viewer) {
         this.setUploadStatusText(t("uploadPanel.uploadError", "Upload failed. Please try again."), "error");
         toastHelper("uploadError", "error");
       } finally {
+        // Refused or failed before any processing: the panel says why.
+        if (!started) {
+          UltraLoader.hide();
+          this.setUploadBusy(false);
+        }
         if (this.uploadInputs?.submit) {
           const state = this.authState;
           this.uploadInputs.submit.disabled = Boolean(state?.required && !state.user);
@@ -489,7 +554,10 @@ export function attachUploadPanel(Viewer) {
     handleUploadStatusUpdate(data, jobId) {
       this.uploadStatusQueue = (this.uploadStatusQueue || Promise.resolve())
         .then(() => this.applyUploadStatus(data, jobId))
-        .catch((error) => this.reportError(error, { context: "Upload status update failed" }));
+        .catch((error) => {
+          this.setUploadBusy(false);
+          this.reportError(error, { context: "Upload status update failed" });
+        });
       return this.uploadStatusQueue;
     },
 
@@ -501,6 +569,8 @@ export function attachUploadPanel(Viewer) {
       if (!finished && data.previewUrl && this.uploadPreviewJob !== jobId) {
         this.uploadPreviewJob = jobId;
         core.autoPath = remoteAssetUrl(data.previewUrl);
+        // The preview is there to be looked at while the rest is built.
+        this.setUploadBusy(false, { gallery: false });
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();
         showPreviewBadge(t("loadingLog.pointCloudPreview", "Preview · building the full point cloud..."));
@@ -514,6 +584,9 @@ export function attachUploadPanel(Viewer) {
       if (data.status === "ready" && data.modelUrl) {
         toastHelper("uploadReady", "success");
         core.autoPath = remoteAssetUrl(data.modelUrl);
+        // The model's own loading progress shows on the viewer; the gallery
+        // waits for the new thumbnails.
+        this.setUploadBusy(false, { gallery: false });
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();
 
@@ -533,6 +606,9 @@ export function attachUploadPanel(Viewer) {
       } else if (data.status === "failed" || data.status === "error") {
         toastHelper("uploadError", "error");
       }
+      // renderModelGalleryImages built a new, unblurred gallery; one left as
+      // it was (and the viewer, after a failure) is unblurred here.
+      if (finished) this.setUploadBusy(false);
     },
   });
 }

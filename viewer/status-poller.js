@@ -3,7 +3,7 @@ import { apiUrl } from './remote.js';
 
 export class StatusPoller {
 
-    constructor(id, { forcePoll = false, onUpdate = null } = {}) {
+    constructor(id, { forcePoll = false, onUpdate = null, onError = null } = {}) {
         this.id=id;
         this.interval=2000;
         this.timer=null;
@@ -15,6 +15,8 @@ export class StatusPoller {
         // to poll" assumption baked into isLocalPreview elsewhere below.
         this.forcePoll = forcePoll === true;
         this.onUpdate = typeof onUpdate === "function" ? onUpdate : null;
+        // Called when polling gives up on a connection error.
+        this.onError = typeof onError === "function" ? onError : null;
     }
 
     async start() {
@@ -105,6 +107,7 @@ export class StatusPoller {
             if (!core.isLocalPreview || this.forcePoll) {
                 UltraLoader.error("Connection error");
                 this.stop();
+                this.onError?.(e);
             }
         }
         this.timer=setTimeout(()=>this.tick(),this.interval);

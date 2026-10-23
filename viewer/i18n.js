@@ -675,6 +675,9 @@ export const VIEWER_I18N = {
     },
     processingHeader: "Processing progress",
     processingSteps: {
+      uploadingFile: "Uploading file",
+      downloadingFile: "Downloading file",
+      uploadedBytes: "{percent}% · {loaded} / {total} MB",
       preparingModel: "Preparing model",
       convertingToTransmissionFormat: "Converting to transmission format",
       renderingThumbnails: "Rendering thumbnails",
@@ -1970,6 +1973,9 @@ export const VIEWER_I18N = {
     },
     processingHeader: "Postęp przetwarzania",
     processingSteps: {
+      uploadingFile: "Przesyłanie pliku",
+      downloadingFile: "Pobieranie pliku",
+      uploadedBytes: "{percent}% · {loaded} / {total} MB",
       preparingModel: "Przygotowywanie modelu",
       convertingToTransmissionFormat: "Konwersja do formatu docelowego",
       renderingThumbnails: "Renderowanie miniaturek",
@@ -3264,6 +3270,9 @@ export const VIEWER_I18N = {
     },
     processingHeader: "Verarbeitungsschritte",
     processingSteps: {
+      uploadingFile: "Datei wird hochgeladen",
+      downloadingFile: "Datei wird heruntergeladen",
+      uploadedBytes: "{percent} % · {loaded} / {total} MB",
       preparingModel: "Modell wird vorbereitet",
       convertingToTransmissionFormat: "Konvertierung in das Übertragungsformat",
       renderingThumbnails: "Vorschaubilder werden gerendert",
