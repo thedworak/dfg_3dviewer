@@ -3476,6 +3476,53 @@ test('upload panel shows limit usage and limit errors from the worker', { tag: '
   );
 });
 
+// A file goes to the worker in pieces (worker/server.py, /api/model/upload/),
+// each under Cloudflare's 100 MB request limit; a piece the worker failed on
+// is sent again.
+test('uploads are sent in pieces, a failed piece again, then converted', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
+  );
+  const uploadId = 'a'.repeat(32);
+  const content = Buffer.from('solid box\nendsolid box\n'.repeat(2));
+  let received = Buffer.alloc(0);
+  const pieces = [];
+  let failedOnce = false;
+  await page.route('**/api/model/upload/start', (route) => {
+    expect(route.request().postDataJSON()).toEqual({ name: 'box.stl', size: content.length });
+    return route.fulfill({ json: { uploadId, chunkBytes: 20 } });
+  });
+  await page.route(`**/api/model/upload/${uploadId}?offset=*`, (route) => {
+    const offset = Number(new URL(route.request().url()).searchParams.get('offset'));
+    const body = route.request().postDataBuffer();
+    pieces.push(offset);
+    if (offset === 20 && !failedOnce) {
+      failedOnce = true;
+      return route.fulfill({ status: 502, body: 'Bad gateway' });
+    }
+    received = Buffer.concat([received.subarray(0, offset), body]);
+    return route.fulfill({ json: { received: received.length } });
+  });
+  await page.route(`**/api/model/upload/${uploadId}/finish`, (route) =>
+    route.fulfill({ json: { entity_id: 'job1', status: 'started' } })
+  );
+  await page.route('**/api/model/status/job1', (route) =>
+    route.fulfill({ json: { status: 'failed', progress: 100, message: 'stop here' } })
+  );
+
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.openUploadPanel());
+  await page.setInputFiles('#uploadPanelFileInput', { name: 'box.stl', mimeType: 'model/stl', buffer: content });
+  await page.click('#uploadPanelSubmit');
+
+  await expect(page.locator('#uploadModelPanel')).toBeHidden({ timeout: 15_000 });
+  expect(pieces).toEqual([0, 20, 20, 40]);
+  expect(received.equals(content)).toBe(true);
+  // The upload step done, the worker's steps after it.
+  await expect(page.locator('#ultra-loader-steps .ultra-step').first()).toHaveText('✓ Uploading file');
+});
+
 // "Save settings" (File menu) for a model uploaded to the worker: posted to
 // POST /api/model/settings, read back from metadata/<file>_viewer.json in the
 // model's folder when it opens again (worker/server.py, metadata.js).

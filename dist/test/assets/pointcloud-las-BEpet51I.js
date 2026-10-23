@@ -1,4 +1,4 @@
-import { c as core } from './main-QxgvmZ1Y.js';
+import { c as core } from './main-BkkNGqZD.js';
 import { g4 as THREE } from './three-9zFNDZnr.js';
 import './model-thumbnail-Di3rg7J6.js';
 import './_commonjsHelpers-ChNyZfSg.js';

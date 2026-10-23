@@ -8,6 +8,10 @@ existing Drupal endpoints (src/Controller/ModelController.php) so a client
 could talk to either backend interchangeably:
 
   POST /api/model/create        multipart file upload -> {entity_id, status}
+  POST /api/model/upload/start  {name, size} -> {uploadId, chunkBytes}: the
+  PUT  /api/model/upload/<id>?offset=N   same upload in pieces (each under
+  POST /api/model/upload/<id>/finish     Cloudflare's 100 MB request limit)
+                                -> {entity_id, status}
   GET  /api/model/status/<id>   -> {progress, status, message, modelUrl,
                                     previewUrl (point clouds, while converting),
                                     validation (summary), ...}
@@ -100,6 +104,12 @@ SKIP_RENDER = os.environ.get("WORKER_SKIP_RENDER", "false").lower() == "true"
 # the host) - see docker-compose.yml and worker/README.md.
 RENDER_DEVICE = os.environ.get("WORKER_RENDER_DEVICE", "CPU").upper()
 MAX_UPLOAD_BYTES = int(os.environ.get("WORKER_MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
+# One piece of an upload sent in pieces (/api/model/upload/...): under
+# Cloudflare's 100 MB request limit, and short enough to get through within
+# its 100 s on a slow connection.
+UPLOAD_CHUNK_BYTES = int(os.environ.get("WORKER_UPLOAD_CHUNK_BYTES", str(16 * 1024 * 1024)))
+# Unfinished uploads older than this are deleted.
+UPLOAD_EXPIRY_SECONDS = 24 * 3600
 # A "Render preview" PNG (1024x1024) - far below this.
 MAX_THUMBNAIL_BYTES = 20 * 1024 * 1024
 # A model's saved viewer settings (POST /api/model/settings): transforms,
@@ -634,6 +644,36 @@ class UploadTooLarge(ValueError):
     pass
 
 
+# Uploads sent in pieces, until finished: <id>/meta.json and <id>/data, in a
+# dot-directory the job listing and the storage quotas skip.
+UPLOADS_DIR = JOBS_DIR / ".uploads"
+UPLOAD_ID_RE = re.compile(r"[0-9a-f]{32}")
+UPLOADS_LOCK = threading.Lock()
+
+
+def remove_expired_uploads() -> None:
+    if not UPLOADS_DIR.is_dir():
+        return
+    cutoff = time.time() - UPLOAD_EXPIRY_SECONDS
+    for upload_dir in UPLOADS_DIR.iterdir():
+        try:
+            if upload_dir.is_dir() and upload_dir.stat().st_mtime < cutoff:
+                shutil.rmtree(upload_dir, ignore_errors=True)
+        except OSError:
+            continue
+
+
+def read_upload(upload_id: str):
+    """(directory, meta) of an unfinished upload, or None."""
+    if not UPLOAD_ID_RE.fullmatch(upload_id):
+        return None
+    upload_dir = UPLOADS_DIR / upload_id
+    try:
+        return upload_dir, json.loads((upload_dir / "meta.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def _multipart_parts(handler: "Handler", max_bytes: int = MAX_UPLOAD_BYTES):
     """Yields (headers_text, content) for each part of a multipart body."""
     content_type = handler.headers.get("Content-Type", "")
@@ -1039,7 +1079,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, OPTIONS")
         # Range: Potree clouds read octree.bin by ranges (static_files.py).
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-App-User-Id, Authorization, Range, If-None-Match")
         self.end_headers()
@@ -1161,6 +1201,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/model/create-from-url":
             self._handle_create_from_url()
             return
+        if path == "/api/model/upload/start":
+            self._handle_upload_start()
+            return
+        match = re.fullmatch(r"/api/model/upload/([0-9a-f]{32})/finish", path)
+        if match:
+            self._handle_upload_finish(match.group(1))
+            return
         # The viewer's "Render preview". /api/editor/upload-thumbnail is the
         # Drupal module's route; still accepted here for older viewers.
         if path in ("/api/model/thumbnail", "/api/editor/upload-thumbnail"):
@@ -1201,6 +1248,14 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/(approve|disable|promote|demote)", path)
         if match:
             self._handle_admin_user_action(match.group(1), match.group(2))
+            return
+        self._send_json(404, {"error": "not found"})
+
+    def do_PUT(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        match = re.fullmatch(r"/api/model/upload/([0-9a-f]{32})", path)
+        if match:
+            self._handle_upload_chunk(match.group(1))
             return
         self._send_json(404, {"error": "not found"})
 
@@ -1295,11 +1350,15 @@ class Handler(BaseHTTPRequestHandler):
         filename = re.sub(r"[^A-Za-z0-9_.-]", "_", Path(filename).name).lstrip(".") or "model"
         self._start_job(user, key, username, limits, filename, content)
 
-    def _start_job(self, user, key, username, limits, filename: str, content: bytes) -> None:
+    def _start_job(self, user, key, username, limits, filename: str, content: bytes = None, source: Path = None,
+                   cleanup: Path = None) -> None:
+        """Converts `content`, or the file `source` (moved into the job;
+        the folder `cleanup` is then deleted, before the answer)."""
         ext = Path(filename).suffix.lower().lstrip(".")
+        size = len(content) if content is not None else source.stat().st_size
         try:
             job_id = LIMITS.reserve(
-                key, username, limits, len(content),
+                key, username, limits, size,
                 active_jobs_fn=lambda: active_jobs_for(key),
                 create_job=lambda: new_job(key),
             )
@@ -1309,13 +1368,117 @@ class Handler(BaseHTTPRequestHandler):
         input_dir = JOBS_DIR / job_id / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         input_path = input_dir / Path(filename).name
-        input_path.write_bytes(content)
-        write_owner(job_id, user.get("username") if user else None, input_path.name, len(content))
+        if content is not None:
+            input_path.write_bytes(content)
+        else:
+            shutil.move(str(source), input_path)
+            if cleanup:
+                shutil.rmtree(cleanup, ignore_errors=True)
+        write_owner(job_id, user.get("username") if user else None, input_path.name, size)
 
         thread = threading.Thread(target=run_pipeline, args=(job_id, input_path, ext), daemon=True)
         thread.start()
 
         self._send_json(200, {"entity_id": job_id, "status": "started"})
+
+    def _handle_upload_start(self) -> None:
+        """POST /api/model/upload/start {"name", "size"}: an upload sent in
+        pieces (PUT /api/model/upload/<id>), checked against the formats,
+        the size cap and the limits before any of it is sent."""
+        user = self._require_user()
+        if user is None:
+            return
+        try:
+            data = self._read_json_body()
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        filename = re.sub(r"[^A-Za-z0-9_.-]", "_", Path(str(data.get("name", ""))).name).lstrip(".") or "model"
+        try:
+            size = int(data.get("size"))
+        except (TypeError, ValueError):
+            size = 0
+        if size <= 0:
+            self._send_json(400, {"error": "Empty upload"})
+            return
+        if size > MAX_UPLOAD_BYTES:
+            self._send_json(413, {"error": f"Upload exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit"})
+            return
+        ext = Path(filename).suffix.lower().lstrip(".")
+        if ext not in SUPPORTED_FORMATS | ARCHIVE_FORMATS:
+            self._send_json(400, {"error": f"Unsupported file type: .{ext}"})
+            return
+        key, username, limits = self._limit_context(user)
+        try:
+            LIMITS.check(key, username, limits, size, active_jobs_for(key))
+        except LimitError as exc:
+            self._send_limit_error(exc)
+            return
+        remove_expired_uploads()
+        upload_id = uuid.uuid4().hex
+        upload_dir = UPLOADS_DIR / upload_id
+        upload_dir.mkdir(parents=True)
+        (upload_dir / "data").touch()
+        (upload_dir / "meta.json").write_text(json.dumps({"key": key, "name": filename, "size": size}), "utf-8")
+        self._send_json(200, {"uploadId": upload_id, "chunkBytes": UPLOAD_CHUNK_BYTES})
+
+    def _own_upload(self, upload_id: str):
+        """(user, key, username, limits, directory, meta) of the caller's
+        unfinished upload, or None after sending an error."""
+        user = self._require_user()
+        if user is None:
+            return None
+        found = read_upload(upload_id)
+        key, username, limits = self._limit_context(user)
+        if found is None or found[1].get("key") != key:
+            self._send_json(404, {"error": "No such upload"})
+            return None
+        return user, key, username, limits, found[0], found[1]
+
+    def _handle_upload_chunk(self, upload_id: str) -> None:
+        """PUT /api/model/upload/<id>?offset=N: the piece of the file that
+        starts at byte N. A piece sent again (a retry) is accepted; one that
+        would leave a gap gets 409 with the bytes received so far."""
+        owned = self._own_upload(upload_id)
+        if owned is None:
+            return
+        upload_dir, meta = owned[4], owned[5]
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length <= 0 or length > UPLOAD_CHUNK_BYTES:
+            self._send_json(413 if length > 0 else 400, {"error": "Invalid piece size"})
+            return
+        try:
+            offset = int(parse_qs(urlparse(self.path).query).get("offset", ["-1"])[0])
+        except ValueError:
+            offset = -1
+        content = self.rfile.read(length)
+        data_path = upload_dir / "data"
+        with UPLOADS_LOCK:
+            received = data_path.stat().st_size
+            if offset < 0 or offset > received or offset + len(content) > meta["size"]:
+                self._send_json(409, {"error": "Unexpected offset", "received": received})
+                return
+            if offset + len(content) > received:
+                with data_path.open("r+b") as handle:
+                    handle.seek(offset)
+                    handle.write(content)
+                received = data_path.stat().st_size
+        self._send_json(200, {"received": received})
+
+    def _handle_upload_finish(self, upload_id: str) -> None:
+        """POST /api/model/upload/<id>/finish: converts the complete file,
+        like POST /api/model/create."""
+        owned = self._own_upload(upload_id)
+        if owned is None:
+            return
+        user, key, username, limits, upload_dir, meta = owned
+        data_path = upload_dir / "data"
+        with UPLOADS_LOCK:
+            received = data_path.stat().st_size
+            if received != meta["size"]:
+                self._send_json(409, {"error": "Upload incomplete", "received": received})
+                return
+            self._start_job(user, key, username, limits, meta["name"], source=data_path, cleanup=upload_dir)
 
     def _handle_thumbnail_upload(self) -> None:
         """The viewer's thumbnails: a PNG saved as the model's <name>_<view>.png

@@ -91,6 +91,73 @@ function sendWithProgress(url, { method, body, headers }, onProgress) {
   });
 }
 
+// Attempts per piece of an upload sent in pieces, after a network error or
+// an error of the server, a few seconds apart.
+const PIECE_ATTEMPTS = 4;
+
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+// A file sent to the worker in pieces (worker/server.py, /api/model/upload/):
+// each under Cloudflare's 100 MB request limit, which a single request of a
+// larger file never gets through. Resolves to the Response of the first
+// refused request, or of the finish that starts the conversion - answered
+// like POST /api/model/create. A backend without it (the Drupal module, an
+// older worker) gets the file in one request instead.
+async function sendFileInPieces(file, onProgress) {
+  const headers = appRequestHeaders();
+  const start = await fetch(apiUrl("/api/model/upload/start"), {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, size: file.size }),
+  });
+  let session = null;
+  if (start.ok) {
+    try {
+      session = await start.json();
+    } catch (_error) {
+      // A page instead of JSON: a host that answers every path with one.
+    }
+  } else if (start.status !== 404 && start.status !== 405) {
+    return start;
+  }
+  const { uploadId, chunkBytes } = session || {};
+  if (!uploadId || !(chunkBytes > 0)) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return sendWithProgress(apiUrl("/api/model/create"), { method: "POST", body: formData, headers }, onProgress);
+  }
+
+  let offset = 0;
+  let failures = 0;
+  while (offset < file.size) {
+    const pieceStart = offset;
+    let response = null;
+    try {
+      response = await sendWithProgress(
+        apiUrl(`/api/model/upload/${uploadId}?offset=${pieceStart}`),
+        { method: "PUT", body: file.slice(pieceStart, pieceStart + chunkBytes), headers },
+        (loaded) => onProgress?.(pieceStart + loaded, file.size),
+      );
+    } catch (error) {
+      if (++failures >= PIECE_ATTEMPTS) throw error;
+    }
+    if (response?.ok || response?.status === 409) {
+      // 409: the worker has a different number of bytes (a lost answer to a
+      // piece it did get) - carry on from there.
+      const received = Number((await response.json()).received);
+      if (response.ok) failures = 0;
+      else if (++failures >= PIECE_ATTEMPTS) return response;
+      offset = Number.isFinite(received) ? received : offset;
+      onProgress?.(offset, file.size);
+      continue;
+    }
+    if (response && response.status < 500) return response;
+    if (response && ++failures >= PIECE_ATTEMPTS) return response;
+    await wait(2000 * failures);
+  }
+  return fetch(apiUrl(`/api/model/upload/${uploadId}/finish`), { method: "POST", headers });
+}
+
 export function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
     renderUploadHint() {
@@ -467,14 +534,14 @@ export function attachUploadPanel(Viewer) {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      await this.sendUploadRequest({ method: "POST", body: formData, headers: appRequestHeaders() }, "/api/model/create");
+      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress), "/api/model/create");
     },
 
     // Starts a conversion (an uploaded file or a link) and follows it: the
     // upload is the first of the processing steps, with the bytes sent so
     // far under it, and the viewer stays blurred until the model is in.
+    // `request`: fetch()'s options, or a function of the progress callback
+    // that sends it and resolves to the Response.
     async sendUploadRequest(request, endpoint) {
       const fromUrl = endpoint.endsWith("-from-url");
       this.uploadInputs.submit.disabled = true;
@@ -498,7 +565,9 @@ export function attachUploadPanel(Viewer) {
       };
 
       try {
-        const response = await sendWithProgress(apiUrl(endpoint), request, fromUrl ? null : onProgress);
+        const response = typeof request === "function"
+          ? await request(onProgress)
+          : await sendWithProgress(apiUrl(endpoint), request, fromUrl ? null : onProgress);
         if (response.status === 401) {
           await this.refreshAuthState();
           this.setUploadStatusText(t("uploadPanel.loginRequired", "Log in to upload models."), "error");

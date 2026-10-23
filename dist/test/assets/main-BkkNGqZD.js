@@ -7298,7 +7298,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DMrnqEQG.js');
+const loadTilesPlugins = () => import('./index.three-plugins-DGMkuKMj.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -7980,7 +7980,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-BjBdtdHa.js'),
+    import('./rendering-webgpu-BfMCW6_c.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -8112,9 +8112,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BFhH7Z3B.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BEpet51I.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-p9QQMiLM.js');
+const loadSplats = async () => import('./splats-BVoLI2wh.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -9317,6 +9317,73 @@ function sendWithProgress(url, { method, body, headers }, onProgress) {
   });
 }
 
+// Attempts per piece of an upload sent in pieces, after a network error or
+// an error of the server, a few seconds apart.
+const PIECE_ATTEMPTS = 4;
+
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+// A file sent to the worker in pieces (worker/server.py, /api/model/upload/):
+// each under Cloudflare's 100 MB request limit, which a single request of a
+// larger file never gets through. Resolves to the Response of the first
+// refused request, or of the finish that starts the conversion - answered
+// like POST /api/model/create. A backend without it (the Drupal module, an
+// older worker) gets the file in one request instead.
+async function sendFileInPieces(file, onProgress) {
+  const headers = appRequestHeaders();
+  const start = await fetch(apiUrl("/api/model/upload/start"), {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, size: file.size }),
+  });
+  let session = null;
+  if (start.ok) {
+    try {
+      session = await start.json();
+    } catch (_error) {
+      // A page instead of JSON: a host that answers every path with one.
+    }
+  } else if (start.status !== 404 && start.status !== 405) {
+    return start;
+  }
+  const { uploadId, chunkBytes } = session || {};
+  if (!uploadId || !(chunkBytes > 0)) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return sendWithProgress(apiUrl("/api/model/create"), { method: "POST", body: formData, headers }, onProgress);
+  }
+
+  let offset = 0;
+  let failures = 0;
+  while (offset < file.size) {
+    const pieceStart = offset;
+    let response = null;
+    try {
+      response = await sendWithProgress(
+        apiUrl(`/api/model/upload/${uploadId}?offset=${pieceStart}`),
+        { method: "PUT", body: file.slice(pieceStart, pieceStart + chunkBytes), headers },
+        (loaded) => onProgress?.(pieceStart + loaded, file.size),
+      );
+    } catch (error) {
+      if (++failures >= PIECE_ATTEMPTS) throw error;
+    }
+    if (response?.ok || response?.status === 409) {
+      // 409: the worker has a different number of bytes (a lost answer to a
+      // piece it did get) - carry on from there.
+      const received = Number((await response.json()).received);
+      if (response.ok) failures = 0;
+      else if (++failures >= PIECE_ATTEMPTS) return response;
+      offset = Number.isFinite(received) ? received : offset;
+      onProgress?.(offset, file.size);
+      continue;
+    }
+    if (response && response.status < 500) return response;
+    if (response && ++failures >= PIECE_ATTEMPTS) return response;
+    await wait(2000 * failures);
+  }
+  return fetch(apiUrl(`/api/model/upload/${uploadId}/finish`), { method: "POST", headers });
+}
+
 function attachUploadPanel(Viewer) {
   Object.assign(Viewer, {
     renderUploadHint() {
@@ -9693,14 +9760,14 @@ function attachUploadPanel(Viewer) {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      await this.sendUploadRequest({ method: "POST", body: formData, headers: appRequestHeaders() }, "/api/model/create");
+      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress), "/api/model/create");
     },
 
     // Starts a conversion (an uploaded file or a link) and follows it: the
     // upload is the first of the processing steps, with the bytes sent so
     // far under it, and the viewer stays blurred until the model is in.
+    // `request`: fetch()'s options, or a function of the progress callback
+    // that sends it and resolves to the Response.
     async sendUploadRequest(request, endpoint) {
       const fromUrl = endpoint.endsWith("-from-url");
       this.uploadInputs.submit.disabled = true;
@@ -9724,7 +9791,9 @@ function attachUploadPanel(Viewer) {
       };
 
       try {
-        const response = await sendWithProgress(apiUrl(endpoint), request, fromUrl ? null : onProgress);
+        const response = typeof request === "function"
+          ? await request(onProgress)
+          : await sendWithProgress(apiUrl(endpoint), request, fromUrl ? null : onProgress);
         if (response.status === 401) {
           await this.refreshAuthState();
           this.setUploadStatusText(t$1("uploadPanel.loginRequired", "Log in to upload models."), "error");
@@ -14848,7 +14917,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "eccb31e1" ;
+const BUILD_ID$2 = "7228b2c4" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -14899,8 +14968,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "eccb31e1" ;
-const BUILD_TIME$1 = "2026-10-23T10:12:16.640Z" ;
+const BUILD_ID$1 = "7228b2c4" ;
+const BUILD_TIME$1 = "2026-10-23T11:04:30.312Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -47194,8 +47263,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "eccb31e1" ;
-const BUILD_TIME = "2026-10-23T10:12:16.640Z" ;
+const BUILD_ID = "7228b2c4" ;
+const BUILD_TIME = "2026-10-23T11:04:30.312Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -51735,4 +51804,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-CumfRnMN.js.map
+//# sourceMappingURL=main-CSktbOwQ.js.map

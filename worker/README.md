@@ -245,6 +245,7 @@ Set via environment variables on the `worker` container (see
 | `WORKER_JOBS_DIR`          | `/data/jobs`   | Where uploads/outputs are stored          |
 | `WORKER_SKIP_RENDER`       | `false`        | Skip Blender thumbnail rendering          |
 | `WORKER_MAX_UPLOAD_BYTES`  | `104857600`    | Upload size cap (100 MB); larger uploads get HTTP 413 |
+| `WORKER_UPLOAD_CHUNK_BYTES` | `16777216`  | Piece size of an upload sent in pieces (16 MB): the viewer sends files this way (`/api/model/upload/start`, `PUT /api/model/upload/<id>?offset=N`, `.../finish`), so Cloudflare's 100 MB request limit (Free and Pro) does not cap uploads; keep it well below that. Unfinished uploads are deleted after a day |
 | `WORKER_LIMIT_UPLOADS_PER_HOUR` / `_PER_DAY` | `20` / `100` | Uploads per account (per client IP with accounts off) in a rolling hour/day; HTTP 429 |
 | `WORKER_LIMIT_STORAGE_MB`  | `0`            | Disk space an account's models may use (0 = unlimited); HTTP 507 |
 | `WORKER_LIMIT_MAX_MODELS`  | `0`            | Models an account may own (0 = unlimited); HTTP 507 |
