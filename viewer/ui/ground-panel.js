@@ -1,16 +1,18 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { makePanelWindow } from "./panel-window.js";
+import { attachToolPanelChrome, refreshToolPanelChrome } from "./tool-panel-chrome.js";
 import { GROUND_PRESETS } from "../ground.js";
 
 // What the model stands on (ground.js), picked in a window of tiles: Look ->
-// Ground. The window stays open after a pick, to compare the grounds.
+// Ground. The window stays open after a pick, to compare the grounds; it
+// moves by its header and minimizes to a round icon (ui/tool-panel-chrome.js).
 
 const GROUND_LABELS = {
   contact: "Contact shadow",
   mirror: "Mirror",
   grid: "Grid",
-  turntable: "Turntable with compass and scale",
+  turntable: "Turntable",
   spotlight: "Spotlight",
   dots: "Dot grid",
 };
@@ -25,6 +27,9 @@ export const GROUND_ICONS = {
   spotlight: `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="2" y="2" width="44" height="44" rx="6" fill="currentColor" fill-opacity="0.16"/><path d="M20 3h8l-1.5 4h-5z" fill="currentColor"/><path d="M21.5 7 9 30M26.5 7 39 30" fill="none" stroke="#e9c37f" stroke-width="1" stroke-dasharray="2 2"/><ellipse cx="24" cy="30" rx="15" ry="4.5" fill="#e9c37f" fill-opacity="0.5"/>${BLOCK}</svg>`,
   dots: `<svg viewBox="0 0 48 48" aria-hidden="true"><g fill="currentColor" fill-opacity="0.6">${[24, 30, 36, 42].map((y, row) => [-3, -2, -1, 0, 1, 2, 3].map((column) => `<circle cx="${24 + column * (5.5 + row * 1.5)}" cy="${y}" r="${0.8 + row * 0.25}"/>`).join("")).join("")}</g>${BLOCK}</svg>`,
 };
+
+// The minimized window's icon, as the toolbar's (editor-toolbar.js).
+const GROUND_PIP_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="8" y="5" width="8" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="18.5" rx="7" ry="1.8" fill="currentColor" fill-opacity="0.45"/></svg>';
 
 export function groundLabel(preset) {
   return t(`gui.ground.${preset}`, GROUND_LABELS[preset]);
@@ -82,7 +87,15 @@ export function attachGroundPanel(Viewer) {
       core.container.appendChild(panel);
       this.groundPanel = panel;
       this.bindEventListener(panel.querySelector('[data-action="close"]'), "click", () => this.closeGroundPanel());
-      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeGroundPanel());
+      const header = panel.querySelector(".upload-panel-header");
+      makePanelWindow(this, panel, header, () => this.closeGroundPanel());
+      // Dragged by the header already (makePanelWindow): no grip.
+      attachToolPanelChrome(panel, header, {
+        before: header.querySelector('[data-action="close"]'),
+        movable: false,
+        icon: GROUND_PIP_ICON,
+        label: () => t("gui.groundTitle", "Ground"),
+      });
       this.localizeGroundPanel();
     },
 
@@ -100,6 +113,7 @@ export function attachGroundPanel(Viewer) {
         tile.querySelector(".ground-panel-label").textContent = label;
         tile.title = label;
       });
+      refreshToolPanelChrome(panel);
     },
 
     // The tile of the ground shown now, marked.

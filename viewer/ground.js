@@ -18,8 +18,9 @@ import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js";
 // scene.ground, globals.ground, AIM3DViewer viewer.ground), the toolbar
 // (Look -> Ground, ui/ground-panel.js), viewer.ground (viewer-settings.json).
 //
-// Every preset keeps the shadow catcher for the directional light (the sun
-// study draws its shadows on it) and the axes helper. With the WebGPU
+// Every preset lies at the model's lowest point and keeps the shadow
+// catcher for the directional light (the sun study draws its shadows on it)
+// and the axes helper. With the WebGPU
 // renderer the GLSL parts have no version: the contact shadow is a blurred
 // blob, the mirror is that blob too and the grid is three's GridHelper.
 export const GROUND_PRESETS = ["contact", "mirror", "grid", "turntable", "spotlight", "dots"];
@@ -148,8 +149,8 @@ function needsBlobShadow(roots) {
 function createBlobShadow(size, center) {
   const texture = canvasTexture(256, 256, (g, w) => {
     const gradient = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
-    gradient.addColorStop(0, "rgba(0,0,0,0.55)");
-    gradient.addColorStop(0.45, "rgba(0,0,0,0.3)");
+    gradient.addColorStop(0, "rgba(0,0,0,0.75)");
+    gradient.addColorStop(0.45, "rgba(0,0,0,0.45)");
     gradient.addColorStop(1, "rgba(0,0,0,0)");
     g.fillStyle = gradient;
     g.fillRect(0, 0, w, w);
@@ -161,7 +162,7 @@ function createBlobShadow(size, center) {
   return { group: mesh, update: null, dispose: () => texture.dispose() };
 }
 
-function createContactShadow(size, center, opacity = 0.6) {
+function createContactShadow(size, center, opacity = 0.85, floor = 0) {
   const roots = modelRoots();
   if (needsBlobShadow(roots)) return createBlobShadow(size, center);
 
@@ -199,8 +200,9 @@ function createContactShadow(size, center, opacity = 0.6) {
   });
   depthMaterial.onBeforeCompile = (shader) => {
     shader.uniforms.darkness = { value: 1.5 };
-    shader.uniforms.groundRange = { value: height * 0.6 };
-    shader.vertexShader = `varying float vGroundHeight;\n${shader.vertexShader.replace(
+    shader.uniforms.groundRange = { value: height * 0.8 };
+    shader.uniforms.groundLevel = { value: floor };
+    shader.vertexShader = `uniform float groundLevel;\nvarying float vGroundHeight;\n${shader.vertexShader.replace(
       "#include <project_vertex>",
       `#include <project_vertex>
       vec4 groundPosition = vec4( transformed, 1.0 );
@@ -210,7 +212,7 @@ function createContactShadow(size, center, opacity = 0.6) {
       #ifdef USE_INSTANCING
         groundPosition = instanceMatrix * groundPosition;
       #endif
-      vGroundHeight = ( modelMatrix * groundPosition ).y;`
+      vGroundHeight = ( modelMatrix * groundPosition ).y - groundLevel;`
     )}`;
     shader.fragmentShader = `uniform float darkness;\nuniform float groundRange;\nvarying float vGroundHeight;\n${shader.fragmentShader.replace(
       "gl_FragColor = vec4( vec3( 1.0 - fragCoordZ ), opacity );",
@@ -279,8 +281,11 @@ function createContactShadow(size, center, opacity = 0.6) {
     renderer.clear();
     renderer.render(scene, camera);
     scene.overrideMaterial = previous.override;
-    blur(3.5);
-    blur(1.4);
+    // Wide first, so the shade reaches out round the footprint, where it
+    // shows; the model covers the dark core.
+    blur(9);
+    blur(4.5);
+    blur(1.5);
     renderer.setRenderTarget(previous.target);
     renderer.setClearColor(previous.clearColor, previous.clearAlpha);
     renderer.shadowMap.autoUpdate = previous.shadowAutoUpdate;
@@ -556,11 +561,13 @@ function buildSpotlight(group, size, center) {
 
 function buildDots(group, size, center) {
   const extent = core.gridSize * 5;
-  const step = Math.pow(10, Math.floor(Math.log10(Math.max(core.gridSize, 1e-6)))) / 2;
+  // A third of the power of ten below the model's size; dots of about a
+  // sixth of the step.
+  const step = Math.pow(10, Math.floor(Math.log10(Math.max(core.gridSize, 1e-6)))) / 3;
   const dots = canvasTexture(128, 128, (g, w) => {
     g.fillStyle = "rgba(118, 112, 100, 0.85)";
     g.beginPath();
-    g.arc(w / 2, w / 2, 13, 0, Math.PI * 2);
+    g.arc(w / 2, w / 2, 11, 0, Math.PI * 2);
     g.fill();
   });
   dots.wrapS = dots.wrapT = THREE.RepeatWrapping;
@@ -622,6 +629,11 @@ export function buildGround(boundingBox, preset = resolveGroundPreset()) {
   group.name = "ground";
   group.userData.noClipping = true;
   group.userData.groundPreset = preset;
+  // The floor at the model's lowest point: a model reaching below y = 0 (a
+  // plinth under it) stands on the ground instead of cutting it. The
+  // weather reads it back from core.basicGrid.
+  const floor = box.min.y;
+  group.position.y = floor;
   core.basicGrid = group;
   state.preset = preset;
 
@@ -637,7 +649,7 @@ export function buildGround(boundingBox, preset = resolveGroundPreset()) {
   if (preset === "spotlight") buildSpotlight(group, size, center);
   if (preset === "dots") buildDots(group, size, center);
 
-  state.contact = createContactShadow(size, center, preset === "spotlight" ? 0.75 : 0.6);
+  state.contact = createContactShadow(size, center, preset === "spotlight" ? 0.9 : 0.85, floor);
   group.add(state.contact.group);
 
   core.scene.add(group);

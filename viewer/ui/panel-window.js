@@ -40,8 +40,11 @@ export function hasOpenPanelWindow() {
   return [...windows.keys()].some((panel) => !panel.hidden);
 }
 
-function closeWindows(except) {
+// A click on the background leaves a minimized window (tool-panel-chrome.js)
+// as it is.
+function closeWindows(except, { keepMinimized = false } = {}) {
   windows.forEach((close, panel) => {
+    if (keepMinimized && panel.classList.contains("is-minimized")) return;
     if (panel !== except && !panel.hidden) close();
   });
 }
@@ -66,7 +69,7 @@ function watchBackgroundClicks(Viewer) {
     pressStart = null;
     if (!start || !event.isPrimary || !isBackground(event.target)) return;
     if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP_PX) return;
-    closeWindows(null);
+    closeWindows(null, { keepMinimized: true });
   }, true);
 }
 
