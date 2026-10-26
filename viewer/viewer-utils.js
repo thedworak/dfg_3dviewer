@@ -4,6 +4,7 @@ import { core, setCore } from './core.js';
 import TWEEN, { add } from "three/examples/jsm/libs/tween.module.js";
 import { normalizeColor, parseCssColor } from './utils.js';
 import { t } from "./i18n-utils.js";
+import { isQuietNotice, recordEvent } from "./ui/event-log-store.js";
 import { applyUpAxis, getFirstModelChild, getUpAxis, normalizeUpAxis } from "./up-axis.js";
 import { buildGround, setManifestGround } from "./ground.js";
 
@@ -106,7 +107,6 @@ export const toastHelper = (key, toneOrOptions, maybeOptions) => {
 };
 
 export const showToast = (message, toneOrOptions, maybeOptions) => {
-  if (!core.showNotifications) return;
   const { tone, options } = normalizeNoticeArgs(toneOrOptions, maybeOptions);
 
   const duration = Number.isFinite(options.duration)
@@ -146,6 +146,12 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
     window.viewer.toasts ??= [];
     window.viewer.toasts.push([text, detail].filter(Boolean).join(" "));
   }
+
+  // Every notice goes into the event log (ui/event-log.js); the routine ones
+  // (QUIET_NOTICE_KEYS, or `quiet: true`) only there, not as a toast.
+  const quiet = options.quiet === true || isQuietNotice(i18nKey);
+  recordEvent({ tone, message: text, detail, quiet });
+  if (quiet || !core.showNotifications) return;
 
   const statusNotice = core.statusNotice;
   const enqueueStatusNotice = core.enqueueStatusNotice;

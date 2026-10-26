@@ -217,6 +217,7 @@ export function attachLocalizationTheme(viewer) {
       this.applyCertaintyLanguage?.();
       this.localizeValidationReport?.();
       this.localizeGroundPanel?.();
+      this.localizeEventLog?.();
     },
 
     toggleLanguage() {

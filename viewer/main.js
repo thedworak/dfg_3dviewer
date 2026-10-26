@@ -59,6 +59,8 @@ import { attachModelsSource } from "./ui/models-source.js";
 import { attachExamplesPanel } from "./ui/examples-panel.js";
 import { attachValidationReport } from "./ui/validation-report.js";
 import { attachGroundPanel } from "./ui/ground-panel.js";
+import { attachEventLogPanel } from "./ui/event-log.js";
+import { installEventLog } from "./ui/event-log-store.js";
 import { attachIfcQuery } from "./ai/ifc-query.js";
 import { attachVariantsReview } from "./ai/variants-review.js";
 import { attachAdminPanel } from "./ui/admin-panel.js";
@@ -4451,6 +4453,9 @@ attachModelsSource(Viewer);
 attachExamplesPanel(Viewer);
 attachValidationReport(Viewer);
 attachGroundPanel(Viewer);
+attachEventLogPanel(Viewer);
+// From the start, so the log has the console's errors of the loading too.
+installEventLog();
 attachIfcQuery(Viewer);
 attachVariantsReview(Viewer);
 attachAppUi(Viewer);

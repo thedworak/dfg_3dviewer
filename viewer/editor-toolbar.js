@@ -97,6 +97,7 @@ export function getEditorToolbarIcon(icon) {
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     ifcQuery: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-4 6 4v11z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M18.5 2.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" fill="currentColor"/></svg>',
     validationReport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7.5 5H5v16h14V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    eventLog: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     credits: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.8 9.4a3.6 3.6 0 1 0 0 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
@@ -1410,6 +1411,8 @@ export function createEditorToolbar(viewer) {
     // Help.
     { key: "reportBug", group: "help", icon: "reportBug", onClick: () => reportBug(), primary: false },
     { key: "help", group: "help", icon: "help", onClick: () => viewer.showKeyboardShortcutsHint({ manual: true }), pressed: true, primary: false },
+    // Every notice and console error, the quiet ones too (ui/event-log.js).
+    { key: "eventLog", group: "help", icon: "eventLog", onClick: () => viewer.toggleEventLog(), pressed: true, primary: false },
     // The credits window (sandbox.js, main.js toggleCredits).
     { key: "credits", group: "help", icon: "credits", onClick: () => viewer.toggleCredits(), pressed: true, primary: false },
   ];
@@ -2460,6 +2463,7 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("gui.hideCredits", "Hide credits")
       : t("gui.showCredits", "Show credits"),
     validationReport: t("gui.validationReport", "Validation report"),
+    eventLog: t("eventLog.title", "Event log"),
     ifcQuery: t("ai.ifc.toggle", "Ask the building model (AI)"),
     expand: viewer.isToolbarExpanded
       ? t("gui.collapse", "Collapse toolbar")
@@ -2701,6 +2705,7 @@ export function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     credits: Boolean(viewer.creditsWrapper && !viewer.creditsWrapper.hidden),
     validationReport: viewer.isValidationReportOpen?.() === true,
+    eventLog: viewer.isEventLogOpen?.() === true,
     ground: viewer.isGroundPanelOpen?.() === true,
     ifcQuery: viewer.isIfcQueryOpen?.() === true,
     wireframe: viewer.wireframeMode === true,

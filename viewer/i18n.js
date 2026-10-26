@@ -675,6 +675,13 @@ export const VIEWER_I18N = {
       unownedTitle: "Uploads without an owner",
       modelDeleteConfirm: 'Delete "{name}"? This permanently removes the converted model and its renders.',
     },
+    eventLog: {
+      title: "Event log",
+      copy: "Copy",
+      clear: "Clear",
+      copied: "Log copied.",
+      empty: "Nothing logged yet.",
+    },
     loadingLog: {
       fullQuality: "Preview · loading full quality...",
       fullQualityProgress: "Preview · loading full quality {percent}%",
@@ -1997,6 +2004,13 @@ export const VIEWER_I18N = {
       unownedTitle: "Modele bez właściciela",
       modelDeleteConfirm: 'Usunąć "{name}"? Spowoduje to trwałe usunięcie przekonwertowanego modelu i jego renderów.',
     },
+    eventLog: {
+      title: "Dziennik zdarzeń",
+      copy: "Kopiuj",
+      clear: "Wyczyść",
+      copied: "Skopiowano dziennik.",
+      empty: "Na razie nic nie zapisano.",
+    },
     loadingLog: {
       fullQuality: "Podgląd · ładowanie pełnej jakości...",
       fullQualityProgress: "Podgląd · ładowanie pełnej jakości {percent}%",
@@ -3317,6 +3331,13 @@ export const VIEWER_I18N = {
       modelSave: "Speichern",
       unownedTitle: "Uploads ohne Besitzer",
       modelDeleteConfirm: '"{name}" löschen? Dadurch werden das konvertierte Modell und seine Renderings dauerhaft entfernt.',
+    },
+    eventLog: {
+      title: "Ereignisprotokoll",
+      copy: "Kopieren",
+      clear: "Leeren",
+      copied: "Protokoll kopiert.",
+      empty: "Noch nichts protokolliert.",
     },
     loadingLog: {
       fullQuality: "Vorschau · volle Qualität wird geladen...",
