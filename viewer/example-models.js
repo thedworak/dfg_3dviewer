@@ -18,7 +18,7 @@ import DEFAULT_LIST from "./examples/index.json";
 // is a model added since: it is loaded from the list's site, online only.
 const IS_MOBILE_BUILD = typeof __BUILD__ !== "undefined" && __BUILD__ === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
-const DEFAULT_URL = IS_MOBILE_BUILD ? "https://viewer.thedworak.com/examples/index.json" : "./examples/index.json";
+const DEFAULT_URL = IS_MOBILE_BUILD ? "https://explora4d.eu/viewer/examples/index.json" : "./examples/index.json";
 
 const listUrl = () => configuredUrl("exampleModelsUrl", DEFAULT_URL);
 

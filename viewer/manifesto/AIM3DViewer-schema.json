@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://viewer.thedworak.com/schema/AIM3DViewer-schema.json",
+  "$id": "https://explora4d.eu/viewer/schema/AIM3DViewer-schema.json",
   "title": "AIM3DViewer Manifest",
   "type": "object",
   "required": ["@context", "id", "type", "items"],

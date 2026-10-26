@@ -22,7 +22,7 @@ import DEFAULT_LIST from "./manifesto/examples/index.json";
 const IS_MOBILE_BUILD = typeof __BUILD__ !== "undefined" && __BUILD__ === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
-const DEFAULT_URL = IS_MOBILE_BUILD ? "https://viewer.thedworak.com/manifests/index.json" : "./manifests/index.json";
+const DEFAULT_URL = IS_MOBILE_BUILD ? "https://explora4d.eu/viewer/manifests/index.json" : "./manifests/index.json";
 
 const listUrl = () => configuredUrl("exampleManifestsUrl", DEFAULT_URL);
 
