@@ -3621,6 +3621,46 @@ test('saved settings of an uploaded model: posted to the worker and applied when
   expect(saved).toBeNull();
 });
 
+// The app downloads a repository model before opening it (models-panel.js),
+// so it loads from a blob: URL, with no folder for its saved settings.
+test('app: repository models open with their saved settings, a .rad paged from the server', async ({ page }) => {
+  test.setTimeout(90_000);
+  const boxJob = 'e'.repeat(32);
+  const radJob = 'f'.repeat(32);
+  const box = fs.readFileSync('viewer/examples/box.glb');
+  await page.route('**/viewer-settings.json', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), mobile: {} } });
+  });
+  await page.route(`**/files/${boxJob}/box.glb`, (route) => route.fulfill({ body: box, contentType: 'model/gltf-binary' }));
+  await page.route(`**/files/${boxJob}/metadata/box.glb_viewer.json`, (route) => route.fulfill({ json: { objPosition: [1.5, 0.25, -2] } }));
+  await page.route(`**/files/${radJob}/Tempietto-lod.rad`, (route) =>
+    route.continue({ url: new URL('/examples/tempietto/Tempietto-lod.rad', route.request().url()).href }));
+  await page.route(`**/files/${radJob}/metadata/Tempietto-lod.rad_viewer.json`, (route) => route.fulfill({ json: { objPosition: [0, 1, 0] } }));
+  const radRequests = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.endsWith('.rad')) radRequests.push(request.headers().range ?? null);
+  });
+
+  await openViewer(page);
+  await waitForModel(page);
+  expect(await page.evaluate(() => document.body.classList.contains('viewer-app'))).toBe(true);
+
+  // Downloaded, opened from a File: the settings come with it.
+  await page.evaluate((job) => window.Viewer.loadModelFromList({ id: job, name: 'box.glb', modelUrl: `/files/${job}/box.glb` }), boxJob);
+  await expect.poll(() => page.evaluate(() => window.Viewer.helperObjects[0].position.toArray())).toEqual([1.5, 0.25, -2]);
+
+  // A .rad is not downloaded whole: paged by range requests, as in the browser.
+  await page.evaluate((job) => window.Viewer.loadModelFromList({ id: job, name: 'Tempietto.splat', modelUrl: `/files/${job}/Tempietto-lod.rad` }), radJob);
+  await expect.poll(() => page.evaluate(() => {
+    const mesh = window.Viewer.mainObject[0]?.children.find((child) => child.userData.isGaussianSplats);
+    return mesh?.paged?.numSplats ?? 0;
+  }), { timeout: 30_000 }).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.Viewer.helperObjects[0].position.toArray())).toEqual([0, 1, 0]);
+  expect(radRequests.filter((range) => range !== null).every((range) => /^bytes=\d+-\d+$/.test(range))).toBe(true);
+  expect(radRequests.filter((range) => range !== null).length).toBeGreaterThan(1);
+});
+
 test('point cloud uploads show the worker\'s quick preview until the tiles are ready', async ({ page }) => {
   test.setTimeout(60_000);
   await page.route('**/api/auth/config', (route) =>

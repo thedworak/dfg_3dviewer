@@ -11,6 +11,7 @@ import { metaCaption, metaPart } from "./meta-icons.js";
 import { modelCheckPart } from "./feature-icons.js";
 import { fillModelThumbnail } from "./model-thumbnail.js";
 import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
+import { setPendingSavedSettings } from "../metadata.js";
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated
@@ -222,6 +223,31 @@ export function attachModelsPanel(Viewer) {
       }
     },
 
+    // The model's saved viewer settings ("Save settings": metadata/<file>_viewer.json
+    // next to it, see worker-model.js), for a copy opened from a File, which
+    // has no folder to look in. Null when there are none. Never cached: they
+    // are rewritten in place.
+    async fetchSavedSettings(job) {
+      try {
+        const modelUrl = new URL(remoteAssetUrl(job.modelUrl), window.location.href);
+        const fileName = decodeURIComponent(modelUrl.pathname.split("/").pop());
+        const response = await fetch(new URL(`metadata/${encodeURIComponent(fileName)}_viewer.json`, modelUrl), { cache: "no-cache" });
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data && typeof data === "object" ? data : null;
+      } catch {
+        return null;
+      }
+    },
+
+    // A .rad (the level-of-detail tree of Gaussian splats, worker/splats.py)
+    // is paged from the server: the coarse splats first, finer ones where
+    // the camera looks (splats.js). Downloaded whole, it would wait for the
+    // full tree and decode all of it.
+    isPagedModel(job) {
+      return String(job?.modelUrl || "").split(/[?#]/)[0].toLowerCase().endsWith(".rad");
+    },
+
     async saveModelOffline(job, button) {
       button.disabled = true;
       button.dataset.state = "saving";
@@ -236,6 +262,7 @@ export function attachModelsPanel(Viewer) {
             .catch(() => null);
         }
         const ifcProperties = await this.fetchIfcProperties(job);
+        const settings = await this.fetchSavedSettings(job);
         const fileName = decodeURIComponent(String(job.modelUrl).split(/[?#]/)[0].split("/").pop());
         await saveToLibrary({
           id: repositoryEntryId(job.id),
@@ -246,6 +273,7 @@ export function attachModelsPanel(Viewer) {
           file,
           thumbnail,
           ifcProperties,
+          settings,
         });
         button.dataset.state = "saved";
         const savedAria = t("modelsPanel.savedOffline", { name: job.name || fileName }, "{name} is on this device");
@@ -433,6 +461,7 @@ export function attachModelsPanel(Viewer) {
       const timer = window.setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetch(url, { signal: controller.signal });
+        response.body?.cancel().catch(() => {});
         return response.ok;
       } catch {
         return false;
@@ -484,11 +513,13 @@ export function attachModelsPanel(Viewer) {
         this.remoteModelPending = true;
         let file = null;
         let ifcProperties = null;
+        let settings = null;
         let reachable = false;
+        const download = this.canSaveOffline(job) && !this.isPagedModel(job);
         try {
-          file = this.canSaveOffline(job) ? await this.downloadRemoteModel(job) : null;
-          if (file) ifcProperties = await this.fetchIfcProperties(job);
-          reachable = file !== null || (!this.canSaveOffline(job) &&
+          file = download ? await this.downloadRemoteModel(job) : null;
+          if (file) [ifcProperties, settings] = await Promise.all([this.fetchIfcProperties(job), this.fetchSavedSettings(job)]);
+          reachable = file !== null || (!download &&
             await this.isRemoteModelReachable(remoteAssetUrl(job.modelUrl)));
         } finally {
           this.remoteModelPending = false;
@@ -500,8 +531,10 @@ export function attachModelsPanel(Viewer) {
         this.closeModelsPanel();
         if (file) {
           setPendingIfcProperties(ifcProperties);
+          setPendingSavedSettings(settings);
           const opened = await this.openLocalFile(file);
           setPendingIfcProperties(null);
+          setPendingSavedSettings(null);
           if (!opened) return;
         } else {
           core.autoPath = remoteAssetUrl(job.modelUrl);

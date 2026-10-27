@@ -27,6 +27,14 @@ let metadataNativeResizeReleaseTimer = null;
 // Where the metadata window was dragged to (host px), kept while the viewer
 // is open; null: just below the card.
 let metadataWindowPosition = null;
+// Saved settings handed over for the next model opened from a File: a
+// repository model the app downloaded (or kept on the device), whose
+// blob: URL has no folder to find metadata/<file>_viewer.json in.
+let pendingSavedSettings = null;
+
+export function setPendingSavedSettings(data) {
+  pendingSavedSettings = data && typeof data === "object" && !Array.isArray(data) ? data : null;
+}
 
 let modelSettingsResetState = null;
 
@@ -1020,6 +1028,8 @@ export async function fetchSettings(object) {
 
   captureModelSettingsResetState(object);
   clearIfcProperties();
+  const pendingSettings = core.fileObject.filename.startsWith('blob:') ? pendingSavedSettings : null;
+  pendingSavedSettings = null;
 
   // Skip metadata fetch for blob URLs (drag & drop files)
   if (core.fileObject.filename.startsWith('blob:')) {
@@ -1057,6 +1067,11 @@ export async function fetchSettings(object) {
   if (core.CONFIG.entity.metadata.sourceType === "IIIF") {
     console.log("Fetching IIIF metadata from ", core.objectsConfig);
     await handleMetadataResponse( core.CONFIG.model, metadata, object);
+  }
+  else if (pendingSettings) {
+    toastHelper("settingsFound", "success", { filename: `${core.fileObject.basename}.${core.fileObject.extension}` });
+    window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(pendingSettings);
+    await handleMetadataResponse(pendingSettings, metadata, object);
   }
   else if (savedSettingsUrl) {
     let data = null;

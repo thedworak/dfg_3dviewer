@@ -2,8 +2,9 @@
 // from the device and models saved from the repository. IndexedDB stores the
 // files as Blobs (no base64 round trip), in the app and in the browser alike.
 // An entry: { id, name, fileName, size, savedAt, source: "device" |
-// "repository", remoteId?, file: Blob, thumbnail?: Blob, ifcProperties?: object }
-// (ifcProperties: the model's <name>_ifc.json, see viewer/ifc-properties.js).
+// "repository", remoteId?, file: Blob, thumbnail?: Blob, ifcProperties?: object,
+// settings?: object } (ifcProperties: the model's <name>_ifc.json, see
+// viewer/ifc-properties.js; settings: its saved <name>_viewer.json).
 const DB_NAME = "dfg3dviewer-library";
 const STORE = "models";
 
@@ -45,7 +46,7 @@ export async function listLibrary() {
   return (entries || []).sort((a, b) => b.savedAt - a.savedAt);
 }
 
-export async function saveToLibrary({ id, name, fileName, source, remoteId, file, thumbnail, ifcProperties }) {
+export async function saveToLibrary({ id, name, fileName, source, remoteId, file, thumbnail, ifcProperties, settings }) {
   const entry = {
     id: id || `${source}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: name || fileName,
@@ -57,6 +58,7 @@ export async function saveToLibrary({ id, name, fileName, source, remoteId, file
     file,
     thumbnail: thumbnail ?? null,
     ifcProperties: ifcProperties ?? null,
+    settings: settings ?? null,
   };
   await run("readwrite", (store) => store.put(entry));
   requestPersistentStorage();

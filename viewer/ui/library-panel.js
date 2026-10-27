@@ -5,6 +5,7 @@ import { makePanelWindow } from "./panel-window.js";
 import { metaCaption, metaPart } from "./meta-icons.js";
 import { listLibrary, saveToLibrary, removeFromLibrary, libraryEntryFile } from "../offline-library.js";
 import { setPendingIfcProperties } from "../ifc-properties.js";
+import { setPendingSavedSettings } from "../metadata.js";
 
 function formatSize(bytes) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -146,10 +147,13 @@ export function attachLibraryPanel(Viewer) {
 
       this.bindEventListener(button, "click", async () => {
         this.closeLibraryPanel();
-        // Saved from the repository with its IFC properties (models-panel.js).
+        // Saved from the repository with its IFC properties and viewer
+        // settings (models-panel.js).
         setPendingIfcProperties(entry.ifcProperties);
+        setPendingSavedSettings(entry.settings);
         await this.openLocalFile(libraryEntryFile(entry));
         setPendingIfcProperties(null);
+        setPendingSavedSettings(null);
       });
       item.appendChild(button);
 

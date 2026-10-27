@@ -98,7 +98,10 @@ export async function createCreditsElement() {
 export async function loadDroppedModel (file) {
   const extension = file.name.split('.').pop().toLowerCase();
 
-  clearCurrentModel();
+  // As before a model opened from a URL (models panel): the previous one
+  // goes with its selection, tools and helpers, or the editing tools and
+  // "Save settings" would still act on it.
+  Viewer.resetLoadedModelState();
 
   const url = URL.createObjectURL(file);
 
@@ -124,16 +127,4 @@ export async function loadDroppedModel (file) {
   }
 
   toastHelper("modelLoadedSimple", "success");
-};
-
-function clearCurrentModel () {
-  if (!core.mainObject || core.mainObject.length === 0) {
-    return;
-  }
-
-  core.mainObject.forEach(obj => {
-    core.scene.remove(obj);
-  });
-
-  core.mainObject = [];
 };
