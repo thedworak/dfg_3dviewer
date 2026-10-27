@@ -273,6 +273,40 @@
           },
           "additionalProperties": true
         },
+        "materials": {
+          "description": "The model's materials as edited in the viewer (Look > Materials); exported while any is edited. The model's own materials stay as they are in its file.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "integer", "minimum": 0, "description": "The material's place in the model (the order the viewer meets them in)." },
+              "name": { "type": "string", "description": "The material's name in the file; with the index it finds the material." },
+              "preset": { "enum": ["glass", "frostedGlass", "tintedGlass", "water", "lightWood", "darkWood", "varnishedWood", "plaster", "paintedWall", "concrete", "brick", "sandstone", "marble", "terracotta", "ceramic", "steel", "aluminium", "iron", "brass", "gold", "copper", "bronze", "mirror", "plastic", "rubber", "fabric", "clay", "light", null], "description": "The built-in material type applied first." },
+              "keepTexture": { "type": "boolean", "description": "The type keeps the colour texture (default true)." },
+              "params": {
+                "type": "object",
+                "description": "The properties over the type: colours as \"#rrggbb\", the rest as numbers.",
+                "properties": {
+                  "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                  "emissive": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                  "roughness": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "metalness": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "transmission": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "thickness": { "type": "number", "minimum": 0 },
+                  "ior": { "type": "number", "minimum": 0 },
+                  "clearcoat": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "clearcoatRoughness": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "sheen": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "emissiveIntensity": { "type": "number", "minimum": 0 },
+                  "doubleSided": { "type": "boolean" }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
         "sceneSuggest": {
           "description": "The Suggested scene window (Look > Suggested scene) open when the manifest loads; nothing is applied until the user does.",
           "type": "object",

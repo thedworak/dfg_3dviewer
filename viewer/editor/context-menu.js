@@ -103,12 +103,17 @@ export function attachContextMenu(Viewer) {
       if (Viewer.isIfcQueryViewActive?.()) {
         elements.push({ key: "showAll", label: t("contextMenu.showAll", "Show all elements"), run: () => Viewer.resetIfcQueryView() });
       }
+      // The material under the pointer, in the materials window.
+      const material = hit && !hit.isPointCloudHit && hasTool(Viewer, "materials") ? Viewer.getMaterialItemForHit?.(hit) : null;
+      const materials = material
+        ? [{ key: "editMaterial", label: t("contextMenu.editMaterial", { name: material.label }, "Edit the material “{name}”"), run: () => Viewer.openMaterialsPanel(material.id) }]
+        : [];
       const point = hit?.point ? Viewer.pointMenuItems(hit.point.clone(), clientX, clientY) : [];
       const transform = hit ? [] : Viewer.transformMenuItems();
       if (Viewer.hasActiveClipping?.()) {
         view.unshift({ key: "removeCuts", label: t("contextMenu.removeCuts", "Remove sections"), run: () => Viewer.removeAllClipping() });
       }
-      return [element, elements, point, transform, view];
+      return [element, elements, materials, point, transform, view];
     },
 
     measurementMenuItems() {

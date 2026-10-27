@@ -231,6 +231,52 @@ Each suggestion has a confidence and its reasons; the window ticks those at leas
   - The window; closed and forgotten when a model is unloaded.
 
 
+## `viewer/editor/materials-editor.js`, `viewer/editor/material-presets.js`
+
+Materials (*Look > Materials*, also "Edit the material" in the context menu over the model): a panel in the side stack listing the model's materials (colour swatch, parts, edited or not; a search field from 9 materials), one picked from the list or by a click on the model (*Pick on the model*), its built-in material type in one click and its main properties by hand (colour, roughness, metalness, opacity, transmission, clear coat, glow, both sides).
+
+The built-in types (`material-presets.js`, 28 of them in five groups: glass and water, wood, walls and stone, metals, other) are physically based settings without textures; a type sets every property of `MATERIAL_BASE`, so one type after another leaves nothing of the first. *Keep the texture* keeps the colour texture, vertex colours and tint (normal, bump and AO maps always stay; roughness and metalness maps go, the type's values replace them).
+
+The loader's materials are never changed: the first edit puts an editable copy on the meshes (a `MeshPhysicalMaterial` for physically based properties, converted from Phong/Lambert/Basic where needed - `toPhysicalMaterial()`), also in the shading modes' snapshot of the originals (`__shadingBaseMaterials`); *Reset* puts the original back. In another shading mode the panel says that the edits show with the original materials.
+
+- `Viewer.toggleMaterialsPanel(open)` / `Viewer.openMaterialsPanel(id)` / `Viewer.selectMaterial(id, { flash })`
+- `Viewer.applyMaterialPreset(key, { id, keepTexture })` / `Viewer.setMaterialProperty(key, value, id)` / `Viewer.resetMaterial(id)` / `Viewer.resetAllMaterials()`
+- `Viewer.getMaterialOverridesForPersistence()` / `Viewer.applySavedMaterials(entries)`
+  - The edits as `[{ index, name, preset, keepTexture, params }]`, saved with the settings (`materials` in `_viewer.json` / the worker's settings, the *Materials* tick of *Save settings*) and applied again when they load (`setupObject`), matched by place and name; carried from a progressive preview to the full model.
+- `Viewer.getMaterialsForExport()` / `Viewer.apply3IFManifestMaterials(materials)`
+  - The same list as `AIM3DViewer.materials` of the AIM3D manifest: exported while any material is edited; a manifest imported puts the materials back as loaded, then applies its own.
+- `Viewer.setMaterialPicking(on)` / `Viewer.getMaterialItemForHit(hit)`
+- `suggestMaterialPreset(name)` (`material-presets.js`) / `Viewer.applySuggestedMaterialTypes()`
+  - The type a material's name suggests ("Glass_01", "szkło okienne", "Holz_Eiche"; word stems in English, Polish and German), shown for a material as loaded with an *Apply* button; *Apply the types the names suggest* does it for all of them (also a tip of *Prepare for publishing*).
+
+## `viewer/editor/publish-rules.js`, `viewer/editor/publish-check.js`
+
+Prepare for publishing (*File > Prepare for publishing*): before the settings are saved to the repository and the renders made, what would show in them or in the saved start view and should not, each with a fix and *Fix all*; tips worth a look; then the next steps (save the settings - saved in this session, changed since -, generate the renders or the main thumbnail).
+
+The rules (`publish-rules.js`, pure) take the facts `publish-check.js` gathers: which end of its box the model stands on (`decideModelBase`: the flat area at each end, sampled over at most 120 000 triangles; the base elsewhere than at the bottom means lying on a side or upside down, and `suggestUpAxis` names the up axis that stands it up), the gap to the ground, the box in the view (`measureFraming`: cut off, small, the camera inside), the brightness of the model's pixels in a 96 px copy of the canvas (`decideExposure`; WebGL only), the tools left on (section planes, measurements, picked faces, highlighted parts, the transform and light handles, wireframe, the certainty colours; shading and weather as tips), a lowered render quality, black or invisible materials, an implausible size without a unit, a heavy model, the metadata (the validation report).
+
+The viewer speaks up by itself (`ui/smart-hint.js`): after loading, a model on its side ("Stand it up"), and before *Save settings*, *Change main thumbnail* or *Generate thumbnails* while something is left to fix ("Review" / "Continue anyway", not asked again for that model). Off in tests unless switched on (`Viewer.setPublishGuard(true)`).
+
+- `Viewer.togglePublishCheckPanel(open)` / `Viewer.computePublishChecks()` / `Viewer.fixPublishCheck(check)` / `Viewer.fixAllPublishChecks()`
+- `Viewer.frameModelInView()` — the whole model in the view from the current side; also the view *Reset camera* returns to.
+- `Viewer.checkBeforePublishing(kind, proceed)` / `Viewer.offerOrientationHint()` / `Viewer.getPublishSaveState()`
+- `Viewer.updatePublishBadge()` / `Viewer.schedulePublishBadge()`
+  - While the guard is on: the number of things to fix on the toolbar's button, a dot on its menu's tab (File, or More on a phone); counted after the toolbar's state changes, the camera stops or the model is moved (without the brightness; the base measured once per pose).
+- `Viewer.getThumbnailFrontAngle()` / `Viewer.setThumbnailFrontFromView(on)`
+  - The renders' front (`thumbnail-capture.js`: `side0` and the views turning from it, the top view with the front below): the side the start view looks from - a saved camera, a manifest's, *Frame the model*, the camera when the settings are saved (`Viewer.markStartViewChosen()`) -, in steps of 45°; without such a start view (the automatic one looks from a slant), or switched off: the file's +Z, as `render.py`.
+
+## `viewer/editor/performance.js`
+
+Render quality (*Look > Rendering > Render quality*): *Full quality* as configured, *Balanced* (no ambient occlusion, at most 1.25 device pixels per CSS pixel) and *Fast* (no post-processing, three quarters of a CSS pixel). Leaving *Full quality* keeps the rendering settings it changes; they come back with it. The frame rate is measured every second (`samplePerformance` in `animate`); six slow seconds in a row (below 24 fps) - not while a model loads or in the 5 s after, in a hidden tab or a VR session - show a hint offering the next lower level, with *Undo* after it. Closed with ×, not offered again in the session; off in tests unless switched on (`Viewer.setPerformanceAdvisor(true)`).
+
+- `Viewer.setRenderQuality(level)` / `Viewer.getRenderQuality()` / `Viewer.getRenderPixelRatio()` / `Viewer.lowerRenderQuality()`
+- `Viewer.assessModelWeight()` / `deviceTier(info)` / `qualityForWeight(triangles, tier)` (`performance-rules.js`)
+  - Right after loading (and after the progressive swap): the model's triangles (and splats) against what the device draws smoothly - about 1.5 M on a weak device (a GPU in software, a phone with 4 GB or 4 cores), 4 M on a phone, 15 M on a desktop; beyond it *Balanced*, beyond twice that *Fast* is offered at once.
+
+## `viewer/ui/smart-hint.js`
+
+A hint the viewer offers by itself, with buttons that act on it, among the notices above the toolbar; one at a time. `showSmartHint({ key, message, detail, tone, actions, duration, once })` / `hideSmartHint(key)`; closed with ×, a key is not offered again in the session (unless `once: false`).
+
 ## `viewer/editor/webxr.js`
 
 VR and AR in the browser (the toolbar's headset button, shown when the browser offers one of them). VR stands the viewer on the model's ground, where the camera was, at real size (the model unit); a controller's trigger teleports to the spot on the ground it points at. AR shows the model in the room, on a table (0.6 m) or at real size, without the background and the grid. On iPhone and iPad (no WebXR) the model is exported to USDZ, in metres, for AR Quick Look.
@@ -338,7 +384,7 @@ The actions for the point under the pointer: a right click that did not move (a 
 
 ## `viewer/ui/back-navigation.js`
 
-Back: one step out of what is open, the last layer first - the context menu, a toolbar menu, the annotation, materials and shading dialogs, a panel window, the IFC question window, elements highlighted or isolated, the IFC properties, the metadata window, the tour, the last point of a measurement being drawn, the selected faces. Taken by Escape, the mouse's back button, a two-finger tap and the back gesture.
+Back: one step out of what is open, the last layer first - the context menu, a toolbar menu, the annotation and shading dialogs, picking a material on the model, a panel window, the IFC question window, elements highlighted or isolated, the IFC properties, the metadata window, the tour, the last point of a measurement being drawn, the selected faces. Taken by Escape, the mouse's back button, a two-finger tap and the back gesture.
 
 - `Viewer.goBack()` / `Viewer.canGoBack()`
   - `goBack()` closes the topmost open layer; false when nothing was open. Escape takes it when no other handler used the key (`preventDefault`) and not in a field with text; so does the mouse's back button over the viewer (the browser's own back only when nothing was open).

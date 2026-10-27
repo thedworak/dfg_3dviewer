@@ -23,7 +23,8 @@ function backSteps(Viewer) {
     [() => Viewer.isContextMenuOpen?.(), () => Viewer.closeContextMenu()],
     [() => Viewer.isToolbarMenuOpen?.(), () => Viewer.openToolbarMenu(null)],
     [() => dialogOpen(Viewer.annotationDialog), () => Viewer.closeAnnotationDialog()],
-    [() => dialogOpen(Viewer.materialsDialog), () => Viewer.closeMaterialsDialog()],
+    // Picking a material on the model (editor/materials-editor.js).
+    [() => Viewer.isMaterialPicking?.(), () => Viewer.setMaterialPicking(false)],
     [() => dialogOpen(Viewer.shadingDialog), () => Viewer.closeShadingDialog()],
     [hasOpenPanelWindow, closeOpenPanelWindow],
     [() => Viewer.isIfcQueryOpen?.(), () => Viewer.closeIfcQuery()],

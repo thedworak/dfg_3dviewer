@@ -1628,6 +1628,8 @@ export function attachAnnotations(Viewer) {
           sun: this.getSunForExport?.(),
           // The weather, while it is on.
           weather: this.getWeatherForExport?.(),
+          // The materials edited (editor/materials-editor.js).
+          materials: this.getMaterialsForExport?.(),
 
           // The 4D timeline: its stages and the year shown.
           timeline: this.getTimelineForExport?.(),
@@ -2241,6 +2243,8 @@ export function attachAnnotations(Viewer) {
       this.setWeather?.(false);
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
+        // The manifest's camera is a start view chosen (the renders' front).
+        if (appliedCamera) this.markStartViewChosen?.();
         const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
         const appliedClipping = this.apply3IFManifestClipping(aim3dConfig.clipping);
         const appliedIntegration = this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
@@ -2253,6 +2257,7 @@ export function attachAnnotations(Viewer) {
         const appliedVariants = this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
         const appliedPhotos = this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
         const appliedSceneSuggest = this.apply3IFManifestSceneSuggest?.(aim3dConfig.sceneSuggest) === true;
+        const appliedMaterials = this.apply3IFManifestMaterials?.(aim3dConfig.materials) === true;
 
         appliedAIM3DConfig = [
           appliedCamera,
@@ -2268,6 +2273,7 @@ export function attachAnnotations(Viewer) {
           appliedVariants,
           appliedPhotos,
           appliedSceneSuggest,
+          appliedMaterials,
         ].some(Boolean);
       }
 

@@ -122,6 +122,8 @@ export async function resetModelSettings() {
   }
 
   window.Viewer?.hydrateAnnotationsFromMetadataPayload?.(null);
+  // The materials as loaded too (editor/materials-editor.js).
+  window.Viewer?.resetAllMaterials?.();
   await handleMetadataResponse(null, { vertices: 0, faces: 0 }, modelSettingsResetState.object);
 }
 

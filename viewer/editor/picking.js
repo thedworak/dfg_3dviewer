@@ -671,6 +671,12 @@ export function attachPicking(Viewer) {
 
       if (Viewer.handleViewHelperClick(e)) return;
 
+      // Picking a material for the materials window (materials-editor.js).
+      if (Viewer.isMaterialPicking?.()) {
+        Viewer.pickMaterialFromHit(getPrimaryModelIntersection(Viewer, Viewer.onUpPosition));
+        return;
+      }
+
       // Drawing a point cloud profile: its two ends (point-cloud-panel.js).
       if (Viewer.isPointCloudProfilePicking?.()) {
         const hit = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);

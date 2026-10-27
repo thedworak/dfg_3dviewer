@@ -137,6 +137,11 @@ export function buildEditorMetadata(viewer, rotateMetadata) {
     ? [window.getComputedStyle(viewer.mainCanvas).background]
     : originalMetadata.background;
 
+  // The materials edited (editor/materials-editor.js).
+  metadata.materials = saveProperties.Materials
+    ? viewer.getMaterialOverridesForPersistence?.() ?? []
+    : originalMetadata.materials;
+
   metadata.annotationEntries = viewer.getAnnotationEntriesForPersistence();
   metadata.iiifAnnotationsXml = viewer.exportAnnotationsToIIIFXml();
 
@@ -175,7 +180,7 @@ async function mergeSavedMetadata(viewer, url) {
 async function saveToWorker(viewer) {
   if (!workerJobId(core.fileObject.path)) {
     toastHelper("settingsNotUploaded", "info");
-    return;
+    return false;
   }
   await mergeSavedMetadata(viewer, workerSettingsUrl());
   const newMetadata = buildEditorMetadata(viewer, currentRotationDegrees());
@@ -192,23 +197,23 @@ async function saveToWorker(viewer) {
     });
     if (response.status === 401 || response.status === 403) {
       toastHelper("settingsNotOwner", "warning");
-      return;
+      return false;
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     toastHelper("settingsSaved", "success");
+    return true;
   } catch (err) {
     console.error(err);
     toastHelper("settingsSaveError", "error");
+    return false;
   }
 }
 
+// True once saved.
 export async function saveEditorMetadata(viewer) {
-  if (!core.EDITOR || !core.helperObjects?.[0]) return;
-  if (BUILD !== "drupal") {
-    await saveToWorker(viewer);
-    return;
-  }
-  if (core.isLightweight) return;
+  if (!core.EDITOR || !core.helperObjects?.[0]) return false;
+  if (BUILD !== "drupal") return saveToWorker(viewer);
+  if (core.isLightweight) return false;
 
   if (core.CONFIG.entity.proxyPath !== undefined) {
     core.CONFIG.metadataUrl = core.getProxyPath(core.CONFIG.metadataUrl);
@@ -239,8 +244,10 @@ export async function saveEditorMetadata(viewer) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     toastHelper("settingsSaved", "success");
+    return true;
   } catch (err) {
     console.error(err);
     toastHelper("settingsSaveError", "error");
+    return false;
   }
 }

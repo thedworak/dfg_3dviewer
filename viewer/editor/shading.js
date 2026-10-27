@@ -374,6 +374,8 @@ export function attachShadingEditor(Viewer) {
       this.applyShadingMode();
       this.updateEditorToolbarState?.();
       this.updateShadingSubmenuState?.();
+      // Its note on the other modes (editor/materials-editor.js).
+      this.syncMaterialsPanel?.();
 
       // The menu shows the mode; only the shader dialog's Apply, which has no
       // other feedback, says so.

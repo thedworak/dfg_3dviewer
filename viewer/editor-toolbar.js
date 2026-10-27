@@ -96,6 +96,7 @@ export function getEditorToolbarIcon(icon) {
     loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     ifcQuery: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-4 6 4v11z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M18.5 2.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" fill="currentColor"/></svg>',
+    publishCheck: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3.5h7v3h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5H4.5v16h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M17 5h2.5v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 11h6M8 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 15v2.2M18.5 20.8V23M15.2 19h2.2M19.6 19h2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     validationReport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7.5 5H5v16h14V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     eventLog: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     credits: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.8 9.4a3.6 3.6 0 1 0 0 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -282,6 +283,12 @@ const RENDERING_TONE_MAPPING_KEYS = {
   renderingToneMappingLinear: "linear",
   renderingToneMappingNone: "none",
 };
+// Render quality (editor/performance.js).
+const RENDERING_QUALITY_KEYS = {
+  renderingQualityHigh: "high",
+  renderingQualityBalanced: "balanced",
+  renderingQualityFast: "fast",
+};
 const RENDERING_ANTIALIAS_KEYS = {
   renderingAntialiasMsaa: "msaa",
   renderingAntialiasSmaa: "smaa",
@@ -309,6 +316,10 @@ function getRenderingMenuLabels() {
     renderingAntialiasSmaa: "SMAA",
     renderingAntialiasFxaa: "FXAA",
     renderingAntialiasNone: t("gui.antialiasingNone", "None"),
+    renderingQuality: t("performance.title", "Render quality"),
+    renderingQualityHigh: t("performance.quality.high", "Full quality"),
+    renderingQualityBalanced: t("performance.quality.balanced", "Balanced"),
+    renderingQualityFast: t("performance.quality.fast", "Fast"),
   };
 }
 
@@ -1172,6 +1183,20 @@ const LIGHTS_SUBMENU_ITEMS = {
         },
       })),
     },
+    {
+      key: "renderingQuality",
+      icon: "statistics",
+      label: getRenderingMenuLabels().renderingQuality,
+      children: Object.entries(RENDERING_QUALITY_KEYS).map(([key, quality]) => ({
+        key,
+        icon: "statistics",
+        label: getRenderingMenuLabels()[key],
+        onClick: () => {
+          viewer.setRenderQuality(quality);
+          viewer.updateLightsSubmenuState();
+        },
+      })),
+    },
   ],
   lights: (viewer) => [
     {
@@ -1389,7 +1414,9 @@ export function createEditorToolbar(viewer) {
     // (editor/scene-suggest.js).
     { key: "sceneSuggest", group: "appearance", icon: "sceneSuggest", onClick: () => viewer.toggleSceneSuggestPanel(), pressed: true, primary: false },
     { key: "rendering", group: "appearance", icon: "rendering", onClick: () => {}, pressed: false, primary: false },
-    { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.openMaterialsFolder(), pressed: false, primary: false },
+    // The model's materials, with built-in material types
+    // (editor/materials-editor.js).
+    { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.toggleMaterialsPanel(), pressed: true, primary: false },
     { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
     { key: "wireframe", group: "appearance", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
     { key: "background", group: "appearance", icon: "background", onClick: () => {}, pressed: false, primary: false },
@@ -1422,6 +1449,8 @@ export function createEditorToolbar(viewer) {
   if ((!core.isLightweight || core.isLocalPreview) && !isAppBuild()) {
     // File: before the help group.
     tools.splice(tools.findIndex((tool) => tool.group === "help"), 0,
+      // What to fix before saving and rendering (editor/publish-check.js).
+      { key: "publishCheck", group: "file", icon: "publishCheck", onClick: () => viewer.togglePublishCheckPanel(), pressed: true, primary: false },
       { key: "loadingLogs", group: "file", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
       { key: "download", group: "file", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
       { key: "preview", group: "file", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
@@ -1638,13 +1667,6 @@ export function createEditorToolbar(viewer) {
         viewer.annotateSubmenuButtons[item.key] = subButton;
       });
       button.appendChild(submenu);
-    } else if (tool.key === "materials") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
-      viewer.materialsSubmenu = submenu;
-      viewer.refreshMaterialsToolbarMenu();
-      button.appendChild(submenu);
     } else if (tool.key === "hierarchy") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
@@ -1681,6 +1703,7 @@ export function createEditorToolbar(viewer) {
         { key: "AmbientLight", label: t("gui.ambientLight", "Ambient Light") },
         /*{ key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },*/
         { key: "BackgroundColor", label: t("gui.backgroundColor", "Background Color") },
+        { key: "Materials", label: t("gui.materials", "Materials") },
       ];
       viewer.saveSubmenuCheckboxes = {};
       submenuItems.forEach((item) => {
@@ -1958,31 +1981,6 @@ export function createEditorToolbar(viewer) {
       ], submenu);
 
       button.appendChild(submenu);
-    } else if (tool.key === "materials") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu-materials";
-      const submenuItems = [
-        { key: "materialColor", icon: "color", label: t("gui.color", "Color"), onClick: () => viewer.openMaterialsFolder() },
-        { key: "materialIntensity", icon: "intensity", label: t("gui.intensity", "Intensity"), onClick: () => viewer.openMaterialsFolder() },
-      ];
-      submenuItems.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = item.key;
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        subButton.setAttribute("title", item.label);
-        subButton.setAttribute("aria-label", item.label);
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          item.onClick();
-        });
-        submenu.appendChild(subButton);
-      });
-      button.appendChild(submenu);
     } else if (tool.key === "upAxis") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
@@ -2087,7 +2085,7 @@ export function createEditorToolbar(viewer) {
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
-  const actionMenuToolKeys = ["statistics", "validationReport", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
+  const actionMenuToolKeys = ["statistics", "publishCheck", "validationReport", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
   if (viewer.actionMenuPanel && !menus) {
     actionMenuToolKeys.forEach((key) => {
       const button = viewer.editorToolbarButtons[key];
@@ -2308,6 +2306,9 @@ export function updateLightsSubmenuState(viewer) {
   Object.entries(RENDERING_ANTIALIAS_KEYS).forEach(([key, antialias]) => {
     setPressed(viewer.lightsSubmenuButtons[key], rendering.postprocessing.antialias === antialias);
   });
+  Object.entries(RENDERING_QUALITY_KEYS).forEach(([key, quality]) => {
+    setPressed(viewer.lightsSubmenuButtons[key], viewer.getRenderQuality?.() === quality);
+  });
   // Anti-aliasing belongs to the post-processing chain (which ambient
   // occlusion runs as well); the strength to ambient occlusion.
   viewer.lightsSubmenuButtons.renderingAntialias?.classList.toggle(
@@ -2463,6 +2464,7 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("gui.hideCredits", "Hide credits")
       : t("gui.showCredits", "Show credits"),
     validationReport: t("gui.validationReport", "Validation report"),
+    publishCheck: t("prepare.title", "Prepare for publishing"),
     eventLog: t("eventLog.title", "Event log"),
     ifcQuery: t("ai.ifc.toggle", "Ask the building model (AI)"),
     expand: viewer.isToolbarExpanded
@@ -2615,6 +2617,7 @@ export function updateEditorToolbarLabels(viewer) {
       AmbientLight: t("gui.ambientLight", "Ambient Light"),
       /*CameraLight: t("gui.cameraLight", "Camera Light"),*/
       BackgroundColor: t("gui.backgroundColor", "Background Color"),
+      Materials: t("gui.materials", "Materials"),
     };
     Object.entries(viewer.saveSubmenuCheckboxes).forEach(([key, elements]) => {
       const label = saveSubmenuLabels[key] || key;
@@ -2705,6 +2708,7 @@ export function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     credits: Boolean(viewer.creditsWrapper && !viewer.creditsWrapper.hidden),
     validationReport: viewer.isValidationReportOpen?.() === true,
+    publishCheck: viewer.isPublishCheckPanelOpen?.() === true,
     eventLog: viewer.isEventLogOpen?.() === true,
     ground: viewer.isGroundPanelOpen?.() === true,
     ifcQuery: viewer.isIfcQueryOpen?.() === true,
@@ -2712,6 +2716,7 @@ export function updateEditorToolbarState(viewer) {
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,
     weather: viewer.weather?.enabled === true || viewer.isWeatherPanelOpen?.() === true,
     sceneSuggest: viewer.isSceneSuggestPanelOpen?.() === true,
+    materials: viewer.isMaterialsPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,
@@ -2733,6 +2738,9 @@ export function updateEditorToolbarState(viewer) {
   if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
+  // Point clouds and splats have no materials to edit.
+  const materialsButton = viewer.editorToolbarButtons.materials;
+  if (materialsButton) materialsButton.hidden = viewer.hasEditableMaterials?.() !== true;
   const weatherButton = viewer.editorToolbarButtons.weather;
   if (weatherButton) weatherButton.hidden = viewer.isWeatherAvailable?.() !== true;
   const ifcQueryButton = viewer.editorToolbarButtons.ifcQuery;
@@ -2755,4 +2763,6 @@ export function updateEditorToolbarState(viewer) {
   updateUpAxisSubmenuState(viewer);
   updateMenuToolbarState(viewer);
   updateToolbarGroups();
+  // The count of things to fix before publishing (editor/publish-check.js).
+  viewer.schedulePublishBadge?.();
 }

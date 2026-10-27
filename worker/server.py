@@ -116,7 +116,7 @@ UPLOAD_EXPIRY_SECONDS = 24 * 3600
 # A "Render preview" PNG (1024x1024) - far below this.
 MAX_THUMBNAIL_BYTES = 20 * 1024 * 1024
 # A model's saved viewer settings (POST /api/model/settings): transforms,
-# camera, lights and its annotations as IIIF.
+# camera, lights, edited materials and its annotations as IIIF.
 MAX_SETTINGS_BYTES = 5 * 1024 * 1024
 # Optional accounts (off by default) - see worker/auth.py. Stored on the same
 # persistent volume as the jobs, in a dot-directory the job listing skips.
@@ -1643,7 +1643,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_settings_save(self) -> None:
         """The viewer's "Save settings": the model's transforms, camera,
-        lights and annotations as <model dir>/metadata/<file>_viewer.json -
+        lights, edited materials and annotations as <model dir>/metadata/<file>_viewer.json -
         the file and place Drupal's SaveMetadataController uses, read back
         by the viewer (metadata.js) when the model opens. Body: {path: the
         model's folder URL (/files/<job>/...), filename, content: the JSON}.

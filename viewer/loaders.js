@@ -181,7 +181,10 @@ async function swapInFullModel(previewRoot, fullRoot) {
   fullRoot.quaternion.copy(previewRoot.quaternion);
   fullRoot.scale.copy(previewRoot.scale);
   fullRoot.updateMatrixWorld(true);
+  // The materials edited on the preview go on with the full model.
+  const materialEdits = window.Viewer?.getMaterialOverridesForPersistence?.() || [];
   traverseMesh(fullRoot);
+  window.Viewer?.applySavedMaterials?.(materialEdits);
 
   core.scene.remove(previewRoot);
   core.scene.add(fullRoot);
@@ -211,6 +214,8 @@ async function swapInFullModel(previewRoot, fullRoot) {
   // Level of Certainty view) goes on with the full model.
   window.Viewer?.applyShadingMode?.();
   markEnvironmentMaterialsDirty(fullRoot);
+  // The preview was lighter (editor/performance.js).
+  window.Viewer?.assessModelWeight?.();
   return true;
 }
 
@@ -1123,6 +1128,11 @@ export async function loadModel() {
     core.loadingLog?.finish?.();
     hideAppSplash();
     onAppModelLoaded();
+    // A model lying on its side is pointed out (editor/publish-check.js).
+    window.Viewer?.schedulePublishHints?.();
+    // Too heavy for this device: the lower quality offered at once
+    // (editor/performance.js).
+    window.Viewer?.assessModelWeight?.();
     if (!core.PRESENTATION_MODE) {
       maybeShowFirstRunHints();
       toastHelper("modelLoaded", "success", {

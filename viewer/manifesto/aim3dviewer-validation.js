@@ -12,6 +12,13 @@ export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
 export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
 export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
+// Keep in sync with MATERIAL_PRESETS in viewer/editor/material-presets.js.
+export const MATERIAL_PRESET_KEYS = [
+  "glass", "frostedGlass", "tintedGlass", "water", "lightWood", "darkWood", "varnishedWood",
+  "plaster", "paintedWall", "concrete", "brick", "sandstone", "marble", "terracotta", "ceramic",
+  "steel", "aluminium", "iron", "brass", "gold", "copper", "bronze", "mirror",
+  "plastic", "rubber", "fabric", "clay", "light",
+];
 // Keep in sync with UP_AXES in viewer/up-axis.js (same reason).
 export const MODEL_UP_AXES = ["Y+", "Y-", "Z+", "Z-", "X+", "X-"];
 // Keep in sync with TIMELINE_TRANSITIONS / TIMELINE_STAGE_TYPES in viewer/timeline.js.
@@ -673,6 +680,52 @@ function validateWeather(weather, path, errors) {
   });
 }
 
+// AIM3DViewer.materials (editor/materials-editor.js): the materials edited,
+// by their place in the model and name.
+const MATERIAL_UNIT_PARAMS = ["roughness", "metalness", "opacity", "transmission", "clearcoat", "clearcoatRoughness", "sheen"];
+function validateMaterials(materials, path, errors) {
+  if (!Array.isArray(materials)) {
+    pushError(errors, path, "must be an array");
+    return;
+  }
+  materials.forEach((entry, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isPlainObject(entry)) {
+      pushError(errors, itemPath, "must be an object");
+      return;
+    }
+    if (entry.index !== undefined && !(Number.isInteger(entry.index) && entry.index >= 0)) {
+      pushError(errors, `${itemPath}.index`, "must be a whole number from 0");
+    }
+    if (entry.index === undefined && !entry.name) pushError(errors, itemPath, "needs an index or a name");
+    if (entry.name !== undefined) validateString(entry.name, `${itemPath}.name`, errors);
+    if (entry.preset !== undefined && entry.preset !== null) validateEnum(entry.preset, MATERIAL_PRESET_KEYS, `${itemPath}.preset`, errors);
+    if (entry.keepTexture !== undefined) validateBoolean(entry.keepTexture, `${itemPath}.keepTexture`, errors);
+    const params = entry.params;
+    if (params === undefined) return;
+    if (!isPlainObject(params)) {
+      pushError(errors, `${itemPath}.params`, "must be an object");
+      return;
+    }
+    ["color", "emissive"].forEach((key) => {
+      if (params[key] !== undefined && !(isString(params[key]) && /^#[0-9a-f]{6}$/i.test(params[key]))) {
+        pushError(errors, `${itemPath}.params.${key}`, 'must be a colour "#rrggbb"');
+      }
+    });
+    MATERIAL_UNIT_PARAMS.forEach((key) => {
+      if (params[key] !== undefined && (!isFiniteNumber(params[key]) || params[key] < 0 || params[key] > 1)) {
+        pushError(errors, `${itemPath}.params.${key}`, "must be a number from 0 to 1");
+      }
+    });
+    ["thickness", "ior", "emissiveIntensity"].forEach((key) => {
+      if (params[key] !== undefined && (!isFiniteNumber(params[key]) || params[key] < 0)) {
+        pushError(errors, `${itemPath}.params.${key}`, "must be a number from 0");
+      }
+    });
+    if (params.doubleSided !== undefined) validateBoolean(params.doubleSided, `${itemPath}.params.doubleSided`, errors);
+  });
+}
+
 // AIM3DViewer.sceneSuggest (editor/scene-suggest.js): the Suggested scene
 // window open on load, for a purpose.
 function validateSceneSuggest(sceneSuggest, path, errors) {
@@ -712,6 +765,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
   if (block.weather !== undefined) validateWeather(block.weather, `${path}.weather`, errors);
   if (block.sceneSuggest !== undefined) validateSceneSuggest(block.sceneSuggest, `${path}.sceneSuggest`, errors);
+  if (block.materials !== undefined) validateMaterials(block.materials, `${path}.materials`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));

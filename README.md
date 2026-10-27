@@ -136,7 +136,9 @@ There is also a pre-configured complete workflow to handle more file formats and
 - metadata fetching and display integration
 - saving/loading custom object's position, scale, rotation, lights, camera
 - gallery generation and embedded preview UI
-- face picking, ruler measurement, clipping planes, and material editing
+- face picking, ruler measurement, clipping planes, and material editing with 28 built-in material types (glass, wood, plaster, stone, metals, ...), saved with the model's settings
+- *Prepare for publishing*: what would show in the renders and the saved view and should not (lying on its side, floating, out of frame, too dark, tools left on), with fixes - and hints by itself before saving and rendering
+- render quality levels, offered by itself when the view stutters for a while or the model is too heavy for the device
 - 4D timeline, reconstruction variants (alternative hypotheses, each with its Level of Certainty) and a comparison view of two variants or two years: a swipe divider or side by side
 - view object's hierarchy and select groups by name
 - historical photos laid over the model from the camera they were taken from (faded or swiped), lined up by hand and kept in the manifest

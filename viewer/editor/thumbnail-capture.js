@@ -61,7 +61,7 @@ function withCaptureCanvas(capture) {
   try {
     return capture();
   } finally {
-    core.renderer.setPixelRatio(devicePixelRatio);
+    core.renderer.setPixelRatio(window.Viewer?.getRenderPixelRatio?.() ?? devicePixelRatio);
     core.camera.aspect = core.CONFIG.viewer.canvasDimensions.x / core.CONFIG.viewer.canvasDimensions.y;
     core.camera.updateProjectionMatrix();
     core.renderer.setSize(core.CONFIG.viewer.canvasDimensions.x, core.CONFIG.viewer.canvasDimensions.y);
@@ -173,9 +173,11 @@ export async function captureAndUploadThumbnail(viewer) {
 }
 
 // Where the camera goes for one of ALL_VIEWS, framing the model's box like
-// render.py: level with its centre, angle 0 in front (+Z, glTF's front),
-// turning counter-clockwise seen from above; "top" straight down.
-function placeCaptureCamera(view, box) {
+// render.py: level with its centre, angle 0 in front, turning
+// counter-clockwise seen from above; "top" straight down, the front below.
+// The front is +Z (glTF's) turned by `front` degrees: the side the start
+// view looks from (editor/publish-check.js getThumbnailFrontAngle).
+function placeCaptureCamera(view, box, front = 0) {
   const camera = core.camera;
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
@@ -184,13 +186,16 @@ function placeCaptureCamera(view, box) {
   let halfHeight;
   let halfDepth;
   if (view === "top") {
+    const toFront = THREE.MathUtils.degToRad(front);
+    const sin = Math.sin(toFront);
+    const cos = Math.cos(toFront);
     direction = new THREE.Vector3(0, 1, 0);
-    halfWidth = size.x / 2;
-    halfHeight = size.z / 2;
+    halfWidth = Math.abs(size.x / 2 * cos) + Math.abs(size.z / 2 * sin);
+    halfHeight = Math.abs(size.x / 2 * sin) + Math.abs(size.z / 2 * cos);
     halfDepth = size.y / 2;
-    camera.up.set(0, 0, -1);
+    camera.up.set(-sin, 0, -cos);
   } else {
-    const angle = THREE.MathUtils.degToRad(Number(view.slice(4)));
+    const angle = THREE.MathUtils.degToRad(Number(view.slice(4)) + front);
     const sin = Math.sin(angle);
     const cos = Math.cos(angle);
     direction = new THREE.Vector3(sin, 0, cos);
@@ -250,6 +255,7 @@ async function renderAndUploadAllViews(viewer, jobId) {
   }
 
   toastHelper("thumbnailsGenerating", "info");
+  const front = viewer.getThumbnailFrontAngle?.(box) ?? 0;
   const camera = core.camera;
   const saved = {
     position: camera.position.clone(),
@@ -265,7 +271,7 @@ async function renderAndUploadAllViews(viewer, jobId) {
     try {
       captures = withCaptureCanvas(() =>
         ALL_VIEWS.map((view) => {
-          placeCaptureCamera(view, box);
+          placeCaptureCamera(view, box, front);
           return renderToBlob(viewer).then((blob) => ({ view, blob }));
         })
       );

@@ -482,6 +482,25 @@ mist. At full intensity rain is a downpour. Exported while it is on.
 The sound (rain, wind, thunder) is the viewer's own choice and is not
 stored. The URL parameter `?weather=<type>` switches it on as well.
 
+## `AIM3DViewer.materials`
+
+The model's materials as edited in the viewer (*Look > Materials*): a
+built-in material type and the properties set by hand, per material. The
+model's file is not changed; the viewer puts edited copies in place of its
+materials when the manifest loads. Exported while any material is edited;
+the same list is saved with the model's settings (`_viewer.json`).
+
+```json
+"materials": [
+  { "index": 2, "name": "glass", "preset": "glass", "keepTexture": true, "params": { "roughness": 0.05 } }
+]
+```
+
+- `index`: the material's place in the model (the order the viewer meets them in); `name`: its name in the file. A material is found by both, else by a name only one material has
+- `preset`: the built-in type applied first - `glass`, `frostedGlass`, `tintedGlass`, `water`, `lightWood`, `darkWood`, `varnishedWood`, `plaster`, `paintedWall`, `concrete`, `brick`, `sandstone`, `marble`, `terracotta`, `ceramic`, `steel`, `aluminium`, `iron`, `brass`, `gold`, `copper`, `bronze`, `mirror`, `plastic`, `rubber`, `fabric`, `clay`, `light` (or `null`)
+- `keepTexture`: the type keeps the colour texture and vertex colours (default `true`)
+- `params`: the properties over the type - `color`, `emissive` (`"#rrggbb"`), `roughness`, `metalness`, `opacity`, `transmission`, `clearcoat`, `clearcoatRoughness`, `sheen` (0 to 1), `thickness`, `ior`, `emissiveIntensity` (from 0), `doubleSided`
+
 ## `AIM3DViewer.sceneSuggest`
 
 The Suggested scene window (*Look > Suggested scene*) open when the manifest
@@ -641,7 +660,7 @@ lists (`manifestFeatureIcons(inspection)`):
 
 `model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
 `raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
-`location`, `sun`, `weather`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`location`, `sun`, `weather`, `materials`, `certainty`, `thumbnails`, `transform`, `rendering`,
 `tour`, `settings`, `manifest` (the IIIF structure itself).
 
 Each attribute gets a level:

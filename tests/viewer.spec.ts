@@ -7,6 +7,9 @@ import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 import { findSceneCoordinates, findSceneYear, sceneProportions, suggestScene } from '../viewer/editor/scene-rules.js';
 import { getSemanticSettings, scoreSemantic, splitSemanticText } from '../viewer/editor/scene-semantic.js';
+import { decideExposure, decideModelBase, evaluatePublishChecks, measureFraming, suggestUpAxis } from '../viewer/editor/publish-rules.js';
+import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterialPreset } from '../viewer/editor/material-presets.js';
+import { deviceTier, qualityForWeight } from '../viewer/editor/performance-rules.js';
 
 const defaultModel = '/examples/box.stl';
 const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD';
@@ -5410,4 +5413,395 @@ test('suggested scene, geometry: walls seen from inside, a ceiling, an open grou
   expect(ground.groundCover).toBeGreaterThan(0.9);
   expect(ground.down).toBeLessThan(0.05);
   expect(ground.enclosure).toBeLessThan(0.5);
+});
+
+test('material types: every built-in type is complete, and none leaves another type behind', () => {
+  expect(MATERIAL_PRESETS.length).toBeGreaterThanOrEqual(15);
+  const keys = MATERIAL_PRESETS.map((preset) => preset.key);
+  expect(new Set(keys).size).toBe(keys.length);
+  MATERIAL_PRESETS.forEach((preset) => {
+    const params = resolveMaterialPreset(preset.key);
+    // Everything the base sets, so glass then wood leaves no transmission.
+    Object.keys(MATERIAL_BASE).forEach((key) => expect(params).toHaveProperty(key));
+    expect(params.color).toMatch(/^#[0-9a-f]{6}$/);
+    expect(params.roughness).toBeGreaterThanOrEqual(0);
+    expect(params.roughness).toBeLessThanOrEqual(1);
+  });
+  expect(resolveMaterialPreset('glass')).toMatchObject({ transmission: 1, side: 'double' });
+  expect(resolveMaterialPreset('lightWood')).toMatchObject({ transmission: 0, metalness: 0, clearcoat: 0 });
+  expect(resolveMaterialPreset('steel').metalness).toBe(1);
+
+  // The type a name suggests, in English, Polish and German.
+  expect(suggestMaterialPreset('Glass_01')).toBe('glass');
+  expect(suggestMaterialPreset('GlassPane01')).toBe('glass');
+  expect(suggestMaterialPreset('Szkło okienne')).toBe('glass');
+  expect(suggestMaterialPreset('Frosted glass')).toBe('frostedGlass');
+  expect(suggestMaterialPreset('Holz_Eiche')).toBe('lightWood');
+  expect(suggestMaterialPreset('Ściana')).toBe('plaster');
+  expect(suggestMaterialPreset('Mosiądz')).toBe('brass');
+  expect(suggestMaterialPreset('metal_rust')).toBe('iron');
+  // Not "panel", not a light map, nothing in a generic name.
+  expect(suggestMaterialPreset('Panel_01')).toBeNull();
+  expect(suggestMaterialPreset('lightmap')).toBeNull();
+  expect(suggestMaterialPreset('Material.001')).toBeNull();
+});
+
+test('materials window: lists the materials, applies a type, edits, resets, picks on the model and round-trips', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForCameraIdle(page);
+  const toolbar = page.locator('#viewerEditorToolbar');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('.viewer-menus_panel button[data-tool="materials"]').click();
+  const panel = page.locator('#viewerMaterials');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-materials_item')).not.toHaveCount(0);
+  const item = panel.locator('.viewer-materials_item.is-selected');
+  await expect(item).toHaveCount(1);
+
+  const meshState = () => page.evaluate(() => {
+    const [entry] = window.Viewer.materialsEditor.items;
+    const mesh = [...entry.meshes][0];
+    const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    return {
+      original: material === entry.original,
+      physical: material.isMeshPhysicalMaterial === true,
+      transmission: material.transmission ?? null,
+      roughness: material.roughness,
+      color: material.color.getHexString(),
+      originalTransmission: entry.original.transmission ?? null,
+    };
+  });
+  expect(await meshState()).toMatchObject({ original: true });
+
+  // Glass from the built-in types: an editable physical copy on the mesh.
+  await panel.locator('.viewer-materials_group[data-group="glass"]').click();
+  await panel.locator('.viewer-materials_preset[data-preset="glass"]').click();
+  expect(await meshState()).toMatchObject({ original: false, physical: true, transmission: 1 });
+  await expect(item).toHaveClass(/is-edited/);
+  await expect(panel.locator('.viewer-materials_current')).toContainText('Glass');
+
+  // Wood after glass: no glass left.
+  await panel.locator('.viewer-materials_group[data-group="wood"]').click();
+  await panel.locator('.viewer-materials_preset[data-preset="lightWood"]').click();
+  expect(await meshState()).toMatchObject({ transmission: 0, color: 'c9a26b' });
+  // The model's own material is untouched.
+  expect((await meshState()).originalTransmission ?? 0).toBe(0);
+
+  // A property by hand.
+  await panel.locator('.viewer-materials_field[data-field="roughness"] input').evaluate((input) => {
+    input.value = '0.3';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect((await meshState()).roughness).toBeCloseTo(0.3, 5);
+
+  // Saved with the settings and applied again.
+  const saved = await page.evaluate(() => window.Viewer.getMaterialOverridesForPersistence());
+  expect(saved).toHaveLength(1);
+  expect(saved[0]).toMatchObject({ index: 0, preset: 'lightWood', params: { roughness: 0.3, color: '#c9a26b' } });
+  const metadata = await page.evaluate(() => window.Viewer.buildMetadata(new window.THREE.Vector3()).materials);
+  expect(metadata).toEqual(saved);
+
+  await panel.locator('.viewer-materials_reset').click();
+  expect(await meshState()).toMatchObject({ original: true });
+  await expect(item).not.toHaveClass(/is-edited/);
+  expect(await page.evaluate((entries) => window.Viewer.applySavedMaterials(entries), saved)).toBe(1);
+  expect(await meshState()).toMatchObject({ original: false, transmission: 0, color: 'c9a26b' });
+  expect((await meshState()).roughness).toBeCloseTo(0.3, 5);
+
+  // Picked on the model: a click in the middle of the view.
+  await page.evaluate(() => window.Viewer.selectMaterial(null));
+  await panel.locator('.viewer-materials_pick').click();
+  await expect(panel.locator('.viewer-materials_pick')).toHaveAttribute('aria-pressed', 'true');
+  const canvas = page.locator('#MainCanvas');
+  const box = await canvas.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(panel.locator('.viewer-materials_pick')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.Viewer.materialsEditor.selectedId)).toBe(await page.evaluate(() => window.Viewer.materialsEditor.items[0].id));
+
+  // The context menu over the model offers it too.
+  const menuKeys = await page.evaluate(({ x, y }) => window.Viewer.contextMenuItems(x, y).flat().map((entry) => entry.key), { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  expect(menuKeys).toContain('editMaterial');
+
+  // Reset settings puts the materials back as loaded too.
+  expect(await page.evaluate(() => window.Viewer.resetAllMaterials())).toBe(1);
+  expect(await meshState()).toMatchObject({ original: true });
+});
+
+test('prepare for publishing, rules: the base a model stands on, the exposure, the framing', () => {
+  // Flat at the bottom only: upright.
+  expect(decideModelBase({ 'Y-': 30, 'Y+': 2, 'X+': 1, 'X-': 1, 'Z+': 1, 'Z-': 1 }, 100)).toMatchObject({ base: 'Y-' });
+  // A box: no end stands out.
+  expect(decideModelBase({ 'Y-': 16, 'Y+': 16, 'X+': 16, 'X-': 16, 'Z+': 16, 'Z-': 16 }, 100).confidence).toBe(0);
+  // Its base at the back (a Z-up file): standing on Z- means Z+ is up.
+  const lying = decideModelBase({ 'Z-': 40, 'Y-': 3, 'Y+': 3, 'X+': 2, 'X-': 2, 'Z+': 1 }, 100);
+  expect(lying).toMatchObject({ base: 'Z-', confidence: 1 });
+  expect(suggestUpAxis('Z-')).toBe('Z+');
+  expect(suggestUpAxis('Y+')).toBe('Y-');
+  expect(suggestUpAxis('Y-')).toBeNull();
+  const upright = evaluatePublishChecks({ kind: 'mesh', base: { base: 'Y-', confidence: 1 } });
+  expect(upright).toContainEqual({ key: 'orientation', level: 'ok', values: {} });
+  const onSide = evaluatePublishChecks({ kind: 'mesh', base: { ...lying, upAxis: 'Z+', rotated: false } });
+  expect(onSide[0]).toMatchObject({ key: 'orientation', level: 'fix', values: { side: 'side', upAxis: 'Z+' } });
+  // Turned by hand: only pointed out.
+  expect(evaluatePublishChecks({ kind: 'mesh', base: { ...lying, upAxis: 'Z+', rotated: true } })[0].level).toBe('tip');
+  // Flat on top (a table?): only pointed out, with the fix offered.
+  const top = decideModelBase({ 'Y+': 40, 'Y-': 1, 'X+': 1, 'X-': 1, 'Z+': 1, 'Z-': 1 }, 100);
+  expect(evaluatePublishChecks({ kind: 'mesh', base: { ...top, upAxis: 'Y-', rotated: false } })[0]).toMatchObject({ level: 'tip', values: { side: 'upsideDown' } });
+  // A relief standing with its back to Z-: a slab, its back is no base.
+  expect(decideModelBase({ 'Z-': 40, 'Z+': 2, 'Y-': 1, 'Y+': 1, 'X+': 1, 'X-': 1 }, 100, { X: 2, Y: 3, Z: 0.2 }).confidence).toBe(0);
+  expect(decideModelBase({ 'Z-': 40, 'Z+': 2, 'Y-': 1, 'Y+': 1, 'X+': 1, 'X-': 1 }, 100, { X: 2, Y: 2, Z: 4 }).confidence).toBe(1);
+
+  expect(decideExposure({ mean: 0.08, clipped: 0, pixels: 2000 })).toMatchObject({ state: 'dark' });
+  expect(decideExposure({ mean: 0.9, clipped: 0.5, pixels: 2000 })).toMatchObject({ state: 'bright' });
+  expect(decideExposure({ mean: 0.45, clipped: 0, pixels: 2000 })).toBeNull();
+  // Too few of the model's pixels to judge.
+  expect(decideExposure({ mean: 0.05, clipped: 0, pixels: 20 })).toBeNull();
+
+  const square = (half) => [-half, half].flatMap((x) => [-half, half].map((y) => [x, y, 0.5]));
+  expect(measureFraming(square(0.5))).toMatchObject({ hidden: 0, coverage: 0.25 });
+  expect(measureFraming(square(2)).hidden).toBeCloseTo(0.75);
+  expect(measureFraming(square(0.05)).coverage).toBeLessThan(0.05);
+  const checks = evaluatePublishChecks({ framing: measureFraming(square(2)), tools: { clipping: true, wireframe: true }, quality: 'fast' });
+  expect(checks.map((check) => check.key)).toEqual(expect.arrayContaining(['framing', 'tool.clipping', 'tool.wireframe', 'quality']));
+  expect(checks.every((check) => check.level === 'fix')).toBe(true);
+});
+
+test('prepare for publishing: finds what would show in the renders, fixes it, and asks before saving', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForCameraIdle(page);
+  await expect(page.locator('#viewerEditorToolbar button[data-tool="publishCheck"]')).toHaveCount(1);
+
+  // Floating, in wireframe, dark, and with the move handles on.
+  await page.evaluate(() => {
+    const root = window.Viewer.getUpAxisRoot();
+    const size = new window.THREE.Box3().setFromObject(root).getSize(new window.THREE.Vector3());
+    root.position.y += size.y;
+    root.updateMatrixWorld(true);
+    window.Viewer.toggleWireframeMode();
+    window.Viewer.setObjectTransformMode('translate');
+    window.viewer.renderer.toneMappingExposure = 0.05;
+    window.Viewer.togglePublishCheckPanel(true);
+  });
+  const panel = page.locator('#viewerPublishCheck');
+  await expect(panel).toBeVisible();
+  const fix = (key) => panel.locator(`.viewer-prepare_item[data-check="${key}"][data-level="fix"]`);
+  await expect(fix('ground')).toHaveCount(1);
+  await expect(fix('tool.wireframe')).toHaveCount(1);
+  await expect(fix('tool.transform')).toHaveCount(1);
+  await expect(panel.locator('.viewer-prepare_summary')).toHaveAttribute('data-state', 'fix');
+
+  // One fix by its own button.
+  await fix('tool.wireframe').locator('.viewer-prepare_fix').click();
+  expect(await page.evaluate(() => window.Viewer.publishCheck.facts.tools.wireframe)).toBe(false);
+  await expect(fix('tool.wireframe')).toHaveCount(0);
+
+  // The rest at once.
+  await panel.locator('.viewer-prepare_fix-all').click();
+  await expect(fix('ground')).toHaveCount(0);
+  await expect(fix('tool.transform')).toHaveCount(0);
+  expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('');
+  await expect(panel.locator('.viewer-prepare_passed li', { hasText: 'Stands on the ground' })).toHaveCount(1);
+  await expect(panel.locator('.viewer-prepare_steps [data-step="save"]')).toContainText('Not saved in this session');
+
+  // Asked before saving while something is left to fix (the guard is off
+  // in tests unless switched on).
+  await page.evaluate(() => {
+    window.Viewer.togglePublishCheckPanel(false);
+    window.Viewer.setPublishGuard(true);
+    window.Viewer.toggleWireframeMode();
+  });
+  const saving = page.evaluate(() => window.Viewer.saveEditorMetadata());
+  const hint = page.locator('#viewerSmartHint[data-hint="publishGuard"]');
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText('Wireframe is on');
+  expect(await saving).toBe(false);
+  await hint.locator('[data-action="continue"]').click();
+  await expect(hint).toHaveCount(0);
+  // Not asked again for this model.
+  expect(await page.evaluate(() => window.Viewer.publishCheck.acknowledged.has('save'))).toBe(true);
+  // "Review" opens the window instead.
+  const rendering = page.evaluate(() => window.Viewer.takeScreenshot());
+  await hint.locator('[data-action="review"]').click();
+  await expect(panel).toBeVisible();
+  expect(await rendering).toBe(false);
+});
+
+test('prepare for publishing: a model lying on its side is pointed out after loading and stood up', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForCameraIdle(page);
+  // A plinth with a column on it, the plinth at the back: lying on its side.
+  await page.evaluate(() => {
+    const THREE = window.THREE;
+    const root = window.Viewer.getUpAxisRoot();
+    // Instead of the box; under the up axis pivot, if there is one.
+    const meshes = [];
+    root.traverse((object) => { if (object.isMesh) meshes.push(object); });
+    meshes.forEach((mesh) => mesh.removeFromParent());
+    const parent = root.children.find((child) => child.userData?.isUpAxisPivot) ?? root;
+    const material = new THREE.MeshStandardMaterial();
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 0.2), material);
+    plinth.position.set(0, 1, -1.9);
+    const column = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3.6, 24, 1, true), material);
+    column.rotation.x = Math.PI / 2;
+    column.position.set(0, 1, 0);
+    parent.add(plinth, column);
+    root.updateMatrixWorld(true);
+    window.Viewer.setPublishGuard(true);
+  });
+  expect(await page.evaluate(() => window.Viewer.offerOrientationHint())).toBe(true);
+  const hint = page.locator('#viewerSmartHint[data-hint="orientation"]');
+  await expect(hint).toContainText('lie on its side');
+  await hint.locator('[data-action="fix"]').click();
+  expect(await page.evaluate(() => window.Viewer.getModelUpAxis())).toBe('Z+');
+  // Upright now: nothing more to say.
+  expect(await page.evaluate(() => window.Viewer.offerOrientationHint())).toBe(false);
+});
+
+test('render quality: a stuttering view offers a lower quality, which lowers the pixel ratio and ambient occlusion, and undo restores it', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForCameraIdle(page);
+  await page.evaluate(() => {
+    document.querySelector('button[data-tool="renderingAo"]').click();
+    window.Viewer.setPerformanceAdvisor(true);
+  });
+  expect(await page.evaluate(() => window.viewer.rendering.postprocessing.ao)).toBe(true);
+
+  // Frames of a fast view: no hint.
+  expect(await page.evaluate(() => [60, 58, 61, 59, 60, 60].some((fps) => window.Viewer.recordPerformanceSecond(fps)))).toBe(false);
+  // Six slow seconds in a row.
+  expect(await page.evaluate(() => [12, 14, 11, 13, 12, 15].map((fps) => window.Viewer.recordPerformanceSecond(fps)).pop())).toBe(true);
+  const hint = page.locator('#viewerSmartHint[data-hint="performance"]');
+  await expect(hint).toContainText('stuttering');
+  await hint.locator('[data-action="lower"]').click();
+  const state = () => page.evaluate(() => ({
+    quality: window.Viewer.getRenderQuality(),
+    pixelRatio: window.viewer.renderer.getPixelRatio(),
+    ao: window.viewer.rendering.postprocessing.ao,
+  }));
+  expect(await state()).toMatchObject({ quality: 'balanced', ao: false });
+  expect((await state()).pixelRatio).toBeLessThanOrEqual(1.25);
+  // The Rendering menu shows it.
+  await expect(page.locator('button[data-tool="renderingQualityBalanced"]')).toHaveAttribute('aria-pressed', 'true');
+
+  const undo = page.locator('#viewerSmartHint[data-hint="performanceLowered"]');
+  await undo.locator('[data-action="undo"]').click();
+  expect(await state()).toMatchObject({ quality: 'high', ao: true });
+
+  // From the menu, the fastest: no post-processing at three quarters.
+  await page.evaluate(() => document.querySelector('button[data-tool="renderingQualityFast"]').click());
+  expect(await state()).toMatchObject({ quality: 'fast', ao: false });
+  expect((await state()).pixelRatio).toBeCloseTo(0.75);
+  expect(await page.evaluate(() => window.viewer.rendering.postprocessing.enabled)).toBe(false);
+  await page.evaluate(() => window.Viewer.setRenderQuality('high'));
+  expect(await state()).toMatchObject({ quality: 'high', ao: true, pixelRatio: 1 });
+
+  // Closed with ×: not offered again.
+  await page.evaluate(() => [12, 14, 11, 13, 12, 15].forEach((fps) => window.Viewer.recordPerformanceSecond(fps)));
+  await hint.locator('.viewer-hint_close').click();
+  expect(await page.evaluate(() => [12, 14, 11, 13, 12, 15].map((fps) => window.Viewer.recordPerformanceSecond(fps)).pop())).toBe(false);
+});
+
+test('materials in the AIM3D manifest: exported while edited, validated, and imported back', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForCameraIdle(page);
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.materials)).toBeUndefined();
+  await page.evaluate(() => {
+    window.Viewer.applyMaterialPreset('marble');
+    window.Viewer.setMaterialProperty('roughness', 0.4);
+  });
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.materials).toEqual([expect.objectContaining({ index: 0, preset: 'marble', params: expect.objectContaining({ roughness: 0.4 }) })]);
+  expect(validateAIM3DManifest(manifest).valid).toBe(true);
+  expect(manifestFeatureIcons(inspectAIM3DManifest(manifest)).map((feature) => feature.id)).toContain('materials');
+  // A type the viewer does not know, a colour that is none.
+  const broken = JSON.parse(JSON.stringify(manifest));
+  broken.AIM3DViewer.materials[0].preset = 'unobtainium';
+  broken.AIM3DViewer.materials[0].params.color = 'red';
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual(expect.arrayContaining([
+    '$.AIM3DViewer.materials[0].preset',
+    '$.AIM3DViewer.materials[0].params.color',
+  ]));
+
+  await page.evaluate(() => window.Viewer.resetAllMaterials());
+  expect(await page.evaluate(() => window.Viewer.getEditedMaterialCount())).toBe(0);
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  const state = await page.evaluate(() => {
+    const [item] = window.Viewer.materialsEditor.items;
+    return { edited: item.current !== item.original, preset: item.preset, roughness: item.current.roughness };
+  });
+  expect(state).toMatchObject({ edited: true, preset: 'marble' });
+  expect(state.roughness).toBeCloseTo(0.4, 5);
+});
+
+test('render quality: a model too heavy for the device gets the lower quality offered right after loading', async ({ page }) => {
+  expect(deviceTier({ gpu: 'Google SwiftShader' })).toBe('low');
+  expect(deviceTier({ coarse: true, memory: 4 })).toBe('low');
+  expect(deviceTier({ coarse: true, memory: 8, cores: 8 })).toBe('phone');
+  expect(deviceTier({ memory: 16, cores: 12, gpu: 'NVIDIA GeForce RTX 4070' })).toBe('desktop');
+  expect(qualityForWeight(1_000_000, 'desktop')).toBeNull();
+  expect(qualityForWeight(5_000_000, 'phone')).toBe('balanced');
+  expect(qualityForWeight(9_000_000, 'phone')).toBe('fast');
+
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForCameraIdle(page);
+  // The box on a phone: fits.
+  expect(await page.evaluate(() => {
+    window.Viewer.setPerformanceAdvisor(true);
+    window.Viewer.getDeviceInfo = () => ({ coarse: true, memory: 8, cores: 8, gpu: '' });
+    return window.Viewer.assessModelWeight();
+  })).toBe(false);
+  // Six million splats on the same phone: Fast, at once.
+  expect(await page.evaluate(() => {
+    const heavy = new window.THREE.Group();
+    heavy.userData.gaussianSplats = { count: 9_000_000 };
+    window.Viewer.getSunModelRoots = () => [heavy];
+    return window.Viewer.assessModelWeight();
+  })).toBe(true);
+  const hint = page.locator('#viewerSmartHint[data-hint="performanceHeavy"]');
+  await expect(hint).toContainText('9.0 M');
+  await hint.locator('[data-action="lower"]').click();
+  expect(await page.evaluate(() => window.Viewer.getRenderQuality())).toBe('fast');
+});
+
+test('prepare for publishing: the toolbar counts what to fix, and the renders start from the start view\'s side', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForCameraIdle(page);
+  // In a closed menu: its state, not its visibility.
+  const button = page.locator('#viewerEditorToolbar button[data-tool="publishCheck"]');
+  const badge = button.locator('.viewer-tool-badge');
+  await page.evaluate(() => {
+    window.Viewer.setPublishGuard(true);
+    window.Viewer.toggleWireframeMode();
+    window.Viewer.setObjectTransformMode('translate');
+  });
+  await expect(button).toHaveAttribute('data-badge', /^[2-9]/);
+  await expect(badge).not.toHaveAttribute('hidden', '');
+  await expect(badge).toHaveText(/^[2-9]/);
+  await expect(page.locator('#viewerEditorToolbar .viewer-menus_tab.has-badge')).not.toHaveCount(0);
+  await page.evaluate(() => {
+    window.Viewer.toggleWireframeMode();
+    window.Viewer.setObjectTransformMode('');
+  });
+  await expect(button).toHaveAttribute('data-badge', '');
+  await expect(badge).toHaveAttribute('hidden', '');
+  await expect(page.locator('#viewerEditorToolbar .viewer-menus_tab.has-badge')).toHaveCount(0);
+
+  // The automatic start view looks from a slant: the file's front stays.
+  expect(await page.evaluate(() => window.Viewer.getThumbnailFrontAngle())).toBe(0);
+  // Framed from +X: that side is the front of the renders.
+  const angle = await page.evaluate(() => {
+    const box = window.Viewer.getPublishModelBox();
+    const center = box.getCenter(new window.THREE.Vector3());
+    window.Viewer.camera.position.set(center.x + 10, center.y + 1, center.z + 0.5);
+    window.Viewer.controls.target.copy(center);
+    window.Viewer.frameModelInView();
+    return window.Viewer.getThumbnailFrontAngle();
+  });
+  expect(angle).toBe(90);
+  await page.evaluate(() => window.Viewer.togglePublishCheckPanel(true));
+  const front = page.locator('#viewerPublishCheck .viewer-prepare_front');
+  await expect(front).toContainText('90°');
+  // Off: the file's +Z, as before.
+  await front.locator('input').uncheck();
+  expect(await page.evaluate(() => window.Viewer.getThumbnailFrontAngle())).toBe(0);
 });

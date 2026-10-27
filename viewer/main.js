@@ -69,6 +69,8 @@ import { buildThumbnailGallery, getManifestThumbnails } from "./ui/thumbnail-gal
 import { attachLocalizationTheme } from "./ui/localization-theme.js";
 import { attachLoadingStatus } from "./ui/loading-status.js";
 import { attachMaterialsEditor } from "./editor/materials-editor.js";
+import { attachPerformance } from "./editor/performance.js";
+import { attachPublishCheck } from "./editor/publish-check.js";
 import { attachShadingEditor } from "./editor/shading.js";
 import { attachUpAxisEditor } from "./editor/up-axis.js";
 import { normalizeUpAxis } from "./up-axis.js";
@@ -1485,6 +1487,9 @@ export const Viewer = {
     Viewer.disposeSunStudy();
     Viewer.disposeWeather();
     Viewer.disposeSceneSuggest();
+    // The next model's materials are listed when it has loaded.
+    Viewer.disposeMaterialsEditor({ keepPanel: true });
+    Viewer.disposePublishCheck();
     // Spark's splat renderer (splats.js) comes back with the next splat model.
     disposeSparkRenderer(core.sparkRenderer);
     core.sparkRenderer = null;
@@ -2277,8 +2282,8 @@ export const Viewer = {
       core.camera.updateProjectionMatrix();
     }
 
-    // renderer
-    core.renderer.setPixelRatio(window.devicePixelRatio || 1);
+    // renderer: at the render quality's pixel ratio (editor/performance.js)
+    core.renderer.setPixelRatio(Viewer.getRenderPixelRatio?.() ?? (window.devicePixelRatio || 1));
 
     core.renderer.setSize( effectiveWidth, effectiveHeight, false);
 
@@ -2466,6 +2471,8 @@ export const Viewer = {
   animate: (time) => {
     // In VR or AR the session gives the frames (editor/webxr.js).
     if (!core.renderer?.xr?.isPresenting && !Viewer.xr?.session) requestAnimationFrame(Viewer.animate);
+    // The frame rate, for the render quality hint (editor/performance.js).
+    Viewer.samplePerformance(time);
     // THREE.Timer only advances on update(); without it getDelta() stays 0.
     Viewer.clock.update(time);
     const delta = Viewer.clock.getDelta();
@@ -4419,6 +4426,8 @@ export const Viewer = {
 attachLocalizationTheme(Viewer);
 attachLoadingStatus(Viewer);
 attachMaterialsEditor(Viewer);
+attachPerformance(Viewer);
+attachPublishCheck(Viewer);
 attachShadingEditor(Viewer);
 attachUpAxisEditor(Viewer);
 attachAnnotations(Viewer);

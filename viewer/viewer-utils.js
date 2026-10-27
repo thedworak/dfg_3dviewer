@@ -346,6 +346,9 @@ function setupCameraHandler(_object, meta) {
   core.controls.update();
   core.controls.saveState();
   core.controls.enableDamping = wasDamping;
+  // A saved camera is a start view chosen (the renders' front,
+  // editor/publish-check.js).
+  if (camPos) window.Viewer?.markStartViewChosen?.();
 }
 
 export const setupObject = (_object, _metadata) => {
@@ -378,6 +381,8 @@ export const setupObject = (_object, _metadata) => {
     setupObjectHandler(_object, _metadata);
     setupGeometryHandler(_object);
     setupCameraHandler(_object, _metadata);
+    // The materials edited and saved (editor/materials-editor.js).
+    if (Array.isArray(_metadata.materials)) window.Viewer?.applySavedMaterials?.(_metadata.materials);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
     if ((!Array.isArray(core.objectsConfig.models) || core.objectsConfig.models.length === 0) && _metadata == null) {

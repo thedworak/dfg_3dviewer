@@ -142,6 +142,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateSunLabels?.();
       this.updateWeatherLabels?.();
       this.updateSceneSuggestLabels?.();
+      this.updatePublishCheckLabels?.();
       this.updateXRLabels?.();
       this.syncPointCloudPanel?.();
       this.renderUploadLimits?.();
@@ -154,7 +155,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateLocalPreviewLabels();
       this.updateIIIFFormLabels();
       this.updateMetadataPanelLabels();
-      this.updateMaterialsDialogLabels();
+      this.updateMaterialsPanelLabels?.();
       this.refreshStatusNoticeLanguage();
       UltraLoader.relocalize?.();
       this.circle?.relocalize?.();
