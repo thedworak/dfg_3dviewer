@@ -12,6 +12,7 @@ import { modelCheckPart } from "./feature-icons.js";
 import { fillModelThumbnail } from "./model-thumbnail.js";
 import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
 import { setPendingSavedSettings } from "../metadata.js";
+import { clearExampleModelSelection } from "../example-models.js";
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated

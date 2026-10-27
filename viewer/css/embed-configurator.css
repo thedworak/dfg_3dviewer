@@ -1,188 +1,382 @@
+/* The embed options (ui/embed-configurator.js): a window over the page (the
+   viewer itself may be low), moved by its header and resized by its corner. The options in a narrow
+   column on the left, the preview - an embedded viewer at the chosen
+   proportions - taking the rest, the address and the code under it. */
 #embedConfiguratorPanel[hidden] {
   display: none !important;
 }
 
 #embedConfiguratorPanel {
-  position: absolute;
+  --embed-gap: 10px;
+  --embed-field-bg: var(--viewer-panel-bg);
+  --embed-muted: color-mix(in srgb, var(--viewer-panel-text) 62%, transparent);
+  /* Under the panels' see-through colour: the page stays out of sight. */
+  --embed-solid: #191613;
+  position: fixed;
   left: 50%;
-  top: 10%;
+  top: max(12px, 4vh);
   transform: translateX(-50%);
-  z-index: 119;
-  width: 90%;
-  min-width: min(980px, calc(100vw - 36px));
-  max-height: min(72vh, 760px);
-  overflow: auto;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--viewer-panel-border);
-  background: var(--viewer-panel-embed-bg);
-  color: var(--viewer-panel-text);
-  box-shadow: var(--viewer-panel-shadow);
-  font-size: 13px;
-  line-height: 1.35;
   z-index: 99999;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(1320px, calc(100vw - 32px));
+  height: min(880px, calc(100dvh - max(24px, 8vh)));
+  min-width: 520px;
+  min-height: 380px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: hidden;
+  resize: both;
+  border-radius: 12px;
+  border: 1px solid var(--viewer-panel-border);
+  background:
+    linear-gradient(var(--viewer-panel-embed-bg), var(--viewer-panel-embed-bg)),
+    var(--embed-solid);
+  color: var(--viewer-panel-text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.viewer-wrapper[data-viewer-theme="light"] #embedConfiguratorPanel {
+  --embed-solid: #f8f5ef;
+  box-shadow: 0 24px 64px rgba(80, 66, 48, 0.28);
 }
 
 .embed-config-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
-  font-weight: 700;
+  flex: none;
+  padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid var(--viewer-panel-border);
+  cursor: grab;
+  user-select: none;
 }
 
-.embed-config-header button {
-  border: 1px solid var(--viewer-panel-border);
-  border-radius: 6px;
-  background: var(--viewer-panel-bg);
+.embed-config-header:active {
+  cursor: grabbing;
+}
+
+.embed-config-title {
+  flex: 1;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.embed-config-close,
+.embed-config-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
   color: var(--viewer-panel-text);
-  font: inherit;
-  padding: 4px 8px;
   cursor: pointer;
 }
 
-.embed-config-header button:hover {
+.embed-config-close:hover,
+.embed-config-icon:hover {
+  border-color: var(--viewer-panel-border);
   background: var(--viewer-panel-bg-hover);
 }
 
-.embed-config-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  color: var(--viewer-panel-text);
+.embed-config-close svg,
+.embed-config-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .embed-config-layout {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) minmax(300px, 0.8fr);
-  gap: 12px;
-  align-items: stretch;
-  color: var(--viewer-panel-text);
+  grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
 }
 
-.embed-config-main {
-  min-width: 0;
+/* The options: sections of label + control rows, scrolling on their own. */
+.embed-config-side {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 12px 12px 14px;
+  border-right: 1px solid var(--viewer-panel-border);
+  scrollbar-width: thin;
 }
 
-.embed-config-grid label,
-.embed-config-field {
+.embed-config-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-weight: 600;
-  color: color-mix(
-    in srgb,
-    var(--viewer-panel-bg) 10%,
-    var(--viewer-panel-text)
-    );
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--viewer-panel-border) 70%, transparent);
 }
 
-.embed-config-grid input,
-.embed-config-grid select,
-.embed-config-field textarea,
-.embed-config-actions button {
+.embed-config-section:last-child {
+  border-bottom: none;
+}
+
+.embed-config-section h4 {
+  margin: 0 0 2px;
+  color: var(--embed-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.embed-config-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.embed-config-label {
+  color: var(--embed-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#embedConfiguratorPanel input[type="text"],
+#embedConfiguratorPanel input[type="number"],
+#embedConfiguratorPanel select,
+#embedConfiguratorPanel textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 3px 7px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--embed-field-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+#embedConfiguratorPanel input:focus-visible,
+#embedConfiguratorPanel select:focus-visible,
+#embedConfiguratorPanel textarea:focus-visible {
+  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline-offset: -1px;
+}
+
+#embedConfiguratorPanel input:disabled {
+  opacity: 0.45;
+}
+
+#embedConfiguratorPanel .embed-input-invalid {
+  border-color: #d54646;
+  box-shadow: 0 0 0 1px rgba(213, 70, 70, 0.25);
+}
+
+/* Numbers without the spinner arrows: the fields are narrow. */
+#embedConfiguratorPanel input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+#embedConfiguratorPanel input[type="number"]::-webkit-inner-spin-button,
+#embedConfiguratorPanel input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#embedConfiguratorPanel input.embed-config-short {
+  flex: none;
+  width: 64px;
+}
+
+.embed-config-xyz {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+/* An axis: its letter inside the field, coloured like the axes helper. */
+.embed-config-axis {
+  position: relative;
+  display: block;
+}
+
+.embed-config-axis > span {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.embed-config-axis:nth-child(1) > span { color: #e5484d; }
+.embed-config-axis:nth-child(2) > span { color: #46a758; }
+.embed-config-axis:nth-child(3) > span { color: #3e8ed0; }
+
+#embedConfiguratorPanel .embed-config-axis input {
+  padding-left: 17px;
+  padding-right: 4px;
+}
+
+.embed-config-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.embed-config-check input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+.embed-config-check--with-value {
+  justify-content: space-between;
+}
+
+.embed-config-check--with-value > label {
+  display: flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.embed-config-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+#embedConfiguratorPanel .embed-config-buttons button,
+#embedConfiguratorPanel .embed-config-code button {
+  flex: 1;
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid var(--viewer-panel-border);
   border-radius: 6px;
   background: var(--viewer-panel-bg);
   color: var(--viewer-panel-text);
   font: inherit;
-  padding: 6px 8px;
-}
-
-.embed-config-grid input.embed-input-invalid,
-.embed-config-grid select.embed-input-invalid {
-  border-color: #d54646;
-  box-shadow: 0 0 0 1px rgba(213, 70, 70, 0.25);
-}
-
-.embed-config-grid input,
-.embed-config-grid select {
-  min-width: 0;
-  color: var(--viewer-panel-text);
-}
-
-.embed-config-checks {
-  margin-top: 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.embed-config-checks label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  font-size: 12px;
   font-weight: 600;
-  color: color-mix(
-    in srgb,
-    var(--viewer-panel-bg) 10%,
-    var(--viewer-panel-text)
-    );
-}
-
-.embed-config-actions {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.embed-config-actions button {
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.embed-config-actions button:hover {
+#embedConfiguratorPanel .embed-config-buttons button:hover,
+#embedConfiguratorPanel .embed-config-code button:hover {
   background: var(--viewer-panel-bg-hover);
 }
 
-.embed-config-field {
-  margin-top: 8px;
+#embedConfiguratorPanel .embed-config-code button.is-primary {
+  border-color: transparent;
+  background: var(--viewer-brand-gold, #e9b264);
+  color: #1d1914;
 }
 
-.embed-config-field textarea {
-  width: 100%;
-  min-height: 96px;
-  resize: vertical;
+#embedConfiguratorPanel .embed-config-code button.is-primary:hover {
+  background: color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 85%, #fff);
 }
 
-#embedIframeOutput {
-  min-height: 140px;
-}
-
-.embed-config-preview-wrap {
-  margin-top: 8px;
+/* The preview: most of the window. */
+.embed-config-main {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 12px 12px;
+  gap: var(--embed-gap);
+}
+
+.embed-config-preview-bar {
+  display: flex;
+  align-items: center;
   gap: 4px;
-  font-weight: 600;
+  flex: none;
+}
+
+.embed-config-preview-title {
+  flex: 1;
+  color: var(--embed-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.embed-config-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 160px;
+  overflow: hidden;
+  border-radius: 8px;
+  background:
+    repeating-conic-gradient(color-mix(in srgb, var(--viewer-panel-text) 5%, transparent) 0% 25%, transparent 0% 50%)
+    0 0 / 16px 16px;
 }
 
 #embedPreviewFrame {
+  display: block;
+  flex: none;
   width: 100%;
   height: 100%;
-  min-height: 520px;
-  flex: 1 0 520px;
   border: 1px solid var(--viewer-panel-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
 }
 
-.embed-config-preview-side {
-  position: sticky;
-  top: 0;
+.embed-config-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--embed-muted);
+  text-align: center;
+}
+
+.embed-config-empty[hidden] {
+  display: none;
+}
+
+.embed-config-code {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  font-weight: 700;
-  min-height: 100%;
-  padding-left: 10px;
-  padding-right: 6px;
-  align-self: stretch;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  gap: 6px;
+  flex: none;
+}
+
+.embed-config-code-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 112px;
+  align-items: start;
+  gap: 8px;
+}
+
+.embed-config-code-row > .embed-config-label {
+  padding-top: 6px;
+}
+
+#embedConfiguratorPanel #embedUrlOutput,
+#embedConfiguratorPanel #embedIframeOutput {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+#embedConfiguratorPanel #embedIframeOutput {
+  height: 46px;
+  resize: none;
 }
 
 .fullscreen-icon {
@@ -204,20 +398,38 @@
   width: min(240px, 30vw);
 }
 
-@media (max-width: 640px) {
+/* A narrow viewer: the options above the preview, the whole window
+   scrolling. */
+@media (max-width: 760px) {
+  #embedConfiguratorPanel {
+    inset: 8px;
+    transform: none;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    resize: none;
+  }
+
   .embed-config-layout {
     grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
-  .embed-config-preview-side {
-    position: static;
-    min-height: 260px;
+  .embed-config-side {
     overflow: visible;
-    padding-right: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--viewer-panel-border);
   }
 
-  .embed-config-grid,
-  .embed-config-checks {
-    grid-template-columns: 1fr;
+  .embed-config-stage {
+    min-height: 240px;
+  }
+
+  .embed-config-code-row {
+    grid-template-columns: minmax(0, 1fr) 96px;
+  }
+
+  .embed-config-code-row > .embed-config-label {
+    display: none;
   }
 }

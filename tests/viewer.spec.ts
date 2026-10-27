@@ -654,6 +654,62 @@ test('guided tour spreads all annotations around the model', async ({ page }) =>
   await expect(panel.locator('.viewer-tour-panel_spread')).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('embed options: the model on screen after a switch, its camera by axis, a preview without the page header, a window to move', async ({ page }) => {
+  await openViewer(page, '/examples/tempietto/Tempietto.glb');
+  await waitForModel(page);
+  // Another example from the select: the embed is of that one.
+  await page.evaluate(() => { window.viewer.fullModelLoaded = false; });
+  await page.selectOption('#example-model-select', './examples/animated.glb');
+  await waitForModel(page);
+  await waitForCameraIdle(page);
+  await page.evaluate(() => window.Viewer.openEmbedConfiguratorFromMenu());
+  const panel = page.locator('#embedConfiguratorPanel');
+  await expect(panel).toBeVisible();
+
+  // The full address of the model shown, not the page's first one.
+  await expect(page.locator('#embedModelInput')).toHaveValue(/^http:\/\/[^/]+\/examples\/animated\.glb$/);
+  // The camera by axis, the address from all three.
+  const camera = await page.evaluate(() => window.Viewer.camera.position.toArray());
+  for (const [index, axis] of ['X', 'Y', 'Z'].entries()) {
+    expect(Number(await page.locator(`#embedCamPos${axis}`).inputValue())).toBeCloseTo(camera[index], 1);
+  }
+  await page.locator('#embedCamPosY').fill('3');
+  await expect(page.locator('#embedUrlOutput')).toHaveValue(/camPos=[^&]*%2C3\.0000%2C/);
+  // A vector with a number missing is marked, and left out.
+  await page.locator('#embedCamTargetZ').fill('');
+  await expect(page.locator('#embedCamTargetX')).toHaveAttribute('aria-invalid', 'true');
+  await page.locator('#embedResetFromViewer').click();
+  await expect(page.locator('#embedCamTargetX')).not.toHaveAttribute('aria-invalid', 'true');
+
+  // The preview: the embed page, the model in it, no example picker.
+  const frame = page.frameLocator('#embedPreviewFrame');
+  await expect(page.locator('#embedPreviewFrame')).toHaveAttribute('src', /embed\.html\?model=[^&]*animated\.glb/);
+  await expect(frame.locator('#MainCanvas')).toBeAttached({ timeout: 20_000 });
+  await expect(frame.locator('#viewer-page-header')).toHaveCount(0);
+  // Its proportions are the code's too.
+  await page.selectOption('#embedAspectInput', '4:3');
+  await expect(page.locator('#embedIframeOutput')).toHaveValue(/aspect-ratio: 4 \/ 3/);
+  const box = await page.locator('#embedPreviewFrame').boundingBox();
+  expect(box.width / box.height).toBeCloseTo(4 / 3, 1);
+
+  // Moved by its header, kept on the screen.
+  const before = await panel.boundingBox();
+  const header = await page.locator('.embed-config-header').boundingBox();
+  await page.mouse.move(header.x + 200, header.y + header.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(header.x + 190, header.y + header.height / 2 + 30, { steps: 4 });
+  await page.mouse.move(header.x + 100, header.y + header.height / 2 + 30, { steps: 4 });
+  await page.mouse.up();
+  const after = await panel.boundingBox();
+  expect(Math.round(after.x)).toBe(0);
+  expect(Math.abs(after.y - before.y - 30)).toBeLessThanOrEqual(1);
+
+  // Closed, the preview's viewer stops.
+  await page.locator('#embedClosePanel').click();
+  await expect(panel).toBeHidden();
+  await expect(page.locator('#embedPreviewFrame')).toHaveAttribute('src', 'about:blank');
+});
+
 test('embed configurator uses the current camera for preview url', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);

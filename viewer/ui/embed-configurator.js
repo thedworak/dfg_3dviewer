@@ -1,6 +1,33 @@
 import { core } from "../core.js";
 import { toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
+import { makeDraggable } from "./panel-window.js";
+
+const AXES = ["x", "y", "z"];
+// The embed's proportions (the iframe code's aspect-ratio, the preview's).
+const EMBED_ASPECTS = ["16:9", "4:3", "1:1", "21:9", "3:4"];
+// The preview is a whole viewer: loaded again once the typing stops.
+const EMBED_PREVIEW_DELAY_MS = 600;
+
+// A coordinate in a narrow field: fewer decimals the larger it is.
+function shortNumber(value) {
+  const size = Math.abs(value);
+  return String(Number(value.toFixed(size >= 100 ? 1 : size >= 10 ? 2 : 3)));
+}
+
+// An embed sits on another site: the model by its full address.
+function absoluteModelUrl(path) {
+  if (!path) return null;
+  try {
+    return new URL(path, window.location.href).href;
+  } catch {
+    return path;
+  }
+}
+
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[char]));
 
 export function attachEmbedConfigurator(Viewer) {
   Object.assign(Viewer, {
@@ -66,11 +93,17 @@ export function attachEmbedConfigurator(Viewer) {
 
     getCurrentEmbedOptions({ includeCamera = false } = {}) {
       const entityId = core.CONFIG?.entity?.id;
-      const modelPath = core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
+      // The model on screen (main.js mainLoadModelWrapper); before the first
+      // load, the one the page names.
+      const modelPath = this.shownModelUrl !== undefined
+        ? this.shownModelUrl
+        : core.fileObject?.originalPath || core.container?.getAttribute("3d") || "";
       const options = {
-        model: modelPath || null,
+        model: absoluteModelUrl(modelPath),
         id: entityId || null,
         theme: this.currentTheme === "light" ? "light" : null,
+        language: null,
+        aspect: EMBED_ASPECTS[0],
         autorotate: core.controls?.autoRotate === true,
         autorotateSpeed: Number.isFinite(core.controls?.autoRotateSpeed) ? core.controls.autoRotateSpeed : null,
         disableInteraction: this.urlOptions?.disableInteraction === true,
@@ -90,7 +123,6 @@ export function attachEmbedConfigurator(Viewer) {
       };
 
       if (includeCamera) {
-        if (!this.viewerInstance && !this.iframeWindow) {this.iframeWindow = this.embedConfigPreviewFrame?.contentWindow; this.viewerInstance = this.iframeWindow?.Viewer; }
         options.cameraPosition = this.formatVector3Param(core.camera?.position);
         options.cameraTarget = this.formatVector3Param(core.controls?.target);
         options.fov = Number.isFinite(core.camera?.fov) ? core.camera.fov : null;
@@ -98,33 +130,65 @@ export function attachEmbedConfigurator(Viewer) {
         options.cameraZoom = Number.isFinite(core.camera?.zoom) ? core.camera.zoom : null;
         options.clippingMode = this.formatClippingModeParam(core.planeParams?.clippingMode);
 
-        const clipX = Number(core.clippingPlanes?.[0]?.constant);
-        const clipY = Number(core.clippingPlanes?.[1]?.constant);
-        const clipZ = Number(core.clippingPlanes?.[2]?.constant);
-        if (Number.isFinite(clipX) && Number.isFinite(clipY) && Number.isFinite(clipZ)) {
-          options.clippingConstants = this.formatVector3Param({ x: clipX, y: clipY, z: clipZ });
+        // The section planes only while one cuts the model: their places
+        // belong to the model on screen.
+        if (options.clippingMode) {
+          const clipX = Number(core.clippingPlanes?.[0]?.constant);
+          const clipY = Number(core.clippingPlanes?.[1]?.constant);
+          const clipZ = Number(core.clippingPlanes?.[2]?.constant);
+          if (Number.isFinite(clipX) && Number.isFinite(clipY) && Number.isFinite(clipZ)) {
+            options.clippingConstants = this.formatVector3Param({ x: clipX, y: clipY, z: clipZ });
+          }
+          options.clippingOutline = core.planeParams?.outline?.visible === true;
+          options.clippingNegated = this.formatClippingModeParam(this.getClippingNegatedState?.());
         }
-        options.clippingOutline = core.planeParams?.outline?.visible === true;
-        options.clippingNegated = this.formatClippingModeParam(this.getClippingNegatedState?.());
       }
 
       return options;
     },
 
+    // The camera's vectors: three number fields each (x, y, z), and the
+    // hidden "x,y,z" field the address is built from.
+    setEmbedVectorInputs(key, value) {
+      const inputs = this.embedConfigInputs;
+      if (!inputs) return;
+      inputs[key].value = value ?? "";
+      const vector = this.parseVector3Param(value);
+      AXES.forEach((axis) => {
+        inputs[`${key}${axis.toUpperCase()}`].value = vector ? shortNumber(vector[axis]) : "";
+      });
+    },
+
+    syncEmbedVectorInput(key) {
+      const inputs = this.embedConfigInputs;
+      const parts = AXES.map((axis) => inputs[`${key}${axis.toUpperCase()}`].value.trim());
+      inputs[key].value = parts.every((part) => part === "") ? "" : parts.join(",");
+    },
+
     applyEmbedOptionsToInputs(options = {}) {
-      if (!this.embedConfigInputs) return;
-      this.embedConfigInputs.model.value = options.model ?? "";
-      this.embedConfigInputs.id.value = options.id ?? "";
-      this.embedConfigInputs.theme.value = options.theme === "light" ? "light" : "dark";
-      this.embedConfigInputs.autorotate.checked = options.autorotate === true;
-      this.embedConfigInputs.autorotateSpeed.value = Number.isFinite(options.autorotateSpeed) ? String(options.autorotateSpeed) : "";
-      this.embedConfigInputs.disableInteraction.checked = options.disableInteraction === true;
-      this.embedConfigInputs.hideUi.checked = options.hideUi === true;
-      this.embedConfigInputs.hideMetadata.checked = options.hideMetadata === true;
-      this.embedConfigInputs.presentationMode.checked = options.presentationMode === true;
-      this.embedConfigInputs.camPos.value = options.cameraPosition ?? "";
-      this.embedConfigInputs.camTarget.value = options.cameraTarget ?? "";
-      this.embedConfigInputs.fov.value = Number.isFinite(options.fov) ? String(options.fov) : "";
+      const inputs = this.embedConfigInputs;
+      if (!inputs) return;
+      inputs.model.value = options.model ?? "";
+      inputs.id.value = options.id ?? "";
+      inputs.theme.value = options.theme === "light" ? "light" : "dark";
+      inputs.language.value = options.language ?? "";
+      inputs.aspect.value = EMBED_ASPECTS.includes(options.aspect) ? options.aspect : EMBED_ASPECTS[0];
+      inputs.autorotate.checked = options.autorotate === true;
+      inputs.autorotateSpeed.value = Number.isFinite(options.autorotateSpeed) ? String(options.autorotateSpeed) : "";
+      inputs.disableInteraction.checked = options.disableInteraction === true;
+      inputs.hideUi.checked = options.hideUi === true;
+      inputs.hideMetadata.checked = options.hideMetadata === true;
+      inputs.presentationMode.checked = options.presentationMode === true;
+      this.setEmbedVectorInputs("camPos", options.cameraPosition);
+      this.setEmbedVectorInputs("camTarget", options.cameraTarget);
+      inputs.fov.value = Number.isFinite(options.fov) ? String(Number(options.fov.toFixed(2))) : "";
+      this.syncEmbedAutorotate();
+    },
+
+    // The speed counts only while auto-rotate is on.
+    syncEmbedAutorotate() {
+      const inputs = this.embedConfigInputs;
+      if (inputs) inputs.autorotateSpeed.disabled = !inputs.autorotate.checked;
     },
 
     setEmbedInputError(input, hasError, message = "") {
@@ -140,21 +204,23 @@ export function attachEmbedConfigurator(Viewer) {
     },
 
     validateEmbedInputFields() {
-      if (!this.embedConfigInputs) return true;
-      const { camPos, camTarget, fov } = this.embedConfigInputs;
-      const camPosRaw = camPos.value.trim();
-      const camTargetRaw = camTarget.value.trim();
-      const fovRaw = fov.value.trim();
-
-      const camPosOk = camPosRaw === "" || this.parseVector3Param(camPosRaw) !== null;
-      const camTargetOk = camTargetRaw === "" || this.parseVector3Param(camTargetRaw) !== null;
+      const inputs = this.embedConfigInputs;
+      if (!inputs) return true;
+      // A vector: all three numbers, or none.
+      const vectorOk = (key) => {
+        const fields = AXES.map((axis) => inputs[`${key}${axis.toUpperCase()}`]);
+        const filled = fields.filter((field) => field.value.trim() !== "");
+        const ok = filled.length === 0 || (filled.length === 3 && fields.every((field) => Number.isFinite(Number(field.value))));
+        const message = t("embedPanel.vectorHint", "Give all three numbers, or none");
+        fields.forEach((field) => this.setEmbedInputError(field, !ok, message));
+        return ok;
+      };
+      const camPosOk = vectorOk("camPos");
+      const camTargetOk = vectorOk("camTarget");
+      const fovRaw = inputs.fov.value.trim();
       const parsedFov = this.parseFloatParam(fovRaw);
       const fovOk = fovRaw === "" || (Number.isFinite(parsedFov) && parsedFov >= 1 && parsedFov <= 179);
-
-      this.setEmbedInputError(camPos, !camPosOk, "Use format: x,y,z (for example 1.2,0.8,2.5)");
-      this.setEmbedInputError(camTarget, !camTargetOk, "Use format: x,y,z (for example 0,0,0)");
-      this.setEmbedInputError(fov, !fovOk, "FOV must be a number from 1 to 179");
-
+      this.setEmbedInputError(inputs.fov, !fovOk, t("embedPanel.fovHint", "FOV: a number from 1 to 179"));
       return camPosOk && camTargetOk && fovOk;
     },
 
@@ -169,6 +235,9 @@ export function attachEmbedConfigurator(Viewer) {
 
       if (options.theme === "light") {
         params.set("theme", options.theme);
+      }
+      if (options.language) {
+        params.set("lang", options.language);
       }
 
       if (options.autorotate === true) {
@@ -228,10 +297,11 @@ export function attachEmbedConfigurator(Viewer) {
       const embedUrl = this.getEmbedPageUrl();
       const params = this.buildViewerParams(options);
       embedUrl.search = params.toString();
+      const aspect = EMBED_ASPECTS.includes(options.aspect) ? options.aspect : EMBED_ASPECTS[0];
 
       return {
         url: embedUrl.toString(),
-        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: 16 / 9; border: 0; background: transparent;"></iframe>`,
+        code: `<iframe src="${embedUrl.toString()}" title="DFG 3D Viewer" loading="lazy" allow="fullscreen; xr-spatial-tracking" referrerpolicy="strict-origin-when-cross-origin" style="width:100%; aspect-ratio: ${aspect.replace(":", " / ")}; border: 0; background: transparent;"></iframe>`,
       };
     },
 
@@ -262,6 +332,8 @@ export function attachEmbedConfigurator(Viewer) {
         model: inputs.model.value.trim() || null,
         id: inputs.id.value.trim() || null,
         theme: inputs.theme.value === "light" ? "light" : null,
+        language: inputs.language.value || null,
+        aspect: inputs.aspect.value,
         autorotate: inputs.autorotate.checked,
         autorotateSpeed: this.parseFloatParam(inputs.autorotateSpeed.value),
         disableInteraction: inputs.disableInteraction.checked,
@@ -290,22 +362,48 @@ export function attachEmbedConfigurator(Viewer) {
       this.embedMissingSourceNotified = true;
     },
 
-    updateEmbedConfiguratorPreview() {
-      if (!this.embedConfigInputs) return;
+    // The address and the code at once; the preview (a whole viewer) once
+    // the typing stops.
+    updateEmbedConfiguratorPreview({ immediate = false } = {}) {
+      const inputs = this.embedConfigInputs;
+      if (!inputs) return;
       if (this.updatingEmbedFields) return;
       this.validateEmbedInputFields();
       const options = this.collectEmbedConfiguratorOptions();
-      if (!this.hasEmbedSourceSelection(options)) {
+      const hasSource = this.hasEmbedSourceSelection(options);
+      if (!hasSource) {
         this.notifyMissingEmbedSource();
       } else {
         this.embedMissingSourceNotified = false;
       }
       const payload = this.buildEmbedPayload(options);
-      this.embedConfigInputs.url.value = payload.url;
-      this.embedConfigInputs.iframe.value = payload.code;
-      if (this.embedConfigPreviewFrame) {
-        this.embedConfigPreviewFrame.src = payload.url;
-      }
+      inputs.url.value = payload.url;
+      inputs.iframe.value = payload.code;
+      this.embedConfiguratorPanel.style.setProperty("--embed-aspect", options.aspect.replace(":", " / "));
+      this.embedConfiguratorPanel.querySelector(".embed-config-empty").hidden = hasSource;
+      this.fitEmbedPreview();
+      clearTimeout(this.embedPreviewTimer);
+      const load = () => {
+        const frame = this.embedConfigPreviewFrame;
+        if (!frame) return;
+        const src = hasSource ? payload.url : "about:blank";
+        if (frame.getAttribute("src") !== src) frame.setAttribute("src", src);
+      };
+      if (immediate) load();
+      else this.embedPreviewTimer = setTimeout(load, EMBED_PREVIEW_DELAY_MS);
+    },
+
+    // The preview at the embed's proportions, as large as its area allows.
+    fitEmbedPreview() {
+      const panel = this.embedConfiguratorPanel;
+      const stage = panel?.querySelector(".embed-config-stage");
+      const frame = this.embedConfigPreviewFrame;
+      if (!stage || !frame || panel.hidden) return;
+      const [w, h] = (this.embedConfigInputs.aspect.value || EMBED_ASPECTS[0]).split(":").map(Number);
+      const ratio = w / h;
+      const width = Math.min(stage.clientWidth, stage.clientHeight * ratio);
+      frame.style.width = `${Math.floor(width)}px`;
+      frame.style.height = `${Math.floor(width / ratio)}px`;
     },
 
     fillConfiguratorWithCurrentCamera() {
@@ -316,18 +414,18 @@ export function attachEmbedConfigurator(Viewer) {
       const activeCamera = core.camera;
       const activeControls = core.controls;
 
-      this.embedConfigInputs.camPos.value = this.formatVector3Param(activeCamera?.position) || "";
-      this.embedConfigInputs.camTarget.value = this.formatVector3Param(activeControls?.target) || "";
-      this.embedConfigInputs.fov.value = Number.isFinite(activeCamera?.fov) ? String(activeCamera.fov) : "";
+      this.setEmbedVectorInputs("camPos", this.formatVector3Param(activeCamera?.position));
+      this.setEmbedVectorInputs("camTarget", this.formatVector3Param(activeControls?.target));
+      this.embedConfigInputs.fov.value = Number.isFinite(activeCamera?.fov) ? String(Number(activeCamera.fov.toFixed(2))) : "";
 
       this.updatingEmbedFields = false;
-      this.updateEmbedConfiguratorPreview();
+      this.updateEmbedConfiguratorPreview({ immediate: true });
     },
 
     resetEmbedConfiguratorFromViewerState() {
       if (!this.embedConfigInputs) return;
       this.applyEmbedOptionsToInputs(this.getCurrentEmbedOptions({ includeCamera: true }));
-      this.updateEmbedConfiguratorPreview();
+      this.updateEmbedConfiguratorPreview({ immediate: true });
     },
 
     toggleEmbedConfigurator(event) {
@@ -349,170 +447,231 @@ export function attachEmbedConfigurator(Viewer) {
 
     createEmbedConfiguratorPanel() {
       if (!core.container || this.embedConfiguratorPanel || this.isEmbedMode()) return;
-      const defaults = this.getCurrentEmbedOptions({ includeCamera: true });
-      const panelText = {
-        title: t("embedPanel.title", "Embed options"),
-        closeAria: t("embedPanel.closeAria", "Close embed options"),
-        modelUrl: t("embedPanel.modelUrl", "Model URL"),
-        modelUrlPlaceholder: t("embedPanel.modelUrlPlaceholder", "/examples/box.glb"),
-        entityId: t("embedPanel.entityId", "Entity ID"),
-        theme: t("embedPanel.theme", "Theme"),
-        themeDark: t("embedPanel.themeDark", "Dark"),
-        themeLight: t("embedPanel.themeLight", "Light"),
-        autoRotateSpeed: t("embedPanel.autoRotateSpeed", "Auto-rotate speed"),
-        cameraPosition: t("embedPanel.cameraPosition", "Camera position"),
-        cameraTarget: t("embedPanel.cameraTarget", "Camera target"),
-        cameraVectorPlaceholder: t("embedPanel.cameraVectorPlaceholder", "x,y,z"),
-        fov: t("embedPanel.fov", "FOV"),
-        autoRotate: t("embedPanel.autoRotate", "Auto-rotate"),
-        disableInteraction: t("embedPanel.disableInteraction", "Disable interaction"),
-        hideActionMenu: t("embedPanel.hideActionMenu", "Hide action menu"),
-        hideMetadata: t("embedPanel.hideMetadata", "Hide metadata"),
-        presentationMode: t("embedPanel.presentationMode", "Presentation mode"),
-        useCurrentCamera: t("embedPanel.useCurrentCamera", "Use Current Camera"),
-        resetFromViewer: t("embedPanel.resetFromViewer", "Reset From Viewer"),
-        copyUrl: t("embedPanel.copyUrl", "Copy URL"),
-        copyIframe: t("embedPanel.copyIframe", "Copy Iframe"),
-        embedUrl: t("embedPanel.embedUrl", "Embed URL"),
-        iframeCode: t("embedPanel.iframeCode", "Iframe code"),
-        preview: t("embedPanel.preview", "Preview"),
-        previewTitle: t("embedPanel.previewTitle", "Embed preview"),
-      };
+      const text = (key, fallback) => escapeHtml(t(`embedPanel.${key}`, fallback));
+      const axisInputs = (key, label) => `
+        <div class="embed-config-row">
+          <span class="embed-config-label">${label}</span>
+          <div class="embed-config-xyz">
+            ${AXES.map((axis) => `<label class="embed-config-axis"><span>${axis.toUpperCase()}</span><input id="embed${key[0].toUpperCase()}${key.slice(1)}${axis.toUpperCase()}" type="number" step="any" inputmode="decimal" /></label>`).join("")}
+          </div>
+          <input id="embed${key[0].toUpperCase()}${key.slice(1)}Input" type="hidden" />
+        </div>`;
+      const check = (id, key, fallback) =>
+        `<label class="embed-config-check"><input id="${id}" type="checkbox" /> <span>${text(key, fallback)}</span></label>`;
+      const languages = [["", text("languageAuto", "Viewer's default")], ["en", "English"], ["pl", "Polski"], ["de", "Deutsch"]];
 
       const panel = document.createElement("div");
       panel.id = "embedConfiguratorPanel";
       panel.hidden = true;
+      // Moved within the window, not the viewer (panel-window.js).
+      panel.style.position = "fixed";
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-labelledby", "embedConfigTitle");
       panel.innerHTML = `
       <div class="embed-config-header">
-        <span>${panelText.title}</span>
-        <button id="embedClosePanel" type="button" aria-label="${panelText.closeAria}">X</button>
+        <span id="embedConfigTitle" class="embed-config-title">${text("title", "Embed options")}</span>
+        <button id="embedClosePanel" class="embed-config-close" type="button" aria-label="${text("closeAria", "Close embed options")}" title="${text("closeAria", "Close embed options")}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
       </div>
       <div class="embed-config-layout">
-        <div class="embed-config-main">
-          <div class="embed-config-grid">
-            <label>${panelText.modelUrl}<input id="embedModelInput" type="text" placeholder="${panelText.modelUrlPlaceholder}" value="${defaults.model ?? ""}" /></label>
-            <label>${panelText.entityId}<input id="embedIdInput" type="text" value="${defaults.id ?? ""}" /></label>
-            <label>${panelText.theme}
+        <div class="embed-config-side">
+          <section class="embed-config-section">
+            <h4>${text("sectionModel", "Model")}</h4>
+            <input id="embedModelInput" class="embed-config-wide" type="text" placeholder="${text("modelUrlPlaceholder", "/examples/box.glb")}" aria-label="${text("modelUrl", "Model URL")}" title="${text("modelUrl", "Model URL")}" />
+            <div class="embed-config-row">
+              <label class="embed-config-label" for="embedIdInput">${text("entityId", "Entity ID")}</label>
+              <input id="embedIdInput" type="text" />
+            </div>
+          </section>
+          <section class="embed-config-section">
+            <h4>${text("sectionLook", "Look")}</h4>
+            <div class="embed-config-row">
+              <label class="embed-config-label" for="embedThemeInput">${text("theme", "Theme")}</label>
               <select id="embedThemeInput">
-                <option value="dark">${panelText.themeDark}</option>
-                <option value="light"${defaults.theme === "light" ? " selected" : ""}>${panelText.themeLight}</option>
+                <option value="dark">${text("themeDark", "Dark")}</option>
+                <option value="light">${text("themeLight", "Light")}</option>
               </select>
-            </label>
-            <label>${panelText.autoRotateSpeed}<input id="embedAutorotateSpeedInput" type="number" step="0.1" value="${Number.isFinite(defaults.autorotateSpeed) ? defaults.autorotateSpeed : ""}" /></label>
-            <label>${panelText.cameraPosition}<input id="embedCamPosInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraPosition ?? ""}" /></label>
-            <label>${panelText.cameraTarget}<input id="embedCamTargetInput" type="text" placeholder="${panelText.cameraVectorPlaceholder}" value="${defaults.cameraTarget ?? ""}" /></label>
-            <label>${panelText.fov}<input id="embedFovInput" type="number" step="1" min="1" max="179" value="${Number.isFinite(defaults.fov) ? defaults.fov : ""}" /></label>
-          </div>
-          <div class="embed-config-checks">
-            <label><input id="embedAutorotateInput" type="checkbox"${defaults.autorotate ? " checked" : ""} /> ${panelText.autoRotate}</label>
-            <label><input id="embedDisableInteractionInput" type="checkbox"${defaults.disableInteraction ? " checked" : ""} /> ${panelText.disableInteraction}</label>
-            <label><input id="embedHideUiInput" type="checkbox"${defaults.hideUi ? " checked" : ""} /> ${panelText.hideActionMenu}</label>
-            <label><input id="embedHideMetadataInput" type="checkbox"${defaults.hideMetadata ? " checked" : ""} /> ${panelText.hideMetadata}</label>
-            <label><input id="embedPresentationModeInput" type="checkbox"${defaults.presentationMode ? " checked" : ""} /> ${panelText.presentationMode}</label>
-          </div>
-          <div class="embed-config-actions">
-            <button id="embedUseCurrentCamera" type="button">${panelText.useCurrentCamera}</button>
-            <button id="embedResetFromViewer" type="button">${panelText.resetFromViewer}</button>
-            <button id="embedCopyUrl" type="button">${panelText.copyUrl}</button>
-            <button id="embedCopyIframe" type="button">${panelText.copyIframe}</button>
-          </div>
-          <label class="embed-config-field">${panelText.embedUrl}<textarea id="embedUrlOutput" readonly></textarea></label>
-          <label class="embed-config-field">${panelText.iframeCode}<textarea id="embedIframeOutput" readonly></textarea></label>
+            </div>
+            <div class="embed-config-row">
+              <label class="embed-config-label" for="embedLanguageInput">${text("language", "Language")}</label>
+              <select id="embedLanguageInput">
+                ${languages.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}
+              </select>
+            </div>
+            <div class="embed-config-row">
+              <label class="embed-config-label" for="embedAspectInput">${text("aspect", "Proportions")}</label>
+              <select id="embedAspectInput">
+                ${EMBED_ASPECTS.map((aspect) => `<option value="${aspect}">${aspect}</option>`).join("")}
+              </select>
+            </div>
+          </section>
+          <section class="embed-config-section">
+            <h4>${text("sectionCamera", "Camera")}</h4>
+            ${axisInputs("camPos", text("cameraPosition", "Position"))}
+            ${axisInputs("camTarget", text("cameraTarget", "Target"))}
+            <div class="embed-config-row">
+              <label class="embed-config-label" for="embedFovInput">${text("fov", "FOV")}</label>
+              <input id="embedFovInput" class="embed-config-short" type="number" step="1" min="1" max="179" />
+            </div>
+            <div class="embed-config-buttons">
+              <button id="embedUseCurrentCamera" type="button" title="${text("useCurrentCameraHint", "The camera of the viewer behind this window")}">${text("useCurrentCamera", "Current camera")}</button>
+              <button id="embedResetFromViewer" type="button" title="${text("resetFromViewerHint", "All the options as the viewer has them")}">${text("resetFromViewer", "Reset")}</button>
+            </div>
+          </section>
+          <section class="embed-config-section">
+            <h4>${text("sectionBehaviour", "Behaviour")}</h4>
+            <div class="embed-config-check embed-config-check--with-value">
+              <label><input id="embedAutorotateInput" type="checkbox" /> <span>${text("autoRotate", "Auto-rotate")}</span></label>
+              <input id="embedAutorotateSpeedInput" class="embed-config-short" type="number" step="0.1" aria-label="${text("autoRotateSpeed", "Auto-rotate speed")}" title="${text("autoRotateSpeed", "Auto-rotate speed")}" />
+            </div>
+            ${check("embedDisableInteractionInput", "disableInteraction", "Disable interaction")}
+            ${check("embedHideUiInput", "hideActionMenu", "Hide action menu")}
+            ${check("embedHideMetadataInput", "hideMetadata", "Hide metadata")}
+            ${check("embedPresentationModeInput", "presentationMode", "Presentation mode")}
+          </section>
         </div>
-        <div class="embed-config-preview-side">
-          <span>${panelText.preview}</span>
-          <iframe id="embedPreviewFrame" title="${panelText.previewTitle}" loading="lazy"></iframe>
+        <div class="embed-config-main">
+          <div class="embed-config-preview-bar">
+            <span class="embed-config-preview-title">${text("preview", "Preview")}</span>
+            <button id="embedReloadPreview" type="button" class="embed-config-icon" aria-label="${text("reload", "Reload the preview")}" title="${text("reload", "Reload the preview")}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <a id="embedOpenPreview" class="embed-config-icon" target="_blank" rel="noopener" aria-label="${text("openTab", "Open in a new tab")}" title="${text("openTab", "Open in a new tab")}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+          <div class="embed-config-stage">
+            <iframe id="embedPreviewFrame" title="${text("previewTitle", "Embed preview")}" allow="fullscreen; xr-spatial-tracking"></iframe>
+            <p class="embed-config-empty" hidden>${text("noSource", "A model URL or an entity ID is needed: a model opened from this device is not on the web.")}</p>
+          </div>
+          <div class="embed-config-code">
+            <div class="embed-config-code-row">
+              <label class="embed-config-label" for="embedUrlOutput">${text("embedUrl", "Embed URL")}</label>
+              <input id="embedUrlOutput" type="text" readonly />
+              <button id="embedCopyUrl" type="button">${text("copyUrl", "Copy URL")}</button>
+            </div>
+            <div class="embed-config-code-row">
+              <label class="embed-config-label" for="embedIframeOutput">${text("iframeCode", "Iframe code")}</label>
+              <textarea id="embedIframeOutput" rows="2" readonly></textarea>
+              <button id="embedCopyIframe" type="button" class="is-primary">${text("copyIframe", "Copy iframe")}</button>
+            </div>
+          </div>
         </div>
       </div>
     `;
 
-      panel.style.height = core.mainCanvas.style.height;
-      core.container.appendChild(panel);
+      // Beside the toolbar (in the wrapper, with the viewer's colours), so
+      // it stands over it.
+      (core.viewerWrapper || core.container).appendChild(panel);
       this.embedConfiguratorPanel = panel;
+      const byId = (id) => panel.querySelector(`#${id}`);
       this.embedConfigInputs = {
-        model: panel.querySelector("#embedModelInput"),
-        id: panel.querySelector("#embedIdInput"),
-        theme: panel.querySelector("#embedThemeInput"),
-        autorotate: panel.querySelector("#embedAutorotateInput"),
-        autorotateSpeed: panel.querySelector("#embedAutorotateSpeedInput"),
-        disableInteraction: panel.querySelector("#embedDisableInteractionInput"),
-        hideUi: panel.querySelector("#embedHideUiInput"),
-        hideMetadata: panel.querySelector("#embedHideMetadataInput"),
-        presentationMode: panel.querySelector("#embedPresentationModeInput"),
-        camPos: panel.querySelector("#embedCamPosInput"),
-        camTarget: panel.querySelector("#embedCamTargetInput"),
-        fov: panel.querySelector("#embedFovInput"),
-        url: panel.querySelector("#embedUrlOutput"),
-        iframe: panel.querySelector("#embedIframeOutput"),
+        model: byId("embedModelInput"),
+        id: byId("embedIdInput"),
+        theme: byId("embedThemeInput"),
+        language: byId("embedLanguageInput"),
+        aspect: byId("embedAspectInput"),
+        autorotate: byId("embedAutorotateInput"),
+        autorotateSpeed: byId("embedAutorotateSpeedInput"),
+        disableInteraction: byId("embedDisableInteractionInput"),
+        hideUi: byId("embedHideUiInput"),
+        hideMetadata: byId("embedHideMetadataInput"),
+        presentationMode: byId("embedPresentationModeInput"),
+        camPos: byId("embedCamPosInput"),
+        camTarget: byId("embedCamTargetInput"),
+        fov: byId("embedFovInput"),
+        url: byId("embedUrlOutput"),
+        iframe: byId("embedIframeOutput"),
       };
-      this.embedConfigPreviewFrame = panel.querySelector("#embedPreviewFrame");
+      ["camPos", "camTarget"].forEach((key) => {
+        AXES.forEach((axis) => {
+          const suffix = axis.toUpperCase();
+          const input = byId(`embed${key[0].toUpperCase()}${key.slice(1)}${suffix}`);
+          this.embedConfigInputs[`${key}${suffix}`] = input;
+          this.bindEventListener(input, "input", () => {
+            this.syncEmbedVectorInput(key);
+            this.updateEmbedConfiguratorPreview();
+          });
+        });
+      });
+      this.embedConfigPreviewFrame = byId("embedPreviewFrame");
 
-      const iframeWindow = this.embedConfigPreviewFrame.contentWindow;
-      this.viewerInstance = iframeWindow.Viewer;
+      // Moved by its header, resized by its corner (panel-window.js). A
+      // window over the page: pinned where it stands on the screen, before
+      // panel-window.js would pin it within its parent.
+      this.bindEventListener(panel, "pointerdown", () => {
+        if (panel.dataset.windowPinned === "1") return;
+        const rect = panel.getBoundingClientRect();
+        panel.style.left = `${Math.round(rect.left)}px`;
+        panel.style.top = `${Math.round(rect.top)}px`;
+        panel.style.transform = "none";
+        panel.dataset.windowPinned = "1";
+      }, { capture: true });
+      makeDraggable(this, panel, panel.querySelector(".embed-config-header"));
+      if (typeof ResizeObserver !== "undefined") {
+        const observer = new ResizeObserver(() => this.fitEmbedPreview());
+        observer.observe(panel.querySelector(".embed-config-stage"));
+        this.addCleanup?.(() => observer.disconnect());
+      }
 
-      const watchedInputs = [
-        this.embedConfigInputs.model,
-        this.embedConfigInputs.id,
-        this.embedConfigInputs.theme,
-        this.embedConfigInputs.autorotate,
-        this.embedConfigInputs.autorotateSpeed,
-        this.embedConfigInputs.disableInteraction,
-        this.embedConfigInputs.hideUi,
-        this.embedConfigInputs.hideMetadata,
-        this.embedConfigInputs.presentationMode,
-        this.embedConfigInputs.camPos,
-        this.embedConfigInputs.camTarget,
-        this.embedConfigInputs.fov,
-      ];
-      watchedInputs.forEach((input) => {
-        if (!input) return;
+      const inputs = this.embedConfigInputs;
+      [
+        inputs.model, inputs.id, inputs.theme, inputs.language, inputs.aspect, inputs.autorotate,
+        inputs.autorotateSpeed, inputs.disableInteraction, inputs.hideUi, inputs.hideMetadata,
+        inputs.presentationMode, inputs.fov,
+      ].forEach((input) => {
         const eventName = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "input";
-        this.bindEventListener(input, eventName, () => this.updateEmbedConfiguratorPreview());
+        this.bindEventListener(input, eventName, () => {
+          if (input === inputs.autorotate) this.syncEmbedAutorotate();
+          this.updateEmbedConfiguratorPreview({ immediate: eventName === "change" });
+        });
       });
 
-      const useCurrentCameraButton = panel.querySelector("#embedUseCurrentCamera");
-      const resetFromViewerButton = panel.querySelector("#embedResetFromViewer");
-      const copyUrlButton = panel.querySelector("#embedCopyUrl");
-      const copyIframeButton = panel.querySelector("#embedCopyIframe");
-      const closePanelButton = panel.querySelector("#embedClosePanel");
-
-      this.bindEventListener(useCurrentCameraButton, "click", () => this.fillConfiguratorWithCurrentCamera());
-      this.bindEventListener(resetFromViewerButton, "click", () => this.resetEmbedConfiguratorFromViewerState());
-      this.bindEventListener(closePanelButton, "click", () => {
-        this.closeEmbedConfigurator();
-      });
-      this.bindEventListener(copyUrlButton, "click", async () => {
-        try {
-          const options = this.collectEmbedConfiguratorOptions();
-          if (!this.hasEmbedSourceSelection(options)) {
-            this.notifyMissingEmbedSource({ force: true });
-            return;
-          }
-          const payload = this.buildEmbedPayload(options);
-          await this.copyTextToClipboard(payload.url);
-          toastHelper("embedUrlCopied", "success");
-        } catch (error) {
-          this.reportError(error, { context: "Copy embed URL failed" });
-          toastHelper("embedUrlCopyError", "error");
+      this.bindEventListener(byId("embedUseCurrentCamera"), "click", () => this.fillConfiguratorWithCurrentCamera());
+      this.bindEventListener(byId("embedResetFromViewer"), "click", () => this.resetEmbedConfiguratorFromViewerState());
+      this.bindEventListener(byId("embedClosePanel"), "click", () => this.closeEmbedConfigurator());
+      this.bindEventListener(byId("embedReloadPreview"), "click", () => {
+        const frame = this.embedConfigPreviewFrame;
+        const src = frame.getAttribute("src");
+        if (src && src !== "about:blank") {
+          frame.setAttribute("src", "about:blank");
+          frame.setAttribute("src", src);
         }
       });
-      this.bindEventListener(copyIframeButton, "click", async () => {
-        try {
-          const options = this.collectEmbedConfiguratorOptions();
-          if (!this.hasEmbedSourceSelection(options)) {
-            this.notifyMissingEmbedSource({ force: true });
-            return;
-          }
-          const payload = this.buildEmbedPayload(options);
-          await this.copyTextToClipboard(payload.code);
-          toastHelper("embedIframeCopied", "success");
-        } catch (error) {
-          this.reportError(error, { context: "Copy embed iframe failed" });
-          toastHelper("embedIframeCopyError", "error");
+      // The address of the moment, when the link is followed.
+      this.bindEventListener(byId("embedOpenPreview"), "click", (event) => {
+        const options = this.collectEmbedConfiguratorOptions();
+        if (!this.hasEmbedSourceSelection(options)) {
+          event.preventDefault();
+          this.notifyMissingEmbedSource({ force: true });
+          return;
         }
+        event.currentTarget.href = this.buildEmbedPayload(options).url;
       });
+      const copy = (button, field, toastKeys, context) => {
+        this.bindEventListener(button, "click", async () => {
+          try {
+            const options = this.collectEmbedConfiguratorOptions();
+            if (!this.hasEmbedSourceSelection(options)) {
+              this.notifyMissingEmbedSource({ force: true });
+              return;
+            }
+            await this.copyTextToClipboard(this.buildEmbedPayload(options)[field]);
+            toastHelper(toastKeys[0], "success");
+          } catch (error) {
+            this.reportError(error, { context });
+            toastHelper(toastKeys[1], "error");
+          }
+        });
+      };
+      copy(byId("embedCopyUrl"), "url", ["embedUrlCopied", "embedUrlCopyError"], "Copy embed URL failed");
+      copy(byId("embedCopyIframe"), "code", ["embedIframeCopied", "embedIframeCopyError"], "Copy embed iframe failed");
+      // The whole field at a click, ready to copy by hand.
+      [inputs.url, inputs.iframe].forEach((field) => this.bindEventListener(field, "focus", () => field.select()));
 
-      this.updateEmbedConfiguratorPreview();
+      this.applyEmbedOptionsToInputs(this.getCurrentEmbedOptions({ includeCamera: true }));
+      this.updateEmbedConfiguratorPreview({ immediate: true });
     },
 
     async copyEmbedCode(event) {
@@ -572,6 +731,9 @@ export function attachEmbedConfigurator(Viewer) {
     closeEmbedConfigurator() {
       if (this.embedConfiguratorPanel) {
         this.embedConfiguratorPanel.hidden = true;
+        // The preview's viewer stops with the window.
+        clearTimeout(this.embedPreviewTimer);
+        this.embedConfigPreviewFrame?.setAttribute("src", "about:blank");
       }
       this.updateEmbedMenuEntryState();
     },

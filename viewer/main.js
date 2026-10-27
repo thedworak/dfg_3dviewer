@@ -2592,9 +2592,11 @@ export const Viewer = {
       .pop()
       .toLowerCase();
 
-    // Not one of the examples: the select says so.
+    // Not one of the examples: the select says so. Nor on the web: nothing
+    // to embed.
     if (core.SUPPORTED_EXTENSIONS.includes(extension) || Viewer.SUPPORTED_ARCHIVES.includes(extension)) {
       clearExampleModelSelection();
+      Viewer.shownModelUrl = null;
     }
 
     if (core.SUPPORTED_EXTENSIONS.includes(extension)) {
@@ -2705,6 +2707,13 @@ export const Viewer = {
   },
 
   async mainLoadModelWrapper() {
+    // Where the model on screen comes from, as given (the embed options,
+    // ui/embed-configurator.js); the first model of a scene. A file from
+    // the device has none (openLocalFile).
+    if (!(core.objectsConfig?.index > 0)) {
+      const source = core.autoPath !== '' ? core.autoPath : core.fileObject.originalPath;
+      Viewer.shownModelUrl = source && !String(source).startsWith('blob:') ? source : null;
+    }
     if (core.autoPath !== '') {
       core.autoPath = Viewer.normalizeFileUrl(core.autoPath);
       core.autoPath = Viewer.normalizeArchiveModelPath(core.autoPath);
@@ -4139,7 +4148,9 @@ export const Viewer = {
           openLocalFileButton = header.querySelector('#openLocalFileButton');
           browseManifestsButton = header.querySelector('#browseManifestsButton');
           manageUsersButton = header.querySelector('#manageUsersButton');
-          viewerElement.parentNode.insertBefore(header, viewerElement);
+          // An embedded viewer is the viewer alone: the header still reads
+          // the model from the address, but is not shown.
+          if (!Viewer.isEmbedMode()) viewerElement.parentNode.insertBefore(header, viewerElement);
         }
         // The header buttons' panels drop down below them (ui/panel-window.js).
         // On a desktop they open on hover too, like submenus (ui/hover-open.js).
