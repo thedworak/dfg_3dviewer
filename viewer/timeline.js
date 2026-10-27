@@ -2,7 +2,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
 import { getViewerSideStack } from "./ui/side-stack.js";
-import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "./ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome, setToolPanelProgress } from "./ui/tool-panel-chrome.js";
 
 // 4D timeline: a model shown in time. Each stage is a point on the time axis
 // (a year) with the nodes that show the object at that point; any year can be
@@ -757,6 +757,7 @@ export function attachTimeline(Viewer) {
         ui.shownYear = shownYear;
         const span = Math.max(state.endYear - state.startYear, EPSILON);
         ui.progress.style.width = `${((state.year - state.startYear) / span) * 100}%`;
+        setToolPanelProgress(ui.panel, (state.year - state.startYear) / span);
         if (!state.scrubbing) ui.range.value = String(state.playing ? state.year : state.targetYear);
         const stage = Viewer.getTimelineCurrentStage();
         const onStage = stage && Math.abs(stage.year - state.year) < 0.5;

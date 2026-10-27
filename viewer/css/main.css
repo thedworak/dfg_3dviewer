@@ -2133,6 +2133,13 @@ body.presentation-mode {
   }
 }
 
+/* The menus on a phone or a tablet on its side (ui/menu-toolbar.js): the
+   model's details open from the Model menu; the card would sit under the
+   rail. */
+.viewer-menus-compact #metadata-card {
+  display: none !important;
+}
+
 /* Touch: targets of about 40px and more, no resize handles to hit by
    accident, and the viewer's overlays clear of notches and the home bar. */
 @media (pointer: coarse) {

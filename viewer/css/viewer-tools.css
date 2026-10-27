@@ -1,11 +1,14 @@
 /* Animation player, measurement labels and measurement readout. */
 
-/* Top-right column holding the floating tool panels (ui/side-stack.js). */
+/* Top-right column holding the floating tool panels (ui/side-stack.js),
+   above the editor toolbar (z-index 9999): a tall window (materials, the
+   publishing report) is not cut by the bar. An open menu of the bar still
+   comes first (editor-toolbar.css). */
 .viewer-side-stack {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 115;
+  z-index: 10000;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -29,7 +32,6 @@
     left: 12px;
     right: 12px;
     max-width: none;
-    z-index: 1000;
   }
 
   /* Padding and border inside the width: a panel at width: 100% would
@@ -1321,18 +1323,12 @@
 }
 
 /* Undocked: dragged out of the side stack into the viewer container, above
-   the stack (z-index 115, phones 1000). */
+   the stack (z-index 10000). */
 .has-tool-chrome.is-undocked {
   position: absolute;
-  z-index: 116;
+  z-index: 10001;
   max-width: none;
   box-sizing: border-box;
-}
-
-@media (max-width: 640px) {
-  .has-tool-chrome.is-undocked {
-    z-index: 1001;
-  }
 }
 
 /* Minimized: a small round icon (.tool-panel-chrome_pip) alone; a tap
@@ -1373,6 +1369,26 @@
   color: var(--viewer-brand-gold, #e9b264);
   cursor: pointer;
   touch-action: none;
+}
+
+/* A playback's progress (setToolPanelProgress): a ring filling clockwise
+   around the icon. */
+.has-tool-chrome .tool-panel-chrome_pip.has-progress {
+  position: relative;
+}
+
+.has-tool-chrome .tool-panel-chrome_pip.has-progress::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--viewer-brand-gold, #e9b264) calc(var(--tool-panel-progress, 0) * 360deg),
+    var(--viewer-panel-border, rgba(255, 255, 255, 0.18)) 0
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  pointer-events: none;
 }
 
 .has-tool-chrome.is-minimized > .tool-panel-chrome_pip:hover,

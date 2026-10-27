@@ -316,6 +316,17 @@ export function attachToolPanelChrome(panel, header, {
   }
 }
 
+// How far a panel's playback has come (tour, timeline, animation), as a ring
+// around its icon while it is minimized: `value` 0..1, null for none.
+export function setToolPanelProgress(panel, value) {
+  const pip = panel?.toolPanelChrome?.pip;
+  if (!pip) return;
+  const shown = Number.isFinite(value);
+  pip.classList.toggle("has-progress", shown);
+  if (shown) pip.style.setProperty("--tool-panel-progress", String(Math.min(Math.max(value, 0), 1)));
+  else pip.style.removeProperty("--tool-panel-progress");
+}
+
 // The chrome's texts again, in the current language (ui/localization-theme.js).
 export function refreshToolPanelChrome(panel) {
   const chrome = panel?.toolPanelChrome;

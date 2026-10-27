@@ -6,6 +6,7 @@ import { StatusPoller } from "../status-poller.js";
 import { UltraLoader } from "../ultra-loader.js";
 import { makePanelWindow } from "./panel-window.js";
 import { hidePreviewBadge, showPreviewBadge } from "../loaders.js";
+import { clearExampleModelSelection } from "../example-models.js";
 
 // Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
 // converted without Blender, and formats the viewer reads directly (kept as
@@ -716,6 +717,7 @@ export function attachUploadPanel(Viewer) {
       // streamed tiles are built: shown once, replaced when they are ready.
       if (!finished && data.previewUrl && this.uploadPreviewJob !== jobId) {
         this.uploadPreviewJob = jobId;
+        clearExampleModelSelection();
         core.autoPath = remoteAssetUrl(data.previewUrl);
         // The preview is there to be looked at while the rest is built.
         this.setUploadBusy(false, { gallery: false });
@@ -731,6 +733,7 @@ export function attachUploadPanel(Viewer) {
       }
       if (data.status === "ready" && data.modelUrl) {
         toastHelper("uploadReady", "success");
+        clearExampleModelSelection();
         core.autoPath = remoteAssetUrl(data.modelUrl);
         // The model's own loading progress shows on the viewer; the gallery
         // waits for the new thumbnails.

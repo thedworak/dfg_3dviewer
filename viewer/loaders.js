@@ -577,6 +577,10 @@ function finishPointCloudLoading(root, done) {
 
 export async function loadModel() {
   core.loadingLog?.start?.();
+  // Shown from the start, not only from the first download progress: loaders
+  // that report none (3D Tiles, Potree, ...) move it by their stages.
+  core.circle?.reset?.();
+  core.circle?.show?.();
   // A point cloud still filling in belongs to the model being replaced.
   if (core.progressiveLoad?.pointCloud) core.progressiveLoad = null;
   let modelPath = core.fileObject.filename.startsWith('blob:') ? core.fileObject.filename : core.fileObject.path + core.fileObject.filename;
@@ -1114,6 +1118,7 @@ export async function loadModel() {
       default:
         toastHelper("unsupportedExtension", "warning");
         core.loadingLog?.fail?.();
+        core.circle?.hide?.();
         hideAppSplash();
         return;
     }

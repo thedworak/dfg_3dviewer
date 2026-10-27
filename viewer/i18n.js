@@ -332,6 +332,7 @@ export const VIEWER_I18N = {
     },
     localPreview: {
       loadExampleModel: "Load example model",
+      noExampleModel: "Other model",
     },
     embedPanel: {
       title: "Embed options",
@@ -1218,7 +1219,7 @@ export const VIEWER_I18N = {
       lightingCurrent: "Lighting as set",
       lightingNoEnvironment: "No environment map",
       lightingEnvironment: "Environment: {name}",
-      openLook: "Compare two shading modes or lightings side by side",
+      openLook: "Shading/lighting side by side",
       variantsTitle: "Reconstruction variants",
       expand: "Show variants",
       collapse: "Hide variants",
@@ -1825,6 +1826,7 @@ export const VIEWER_I18N = {
     },
     localPreview: {
       loadExampleModel: "Wczytaj model przykładowy",
+      noExampleModel: "Inny model",
     },
     embedPanel: {
       title: "Opcje osadzania",
@@ -2746,7 +2748,7 @@ export const VIEWER_I18N = {
       lightingCurrent: "Oświetlenie jak ustawione",
       lightingNoEnvironment: "Bez mapy otoczenia",
       lightingEnvironment: "Otoczenie: {name}",
-      openLook: "Porównaj dwa tryby cieniowania lub oświetlenia obok siebie",
+      openLook: "Cieniowanie/oświetlenie obok siebie",
       variantsTitle: "Warianty rekonstrukcji",
       expand: "Pokaż warianty",
       collapse: "Ukryj warianty",
@@ -3352,6 +3354,7 @@ export const VIEWER_I18N = {
     },
     localPreview: {
       loadExampleModel: "Beispielmodell laden",
+      noExampleModel: "Anderes Modell",
     },
     toolPanel: {
       move: "Panel verschieben (Doppeltipp: andocken)",
@@ -4273,7 +4276,7 @@ export const VIEWER_I18N = {
       lightingCurrent: "Beleuchtung wie eingestellt",
       lightingNoEnvironment: "Ohne Umgebungskarte",
       lightingEnvironment: "Umgebung: {name}",
-      openLook: "Zwei Schattierungen oder Beleuchtungen nebeneinander vergleichen",
+      openLook: "Schattierung/Beleuchtung nebeneinander",
       variantsTitle: "Rekonstruktionsvarianten",
       expand: "Varianten zeigen",
       collapse: "Varianten ausblenden",

@@ -551,6 +551,12 @@ test('tool panels: a ring counts down the tour step, panels move, minimize to an
   const icon = await panel.boundingBox();
   expect(icon.width).toBeLessThan(60);
   expect(icon.height).toBeLessThan(60);
+  // The tour's progress goes round the icon: step 1 of 2, then 2 of 2.
+  await expect(pip).toHaveClass(/has-progress/);
+  await expect(pip).toHaveCSS('--tool-panel-progress', '0.5');
+  await page.evaluate(() => window.Viewer.nextTourStep());
+  await expect(pip).toHaveCSS('--tool-panel-progress', '1');
+  await page.evaluate(() => window.Viewer.previousTourStep());
   await pip.click();
   await expect(pip).toBeHidden();
   await expect(panel.locator('.viewer-tour-panel_title')).toHaveText('1. First');
@@ -2432,9 +2438,13 @@ test('VR and AR: offered when the browser has them, the viewer placed at real si
   await page.evaluate(() => { (window as any).__xrMode = 'fake'; });
   await panel.locator('[data-xr="ar"]').click();
   await page.waitForFunction(() => (window as any).__xrCalls.length === 2 && !window.Viewer.xr.starting);
-  const after = await page.evaluate(async () => {
-    const frames = window.viewer.renderer.info.render.frame;
-    await new Promise((resolve) => setTimeout(resolve, 300));
+  const frames = await page.evaluate(() => window.viewer.renderer.info.render.frame);
+  // Polled, not a fixed wait: one frame of software WebGL can take longer
+  // than a short pause when the machine is busy.
+  const framesRunning = await page
+    .waitForFunction((count) => window.viewer.renderer.info.render.frame > count, frames, { timeout: 15_000 })
+    .then(() => true, () => false);
+  const after = await page.evaluate((framesRunning) => {
     return {
       call: (window as any).__xrCalls[1],
       presenting: window.Viewer.isXRPresenting(),
@@ -2445,9 +2455,9 @@ test('VR and AR: offered when the browser has them, the viewer placed at real si
       grid: window.Viewer.xr.saved === null,
       controls: window.Viewer.controls.enabled,
       xrEnabled: window.viewer.renderer.xr.enabled,
-      framesRunning: window.viewer.renderer.info.render.frame > frames,
+      framesRunning,
     };
-  });
+  }, framesRunning);
   expect(after.call).toMatchObject({ mode: 'immersive-ar', overlay: true, features: expect.arrayContaining(['dom-overlay']) });
   expect(after).toMatchObject({ presenting: false, parent: true, rig: false, grid: true, controls: true, xrEnabled: false, framesRunning: true });
   after.position.forEach((value, index) => expect(value).toBeCloseTo(before[index], 4));
@@ -3740,6 +3750,27 @@ test('example model list: fetched from examples/index.json, so a new example nee
   expect(await page.evaluate(() => localStorage.getItem('dfg3dviewer-example-models'))).toBeNull();
 });
 
+test('example model select: a model opened from elsewhere leaves it on none of the examples', async ({ page }) => {
+  await openViewer(page, '/examples/tempietto/Tempietto.glb');
+  await waitForModel(page);
+  const select = page.locator('#example-model-select');
+  await expect(select).toHaveValue('./examples/tempietto/Tempietto.glb');
+
+  // A model from the device (the library, a dropped file; the repository
+  // goes the same way).
+  await page.evaluate(async () => {
+    window.viewer.fullModelLoaded = false;
+    const blob = await (await fetch('./examples/box.glb')).blob();
+    await window.Viewer.openLocalFile(new File([blob], 'box.glb'));
+  });
+  await waitForModel(page);
+  await expect(select).toHaveValue('');
+  await expect(select.locator('option[data-placeholder]')).toHaveText('Other model');
+  await page.evaluate(() => window.Viewer.selectLanguage('pl'));
+  await expect(select.locator('option[data-placeholder]')).toHaveText('Inny model');
+  await expect(select).toHaveValue('');
+});
+
 test('example manifests: one folded group per model, its manifests named by what they change', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
@@ -4138,7 +4169,7 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   // models have (hidden here: no variants, IFC or point cloud): under Model.
   await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
   const tools = toolbar.locator('.viewer-menus_group[data-category="model"] > [data-tool]:visible');
-  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['move', 'rotate', 'scale', 'upAxis', 'ruler', 'hierarchy', 'picking']);
+  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['modelDetails', 'move', 'rotate', 'scale', 'upAxis', 'ruler', 'hierarchy', 'picking']);
   await toolbar.locator('.viewer-menus_group[data-category="model"] [data-tool="move"]').click();
   expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('translate');
   await toolbar.locator('.viewer-menus_nav [data-tool="orbit"]').click();
@@ -4291,6 +4322,19 @@ test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once
   expect(last.y).toBeGreaterThan(first.y + 100);
   expect(Math.abs(first.x - last.x)).toBeLessThan(2);
   expect(first.x).toBeLessThan(20);
+
+  // The model's details: not a card under the rail, an entry of Model.
+  await expect(page.locator('#metadata-card')).toBeHidden();
+  await toolbar.locator('.viewer-menus_tab[data-menu="model"]').tap();
+  const details = panel.locator('[data-tool="modelDetails"]');
+  await expect(details).toBeVisible();
+  await details.tap();
+  await expect(page.locator('#metadata-window')).toBeVisible();
+  const [detailsWindow, rail] = await Promise.all([
+    page.locator('#metadata-window').boundingBox(),
+    toolbar.locator('.viewer-menus_tabs').boundingBox(),
+  ]);
+  expect(detailsWindow.x).toBeGreaterThanOrEqual(rail.x + rail.width);
   await context.close();
 });
 

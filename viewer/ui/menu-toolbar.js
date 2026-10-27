@@ -43,7 +43,7 @@ const CATEGORIES = [
     id: "model",
     label: () => t("menus.model", "Model"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["move", "rotate", "scale", "upAxis", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
+    tools: ["modelDetails", "move", "rotate", "scale", "upAxis", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
   },
   {
     id: "story",
@@ -398,6 +398,8 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     const before = previous ? measureTabs() : null;
     state.mode = mode;
     toolbar.dataset.mode = mode;
+    // The model's details move into the Model menu (main.css).
+    core.container?.classList.toggle("viewer-menus-compact", mode !== "desktop");
     if (state.open === "more" && mode === "desktop") openMenu(null);
     placePanel();
     showSheetHeight();
@@ -558,7 +560,7 @@ export function updateMenuToolbarLabels(viewer) {
     sunStudy: t("sun.title", "Sun and shadows"),
     rakingLight: t("gui.rakingLight", "Raking light"),
     compare: viewer.isComparing?.("content") ? t("compare.close", "Close the comparison") : t("compare.open", "Compare two variants side by side"),
-    compareLook: viewer.isComparing?.("look") ? t("compare.close", "Close the comparison") : t("compare.openLook", "Compare two shading modes or lightings side by side"),
+    compareLook: viewer.isComparing?.("look") ? t("compare.close", "Close the comparison") : t("compare.openLook", "Shading/lighting side by side"),
     annotatePhotos: t("gui.annotatePhotos", "Historical photos"),
     annotateImport: t("gui.annotateImport", "Import Annotations"),
     annotateExport: t("gui.annotateExport", "Export Annotations"),
@@ -580,6 +582,9 @@ export function updateMenuToolbarState(viewer) {
   const menus = viewer.menuToolbar;
   if (!menus) return;
   viewer.editorToolbarButtons?.moveToolbar?.classList.remove("is-active");
+  // Only once the model has its details (metadata.js).
+  const details = viewer.editorToolbarButtons?.modelDetails;
+  if (details) details.hidden = !document.getElementById("metadata-window");
   [["compare", "content"], ["compareLook", "look"]].forEach(([key, kind]) => {
     const button = viewer.editorToolbarButtons?.[key];
     if (!button) return;

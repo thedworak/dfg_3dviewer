@@ -529,6 +529,7 @@ export function attachModelsPanel(Viewer) {
           return;
         }
         this.closeModelsPanel();
+        clearExampleModelSelection();
         if (file) {
           setPendingIfcProperties(ifcProperties);
           setPendingSavedSettings(settings);
@@ -543,6 +544,7 @@ export function attachModelsPanel(Viewer) {
         }
       } else {
         this.closeModelsPanel();
+        clearExampleModelSelection();
         core.autoPath = remoteAssetUrl(job.modelUrl);
         this.resetLoadedModelState();
         await this.mainLoadModelWrapper();

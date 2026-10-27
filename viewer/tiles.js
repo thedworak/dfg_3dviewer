@@ -271,13 +271,21 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
     tiles.addEventListener("tiles-load-end", onLoadEnd);
     tiles.addEventListener("load-error", onError);
     // Nothing loads until the renderer is updated with a camera.
+    let reported = 0;
+    const report = (value) => {
+      if (value <= reported) return;
+      reported = value;
+      onProgress?.(value);
+    };
     const pump = () => {
       if (settled || activeTiles !== tiles) return;
       if (tiles.root?.engineData?.boundingVolume && !oriented) {
         orient();
-        onProgress?.(50);
+        report(50);
       }
       updateTiles();
+      // The first batch of tiles (or of Potree nodes) as it comes in.
+      if (oriented) report(50 + Math.round(49 * Math.min(Math.max(tiles.loadProgress || 0, 0), 1)));
       const ready = tiles.root?.engineData?.boundingVolume
         && (firstBatchDone || tiles.loadProgress === 1)
         && hasTileContent(tiles.group);

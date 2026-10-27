@@ -2,7 +2,7 @@ import THREE from "./init.js";
 import { core } from "./core.js";
 import { t } from "./i18n-utils.js";
 import { getViewerSideStack } from "./ui/side-stack.js";
-import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "./ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome, setToolPanelProgress } from "./ui/tool-panel-chrome.js";
 
 // Playback of animation clips shipped with the loaded model (glTF/GLB, FBX,
 // DAE, KMZ, three.js JSON). Loaders leave the clips on `object.animations`;
@@ -367,7 +367,11 @@ export function attachAnimations(Viewer) {
         .sort((a, b) => b.getClip().duration - a.getClip().duration);
       const time = primary ? primary.time : 0;
       const rounded = time.toFixed(2);
-      if (ui.timeline.value !== rounded) ui.timeline.value = rounded;
+      if (ui.timeline.value !== rounded) {
+        ui.timeline.value = rounded;
+        const duration = Viewer.getAnimationDuration();
+        setToolPanelProgress(ui.bar, duration > 0 ? time / duration : null);
+      }
       const label = `${formatSeconds(time)} / ${formatSeconds(Viewer.getAnimationDuration())}`;
       if (ui.timeLabel.textContent !== label) ui.timeLabel.textContent = label;
     },

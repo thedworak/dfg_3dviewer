@@ -230,6 +230,9 @@ function setMetadataWindowOpen(open) {
   toggle.classList.toggle("metadata-collapsed", !open);
   toggle.setAttribute("aria-expanded", String(open));
   card?.classList.toggle("metadata-open", open);
+  // Its entry in the Model menu (editor-toolbar.js), once the window shows
+  // or has started closing.
+  requestAnimationFrame(() => window.Viewer?.updateEditorToolbarState?.());
 
   if (!open) {
     if (win.hidden) return;
@@ -270,6 +273,12 @@ function setMetadataWindowOrigin(win) {
   const card = document.getElementById("metadata-card");
   if (!card) return;
   const cardRect = card.getBoundingClientRect();
+  // No card on screen (opened from the menus): from the window's corner.
+  if (!cardRect.width) {
+    win.style.removeProperty("--window-origin-x");
+    win.style.removeProperty("--window-origin-y");
+    return;
+  }
   const x = (parseFloat(win.style.getPropertyValue("--window-x")) || 0);
   const y = (parseFloat(win.style.getPropertyValue("--window-y")) || 0);
   const host = getMetadataDragHost()?.getBoundingClientRect();

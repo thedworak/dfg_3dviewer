@@ -3,7 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome, setToolPanelProgress } from "../ui/tool-panel-chrome.js";
 
 // Guided tour: steps through the model's annotations in marker order, flying
 // the camera to each one and showing its title and description in a panel.
@@ -688,6 +688,8 @@ export function attachTour(Viewer) {
         : "";
       ui.description.textContent = step?.entry.description || "";
       ui.description.hidden = !step?.entry.description;
+      // The steps gone through, around the minimized panel's icon.
+      setToolPanelProgress(ui.panel, state.steps.length ? (state.index + 1) / state.steps.length : null);
       const playLabel = state.playing ? t("tour.pause", "Pause tour") : t("tour.play", "Play tour");
       ui.playIcon.textContent = state.playing ? "❚❚" : "▶";
       ui.playButton.setAttribute("aria-label", playLabel);

@@ -74,11 +74,24 @@ export function renderExampleModelOptions(select) {
     text: localizedName(entry.name) || entry.url,
     online: entry.online,
   }));
+  // Shown while the model on screen came from elsewhere (the repository, the
+  // device, a manifest): clearExampleModelSelection().
+  let placeholder = select.querySelector("option[data-placeholder]");
+  if (!placeholder) {
+    placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.dataset.placeholder = "true";
+    placeholder.disabled = true;
+    placeholder.hidden = true;
+    const button = select.querySelector(":scope > button");
+    select.insertBefore(placeholder, button ? button.nextSibling : select.firstChild);
+  }
+  placeholder.textContent = t("localPreview.noExampleModel", "Other model");
   const signature = JSON.stringify(options);
   if (select.dataset.exampleList !== signature) {
     select.dataset.exampleList = signature;
     const value = select.value;
-    select.querySelectorAll("option:not([data-keep])").forEach((option) => option.remove());
+    select.querySelectorAll("option:not([data-keep]):not([data-placeholder])").forEach((option) => option.remove());
     const kept = select.querySelector("option[data-keep]");
     options.forEach(({ value: url, text, online: needsNetwork }) => {
       const option = document.createElement("option");
@@ -87,11 +100,30 @@ export function renderExampleModelOptions(select) {
       if (needsNetwork) option.dataset.online = "true";
       select.insertBefore(option, kept);
     });
-    if (value) select.value = value;
+    select.value = value;
+    if (select.selectedIndex < 0) select.value = "";
   }
   const label = t("examplesPanel.online", "Needs an internet connection");
   select.querySelectorAll("option[data-online]").forEach((option) => {
     option.title = label;
     option.disabled = !online;
   });
+}
+
+// Shows `url` in the select: its example also when written another way
+// ("/examples/x.glb" for "./examples/x.glb"), else the placeholder.
+export function selectExampleModel(select, url) {
+  if (!select) return;
+  const key = (value) => String(value || "").replace(/^\.?\//, "");
+  const option = [...select.options].find((entry) => !entry.dataset.placeholder && key(entry.value) === key(url));
+  select.value = option ? option.value : "";
+}
+
+// A model opened from anywhere but the select: the select shows none of its
+// examples (the placeholder of renderExampleModelOptions()).
+export function clearExampleModelSelection() {
+  const select = document.getElementById("example-model-select");
+  if (!select) return;
+  renderExampleModelOptions(select);
+  select.value = "";
 }

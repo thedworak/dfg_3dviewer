@@ -11,6 +11,7 @@ import { upAxisLabel } from "./editor/up-axis.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
 import { appToolbarTools } from "./app-features.js";
+import { expandMetadata, isMetadataWindowOpen } from "./metadata.js";
 import {
   buildMenuToolbar,
   isMenuToolbar,
@@ -99,6 +100,7 @@ export function getEditorToolbarIcon(icon) {
     publishCheck: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3.5h7v3h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5H4.5v16h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M17 5h2.5v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 11h6M8 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 15v2.2M18.5 20.8V23M15.2 19h2.2M19.6 19h2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     validationReport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7.5 5H5v16h14V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 13.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     eventLog: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    modelDetails: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7.75" r="1.1" fill="currentColor"/></svg>',
     credits: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.8 9.4a3.6 3.6 0 1 0 0 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
@@ -1487,6 +1489,9 @@ export function createEditorToolbar(viewer) {
       // The comparisons lay their own bar over the model: the menu closes.
       { key: "compare", group: "analysis", icon: "compare", onClick: () => { viewer.toggleCompare?.(); viewer.openToolbarMenu?.(null); }, pressed: true, primary: false },
       { key: "compareLook", group: "view", icon: "compareLook", onClick: () => { viewer.toggleCompare?.({ kind: "look" }); viewer.openToolbarMenu?.(null); }, pressed: true, primary: false },
+      // The model's details (metadata.js): on a phone or a tablet on its
+      // side only here, the card in the corner giving way to the menus.
+      { key: "modelDetails", group: "inspect", icon: "modelDetails", onClick: () => { expandMetadata(); viewer.openToolbarMenu?.(null); }, pressed: true, primary: false },
       { key: "annotateTour", group: "story", icon: "annotateTour", onClick: () => viewer.toggleTour(), pressed: true, primary: false },
       { key: "annotatePhotos", group: "story", icon: "annotatePhotos", onClick: () => viewer.togglePhotosPanel(), pressed: true, primary: false },
       { key: "annotateImport", group: "file", icon: "annotateImport", onClick: () => viewer.triggerAnnotationsXmlImport(), primary: false },
@@ -2464,6 +2469,7 @@ export function updateEditorToolbarLabels(viewer) {
       ? t("gui.hideCredits", "Hide credits")
       : t("gui.showCredits", "Show credits"),
     validationReport: t("gui.validationReport", "Validation report"),
+    modelDetails: t("metadata.modelDetails", "Model details"),
     publishCheck: t("prepare.title", "Prepare for publishing"),
     eventLog: t("eventLog.title", "Event log"),
     ifcQuery: t("ai.ifc.toggle", "Ask the building model (AI)"),
@@ -2708,6 +2714,7 @@ export function updateEditorToolbarState(viewer) {
     loadingLogs: viewer.showLoadingLogs === true,
     credits: Boolean(viewer.creditsWrapper && !viewer.creditsWrapper.hidden),
     validationReport: viewer.isValidationReportOpen?.() === true,
+    modelDetails: isMetadataWindowOpen(),
     publishCheck: viewer.isPublishCheckPanelOpen?.() === true,
     eventLog: viewer.isEventLogOpen?.() === true,
     ground: viewer.isGroundPanelOpen?.() === true,

@@ -42,7 +42,7 @@ import { core, setCore } from './core.js';
 import { installDebugOverlay } from './debug-overlay.js';
 import { initConnectivity, isOnline, onConnectivityChange } from './connectivity.js';
 import { retargetManifest } from './manifesto/retarget-manifest.js';
-import { getExampleModels, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';
+import { clearExampleModelSelection, getExampleModels, selectExampleModel, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';
 import { initRemote, isAppBuild } from './remote.js';
 import { initAppEarly, initAppSettings, attachAppUi, hideAppSplash } from './app-hooks.js';
 
@@ -2592,6 +2592,11 @@ export const Viewer = {
       .pop()
       .toLowerCase();
 
+    // Not one of the examples: the select says so.
+    if (core.SUPPORTED_EXTENSIONS.includes(extension) || Viewer.SUPPORTED_ARCHIVES.includes(extension)) {
+      clearExampleModelSelection();
+    }
+
     if (core.SUPPORTED_EXTENSIONS.includes(extension)) {
       try {
         await loadDroppedModel(file);
@@ -3517,6 +3522,7 @@ export const Viewer = {
     Viewer.bindEventListener(document.getElementById("manifesto-manifest-select"), "change", async (ev) => {
       try {
         if (ev.target.value !== Viewer.iiifConfigURL.url) {
+          clearExampleModelSelection();
           core.objectsConfig.setupIndex = 0;
           await Viewer.setupManifesto(ev.target.value, "url", type);
         }
@@ -3537,6 +3543,7 @@ export const Viewer = {
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
+          clearExampleModelSelection();
           console.log(`Loading ${className} manifest from URL: ` + inputElement.value);
           await Viewer.setupManifesto(inputElement.value, "url", type);
         }
@@ -3557,6 +3564,7 @@ export const Viewer = {
       } else {
         inputElement.style.border = "2px solid green";
         core.objectsConfig.setupIndex = 0;
+          clearExampleModelSelection();
           console.log(`Loading ${className} manifest from provided text`);
           if (type === "iiif") {
             await Viewer.setupManifesto(inputElement.value, "text", type);
@@ -4244,7 +4252,7 @@ export const Viewer = {
           core.autoPath = selectedModel;
           picker.style.display = 'inline-flex';
           renderExampleModelOptions(selectModel);
-          selectModel.value = selectedModel;
+          selectExampleModel(selectModel, selectedModel);
           Viewer.watchExampleModelList(selectModel);
           viewerElement.setAttribute('3d', selectedModel);
           if (themeToggle) {

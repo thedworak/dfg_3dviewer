@@ -54,6 +54,12 @@
     background 1.28s ease;
 }
 
+/* An open menu of the bar comes before the tool panels (viewer-tools.css,
+   z-index 10000), which otherwise stand above the bar. */
+#viewerEditorToolbar.viewer-menus--open {
+  z-index: 10002;
+}
+
 #viewerEditorToolbar.viewer-editor-toolbar_anchor-center {
   transform-origin: center bottom;
 }

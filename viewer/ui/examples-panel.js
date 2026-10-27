@@ -7,6 +7,7 @@ import { exampleManifestOption, getExampleManifests, groupExampleOptions, refres
 import { inspectAIM3DManifest, manifestModelUrls } from "../manifesto/manifest-inspection.js";
 import { featureIconsCaption } from "./feature-icons.js";
 import { fetchModelValidation } from "./validation-report.js";
+import { clearExampleModelSelection } from "../example-models.js";
 
 // The example AIM3D/IIIF manifests the dev build offers in its manifest
 // form (metadata.js): in the app the third tab of the "Models" panels
@@ -191,6 +192,7 @@ export function attachExamplesPanel(Viewer) {
 
     async loadExampleManifest(url, type, baseUrl) {
       this.closeExamplesPanel();
+      clearExampleModelSelection();
       try {
         core.objectsConfig.setupIndex = 0;
         await this.setupManifesto(url, "url", type, { baseUrl });
