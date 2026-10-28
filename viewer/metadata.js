@@ -904,7 +904,10 @@ export async function handleMetadataResponse(
         '<div class="metadata-stats">' +
           statTile("vertices", "Vertices") +
           statTile("faces", "Faces") +
-        '</div>';
+        '</div>' +
+        // A repository model's name, type, author... (ui/model-metadata.js),
+        // filled in once fetched.
+        '<div id="metadata-repository" class="metadata-repository" hidden></div>';
   metadataContent += await fetchEntityMetadata();
 
   if (!core.downloadModel) {
@@ -952,6 +955,7 @@ export async function handleMetadataResponse(
       '</div>' +  // #metadata-content
     '</div>';  // #metadata-window
   appendMetadata(metadataContent);
+  window.Viewer?.renderRepositoryMetadata?.();
   bindMetadataInteractions();
   initializeMetadataDragAndResize();
   requestAnimationFrame(updateMetadataOverflow);

@@ -54,6 +54,18 @@ async function openViewer(page, modelPath = defaultModel, query = '') {
   await page.waitForSelector('#MainCanvas', { state: 'attached' });
 }
 
+// "Upload & convert": the file or link is checked, then the metadata form
+// (ui/model-metadata.js) asks for the name (the file's, kept) and the type
+// before anything is sent.
+async function submitUpload(page, type = 'object') {
+  await page.click('#uploadPanelSubmit');
+  const form = page.locator('.model-metadata-dialog');
+  await expect(form).toBeVisible();
+  await form.locator('select[name="type"]').selectOption(type);
+  await form.locator('button[type="submit"]').click();
+  await expect(form).toHaveCount(0);
+}
+
 async function openSandboxViewer(page) {
   await page.addInitScript(() => {
     window.__E2E__ = true;
@@ -3539,7 +3551,7 @@ test('upload panel shows limit usage and limit errors from the worker', { tag: '
     mimeType: 'model/stl',
     buffer: Buffer.from('solid box\nendsolid box\n'),
   });
-  await page.click('#uploadPanelSubmit');
+  await submitUpload(page);
   await expect(page.locator('#uploadPanelStatus')).toHaveText(
     'Upload limit reached (20 per hour). Try again in 25 min.'
   );
@@ -3575,6 +3587,11 @@ test('uploads are sent in pieces, a failed piece again, then converted', async (
   await page.route(`**/api/model/upload/${uploadId}/finish`, (route) =>
     route.fulfill({ json: { entity_id: 'job1', status: 'started' } })
   );
+  let metadata = null;
+  await page.route('**/api/jobs/job1/metadata', (route) => {
+    metadata = route.request().postDataJSON();
+    return route.fulfill({ json: { status: 'ok', metadata } });
+  });
   await page.route('**/api/model/status/job1', (route) =>
     route.fulfill({ json: { status: 'failed', progress: 100, message: 'stop here' } })
   );
@@ -3583,13 +3600,46 @@ test('uploads are sent in pieces, a failed piece again, then converted', async (
   await waitForModel(page);
   await page.evaluate(() => window.Viewer.openUploadPanel());
   await page.setInputFiles('#uploadPanelFileInput', { name: 'box.stl', mimeType: 'model/stl', buffer: content });
-  await page.click('#uploadPanelSubmit');
+  await submitUpload(page);
 
   await expect(page.locator('#uploadModelPanel')).toBeHidden({ timeout: 15_000 });
   expect(pieces.sort((a, b) => a - b)).toEqual([0, 20, 20, 40]);
   expect(Buffer.concat([0, 20, 40].map((offset) => received.get(offset))).equals(content)).toBe(true);
   // The upload step done, the worker's steps after it.
   await expect(page.locator('#ultra-loader-steps .ultra-step').first()).toHaveText('✓ Uploading file');
+  // The form's metadata, stored for the new job.
+  await expect.poll(() => metadata).toMatchObject({ name: 'box', type: 'object', license: '' });
+});
+
+// The metadata form (ui/model-metadata.js): the name and the type are
+// required; cancelling it sends nothing.
+test('upload asks for the model metadata, name and type required', async ({ page }) => {
+  await page.route('**/api/auth/config', (route) =>
+    route.fulfill({ json: { mode: 'off', registration: 'closed', maxUploadBytes: 104857600 } })
+  );
+  let started = false;
+  await page.route('**/api/model/upload/start', (route) => {
+    started = true;
+    return route.fulfill({ status: 429, json: { error: 'Upload limit reached', code: 'rate_hour', limit: 20, retryAfter: 60 } });
+  });
+
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.openUploadPanel());
+  await page.setInputFiles('#uploadPanelFileInput', { name: 'castle_wola.stl', mimeType: 'model/stl', buffer: Buffer.from('solid box\nendsolid box\n') });
+  await page.click('#uploadPanelSubmit');
+
+  const form = page.locator('.model-metadata-dialog');
+  await expect(form.locator('input[name="name"]')).toHaveValue('castle wola');
+  await form.locator('input[name="name"]').fill('');
+  await form.locator('button[type="submit"]').click();
+  await expect(form.locator('.model-metadata-status')).toHaveText('Enter the name and choose the type.');
+  await expect(form.locator('input[name="name"]')).toHaveAttribute('aria-invalid', 'true');
+  await expect(form.locator('select[name="type"]')).toHaveAttribute('aria-invalid', 'true');
+
+  await page.keyboard.press('Escape');
+  await expect(form).toHaveCount(0);
+  expect(started).toBe(false);
 });
 
 // Private models (worker/server.py, can_see_job): left out of the list for
@@ -3629,7 +3679,7 @@ test('private models: chosen when uploading, switched in the models panel', asyn
   await expect(privateBox).toBeVisible();
   await privateBox.check();
   await page.setInputFiles('#uploadPanelFileInput', { name: 'box.stl', mimeType: 'model/stl', buffer: Buffer.from('solid box\nendsolid box\n') });
-  await page.click('#uploadPanelSubmit');
+  await submitUpload(page);
   await expect.poll(() => started).toEqual({ name: 'box.stl', size: 23, private: true });
   await page.evaluate(() => window.Viewer.closeUploadPanel());
 
@@ -3762,7 +3812,7 @@ test('point cloud uploads show the worker\'s quick preview until the tiles are r
     mimeType: 'application/octet-stream',
     buffer: Buffer.from('LASF'),
   });
-  await page.click('#uploadPanelSubmit');
+  await submitUpload(page);
 
   // The preview, while the worker still converts.
   await page.waitForFunction(() => {

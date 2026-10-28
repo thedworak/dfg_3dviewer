@@ -13,6 +13,7 @@ import { fillModelThumbnail } from "./model-thumbnail.js";
 import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-properties.js";
 import { setPendingSavedSettings } from "../metadata.js";
 import { clearExampleModelSelection } from "../example-models.js";
+import { modelLicenseLabel, modelTypeLabel } from "./model-metadata.js";
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated
@@ -290,14 +291,22 @@ export function attachModelsPanel(Viewer) {
     },
 
     renderModelRow(job, savedOffline = false) {
-      const name = job.name || job.id;
+      // The name entered with the model (model-metadata.js), else its file's.
+      const metadata = job.metadata || null;
+      const name = metadata?.name || job.name || job.id;
       const item = document.createElement("li");
       item.className = "models-panel-row";
 
       const button = document.createElement("button");
       button.type = "button";
       button.className = "models-panel-item";
-      button.title = name;
+      button.title = [
+        name,
+        metadata?.author,
+        metadata?.date,
+        modelLicenseLabel(metadata?.license),
+        metadata && job.name && job.name !== name ? job.name : "",
+      ].filter(Boolean).join(" · ");
 
       // Always a thumbnail: a generic one when the job has no image yet or it
       // fails to load.
@@ -315,12 +324,22 @@ export function attachModelsPanel(Viewer) {
       label.textContent = name;
       text.appendChild(label);
 
+      // The type entered with the model, as a pill first in the caption.
+      const typeLabel = modelTypeLabel(metadata?.type);
+      const type = typeLabel ? document.createElement("span") : null;
+      if (type) {
+        type.className = "models-panel-item-type";
+        type.dataset.type = metadata.type;
+        type.textContent = typeLabel;
+      }
+
       // job.owner is null for anonymous uploads (accounts off, or jobs from
       // before accounts were enabled) - the caption then just falls back to
       // the date. job.validation: the worker's check of the model file
       // (validation.json), null for formats it does not check.
-      if (job.owner || job.createdAt || job.validation || job.private) {
+      if (type || job.owner || job.createdAt || job.validation || job.private) {
         text.appendChild(metaCaption([
+          type,
           job.private ? metaPart("private", t("modelsMeta.private", "Private: only its owner and admins see it in this list")) : null,
           job.owner ? metaPart("user", t("modelsMeta.uploadedBy", "Uploaded by"), job.owner) : null,
           job.createdAt
@@ -363,6 +382,22 @@ export function attachModelsPanel(Viewer) {
       // on), switched by its owner or an admin - the ones who may delete it.
       if (job.owner && this.authState?.required) {
         item.appendChild(this.createVisibilityButton(job, name));
+      }
+
+      // Its metadata, by the same people (worker/model_metadata.py); an
+      // older worker lists no "metadata" field and has no form to save it.
+      if ("metadata" in job) {
+        const editButton = document.createElement("button");
+        editButton.type = "button";
+        editButton.className = "models-panel-edit";
+        const editAria = t("modelMetadata.editAria", { name }, "Edit the metadata of {name}");
+        editButton.setAttribute("aria-label", editAria);
+        editButton.title = editAria;
+        this.bindEventListener(editButton, "click", (event) => {
+          event.stopPropagation();
+          this.editModelMetadata(job.id, metadata);
+        });
+        item.appendChild(editButton);
       }
 
       const deleteButton = document.createElement("button");
@@ -532,6 +567,8 @@ export function attachModelsPanel(Viewer) {
         this.closeModelsPanel();
         clearExampleModelSelection();
         if (file) {
+          // The metadata window finds the job by the file's name.
+          this.openedRepositoryJob = { id: job.id, fileName: file.name };
           setPendingIfcProperties(ifcProperties);
           setPendingSavedSettings(settings);
           const opened = await this.openLocalFile(file);
@@ -539,11 +576,13 @@ export function attachModelsPanel(Viewer) {
           setPendingSavedSettings(null);
           if (!opened) return;
         } else {
+          this.openedRepositoryJob = null;
           core.autoPath = remoteAssetUrl(job.modelUrl);
           this.resetLoadedModelState();
           await this.mainLoadModelWrapper();
         }
       } else {
+        this.openedRepositoryJob = null;
         this.closeModelsPanel();
         clearExampleModelSelection();
         core.autoPath = remoteAssetUrl(job.modelUrl);

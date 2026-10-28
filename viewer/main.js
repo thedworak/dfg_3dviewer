@@ -54,6 +54,7 @@ import { initClippingPlanes, updateActiveClippingPlanes, reportViewerError, show
 import { attachEmbedConfigurator } from "./ui/embed-configurator.js";
 import { attachUploadPanel } from "./ui/upload-panel.js";
 import { attachModelsPanel } from "./ui/models-panel.js";
+import { attachModelMetadata } from "./ui/model-metadata.js";
 import { attachLibraryPanel } from "./ui/library-panel.js";
 import { attachModelsSource } from "./ui/models-source.js";
 import { attachExamplesPanel } from "./ui/examples-panel.js";
@@ -1006,9 +1007,43 @@ export const Viewer = {
   updatePickingHintVisibility() {
     if (!this.pickingHint) return;
     const count = Array.isArray(this.selectedFaces) ? this.selectedFaces.length : 0;
-    this.pickingHint.textContent = count > 0
-      ? t("hints.pickingSelected", { count }, "{count} faces selected · Enter: add annotation · Esc: clear")
-      : t("hints.picking", "Click a face, Ctrl + click to add more, Shift + drag to select an area");
+    const touch = Boolean(this.pickingTouchInput);
+    let text;
+    if (touch) {
+      text = count > 0
+        ? t("hints.pickingSelectedTouch", { count }, "{count} faces selected · tap a face to add or remove it")
+        : t("hints.pickingTouch", "Tap faces to select them, tap again to deselect");
+    } else {
+      text = count > 0
+        ? t("hints.pickingSelected", { count }, "{count} faces selected · Enter: add annotation · Esc: clear")
+        : t("hints.picking", "Click a face, Ctrl + click to add more, Shift + drag to select an area");
+    }
+    const message = document.createElement("span");
+    message.textContent = text;
+    const nodes = [message];
+    // A phone has no Enter or Esc: the same actions as buttons.
+    if (touch && count > 0) {
+      const actions = document.createElement("span");
+      actions.className = "viewer-notice-actions";
+      const button = (label, run, primary) => {
+        const element = document.createElement("button");
+        element.type = "button";
+        element.className = primary ? "viewer-notice-action viewer-notice-action--primary" : "viewer-notice-action";
+        element.textContent = label;
+        element.addEventListener("click", (event) => {
+          event.stopPropagation();
+          run();
+        });
+        return element;
+      };
+      actions.append(
+        button(t("hints.pickingAnnotate", "Add annotation"), () => this.openAnnotationDialog(), true),
+        button(t("hints.pickingClear", "Clear"), () => this.clearSelectedFaces(), false),
+      );
+      nodes.push(actions);
+    }
+    this.pickingHint.replaceChildren(...nodes);
+    this.pickingHint.classList.toggle("viewer-notice-hint--actions", nodes.length > 1);
     this.pickingHint.hidden = !this.pickingMode;
     this.updateClippingHintVisibility();
   },
@@ -4476,6 +4511,7 @@ attachEmbedConfigurator(Viewer);
 attachLoginPanel(Viewer);
 attachUploadPanel(Viewer);
 attachModelsPanel(Viewer);
+attachModelMetadata(Viewer);
 attachLibraryPanel(Viewer);
 attachModelsSource(Viewer);
 attachExamplesPanel(Viewer);

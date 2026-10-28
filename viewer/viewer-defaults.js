@@ -112,6 +112,9 @@ export const VIEWER_DEFAULTS = {
   statusNoticeActive: false,
   statusNoticeCurrent: null,
   pickingHint: null,
+  // Touch or pen last used on the canvas (picking.js); a phone until then.
+  pickingTouchInput: typeof window !== "undefined" && Boolean(window.matchMedia?.("(pointer: coarse)").matches),
+  pointerDownClient: null,
   clippingHint: null,
   metadataContainer: null,
   spinner: null,

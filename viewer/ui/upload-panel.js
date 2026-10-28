@@ -7,6 +7,7 @@ import { UltraLoader } from "../ultra-loader.js";
 import { makePanelWindow } from "./panel-window.js";
 import { hidePreviewBadge, showPreviewBadge } from "../loaders.js";
 import { clearExampleModelSelection } from "../example-models.js";
+import { nameFromFileName } from "./model-metadata.js";
 
 // Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
 // converted without Blender, and formats the viewer reads directly (kept as
@@ -559,12 +560,14 @@ export function attachUploadPanel(Viewer) {
         const result = validateModelUrl(link);
         this.markUploadUrl(result);
         if (result.error) return;
+        const metadata = await this.askUploadMetadata(new URL(result.url).pathname);
+        if (!metadata) return;
         // The worker downloads it (browsers would mostly be blocked by CORS).
         await this.sendUploadRequest({
           method: "POST",
           body: JSON.stringify({ url: result.url, private: this.isUploadPrivate() }),
           headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
-        }, "/api/model/create-from-url");
+        }, "/api/model/create-from-url", metadata);
         return;
       }
 
@@ -586,16 +589,36 @@ export function attachUploadPanel(Viewer) {
         return;
       }
 
+      const metadata = await this.askUploadMetadata(file.name);
+      if (!metadata) return;
       const isPrivate = this.isUploadPrivate();
-      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress, { isPrivate }), "/api/model/create");
+      await this.sendUploadRequest((onProgress) => sendFileInPieces(file, onProgress, { isPrivate }), "/api/model/create", metadata);
+    },
+
+    // The metadata form (ui/model-metadata.js) once the file or link is
+    // checked, before anything is sent; null when cancelled. The name
+    // starts as the file's.
+    askUploadMetadata(fileName) {
+      let name = fileName;
+      try {
+        name = decodeURIComponent(fileName);
+      } catch (_error) {
+        // Not URL-encoded: as it is.
+      }
+      return this.openModelMetadataDialog({
+        initial: { name: nameFromFileName(name) },
+        title: t("modelMetadata.title", "Describe the model"),
+        submitLabel: t("modelMetadata.upload", "Upload & convert"),
+      });
     },
 
     // Starts a conversion (an uploaded file or a link) and follows it: the
     // upload is the first of the processing steps, with the bytes sent so
     // far under it, and the viewer stays blurred until the model is in.
     // `request`: fetch()'s options, or a function of the progress callback
-    // that sends it and resolves to the Response.
-    async sendUploadRequest(request, endpoint) {
+    // that sends it and resolves to the Response. `metadata`: the form's
+    // values, stored for the new job once it exists.
+    async sendUploadRequest(request, endpoint, metadata = null) {
       const fromUrl = endpoint.endsWith("-from-url");
       this.uploadInputs.submit.disabled = true;
       this.setUploadStatusText(
@@ -670,6 +693,13 @@ export function attachUploadPanel(Viewer) {
         }
 
         started = true;
+        if (metadata) {
+          // Alongside the conversion; the owner can add it later if this fails.
+          this.saveModelMetadata(jobId, metadata).catch((error) => {
+            this.reportError(error, { context: "Failed to save the model metadata", toast: false });
+            toastHelper("modelMetadataError", "warning");
+          });
+        }
         this.closeUploadPanel();
         this.refreshUploadLimits();
         toastHelper("uploadStarted", "info");

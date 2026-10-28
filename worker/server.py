@@ -27,6 +27,9 @@ could talk to either backend interchangeably:
   GET  /api/jobs                -> {jobs: [...]} previously converted models
                                 (private ones only to their owner and admins)
   POST /api/jobs/<id>/visibility {private} - owner or admin
+  GET  /api/jobs/<id>/metadata  -> {metadata, canEdit} name, type, author...
+  POST /api/jobs/<id>/metadata  {name, type, ...} - owner or admin
+                                (model_metadata.py)
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
   GET  /api/auth/me                 POST /api/auth/register|login|logout -
@@ -76,6 +79,7 @@ import ai
 import cloudflare
 import geonames
 import mailer
+import model_metadata
 import optimize
 import remote_fetch
 import pointcloud
@@ -431,6 +435,9 @@ def list_jobs(user=None):
             # field comes back null.
             job["owner"] = owner.get("user") if owner else None
             job["private"] = bool(owner and owner.get("private"))
+            # Name, type, author... (model_metadata.py); null for models
+            # added without them.
+            job["metadata"] = model_metadata.read(job_dir)
             # The upload time (editable by admins) over the model file's mtime.
             if owner and owner.get("createdAt"):
                 job["createdAt"] = int(owner["createdAt"])
@@ -845,9 +852,9 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return user
 
-    def _read_json_body(self) -> dict:
+    def _read_json_body(self, max_bytes: int = 4096) -> dict:
         length = int(self.headers.get("Content-Length", "0") or 0)
-        if length <= 0 or length > 4096:
+        if length <= 0 or length > max_bytes:
             raise AuthError(400, "Invalid request body")
         try:
             data = json.loads(self.rfile.read(length))
@@ -1218,6 +1225,11 @@ class Handler(BaseHTTPRequestHandler):
             })
             return
 
+        match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)/metadata", path)
+        if match:
+            self._handle_metadata_get(match.group(1))
+            return
+
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
         if match:
             self._serve_file(match.group(1), match.group(2))
@@ -1268,6 +1280,10 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)/visibility", path)
         if match:
             self._handle_visibility(match.group(1))
+            return
+        match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)/metadata", path)
+        if match:
+            self._handle_metadata_save(match.group(1))
             return
         match = re.fullmatch(r"/api/admin/jobs/([A-Za-z0-9_-]+)", path)
         if match:
@@ -1338,6 +1354,47 @@ class Handler(BaseHTTPRequestHandler):
             return
         update_owner(job_id, {"private": private})
         self._send_json(200, {"status": "ok", "private": private})
+
+    def _handle_metadata_get(self, job_id: str) -> None:
+        """GET /api/jobs/<id>/metadata: the model's name, type... (null when
+        added without them) and whether the caller may change them. A
+        private model's only to those who see it in the list."""
+        job_dir = JOBS_DIR / job_id
+        user = self._current_user()
+        if not job_dir.is_dir() or not can_see_job(read_owner(job_id), user):
+            self._send_json(404, {"error": "not found"})
+            return
+        self._send_json(200, {
+            "metadata": model_metadata.read(job_dir),
+            "canEdit": can_delete_job(job_id, user),
+        })
+
+    def _handle_metadata_save(self, job_id: str) -> None:
+        """POST /api/jobs/<id>/metadata {name, type, author, copyright,
+        license, date, location, unit, description}: entered when the model
+        is added, changed later - by its owner (and admins), like
+        deleting it (can_delete_job). The whole set each time."""
+        user = self._require_user()
+        if user is None:
+            return
+        job_dir = JOBS_DIR / job_id
+        if not job_dir.is_dir():
+            self._send_json(404, {"error": "not found"})
+            return
+        if not can_delete_job(job_id, user):
+            self._send_json(403, {"error": "You can only describe your own uploads"})
+            return
+        try:
+            # The description's 4000 characters, up to 4 bytes each, and the rest.
+            metadata = model_metadata.validate(self._read_json_body(32768))
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        except model_metadata.MetadataError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+        stored = model_metadata.write(job_dir, metadata, user.get("username") if user else None)
+        self._send_json(200, {"status": "ok", "metadata": stored})
 
     def _handle_delete(self, job_id: str) -> None:
         user = self._require_user()

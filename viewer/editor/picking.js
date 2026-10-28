@@ -653,7 +653,18 @@ export function attachPicking(Viewer) {
       e.stopPropagation();
       if (e.button === 0) {
         getNormalizedPointerPosition(Viewer, e.clientX, e.clientY, Viewer.onDownPosition);
+        Viewer.pointerDownClient = { x: e.clientX, y: e.clientY };
       }
+      Viewer.setPickingPointerType(e.pointerType);
+    },
+
+    // Touch and pen have no Ctrl or Enter: the picking hint follows the
+    // input last used on the canvas (its tap-to-toggle text and buttons).
+    setPickingPointerType(pointerType) {
+      const touch = Boolean(pointerType) && pointerType !== "mouse";
+      if (touch === Viewer.pickingTouchInput) return;
+      Viewer.pickingTouchInput = touch;
+      if (Viewer.pickingMode) Viewer.updatePickingHintVisibility();
     },
 
     onPointerUp(e) {
@@ -662,7 +673,13 @@ export function attachPicking(Viewer) {
       if (e.button !== 0) return;
 
       getNormalizedPointerPosition(Viewer, e.clientX, e.clientY, Viewer.onUpPosition);
-      if (
+      const isTouch = e.pointerType && e.pointerType !== "mouse";
+      if (isTouch) {
+        // A finger never lifts exactly where it went down.
+        const down = Viewer.pointerDownClient;
+        if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > TAP_MAX_MOVE_PX) return;
+        Viewer.onUpPosition.copy(Viewer.onDownPosition);
+      } else if (
         Viewer.onUpPosition.x !== Viewer.onDownPosition.x ||
         Viewer.onUpPosition.y !== Viewer.onDownPosition.y
       ) {
@@ -711,9 +728,10 @@ export function attachPicking(Viewer) {
         } else if (Viewer.pickingMode) {
           // Ctrl/Cmd + click adds or removes a face; Shift + click is kept
           // for compatibility (Shift + drag selects an area, see
-          // face-area-selection.js).
+          // face-area-selection.js). A tap always adds or removes one: a
+          // phone has no Ctrl.
           Viewer.toggleSelectedFace(primaryIntersection, {
-            multiSelect: e.ctrlKey || e.metaKey || e.shiftKey,
+            multiSelect: isTouch || e.ctrlKey || e.metaKey || e.shiftKey,
           });
         }
       }
