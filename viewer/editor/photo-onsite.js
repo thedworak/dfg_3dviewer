@@ -12,6 +12,10 @@ import { toastHelper } from "../viewer-utils.js";
 //
 // The alignment stays with the photo for the session (item.onSite), in
 // shares of the screen, so it survives turning the phone.
+//
+// startPhotoOnSite() is the one-tap way in (the app's toolbar tool, through
+// appToolbarTools in app-features.js): the open photo, the only one, one
+// picked from the list, or one from the phone's gallery when there is none.
 
 const DEFAULT_OPACITY = 0.5;
 const MIN_SCALE = 0.1;
@@ -52,6 +56,53 @@ export function attachPhotoOnSite(Viewer) {
 
     isPhotoOnSiteOpen() {
       return Boolean(Viewer.photoOnSite);
+    },
+
+    // Which photo to take on site: the open one, the only one, else one
+    // tapped in the list (the panel opens for it), or with none yet one
+    // from a file (on a phone: the gallery or the camera).
+    startPhotoOnSite() {
+      if (Viewer.photoOnSite) return Viewer.closePhotoOnSite();
+      const photos = Viewer.getPhotos();
+      const open = Viewer.getOpenPhoto();
+      if (open || photos.length === 1) {
+        const item = open || photos[0];
+        if (!open) Viewer.openPhoto(item.id, { fly: false });
+        return Viewer.openPhotoOnSite(item.id);
+      }
+      if (photos.length > 1) {
+        Viewer.togglePhotosPanel(true);
+        Viewer.setPhotoOnSitePicking(true);
+        return null;
+      }
+      Viewer.pickPhotoFileOnSite();
+      return null;
+    },
+
+    // The next photo tapped in the list goes on site.
+    setPhotoOnSitePicking(enabled) {
+      const state = Viewer.getPhotosState();
+      state.pickOnSite = enabled === true;
+      Viewer.syncPhotosPanel?.();
+    },
+
+    pickPhotoFileOnSite() {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.hidden = true;
+      input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        input.remove();
+        if (!file) return;
+        const item = Viewer.addPhoto({ file, open: false });
+        if (!item) return;
+        Viewer.openPhoto(item.id, { fly: false });
+        Viewer.openPhotoOnSite(item.id);
+      });
+      input.addEventListener("cancel", () => input.remove());
+      document.body.append(input);
+      input.click();
     },
 
     // The camera, full screen, with the photo (the open one by default) over it.
@@ -124,6 +175,7 @@ export function attachPhotoOnSite(Viewer) {
       }
       state.ui.root.classList.remove("is-starting");
       Viewer.syncPhotoOnSite();
+      Viewer.updateEditorToolbarState?.();
       return true;
     },
 
@@ -141,6 +193,7 @@ export function attachPhotoOnSite(Viewer) {
         state.ui.root.remove();
       }
       Viewer.syncPhotosPanel?.();
+      Viewer.updateEditorToolbarState?.();
     },
 
     setPhotoOnSiteOpacity(value) {

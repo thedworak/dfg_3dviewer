@@ -20,6 +20,8 @@ import { closeOpenPanelWindow, hasOpenPanelWindow } from "./panel-window.js";
 function backSteps(Viewer) {
   const dialogOpen = (dialog) => Boolean(dialog && !dialog.hidden);
   return [
+    // The camera with a historical photo over it, full screen (editor/photo-onsite.js).
+    [() => Viewer.isPhotoOnSiteOpen?.(), () => Viewer.closePhotoOnSite()],
     [() => Viewer.isContextMenuOpen?.(), () => Viewer.closeContextMenu()],
     [() => Viewer.isToolbarMenuOpen?.(), () => Viewer.openToolbarMenu(null)],
     [() => dialogOpen(Viewer.annotationDialog), () => Viewer.closeAnnotationDialog()],

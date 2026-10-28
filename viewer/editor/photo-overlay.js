@@ -491,6 +491,7 @@ export function attachPhotoOverlay(Viewer) {
       closeButton.type = "button";
       header.append(title, closeButton);
 
+      const pickHint = el("p", "viewer-photos_hint viewer-photos_pick");
       const list = el("div", "viewer-photos_list");
       const empty = el("p", "viewer-photos_empty");
 
@@ -583,12 +584,15 @@ export function attachPhotoOverlay(Viewer) {
       add.append(urlInput, labelInput, yearInput, addRow);
       addBox.append(addTitle, add);
 
-      panel.append(header, list, empty, card, addBox);
+      panel.append(header, pickHint, list, empty, card, addBox);
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
         panel.addEventListener(type, (event) => event.stopPropagation());
       });
 
-      closeButton.addEventListener("click", () => Viewer.togglePhotosPanel(false));
+      closeButton.addEventListener("click", () => {
+        Viewer.setPhotoOnSitePicking?.(false);
+        Viewer.togglePhotosPanel(false);
+      });
       opacity.addEventListener("input", () => Viewer.setPhotoOpacity(opacity.value));
       swipe.addEventListener("change", () => Viewer.setPhotoSwipe(swipe.checked));
       returnButton.addEventListener("click", () => Viewer.flyToPhotoView());
@@ -624,7 +628,7 @@ export function attachPhotoOverlay(Viewer) {
 
       getViewerSideStack()?.append(panel);
       state.ui = {
-        panel, title, closeButton, list, empty, card, cardTitle, description, source,
+        panel, title, closeButton, pickHint, list, empty, card, cardTitle, description, source,
         opacityLabel, opacity, swipeLabel, swipe, returnButton, alignButton, hideButton, onSiteButton,
         align, alignHint, fovLabel, fov, fovValue, rollLabel, roll, rollValue, saveButton, removeButton,
         addBox, addTitle, urlInput, labelInput, yearInput, addButton, fileButton,
@@ -663,6 +667,13 @@ export function attachPhotoOverlay(Viewer) {
         }
         button.append(thumb, text);
         button.addEventListener("click", () => {
+          // Picked to be seen on site (photo-onsite.js startPhotoOnSite).
+          if (state.pickOnSite) {
+            Viewer.setPhotoOnSitePicking(false);
+            if (state.openId !== item.id) Viewer.openPhoto(item.id, { fly: false });
+            Viewer.openPhotoOnSite(item.id);
+            return;
+          }
           if (state.openId === item.id) Viewer.closePhoto();
           else Viewer.openPhoto(item.id);
         });
@@ -684,6 +695,7 @@ export function attachPhotoOverlay(Viewer) {
       ui.title.textContent = t("photos.title", "Historical photos");
       ui.closeButton.title = t("photos.closePanel", "Close");
       ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
+      ui.pickHint.textContent = t("photos.onSite.pick", "Tap the photo to see on site.");
       ui.empty.textContent = t("photos.empty", "No photos yet. Add one taken from the current view.");
       ui.opacityLabel.textContent = t("photos.opacity", "Photo");
       ui.swipeLabel.textContent = t("photos.swipe", "Divider instead of fading");
@@ -714,6 +726,7 @@ export function attachPhotoOverlay(Viewer) {
       if (!ui) return;
       const item = Viewer.getOpenPhoto();
       ui.empty.hidden = state.items.length > 0;
+      ui.pickHint.hidden = !state.pickOnSite;
       [...ui.list.children].forEach((button) => {
         const active = button.dataset.photo === state.openId;
         button.classList.toggle("is-active", active);

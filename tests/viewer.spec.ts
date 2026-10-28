@@ -2291,6 +2291,45 @@ test('historical photos on site: the camera with the photo over it, aligned by g
   await page.keyboard.press('Escape');
   await expect(onSite).toHaveCount(0);
   expect(await page.evaluate(() => [window.Viewer.isPhotoOnSiteOpen(), window.Viewer.getOpenPhoto().onSite.rotation])).toEqual([false, 3]);
+
+  // One tap (the app's toolbar tool, startPhotoOnSite): the open photo, and
+  // the same tap closes it again.
+  await page.evaluate(() => window.Viewer.startPhotoOnSite());
+  await expect(onSite).not.toHaveClass(/is-starting/);
+  await expect(onSite.locator('.viewer-onsite_title')).toContainText('1783');
+  await page.evaluate(() => window.Viewer.startPhotoOnSite());
+  await expect(onSite).toHaveCount(0);
+  // With several and none open: the one tapped in the list.
+  await page.evaluate(() => {
+    window.Viewer.addPhoto({ src: '/examples/tempietto/photos/Tempietto_1783.webp', label: 'Second', open: false });
+    window.Viewer.closePhoto();
+    window.Viewer.startPhotoOnSite();
+  });
+  await expect(page.locator('#viewerPhotos .viewer-photos_pick')).toBeVisible();
+  await page.locator('#viewerPhotos [data-photo="photo-2"]').click();
+  await expect(onSite).not.toHaveClass(/is-starting/);
+  await expect(onSite.locator('.viewer-onsite_title')).toHaveText('Second');
+  await expect(page.locator('#viewerPhotos .viewer-photos_pick')).toBeHidden();
+  await onSite.locator('.viewer-onsite_close').click();
+  await expect(onSite).toHaveCount(0);
+  // With none: an image from the gallery (a file picker opens from a tap:
+  // a button standing in for the app's tool).
+  await page.evaluate(() => {
+    window.Viewer.setPhotos([]);
+    const tool = document.createElement('button');
+    tool.id = 'onSiteTool';
+    tool.style.cssText = 'position:fixed;left:0;top:0;z-index:99999';
+    tool.textContent = 'on site';
+    tool.addEventListener('click', () => window.Viewer.startPhotoOnSite());
+    document.body.append(tool);
+  });
+  const chooser = page.waitForEvent('filechooser');
+  await page.locator('#onSiteTool').click();
+  await (await chooser).setFiles('viewer/examples/tempietto/photos/Tempietto_1783.webp');
+  await expect(onSite).not.toHaveClass(/is-starting/);
+  await expect(onSite.locator('.viewer-onsite_title')).toHaveText('Tempietto_1783.webp');
+  expect(await page.evaluate(() => window.Viewer.getPhotos().length)).toBe(1);
+  await page.evaluate(() => window.Viewer.closePhotoOnSite());
 });
 
 test('historical photos: opened from their camera over the model, faded or swiped, aligned, added and round-trip', async ({ page }) => {

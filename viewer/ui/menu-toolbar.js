@@ -81,9 +81,10 @@ const NAV_TRANSFORM = ["orbit"];
 const NAV_VIEW = ["resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
 // What the phone itself adds - AR in the room (the app's, else the
-// browser's WebXR), looking round by moving it and the 360° video: at the
-// end of the navigation bar, after a divider.
-const DEVICE_TOOLS = ["deviceAr", "immersive", "deviceMotion", "deviceVideo"];
+// browser's WebXR), a historical photo over the place through the camera,
+// looking round by moving it and the 360° video: at the end of the
+// navigation bar, after a divider.
+const DEVICE_TOOLS = ["deviceAr", "immersive", "deviceOnSite", "deviceMotion", "deviceVideo"];
 // Not in the menus layout (none at the moment).
 export const MENU_SKIPPED_TOOLS = [];
 

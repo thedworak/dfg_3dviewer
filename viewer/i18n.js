@@ -1257,6 +1257,7 @@ export const VIEWER_I18N = {
       onSite: {
         open: "On site (camera)",
         openTitle: "Lay the photo over the place through the camera",
+        pick: "Tap the photo to see on site.",
         title: "The photo on site",
         close: "Close the camera",
         hint: "Stand where the photo was taken. Drag the photo with one finger, pinch and turn it with two, until it lies over the place.",
@@ -2871,6 +2872,7 @@ export const VIEWER_I18N = {
       onSite: {
         open: "Na miejscu (aparat)",
         openTitle: "Nałóż zdjęcie na miejsce przez aparat telefonu",
+        pick: "Dotknij zdjęcia, które chcesz zobaczyć na miejscu.",
         title: "Zdjęcie na miejscu",
         close: "Zamknij aparat",
         hint: "Stań tam, skąd zrobiono zdjęcie. Przesuń zdjęcie jednym palcem, dwoma powiększ i obróć, aż nałoży się na miejsce.",
@@ -4484,6 +4486,7 @@ export const VIEWER_I18N = {
       onSite: {
         open: "Vor Ort (Kamera)",
         openTitle: "Das Foto mit der Kamera über den Ort legen",
+        pick: "Tippen Sie auf das Foto, das Sie vor Ort sehen möchten.",
         title: "Das Foto vor Ort",
         close: "Kamera schließen",
         hint: "Stellen Sie sich dorthin, wo das Foto aufgenommen wurde. Mit einem Finger verschieben, mit zwei zoomen und drehen, bis es über dem Ort liegt.",
