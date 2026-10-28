@@ -169,6 +169,23 @@ Historical photos over the model, each with the camera it was taken from (`AIM3D
   - Panel, manifest import and export, clean-up when a model is unloaded.
 
 
+## `viewer/editor/photo-onsite.js`
+
+The open historical photo over the place itself, through the phone's rear camera (rephotography): *On site (camera)* in the photo's card. Needs a camera and a secure context (HTTPS or localhost).
+
+- `Viewer.openPhotoOnSite(id)` / `Viewer.closePhotoOnSite()` / `Viewer.isPhotoOnSiteAvailable()`
+  - Full-screen camera view with the photo over it (the open photo by default); Escape or × closes it and stops the camera.
+
+- `Viewer.setPhotoOnSiteOpacity(value)` / `Viewer.setPhotoOnSiteSwipe(enabled, position)` / `Viewer.setPhotoOnSitePeek(enabled)`
+  - Fade the photo in, cut it by a divider, or show only the photo while *Hold: then* is pressed.
+
+- `Viewer.setPhotoOnSiteAlignment({ x, y, scale, rotation })` / `Viewer.resetPhotoOnSiteAlignment()`
+  - How the photo lies over the camera (offsets in shares of the screen, scale over the fitted photo, turn in degrees); set by gestures - one finger moves, two pinch and turn. Kept with the photo for the session.
+
+- `Viewer.capturePhotoOnSite()`
+  - The camera frame with the photo over it as shown, as a JPEG, shared (Web Share) or downloaded.
+
+
 ## `viewer/editor/sun-study.js`
 
 Sun and shadows (*Lights > Sun and shadows*): the sun at the model's place (`AIM3DViewer.location`) on a day and hour (`AIM3DViewer.sun`), casting shadows; the year is the 4D timeline's. Example manifest: `manifesto/examples/tempietto-aim3d-sun.json`.

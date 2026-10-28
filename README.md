@@ -141,7 +141,7 @@ There is also a pre-configured complete workflow to handle more file formats and
 - render quality levels, offered by itself when the view stutters for a while or the model is too heavy for the device
 - 4D timeline, reconstruction variants (alternative hypotheses, each with its Level of Certainty) and a comparison view of two variants or two years: a swipe divider or side by side
 - view object's hierarchy and select groups by name
-- historical photos laid over the model from the camera they were taken from (faded or swiped), lined up by hand and kept in the manifest
+- historical photos laid over the model from the camera they were taken from (faded or swiped), lined up by hand and kept in the manifest; on a phone, also over the place itself through the camera, to compare then and now on site
 - sun and shadows: the sun of the model's place on any day and hour, in the year of the 4D timeline
 - VR and AR in the browser (WebXR): walk around the model at real size in a headset, or put it on a table or the floor through a phone; AR Quick Look on iPhone and iPad
 - Gaussian splats (3D Gaussian Splatting captures) next to meshes: framed, measured and shown in VR/AR like any model

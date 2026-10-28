@@ -2208,6 +2208,91 @@ test('reconstruction variants: one shown at a time, compared by a swipe or side 
   expect(await page.evaluate(() => window.Viewer.isComparing())).toBe(false);
 });
 
+test('historical photos on site: the camera with the photo over it, aligned by gestures, saved and closed', async ({ page }) => {
+  test.setTimeout(120_000);
+  // A camera that films a moving gradient.
+  await page.addInitScript(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    const context = canvas.getContext('2d');
+    let frame = 0;
+    setInterval(() => {
+      frame += 1;
+      context.fillStyle = `hsl(${frame % 360}, 60%, 50%)`;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }, 50);
+    const stream = canvas.captureStream(20);
+    (window as any).__cameraAsked = 0;
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: async () => { (window as any).__cameraAsked += 1; return stream; } },
+    });
+  });
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await page.evaluate(async () => {
+    const manifest = await (await fetch('/manifests/tempietto-aim3d-photos.json')).json();
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.getPhotos().length, null, { timeout: 60_000 });
+  await page.locator('#viewerPhotos [data-photo="veduta-1783"]').click();
+
+  // The photo's card opens the camera, full screen, with the photo over it.
+  await page.locator('#viewerPhotos .viewer-photos_onsite').click();
+  const onSite = page.locator('#viewerPhotoOnSite');
+  await expect(onSite).toBeVisible();
+  await expect(onSite).not.toHaveClass(/is-starting/);
+  await page.waitForFunction(() => {
+    const root = document.querySelector('#viewerPhotoOnSite');
+    return root?.querySelector('video')?.videoWidth > 0 && root.querySelector('img')?.naturalWidth > 0;
+  });
+  expect(await page.evaluate(() => (window as any).__cameraAsked)).toBe(1);
+  await expect(onSite.locator('.viewer-onsite_title')).toContainText('1783');
+  expect(await onSite.locator('.viewer-onsite_layer').evaluate((node) => (node as HTMLElement).style.opacity)).toBe('0.5');
+
+  // One finger moves the photo, the wheel scales it.
+  const box = await onSite.locator('.viewer-onsite_stage').boundingBox();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  const dx = Math.round(box!.width * 0.1);
+  const dy = Math.round(box!.height * 0.1);
+  await page.mouse.move(box!.x + box!.width / 2 + dx, box!.y + box!.height / 2 + dy, { steps: 4 });
+  await page.mouse.up();
+  const moved = await page.evaluate(() => window.Viewer.getPhotoOnSiteAlignment());
+  expect(moved.x).toBeCloseTo(0.1, 2);
+  expect(moved.y).toBeCloseTo(0.1, 2);
+  await page.mouse.wheel(0, -200);
+  expect(await page.evaluate(() => window.Viewer.getPhotoOnSiteAlignment().scale)).toBeGreaterThan(1);
+  await expect(onSite.locator('.viewer-onsite_frame')).toHaveAttribute('style', new RegExp(`translate\\(${dx}px, ${dy}px\\)`));
+
+  // Divider, and the photo alone while "then" is held.
+  await onSite.locator('.viewer-onsite_button', { hasText: 'Divider' }).click();
+  await expect(onSite.locator('.viewer-onsite_divider')).toBeVisible();
+  expect(await onSite.locator('.viewer-onsite_layer').evaluate((node) => (node as HTMLElement).style.clipPath)).toBe('inset(0px 50% 0px 0px)');
+  const peek = onSite.locator('.viewer-onsite_peek');
+  const peekBox = await peek.boundingBox();
+  await page.mouse.move(peekBox!.x + 5, peekBox!.y + 5);
+  await page.mouse.down();
+  await expect(onSite).toHaveClass(/is-peeking/);
+  await page.mouse.up();
+  await expect(onSite).not.toHaveClass(/is-peeking/);
+
+  // The comparison is saved as an image.
+  const download = page.waitForEvent('download');
+  await onSite.locator('.viewer-onsite_button', { hasText: 'Save comparison' }).click();
+  expect((await download).suggestedFilename()).toMatch(/^1783-.*-today\.jpg$/);
+
+  // Reset, then closed: the camera is stopped; the alignment stays with the photo.
+  await onSite.locator('.viewer-onsite_button', { hasText: 'Reset' }).click();
+  expect(await page.evaluate(() => window.Viewer.getPhotoOnSiteAlignment())).toEqual({ x: 0, y: 0, scale: 1, rotation: 0 });
+  await page.evaluate(() => window.Viewer.setPhotoOnSiteAlignment({ rotation: 3 }));
+  await page.keyboard.press('Escape');
+  await expect(onSite).toHaveCount(0);
+  expect(await page.evaluate(() => [window.Viewer.isPhotoOnSiteOpen(), window.Viewer.getOpenPhoto().onSite.rotation])).toEqual([false, 3]);
+});
+
 test('historical photos: opened from their camera over the model, faded or swiped, aligned, added and round-trip', async ({ page }) => {
   test.setTimeout(120_000);
   await openViewer(page, '/examples/box.glb');

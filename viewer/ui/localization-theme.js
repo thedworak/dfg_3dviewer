@@ -139,6 +139,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateTimelineLabels?.();
       this.updateVariantsLabels?.();
       this.updatePhotosLabels?.();
+      this.updatePhotoOnSiteLabels?.();
       this.updateSunLabels?.();
       this.updateWeatherLabels?.();
       this.updateSceneSuggestLabels?.();

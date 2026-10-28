@@ -21,6 +21,9 @@ import { toastHelper } from "../viewer-utils.js";
 // panel (Annotations > Historical photos) by URL - a plain image or a IIIF
 // Image API service - or from a file (kept for this session only: a local
 // file has no URL to export).
+//
+// On a phone, a photo can also be laid over the place itself, through the
+// camera (photo-onsite.js).
 
 const DEFAULT_OPACITY = 0.6;
 const FLIGHT_MS = 1200;
@@ -144,6 +147,7 @@ export function attachPhotoOverlay(Viewer) {
 
     // Replaces the list (a manifest's photos, or none).
     setPhotos(list = []) {
+      Viewer.closePhotoOnSite?.();
       Viewer.closePhoto();
       const state = Viewer.getPhotosState();
       state.items.forEach((item) => item.objectUrl && URL.revokeObjectURL(item.objectUrl));
@@ -187,6 +191,7 @@ export function attachPhotoOverlay(Viewer) {
       const state = Viewer.photosState;
       const index = state?.items.findIndex((item) => item.id === id) ?? -1;
       if (index < 0) return false;
+      if (Viewer.photoOnSite?.item.id === id) Viewer.closePhotoOnSite();
       if (state.openId === id) Viewer.closePhoto();
       const [item] = state.items.splice(index, 1);
       if (item.objectUrl) URL.revokeObjectURL(item.objectUrl);
@@ -514,7 +519,11 @@ export function attachPhotoOverlay(Viewer) {
       alignButton.type = "button";
       const hideButton = el("button", "viewer-photos_button");
       hideButton.type = "button";
-      actions.append(returnButton, alignButton, hideButton);
+      // The photo over the place itself, through the phone's camera.
+      const onSiteButton = el("button", "viewer-photos_button viewer-photos_onsite");
+      onSiteButton.type = "button";
+      onSiteButton.hidden = !Viewer.isPhotoOnSiteAvailable?.();
+      actions.append(returnButton, alignButton, hideButton, onSiteButton);
 
       // Aligning: the camera's lens and roll set to the photo's.
       const align = el("div", "viewer-photos_align");
@@ -585,6 +594,7 @@ export function attachPhotoOverlay(Viewer) {
       returnButton.addEventListener("click", () => Viewer.flyToPhotoView());
       alignButton.addEventListener("click", () => Viewer.setPhotoAligning(!state.aligning));
       hideButton.addEventListener("click", () => Viewer.closePhoto());
+      onSiteButton.addEventListener("click", () => Viewer.openPhotoOnSite?.());
       fov.addEventListener("input", () => Viewer.setPhotoFov(fov.value));
       roll.addEventListener("input", () => Viewer.setPhotoRoll(roll.value));
       saveButton.addEventListener("click", () => Viewer.savePhotoView());
@@ -615,7 +625,7 @@ export function attachPhotoOverlay(Viewer) {
       getViewerSideStack()?.append(panel);
       state.ui = {
         panel, title, closeButton, list, empty, card, cardTitle, description, source,
-        opacityLabel, opacity, swipeLabel, swipe, returnButton, alignButton, hideButton,
+        opacityLabel, opacity, swipeLabel, swipe, returnButton, alignButton, hideButton, onSiteButton,
         align, alignHint, fovLabel, fov, fovValue, rollLabel, roll, rollValue, saveButton, removeButton,
         addBox, addTitle, urlInput, labelInput, yearInput, addButton, fileButton,
       };
@@ -679,6 +689,8 @@ export function attachPhotoOverlay(Viewer) {
       ui.swipeLabel.textContent = t("photos.swipe", "Divider instead of fading");
       ui.returnButton.textContent = t("photos.return", "Back to the photo's view");
       ui.hideButton.textContent = t("photos.hide", "Hide photo");
+      ui.onSiteButton.textContent = t("photos.onSite.open", "On site (camera)");
+      ui.onSiteButton.title = t("photos.onSite.openTitle", "Lay the photo over the place through the camera");
       ui.alignHint.textContent = t("photos.alignHint", "Move the camera until the model lies over the photo, then set the lens and the tilt.");
       ui.fovLabel.textContent = t("photos.fov", "Lens (field of view)");
       ui.rollLabel.textContent = t("photos.roll", "Tilt");
