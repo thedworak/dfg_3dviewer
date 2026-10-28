@@ -54,6 +54,12 @@
     background 1.28s ease;
 }
 
+/* An open menu of the bar comes before the tool panels (viewer-tools.css,
+   z-index 10000), which otherwise stand above the bar. */
+#viewerEditorToolbar.viewer-menus--open {
+  z-index: 10002;
+}
+
 #viewerEditorToolbar.viewer-editor-toolbar_anchor-center {
   transform-origin: center bottom;
 }
@@ -614,45 +620,6 @@
 :is([data-tool="lights"], [data-tool="environmentMap"], [data-tool="rendering"]) .viewer-editor-tool_submenu-button .viewer-editor-tool_submenu-value {
   margin-left: 0;
   min-width: 28px;
-}
-
-.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials {
-  flex-direction: column;
-  align-items: stretch;
-  max-height: 45vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 255, 255, 0.5) transparent;
-}
-
-.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials .viewer-editor-tool_submenu-button.viewer-editor-tool_submenu-control {
-  width: 100%;
-  min-width: 0;
-}
-
-.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar {
-  width: 6px;
-}
-
-.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 255, 0.35);
-  border-radius: 999px;
-  box-shadow:
-    0 0 6px rgba(0, 255, 255, 0.4),
-    0 0 12px rgba(0, 255, 255, 0.2);
-}
-
-.viewer-editor-tool_submenu.viewer-editor-tool_submenu-materials::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 255, 0.6);
-}
-
-.viewer-editor-tool_submenu-materials {
-  overflow: clip;
-  min-width: 200px;
 }
 
 /* Rendering > Tone mapping: a preview of the view in each mode, captioned. */
@@ -1365,20 +1332,6 @@
 .language-dropdown-item-german::before {
   content: "🇩🇪 ";
   margin-right: 4px;
-}
-
-#materialsDialog[hidden] {
-  display: none !important;
-}
-
-#materialsDialog {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 0;
-  height: 0;
-  z-index: 999999;
-  overflow: hidden;
 }
 
 .materials-dialog__backdrop {

@@ -1,11 +1,14 @@
 /* Animation player, measurement labels and measurement readout. */
 
-/* Top-right column holding the floating tool panels (ui/side-stack.js). */
+/* Top-right column holding the floating tool panels (ui/side-stack.js),
+   above the editor toolbar (z-index 9999): a tall window (materials, the
+   publishing report) is not cut by the bar. An open menu of the bar still
+   comes first (editor-toolbar.css). */
 .viewer-side-stack {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 115;
+  z-index: 10000;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -29,7 +32,6 @@
     left: 12px;
     right: 12px;
     max-width: none;
-    z-index: 1000;
   }
 
   /* Padding and border inside the width: a panel at width: 100% would
@@ -1321,18 +1323,12 @@
 }
 
 /* Undocked: dragged out of the side stack into the viewer container, above
-   the stack (z-index 115, phones 1000). */
+   the stack (z-index 10000). */
 .has-tool-chrome.is-undocked {
   position: absolute;
-  z-index: 116;
+  z-index: 10001;
   max-width: none;
   box-sizing: border-box;
-}
-
-@media (max-width: 640px) {
-  .has-tool-chrome.is-undocked {
-    z-index: 1001;
-  }
 }
 
 /* Minimized: a small round icon (.tool-panel-chrome_pip) alone; a tap
@@ -1373,6 +1369,26 @@
   color: var(--viewer-brand-gold, #e9b264);
   cursor: pointer;
   touch-action: none;
+}
+
+/* A playback's progress (setToolPanelProgress): a ring filling clockwise
+   around the icon. */
+.has-tool-chrome .tool-panel-chrome_pip.has-progress {
+  position: relative;
+}
+
+.has-tool-chrome .tool-panel-chrome_pip.has-progress::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--viewer-brand-gold, #e9b264) calc(var(--tool-panel-progress, 0) * 360deg),
+    var(--viewer-panel-border, rgba(255, 255, 255, 0.18)) 0
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  pointer-events: none;
 }
 
 .has-tool-chrome.is-minimized > .tool-panel-chrome_pip:hover,
@@ -1971,6 +1987,219 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* The photo on site (editor/photo-onsite.js): the phone's camera, full
+   screen, with the historical photo over it. Above the viewer's chrome. */
+.viewer-onsite {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  font-size: 14px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.viewer-onsite [hidden] {
+  display: none !important;
+}
+
+.viewer-onsite_video,
+.viewer-onsite_stage,
+.viewer-onsite_layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.viewer-onsite_video {
+  object-fit: cover;
+}
+
+.viewer-onsite_stage {
+  cursor: move;
+}
+
+.viewer-onsite_layer {
+  pointer-events: none;
+}
+
+.viewer-onsite_frame {
+  position: absolute;
+  transform-origin: 50% 50%;
+}
+
+.viewer-onsite_image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.viewer-onsite.is-starting .viewer-onsite_layer {
+  visibility: hidden;
+}
+
+.viewer-onsite_divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(12, 10, 8, 0.35);
+  pointer-events: none;
+}
+
+.viewer-onsite_handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  color: #fff;
+  cursor: ew-resize;
+  touch-action: none;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-onsite_top,
+.viewer-onsite_bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
+  background: rgba(12, 10, 8, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.viewer-onsite_top {
+  top: 0;
+  align-items: center;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+.viewer-onsite_title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-onsite_bar {
+  bottom: 0;
+  flex-direction: column;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.viewer-onsite_row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.viewer-onsite_row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #d8b98a;
+}
+
+.viewer-onsite_actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.viewer-onsite_actions > .viewer-onsite_button {
+  flex: 1 1 auto;
+}
+
+.viewer-onsite_button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(22, 19, 16, 0.6);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-onsite_button.is-primary,
+.viewer-onsite_button.is-active {
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.viewer-onsite_close {
+  width: 40px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.viewer-onsite_peek {
+  touch-action: none;
+}
+
+.viewer-onsite_hint,
+.viewer-onsite_starting,
+.viewer-onsite_status {
+  position: absolute;
+  left: 50%;
+  max-width: min(92vw, 420px);
+  margin: 0;
+  padding: 8px 12px;
+  transform: translateX(-50%);
+  border-radius: 8px;
+  background: rgba(12, 10, 8, 0.7);
+  text-align: center;
+  pointer-events: none;
+}
+
+.viewer-onsite_hint {
+  top: calc(max(10px, env(safe-area-inset-top)) + 56px);
+  transition: opacity 0.6s ease;
+}
+
+.viewer-onsite_hint.is-faded {
+  opacity: 0;
+}
+
+.viewer-onsite_starting {
+  top: 50%;
+  display: none;
+}
+
+.viewer-onsite.is-starting .viewer-onsite_starting {
+  display: block;
+}
+
+.viewer-onsite_status {
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 150px);
+}
+
+.viewer-onsite.is-peeking .viewer-onsite_hint {
+  opacity: 0;
 }
 
 .viewer-photos {

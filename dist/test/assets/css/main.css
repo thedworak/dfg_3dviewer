@@ -5,11 +5,14 @@
 @import "./gallery.css";
 @import "./validation-report.css";
 @import "./ground-panel.css";
+@import "./event-log.css";
 @import "./ai.css";
 @import "./admin-panel.css";
 @import "./login-panel.css";
 @import "./ifc-properties.css";
 @import "./viewer-tools.css";
+@import "./materials-panel.css";
+@import "./assistant.css";
 @import "./menu-toolbar.css";
 @import "./context-menu.css";
 
@@ -243,6 +246,44 @@ canvas {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 8px 24px rgba(12, 10, 8, 0.18);
+}
+
+/* The picking hint's buttons on a touch screen (updatePickingHintVisibility
+   in main.js): a phone has no Enter or Esc. */
+.viewer-notice-hint--actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 10px;
+  white-space: normal;
+  text-align: center;
+  border-radius: 14px;
+}
+
+.viewer-notice-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.viewer-notice-action {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.viewer-notice-action--primary {
+  background: rgba(233, 178, 100, 0.9);
+  border-color: rgba(233, 178, 100, 0.9);
+  color: #1c160f;
 }
 
 .viewer-notice-status {
@@ -1273,6 +1314,39 @@ html[data-viewer-theme="light"],
   border-bottom: 0;
 }
 
+/* A repository model's metadata (ui/model-metadata.js), before the rest. */
+.metadata-repository[hidden] {
+  display: none;
+}
+
+.metadata-repository {
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--metadata-border);
+}
+
+.metadata-repository .metadata-row:last-of-type {
+  border-bottom: 0;
+}
+
+.metadata-edit {
+  pointer-events: auto;
+  margin: 6px 2px 2px;
+  padding: 5px 12px;
+  border: 1px solid var(--metadata-row-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--metadata-value-color);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.metadata-edit:hover {
+  background: var(--metadata-row-bg-hover);
+}
+
 .metadata-label {
   color: var(--metadata-label-color);
   font-size: 12px;
@@ -2128,6 +2202,13 @@ body.presentation-mode {
   #metadata-card .metadata-toggle-chevron::before {
     display: none;
   }
+}
+
+/* The menus on a phone or a tablet on its side (ui/menu-toolbar.js): the
+   model's details open from the Model menu; the card would sit under the
+   rail. */
+.viewer-menus-compact #metadata-card {
+  display: none !important;
 }
 
 /* Touch: targets of about 40px and more, no resize handles to hit by

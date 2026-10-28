@@ -16,7 +16,7 @@
     { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/10_activating_annotations/astronaut_comment_activating_scope.json", "i18n": "iiif.optionComments", "fallback": "Comments with their own views" }
   ],
   "aim3d": [
-    { "url": "https://viewer.thedworak.com/manifests/box.json", "i18n": "aim3if.optionBox", "fallback": "Box configuration" },
+    { "url": "https://explora4d.eu/viewer/manifests/box.json", "i18n": "aim3if.optionBox", "fallback": "Box configuration" },
     { "url": "./manifests/box-aim3d-local.json", "i18n": "aim3if.optionBoxLocal", "fallback": "Box (localhost)", "excludeFromMobile": true },
     { "url": "./manifests/tempietto-aim3d-tour.json", "name": { "en": "Tempietto - guided tour with annotations (localhost)", "pl": "Tempietto - wycieczka z przewodnikiem i adnotacjami (localhost)", "de": "Tempietto - Führung mit Annotationen (localhost)" }, "group": "tempietto", "variant": { "en": "Guided tour with annotations", "pl": "Wycieczka z przewodnikiem i adnotacjami", "de": "Führung mit Annotationen" } },
     { "url": "./manifests/tempietto-aim3d-4d.json", "name": { "en": "Tempietto - 4D timeline: building, ruin, protection (localhost)", "pl": "Tempietto - oś czasu 4D: budowa, ruina, ochrona (localhost)", "de": "Tempietto - 4D-Zeitleiste: Bau, Ruine, Schutz (localhost)" }, "group": "tempietto", "variant": { "en": "4D timeline: building, ruin, protection", "pl": "Oś czasu 4D: budowa, ruina, ochrona", "de": "4D-Zeitleiste: Bau, Ruine, Schutz" } },

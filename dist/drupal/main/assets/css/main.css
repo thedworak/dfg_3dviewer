@@ -2,13 +2,17 @@
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
 @import "./models-panel.css";
+@import "./gallery.css";
 @import "./validation-report.css";
 @import "./ground-panel.css";
+@import "./event-log.css";
 @import "./ai.css";
 @import "./admin-panel.css";
 @import "./login-panel.css";
 @import "./ifc-properties.css";
 @import "./viewer-tools.css";
+@import "./materials-panel.css";
+@import "./assistant.css";
 @import "./menu-toolbar.css";
 @import "./context-menu.css";
 
@@ -242,6 +246,44 @@ canvas {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 8px 24px rgba(12, 10, 8, 0.18);
+}
+
+/* The picking hint's buttons on a touch screen (updatePickingHintVisibility
+   in main.js): a phone has no Enter or Esc. */
+.viewer-notice-hint--actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 10px;
+  white-space: normal;
+  text-align: center;
+  border-radius: 14px;
+}
+
+.viewer-notice-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.viewer-notice-action {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.viewer-notice-action--primary {
+  background: rgba(233, 178, 100, 0.9);
+  border-color: rgba(233, 178, 100, 0.9);
+  color: #1c160f;
 }
 
 .viewer-notice-status {
@@ -1272,6 +1314,39 @@ html[data-viewer-theme="light"],
   border-bottom: 0;
 }
 
+/* A repository model's metadata (ui/model-metadata.js), before the rest. */
+.metadata-repository[hidden] {
+  display: none;
+}
+
+.metadata-repository {
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--metadata-border);
+}
+
+.metadata-repository .metadata-row:last-of-type {
+  border-bottom: 0;
+}
+
+.metadata-edit {
+  pointer-events: auto;
+  margin: 6px 2px 2px;
+  padding: 5px 12px;
+  border: 1px solid var(--metadata-row-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--metadata-value-color);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.metadata-edit:hover {
+  background: var(--metadata-row-bg-hover);
+}
+
 .metadata-label {
   color: var(--metadata-label-color);
   font-size: 12px;
@@ -1449,234 +1524,6 @@ html[data-viewer-theme="light"],
     rgba(255,255,255,.15),
     transparent
   );
-}
-
-#image-list {
-  padding: 5px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
-
-  width: 100%;
-}
-
-.modalGallery {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 40px;
-
-  background:
-    radial-gradient(circle at center,
-      rgba(34, 30, 26, 0.35),
-      rgba(2, 6, 23, 0.82));
-
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-
-  opacity: 0;
-  visibility: hidden;
-
-  transition:
-    opacity 320ms ease,
-    visibility 320ms ease;
-}
-
-.modalGallery.is-open {
-  opacity: 1;
-  visibility: visible;
-}
-
-.modalImageWrap {
-  display: inline-flex;
-
-  transform: translateY(10px);
-  opacity: 0;
-
-  transition:
-    transform 420ms cubic-bezier(.22,1,.36,1),
-    opacity 320ms ease;
-}
-
-.modalGallery.is-open .modalImageWrap {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.modalImage {
-  /* Explicit width/height (rather than max-width/max-height + auto) so the
-     image is scaled UP to fill this box too, not just shrunk down when it's
-     already bigger - otherwise a source image smaller than the viewport
-     would render at its native size instead of "fit to window". */
-  width: min(92vw, 1600px);
-  height: 88vh;
-
-  border-radius: 18px;
-
-  object-fit: contain;
-
-  box-shadow:
-    0 30px 80px rgba(0,0,0,.45),
-    0 10px 30px rgba(0,0,0,.35);
-
-  /* transform here is driven by JS (scroll-to-zoom); kept snappy so it
-     doesn't fight the wheel handler, but smoothed enough to not feel abrupt. */
-  transition: transform 120ms ease-out;
-}
-
-.galleryCounter {
-  position: absolute;
-  bottom: calc(24px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-
-  padding: 6px 16px;
-  border-radius: 999px;
-
-  background:
-    linear-gradient(145deg,
-      rgba(255,255,255,.18),
-      rgba(255,255,255,.05));
-  border: 1px solid rgba(255,255,255,.18);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-
-  color: rgba(255,255,255,.92);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .02em;
-
-  pointer-events: none;
-}
-
-.galleryNav {
-  position: absolute;
-  top: 50%;
-  z-index: 2;
-
-  width: 56px;
-  height: 56px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 999px;
-  background:
-    linear-gradient(145deg,
-      rgba(255,255,255,.2),
-      rgba(255,255,255,.04));
-  color: rgba(255,255,255,.95);
-
-  cursor: pointer;
-  user-select: none;
-
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-
-  transform: translateY(-50%);
-
-  transition:
-    transform .2s ease,
-    background .2s ease,
-    border-color .2s ease,
-    box-shadow .2s ease;
-}
-
-.galleryNav svg {
-  width: 28px;
-  height: 28px;
-  fill: currentColor;
-}
-
-.galleryNav:hover {
-  transform: translateY(-50%) scale(1.06);
-  border-color: rgba(255,255,255,.35);
-  background:
-    linear-gradient(145deg,
-      rgba(255,255,255,.28),
-      rgba(255,255,255,.08));
-  box-shadow: 0 12px 28px rgba(0,0,0,.3);
-}
-
-.galleryNav:focus-visible {
-  outline: 2px solid rgba(255,255,255,.85);
-  outline-offset: 2px;
-}
-
-.galleryNavPrev {
-  left: 28px;
-}
-
-.galleryNavNext {
-  right: 28px;
-}
-
-/* The lightbox covers the whole screen, which in the app (edge to edge)
-   includes the status bar and the notch: its controls keep clear of them. */
-.closeGallery {
-  position: absolute;
-  top: calc(24px + env(safe-area-inset-top));
-  right: calc(24px + env(safe-area-inset-right));
-
-  width: 44px;
-  height: 44px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 50%;
-
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.12);
-
-  color: rgba(255,255,255,.92);
-
-  font-size: 28px;
-  font-weight: 300;
-
-  cursor: pointer;
-
-  backdrop-filter: blur(10px);
-
-  transition:
-    transform .2s ease,
-    background .2s ease,
-    opacity .2s ease;
-}
-
-.closeGallery:hover {
-  transform: scale(1.08);
-  background: rgba(255,255,255,.16);
-}
-
-@media (max-width: 900px) {
-  .galleryNav {
-    width: 46px;
-    height: 46px;
-  }
-
-  .galleryNav svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  .galleryNavPrev {
-    left: calc(12px + env(safe-area-inset-left));
-  }
-
-  .galleryNavNext {
-    right: calc(12px + env(safe-area-inset-right));
-  }
 }
 
 #viewerActionMenu {
@@ -2150,104 +1997,6 @@ body[data-viewer-theme="light"] #annotationPOITooltip {
   }
 }
 
-#image-list {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 10px;
-  width: 100%;
-}
-
-/* Wraps #image-list for the scroll hints (thumbnail-gallery.js); they only
-   show in the phone layout below, where the row scrolls sideways. */
-.image-list-scroller {
-  position: relative;
-  width: 100%;
-}
-
-.image-list-hint {
-  display: none;
-}
-
-#image-list .field__item {
-  position: relative;
-
-  flex: 1 1 0;
-  min-width: 50px;
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
-  border-radius: 10%;
-
-  background: linear-gradient(100deg,
-    rgba(255,255,255,.05) 30%,
-    rgba(255,255,255,.11) 50%,
-    rgba(255,255,255,.05) 70%);
-  background-size: 200% 100%;
-  animation: thumbShimmer 1.4s ease-in-out infinite;
-}
-
-#image-list .field__item.is-loaded {
-  background: none;
-  animation: none;
-}
-
-#image-list .field__item img {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
-  max-height: none !important;
-  object-fit: contain;
-
-  opacity: 0;
-}
-
-#image-list .field__item img.is-loaded {
-  opacity: 1;
-}
-
-@keyframes thumbShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-#image-list .field__item.is-active-thumb {
-  outline: 2px solid rgba(217, 195, 160, .95);
-  outline-offset: 2px;
-  box-shadow: 0 0 16px 2px rgba(217, 195, 160, .35);
-}
-
-.image-style-wisski-preview {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-
-  max-width: 100% !important;
-  max-height: 100% !important;
-
-  object-fit: contain;
-
-  border-radius: 0;
-  will-change: transform;
-
-  transition:
-    transform 400ms cubic-bezier(.22,1,.36,1),
-    box-shadow 300ms ease,
-    border-radius 300ms ease;
-  backface-visibility: hidden;
-  transform: translateZ(0);
-  -webkit-font-smoothing: antialiased;
-}
-
-#image-list .field__item .image-style-wisski-preview {
-  display: block;
-  transition: transform .25s ease, box-shadow .25s ease, opacity .35s ease;
-}
-
-#image-list .field__item:hover img.image-style-wisski-preview {
-  transform: scale(1.08);
-  box-shadow: 0 0 20px 5px rgb(75 74 71);
-  border-radius: 10%;
-}
-
 .widget > select {
   color: #000;
 }
@@ -2376,95 +2125,6 @@ body.presentation-mode {
     min-width: 0;
   }
 
-  /* Gallery: one row that scrolls sideways. */
-  #image-list {
-    flex-wrap: nowrap !important;
-    justify-content: flex-start;
-    gap: 8px;
-    padding: 4px 8px;
-    box-sizing: border-box;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    /* Snap to the padding, not the edge (the row started 8px scrolled). */
-    scroll-padding-inline: 8px;
-    scrollbar-width: none;
-  }
-
-  #image-list::-webkit-scrollbar {
-    display: none;
-  }
-
-  #image-list .field__item {
-    flex: 0 0 64px;
-    min-width: 64px;
-    scroll-snap-align: start;
-  }
-
-  /* More thumbnails off screen: that edge fades out and a small chevron
-     sits on it (tapping it scrolls). */
-  .image-list-scroller.can-scroll-next #image-list {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
-  }
-
-  .image-list-scroller.can-scroll-prev #image-list {
-    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
-    mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent);
-  }
-
-  .image-list-scroller.can-scroll-prev.can-scroll-next #image-list {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
-    mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
-  }
-
-  .image-list-hint {
-    position: absolute;
-    top: 50%;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: rgba(22, 19, 16, 0.55);
-    color: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-    cursor: pointer;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-50%);
-    transition: opacity 0.2s ease;
-  }
-
-  .image-list-hint svg {
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-  }
-
-  .image-list-hint--prev {
-    left: 4px;
-  }
-
-  .image-list-hint--next {
-    right: 4px;
-  }
-
-  .image-list-scroller.can-scroll-prev .image-list-hint--prev,
-  .image-list-scroller.can-scroll-next .image-list-hint--next {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* Until the row is first moved, the right chevron nudges once. */
-  .image-list-scroller.can-scroll-next:not(.can-scroll-prev) .image-list-hint--next {
-    animation: imageListHintNudge 1.2s ease-in-out 0.6s 2;
-  }
-
   /* Notices: one short line above the toolbar, not a block over the model.
      Edge to edge (centred inside): with left: 50% the notice could only use
      half of the viewer's width, and wrapped. */
@@ -2480,17 +2140,6 @@ body.presentation-mode {
     padding: 6px 12px;
     font-size: 12px;
     line-height: 1.3;
-  }
-}
-
-@keyframes imageListHintNudge {
-  0%, 100% { transform: translate(0, -50%); }
-  50% { transform: translate(4px, -50%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .image-list-hint {
-    animation: none !important;
   }
 }
 
@@ -2553,6 +2202,13 @@ body.presentation-mode {
   #metadata-card .metadata-toggle-chevron::before {
     display: none;
   }
+}
+
+/* The menus on a phone or a tablet on its side (ui/menu-toolbar.js): the
+   model's details open from the Model menu; the card would sit under the
+   rail. */
+.viewer-menus-compact #metadata-card {
+  display: none !important;
 }
 
 /* Touch: targets of about 40px and more, no resize handles to hit by

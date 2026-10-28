@@ -1,0 +1,102 @@
+/* The event log window (ui/event-log.js): every notice and console error,
+   newest at the bottom. */
+
+#eventLogPanel[hidden] {
+  display: none !important;
+}
+
+#eventLogPanel {
+  position: absolute;
+  left: 50%;
+  top: min(8%, 48px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100vw - 36px));
+  max-height: min(calc(100% - min(8%, 48px) - 8px), 560px);
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.3;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Title first, the buttons together at the end. */
+#eventLogPanel > .upload-panel-header {
+  justify-content: flex-start;
+}
+
+#eventLogPanel > .upload-panel-header > span {
+  flex: 1;
+  min-width: 0;
+}
+
+#eventLogPanel > .upload-panel-header button[data-action="copy"],
+#eventLogPanel > .upload-panel-header button[data-action="clear"] {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.event-log-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.event-log-entry {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  padding: 4px 6px 4px 8px;
+  border-left: 3px solid color-mix(in srgb, var(--viewer-panel-text) 25%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.event-log-entry + .event-log-entry {
+  border-top: 1px solid color-mix(in srgb, var(--viewer-panel-text) 10%, transparent);
+}
+
+.event-log-entry time {
+  opacity: 0.6;
+}
+
+.event-log-detail {
+  grid-column: 2;
+  opacity: 0.75;
+}
+
+.event-log-entry[data-tone="success"] {
+  border-left-color: #3fa66b;
+}
+
+.event-log-entry[data-tone="warning"] {
+  border-left-color: #d9a35a;
+}
+
+.event-log-entry[data-tone="error"] {
+  border-left-color: #d24a4a;
+}
+
+/* Kept out of the toasts: shown dimmer. */
+.event-log-entry[data-quiet="true"] .event-log-message,
+.event-log-entry[data-source="console"] .event-log-message {
+  opacity: 0.75;
+}
+
+.event-log-empty {
+  padding: 12px 4px;
+  opacity: 0.6;
+  font-family: inherit;
+}

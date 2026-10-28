@@ -1,0 +1,276 @@
+/* The viewer's own hints with buttons (ui/smart-hint.js), among the notices
+   above the toolbar (#viewerNoticeContainer, main.css). */
+.viewer-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 8px 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: var(--viewer-notice-container-bg, rgba(22, 19, 16, 0.86));
+  box-shadow: 0 8px 24px rgba(12, 10, 8, 0.24);
+  color: var(--viewer-notice-container-text, #fff);
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.viewer-hint.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.viewer-hint[data-tone="warning"] {
+  border-color: rgba(233, 178, 100, 0.55);
+}
+
+.viewer-hint_text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.viewer-hint_detail {
+  font-size: 12px;
+  opacity: 0.78;
+}
+
+.viewer-hint_actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.viewer-hint button {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-hint_action {
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.viewer-hint_action.is-primary {
+  border-color: var(--viewer-brand-gold, #e9b264);
+  background: rgba(233, 178, 100, 0.22);
+}
+
+.viewer-hint button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.viewer-hint button:focus-visible {
+  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline-offset: 2px;
+}
+
+.viewer-hint_close {
+  width: 30px;
+  padding: 0;
+  border-color: transparent !important;
+  font-size: 18px !important;
+  opacity: 0.75;
+}
+
+@media (max-width: 520px) {
+  .viewer-hint {
+    flex-wrap: wrap;
+  }
+
+  .viewer-hint_text {
+    flex-basis: calc(100% - 40px);
+  }
+
+  .viewer-hint_actions {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (pointer: coarse) {
+  .viewer-hint button {
+    min-height: 40px;
+  }
+}
+
+/* Prepare for publishing (editor/publish-check.js), on .viewer-scene. */
+.viewer-prepare_summary {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+}
+
+.viewer-prepare_summary[data-state="fix"] {
+  background: rgba(233, 178, 100, 0.2);
+}
+
+.viewer-prepare_summary[data-state="ready"] {
+  background: rgba(120, 190, 120, 0.24);
+}
+
+.viewer-prepare_items,
+.viewer-prepare_steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.viewer-prepare_item,
+.viewer-prepare_step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.viewer-prepare_mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.viewer-prepare_item[data-level="fix"] .viewer-prepare_mark {
+  background: var(--viewer-brand-gold, #e9b264);
+  color: #1c1610;
+}
+
+.viewer-prepare_text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.viewer-prepare_text span {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.viewer-prepare_fix {
+  flex: 0 0 auto;
+  min-height: 28px;
+  max-width: 132px;
+  padding: 2px 8px;
+  font-size: 12px !important;
+}
+
+.viewer-prepare_item[data-level="fix"] .viewer-prepare_fix {
+  border-color: var(--viewer-brand-gold, #e9b264) !important;
+}
+
+.viewer-prepare_recheck {
+  min-height: 32px;
+  padding: 4px 12px;
+}
+
+.viewer-prepare_steps {
+  counter-reset: prepare-step;
+}
+
+.viewer-prepare_step::before {
+  counter-increment: prepare-step;
+  content: counter(prepare-step);
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.viewer-prepare_step[data-state="saved"]::before {
+  content: "✓";
+  background: rgba(120, 190, 120, 0.5);
+}
+
+.viewer-prepare_step[data-state="changed"] .viewer-prepare_text span {
+  color: var(--viewer-brand-gold, #e9b264);
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .viewer-prepare_fix {
+    min-height: 40px;
+  }
+}
+
+.viewer-prepare_front {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.viewer-prepare_front input {
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+/* The number of things to fix on the toolbar's button, and a dot on the
+   tab of its menu (editor/publish-check.js updatePublishBadge). */
+#viewerEditorToolbar [data-tool="publishCheck"] .viewer-editor-tool_icon,
+#viewerEditorToolbar .viewer-menus_tab.has-badge .viewer-menus_tab-icon {
+  position: relative;
+}
+
+.viewer-tool-badge {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--viewer-brand-gold, #e9b264);
+  color: #1c1610;
+  font: 700 10px/16px system-ui, sans-serif;
+  text-align: center;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.viewer-tool-badge[hidden] {
+  display: none;
+}
+
+#viewerEditorToolbar .viewer-menus_tab.has-badge .viewer-menus_tab-icon::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--viewer-brand-gold, #e9b264);
+}

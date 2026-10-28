@@ -11,7 +11,7 @@
 
 :root {
   --gallery-accent: var(--viewer-brand-gold, #e9b264);
-  --gallery-plate: radial-gradient(circle at 50% 42%, #fdfcf9 0%, #e7e2d9 52%, #b9b2a6 100%);
+  --gallery-plate: radial-gradient(ellipse at 50% 40%, #f7f5f1 0%, #e4dfd6 60%, #cfc8bc 100%);
   --gallery-surface: rgba(26, 23, 20, 0.95);
   --gallery-border: rgba(255, 255, 255, 0.1);
   --gallery-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
@@ -48,7 +48,7 @@ html[data-viewer-theme="light"] {
   box-sizing: border-box;
   width: 100%;
   margin: 4px 0 8px;
-  padding: 8px;
+  padding: 4px 6px;
   border: 1px solid var(--gallery-border);
   border-radius: 12px;
   background: var(--gallery-surface);
@@ -61,7 +61,7 @@ html[data-viewer-theme="light"] {
   flex-wrap: nowrap;
   justify-content: flex-start;
   justify-content: safe center;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
   padding: 4px 2px;
   box-sizing: border-box;
@@ -76,25 +76,24 @@ html[data-viewer-theme="light"] {
   display: none;
 }
 
-/* A view: a plate with the render on it, its number in the corner like a
-   catalogue plate, its caption (angle, label) on hover and focus. */
+/* A view: a frame of a filmstrip, wider than tall like the renders' models
+   (so they fill it), its number in the corner, its caption (angle, label)
+   on hover and focus. Low, so the row stays a strip over the viewer. */
 #image-list .field__item {
   position: relative;
-  flex: 0 1 128px;
+  flex: 0 1 116px;
   min-width: 72px;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   box-sizing: border-box;
   border: 1px solid var(--gallery-thumb-border);
-  border-radius: 10px;
+  border-radius: 8px;
   background-image:
     linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%),
     var(--gallery-plate);
   background-size: 200% 100%, 100% 100%;
   animation: thumbShimmer 1.4s ease-in-out infinite;
-  box-shadow:
-    inset 0 -18px 24px -18px rgba(37, 33, 28, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   cursor: zoom-in;
   scroll-snap-align: start;
   transition:
@@ -112,11 +111,14 @@ html[data-viewer-theme="light"] {
 #image-list .field__item::before {
   content: attr(data-number);
   position: absolute;
-  top: 6px;
-  left: 8px;
+  top: 3px;
+  left: 3px;
   z-index: 1;
+  padding: 2px 3px;
+  border-radius: 3px;
+  background: rgba(247, 245, 241, 0.72);
   color: rgba(37, 33, 28, 0.55);
-  font: 600 10px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font: 600 9px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.08em;
   pointer-events: none;
@@ -148,10 +150,12 @@ html[data-viewer-theme="light"] {
   height: 100% !important;
   max-width: none !important;
   max-height: none !important;
-  padding: 6%;
+  padding: 0;
   object-fit: contain;
+  /* The renders keep a margin round the model: drawn a little larger. */
+  transform: scale(1.12);
   opacity: 0;
-  filter: drop-shadow(0 6px 6px rgba(37, 33, 28, 0.22));
+  filter: drop-shadow(0 4px 4px rgba(37, 33, 28, 0.2));
   transition: transform 0.35s cubic-bezier(.22, 1, .36, 1), opacity 0.35s ease;
   -webkit-user-drag: none;
   user-select: none;
@@ -166,13 +170,12 @@ html[data-viewer-theme="light"] {
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--gallery-accent) 70%, transparent);
     box-shadow:
-      inset 0 -18px 24px -18px rgba(37, 33, 28, 0.35),
-      0 8px 18px rgba(0, 0, 0, 0.26),
+      0 6px 14px rgba(0, 0, 0, 0.26),
       0 0 0 1px color-mix(in srgb, var(--gallery-accent) 35%, transparent);
   }
 
   #image-list .field__item:hover img {
-    transform: scale(1.06);
+    transform: scale(1.2);
   }
 
   #image-list .field__item:hover::after {
@@ -712,9 +715,9 @@ html[data-viewer-theme="light"] {
   }
 
   #image-list .field__item {
-    flex: 0 0 60px;
-    min-width: 60px;
-    border-radius: 8px;
+    flex: 0 0 68px;
+    min-width: 68px;
+    border-radius: 6px;
   }
 
   /* Too small for a caption; the number stays. */

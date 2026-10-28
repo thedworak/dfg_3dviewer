@@ -83,6 +83,18 @@
   font-weight: 600;
 }
 
+.upload-panel-private[hidden] {
+  display: none;
+}
+
+.upload-panel-private {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .upload-panel-field input[type="file"],
 .upload-panel-field input[type="url"] {
   width: 100%;
@@ -269,6 +281,132 @@
 .viewer-confirm-actions button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--viewer-panel-text) 60%, transparent);
   outline-offset: 2px;
+}
+
+/* The model metadata form (ui/model-metadata.js): the confirmation
+   dialog's look, wider, two columns where there is room; over the whole
+   page, as the viewer alone is often too low for it. */
+.model-metadata-backdrop {
+  position: fixed;
+  /* Over the viewer's notices (#viewerNoticeContainer): the form says its
+     own errors. */
+  z-index: 100002;
+}
+
+.model-metadata-dialog {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+}
+
+.model-metadata-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.model-metadata-intro {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--viewer-panel-text) 65%, transparent);
+}
+
+.model-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.model-metadata-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.model-metadata-field--wide {
+  grid-column: 1 / -1;
+}
+
+.model-metadata-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.model-metadata-required {
+  color: #d58a46;
+}
+
+.model-metadata-hint {
+  font-size: 10px;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--viewer-panel-text) 60%, transparent);
+}
+
+.model-metadata-field input,
+.model-metadata-field select,
+.model-metadata-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  /* 16px keeps phones from zooming into the field. */
+  font-size: max(13px, min(16px, 1em));
+  padding: 6px 8px;
+}
+
+.model-metadata-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.model-metadata-field select option {
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+}
+
+.model-metadata-field [aria-invalid="true"] {
+  border-color: #d54646;
+}
+
+.model-metadata-status {
+  min-height: 1em;
+  margin: 10px 0;
+  font-size: 12px;
+  color: #e06464;
+}
+
+.model-metadata-status:empty {
+  margin: 4px 0;
+}
+
+/* A phone: one column, over the whole screen rather than the viewer only. */
+@media (max-width: 640px) {
+  .model-metadata-backdrop {
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .model-metadata-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .model-metadata-field input,
+  .model-metadata-field select,
+  .model-metadata-field textarea {
+    font-size: 16px;
+  }
+
+  .model-metadata-dialog .viewer-confirm-actions button {
+    min-height: 40px;
+    flex: 1;
+  }
 }
 
 /* Draggable (by header) + resizable (native corner grip) panels - see ui/panel-window.js */
