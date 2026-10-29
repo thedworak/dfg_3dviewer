@@ -1,6 +1,7 @@
 import THREE from "./init.js";
 import { core } from "./core.js";
 import { PackedSplats, SparkRenderer, SplatFileType, SplatMesh, isMobile } from "@sparkjsdev/spark";
+import { attachSplatLighting } from "./splat-lighting.js";
 
 // Gaussian splats (3D Gaussian Splatting captures: .ply, .spz, .splat,
 // .ksplat, .sog, .rad), drawn with Spark (sparkjs.dev) together with the meshes of
@@ -36,6 +37,9 @@ import { PackedSplats, SparkRenderer, SplatFileType, SplatMesh, isMobile } from 
 // root chunk (the coarse splats spread over the whole capture), its count
 // from the header. Without range support (a proxy answering 200) the file
 // is loaded whole, as above.
+//
+// Both are lit by the scene's lights when Lights > Splat lighting is on
+// (splat-lighting.js).
 
 const LOD_ABOVE = 300_000;
 // Share of Spark's default per-platform budget (2.5M splats on desktop,
@@ -99,6 +103,7 @@ export async function buildSplatModel(buffer, { fileName = "splats", name = "Gau
   const count = (lodOnly ?? splats)?.numSplats ?? null;
   mesh.userData.gaussianSplats = { count, format: fileName.split(".").pop().toLowerCase() };
   mesh.userData.isGaussianSplats = true;
+  attachSplatLighting(mesh);
 
   const root = new THREE.Group();
   root.name = name;
@@ -160,6 +165,7 @@ export async function buildPagedSplatModel(url, { fileName = "splats.rad", name 
   if (!box.isEmpty()) mesh.geometry = boundsGeometry(box);
   mesh.userData.gaussianSplats = { count: meta.count ?? null, format: fileName.split(".").pop().toLowerCase(), paged: true };
   mesh.userData.isGaussianSplats = true;
+  attachSplatLighting(mesh);
 
   const root = new THREE.Group();
   root.name = name;

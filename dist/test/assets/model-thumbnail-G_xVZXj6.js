@@ -129,6 +129,9 @@ const VIEWER_I18N = {
       lightPlacement: "Placement",
       lightHandles: "Handles",
       lightsNote: "The added lights are saved in the exported manifest.",
+      splatLighting: "Gaussian splats",
+      splatLightingEnabled: "Lit by the lights",
+      splatLightingStrength: "Strength",
       keyLightStays: "The key light stays: switch it off instead",
       sceneLights: "Scene lights",
       addLight: "Add light",
@@ -1725,6 +1728,9 @@ const VIEWER_I18N = {
       lightPlacement: "Położenie",
       lightHandles: "Uchwyty",
       lightsNote: "Dodane światła zapisują się w eksportowanym manifeście.",
+      splatLighting: "Gaussian splats",
+      splatLightingEnabled: "Oświetlane światłami",
+      splatLightingStrength: "Siła",
       keyLightStays: "Światło główne zostaje: można je wyłączyć",
       sceneLights: "Światła sceny",
       addLight: "Dodaj światło",
@@ -3364,6 +3370,9 @@ const VIEWER_I18N = {
       lightPlacement: "Position",
       lightHandles: "Griffe",
       lightsNote: "Die hinzugefügten Lichter werden im exportierten Manifest gespeichert.",
+      splatLighting: "Gaussian Splats",
+      splatLightingEnabled: "Von den Lichtern beleuchtet",
+      splatLightingStrength: "Stärke",
       keyLightStays: "Das Hauptlicht bleibt: stattdessen ausschalten",
       sceneLights: "Lichter der Szene",
       addLight: "Licht hinzufügen",
@@ -7116,7 +7125,7 @@ function featureIconsCaption(inspection, modelValidation = null) {
 const GENERIC_GALLERY_IMAGE_COUNT = 9;
 
 // Rollup builds turn the gallery PNGs into WebP (rollup.config.js,
-// convertGalleryToWebp); the dev server (Parcel, no "dev") serves the
+// convertGalleryToWebp); the dev server (Parcel, no "test") serves the
 // PNGs straight from viewer/examples.
 const GALLERY_IMAGE_EXT = "webp" ;
 
@@ -7156,4 +7165,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-DPeuIild.js.map
+//# sourceMappingURL=model-thumbnail-BukbUDI7.js.map

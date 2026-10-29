@@ -1,6 +1,6 @@
-import { c as core } from './main-DRZE_X4k.js';
+import { c as core } from './main-Dl_skrKs.js';
 import { C as Color, V as Vector4, dv as Box3, aQ as Matrix4, ar as Vector3, M as Matrix3, x as Mesh, fi as ShaderMaterial, a_ as DoubleSide, ee as GLSL3, aq as Vector2, fI as Timer, fZ as WebGLRenderTarget, aT as SRGBColorSpace, a1 as UnsignedByteType, aY as RGBAFormat, bv as Quaternion, _ as DataTexture, bd as RGBAIntegerFormat, a5 as UnsignedIntType, g9 as WebGLCubeRenderTarget, bj as LinearSRGBColorSpace, J as LinearFilter, bm as LinearMipMapLinearFilter, K as CubeCamera, dA as Camera, ga as PMREMGenerator, al as MeshStandardMaterial, bl as Object3D, cZ as DataArrayTexture, ba as RGIntegerFormat, fY as WebGLArrayRenderTarget, b1 as NearestFilter, o as ColorManagement, aI as PerspectiveCamera, aH as OrthographicCamera, gb as ShaderChunk, em as InstancedBufferGeometry, b5 as BufferAttribute, au as Loader, av as FileLoader, fd as RawShaderMaterial, R as REVISION, be as Matrix2, g5 as FullScreenQuad, g4 as THREE } from './three-9zFNDZnr.js';
-import './model-thumbnail-DdZDt4MY.js';
+import './model-thumbnail-Cz3F93ll.js';
 import './_commonjsHelpers-ChNyZfSg.js';
 
 const LN_SCALE_MIN = -12;
@@ -32,6 +32,12 @@ const DEFAULT_SPLAT_ENCODING = {
   sh3Max: 1,
   lodOpacity: false
 };
+function isBoolType(type) {
+  return type === "bool" || type === "bvec2" || type === "bvec3" || type === "bvec4";
+}
+function isScalarType(type) {
+  return type === "int" || type === "uint" || type === "float";
+}
 function isIntType(type) {
   return type === "int" || type === "ivec2" || type === "ivec3" || type === "ivec4";
 }
@@ -47,6 +53,18 @@ function isMatFloatType(type) {
 function isAllFloatType(type) {
   return isFloatType(type) || isMatFloatType(type);
 }
+function isVector2Type(type) {
+  return type === "vec2" || type === "ivec2" || type === "uvec2";
+}
+function isVector3Type(type) {
+  return type === "vec3" || type === "ivec3" || type === "uvec3";
+}
+function isVector4Type(type) {
+  return type === "vec4" || type === "ivec4" || type === "uvec4";
+}
+function isVectorType(type) {
+  return isVector2Type(type) || isVector3Type(type) || isVector4Type(type);
+}
 function isMat2(type) {
   return type === "mat2" || type === "mat2x2";
 }
@@ -55,6 +73,102 @@ function isMat3(type) {
 }
 function isMat4(type) {
   return type === "mat4" || type === "mat4x4";
+}
+function vectorElementType(type) {
+  switch (type) {
+    case "vec2":
+      return "float";
+    case "vec3":
+      return "float";
+    case "vec4":
+      return "float";
+    case "ivec2":
+      return "int";
+    case "ivec3":
+      return "int";
+    case "ivec4":
+      return "int";
+    case "uvec2":
+      return "uint";
+    case "uvec3":
+      return "uint";
+    case "uvec4":
+      return "uint";
+    default:
+      throw new Error(`Invalid vector type: ${type}`);
+  }
+}
+function vectorDim(type) {
+  switch (type) {
+    case "vec2":
+    case "ivec2":
+    case "uvec2":
+      return 2;
+    case "vec3":
+    case "ivec3":
+    case "uvec3":
+      return 3;
+    case "vec4":
+    case "ivec4":
+    case "uvec4":
+      return 4;
+    default:
+      throw new Error(`Invalid vector type: ${type}`);
+  }
+}
+function sameSizeVec(type) {
+  if (isScalarType(type)) {
+    return "float";
+  }
+  if (isVector2Type(type)) {
+    return "vec2";
+  }
+  if (isVector3Type(type)) {
+    return "vec3";
+  }
+  if (isVector4Type(type)) {
+    return "vec4";
+  }
+  throw new Error(`Invalid vector type: ${type}`);
+}
+function sameSizeUvec(type) {
+  if (isScalarType(type)) {
+    return "uint";
+  }
+  if (isVector2Type(type)) {
+    return "uvec2";
+  }
+  if (isVector3Type(type)) {
+    return "uvec3";
+  }
+  if (isVector4Type(type)) {
+    return "uvec4";
+  }
+  throw new Error(`Invalid vector type: ${type}`);
+}
+function sameSizeIvec(type) {
+  if (isScalarType(type)) {
+    return "int";
+  }
+  if (isVector2Type(type)) {
+    return "ivec2";
+  }
+  if (isVector3Type(type)) {
+    return "ivec3";
+  }
+  if (isVector4Type(type)) {
+    return "ivec4";
+  }
+  throw new Error(`Invalid vector type: ${type}`);
+}
+function typeLiteral(type) {
+  if (typeof type === "string") {
+    return type;
+  }
+  if (typeof type === "object" && type.type) {
+    return type.type;
+  }
+  throw new Error(`Invalid DynoType: ${String(type)}`);
 }
 function numberAsInt(value) {
   return Math.trunc(value).toString();
@@ -94,6 +208,9 @@ class DynoLiteral extends DynoValue {
   getLiteral() {
     return this.literal;
   }
+}
+function dynoLiteral(type, literal) {
+  return new DynoLiteral(type, literal);
 }
 class DynoConst extends DynoLiteral {
   constructor(type, value) {
@@ -247,6 +364,54 @@ class DynoConst extends DynoLiteral {
 }
 function dynoConst(type, value) {
   return new DynoConst(type, value);
+}
+function literalZero(type) {
+  const typeString = String(type);
+  if (isBoolType(type)) {
+    return `${typeString}(false)`;
+  }
+  if (isAllFloatType(type)) {
+    return `${typeString}(0.0)`;
+  }
+  if (isIntType(type)) {
+    return `${typeString}(0)`;
+  }
+  if (isUintType(type)) {
+    return `${typeString}(0u)`;
+  }
+  throw new Error(`Type not implemented: ${typeString}`);
+}
+function literalOne(type) {
+  const typeString = String(type);
+  if (isBoolType(type)) {
+    return `${typeString}(true)`;
+  }
+  if (isAllFloatType(type)) {
+    return `${typeString}(1.0)`;
+  }
+  if (isIntType(type)) {
+    return `${typeString}(1)`;
+  }
+  if (isUintType(type)) {
+    return `${typeString}(1u)`;
+  }
+  throw new Error(`Type not implemented: ${typeString}`);
+}
+function literalNegOne(type) {
+  const typeString = String(type);
+  if (isBoolType(type)) {
+    return `${typeString}(true)`;
+  }
+  if (isAllFloatType(type)) {
+    return `${typeString}(-1.0)`;
+  }
+  if (isIntType(type)) {
+    return `${typeString}(-1)`;
+  }
+  if (isUintType(type)) {
+    return `${typeString}(0xFFFFFFFFu)`;
+  }
+  throw new Error(`Type not implemented: ${typeString}`);
 }
 const DEFAULT_INDENT = "    ";
 class Compilation {
@@ -580,12 +745,36 @@ class BinaryOp extends Dyno {
     return new DynoOutput(this, this.outKey);
   }
 }
+class TrinaryOp extends Dyno {
+  constructor({
+    a,
+    b,
+    c,
+    outKey,
+    outTypeFunc
+  }) {
+    const inTypes = { a: valType(a), b: valType(b), c: valType(c) };
+    const outType = outTypeFunc(valType(a), valType(b), valType(c));
+    const outTypes = { [outKey]: outType };
+    super({ inTypes, outTypes, inputs: { a, b, c } });
+    this.outKey = outKey;
+  }
+  dynoOut() {
+    return new DynoOutput(this, this.outKey);
+  }
+}
 const Gsplat = { type: "Gsplat" };
 const CovSplat = { type: "CovSplat" };
 const TPackedSplats = { type: "PackedSplats" };
 const TExtSplats = { type: "ExtSplats" };
+const TCovSplats = { type: "CovSplats" };
+const numPackedSplats = (packedSplats) => new NumPackedSplats({ packedSplats });
 const readPackedSplat = (packedSplats, index) => new ReadPackedSplat({ packedSplats, index });
+const readPackedSplatRange = (packedSplats, index, base, count) => new ReadPackedSplatRange({ packedSplats, index, base, count });
+const numExtSplats = (extSplats) => new NumExtSplats({ extSplats });
 const readExtSplat = (extSplats, index) => new ReadExtSplat({ extSplats, index });
+const numCovSplats = (covsplats) => new NumCovSplats({ covsplats });
+const readCovSplat = (covSplats, index) => new ReadCovSplat({ covSplats, index });
 const gsplatToCovSplat = (gsplat) => new GsplatToCovSplat({ gsplat });
 const splitGsplat = (gsplat) => new SplitGsplat({ gsplat });
 const combineGsplat = ({
@@ -623,6 +812,10 @@ const combineGsplat = ({
     b
   });
 };
+const gsplatNormal = (gsplat) => new GsplatNormal({ gsplat });
+const gsplatXAxis = (gsplat) => new GsplatXAxis({ gsplat });
+const gsplatYAxis = (gsplat) => new GsplatYAxis({ gsplat });
+const gsplatZAxis = (gsplat) => new GsplatZAxis({ gsplat });
 const transformGsplat = (gsplat, {
   scale,
   rotate,
@@ -679,6 +872,16 @@ const definePackedSplats = unindent(
   };
 `
 );
+class NumPackedSplats extends UnaryOp {
+  constructor({
+    packedSplats
+  }) {
+    super({ a: packedSplats, outKey: "numSplats", outTypeFunc: () => "int" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.numSplats} = ${inputs.a}.numSplats;`
+    ];
+  }
+}
 const defineReadPackedArray = unindent(
   /* glsl */
   `
@@ -736,6 +939,56 @@ class ReadPackedSplat extends Dyno {
     return new DynoOutput(this, "gsplat");
   }
 }
+class ReadPackedSplatRange extends Dyno {
+  constructor({
+    packedSplats,
+    index,
+    base,
+    count
+  }) {
+    super({
+      inTypes: {
+        packedSplats: TPackedSplats,
+        index: "int",
+        base: "int",
+        count: "int"
+      },
+      outTypes: { gsplat: Gsplat },
+      inputs: { packedSplats, index, base, count },
+      globals: () => [defineGsplat, definePackedSplats, defineReadPackedArray],
+      statements: ({ inputs, outputs }) => {
+        const { gsplat } = outputs;
+        if (!gsplat) {
+          return [];
+        }
+        const { packedSplats: packedSplats2, index: index2, base: base2, count: count2 } = inputs;
+        let statements;
+        if (packedSplats2 && index2 && base2 && count2) {
+          statements = unindentLines(
+            /* glsl */
+            `
+            ${gsplat}.flags = 0u;
+            if (readPackedArray(${packedSplats2}.textureArray, ${packedSplats2}.numSplats, ${packedSplats2}.rgbMinMaxLnScaleMinMax, ${index2}, ${gsplat})) {
+              if (${packedSplats2}.lodOpacity) {
+                ${gsplat}.rgba.a = 2.0 * ${gsplat}.rgba.a;
+              }
+              bool zeroSize = all(equal(${gsplat}.scales, vec3(0.0, 0.0, 0.0)));
+              ${gsplat}.flags = zeroSize ? 0u : GSPLAT_FLAG_ACTIVE;
+            }
+          `
+          );
+        } else {
+          statements = [`${gsplat}.flags = 0u;`];
+        }
+        statements.push(`${gsplat}.index = ${index2 ?? "0"};`);
+        return statements;
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "gsplat");
+  }
+}
 const defineExtSplats = unindent(
   /* glsl */
   `
@@ -746,6 +999,14 @@ const defineExtSplats = unindent(
   };
 `
 );
+class NumExtSplats extends UnaryOp {
+  constructor({ extSplats }) {
+    super({ a: extSplats, outKey: "numSplats", outTypeFunc: () => "int" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.numSplats} = ${inputs.a}.numSplats;`
+    ];
+  }
+}
 const defineReadExtArrays = unindent(
   /* glsl */
   `
@@ -794,7 +1055,15 @@ class ReadExtSplat extends Dyno {
     return new DynoOutput(this, "gsplat");
   }
 }
-unindent(
+class NumCovSplats extends UnaryOp {
+  constructor({ covsplats }) {
+    super({ a: covsplats, outKey: "numSplats", outTypeFunc: () => "int" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.numSplats} = ${inputs.a}.numSplats;`
+    ];
+  }
+}
+const defineReadCovArrays = unindent(
   /* glsl */
   `
   void readCovArrays(usampler2DArray texture1, usampler2DArray texture2, int numSplats, int index, out CovSplat covsplat) {
@@ -810,6 +1079,38 @@ unindent(
   }
 `
 );
+class ReadCovSplat extends Dyno {
+  constructor({
+    covSplats,
+    index
+  }) {
+    super({
+      inTypes: { covSplats: TCovSplats, index: "int" },
+      outTypes: { covsplat: CovSplat },
+      inputs: { covSplats, index },
+      globals: () => [defineGsplat, defineCovSplat, defineReadCovArrays],
+      statements: ({ inputs, outputs }) => {
+        const { covsplat } = outputs;
+        if (!covsplat) {
+          return [`${covsplat}.flags = 0u;`];
+        }
+        const { covSplats: covSplats2, index: index2 } = inputs;
+        if (covSplats2 && index2) {
+          return unindentLines(
+            /* glsl */
+            `
+            readCovArrays(${covSplats2}.textureArray, ${covSplats2}.numSplats, ${index2}, ${covsplat});
+          `
+          );
+        }
+        return [`${covsplat}.flags = 0u;`];
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "covsplat");
+  }
+}
 class GsplatToCovSplat extends Dyno {
   constructor({ gsplat }) {
     super({
@@ -1009,7 +1310,7 @@ class CombineGsplat extends Dyno {
     return new DynoOutput(this, "gsplat");
   }
 }
-unindent(
+const defineGsplatNormal = unindent(
   /* glsl */
   `
   vec3 gsplatNormal(vec3 scales, vec4 quaternion) {
@@ -1026,6 +1327,42 @@ unindent(
   }
 `
 );
+class GsplatNormal extends UnaryOp {
+  constructor({ gsplat }) {
+    super({ a: gsplat, outKey: "normal", outTypeFunc: () => "vec3" });
+    this.globals = () => [defineGsplat, defineGsplatNormal];
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.normal} = gsplatNormal(${inputs.a}.scales, ${inputs.a}.quaternion);`
+    ];
+  }
+}
+class GsplatXAxis extends UnaryOp {
+  constructor({ gsplat }) {
+    super({ a: gsplat, outKey: "xaxis", outTypeFunc: () => "vec3" });
+    this.globals = () => [defineGsplat];
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.xaxis} = quatVec(${inputs.a}.quaternion, vec3(1.0, 0.0, 0.0));`
+    ];
+  }
+}
+class GsplatYAxis extends UnaryOp {
+  constructor({ gsplat }) {
+    super({ a: gsplat, outKey: "yaxis", outTypeFunc: () => "vec3" });
+    this.globals = () => [defineGsplat];
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.yaxis} = quatVec(${inputs.a}.quaternion, vec3(0.0, 1.0, 0.0));`
+    ];
+  }
+}
+class GsplatZAxis extends UnaryOp {
+  constructor({ gsplat }) {
+    super({ a: gsplat, outKey: "zaxis", outTypeFunc: () => "vec3" });
+    this.globals = () => [defineGsplat];
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.zaxis} = quatVec(${inputs.a}.quaternion, vec3(0.0, 0.0, 1.0));`
+    ];
+  }
+}
 class TransformGsplat extends Dyno {
   constructor({
     gsplat,
@@ -1298,6 +1635,7 @@ const outputExtendedSplat = (gsplat) => new OutputExtendedSplat({ gsplat });
 const outputExtCovSplat = (covsplat) => new OutputExtCovSplat({ covsplat });
 const outputSplatDepth = (gsplat, viewCenter, viewDir, sortRadial) => new OutputSplatDepth({ gsplat, viewCenter, viewDir, sortRadial });
 const outputCovSplatDepth = (covsplat, viewCenter, viewDir, sortRadial) => new OutputCovSplatDepth({ covsplat, viewCenter, viewDir, sortRadial });
+const outputRgba8 = (rgba8) => new OutputRgba8({ rgba8 });
 class OutputPackedSplat extends Dyno {
   constructor({
     gsplat,
@@ -1506,6 +1844,50 @@ class OutputRgba8 extends Dyno {
     return new DynoOutput(this, "rgba8");
   }
 }
+const uniform = (key, type, value) => new DynoUniform({ key, type, value });
+const dynoBool = (value = false, key) => new DynoBool({ key, value });
+const dynoUint = (value = 0, key) => new DynoUint({ key, value });
+const dynoInt = (value = 0, key) => new DynoInt({ key, value });
+const dynoFloat = (value = 0, key) => new DynoFloat({ key, value });
+const dynoBvec2 = (value, key) => new DynoBvec2({ key, value });
+const dynoUvec2 = (value, key) => new DynoUvec2({ key, value });
+const dynoIvec2 = (value, key) => new DynoIvec2({ key, value });
+const dynoVec2 = (value, key) => new DynoVec2({ key, value });
+const dynoBvec3 = (value, key) => new DynoBvec3({ key, value });
+const dynoUvec3 = (value, key) => new DynoUvec3({ key, value });
+const dynoIvec3 = (value, key) => new DynoIvec3({ key, value });
+const dynoVec3 = (value, key) => new DynoVec3({ key, value });
+const dynoBvec4 = (value, key) => new DynoBvec4({ key, value });
+const dynoUvec4 = (value, key) => new DynoUvec4({ key, value });
+const dynoIvec4 = (value, key) => new DynoIvec4({ key, value });
+const dynoVec4 = (value, key) => new DynoVec4({ key, value });
+const dynoMat2 = (value, key) => new DynoMat2({ key, value });
+const dynoMat2x2 = (value, key) => new DynoMat2x2({ key, value });
+const dynoMat2x3 = (value, key) => new DynoMat2x3({ key, value });
+const dynoMat2x4 = (value, key) => new DynoMat2x4({ key, value });
+const dynoMat3 = (value, key) => new DynoMat3({ key, value });
+const dynoMat3x2 = (value, key) => new DynoMat3x2({ key, value });
+const dynoMat3x3 = (value, key) => new DynoMat3x3({ key, value });
+const dynoMat3x4 = (value, key) => new DynoMat3x4({ key, value });
+const dynoMat4 = (value, key) => new DynoMat4({ key, value });
+const dynoMat4x2 = (value, key) => new DynoMat4x2({ key, value });
+const dynoMat4x3 = (value, key) => new DynoMat4x3({ key, value });
+const dynoMat4x4 = (value, key) => new DynoMat4x4({ key, value });
+const dynoUsampler2D = (value, key) => new DynoUsampler2D({ key, value });
+const dynoIsampler2D = (value, key) => new DynoIsampler2D({ key, value });
+const dynoSampler2D = (value, key) => new DynoSampler2D({ key, value });
+const dynoUsampler2DArray = (value, key) => new DynoUsampler2DArray({ key, value });
+const dynoIsampler2DArray = (key, value) => new DynoIsampler2DArray({ key, value });
+const dynoSampler2DArray = (value, key) => new DynoSampler2DArray({ key, value });
+const dynoUsampler3D = (value, key) => new DynoUsampler3D({ key, value });
+const dynoIsampler3D = (value, key) => new DynoIsampler3D({ key, value });
+const dynoSampler3D = (value, key) => new DynoSampler3D({ key, value });
+const dynoUsamplerCube = (value, key) => new DynoUsamplerCube({ key, value });
+const dynoIsamplerCube = (value, key) => new DynoIsamplerCube({ key, value });
+const dynoSamplerCube = (value, key) => new DynoSamplerCube({ key, value });
+const dynoSampler2DShadow = (value, key) => new DynoSampler2DShadow({ key, value });
+const dynoSampler2DArrayShadow = (value, key) => new DynoSampler2DArrayShadow({ key, value });
+const dynoSamplerCubeShadow = (value, key) => new DynoSamplerCubeShadow({ key, value });
 class DynoUniform extends Dyno {
   constructor({
     key,
@@ -1557,6 +1939,15 @@ class DynoBool extends DynoUniform {
     super({ key, type: "bool", value, update });
   }
 }
+class DynoUint extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "uint", value, update });
+  }
+}
 class DynoInt extends DynoUniform {
   constructor({
     key,
@@ -1575,6 +1966,69 @@ class DynoFloat extends DynoUniform {
     super({ key, type: "float", value, update });
   }
 }
+class DynoBvec2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "bvec2", value, update });
+  }
+}
+class DynoUvec2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "uvec2", value, update });
+  }
+}
+class DynoIvec2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "ivec2", value, update });
+  }
+}
+class DynoVec2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "vec2", value, update });
+  }
+}
+class DynoBvec3 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "bvec3", value, update });
+  }
+}
+class DynoUvec3 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "uvec3", value, update });
+  }
+}
+class DynoIvec3 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "ivec3", value, update });
+  }
+}
 class DynoVec3 extends DynoUniform {
   constructor({
     key,
@@ -1582,6 +2036,33 @@ class DynoVec3 extends DynoUniform {
     update
   }) {
     super({ key, type: "vec3", value, update });
+  }
+}
+class DynoBvec4 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "bvec4", value, update });
+  }
+}
+class DynoUvec4 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "uvec4", value, update });
+  }
+}
+class DynoIvec4 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "ivec4", value, update });
   }
 }
 class DynoVec4 extends DynoUniform {
@@ -1593,6 +2074,42 @@ class DynoVec4 extends DynoUniform {
     super({ key, type: "vec4", value, update });
   }
 }
+class DynoMat2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat2", value, update });
+  }
+}
+class DynoMat2x2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat2x2", value, update });
+  }
+}
+class DynoMat2x3 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat2x3", value, update });
+  }
+}
+class DynoMat2x4 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat2x4", value, update });
+  }
+}
 class DynoMat3 extends DynoUniform {
   constructor({
     key,
@@ -1600,6 +2117,69 @@ class DynoMat3 extends DynoUniform {
     update
   }) {
     super({ key, type: "mat3", value, update });
+  }
+}
+class DynoMat3x2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat3x2", value, update });
+  }
+}
+class DynoMat3x3 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat3x3", value, update });
+  }
+}
+class DynoMat3x4 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat3x4", value, update });
+  }
+}
+class DynoMat4 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat4", value, update });
+  }
+}
+class DynoMat4x2 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat4x2", value, update });
+  }
+}
+class DynoMat4x3 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat4x3", value, update });
+  }
+}
+class DynoMat4x4 extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "mat4x4", value, update });
   }
 }
 class DynoUsampler2D extends DynoUniform {
@@ -1611,6 +2191,24 @@ class DynoUsampler2D extends DynoUniform {
     super({ key, type: "usampler2D", value, update });
   }
 }
+class DynoIsampler2D extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "isampler2D", value, update });
+  }
+}
+class DynoSampler2D extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "sampler2D", value, update });
+  }
+}
 class DynoUsampler2DArray extends DynoUniform {
   constructor({
     key,
@@ -1618,6 +2216,105 @@ class DynoUsampler2DArray extends DynoUniform {
     update
   }) {
     super({ key, type: "usampler2DArray", value, update });
+  }
+}
+class DynoIsampler2DArray extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "isampler2DArray", value, update });
+  }
+}
+class DynoSampler2DArray extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "sampler2DArray", value, update });
+  }
+}
+class DynoUsampler3D extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "usampler3D", value, update });
+  }
+}
+class DynoIsampler3D extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "isampler3D", value, update });
+  }
+}
+class DynoSampler3D extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "sampler3D", value, update });
+  }
+}
+class DynoUsamplerCube extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "usamplerCube", value, update });
+  }
+}
+class DynoIsamplerCube extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "isamplerCube", value, update });
+  }
+}
+class DynoSamplerCube extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "samplerCube", value, update });
+  }
+}
+class DynoSampler2DShadow extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "sampler2DShadow", value, update });
+  }
+}
+class DynoSampler2DArrayShadow extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "sampler2DArrayShadow", value, update });
+  }
+}
+class DynoSamplerCubeShadow extends DynoUniform {
+  constructor({
+    key,
+    value,
+    update
+  }) {
+    super({ key, type: "samplerCubeShadow", value, update });
   }
 }
 var u8 = Uint8Array, u16 = Uint16Array, i32 = Int32Array;
@@ -2808,9 +3505,161 @@ function mulOutputType(a, b) {
   }
   throw new Error(`Invalid mul types: ${a}, ${b}`);
 }
+function divOutputType(a, b) {
+  return addOutputType(a, b, "div");
+}
+function imodOutputType(a, b) {
+  if (a === b) return a;
+  if (a === "int") {
+    if (isIntType(b)) return b;
+  } else if (b === "int") {
+    if (isIntType(a)) return a;
+  } else if (a === "uint") {
+    if (isUintType(b)) return b;
+  } else if (b === "uint") {
+    if (isUintType(a)) return a;
+  }
+  throw new Error(`Invalid imod types: ${a}, ${b}`);
+}
+function modOutputType(a, b) {
+  if (a === b || b === "float") return a;
+  throw new Error(`Invalid mod types: ${a}, ${b}`);
+}
+function modfOutputType(a) {
+  return a;
+}
+function negOutputType(a) {
+  return a;
+}
+function absOutputType(a) {
+  return a;
+}
+function signOutputType(a) {
+  return a;
+}
+function floorOutputType(a) {
+  return a;
+}
+function ceilOutputType(a) {
+  return a;
+}
+function truncOutputType(a) {
+  return a;
+}
+function roundOutputType(a) {
+  return a;
+}
+function fractOutputType(a) {
+  return a;
+}
+function powOutputType(a) {
+  return a;
+}
+function expOutputType(a) {
+  return a;
+}
+function exp2OutputType(a) {
+  return a;
+}
+function logOutputType(a) {
+  return a;
+}
+function log2OutputType(a) {
+  return a;
+}
+function sqrOutputType(a) {
+  return a;
+}
+function sqrtOutputType(a) {
+  return a;
+}
+function inversesqrtOutputType(a) {
+  return a;
+}
+function minOutputType(a, b, operation = "min") {
+  if (a === b) return a;
+  if (b === "float") {
+    if (isFloatType(a)) return a;
+  } else if (b === "int") {
+    if (isIntType(a)) return a;
+  } else if (b === "uint") {
+    if (isUintType(a)) return a;
+  }
+  throw new Error(`Invalid ${operation} types: ${a}, ${b}`);
+}
+function maxOutputType(a, b) {
+  return minOutputType(a, b, "max");
+}
+function clampOutputType(a, b, _c) {
+  if (b === "float") {
+    if (isFloatType(a)) return a;
+  } else if (b === "int") {
+    if (isIntType(a)) return a;
+  } else if (b === "uint") {
+    if (isUintType(a)) return a;
+  }
+  throw new Error(`Invalid clamp types: ${a}, ${b}`);
+}
+function mixOutputType(a, b, c) {
+  if (c === a) return a;
+  if (c === "float") return a;
+  if (c === "bool" && a === "float") return a;
+  if (c === "bvec2" && a === "vec2") return a;
+  if (c === "bvec3" && a === "vec3") return a;
+  if (c === "bvec4" && a === "vec4") return a;
+  throw new Error(`Invalid mix types: ${a}, ${b}, ${c}`);
+}
+function stepOutputType(a, b) {
+  if (a === b || b === "float") return b;
+  throw new Error(`Invalid step types: ${a}, ${b}`);
+}
+function smoothstepOutputType(a, b, c) {
+  if (a === b) {
+    if (a === c || a === "float") return c;
+  }
+  throw new Error(`Invalid smoothstep types: ${a}, ${b}, ${c}`);
+}
+function isNanOutputType(a, operation = "isNan") {
+  if (a === "float") return "bool";
+  if (a === "vec2") return "bvec2";
+  if (a === "vec3") return "bvec3";
+  if (a === "vec4") return "bvec4";
+  throw new Error(`Invalid ${operation} types: ${a}`);
+}
+function isInfOutputType(a) {
+  return isNanOutputType(a, "isInf");
+}
 const add = (a, b) => new Add({ a, b });
 const sub = (a, b) => new Sub({ a, b });
 const mul = (a, b) => new Mul({ a, b });
+const div = (a, b) => new Div({ a, b });
+const imod = (a, b) => new IMod({ a, b });
+const mod = (a, b) => new Mod({ a, b });
+const modf = (a) => new Modf({ a }).outputs;
+const neg = (a) => new Neg({ a });
+const abs = (a) => new Abs({ a });
+const sign = (a) => new Sign({ a });
+const floor = (a) => new Floor({ a });
+const ceil = (a) => new Ceil({ a });
+const trunc = (a) => new Trunc({ a });
+const round = (a) => new Round({ a });
+const fract = (a) => new Fract({ a });
+const pow = (a, b) => new Pow({ a, b });
+const exp = (a) => new Exp({ a });
+const exp2 = (a) => new Exp2({ a });
+const log = (a) => new Log({ a });
+const log2 = (a) => new Log2({ a });
+const sqr = (a) => new Sqr({ a });
+const sqrt = (a) => new Sqrt({ a });
+const inversesqrt = (a) => new InverseSqrt({ a });
+const min = (a, b) => new Min({ a, b });
+const max = (a, b) => new Max({ a, b });
+const clamp = (a, min2, max2) => new Clamp({ a, min: min2, max: max2 });
+const mix = (a, b, t) => new Mix({ a, b, t });
+const step = (edge, x) => new Step({ edge, x });
+const smoothstep = (edge0, edge1, x) => new Smoothstep({ edge0, edge1, x });
+const isNan = (a) => new IsNan({ a });
+const isInf = (a) => new IsInf({ a });
 class Add extends BinaryOp {
   constructor({ a, b }) {
     super({ a, b, outKey: "sum", outTypeFunc: addOutputType });
@@ -2835,13 +3684,1582 @@ class Mul extends BinaryOp {
     };
   }
 }
+class Div extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "quotient", outTypeFunc: divOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.quotient} = ${inputs.a} / ${inputs.b};`];
+    };
+  }
+}
+class IMod extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "remainder", outTypeFunc: imodOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.remainder} = ${inputs.a} % ${inputs.b};`];
+    };
+  }
+}
+class Mod extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "remainder", outTypeFunc: modOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.remainder} = mod(${inputs.a}, ${inputs.b});`];
+    };
+  }
+}
+class Modf extends Dyno {
+  constructor({ a }) {
+    const inTypes = { a: valType(a) };
+    const outType = modfOutputType(inTypes.a);
+    const outTypes = {
+      fract: outType,
+      integer: outType
+    };
+    super({ inTypes, outTypes, inputs: { a } });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.fract} = modf(${inputs.a}, ${outputs.integer});`];
+    };
+  }
+}
+class Neg extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "neg", outTypeFunc: negOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.neg} = -${inputs.a};`];
+    };
+  }
+}
+class Abs extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "abs", outTypeFunc: absOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.abs} = abs(${inputs.a});`];
+    };
+  }
+}
+class Sign extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "sign", outTypeFunc: signOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.sign} = sign(${inputs.a});`];
+    };
+  }
+}
+class Floor extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "floor", outTypeFunc: floorOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.floor} = floor(${inputs.a});`];
+    };
+  }
+}
+class Ceil extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "ceil", outTypeFunc: ceilOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.ceil} = ceil(${inputs.a});`];
+    };
+  }
+}
+class Trunc extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "trunc", outTypeFunc: truncOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.trunc} = trunc(${inputs.a});`];
+    };
+  }
+}
+class Round extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "round", outTypeFunc: roundOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.round} = round(${inputs.a});`];
+    };
+  }
+}
+class Fract extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "fract", outTypeFunc: fractOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.fract} = fract(${inputs.a});`];
+    };
+  }
+}
+class Pow extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "power", outTypeFunc: powOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.power} = pow(${inputs.a}, ${inputs.b});`];
+    };
+  }
+}
+class Exp extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "exp", outTypeFunc: expOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.exp} = exp(${inputs.a});`];
+    };
+  }
+}
+class Exp2 extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "exp2", outTypeFunc: exp2OutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.exp2} = exp2(${inputs.a});`];
+    };
+  }
+}
+class Log extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "log", outTypeFunc: logOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.log} = log(${inputs.a});`];
+    };
+  }
+}
+class Log2 extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "log2", outTypeFunc: log2OutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.log2} = log2(${inputs.a});`];
+    };
+  }
+}
+class Sqr extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "sqr", outTypeFunc: sqrOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.sqr} = ${inputs.a} * ${inputs.a};`];
+    };
+  }
+}
+class Sqrt extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "sqrt", outTypeFunc: sqrtOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.sqrt} = sqrt(${inputs.a});`];
+    };
+  }
+}
+class InverseSqrt extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "inversesqrt", outTypeFunc: inversesqrtOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.inversesqrt} = inversesqrt(${inputs.a});`];
+    };
+  }
+}
+class Min extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "min", outTypeFunc: minOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.min} = min(${inputs.a}, ${inputs.b});`];
+    };
+  }
+}
+class Max extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "max", outTypeFunc: maxOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.max} = max(${inputs.a}, ${inputs.b});`];
+    };
+  }
+}
+class Clamp extends TrinaryOp {
+  constructor({
+    a,
+    min: min2,
+    max: max2
+  }) {
+    super({
+      a,
+      b: min2,
+      c: max2,
+      outKey: "clamp",
+      outTypeFunc: clampOutputType
+    });
+    this.statements = ({ inputs, outputs }) => {
+      const { a: a2, b: min3, c: max3 } = inputs;
+      return [`${outputs.clamp} = clamp(${a2}, ${min3}, ${max3});`];
+    };
+  }
+}
+class Mix extends TrinaryOp {
+  constructor({ a, b, t }) {
+    super({ a, b, c: t, outKey: "mix", outTypeFunc: mixOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      const { a: a2, b: b22, c: t2 } = inputs;
+      return [`${outputs.mix} = mix(${a2}, ${b22}, ${t2});`];
+    };
+  }
+}
+class Step extends BinaryOp {
+  constructor({ edge, x }) {
+    super({
+      a: edge,
+      b: x,
+      outKey: "step",
+      outTypeFunc: stepOutputType
+    });
+    this.statements = ({ inputs, outputs }) => {
+      const { a: edge2, b: x2 } = inputs;
+      return [`${outputs.step} = step(${edge2}, ${x2});`];
+    };
+  }
+}
+class Smoothstep extends TrinaryOp {
+  constructor({
+    edge0,
+    edge1,
+    x
+  }) {
+    super({
+      a: edge0,
+      b: edge1,
+      c: x,
+      outKey: "smoothstep",
+      outTypeFunc: smoothstepOutputType
+    });
+    this.statements = ({ inputs, outputs }) => {
+      const { a: edge02, b: edge12, c: x2 } = inputs;
+      return [`${outputs.smoothstep} = smoothstep(${edge02}, ${edge12}, ${x2});`];
+    };
+  }
+}
+class IsNan extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "isNan", outTypeFunc: isNanOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.isNan} = isNan(${inputs.a});`];
+    };
+  }
+}
+class IsInf extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "isInf", outTypeFunc: isInfOutputType });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.isInf} = isInf(${inputs.a});`];
+    };
+  }
+}
+const and = (a, b) => new And({ a, b });
+const or = (a, b) => new Or({ a, b });
+const xor = (a, b) => new Xor({ a, b });
+const not = (a) => new Not({ a });
+const shr = (a, b) => new Shr({ a, b });
+const shl = (a, b) => new Shl({ a, b });
+const lessThan = (a, b) => new LessThan({ a, b });
+const lessThanEqual = (a, b) => new LessThanEqual({ a, b });
+const greaterThan = (a, b) => new GreaterThan({ a, b });
+const greaterThanEqual = (a, b) => new GreaterThanEqual({ a, b });
+const equal = (a, b) => new Equal({ a, b });
+const notEqual = (a, b) => new NotEqual({ a, b });
+const any = (a) => new Any({ a });
+const all = (a) => new All({ a });
+const select = (cond, t, f) => new Select({ cond, t, f });
+const compXor = (a) => new CompXor({ a });
+class And extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outTypeFunc: (aType, bType) => aType, outKey: "and" });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.and === "bool") {
+        return [`${outputs.and} = ${inputs.a} && ${inputs.b};`];
+      }
+      return [`${outputs.and} = ${inputs.a} & ${inputs.b};`];
+    };
+  }
+}
+class Or extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outTypeFunc: (aType, bType) => aType, outKey: "or" });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.or === "bool") {
+        return [`${outputs.or} = ${inputs.a} || ${inputs.b};`];
+      }
+      return [`${outputs.or} = ${inputs.a} | ${inputs.b};`];
+    };
+  }
+}
+class Xor extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outTypeFunc: (aType, bType) => aType, outKey: "xor" });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.xor === "bool") {
+        return [`${outputs.xor} = ${inputs.a} ^^ ${inputs.b};`];
+      }
+      return [`${outputs.xor} = ${inputs.a} ^ ${inputs.b};`];
+    };
+  }
+}
+class Not extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outTypeFunc: (aType) => aType, outKey: "not" });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.not === "bool") {
+        return [`${outputs.not} = !${inputs.a};`];
+      }
+      return [`${outputs.not} = not(${inputs.a});`];
+    };
+  }
+}
+class LessThan extends BinaryOp {
+  constructor({ a, b }) {
+    super({
+      a,
+      b,
+      outTypeFunc: (aType, bType) => compareOutputType(aType, "lessThan"),
+      outKey: "lessThan"
+    });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.lessThan === "bool") {
+        return [`${outputs.lessThan} = ${inputs.a} < ${inputs.b};`];
+      }
+      return [`${outputs.lessThan} = lessThan(${inputs.a}, ${inputs.b});`];
+    };
+  }
+}
+class LessThanEqual extends BinaryOp {
+  constructor({ a, b }) {
+    super({
+      a,
+      b,
+      outTypeFunc: (aType, bType) => compareOutputType(aType, "lessThanEqual"),
+      outKey: "lessThanEqual"
+    });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.lessThanEqual === "bool") {
+        return [`${outputs.lessThanEqual} = ${inputs.a} <= ${inputs.b};`];
+      }
+      return [
+        `${outputs.lessThanEqual} = lessThanEqual(${inputs.a}, ${inputs.b});`
+      ];
+    };
+  }
+}
+class GreaterThan extends BinaryOp {
+  constructor({ a, b }) {
+    super({
+      a,
+      b,
+      outTypeFunc: (aType, bType) => compareOutputType(aType, "greaterThan"),
+      outKey: "greaterThan"
+    });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.greaterThan === "bool") {
+        return [`${outputs.greaterThan} = ${inputs.a} > ${inputs.b};`];
+      }
+      return [
+        `${outputs.greaterThan} = greaterThan(${inputs.a}, ${inputs.b});`
+      ];
+    };
+  }
+}
+class GreaterThanEqual extends BinaryOp {
+  constructor({ a, b }) {
+    super({
+      a,
+      b,
+      outTypeFunc: (aType, bType) => compareOutputType(aType, "greaterThanEqual"),
+      outKey: "greaterThanEqual"
+    });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.greaterThanEqual === "bool") {
+        return [`${outputs.greaterThanEqual} = ${inputs.a} >= ${inputs.b};`];
+      }
+      return [
+        `${outputs.greaterThanEqual} = greaterThanEqual(${inputs.a}, ${inputs.b});`
+      ];
+    };
+  }
+}
+class Equal extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outTypeFunc: equalOutputType, outKey: "equal" });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.equal === "bool") {
+        return [`${outputs.equal} = ${inputs.a} == ${inputs.b};`];
+      }
+      return [`${outputs.equal} = equal(${inputs.a}, ${inputs.b});`];
+    };
+  }
+}
+class NotEqual extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outTypeFunc: notEqualOutputType, outKey: "notEqual" });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.outTypes.notEqual === "bool") {
+        return [`${outputs.notEqual} = ${inputs.a} != ${inputs.b};`];
+      }
+      return [`${outputs.notEqual} = notEqual(${inputs.a}, ${inputs.b});`];
+    };
+  }
+}
+class Any extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outTypeFunc: (aType) => "bool", outKey: "any" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.any} = any(${inputs.a});`];
+    };
+  }
+}
+class All extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outTypeFunc: (aType) => "bool", outKey: "all" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.all} = all(${inputs.a});`];
+    };
+  }
+}
+class Select extends TrinaryOp {
+  constructor({
+    cond,
+    t,
+    f
+  }) {
+    super({
+      a: cond,
+      b: t,
+      c: f,
+      outKey: "select",
+      outTypeFunc: (aType, bType, cType) => bType
+    });
+    this.statements = ({ inputs, outputs }) => {
+      const { a: cond2, b: t2, c: f2 } = inputs;
+      return [`${outputs.select} = (${cond2}) ? (${t2}) : (${f2});`];
+    };
+  }
+}
+function compareOutputType(type, operator) {
+  if (isScalarType(type)) {
+    return "bool";
+  }
+  if (type === "ivec2" || type === "uvec2" || type === "vec2") {
+    return "bvec2";
+  }
+  if (type === "ivec3" || type === "uvec3" || type === "vec3") {
+    return "bvec3";
+  }
+  if (type === "ivec4" || type === "uvec4" || type === "vec4") {
+    return "bvec4";
+  }
+  throw new Error(`Invalid ${operator} type: ${type}`);
+}
+function equalOutputType(type, operator = "equal") {
+  if (isScalarType(type)) {
+    return "bool";
+  }
+  if (isBoolType(type)) {
+    return type;
+  }
+  if (type === "ivec2" || type === "uvec2" || type === "vec2") {
+    return "bvec2";
+  }
+  if (type === "ivec3" || type === "uvec3" || type === "vec3") {
+    return "bvec3";
+  }
+  if (type === "ivec4" || type === "uvec4" || type === "vec4") {
+    return "bvec4";
+  }
+  throw new Error(`Invalid ${operator} type: ${type}`);
+}
+function notEqualOutputType(type) {
+  return equalOutputType(type, "notEqual");
+}
+function compXorOutputType(type) {
+  if (isBoolType(type)) {
+    return "bool";
+  }
+  if (isIntType(type)) {
+    return "int";
+  }
+  if (isUintType(type)) {
+    return "uint";
+  }
+  throw new Error(`Invalid compXor type: ${type}`);
+}
+class CompXor extends UnaryOp {
+  constructor({ a }) {
+    const outType = compXorOutputType(valType(a));
+    super({ a, outTypeFunc: (aType) => outType, outKey: "compXor" });
+    this.statements = ({ inputs, outputs }) => {
+      if (isScalarType(this.outTypes.compXor)) {
+        return [`${outputs.compXor} = ${inputs.a};`];
+      }
+      const components = isVector2Type(outType) ? ["x", "y"] : isVector3Type(outType) ? ["x", "y", "z"] : ["x", "y", "z", "w"];
+      const operands = components.map((c) => `${inputs.a}.${c}`);
+      const operator = isBoolType(outType) ? "^^" : "^";
+      return [`${outputs.compXor} = ${operands.join(` ${operator} `)};`];
+    };
+  }
+}
+class Shr extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outTypeFunc: (aType, bType) => aType, outKey: "shr" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.shr} = ${inputs.a} >> ${inputs.b};`];
+    };
+  }
+}
+class Shl extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outTypeFunc: (aType, bType) => aType, outKey: "shl" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.shl} = ${inputs.a} << ${inputs.b};`];
+    };
+  }
+}
+const bool = (value) => new Bool({ value });
+const int = (value) => new Int({ value });
+const uint = (value) => new Uint({ value });
+const float = (value) => new Float({ value });
+const bvec2 = (value) => new BVec2({ value });
+const bvec3 = (value) => new BVec3({ value });
+const bvec4 = (value) => new BVec4({ value });
+const ivec2 = (value) => new IVec2({ value });
+const ivec3 = (value) => new IVec3({ value });
+const ivec4 = (value) => new IVec4({ value });
+const uvec2 = (value) => new UVec2({ value });
+const uvec3 = (value) => new UVec3({ value });
+const uvec4 = (value) => new UVec4({ value });
+const vec2 = (value) => new Vec2({ value });
+const vec3$1 = (value) => new Vec3({ value });
+const vec4$1 = (value) => new Vec4({ value });
+const mat2 = (value) => new Mat2({ value });
+const mat3 = (value) => new Mat3({ value });
+const mat4 = (value) => new Mat4({ value });
+const floatBitsToInt = (value) => new FloatBitsToInt({ value });
+const floatBitsToUint = (value) => new FloatBitsToUint({ value });
+const intBitsToFloat = (value) => new IntBitsToFloat({ value });
+const uintBitsToFloat = (value) => new UintBitsToFloat({ value });
+const packSnorm2x16 = (value) => new PackSnorm2x16({ value });
+const unpackSnorm2x16 = (value) => new UnpackSnorm2x16({ value });
+const packUnorm2x16 = (value) => new PackUnorm2x16({ value });
+const unpackUnorm2x16 = (value) => new UnpackUnorm2x16({ value });
+const packHalf2x16 = (value) => new PackHalf2x16({ value });
+const unpackHalf2x16 = (value) => new UnpackHalf2x16({ value });
+const uintToRgba8 = (value) => new UintToRgba8({ value });
+class SimpleCast extends UnaryOp {
+  constructor({
+    value,
+    outType,
+    outKey
+  }) {
+    super({ a: value, outTypeFunc: () => outType, outKey });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs[outKey]} = ${typeLiteral(outType)}(${inputs.a});`
+    ];
+  }
+}
+class Bool extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "bool", outKey: "bool" });
+  }
+}
+class Int extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "int", outKey: "int" });
+  }
+}
+class Uint extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "uint", outKey: "uint" });
+  }
+}
+class Float extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "float", outKey: "float" });
+  }
+}
+class BVec2 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "bvec2", outKey: "bvec2" });
+  }
+}
+class BVec3 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "bvec3", outKey: "bvec3" });
+  }
+}
+class BVec4 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "bvec4", outKey: "bvec4" });
+  }
+}
+class IVec2 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "ivec2", outKey: "ivec2" });
+  }
+}
+class IVec3 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "ivec3", outKey: "ivec3" });
+  }
+}
+class IVec4 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "ivec4", outKey: "ivec4" });
+  }
+}
+class UVec2 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "uvec2", outKey: "uvec2" });
+  }
+}
+class UVec3 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "uvec3", outKey: "uvec3" });
+  }
+}
+class UVec4 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "uvec4", outKey: "uvec4" });
+  }
+}
+class Vec2 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "vec2", outKey: "vec2" });
+  }
+}
+class Vec3 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "vec3", outKey: "vec3" });
+  }
+}
+class Vec4 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "vec4", outKey: "vec4" });
+  }
+}
+class Mat2 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "mat2", outKey: "mat2" });
+  }
+}
+class Mat3 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "mat3", outKey: "mat3" });
+  }
+}
+class Mat4 extends SimpleCast {
+  constructor({
+    value
+  }) {
+    super({ value, outType: "mat4", outKey: "mat4" });
+  }
+}
+class FloatBitsToInt extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "int", outTypeFunc: () => "int" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.int} = floatBitsToInt(${inputs.a});`];
+    };
+  }
+}
+class FloatBitsToUint extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "uint", outTypeFunc: () => "uint" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.uint} = floatBitsToUint(${inputs.a});`];
+    };
+  }
+}
+class IntBitsToFloat extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "float", outTypeFunc: () => "float" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.float} = intBitsToFloat(${inputs.a});`];
+    };
+  }
+}
+class UintBitsToFloat extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "float", outTypeFunc: () => "float" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.float} = uintBitsToFloat(${inputs.a});`];
+    };
+  }
+}
+class PackSnorm2x16 extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "uint", outTypeFunc: () => "uint" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.uint} = packSnorm2x16(${inputs.a});`];
+    };
+  }
+}
+class UnpackSnorm2x16 extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "vec2", outTypeFunc: () => "vec2" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.vec2} = unpackSnorm2x16(${inputs.a});`];
+    };
+  }
+}
+class PackUnorm2x16 extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "uint", outTypeFunc: () => "uint" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.uint} = packUnorm2x16(${inputs.a});`];
+    };
+  }
+}
+class UnpackUnorm2x16 extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "vec2", outTypeFunc: () => "vec2" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.vec2} = unpackUnorm2x16(${inputs.a});`];
+    };
+  }
+}
+class PackHalf2x16 extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "uint", outTypeFunc: () => "uint" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.uint} = packHalf2x16(${inputs.a});`];
+    };
+  }
+}
+class UnpackHalf2x16 extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "vec2", outTypeFunc: () => "vec2" });
+    this.statements = ({ inputs, outputs }) => {
+      return [`${outputs.vec2} = unpackHalf2x16(${inputs.a});`];
+    };
+  }
+}
+class UintToRgba8 extends UnaryOp {
+  constructor({ value }) {
+    super({ a: value, outKey: "rgba8", outTypeFunc: () => "vec4" });
+    this.statements = ({ inputs, outputs }) => {
+      return [
+        `uvec4 uRgba = uvec4(${inputs.a} & 0xffu, (${inputs.a} >> 8u) & 0xffu, (${inputs.a} >> 16u) & 0xffu, (${inputs.a} >> 24u) & 0xffu);`,
+        `${outputs.rgba8} = vec4(uRgba) / 255.0;`
+      ];
+    };
+  }
+}
+const length = (a) => new Length({ a });
+const distance = (a, b) => new Distance({ a, b });
+const dot = (a, b) => new Dot({ a, b });
+const cross = (a, b) => new Cross({ a, b });
 const normalize = (a) => new Normalize({ a });
+const faceforward = (a, b, c) => new FaceForward({ a, b, c });
+const reflectVec = (incident, normal) => new ReflectVec({ incident, normal });
+const refractVec = (incident, normal, eta) => new RefractVec({ incident, normal, eta });
+const split = (vector) => new Split({ vector });
+const combine = ({
+  vector,
+  vectorType,
+  x,
+  y,
+  z,
+  w,
+  r,
+  g,
+  b,
+  a
+}) => new Combine({ vector, vectorType, x, y, z, w, r, g, b, a });
+const projectH = (a) => new ProjectH({ a });
+const extendVec = (a, b) => new ExtendVec({ a, b });
+const swizzle = (a, select2) => new Swizzle({ vector: a, select: select2 });
+const compMult = (a, b) => new CompMult({ a, b });
+const outer = (a, b) => new Outer({ a, b });
+const transpose = (a) => new Transpose({ a });
+const determinant = (a) => new Determinant({ a });
+const inverse = (a) => new Inverse({ a });
+class Length extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outTypeFunc: (aType) => "float", outKey: "length" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.length} = length(${inputs.a});`
+    ];
+  }
+}
+class Distance extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "distance", outTypeFunc: (aType, bType) => "float" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.distance} = distance(${inputs.a}, ${inputs.b});`
+    ];
+  }
+}
+class Dot extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "dot", outTypeFunc: (aType, bType) => "float" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.dot} = dot(${inputs.a}, ${inputs.b});`
+    ];
+  }
+}
+class Cross extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "cross", outTypeFunc: (aType, bType) => "vec3" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.cross} = cross(${inputs.a}, ${inputs.b});`
+    ];
+  }
+}
 class Normalize extends UnaryOp {
   constructor({ a }) {
     super({ a, outTypeFunc: (aType) => aType, outKey: "normalize" });
     this.statements = ({ inputs, outputs }) => [
       `${outputs.normalize} = normalize(${inputs.a});`
     ];
+  }
+}
+function projectHOutputType(type) {
+  if (type === "vec3") {
+    return "vec2";
+  }
+  if (type === "vec4") {
+    return "vec3";
+  }
+  throw new Error("Invalid type");
+}
+class ProjectH extends UnaryOp {
+  constructor({ a }) {
+    super({
+      a,
+      outTypeFunc: (aType) => projectHOutputType(aType),
+      outKey: "projected"
+    });
+    this.statements = ({ inputs, outputs }) => {
+      if (this.inTypes.a === "vec3") {
+        return [`${outputs.projected} = ${inputs.a}.xy / ${inputs.a}.z;`];
+      }
+      if (this.inTypes.a === "vec4") {
+        return [`${outputs.projected} = ${inputs.a}.xyz / ${inputs.a}.w;`];
+      }
+      throw new Error("Invalid type");
+    };
+  }
+}
+function extendVecOutputType(type) {
+  if (type === "float") return "vec2";
+  if (type === "vec2") return "vec3";
+  if (type === "vec3") return "vec4";
+  throw new Error("Invalid type");
+}
+class ExtendVec extends BinaryOp {
+  constructor({ a, b }) {
+    const type = valType(a);
+    const outType = extendVecOutputType(type);
+    super({ a, b, outKey: "extend", outTypeFunc: () => outType });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.extend} = ${outType}(${inputs.a}, ${inputs.b});`
+    ];
+  }
+}
+class FaceForward extends TrinaryOp {
+  constructor({ a, b, c }) {
+    super({
+      a,
+      b,
+      c,
+      outKey: "forward",
+      outTypeFunc: (aType, bType, cType) => aType
+    });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.forward} = faceforward(${inputs.a}, ${inputs.b}, ${inputs.c});`
+    ];
+  }
+}
+class ReflectVec extends BinaryOp {
+  constructor({
+    incident,
+    normal
+  }) {
+    super({
+      a: incident,
+      b: normal,
+      outKey: "reflection",
+      outTypeFunc: (aType, bType) => aType
+    });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.reflection} = reflect(${inputs.a}, ${inputs.b});`
+    ];
+  }
+}
+class RefractVec extends TrinaryOp {
+  constructor({
+    incident,
+    normal,
+    eta
+  }) {
+    super({
+      a: incident,
+      b: normal,
+      c: eta,
+      outKey: "refraction",
+      outTypeFunc: (aType, bType, cType) => aType
+    });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.refraction} = refract(${inputs.a}, ${inputs.b}, ${inputs.c});`
+    ];
+  }
+}
+class CompMult extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "product", outTypeFunc: (aType, bType) => aType });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.product} = matrixCompMult(${a}, ${b});`
+    ];
+  }
+}
+function outerOutputType(aType, bType) {
+  if (aType === "vec2") {
+    if (bType === "vec2") return "mat2";
+    if (bType === "vec3") return "mat3x2";
+    if (bType === "vec4") return "mat4x2";
+  }
+  if (aType === "vec3") {
+    if (bType === "vec2") return "mat2x3";
+    if (bType === "vec3") return "mat3";
+    if (bType === "vec4") return "mat4x3";
+  }
+  if (aType === "vec4") {
+    if (bType === "vec2") return "mat2x4";
+    if (bType === "vec3") return "mat3x4";
+    if (bType === "vec4") return "mat4";
+  }
+  throw new Error(`Invalid outer type: ${aType}, ${bType}`);
+}
+class Outer extends BinaryOp {
+  constructor({ a, b }) {
+    super({ a, b, outKey: "outer", outTypeFunc: outerOutputType });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.outer} = outerProduct(${inputs.a}, ${inputs.b});`
+    ];
+  }
+}
+function transposeOutputType(type) {
+  if (type === "mat2") return "mat2";
+  if (type === "mat3") return "mat3";
+  if (type === "mat4") return "mat4";
+  if (type === "mat2x2") return "mat2x2";
+  if (type === "mat2x3") return "mat3x2";
+  if (type === "mat2x4") return "mat4x2";
+  if (type === "mat3x2") return "mat2x3";
+  if (type === "mat3x3") return "mat3x3";
+  if (type === "mat3x4") return "mat4x3";
+  if (type === "mat4x2") return "mat2x4";
+  if (type === "mat4x3") return "mat3x4";
+  if (type === "mat4x4") return "mat4x4";
+  throw new Error(`Invalid transpose type: ${type}`);
+}
+class Transpose extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "transpose", outTypeFunc: transposeOutputType });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.transpose} = transpose(${inputs.a});`
+    ];
+  }
+}
+class Determinant extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "det", outTypeFunc: (aType) => "float" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.det} = determinant(${inputs.a});`
+    ];
+  }
+}
+class Inverse extends UnaryOp {
+  constructor({ a }) {
+    super({ a, outKey: "inverse", outTypeFunc: (aType) => aType });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.inverse} = inverse(${a});`
+    ];
+  }
+}
+function splitOutTypes(type) {
+  const result = (value) => value;
+  switch (type) {
+    case "vec2":
+      return result({ x: "float", y: "float", r: "float", g: "float" });
+    case "vec3":
+      return result({
+        x: "float",
+        y: "float",
+        z: "float",
+        r: "float",
+        g: "float",
+        b: "float"
+      });
+    case "vec4":
+      return result({
+        x: "float",
+        y: "float",
+        z: "float",
+        w: "float",
+        r: "float",
+        g: "float",
+        b: "float",
+        a: "float"
+      });
+    case "ivec2":
+      return result({ x: "int", y: "int", r: "int", g: "int" });
+    case "ivec3":
+      return result({
+        x: "int",
+        y: "int",
+        z: "int",
+        r: "int",
+        g: "int",
+        b: "int"
+      });
+    case "ivec4":
+      return result({
+        x: "int",
+        y: "int",
+        z: "int",
+        w: "int",
+        r: "int",
+        g: "int",
+        b: "int",
+        a: "int"
+      });
+    case "uvec2":
+      return result({ x: "uint", y: "uint", r: "uint", g: "uint" });
+    case "uvec3":
+      return result({
+        x: "uint",
+        y: "uint",
+        z: "uint",
+        r: "uint",
+        g: "uint",
+        b: "uint"
+      });
+    case "uvec4":
+      return result({
+        x: "uint",
+        y: "uint",
+        z: "uint",
+        w: "uint",
+        r: "uint",
+        g: "uint",
+        b: "uint",
+        a: "uint"
+      });
+    default:
+      throw new Error(`Invalid vector type: ${type}`);
+  }
+}
+class Split extends Dyno {
+  constructor({ vector }) {
+    const type = valType(vector);
+    const inTypes = { vector: type };
+    const outTypes = splitOutTypes(inTypes.vector);
+    super({ inTypes, outTypes, inputs: { vector } });
+    this.statements = ({ inputs, outputs }) => {
+      const { x, y, z, w, r, g, b, a } = outputs;
+      const { vector: vector2 } = inputs;
+      return [
+        x ? `${x} = ${vector2}.x;` : null,
+        y ? `${y} = ${vector2}.y;` : null,
+        z ? `${z} = ${vector2}.z;` : null,
+        w ? `${w} = ${vector2}.w;` : null,
+        r ? `${r} = ${vector2}.r;` : null,
+        g ? `${g} = ${vector2}.g;` : null,
+        b ? `${b} = ${vector2}.b;` : null,
+        a ? `${a} = ${vector2}.a;` : null
+      ].filter(Boolean);
+    };
+  }
+}
+class Combine extends Dyno {
+  constructor({
+    vector,
+    vectorType,
+    x,
+    y,
+    z,
+    w,
+    r,
+    g,
+    b,
+    a
+  }) {
+    if (!vector && !vectorType) {
+      throw new Error("Either vector or vectorType must be provided");
+    }
+    const vType = vectorType ?? valType(vector);
+    const elType = vectorElementType(vType);
+    const dim = vectorDim(vType);
+    const inTypes = {
+      vector: vType,
+      x: elType,
+      y: elType,
+      r: elType,
+      g: elType
+    };
+    const inputs = { vector, x, y, r, g };
+    if (dim >= 3) {
+      Object.assign(inTypes, { z: elType, b: elType });
+      Object.assign(inputs, { z, b });
+    }
+    if (dim >= 4) {
+      Object.assign(inTypes, { w: elType, a: elType });
+      Object.assign(inputs, { w, a });
+    }
+    super({ inTypes, outTypes: { vector: vType }, inputs });
+    this.statements = ({ inputs: inputs2, outputs }) => {
+      const { vector: vector2 } = outputs;
+      const {
+        vector: input,
+        x: x2,
+        y: y2,
+        z: z2,
+        w: w2,
+        r: r2,
+        g: g2,
+        b: b22,
+        a: a2
+      } = inputs2;
+      const statements = [
+        `${vector2}.x = ${x2 ?? r2 ?? (input ? `${input}.x` : literalZero(elType))};`,
+        `${vector2}.y = ${y2 ?? g2 ?? (input ? `${input}.y` : literalZero(elType))};`
+      ];
+      if (dim >= 3)
+        statements.push(
+          `${vector2}.z = ${z2 ?? b22 ?? (input ? `${input}.z` : literalZero(elType))};`
+        );
+      if (dim >= 4)
+        statements.push(
+          `${vector2}.w = ${w2 ?? a2 ?? (input ? `${input}.w` : literalZero(elType))};`
+        );
+      return statements;
+    };
+  }
+  dynoOut() {
+    return new DynoOutput(
+      this,
+      "vector"
+    );
+  }
+}
+function swizzleOutputType(type, swizzle2) {
+  let result = null;
+  if (isFloatType(type)) {
+    result = swizzle2.length === 1 ? "float" : swizzle2.length === 2 ? "vec2" : swizzle2.length === 3 ? "vec3" : swizzle2.length === 4 ? "vec4" : null;
+  } else if (isIntType(type)) {
+    result = swizzle2.length === 1 ? "int" : swizzle2.length === 2 ? "ivec2" : swizzle2.length === 3 ? "ivec3" : swizzle2.length === 4 ? "ivec4" : null;
+  } else if (isUintType(type)) {
+    result = swizzle2.length === 1 ? "uint" : swizzle2.length === 2 ? "uvec2" : swizzle2.length === 3 ? "uvec3" : swizzle2.length === 4 ? "uvec4" : null;
+  }
+  if (result == null) {
+    throw new Error(`Invalid swizzle: ${swizzle2}`);
+  }
+  return result;
+}
+class Swizzle extends UnaryOp {
+  constructor({ vector, select: select2 }) {
+    super({
+      a: vector,
+      outKey: "swizzle",
+      outTypeFunc: (aType) => swizzleOutputType(aType, select2)
+    });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.swizzle} = ${inputs.a}.${select2};`
+    ];
+  }
+}
+const remapIndex = (index, from, to) => {
+  return new DynoRemapIndex({ index, from, to });
+};
+const pcgMix = (value) => {
+  return new PcgMix({ value });
+};
+const pcgNext = (state) => {
+  return new PcgNext({ state });
+};
+const pcgHash = (state) => {
+  return new PcgHash({ state });
+};
+const hash = (value) => {
+  return new Hash({ value });
+};
+const hash2 = (value) => {
+  return new Hash2({ value });
+};
+const hash3 = (value) => {
+  return new Hash3({ value });
+};
+const hash4 = (value) => {
+  return new Hash4({ value });
+};
+const hashFloat = (value) => {
+  return new HashFloat({ value });
+};
+const hashVec2 = (value) => {
+  return new HashVec2({ value });
+};
+const hashVec3 = (value) => {
+  return new HashVec3({ value });
+};
+const hashVec4 = (value) => {
+  return new HashVec4({ value });
+};
+const normalizedDepth = (z, zNear, zFar) => {
+  return new NormalizedDepth({ z, zNear, zFar }).outputs.depth;
+};
+const debugColorHue = (index) => {
+  return new DebugColorHue({ index });
+};
+class DynoRemapIndex extends Dyno {
+  constructor({
+    from,
+    to,
+    index
+  }) {
+    super({
+      inTypes: { from: "int", to: "int", index: "int" },
+      outTypes: { index: "int" },
+      inputs: { from, to, index },
+      statements: ({ inputs, outputs }) => {
+        return [
+          `${outputs.index} = ${inputs.index} - ${inputs.from} + ${inputs.to};`
+        ];
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "index");
+  }
+}
+class PcgNext extends Dyno {
+  constructor({ state }) {
+    const type = valType(state);
+    super({
+      inTypes: { state: type },
+      outTypes: { state: "uint" },
+      inputs: { state },
+      globals: () => [
+        unindent(
+          /* glsl */
+          `
+          uint pcg_next(uint state) {
+            return state * 747796405u + 2891336453u;
+          }
+        `
+        )
+      ],
+      statements: ({ inputs, outputs }) => {
+        const toUint = type === "uint" ? `${inputs.state}` : type === "int" ? `uint(${inputs.state})` : `floatBitsToUint(${inputs.state})`;
+        return [`${outputs.state} = pcg_next(${toUint});`];
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "state");
+  }
+}
+class PcgHash extends Dyno {
+  constructor({ state }) {
+    super({
+      inTypes: { state: "uint" },
+      outTypes: { hash: "uint" },
+      inputs: { state },
+      globals: () => [
+        unindent(
+          /* glsl */
+          `
+          uint pcg_hash(uint state) {
+            uint hash = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+            return (hash >> 22u) ^ hash;
+          }
+        `
+        )
+      ],
+      statements: ({ inputs, outputs }) => [
+        `${outputs.hash} = pcg_hash(${inputs.state});`
+      ]
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class PcgMix extends Dyno {
+  constructor({ value }) {
+    const type = valType(value);
+    const tempType = sameSizeUvec(type);
+    super({
+      inTypes: { value: type },
+      outTypes: { state: "uint" },
+      inputs: { value },
+      globals: () => [
+        unindent(
+          /* glsl */
+          `
+          uint pcg_mix(uint value) {
+            return value;
+          }
+          uint pcg_mix(uvec2 value) {
+            return value.x + 0x9e3779b9u * value.y;
+          }
+          uint pcg_mix(uvec3 value) {
+            return value.x + 0x9e3779b9u * value.y + 0x85ebca6bu * value.z;
+          }
+          uint pcg_mix(uvec4 value) {
+            return value.x + 0x9e3779b9u * value.y + 0x85ebca6bu * value.z + 0xc2b2ae35u * value.w;
+          }
+        `
+        )
+      ],
+      statements: ({ inputs, outputs }) => {
+        const toUvec = isUintType(type) ? `${inputs.value}` : isIntType(type) ? `${tempType}(${inputs.value})` : `floatBitsToUint(${inputs.value})`;
+        return [
+          `${tempType} bits = ${toUvec};`,
+          `${outputs.state} = pcg_mix(bits);`
+        ];
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "state");
+  }
+}
+class Hash extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "uint" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        let state = new PcgMix({ value: value2 }).outputs.state;
+        state = new PcgNext({ state }).outputs.state;
+        return new PcgHash({ state }).outputs;
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class Hash2 extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "uvec2" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        let state = new PcgMix({ value: value2 }).outputs.state;
+        state = new PcgNext({ state }).outputs.state;
+        const x = new PcgHash({ state }).outputs.hash;
+        state = new PcgNext({ state }).outputs.state;
+        const y = new PcgHash({ state }).outputs.hash;
+        return { hash: combine({ vectorType: "uvec2", x, y }) };
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class Hash3 extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "uvec3" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        let state = new PcgMix({ value: value2 }).outputs.state;
+        state = new PcgNext({ state }).outputs.state;
+        const x = new PcgHash({ state }).outputs.hash;
+        state = new PcgNext({ state }).outputs.state;
+        const y = new PcgHash({ state }).outputs.hash;
+        state = new PcgNext({ state }).outputs.state;
+        const z = new PcgHash({ state }).outputs.hash;
+        return { hash: combine({ vectorType: "uvec3", x, y, z }) };
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class Hash4 extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "uvec4" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        let state = new PcgMix({ value: value2 }).outputs.state;
+        state = new PcgNext({ state }).outputs.state;
+        const x = new PcgHash({ state }).outputs.hash;
+        state = new PcgNext({ state }).outputs.state;
+        const y = new PcgHash({ state }).outputs.hash;
+        state = new PcgNext({ state }).outputs.state;
+        const z = new PcgHash({ state }).outputs.hash;
+        state = new PcgNext({ state }).outputs.state;
+        const w = new PcgHash({ state }).outputs.hash;
+        return { hash: combine({ vectorType: "uvec4", x, y, z, w }) };
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class HashFloat extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "float" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        const word = hash(value2);
+        return { hash: mul(float(word), dynoConst("float", 1 / 2 ** 32)) };
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class HashVec2 extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "vec2" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        const words = hash2(value2);
+        return { hash: mul(vec2(words), dynoConst("float", 1 / 2 ** 32)) };
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class HashVec3 extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "vec3" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        const words = hash3(value2);
+        return { hash: mul(vec3$1(words), dynoConst("float", 1 / 2 ** 32)) };
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class HashVec4 extends DynoBlock {
+  constructor({ value }) {
+    super({
+      inTypes: { value: valType(value) },
+      outTypes: { hash: "vec4" },
+      inputs: { value },
+      construct: ({ value: value2 }) => {
+        if (!value2) {
+          throw new Error("value is required");
+        }
+        const words = hash4(value2);
+        return { hash: mul(vec4$1(words), dynoConst("float", 1 / 2 ** 32)) };
+      }
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "hash");
+  }
+}
+class NormalizedDepth extends Dyno {
+  constructor({
+    z,
+    zNear,
+    zFar
+  }) {
+    super({
+      inTypes: { z: "float", zNear: "float", zFar: "float" },
+      outTypes: { depth: "float" },
+      inputs: { z, zNear, zFar },
+      statements: ({ inputs, outputs }) => [
+        `float clamped = clamp(${inputs.z}, ${inputs.zNear}, ${inputs.zFar});`,
+        `${outputs.depth} = (log2(clamped + 1.0) - log2(${inputs.zNear} + 1.0)) / (log2(${inputs.zFar} + 1.0) - log2(${inputs.zNear} + 1.0));`
+      ]
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "depth");
+  }
+}
+class DebugColorHue extends Dyno {
+  constructor({ index }) {
+    super({
+      inTypes: { index: "int" },
+      outTypes: { color: "vec3" },
+      inputs: { index },
+      statements: ({ inputs, outputs }) => [
+        `${outputs.color} = debugColorHue(uint(${inputs.index}));`
+      ]
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "color");
   }
 }
 const transformPos = (position, {
@@ -2858,6 +5276,9 @@ const transformDir = (dir, {
   rotate
 }) => {
   return new TransformDir({ dir, scale, scales, rotate }).outputs.dir;
+};
+const transformQuat = (quaternion, { rotate }) => {
+  return new TransformQuaternion({ quaternion, rotate }).outputs.quaternion;
 };
 class TransformPosition extends Dyno {
   constructor({
@@ -2921,6 +5342,789 @@ class TransformDir extends Dyno {
     });
   }
 }
+class TransformQuaternion extends Dyno {
+  constructor({
+    quaternion,
+    rotate
+  }) {
+    super({
+      inTypes: { quaternion: "vec4", rotate: "vec4" },
+      outTypes: { quaternion: "vec4" },
+      inputs: { quaternion, rotate },
+      statements: ({ inputs, outputs }) => {
+        const { quaternion: quaternion2 } = outputs;
+        if (!quaternion2) {
+          return [];
+        }
+        return [
+          `${quaternion2} = ${inputs.quaternion ?? "vec4(0.0, 0.0, 0.0, 1.0)"};`,
+          !rotate ? null : `${quaternion2} = quatQuat(${inputs.rotate}, ${quaternion2});`
+        ].filter(Boolean);
+      }
+    });
+  }
+}
+const dynoIf = () => {
+  throw new Error("Not implemented");
+};
+const dynoSwitch = () => {
+  throw new Error("Not implemented");
+};
+const dynoFor = () => {
+  throw new Error("Not implemented");
+};
+const comment = () => {
+  throw new Error("Not implemented");
+};
+const arrayIndex = () => {
+  throw new Error("Not implemented");
+};
+const arrayLength = () => {
+  throw new Error("Not implemented");
+};
+const textureSize = (texture2, lod) => new TextureSize({ texture: texture2, lod });
+const texture = (texture2, coord, bias) => new Texture({ texture: texture2, coord, bias });
+const texelFetch = (texture2, coord, lod) => new TexelFetch({ texture: texture2, coord, lod });
+class TextureSize extends Dyno {
+  constructor({ texture: texture2, lod }) {
+    const textureType = valType(texture2);
+    super({
+      inTypes: { texture: textureType, lod: "int" },
+      outTypes: { size: textureSizeType(textureType) },
+      inputs: { texture: texture2, lod },
+      statements: ({ inputs, outputs }) => [
+        `${outputs.size} = textureSize(${inputs.texture}, ${inputs.lod ?? "0"});`
+      ]
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "size");
+  }
+}
+class Texture extends Dyno {
+  constructor({
+    texture: texture2,
+    coord,
+    bias
+  }) {
+    const textureType = valType(texture2);
+    super({
+      inTypes: {
+        texture: textureType,
+        coord: textureCoordType(textureType),
+        bias: "float"
+      },
+      outTypes: { sample: textureReturnType(textureType) },
+      inputs: { texture: texture2, coord, bias },
+      statements: ({ inputs, outputs }) => [
+        `${outputs.sample} = texture(${inputs.texture}, ${inputs.coord}${inputs.bias ? `, ${inputs.bias}` : ""});`
+      ]
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "sample");
+  }
+}
+class TexelFetch extends Dyno {
+  constructor({
+    texture: texture2,
+    coord,
+    lod
+  }) {
+    const textureType = valType(texture2);
+    super({
+      inTypes: {
+        texture: textureType,
+        coord: textureSizeType(textureType),
+        lod: "int"
+      },
+      outTypes: { texel: textureReturnType(textureType) },
+      inputs: { texture: texture2, coord, lod },
+      statements: ({ inputs, outputs }) => [
+        `${outputs.texel} = texelFetch(${inputs.texture}, ${inputs.coord}, ${inputs.lod ?? "0"});`
+      ]
+    });
+  }
+  dynoOut() {
+    return new DynoOutput(this, "texel");
+  }
+}
+function textureSizeType(textureType) {
+  switch (textureType) {
+    case "sampler2D":
+    case "usampler2D":
+    case "isampler2D":
+    case "samplerCube":
+    case "usamplerCube":
+    case "isamplerCube":
+    case "sampler2DShadow":
+    case "samplerCubeShadow":
+      return "ivec2";
+    case "sampler3D":
+    case "usampler3D":
+    case "isampler3D":
+    case "sampler2DArray":
+    case "usampler2DArray":
+    case "isampler2DArray":
+    case "sampler2DArrayShadow":
+      return "ivec3";
+    default:
+      throw new Error(`Invalid texture type: ${textureType}`);
+  }
+}
+function textureCoordType(textureType) {
+  switch (textureType) {
+    case "sampler2D":
+    case "usampler2D":
+    case "isampler2D":
+      return "vec2";
+    case "sampler3D":
+    case "usampler3D":
+    case "isampler3D":
+    case "samplerCube":
+    case "usamplerCube":
+    case "isamplerCube":
+    case "sampler2DArray":
+    case "usampler2DArray":
+    case "isampler2DArray":
+    case "sampler2DShadow":
+      return "vec3";
+    case "samplerCubeShadow":
+    case "sampler2DArrayShadow":
+      return "vec4";
+    default:
+      throw new Error(`Invalid texture type: ${textureType}`);
+  }
+}
+function textureReturnType(textureType) {
+  switch (textureType) {
+    case "sampler2D":
+    case "sampler2DArray":
+    case "sampler3D":
+    case "samplerCube":
+    case "sampler2DShadow":
+      return "vec4";
+    case "usampler2D":
+    case "usampler2DArray":
+    case "usampler3D":
+    case "usamplerCube":
+      return "uvec4";
+    case "isampler2D":
+    case "isampler2DArray":
+    case "isampler3D":
+    case "isamplerCube":
+      return "ivec4";
+    case "samplerCubeShadow":
+    case "sampler2DArrayShadow":
+      return "float";
+    default:
+      throw new Error(`Invalid texture type: ${textureType}`);
+  }
+}
+const radians = (degrees2) => new Radians({ degrees: degrees2 });
+const degrees = (radians2) => new Degrees({ radians: radians2 });
+const sin = (radians2) => new Sin({ radians: radians2 });
+const cos = (radians2) => new Cos({ radians: radians2 });
+const tan = (radians2) => new Tan({ radians: radians2 });
+const asin = (sin2) => new Asin({ sin: sin2 });
+const acos = (cos2) => new Acos({ cos: cos2 });
+const atan = (tan2) => new Atan({ tan: tan2 });
+const atan2 = (y, x) => new Atan2({ y, x });
+const sinh = (x) => new Sinh({ x });
+const cosh = (x) => new Cosh({ x });
+const tanh = (x) => new Tanh({ x });
+const asinh = (x) => new Asinh({ x });
+const acosh = (x) => new Acosh({ x });
+const atanh = (x) => new Atanh({ x });
+class Radians extends UnaryOp {
+  constructor({ degrees: degrees2 }) {
+    super({ a: degrees2, outTypeFunc: (aType) => aType, outKey: "radians" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.radians} = radians(${inputs.a});`
+    ];
+  }
+}
+class Degrees extends UnaryOp {
+  constructor({ radians: radians2 }) {
+    super({ a: radians2, outTypeFunc: (aType) => aType, outKey: "degrees" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.degrees} = degrees(${inputs.a});`
+    ];
+  }
+}
+class Sin extends UnaryOp {
+  constructor({ radians: radians2 }) {
+    super({ a: radians2, outTypeFunc: (aType) => aType, outKey: "sin" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.sin} = sin(${inputs.a});`
+    ];
+  }
+}
+class Cos extends UnaryOp {
+  constructor({ radians: radians2 }) {
+    super({ a: radians2, outTypeFunc: (aType) => aType, outKey: "cos" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.cos} = cos(${inputs.a});`
+    ];
+  }
+}
+class Tan extends UnaryOp {
+  constructor({ radians: radians2 }) {
+    super({ a: radians2, outTypeFunc: (aType) => aType, outKey: "tan" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.tan} = tan(${inputs.a});`
+    ];
+  }
+}
+class Asin extends UnaryOp {
+  constructor({ sin: sin2 }) {
+    super({ a: sin2, outTypeFunc: (aType) => aType, outKey: "asin" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.asin} = asin(${inputs.a});`
+    ];
+  }
+}
+class Acos extends UnaryOp {
+  constructor({ cos: cos2 }) {
+    super({ a: cos2, outTypeFunc: (aType) => aType, outKey: "acos" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.acos} = acos(${inputs.a});`
+    ];
+  }
+}
+class Atan extends UnaryOp {
+  constructor({ tan: tan2 }) {
+    super({ a: tan2, outTypeFunc: (aType) => aType, outKey: "atan" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.atan} = atan(${inputs.a});`
+    ];
+  }
+}
+class Atan2 extends BinaryOp {
+  constructor({ y, x }) {
+    super({
+      a: y,
+      b: x,
+      outTypeFunc: (aType, bType) => aType,
+      outKey: "atan2"
+    });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.atan2} = atan2(${inputs.a}, ${inputs.b});`
+    ];
+  }
+}
+class Sinh extends UnaryOp {
+  constructor({ x }) {
+    super({ a: x, outTypeFunc: (aType) => aType, outKey: "sinh" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.sinh} = sinh(${inputs.a});`
+    ];
+  }
+}
+class Cosh extends UnaryOp {
+  constructor({ x }) {
+    super({ a: x, outTypeFunc: (aType) => aType, outKey: "cosh" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.cosh} = cosh(${inputs.a});`
+    ];
+  }
+}
+class Tanh extends UnaryOp {
+  constructor({ x }) {
+    super({ a: x, outTypeFunc: (aType) => aType, outKey: "tanh" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.tanh} = tanh(${inputs.a});`
+    ];
+  }
+}
+class Asinh extends UnaryOp {
+  constructor({ x }) {
+    super({ a: x, outTypeFunc: (aType) => aType, outKey: "asinh" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.asinh} = asinh(${inputs.a});`
+    ];
+  }
+}
+class Acosh extends UnaryOp {
+  constructor({ x }) {
+    super({ a: x, outTypeFunc: (aType) => aType, outKey: "acosh" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.acosh} = acosh(${inputs.a});`
+    ];
+  }
+}
+class Atanh extends UnaryOp {
+  constructor({ x }) {
+    super({ a: x, outTypeFunc: (aType) => aType, outKey: "atanh" });
+    this.statements = ({ inputs, outputs }) => [
+      `${outputs.atanh} = atanh(${inputs.a});`
+    ];
+  }
+}
+const dyno = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  Abs,
+  Acos,
+  Acosh,
+  Add,
+  All,
+  And,
+  Any,
+  Asin,
+  Asinh,
+  Atan,
+  Atan2,
+  Atanh,
+  BVec2,
+  BVec3,
+  BVec4,
+  BinaryOp,
+  Bool,
+  Ceil,
+  Clamp,
+  Combine,
+  CombineCovSplat,
+  CombineGsplat,
+  CompMult,
+  CompXor,
+  Compilation,
+  Cos,
+  Cosh,
+  CovSplat,
+  Cross,
+  DebugColorHue,
+  Degrees,
+  Determinant,
+  Distance,
+  Div,
+  Dot,
+  Dyno,
+  DynoBlock,
+  DynoBool,
+  DynoBvec2,
+  DynoBvec3,
+  DynoBvec4,
+  DynoConst,
+  DynoFloat,
+  DynoInt,
+  DynoIsampler2D,
+  DynoIsampler2DArray,
+  DynoIsampler3D,
+  DynoIsamplerCube,
+  DynoIvec2,
+  DynoIvec3,
+  DynoIvec4,
+  DynoLiteral,
+  DynoMat2,
+  DynoMat2x2,
+  DynoMat2x3,
+  DynoMat2x4,
+  DynoMat3,
+  DynoMat3x2,
+  DynoMat3x3,
+  DynoMat3x4,
+  DynoMat4,
+  DynoMat4x2,
+  DynoMat4x3,
+  DynoMat4x4,
+  DynoOutput,
+  DynoProgram,
+  DynoProgramTemplate,
+  DynoRemapIndex,
+  DynoSampler2D,
+  DynoSampler2DArray,
+  DynoSampler2DArrayShadow,
+  DynoSampler2DShadow,
+  DynoSampler3D,
+  DynoSamplerCube,
+  DynoSamplerCubeShadow,
+  DynoUint,
+  DynoUniform,
+  DynoUsampler2D,
+  DynoUsampler2DArray,
+  DynoUsampler3D,
+  DynoUsamplerCube,
+  DynoUvec2,
+  DynoUvec3,
+  DynoUvec4,
+  DynoValue,
+  DynoVec2,
+  DynoVec3,
+  DynoVec4,
+  Equal,
+  Exp,
+  Exp2,
+  ExtendVec,
+  FaceForward,
+  Float,
+  FloatBitsToInt,
+  FloatBitsToUint,
+  Floor,
+  Fract,
+  GreaterThan,
+  GreaterThanEqual,
+  Gsplat,
+  GsplatNormal,
+  GsplatToCovSplat,
+  GsplatXAxis,
+  GsplatYAxis,
+  GsplatZAxis,
+  Hash,
+  Hash2,
+  Hash3,
+  Hash4,
+  HashFloat,
+  HashVec2,
+  HashVec3,
+  HashVec4,
+  IMod,
+  IVec2,
+  IVec3,
+  IVec4,
+  Int,
+  IntBitsToFloat,
+  Inverse,
+  InverseSqrt,
+  IsInf,
+  IsNan,
+  Length,
+  LessThan,
+  LessThanEqual,
+  Log,
+  Log2,
+  Mat2,
+  Mat3,
+  Mat4,
+  Max,
+  Min,
+  Mix,
+  Mod,
+  Modf,
+  Mul,
+  Neg,
+  Normalize,
+  NormalizedDepth,
+  Not,
+  NotEqual,
+  NumCovSplats,
+  NumExtSplats,
+  NumPackedSplats,
+  Or,
+  Outer,
+  OutputCovSplat,
+  OutputExtCovSplat,
+  OutputExtendedSplat,
+  OutputPackedSplat,
+  OutputRgba8,
+  PackHalf2x16,
+  PackSnorm2x16,
+  PackUnorm2x16,
+  PagedSplatTexCoord,
+  PcgHash,
+  PcgMix,
+  PcgNext,
+  Pow,
+  ProjectH,
+  Radians,
+  ReadCovSplat,
+  ReadExtSplat,
+  ReadPackedSplat,
+  ReadPackedSplatRange,
+  ReflectVec,
+  RefractVec,
+  Round,
+  Select,
+  Shl,
+  Shr,
+  Sign,
+  SimpleCast,
+  Sin,
+  Sinh,
+  Smoothstep,
+  SplatTexCoord,
+  Split,
+  SplitCovSplat,
+  SplitGsplat,
+  Sqr,
+  Sqrt,
+  Step,
+  Sub,
+  Swizzle,
+  TCovSplats,
+  TExtSplats,
+  TPackedSplats,
+  Tan,
+  Tanh,
+  TexelFetch,
+  Texture,
+  TextureSize,
+  TransformDir,
+  TransformGsplat,
+  TransformPosition,
+  TransformQuaternion,
+  Transpose,
+  TrinaryOp,
+  Trunc,
+  UVec2,
+  UVec3,
+  UVec4,
+  Uint,
+  UintBitsToFloat,
+  UintToRgba8,
+  UnaryOp,
+  UnpackHalf2x16,
+  UnpackSnorm2x16,
+  UnpackUnorm2x16,
+  Vec2,
+  Vec3,
+  Vec4,
+  Xor,
+  abs,
+  acos,
+  acosh,
+  add,
+  all,
+  and,
+  any,
+  arrayIndex,
+  arrayLength,
+  asin,
+  asinh,
+  atan,
+  atan2,
+  atanh,
+  bool,
+  bvec2,
+  bvec3,
+  bvec4,
+  ceil,
+  clamp,
+  combine,
+  combineCovSplat,
+  combineGsplat,
+  comment,
+  compMult,
+  compXor,
+  cos,
+  cosh,
+  cross,
+  debugColorHue,
+  defineCovSplat,
+  defineExtSplats,
+  defineGsplat,
+  defineGsplatNormal,
+  definePackedSplats,
+  degrees,
+  determinant,
+  distance,
+  div,
+  dot,
+  dyno: dyno$1,
+  dynoBlock,
+  dynoBool,
+  dynoBvec2,
+  dynoBvec3,
+  dynoBvec4,
+  dynoConst,
+  dynoDeclare,
+  dynoFloat,
+  dynoFor,
+  dynoIf,
+  dynoInt,
+  dynoIsampler2D,
+  dynoIsampler2DArray,
+  dynoIsampler3D,
+  dynoIsamplerCube,
+  dynoIvec2,
+  dynoIvec3,
+  dynoIvec4,
+  dynoLiteral,
+  dynoMat2,
+  dynoMat2x2,
+  dynoMat2x3,
+  dynoMat2x4,
+  dynoMat3,
+  dynoMat3x2,
+  dynoMat3x3,
+  dynoMat3x4,
+  dynoMat4,
+  dynoMat4x2,
+  dynoMat4x3,
+  dynoMat4x4,
+  dynoSampler2D,
+  dynoSampler2DArray,
+  dynoSampler2DArrayShadow,
+  dynoSampler2DShadow,
+  dynoSampler3D,
+  dynoSamplerCube,
+  dynoSamplerCubeShadow,
+  dynoSwitch,
+  dynoUint,
+  dynoUsampler2D,
+  dynoUsampler2DArray,
+  dynoUsampler3D,
+  dynoUsamplerCube,
+  dynoUvec2,
+  dynoUvec3,
+  dynoUvec4,
+  dynoVec2,
+  dynoVec3,
+  dynoVec4,
+  equal,
+  exp,
+  exp2,
+  extendVec,
+  faceforward,
+  float,
+  floatBitsToInt,
+  floatBitsToUint,
+  floor,
+  fract,
+  greaterThan,
+  greaterThanEqual,
+  gsplatNormal,
+  gsplatToCovSplat,
+  gsplatXAxis,
+  gsplatYAxis,
+  gsplatZAxis,
+  hash,
+  hash2,
+  hash3,
+  hash4,
+  hashFloat,
+  hashVec2,
+  hashVec3,
+  hashVec4,
+  imod,
+  int,
+  intBitsToFloat,
+  inverse,
+  inversesqrt,
+  isAllFloatType,
+  isBoolType,
+  isFloatType,
+  isInf,
+  isIntType,
+  isMat2,
+  isMat3,
+  isMat4,
+  isMatFloatType,
+  isNan,
+  isScalarType,
+  isUintType,
+  isVector2Type,
+  isVector3Type,
+  isVector4Type,
+  isVectorType,
+  ivec2,
+  ivec3,
+  ivec4,
+  length,
+  lessThan,
+  lessThanEqual,
+  literalNegOne,
+  literalOne,
+  literalZero,
+  log,
+  log2,
+  mat2,
+  mat3,
+  mat4,
+  max,
+  min,
+  mix,
+  mod,
+  modf,
+  mul,
+  neg,
+  normalize,
+  normalizedDepth,
+  not,
+  notEqual,
+  numCovSplats,
+  numExtSplats,
+  numPackedSplats,
+  numberAsFloat,
+  numberAsInt,
+  numberAsUint,
+  or,
+  outer,
+  outputCovSplat,
+  outputCovSplatDepth,
+  outputExtCovSplat,
+  outputExtendedSplat,
+  outputPackedSplat,
+  outputRgba8,
+  outputSplatDepth,
+  packHalf2x16,
+  packSnorm2x16,
+  packUnorm2x16,
+  pagedSplatTexCoord,
+  pcgHash,
+  pcgMix,
+  pcgNext,
+  pow,
+  projectH,
+  radians,
+  readCovSplat,
+  readExtSplat,
+  readPackedSplat,
+  readPackedSplatRange,
+  reflectVec,
+  refractVec,
+  remapIndex,
+  round,
+  sameSizeIvec,
+  sameSizeUvec,
+  sameSizeVec,
+  select,
+  shl,
+  shr,
+  sign,
+  sin,
+  sinh,
+  smoothstep,
+  splatTexCoord,
+  split,
+  splitCovSplat,
+  splitGsplat,
+  sqr,
+  sqrt,
+  step,
+  sub,
+  swizzle,
+  tan,
+  tanh,
+  texelFetch,
+  texture,
+  textureSize,
+  transformDir,
+  transformGsplat,
+  transformPos,
+  transformQuat,
+  transpose,
+  trunc,
+  typeLiteral,
+  uint,
+  uintBitsToFloat,
+  uintToRgba8,
+  uniform,
+  unindent,
+  unindentLines,
+  unpackHalf2x16,
+  unpackSnorm2x16,
+  unpackUnorm2x16,
+  uvec2,
+  uvec3,
+  uvec4,
+  valType,
+  vec2,
+  vec3: vec3$1,
+  vec4: vec4$1,
+  vectorDim,
+  vectorElementType,
+  xor
+}, Symbol.toStringTag, { value: "Module" }));
 var computeUvec4_default = "precision highp float;\nprecision highp int;\nprecision highp sampler2D;\nprecision highp usampler2D;\nprecision highp isampler2D;\nprecision highp sampler2DArray;\nprecision highp usampler2DArray;\nprecision highp isampler2DArray;\nprecision highp sampler3D;\nprecision highp usampler3D;\nprecision highp isampler3D;\n\n#include <splatDefines>\n\nuniform uint targetLayer;\nuniform int targetBase;\nuniform int targetCount;\n\nout uvec4 target;\n\n{{ GLOBALS }}\n\nvoid produceSplat(int _index) {\n    {{ STATEMENTS }}\n}\n\nvoid main() {\n    int targetIndex = int(targetLayer << SPLAT_TEX_LAYER_BITS) + int(uint(gl_FragCoord.y) << SPLAT_TEX_WIDTH_BITS) + int(gl_FragCoord.x);\n    int index = targetIndex - targetBase;\n\n    target = uvec4(0u, 0u, 0u, 0u);\n    if ((index >= 0) && (index < targetCount)) {\n        produceSplat(index);\n    }\n}";
 var computeUvec4_Vec4_default = "precision highp float;\nprecision highp int;\nprecision highp sampler2D;\nprecision highp usampler2D;\nprecision highp isampler2D;\nprecision highp sampler2DArray;\nprecision highp usampler2DArray;\nprecision highp isampler2DArray;\nprecision highp sampler3D;\nprecision highp usampler3D;\nprecision highp isampler3D;\n\n#include <splatDefines>\n\nuniform uint targetLayer;\nuniform int targetBase;\nuniform int targetCount;\n\nlayout(location = 0) out uvec4 target;\nlayout(location = 1) out vec4 target3;\n\n{{ GLOBALS }}\n\nvoid produceSplat(int _index) {\n    {{ STATEMENTS }}\n}\n\nvoid main() {\n    int targetIndex = int(targetLayer << SPLAT_TEX_LAYER_BITS) + int(uint(gl_FragCoord.y) << SPLAT_TEX_WIDTH_BITS) + int(gl_FragCoord.x);\n    int index = targetIndex - targetBase;\n\n    \n    target = uvec4(0u, 0u, 0u, 0u);\n\n    \n    target3 = floatToVec4(1.0 / 0.0);\n\n    if ((index >= 0) && (index < targetCount)) {\n        produceSplat(index);\n    }\n}";
 var computeUvec4x2_Vec4_default = "precision highp float;\nprecision highp int;\nprecision highp sampler2D;\nprecision highp usampler2D;\nprecision highp isampler2D;\nprecision highp sampler2DArray;\nprecision highp usampler2DArray;\nprecision highp isampler2DArray;\nprecision highp sampler3D;\nprecision highp usampler3D;\nprecision highp isampler3D;\n\n#include <splatDefines>\n\nuniform uint targetLayer;\nuniform int targetBase;\nuniform int targetCount;\n\nlayout(location = 0) out uvec4 target;\nlayout(location = 1) out uvec4 target2;\nlayout(location = 2) out vec4 target3;\n\n{{ GLOBALS }}\n\nvoid produceSplat(int _index) {\n    {{ STATEMENTS }}\n}\n\nvoid main() {\n    int targetIndex = int(targetLayer << SPLAT_TEX_LAYER_BITS) + int(uint(gl_FragCoord.y) << SPLAT_TEX_WIDTH_BITS) + int(gl_FragCoord.x);\n    int index = targetIndex - targetBase;\n\n    \n    target = uvec4(0u, 0u, 0u, 0u);\n    target2 = uvec4(0u, 0u, 0u, 0u);\n\n    \n    target3 = floatToVec4(1.0 / 0.0);\n\n    if ((index >= 0) && (index < targetCount)) {\n        produceSplat(index);\n    }\n}";
@@ -10776,6 +13980,275 @@ unindent(
   color1: new Color(1, 1, 1),
   color2: new Color(0.25, 0.25, 0.5)});
 
+// Lighting of Gaussian splats (splats.js) by the scene's lights, the way the
+// meshes next to them are lit: Lights > Splat lighting (lights-panel.js),
+// state in core.splatLighting ({ enabled, strength }).
+//
+// A splat has no normal, but most splats of a capture lie flat on the
+// surface they were fitted to: the normal is the shortest axis of the
+// Gaussian, turned towards the camera. How flat the splat is (shortest
+// against middle axis) says how far to trust it; round splats (foliage,
+// merged LoD splats, noise) keep their colour.
+//
+// The colours of a capture already hold the light it was taken in, so the
+// lights do not replace them, they scale them: the irradiance the splat
+// gets from the scene's lights (three.js's terms: ambient, hemisphere,
+// directional, point and spot, with their distance and cone falloff; the
+// environment as ambient) divided by a reference, the irradiance a surface
+// half turned to every light would get at the middle of the model. With
+// neutral lights the capture looks as it was; turning or dimming a light
+// shades its relief. `strength` blends between the two. Shadows are not
+// cast (no geometry to cast them).
+//
+// It is a world modifier of the splat mesh, run on the GPU in Spark's
+// generator for every splat; since the normal turns to the camera, it runs
+// again when the camera moves, as the view-dependent colours already do.
+// The lights are read from the scene once a frame, and the splats are
+// regenerated only when they change.
+
+const MAX_DIRECTIONAL = 4;
+const MAX_LOCAL = 4;
+// Diffuse wrapped round the terminator, so noisy normals do not go black.
+const WRAP = 0.35;
+// The share of a light a surface gets on average (the reference).
+const REFERENCE_SHARE = 0.5;
+// Brightest a splat may get, against its captured colour.
+const MAX_GAIN = 2.5;
+// Below this ratio of shortest to middle axis a splat counts as flat.
+const FLAT_RATIO = 0.35;
+const LUMA = new THREE.Vector3(0.2126, 0.7152, 0.0722);
+
+const vec3 = () => dyno.dynoVec3(new THREE.Vector3());
+const vec4 = () => dyno.dynoVec4(new THREE.Vector4());
+
+// Shared by every splat mesh; filled from the scene by updateUniforms().
+const uniforms = {
+  strength: dyno.dynoFloat(0),
+  reference: dyno.dynoFloat(1),
+  ambient: vec3(),
+  sky: vec3(),
+  ground: vec3(),
+  directional: Array.from({ length: MAX_DIRECTIONAL }, () => ({ direction: vec3(), color: vec3() })),
+  // params: distance cutoff, decay, cone cosine, penumbra cosine (spot only;
+  // a point light has cone cosine -2, everywhere inside).
+  local: Array.from({ length: MAX_LOCAL }, () => ({ position: vec3(), color: vec3(), direction: vec3(), params: vec4() })),
+};
+
+const defineLighting = `
+  float splatWrapDiffuse(float nl) {
+    return clamp((nl + ${WRAP.toFixed(3)}) / ${(1 + WRAP).toFixed(3)}, 0.0, 1.0);
+  }
+  float splatDistanceFalloff(float d, float cutoff, float decay) {
+    float falloff = 1.0 / max(pow(d, decay), 0.01);
+    if (cutoff > 0.0) {
+      float x = clamp(1.0 - pow(d / cutoff, 4.0), 0.0, 1.0);
+      falloff *= x * x;
+    }
+    return falloff;
+  }
+`;
+
+function lightingDyno(gsplat, eye) {
+  const inTypes = { gsplat: dyno.Gsplat, eye: "vec3", strength: "float", reference: "float", ambient: "vec3", sky: "vec3", ground: "vec3" };
+  const inputs = { gsplat, eye, strength: uniforms.strength, reference: uniforms.reference, ambient: uniforms.ambient, sky: uniforms.sky, ground: uniforms.ground };
+  uniforms.directional.forEach((light, i) => {
+    inTypes[`dirDirection${i}`] = "vec3";
+    inTypes[`dirColor${i}`] = "vec3";
+    inputs[`dirDirection${i}`] = light.direction;
+    inputs[`dirColor${i}`] = light.color;
+  });
+  uniforms.local.forEach((light, i) => {
+    Object.assign(inTypes, { [`localPosition${i}`]: "vec3", [`localColor${i}`]: "vec3", [`localDirection${i}`]: "vec3", [`localParams${i}`]: "vec4" });
+    Object.assign(inputs, { [`localPosition${i}`]: light.position, [`localColor${i}`]: light.color, [`localDirection${i}`]: light.direction, [`localParams${i}`]: light.params });
+  });
+  return dyno.dyno({
+    inTypes,
+    outTypes: { gsplat: dyno.Gsplat },
+    inputs,
+    globals: () => [dyno.defineGsplat, dyno.defineGsplatNormal, defineLighting],
+    statements: ({ inputs: i, outputs }) => {
+      const g = outputs.gsplat;
+      const lines = [
+        `${g} = ${i.gsplat};`,
+        `if (isGsplatActive(${g}.flags) && ${i.strength} > 0.0) {`,
+        `  vec3 s = ${g}.scales;`,
+        `  float sMin = min(s.x, min(s.y, s.z));`,
+        `  float sMax = max(s.x, max(s.y, s.z));`,
+        `  float sMid = s.x + s.y + s.z - sMin - sMax;`,
+        `  float flatness = 1.0 - smoothstep(${(FLAT_RATIO * 0.5).toFixed(3)}, ${FLAT_RATIO.toFixed(3)}, sMin / max(sMid, 1e-9));`,
+        `  vec3 n = gsplatNormal(s, ${g}.quaternion);`,
+        `  vec3 p = ${g}.center;`,
+        `  if (dot(n, ${i.eye} - p) < 0.0) n = -n;`,
+        // A round splat gets the reference share of every light.
+        `  vec3 irr = ${i.ambient} + mix(0.5 * (${i.sky} + ${i.ground}), mix(${i.ground}, ${i.sky}, 0.5 * n.y + 0.5), flatness);`,
+      ];
+      uniforms.directional.forEach((_light, k) => {
+        lines.push(`  irr += ${i[`dirColor${k}`]} * mix(${REFERENCE_SHARE.toFixed(3)}, splatWrapDiffuse(dot(n, ${i[`dirDirection${k}`]})), flatness);`);
+      });
+      uniforms.local.forEach((_light, k) => {
+        const color = i[`localColor${k}`];
+        const params = i[`localParams${k}`];
+        lines.push(
+          `  if (${color}.r + ${color}.g + ${color}.b > 0.0) {`,
+          `    vec3 l = ${i[`localPosition${k}`]} - p;`,
+          `    float d = max(length(l), 1e-6);`,
+          `    l /= d;`,
+          `    float cone = smoothstep(${params}.z, ${params}.w, dot(-l, ${i[`localDirection${k}`]}));`,
+          `    irr += ${color} * splatDistanceFalloff(d, ${params}.x, ${params}.y) * cone * mix(${REFERENCE_SHARE.toFixed(3)}, splatWrapDiffuse(dot(n, l)), flatness);`,
+          `  }`,
+        );
+      });
+      lines.push(
+        `  vec3 gain = min(irr / max(${i.reference}, 1e-6), vec3(${MAX_GAIN.toFixed(2)}));`,
+        // The colours are sRGB; the gain is in linear light.
+        `  gain = pow(mix(vec3(1.0), gain, ${i.strength}), vec3(1.0 / 2.2));`,
+        `  ${g}.rgba.rgb *= gain;`,
+        `}`,
+      );
+      return lines;
+    },
+  });
+}
+
+function makeModifier(mesh) {
+  return dyno.dynoBlock({ gsplat: dyno.Gsplat }, { gsplat: dyno.Gsplat }, ({ gsplat }) => {
+    if (!gsplat) throw new Error("No gsplat input");
+    return { gsplat: lightingDyno(gsplat, mesh.context.viewToWorld.translate).outputs.gsplat };
+  });
+}
+
+// Reading the scene's lights.
+
+const worldPosition = new THREE.Vector3();
+const targetPosition = new THREE.Vector3();
+const color = new THREE.Color();
+const center = new THREE.Vector3();
+let frameStamp = -1;
+let lightsKey = "";
+let lightsVersion = 0;
+
+function lightColor(light) {
+  color.copy(light.color).multiplyScalar(light.intensity);
+  return new THREE.Vector3(color.r, color.g, color.b);
+}
+
+function collectLights() {
+  const lights = { ambient: new THREE.Vector3(), sky: new THREE.Vector3(), ground: new THREE.Vector3(), directional: [], local: [] };
+  core.scene?.traverseVisible((object) => {
+    if (!object.isLight || !(object.intensity > 0)) return;
+    if (object.isAmbientLight) {
+      lights.ambient.add(lightColor(object));
+    } else if (object.isHemisphereLight) {
+      lights.sky.add(lightColor(object));
+      color.copy(object.groundColor).multiplyScalar(object.intensity);
+      lights.ground.add(new THREE.Vector3(color.r, color.g, color.b));
+    } else if (object.isDirectionalLight) {
+      object.getWorldPosition(worldPosition);
+      object.target.getWorldPosition(targetPosition);
+      const direction = worldPosition.sub(targetPosition);
+      if (direction.lengthSq() > 0) lights.directional.push({ direction: direction.normalize().clone(), color: lightColor(object) });
+    } else if (object.isPointLight || object.isSpotLight) {
+      const light = { position: object.getWorldPosition(new THREE.Vector3()), color: lightColor(object), direction: new THREE.Vector3(0, -1, 0), params: new THREE.Vector4(object.distance, object.decay, -2, -1) };
+      if (object.isSpotLight) {
+        object.target.getWorldPosition(targetPosition);
+        light.direction.subVectors(targetPosition, light.position).normalize();
+        light.params.z = Math.cos(object.angle);
+        light.params.w = Math.cos(object.angle * (1 - object.penumbra));
+      }
+      lights.local.push(light);
+    }
+  });
+  const environment = core.scene?.environment ? core.scene.environmentIntensity ?? 1 : 0;
+  lights.ambient.addScalar(environment);
+  // The strongest first, when there are more than fit.
+  const strength = (light) => light.color.dot(LUMA);
+  lights.directional.sort((a, b) => strength(b) - strength(a));
+  lights.local.sort((a, b) => strength(b) - strength(a));
+  return lights;
+}
+
+// What a surface half turned to every light gets at `at`.
+function reference(lights, at) {
+  let total = lights.ambient.dot(LUMA) + 0.5 * (lights.sky.dot(LUMA) + lights.ground.dot(LUMA));
+  lights.directional.slice(0, MAX_DIRECTIONAL).forEach((light) => {
+    total += REFERENCE_SHARE * light.color.dot(LUMA);
+  });
+  lights.local.slice(0, MAX_LOCAL).forEach((light) => {
+    const d = Math.max(light.position.distanceTo(at), 1e-6);
+    let falloff = 1 / Math.max(d ** light.params.y, 0.01);
+    if (light.params.x > 0) falloff *= Math.max(0, 1 - (d / light.params.x) ** 4) ** 2;
+    const cos = targetPosition.subVectors(at, light.position).normalize().dot(light.direction);
+    const cone = THREE.MathUtils.smoothstep(cos, light.params.z, light.params.w);
+    total += REFERENCE_SHARE * light.color.dot(LUMA) * falloff * cone;
+  });
+  return Math.max(total, 1e-6);
+}
+
+function copy(uniform, value) {
+  uniform.value.copy(value);
+}
+
+// Once a frame (any of the splat meshes asks): the lights into the
+// uniforms; lightsVersion goes up when they changed.
+function updateUniforms(stamp) {
+  if (stamp === frameStamp) return;
+  frameStamp = stamp;
+  const state = core.splatLighting;
+  const lights = collectLights();
+  if (core.lightBounds?.center) center.copy(core.lightBounds.center);
+  else center.set(0, 0, 0);
+  const key = JSON.stringify([state.strength, center, lights]);
+  if (key === lightsKey) return;
+  lightsKey = key;
+  lightsVersion += 1;
+  uniforms.strength.value = THREE.MathUtils.clamp(Number(state.strength) || 0, 0, 1);
+  uniforms.reference.value = reference(lights, center);
+  copy(uniforms.ambient, lights.ambient);
+  copy(uniforms.sky, lights.sky);
+  copy(uniforms.ground, lights.ground);
+  uniforms.directional.forEach((slot, i) => {
+    const light = lights.directional[i];
+    copy(slot.direction, light?.direction ?? new THREE.Vector3(0, 1, 0));
+    copy(slot.color, light?.color ?? new THREE.Vector3());
+  });
+  uniforms.local.forEach((slot, i) => {
+    const light = lights.local[i];
+    copy(slot.position, light?.position ?? new THREE.Vector3());
+    copy(slot.color, light?.color ?? new THREE.Vector3());
+    copy(slot.direction, light?.direction ?? new THREE.Vector3(0, -1, 0));
+    copy(slot.params, light?.params ?? new THREE.Vector4(0, 2, -2, -1));
+  });
+}
+
+function setModifier(mesh, on) {
+  const lighting = mesh.userData.splatLighting;
+  if (lighting.on === on) return;
+  lighting.on = on;
+  mesh.enableViewToWorld = on;
+  mesh.worldModifier = on ? (lighting.modifier ??= makeModifier(mesh)) : undefined;
+  mesh.updateGenerator();
+}
+
+// Lets the scene's lights light the splat mesh (while core.splatLighting
+// says so).
+function attachSplatLighting(mesh) {
+  mesh.userData.splatLighting = { on: false, modifier: null, version: -1 };
+  const onFrame = mesh.onFrame;
+  mesh.onFrame = (frame) => {
+    onFrame?.(frame);
+    const lighting = mesh.userData.splatLighting;
+    const state = core.splatLighting;
+    const on = Boolean(state.enabled) && state.strength > 0;
+    setModifier(mesh, on);
+    if (!on) return;
+    updateUniforms(frame.time);
+    if (lighting.version !== lightsVersion) {
+      lighting.version = lightsVersion;
+      mesh.updateVersion();
+    }
+  };
+}
+
 // Gaussian splats (3D Gaussian Splatting captures: .ply, .spz, .splat,
 // .ksplat, .sog, .rad), drawn with Spark (sparkjs.dev) together with the meshes of
 // the scene. Loaded dynamically by loaders.js, so Spark (with its WebAssembly
@@ -10810,6 +14283,9 @@ unindent(
 // root chunk (the coarse splats spread over the whole capture), its count
 // from the header. Without range support (a proxy answering 200) the file
 // is loaded whole, as above.
+//
+// Both are lit by the scene's lights when Lights > Splat lighting is on
+// (splat-lighting.js).
 
 const LOD_ABOVE = 300_000;
 // Share of Spark's default per-platform budget (2.5M splats on desktop,
@@ -10873,6 +14349,7 @@ async function buildSplatModel(buffer, { fileName = "splats", name = "Gaussian s
   const count = (lodOnly ?? splats)?.numSplats ?? null;
   mesh.userData.gaussianSplats = { count, format: fileName.split(".").pop().toLowerCase() };
   mesh.userData.isGaussianSplats = true;
+  attachSplatLighting(mesh);
 
   const root = new THREE.Group();
   root.name = name;
@@ -10934,6 +14411,7 @@ async function buildPagedSplatModel(url, { fileName = "splats.rad", name = "Gaus
   if (!box.isEmpty()) mesh.geometry = boundsGeometry(box);
   mesh.userData.gaussianSplats = { count: meta.count ?? null, format: fileName.split(".").pop().toLowerCase(), paged: true };
   mesh.userData.isGaussianSplats = true;
+  attachSplatLighting(mesh);
 
   const root = new THREE.Group();
   root.name = name;
@@ -10944,4 +14422,4 @@ async function buildPagedSplatModel(url, { fileName = "splats.rad", name = "Gaus
 }
 
 export { buildPagedSplatModel, buildSplatModel };
-//# sourceMappingURL=splats-DKvMVLBO.js.map
+//# sourceMappingURL=splats-CvGFxwht.js.map

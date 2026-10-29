@@ -12,6 +12,7 @@
 @import "./ifc-properties.css";
 @import "./viewer-tools.css";
 @import "./materials-panel.css";
+@import "./look-panels.css";
 @import "./assistant.css";
 @import "./menu-toolbar.css";
 @import "./context-menu.css";
@@ -150,6 +151,17 @@ canvas {
   z-index: 100;
   left: 0px;
   filter: drop-shadow(0 0 2px rgba(0,0,0,.9));
+  transition: filter 0.3s ease;
+}
+
+#handHint img {
+  transition: filter 0.3s ease;
+}
+
+/* Over a dark model or background (updateHandHintContrast in
+   editor-toolbar.js): the dark hand turns light, with a dark outline. */
+#handHint.hand-hint-on-dark img {
+  filter: invert(1);
 }
 
 #viewerNoticeContainer {

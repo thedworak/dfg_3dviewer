@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-DdZDt4MY.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-G_xVZXj6.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -38,6 +38,8 @@ const core = {
     clippingFolder: null,
     helperObjects: [],
     isOnline: true, // kept current by connectivity.js
+    // Gaussian splats lit by the scene's lights (splat-lighting.js).
+    splatLighting: { enabled: false, strength: 0.8 },
     // Add other shared state here
 };
 
@@ -939,13 +941,13 @@ function normalizeColor(value) {
 
   //string
   if (typeof value === "string") {
-    return parseCssColor(value);
+    return parseCssColor$1(value);
   }
 
   return null;
 }
 
-function parseCssColor(str) {
+function parseCssColor$1(str) {
   if (typeof str !== "string") return null;
 
   str = str.trim();
@@ -1920,6 +1922,1738 @@ function updateGround(force = false) {
   }
 }
 
+// The size of one scene unit, in meters, for measurements. Taken from, in
+// this order:
+//   user      the unit picked in the measurement menu, remembered per model
+//   manifest  IIIF Presentation 4 Scene.spatialScale, or AIM3DViewer units
+//   file      the model file's own unit (FBX UnitScaleFactor, 3MF / AMF unit,
+//             USD metersPerUnit, COLLADA <unit>)
+//   config    viewer.measurement.modelUnitInMeters (viewer-settings.json)
+//   default   meters (glTF, IFC and point clouds are meters by definition;
+//             OBJ, STL, PLY have no unit)
+// Files are wrong sometimes (a model made in centimeters, exported to glTF
+// as if in meters): a model of implausible size gets a hint in the
+// measurement panel, with the units that would make it plausible.
+
+const MODEL_UNITS = {
+  m: 1,
+  cm: 0.01,
+  mm: 0.001,
+  in: 0.0254,
+  ft: 0.3048,
+};
+
+// Unit names as manifests and files write them.
+const UNIT_ALIASES = {
+  m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
+  cm: 0.01, centimeter: 0.01, centimeters: 0.01, centimetre: 0.01, centimetres: 0.01,
+  mm: 0.001, millimeter: 0.001, millimeters: 0.001, millimetre: 0.001, millimetres: 0.001,
+  um: 1e-6, micron: 1e-6, micrometer: 1e-6, micrometre: 1e-6,
+  km: 1000, kilometer: 1000, kilometre: 1000,
+  in: 0.0254, inch: 0.0254, inches: 0.0254,
+  ft: 0.3048, foot: 0.3048, feet: 0.3048,
+  yd: 0.9144, yard: 0.9144,
+};
+
+// A model whose largest side lies outside this range (in meters) is
+// probably in another unit than the one assumed.
+const PLAUSIBLE_SIZE = { min: 0.005, max: 500 };
+// ...and the units suggested are those giving it a size in this range.
+const SUGGESTED_SIZE = { min: 0.05, max: 300 };
+
+const STORAGE_PREFIX = "dfg3dviewer-model-unit:";
+const DISPLAY_STORAGE_KEY = "dfg3dviewer-measure-display";
+
+function unitNameToMeters(name) {
+  const meters = UNIT_ALIASES[String(name || "").trim().toLowerCase()];
+  return Number.isFinite(meters) ? meters : null;
+}
+
+// The unit key of a size in meters (0.01 -> "cm"), or null for another one.
+function unitKeyOf(meters) {
+  return Object.keys(MODEL_UNITS).find((key) => Math.abs(MODEL_UNITS[key] - meters) <= MODEL_UNITS[key] * 1e-6) || null;
+}
+
+function readStorage(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch (_error) {
+    // Storage blocked: the choice lasts for this page only.
+  }
+}
+
+// The 3MF model part's unit attribute (default millimeter), read from the
+// archive without parsing its geometry again.
+async function read3MFUnit(url) {
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  const files = unzipSync$1(new Uint8Array(await response.arrayBuffer()), {
+    filter: (file) => /\.model$/i.test(file.name),
+  });
+  const model = Object.values(files)[0];
+  if (!model) return null;
+  const head = new TextDecoder().decode(model.subarray(0, 4096));
+  const unit = head.match(/<model\b[^>]*\bunit\s*=\s*["']([^"']+)["']/i)?.[1] || "millimeter";
+  return unitNameToMeters(unit);
+}
+
+// The unit of a loaded model file, in meters per unit of its geometry - or
+// null when the file has none. Call before the loader's root transform is
+// reset (loaders.js): COLLADA and USD put their unit in the root's scale.
+async function detectFileUnit(object, extension, url) {
+  const ext = String(extension || "").toLowerCase();
+  const root = Array.isArray(object) ? object[0] : object;
+  if (!root) return null;
+  try {
+    if (ext === "fbx") {
+      // Centimeters per unit.
+      const factor = Number(root.userData?.unitScaleFactor);
+      return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
+    }
+    if (ext === "amf") {
+      // AMFLoader scales the geometry to millimeters.
+      return 0.001;
+    }
+    if (ext === "3mf") {
+      return url ? await read3MFUnit(url) : 0.001;
+    }
+    if (ext === "dae" || ext === "usd" || ext === "usda" || ext === "usdc" || ext === "usdz") {
+      // <unit meter="..."> / metersPerUnit, as the root's (uniform) scale.
+      const { x, y, z } = root.scale;
+      const uniform = Math.abs(x - y) < 1e-9 && Math.abs(x - z) < 1e-9;
+      return uniform && x > 0 && Math.abs(x - 1) > 1e-9 ? x : null;
+    }
+  } catch (error) {
+    console.warn("Could not read the model file's unit", error);
+  }
+  return null;
+}
+
+function trim(value, digits) {
+  return Number(value.toFixed(digits)).toString();
+}
+
+function attachModelUnits(Viewer) {
+  Object.assign(Viewer, {
+    // Set per load: the manifest's unit and the file's (meters per unit).
+    manifestUnitMeters: null,
+    detectedModelUnitMeters: null,
+
+    resetModelUnits() {
+      Viewer.manifestUnitMeters = null;
+      Viewer.detectedModelUnitMeters = null;
+    },
+
+    // The model the user's unit choice is remembered for.
+    getModelUnitStorageKey() {
+      const id = core.fileObject?.originalPath || "";
+      return id ? `${STORAGE_PREFIX}${id}` : null;
+    },
+
+    getModelUnitOverride() {
+      const key = Viewer.getModelUnitStorageKey();
+      const stored = key ? readStorage(key) : null;
+      return stored && MODEL_UNITS[stored] ? stored : null;
+    },
+
+    // { meters, source, key } for one scene unit.
+    resolveModelUnit() {
+      const pick = (meters, source) => ({ meters, source, key: unitKeyOf(meters) });
+      const override = Viewer.getModelUnitOverride();
+      if (override) return pick(MODEL_UNITS[override], "user");
+      if (Number(Viewer.manifestUnitMeters) > 0) return pick(Number(Viewer.manifestUnitMeters), "manifest");
+      if (Number(Viewer.detectedModelUnitMeters) > 0) return pick(Number(Viewer.detectedModelUnitMeters), "file");
+      const configured = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
+      if (Number.isFinite(configured) && configured > 0 && configured !== 1) return pick(configured, "config");
+      return pick(1, "default");
+    },
+
+    // "auto" (or null) forgets the user's choice for this model.
+    setModelUnit(unit) {
+      const key = Viewer.getModelUnitStorageKey();
+      if (key) writeStorage(key, unit && unit !== "auto" && MODEL_UNITS[unit] ? unit : null);
+      Viewer.refreshMeasurementUnits?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    getMeasureDisplaySystem() {
+      return readStorage(DISPLAY_STORAGE_KEY) === "imperial" ? "imperial" : "metric";
+    },
+
+    setMeasureDisplaySystem(system) {
+      writeStorage(DISPLAY_STORAGE_KEY, system === "imperial" ? "imperial" : null);
+      Viewer.refreshMeasurementUnits?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    // ---- formatting, from scene units -------------------------------------
+
+    formatLength(sceneUnits) {
+      const meters = sceneUnits * Viewer.resolveModelUnit().meters;
+      if (!Number.isFinite(meters)) return { text: "0", meters: 0 };
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const feet = meters / 0.3048;
+        if (feet >= 5280) return { text: `${trim(feet / 5280, 2)} mi`, meters };
+        if (feet >= 1) return { text: `${feet.toFixed(2)} ft`, meters };
+        return { text: `${(feet * 12).toFixed(feet * 12 >= 1 ? 1 : 2)} in`, meters };
+      }
+      if (meters >= 1000) return { text: `${trim(meters / 1000, 2)} km`, meters };
+      if (meters >= 1) return { text: `${meters.toFixed(2)} m`, meters };
+      if (meters >= 0.01) return { text: `${(meters * 100).toFixed(1)} cm`, meters };
+      return { text: `${(meters * 1000).toFixed(meters * 1000 >= 1 ? 0 : 2)} mm`, meters };
+    },
+
+    formatArea(sceneUnits2) {
+      const scale = Viewer.resolveModelUnit().meters;
+      const m2 = sceneUnits2 * scale * scale;
+      if (!Number.isFinite(m2)) return "0";
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const ft2 = m2 / (0.3048 * 0.3048);
+        if (ft2 >= 1) return `${ft2.toFixed(2)} ft²`;
+        return `${(ft2 * 144).toFixed(1)} in²`;
+      }
+      if (m2 >= 1e6) return `${trim(m2 / 1e6, 3)} km²`;
+      if (m2 >= 0.01) return `${m2.toFixed(m2 >= 1 ? 2 : 3)} m²`;
+      if (m2 >= 1e-4) return `${(m2 * 1e4).toFixed(1)} cm²`;
+      return `${(m2 * 1e6).toFixed(0)} mm²`;
+    },
+
+    formatVolume(sceneUnits3) {
+      const scale = Viewer.resolveModelUnit().meters;
+      const m3 = sceneUnits3 * scale * scale * scale;
+      if (!Number.isFinite(m3)) return "0";
+      if (Viewer.getMeasureDisplaySystem() === "imperial") {
+        const ft3 = m3 / (0.3048 ** 3);
+        if (ft3 >= 1000) return `${Math.round(ft3).toLocaleString("en-US")} ft³`;
+        if (ft3 >= 1) return `${ft3.toFixed(2)} ft³`;
+        return `${(ft3 * 1728).toFixed(1)} in³`;
+      }
+      if (m3 >= 1e9) return `${trim(m3 / 1e9, 2)} km³`;
+      if (m3 >= 1000) return `${Math.round(m3).toLocaleString("en-US")} m³`;
+      if (m3 >= 0.001) return `${m3.toFixed(3)} m³`;
+      if (m3 >= 1e-6) return `${(m3 * 1e6).toFixed(1)} cm³`;
+      return `${(m3 * 1e9).toFixed(0)} mm³`;
+    },
+
+    // ---- plausibility -----------------------------------------------------
+
+    // The models' largest side, in scene units (0 when nothing is loaded).
+    getModelLargestSide() {
+      const box = new THREE.Box3();
+      (core.mainObject || []).flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
+        .filter((root) => root?.isObject3D)
+        .forEach((root) => box.expandByObject(root));
+      if (box.isEmpty()) return 0;
+      const size = box.getSize(new THREE.Vector3());
+      return Math.max(size.x, size.y, size.z);
+    },
+
+    // null, or { meters: the largest side as measured now, suggestions: unit
+    // keys that would make it plausible } - unless the user chose the unit.
+    getModelUnitWarning() {
+      const unit = Viewer.resolveModelUnit();
+      if (unit.source === "user") return null;
+      const side = Viewer.getModelLargestSide();
+      if (!(side > 0)) return null;
+      const meters = side * unit.meters;
+      if (meters >= PLAUSIBLE_SIZE.min && meters <= PLAUSIBLE_SIZE.max) return null;
+      const suggestions = Object.keys(MODEL_UNITS)
+        .filter((key) => key !== unit.key)
+        .filter((key) => {
+          const size = side * MODEL_UNITS[key];
+          return size >= SUGGESTED_SIZE.min && size <= SUGGESTED_SIZE.max;
+        })
+        // Metric first, then the closest to the unit assumed now.
+        .sort((a, b) => {
+          const imperial = (key) => (key === "in" || key === "ft" ? 1 : 0);
+          const distance = (key) => Math.abs(Math.log(MODEL_UNITS[key] / unit.meters));
+          return imperial(a) - imperial(b) || distance(a) - distance(b);
+        });
+      return { meters, suggestions: suggestions.slice(0, 3) };
+    },
+
+    describeModelUnitSource(source) {
+      return t$1(`measurement.unitSource.${source}`, source);
+    },
+  });
+}
+
+// IIIF Presentation 4 (3D) scene content beyond the models themselves, read
+// from and written to plain manifest JSON (draft spec, IIIF 3D TSG; the
+// vocabulary @iiif/3d-manifesto-dev implements):
+//
+//   cameras   painting annotations with a PerspectiveCamera (fieldOfView,
+//             near, far, lookAt) or OrthographicCamera (viewHeight) body,
+//             positioned by the target's PointSelector
+//   lights    painting annotations with AmbientLight / DirectionalLight /
+//             PointLight / SpotLight bodies: color, intensity {type: "Value",
+//             unit: "relative"}, lookAt, angle (spot half-angle, degrees)
+//   comments  commenting annotations (on the Scene or the Manifest) targeting
+//             a point in the scene (SpecificResource + PointSelector); the
+//             camera annotation referenced by its `scope` is the view to show
+//             it from (as in the IIIF 3D "activating annotations" examples)
+//
+// Scene coordinates are the viewer's world coordinates; point annotations are
+// stored relative to the model root so they follow it when it is moved.
+
+const CAMERA_TYPES = new Set(["PerspectiveCamera", "OrthographicCamera"]);
+const LIGHT_TYPES = new Set(["AmbientLight", "DirectionalLight", "PointLight", "SpotLight"]);
+const COMMENT_MOTIVATIONS = new Set(["commenting", "describing", "tagging", "identifying", "linking"]);
+// three.js intensity for a relative intensity of 1.
+const LIGHT_INTENSITY_SCALE = { AmbientLight: 1, DirectionalLight: 3, PointLight: 3, SpotLight: 3 };
+
+let importedLights = null;
+// The viewer's own lights while a manifest's lights replace them.
+let defaultLightState = null;
+
+const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
+const typeOf$1 = (value) => value?.type || value?.["@type"] || null;
+
+// ---- comment text -----------------------------------------------------------
+
+// A IIIF language map ({ en: ["Glove"], es: ["Guante"] }) or a plain string as
+// { language: text }; "none" for text without a language.
+function languageMap(value) {
+  if (typeof value === "string") return value.trim() ? { none: value.trim() } : {};
+  if (!value || typeof value !== "object") return {};
+  const map = {};
+  Object.entries(value).forEach(([language, texts]) => {
+    const text = String(asArray(texts)[0] ?? "").trim();
+    if (text) map[language] = text;
+  });
+  return map;
+}
+
+// Plain text of an HTML fragment: the markup is parsed, never rendered or run.
+function htmlToText(html) {
+  const source = String(html ?? "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr)>/gi, "$&\n");
+  if (typeof DOMParser === "undefined") return source.replace(/<[^>]*>/g, "").trim();
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  doc.querySelectorAll("script, style, template").forEach((node) => node.remove());
+  return String(doc.body?.textContent || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// Text of a TextualBody (HTML turned into plain text).
+function bodyText(body) {
+  if (typeof body === "string") return body.trim();
+  const value = String(body?.value ?? "");
+  return /html/i.test(String(body?.format || "")) ? htmlToText(value) : value.trim();
+}
+
+// Title and description of a comment annotation, per language: the label's
+// language map, and the TextualBody - or a Choice of them, one per language.
+function readCommentText(annotation) {
+  const bodies = asArray(annotation?.body)
+    .flatMap((body) => (typeOf$1(body) === "Choice" ? asArray(body.items) : [body]))
+    .filter((body) => typeof body === "string" || typeOf$1(body) === "TextualBody" || typeof body?.value === "string");
+  const descriptions = {};
+  bodies.forEach((body) => {
+    const text = bodyText(body);
+    const language = String(asArray(body?.language)[0] || "none");
+    if (text && !(language in descriptions)) descriptions[language] = text;
+  });
+  let titles = languageMap(annotation?.label);
+  if (!Object.keys(titles).length) titles = languageMap(bodies.find((body) => body?.label)?.label);
+  return { titles, descriptions };
+}
+
+// The language of a text map to show: the viewer's, then English, then text
+// without a language, then any.
+function pickLanguageKey(map, language = core.currentLanguage) {
+  const keys = Object.keys(map || {});
+  if (!keys.length) return null;
+  const wanted = String(language || "en").toLowerCase();
+  return keys.find((key) => key.toLowerCase() === wanted)
+    || keys.find((key) => key.toLowerCase().split("-")[0] === wanted.split("-")[0])
+    || (keys.includes("en") ? "en" : null)
+    || (keys.includes("none") ? "none" : null)
+    || keys[0];
+}
+
+function pickLanguage(map, language) {
+  const key = pickLanguageKey(map, language);
+  return key ? map[key] : "";
+}
+
+// A label (IIIF language map or string) in the viewer's language.
+function labelText(value) {
+  return pickLanguage(languageMap(value));
+}
+
+// The Scenes of a manifest a viewer offers, with their labels (a Scene
+// nested in another is shown as part of it).
+function manifestScenes(manifest) {
+  const nested = nestedSceneIds(manifest);
+  return scenesOf(manifest)
+    .map((scene, index) => ({ index, id: scene.id || "", label: labelText(scene.label) }))
+    .filter((scene) => !nested.has(scene.id));
+}
+
+// Title and description texts of an annotation entry in several languages;
+// null when there is only one.
+function localizedTexts(titles, descriptions) {
+  const several = (map) => Object.keys(map || {}).length > 1;
+  if (!several(titles) && !several(descriptions)) return null;
+  return {
+    ...(several(titles) ? { title: { ...titles } } : {}),
+    ...(several(descriptions) ? { description: { ...descriptions } } : {}),
+  };
+}
+
+// Points of a WKT geometry with z ("POLYGON Z ((x y z, ...))", also POINT Z,
+// LINESTRING Z, MULTIPOINT Z); a polygon's closing point is dropped.
+function parseWkt(value) {
+  const match = String(value || "").match(/^\s*(POLYGON|LINESTRING|MULTIPOINT|POINT)\s*Z?\s*\(+([^)]*)\)/i);
+  if (!match) return null;
+  const points = match[2]
+    .split(",")
+    .map((pair) => pair.trim().replace(/^\(|\)$/g, "").split(/\s+/).map(Number))
+    .filter((values) => values.length >= 3 && values.slice(0, 3).every(Number.isFinite))
+    .map((values) => new THREE.Vector3(values[0], values[1], values[2]));
+  if (points.length > 2 && points[0].equals(points[points.length - 1])) points.pop();
+  return points.length ? { type: match[1].toUpperCase(), points } : null;
+}
+
+function wktPolygon(points) {
+  const ring = points.concat(points.slice(0, 1));
+  return `POLYGON Z ((${ring.map((point) => [point.x, point.y, point.z].map(round$3).join(" ")).join(", ")}))`;
+}
+
+function centroidOf(points) {
+  if (!points?.length) return null;
+  return points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / points.length);
+}
+
+// The points of a WktSelector among the selectors, if any.
+function polygonFromSelector(selector) {
+  const wkt = asArray(selector).find((item) => typeOf$1(item) === "WktSelector");
+  return wkt ? parseWkt(wkt.value)?.points || null : null;
+}
+
+// A PointSelector's point - or the centre of a WktSelector's geometry.
+function pointFromSelector(selector) {
+  const point = asArray(selector).find((item) => typeOf$1(item) === "PointSelector");
+  if (!point) return centroidOf(polygonFromSelector(selector));
+  const values = [point.x, point.y, point.z].map(Number);
+  return values.every(Number.isFinite) ? new THREE.Vector3(...values) : null;
+}
+
+// The body itself, or the source of a SpecificResource wrapping it.
+function resolveBody(body) {
+  const first = asArray(body)[0];
+  if (typeOf$1(first) === "SpecificResource" && first.source && typeof first.source === "object") {
+    return { resource: first.source, wrapper: first };
+  }
+  return { resource: first, wrapper: null };
+}
+
+// Every resource of a body: a Choice gives one per item (the first is the
+// default), each possibly wrapped in a SpecificResource.
+function bodyResources(body) {
+  return asArray(body).flatMap((item) => (
+    typeOf$1(item) === "Choice"
+      ? asArray(item.items).map((choiceItem) => ({ ...resolveBody(choiceItem), choice: item.id || true }))
+      : [{ ...resolveBody(item), choice: null }]
+  ));
+}
+
+// behavior: ["hidden"] - not shown until an activating annotation shows it.
+const isHidden = (annotation) => asArray(annotation?.behavior).some((value) => String(value).toLowerCase() === "hidden");
+
+const idOf = (value) => (typeof value === "string" ? value : value?.id || null);
+
+// Position a painting/commenting annotation places its body at.
+function targetPoint(annotation) {
+  const target = asArray(annotation?.target)[0];
+  if (!target || typeof target !== "object") return null;
+  return pointFromSelector(target.selector);
+}
+
+function scenesOf(manifest) {
+  return asArray(manifest?.items).filter((item) => typeOf$1(item) === "Scene");
+}
+
+function annotationsOfPages(pages) {
+  return asArray(pages)
+    .filter((page) => typeOf$1(page) === "AnnotationPage")
+    .flatMap((page) => asArray(page.items))
+    .filter((annotation) => typeOf$1(annotation) === "Annotation");
+}
+
+function motivationsOf(annotation) {
+  return asArray(annotation?.motivation).map((value) => String(value).toLowerCase());
+}
+
+// lookAt: a PointSelector, a SpecificResource with one, or the id of another
+// annotation in the scene (its target point). Missing: the scene origin.
+function resolveLookAt(lookAt, sceneAnnotations) {
+  if (!lookAt) return new THREE.Vector3();
+  if (typeOf$1(lookAt) === "PointSelector" || typeOf$1(lookAt) === "WktSelector") {
+    return pointFromSelector(lookAt) || new THREE.Vector3();
+  }
+  if (typeOf$1(lookAt) === "SpecificResource") return pointFromSelector(lookAt.selector) || new THREE.Vector3();
+  const id = typeof lookAt === "string" ? lookAt : lookAt.id;
+  const referenced = sceneAnnotations.find((annotation) => annotation.id === id);
+  return (referenced && targetPoint(referenced)) || new THREE.Vector3();
+}
+
+// A transform list (ScaleTransform / RotateTransform / TranslateTransform) as
+// one matrix, applied in the order listed: [translate, rotate] moves the
+// resource, then rotates it about the scene origin. RotateTransform angles are
+// degrees, as a three.js "XYZ" Euler rotation - the order the IIIF 3D
+// examples use (tipped_and_rotated_astronaut undoes its model's own rotation
+// exactly with it).
+function transformMatrix(transforms) {
+  const matrix = new THREE.Matrix4();
+  const step = new THREE.Matrix4();
+  asArray(transforms).forEach((transform) => {
+    const x = Number(transform?.x);
+    const y = Number(transform?.y);
+    const z = Number(transform?.z);
+    const type = typeOf$1(transform);
+    if (type === "ScaleTransform") {
+      step.makeScale(Number.isFinite(x) ? x : 1, Number.isFinite(y) ? y : 1, Number.isFinite(z) ? z : 1);
+    } else if (type === "RotateTransform") {
+      step.makeRotationFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(x || 0), THREE.MathUtils.degToRad(y || 0), THREE.MathUtils.degToRad(z || 0), "XYZ"
+      ));
+    } else if (type === "TranslateTransform") {
+      step.makeTranslation(x || 0, y || 0, z || 0);
+    } else {
+      return;
+    }
+    matrix.premultiply(step);
+  });
+  return matrix;
+}
+
+// A model root's matrix as that position / rotation / scale.
+function matrixTransformConfig(matrix) {
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  matrix.decompose(position, quaternion, scale);
+  const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
+  // Floating-point noise from composing and decomposing (0.9999999 for 1).
+  const clean = (value) => {
+    const nearest = Math.round(value);
+    return Math.abs(value - nearest) < 1e-9 ? nearest + 0 : value;
+  };
+  return {
+    position: { x: clean(position.x), y: clean(position.y), z: clean(position.z) },
+    rotation: {
+      x: clean(THREE.MathUtils.radToDeg(rotation.x)),
+      y: clean(THREE.MathUtils.radToDeg(rotation.y)),
+      z: clean(THREE.MathUtils.radToDeg(rotation.z)),
+    },
+    scale: { x: clean(scale.x), y: clean(scale.y), z: clean(scale.z) },
+  };
+}
+
+// Orientation from the body's transforms (a SpecificResource around a camera
+// or light): the resource starts at the origin facing its default direction -
+// cameras face -Z, lights shine along -Y - is transformed in order, and is
+// then placed at the target's point.
+function applyBodyTransforms(wrapper, defaultDirection, position) {
+  const matrix = transformMatrix(wrapper?.transform);
+  const direction = defaultDirection.clone().transformDirection(matrix);
+  const moved = position.clone().add(new THREE.Vector3().applyMatrix4(matrix));
+  return { direction, position: moved };
+}
+
+function colorFrom(value, fallback = "#ffffff") {
+  try {
+    return new THREE.Color(typeof value === "string" ? value : fallback);
+  } catch (_error) {
+    return new THREE.Color(fallback);
+  }
+}
+
+// intensity: a number, or a Quantity {quantityValue, unit: "relative"} (older
+// drafts: a Value with `value`).
+function relativeIntensity(value) {
+  if (Number.isFinite(Number(value))) return Number(value);
+  if (value && typeof value === "object") {
+    const amount = Number(value.quantityValue ?? value.value);
+    if (Number.isFinite(amount)) return amount;
+  }
+  return 1;
+}
+
+// ---- reading ---------------------------------------------------------------
+
+// Ids of the Scenes painted into another Scene (nesting): they are shown as
+// part of it, not on their own.
+function nestedSceneIds(manifest) {
+  const ids = new Set();
+  scenesOf(manifest).forEach((scene) => {
+    annotationsOfPages(scene.items).forEach((annotation) => {
+      const { resource } = resolveBody(annotation.body);
+      if (typeOf$1(resource) === "Scene" && idOf(resource) && idOf(resource) !== scene.id) ids.add(idOf(resource));
+    });
+  });
+  return ids;
+}
+
+// The index of the Scene to show: `index` when the manifest has it, else its
+// first Scene that is not nested in another.
+function sceneIndexOf(manifest, index) {
+  const scenes = scenesOf(manifest);
+  if (Number.isInteger(index) && index >= 0 && index < scenes.length) return index;
+  const nested = nestedSceneIds(manifest);
+  const first = scenes.findIndex((scene) => !nested.has(scene.id));
+  return first >= 0 ? first : 0;
+}
+
+// Everything painted into a Scene at its place: its models and Canvases, and
+// those of the Scenes painted into it, each with its whole transform - the
+// target's point, after the body's transform list, inside the transform of
+// the Scene it is nested in. Hidden ones (behavior: hidden) are left out.
+function scenePlacements(manifest, sceneIndex) {
+  const placements = { models: [], canvases: [] };
+  const scenes = scenesOf(manifest);
+  const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
+  if (!scene) return placements;
+  const resources = new Map(asArray(manifest?.items).filter((item) => item?.id).map((item) => [item.id, item]));
+  const full = (resource) => (resource && (resource.items ? resource : resources.get(idOf(resource)))) || null;
+
+  const visit = (container, parentMatrix, seen) => {
+    annotationsOfPages(container.items).forEach((annotation) => {
+      if (!motivationsOf(annotation).includes("painting") || isHidden(annotation)) return;
+      const { resource, wrapper } = resolveBody(annotation.body);
+      const type = typeOf$1(resource);
+      if (CAMERA_TYPES.has(type) || LIGHT_TYPES.has(type)) return;
+      const point = targetPoint(annotation) || new THREE.Vector3();
+      const matrix = parentMatrix.clone()
+        .multiply(new THREE.Matrix4().makeTranslation(point.x, point.y, point.z))
+        .multiply(transformMatrix(wrapper?.transform));
+      if (type === "Scene") {
+        const nested = full(resource);
+        if (nested && !seen.has(nested.id) && seen.size < 16) visit(nested, matrix, new Set(seen).add(nested.id));
+        return;
+      }
+      if (type === "Canvas") {
+        const canvas = full(resource);
+        if (canvas) placements.canvases.push({ canvas, matrix, annotation });
+        return;
+      }
+      const url = isModelBody(annotation.body) ? modelUrlOf(annotation.body) : null;
+      if (!url) return;
+      placements.models.push({
+        url,
+        format: resource?.format || null,
+        matrix,
+        annotation,
+        // exclude: the model's own "Cameras" / "Lights" (/ "Audio",
+        // "Animations") are not used.
+        exclude: asArray(annotation.exclude).map((value) => String(value).toLowerCase()),
+      });
+    });
+  };
+  visit(scene, new THREE.Matrix4(), new Set([scene.id]));
+  return placements;
+}
+
+// Scene.spatialScale: the size of one scene unit, a Quantity
+// ({ quantityValue: 0.01, unit: "m" } - one unit is a centimeter). In
+// meters, or null when the scene does not say.
+function readSpatialScale(manifest, sceneIndex) {
+  const scene = scenesOf(manifest)[sceneIndexOf(manifest, sceneIndex)];
+  const scale = scene?.spatialScale;
+  if (!scale || typeof scale !== "object") return null;
+  const value = Number(scale.quantityValue ?? scale.value);
+  const unitMeters = unitNameToMeters(scale.unit || "m");
+  return Number.isFinite(value) && value > 0 && unitMeters ? value * unitMeters : null;
+}
+
+function buildSpatialScale(meters) {
+  return { type: "Quantity", quantityValue: round$3(meters), unit: "m" };
+}
+
+// A manifest-level annotation belongs to the scene its target names; one
+// that names no scene belongs to the first.
+function targetsScene(annotation, scene, scenes) {
+  const target = asArray(annotation?.target)[0];
+  const sourceId = typeof target === "string"
+    ? target.split("#")[0]
+    : target?.source?.id || (typeof target?.source === "string" ? target.source : null) || target?.id || null;
+  const sceneIds = scenes.map((item) => item.id).filter(Boolean);
+  if (!sourceId || !sceneIds.includes(sourceId)) return scene === scenes[0];
+  return sourceId === scene.id;
+}
+
+// Cameras, lights and point comments of one Scene of the manifest.
+function readSceneContent(manifest, sceneIndex = 0) {
+  const scenes = scenesOf(manifest);
+  const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
+  if (!scene) return { cameras: [], cameraChoices: [], defaultCamera: null, lights: [], comments: [] };
+  const painting = annotationsOfPages(scene.items);
+  const all = painting.concat(annotationsOfPages(scene.annotations));
+
+  const cameras = [];
+  const lights = [];
+  const camerasById = new Map();
+  painting.forEach((annotation) => {
+    if (!motivationsOf(annotation).includes("painting")) return;
+    const hidden = isHidden(annotation);
+    bodyResources(annotation.body).forEach(({ resource, wrapper, choice }, choiceIndex) => {
+      const type = typeOf$1(resource);
+      const isCamera = CAMERA_TYPES.has(type);
+      if (!isCamera && !LIGHT_TYPES.has(type)) return;
+      const oriented = applyBodyTransforms(
+        wrapper,
+        isCamera ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, -1, 0),
+        targetPoint(annotation) || new THREE.Vector3()
+      );
+      const position = oriented.position;
+      // Either an explicit lookAt point, or a direction (lookAt: null).
+      const lookAt = resource.lookAt ? resolveLookAt(resource.lookAt, all) : null;
+      if (isCamera) {
+        const camera = {
+          id: (choice ? idOf(resource) : null) || annotation.id || null,
+          annotationId: annotation.id || null,
+          type,
+          label: labelText(resource.label) || labelText(annotation.label),
+          hidden,
+          // A Choice's items after the first are alternatives, not defaults.
+          alternative: Boolean(choice) && choiceIndex > 0,
+          position,
+          lookAt,
+          direction: oriented.direction,
+          fieldOfView: Number(resource.fieldOfView),
+          viewHeight: Number(resource.viewHeight),
+          near: Number(resource.near),
+          far: Number(resource.far),
+        };
+        cameras.push(camera);
+        [camera.id, camera.annotationId, idOf(resource)].filter(Boolean).forEach((id) => {
+          if (!camerasById.has(id)) camerasById.set(id, camera);
+        });
+      } else if (!hidden) {
+        lights.push({
+          type,
+          position,
+          lookAt,
+          direction: oriented.direction,
+          color: colorFrom(resource.color),
+          intensity: relativeIntensity(resource.intensity),
+          angle: Number(resource.angle),
+        });
+      }
+    });
+  });
+
+  const sceneComments = annotationsOfPages(scene.annotations)
+    .concat(annotationsOfPages(manifest.annotations).filter((annotation) => targetsScene(annotation, scene, scenes)));
+
+  // activating annotations: selecting their target (a comment) activates
+  // their body's source - here, a camera: the comment's view.
+  const activatedCameras = new Map();
+  sceneComments.concat(painting)
+    .filter((annotation) => motivationsOf(annotation).includes("activating"))
+    .forEach((annotation) => {
+      const camera = asArray(annotation.body)
+        .map((body) => idOf(typeOf$1(body) === "SpecificResource" ? body.source : body))
+        .map((id) => camerasById.get(id))
+        .find(Boolean);
+      if (!camera) return;
+      asArray(annotation.target).map(idOf).filter(Boolean).forEach((id) => {
+        if (!activatedCameras.has(id)) activatedCameras.set(id, camera);
+      });
+    });
+
+  const comments = sceneComments
+    .filter((annotation) => motivationsOf(annotation).some((motivation) => COMMENT_MOTIVATIONS.has(motivation)))
+    .map((annotation) => {
+      const point = targetPoint(annotation);
+      if (!point) return null;
+      const { titles, descriptions } = readCommentText(annotation);
+      const target = asArray(annotation.target)[0];
+      const scopeCamera = cameraView(asArray(annotation.scope).map((ref) => camerasById.get(idOf(ref))).find(Boolean))
+        || cameraView(activatedCameras.get(annotation.id))
+        || readScopeCamera(target?.scope, all);
+      const polygon = polygonFromSelector(target?.selector);
+      return {
+        id: String(annotation.id || ""),
+        title: pickLanguage(titles),
+        description: pickLanguage(descriptions),
+        localized: localizedTexts(titles, descriptions),
+        point,
+        ...(polygon && polygon.length > 1 ? { polygon } : {}),
+        view: scopeCamera,
+        created: annotation.created || "",
+        modified: annotation.modified || "",
+        custom: annotation.AIM3DViewer || null,
+      };
+    })
+    .filter(Boolean);
+
+  // Cameras a viewer may offer: not hidden, not a Choice's alternative - the
+  // first is the scene's default view. `choices` are all the shown ones.
+  const choices = cameras.filter((camera) => !camera.hidden);
+  const defaultCamera = choices.find((camera) => !camera.alternative) || null;
+  return { cameras, cameraChoices: choices, defaultCamera, lights, comments };
+}
+
+// A scene camera as a stored annotation view.
+function cameraView(camera) {
+  if (!camera) return null;
+  const target = camera.lookAt
+    || camera.position.clone().addScaledVector(camera.direction, Math.max(camera.position.length(), 1));
+  const view = { position: camera.position.toArray(), target: target.toArray() };
+  if (Number.isFinite(camera.fieldOfView) && camera.fieldOfView > 0) view.fov = camera.fieldOfView;
+  return view;
+}
+
+// Older form: a camera painted inside a content-state `scope` on the target.
+function readScopeCamera(scope, sceneAnnotations) {
+  const scopeTarget = asArray(scope?.target)[0];
+  const annotations = annotationsOfPages(scopeTarget?.items);
+  for (const annotation of annotations) {
+    const { resource, wrapper } = resolveBody(annotation.body);
+    if (!CAMERA_TYPES.has(typeOf$1(resource))) continue;
+    const point = targetPoint(annotation);
+    if (!point) continue;
+    const { position, direction } = applyBodyTransforms(wrapper, new THREE.Vector3(0, 0, -1), point);
+    const target = resource.lookAt
+      ? resolveLookAt(resource.lookAt, sceneAnnotations)
+      : position.clone().addScaledVector(direction, Math.max(position.length(), 1));
+    const view = { position: position.toArray(), target: target.toArray() };
+    const fov = Number(resource.fieldOfView);
+    if (Number.isFinite(fov) && fov > 0) view.fov = fov;
+    return view;
+  }
+  return null;
+}
+
+// ---- applying --------------------------------------------------------------
+
+function removeImportedLights() {
+  restoreDefaultLights();
+  if (!importedLights) return;
+  importedLights.traverse((child) => child.dispose?.());
+  importedLights.removeFromParent();
+  importedLights = null;
+}
+
+// The viewer's own lights (hemisphere, ambient, key and camera light) light a
+// scene only when its manifest brings no lights. A manifest that does switches
+// them off - reusing the ambient and key light for its first ambient and
+// directional light - until the next model is loaded. With `hide` false they
+// are only remembered, for a manifest that sets them itself.
+function suspendDefaultLights({ hide = true } = {}) {
+  if (defaultLightState || !core.scene) return;
+  defaultLightState = [];
+  core.scene.children.forEach((light) => {
+    if (!light.isLight) return;
+    defaultLightState.push({
+      light,
+      visible: light.visible,
+      intensity: light.intensity,
+      color: light.color.clone(),
+      position: light.position.clone(),
+      target: light.target?.position?.clone?.() || null,
+    });
+    if (hide) light.visible = false;
+  });
+}
+
+function restoreDefaultLights() {
+  if (!defaultLightState) return;
+  defaultLightState.forEach(({ light, visible, intensity, color, position, target }) => {
+    light.visible = visible;
+    light.intensity = intensity;
+    light.color.copy(color);
+    light.position.copy(position);
+    if (target && light.target) {
+      light.target.position.copy(target);
+      light.target.updateMatrixWorld?.();
+    }
+  });
+  defaultLightState = null;
+}
+
+// Imported lights the viewer has no own light for live in one group, removed
+// again with the model (removeImportedLights).
+function addImportedLight(light) {
+  if (!core.scene) return light;
+  if (!importedLights) {
+    importedLights = new THREE.Group();
+    importedLights.name = "iiif-lights";
+    core.scene.add(importedLights);
+  }
+  if (light.target) importedLights.add(light.target);
+  importedLights.add(light);
+  return light;
+}
+
+// The imported lights, for exporting them again.
+function importedLightObjects() {
+  return importedLights ? importedLights.children.filter((child) => child.isLight) : [];
+}
+
+// ---- Canvases in a scene ----------------------------------------------------
+
+let importedCanvases = null;
+// Longest side, in pixels, of an image fetched from a IIIF Image service.
+const CANVAS_IMAGE_SIZE = 2048;
+
+function removeImportedCanvases() {
+  if (!importedCanvases) return;
+  importedCanvases.traverse((child) => {
+    child.geometry?.dispose?.();
+    child.material?.map?.dispose?.();
+    child.material?.dispose?.();
+  });
+  importedCanvases.removeFromParent();
+  importedCanvases = null;
+}
+
+// Where an image goes on its Canvas: the target's xywh fragment (in the URL
+// or a FragmentSelector), else the whole Canvas.
+function canvasRegion(target, width, height) {
+  const first = asArray(target)[0];
+  const fragment = typeof first === "string"
+    ? first.split("#")[1]
+    : asArray(first?.selector).find((selector) => typeOf$1(selector) === "FragmentSelector")?.value
+      || String(first?.id || "").split("#")[1];
+  const match = String(fragment || "").match(/xywh=(?:pixel:)?([\d.]+),([\d.]+),([\d.]+),([\d.]+)/);
+  if (!match) return { x: 0, y: 0, width, height };
+  const [x, y, w, h] = match.slice(1).map(Number);
+  return { x, y, width: w, height: h };
+}
+
+// The URL to fetch an Image body from: its IIIF Image service at a size a
+// texture can take, else the image itself.
+function canvasImageUrl(image) {
+  const service = asArray(image?.service)[0];
+  const base = String(service?.id || service?.["@id"] || "").replace(/\/$/, "");
+  if (base) {
+    const size = Math.min(CANVAS_IMAGE_SIZE, Number(image.width) || CANVAS_IMAGE_SIZE);
+    return `${base}/full/${Math.round(size)},/0/default.jpg`;
+  }
+  return idOf(image);
+}
+
+// Each Canvas painted into the scene as a flat panel: the target point is its
+// top-left corner, x to the right and y down the Canvas (scene -y), in Canvas
+// units (Scale/Rotate/TranslateTransform size and turn it). Its background
+// colour, then its images, each on its own region.
+function applyCanvases(canvasPlacements) {
+  removeImportedCanvases();
+  if (!canvasPlacements?.length || !core.scene) return 0;
+  importedCanvases = new THREE.Group();
+  importedCanvases.name = "iiif-canvases";
+  const loader = new THREE.TextureLoader();
+  loader.setCrossOrigin("anonymous");
+
+  const panel = (region, material, depth) => {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(region.width, region.height), material);
+    mesh.position.set(region.x + region.width / 2, -(region.y + region.height / 2), depth);
+    return mesh;
+  };
+
+  canvasPlacements.forEach(({ canvas, matrix }) => {
+    const width = Number(canvas.width) || 1;
+    const height = Number(canvas.height) || 1;
+    const group = new THREE.Group();
+    group.name = `iiif-canvas:${canvas.id || ""}`;
+    group.matrixAutoUpdate = false;
+    group.matrix.copy(matrix);
+    // A hand-set matrix: three.js only recomputes matrixWorld from it when
+    // told to (updateWorldMatrix checks this flag), not just on a render.
+    group.matrixWorldNeedsUpdate = true;
+    if (canvas.backgroundColor) {
+      group.add(panel(
+        { x: 0, y: 0, width, height },
+        new THREE.MeshBasicMaterial({ color: colorFrom(canvas.backgroundColor), side: THREE.DoubleSide }),
+        0
+      ));
+    }
+    annotationsOfPages(canvas.items)
+      .filter((annotation) => motivationsOf(annotation).includes("painting"))
+      .forEach((annotation, index) => {
+        const { resource } = bodyResources(annotation.body)[0] || {};
+        if (typeOf$1(resource) !== "Image") return;
+        const url = canvasImageUrl(resource);
+        if (!url) return;
+        const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true });
+        loader.load(url, (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          material.map = texture;
+          material.needsUpdate = true;
+        }, undefined, (error) => console.warn("Could not load a Canvas image", url, error));
+        // Slightly in front of the background, later images above earlier.
+        group.add(panel(canvasRegion(annotation.target, width, height), material, 0.001 * (index + 1)));
+      });
+    importedCanvases.add(group);
+  });
+  core.scene.add(importedCanvases);
+  return canvasPlacements.length;
+}
+
+// ---- the models' own cameras and lights -------------------------------------
+
+// A model may bring its own cameras and lights (glTF). Unless its painting
+// annotation excludes them, they are used where the manifest has none: its
+// camera is the view, its lights replace the viewer's. Excluded lights are
+// switched off. `roots` are the models' roots, in the placements' order.
+function applyModelFeatures(modelPlacements, roots, content, viewer) {
+  let modelCamera = null;
+  let modelLights = false;
+  roots.forEach((root, index) => {
+    if (!root) return;
+    const exclude = modelPlacements?.[index]?.exclude || [];
+    root.traverse((object) => {
+      if (object.isLight) {
+        if (exclude.includes("lights")) object.visible = false;
+        else if (object.visible) modelLights = true;
+      } else if (object.isCamera && !modelCamera && !exclude.includes("cameras")) {
+        modelCamera = object;
+      }
+    });
+  });
+  if (modelLights && !content?.lights?.length) suspendDefaultLights();
+  if (modelCamera && !content?.defaultCamera) {
+    modelCamera.updateWorldMatrix(true, false);
+    const position = modelCamera.getWorldPosition(new THREE.Vector3());
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(modelCamera.getWorldQuaternion(new THREE.Quaternion()));
+    applyCamera({
+      type: modelCamera.isOrthographicCamera ? "OrthographicCamera" : "PerspectiveCamera",
+      position,
+      lookAt: null,
+      direction,
+      fieldOfView: modelCamera.fov,
+      near: modelCamera.near,
+      far: modelCamera.far,
+    }, viewer);
+    return true;
+  }
+  return false;
+}
+
+// Centre and radius of the loaded models (targets for direction-only lights).
+function sceneBounds() {
+  const box = new THREE.Box3();
+  (core.mainObject || []).flat().forEach((object) => {
+    if (object?.isObject3D) box.expandByObject(object);
+  });
+  if (box.isEmpty()) return { center: new THREE.Vector3(), radius: 1 };
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  return { center: sphere.center, radius: sphere.radius || 1 };
+}
+
+// Where a light points, and where a directional light sits: an explicit
+// lookAt, or the light's direction through the middle of the scene.
+function lightAim(light) {
+  const bounds = sceneBounds();
+  if (light.lookAt) return { position: light.position, target: light.lookAt };
+  if (light.type === "DirectionalLight") {
+    return {
+      position: bounds.center.clone().addScaledVector(light.direction, -2 * bounds.radius),
+      target: bounds.center.clone(),
+    };
+  }
+  return { position: light.position, target: light.position.clone().addScaledVector(light.direction, bounds.radius) };
+}
+
+// Cancels the intro fly-in a model load starts, so it doesn't overwrite a
+// camera applied from a manifest.
+function stopCameraIntro() {
+  core.cameraTweenToken = (core.cameraTweenToken ?? 0) + 1;
+  core.cameraTween?.stop?.();
+  core.targetTween?.stop?.();
+  if (core.GESTURE?.active) window.Viewer?.stopGesture?.();
+  if (core.GESTURE) core.GESTURE.rotate = false;
+  if (core.handHint) core.handHint.hidden = true;
+}
+
+function applyCamera(camera, viewer) {
+  if (!camera || !core.camera || !core.controls) return false;
+  stopCameraIntro();
+  viewer?.setCameraProjection?.(camera.type === "OrthographicCamera" ? "orthographic" : "perspective");
+  core.camera.position.copy(camera.position);
+  // Without lookAt: along the camera's direction, as far as the model is.
+  const target = camera.lookAt || camera.position.clone().addScaledVector(
+    camera.direction,
+    Math.max(camera.position.distanceTo(sceneBounds().center), 1e-3)
+  );
+  core.controls.target.copy(target);
+  if (core.camera.isPerspectiveCamera && Number.isFinite(camera.fieldOfView) && camera.fieldOfView > 0) {
+    core.camera.fov = THREE.MathUtils.clamp(camera.fieldOfView, 1, 179);
+  }
+  if (Number.isFinite(camera.near) && camera.near > 0) core.camera.near = camera.near;
+  if (Number.isFinite(camera.far) && camera.far > core.camera.near) core.camera.far = camera.far;
+  if (core.camera.isOrthographicCamera && Number.isFinite(camera.viewHeight) && camera.viewHeight > 0) {
+    const frustumHeight = core.camera.top - core.camera.bottom;
+    if (frustumHeight > 0) core.camera.zoom = frustumHeight / camera.viewHeight;
+  }
+  core.camera.updateProjectionMatrix();
+  core.cameraLight?.position?.copy?.(core.camera.position);
+  // The camera may sit farther out than the model's fitted limit - update()
+  // would pull it in.
+  const distance = core.camera.position.distanceTo(core.controls.target);
+  if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
+  core.controls.update();
+  // "Reset camera" returns to the manifest's camera.
+  core.cameraCoords = core.camera.position.clone();
+  core.controlsTarget = core.controls.target.clone();
+  return true;
+}
+
+function applyLights(lights) {
+  removeImportedLights();
+  if (!lights.length || !core.scene) return 0;
+  suspendDefaultLights();
+  let usedAmbient = false;
+  let usedDirectional = false;
+  lights.forEach((light) => {
+    const intensity = light.intensity * (LIGHT_INTENSITY_SCALE[light.type] || 1);
+    if (light.type === "AmbientLight") {
+      if (core.ambientLight && !usedAmbient) {
+        usedAmbient = true;
+        core.ambientLight.visible = true;
+        core.ambientLight.color.copy(light.color);
+        core.ambientLight.intensity = intensity;
+      } else {
+        addImportedLight(new THREE.AmbientLight(light.color, intensity));
+      }
+      return;
+    }
+    if (light.type === "DirectionalLight" && !usedDirectional && core.dirLight) {
+      // The first directional light drives the viewer's own, which the light
+      // controls in the editor act on.
+      usedDirectional = true;
+      const aim = lightAim(light);
+      core.dirLight.visible = true;
+      core.dirLight.color.copy(light.color);
+      core.dirLight.intensity = intensity;
+      core.dirLight.position.copy(aim.position);
+      core.dirLight.target?.position?.copy?.(aim.target);
+      core.dirLight.target?.updateMatrixWorld?.();
+      return;
+    }
+    let object;
+    if (light.type === "DirectionalLight") {
+      object = new THREE.DirectionalLight(light.color, intensity);
+    } else if (light.type === "PointLight") {
+      object = new THREE.PointLight(light.color, intensity, 0, 0);
+    } else {
+      const angle = Number.isFinite(light.angle) && light.angle > 0 ? light.angle : 30;
+      object = new THREE.SpotLight(light.color, intensity, 0, THREE.MathUtils.degToRad(angle), 0.2, 0);
+    }
+    const aim = lightAim(light);
+    object.position.copy(aim.position);
+    object.target?.position.copy(aim.target);
+    object.name = `iiif-${light.type}`;
+    addImportedLight(object);
+  });
+  // The editor's list of lights and the active one (editor/scene-lights.js).
+  window.Viewer?.refreshLights?.();
+  return lights.length;
+}
+
+// Comments -> viewer annotation entries anchored to a point of the model root.
+function commentsToAnnotationEntries(comments, root) {
+  if (!root) return [];
+  root.updateMatrixWorld(true);
+  const inverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  return comments.map((comment, index) => ({
+    id: comment.id || `anno-point-${index + 1}`,
+    point: comment.point.clone().applyMatrix4(inverse).toArray(),
+    ...(comment.polygon ? { polygon: comment.polygon.map((point) => point.clone().applyMatrix4(inverse).toArray()) } : {}),
+    title: comment.title,
+    description: comment.description,
+    ...(comment.localized ? { localized: comment.localized } : {}),
+    ...(comment.view ? { view: comment.view } : {}),
+    createdAt: comment.created ? String(comment.created) : "",
+    updatedAt: comment.modified ? String(comment.modified) : "",
+  }));
+}
+
+// ---- writing ---------------------------------------------------------------
+
+const round$3 = (value) => Math.round(value * 1e6) / 1e6;
+const pointSelector = (vector) => ({
+  type: "PointSelector",
+  x: round$3(vector.x),
+  y: round$3(vector.y),
+  z: round$3(vector.z),
+});
+
+function scenePointTarget(sceneId, vector) {
+  return {
+    type: "SpecificResource",
+    source: { id: sceneId, type: "Scene" },
+    selector: [pointSelector(vector)],
+  };
+}
+
+function buildCameraAnnotation(sceneId, id) {
+  const camera = core.camera;
+  const target = core.controls?.target || new THREE.Vector3();
+  const body = camera.isOrthographicCamera
+    ? {
+      type: "OrthographicCamera",
+      viewHeight: round$3((camera.top - camera.bottom) / (camera.zoom || 1)),
+      near: round$3(camera.near),
+      far: round$3(camera.far),
+      lookAt: pointSelector(target),
+    }
+    : {
+      type: "PerspectiveCamera",
+      fieldOfView: round$3(camera.fov),
+      near: round$3(camera.near),
+      far: round$3(camera.far),
+      lookAt: pointSelector(target),
+    };
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body,
+    target: scenePointTarget(sceneId, camera.position),
+  };
+}
+
+function buildLightAnnotations(sceneId, baseId) {
+  const annotations = [];
+  const toHex = (color) => `#${color.getHexString()}`;
+  const intensityValue = (light, type) => ({
+    type: "Quantity",
+    quantityValue: round$3(light.intensity / (LIGHT_INTENSITY_SCALE[type] || 1)),
+    unit: "relative",
+  });
+  const lights = [];
+  core.scene?.traverse((object) => {
+    if (!object.isLight || object.visible === false) return;
+    // The raking light and the sun study are tools, not the scene's lights.
+    if (object.userData?.isRakingLight || object.userData?.isSunLight) return;
+    lights.push(object);
+  });
+  lights.forEach((light, index) => {
+    const type = light.isAmbientLight ? "AmbientLight"
+      : light.isDirectionalLight ? "DirectionalLight"
+        : light.isSpotLight ? "SpotLight"
+          : light.isPointLight ? "PointLight" : null;
+    if (!type) return;
+    const body = { type, color: toHex(light.color), intensity: intensityValue(light, type) };
+    if (light.target) body.lookAt = pointSelector(light.target.getWorldPosition(new THREE.Vector3()));
+    if (type === "SpotLight") body.angle = round$3(THREE.MathUtils.radToDeg(light.angle));
+    const position = light.getWorldPosition(new THREE.Vector3());
+    annotations.push({
+      id: `${baseId}/${index + 1}`,
+      type: "Annotation",
+      motivation: ["painting"],
+      body,
+      target: type === "AmbientLight" ? { id: sceneId, type: "Scene" } : scenePointTarget(sceneId, position),
+    });
+  });
+  return annotations;
+}
+
+// A model painted into the scene: SpecificResource with the root transform
+// (scale, then rotation in degrees, then translation).
+function buildModelAnnotation(sceneId, id, modelBody, root) {
+  const transform = [];
+  if (root) {
+    const { scale, position } = root;
+    // RotateTransform angles are a three.js "XYZ" Euler rotation.
+    const rotation = new THREE.Euler().setFromQuaternion(root.quaternion, "XYZ");
+    if (round$3(scale.x) !== 1 || round$3(scale.y) !== 1 || round$3(scale.z) !== 1) {
+      transform.push({ type: "ScaleTransform", x: round$3(scale.x), y: round$3(scale.y), z: round$3(scale.z) });
+    }
+    if (round$3(rotation.x) || round$3(rotation.y) || round$3(rotation.z)) {
+      transform.push({
+        type: "RotateTransform",
+        x: round$3(THREE.MathUtils.radToDeg(rotation.x)),
+        y: round$3(THREE.MathUtils.radToDeg(rotation.y)),
+        z: round$3(THREE.MathUtils.radToDeg(rotation.z)),
+      });
+    }
+    if (position.x || position.y || position.z) {
+      transform.push({ type: "TranslateTransform", x: round$3(position.x), y: round$3(position.y), z: round$3(position.z) });
+    }
+  }
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body: transform.length
+      ? { type: "SpecificResource", source: modelBody, transform }
+      : modelBody,
+    target: { id: sceneId, type: "Scene" },
+  };
+}
+
+// A Canvas painted into the scene, placed as `matrix` places it: its size and
+// turn as Scale / RotateTransform, its top-left corner as the target point.
+function buildCanvasAnnotation(sceneId, id, canvas, matrix) {
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  matrix.decompose(position, quaternion, scale);
+  const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
+  const transform = [];
+  if (round$3(scale.x) !== 1 || round$3(scale.y) !== 1 || round$3(scale.z) !== 1) {
+    transform.push({ type: "ScaleTransform", x: round$3(scale.x), y: round$3(scale.y), z: round$3(scale.z) });
+  }
+  if (round$3(rotation.x) || round$3(rotation.y) || round$3(rotation.z)) {
+    transform.push({
+      type: "RotateTransform",
+      x: round$3(THREE.MathUtils.radToDeg(rotation.x)),
+      y: round$3(THREE.MathUtils.radToDeg(rotation.y)),
+      z: round$3(THREE.MathUtils.radToDeg(rotation.z)),
+    });
+  }
+  // By reference to a Canvas of the manifest; a Canvas without an id inline.
+  const source = canvas.id ? { id: canvas.id, type: "Canvas" } : structuredClone(canvas);
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body: transform.length ? { type: "SpecificResource", source, transform } : source,
+    target: scenePointTarget(sceneId, position),
+  };
+}
+
+// A comment's target: a point of the scene - or, for a comment on a region,
+// the polygon (WktSelector), with its centre as the PointSelector.
+function buildCommentTarget(sceneId, worldPoint, worldPolygon = null) {
+  const target = scenePointTarget(sceneId, worldPoint);
+  if (worldPolygon?.length > 1) target.selector = [{ type: "WktSelector", value: wktPolygon(worldPolygon) }];
+  return target;
+}
+
+// A comment's saved view as a camera painted into the scene; the comment
+// refers to it from `scope: [{ id, type: "Annotation" }]`.
+function buildViewCameraAnnotation(sceneId, id, view) {
+  if (!view?.position || !view?.target) return null;
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body: {
+      type: "PerspectiveCamera",
+      ...(Number.isFinite(view.fov) ? { fieldOfView: round$3(view.fov) } : {}),
+      lookAt: pointSelector(new THREE.Vector3().fromArray(view.target)),
+    },
+    target: scenePointTarget(sceneId, new THREE.Vector3().fromArray(view.position)),
+  };
+}
+
+// Model painting annotation? (Model body, or a SpecificResource around one.)
+// Other kinds of resource a Scene may be painted with.
+const NON_MODEL_TYPES = new Set(["Scene", "Canvas", "Image", "Video", "Sound", "Audio", "Text", "TextualBody", "Choice"]);
+
+function isModelBody(body) {
+  const { resource } = resolveBody(body);
+  const type = String(typeOf$1(resource) || "").toLowerCase();
+  return type === "model" || (!CAMERA_TYPES.has(typeOf$1(resource)) && !LIGHT_TYPES.has(typeOf$1(resource))
+    && !NON_MODEL_TYPES.has(typeOf$1(resource))
+    && typeOf$1(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
+}
+
+function modelUrlOf(body) {
+  return resolveBody(body).resource?.id || null;
+}
+
+// The lights the editor moves (the lights window, lights-panel.js):
+// the viewer's key light (core.dirLight) and the directional, point and spot
+// lights added to it or brought by a manifest. One of them is the active
+// light, which the handles (TransformControls on the light or on its
+// target), the angles and the numbers act on. Angles are round the light's
+// target (a point light: the middle of the model) - `direction` round the
+// vertical (0 = front, +Z; 90 = right, +X), `height` above the horizon.
+// On each model the key light is placed round it, sized to it, unless the
+// saved settings say where. Added lights live with the imported ones
+// (IIIF/presentation4.js), so they go out with the manifest and away with
+// the model.
+
+const LIGHT_ANGLE_DEFAULTS = Object.freeze({ direction: 35, height: 50 });
+// The light's distance from its target, in radii of the model.
+const DISTANCE_RADII = 2;
+// Lights that can be added (Lights > Add light).
+const ADDABLE_LIGHT_TYPES = ["DirectionalLight", "PointLight", "SpotLight"];
+
+const offset = new THREE.Vector3();
+
+// [x, y, z], {x, y, z} or numeric strings -> Vector3, or null.
+function toLightVector(value) {
+  const parts = Array.isArray(value) ? value : value && typeof value === "object" ? [value.x, value.y, value.z] : null;
+  if (!parts || parts.length < 3) return null;
+  const numbers = parts.slice(0, 3).map((part) => (part === "" || part == null ? NaN : Number(part)));
+  return numbers.every(Number.isFinite) ? new THREE.Vector3(...numbers) : null;
+}
+
+// Whether a light is one the editor moves.
+function isEditableLight(light) {
+  return Boolean(light?.isDirectionalLight || light?.isPointLight || light?.isSpotLight);
+}
+
+// The light's target in the scene, so moving it (and its matrix) counts.
+function ensureLightTarget(light) {
+  if (!light?.target || !core.scene) return null;
+  if (!light.target.parent) core.scene.add(light.target);
+  return light.target;
+}
+
+// What the light turns round: its target, or (a point light) the model.
+function lightPivot(light) {
+  return light.target?.position ?? core.lightBounds?.center ?? new THREE.Vector3();
+}
+
+// Direction and height (degrees) of the light round its pivot, and how far.
+function getLightAngles(light) {
+  offset.subVectors(light.position, lightPivot(light));
+  const distance = offset.length();
+  if (distance < 1e-9) return { ...LIGHT_ANGLE_DEFAULTS, distance: 0 };
+  const direction = THREE.MathUtils.radToDeg(Math.atan2(offset.x, offset.z));
+  const height = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(offset.y / distance, -1, 1)));
+  return { direction: (direction + 360) % 360, height, distance };
+}
+
+// Puts the light at these angles round its pivot; the distance is kept
+// unless given. Either angle may be left out.
+function setLightAngles(light, { direction, height, distance } = {}) {
+  const current = getLightAngles(light);
+  const d = THREE.MathUtils.degToRad(Number.isFinite(direction) ? direction : current.direction);
+  const h = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(Number.isFinite(height) ? height : current.height, -89, 89));
+  const r = Number.isFinite(distance) && distance > 0 ? distance : current.distance || 1;
+  light.position.set(
+    Math.cos(h) * Math.sin(d),
+    Math.sin(h),
+    Math.cos(h) * Math.cos(d)
+  ).multiplyScalar(r).add(lightPivot(light));
+}
+
+// A directional light's shadow covers the model wherever the light is.
+function fitLightShadow(light, center, radius) {
+  const camera = light.shadow?.camera;
+  if (!camera?.isOrthographicCamera) return;
+  const r = Math.max(radius, 1e-3) * 1.2;
+  camera.left = -r;
+  camera.right = r;
+  camera.top = r;
+  camera.bottom = -r;
+  camera.near = Math.max(r * 0.001, 1e-4);
+  camera.far = light.position.distanceTo(center) + r * 2;
+  camera.updateProjectionMatrix();
+}
+
+// Round the model: aiming at its middle, at these angles.
+function fitLightToBounds(light, center, radius, angles = LIGHT_ANGLE_DEFAULTS) {
+  // A point light turns round the middle of the model (lightPivot).
+  light.target?.position.copy(center);
+  const distance = Math.max(radius, 1e-3) * DISTANCE_RADII;
+  setLightAngles(light, { ...angles, distance });
+  light.target?.updateMatrixWorld();
+}
+
+function boundsSphere(box) {
+  const sphere = box && !box.isEmpty() ? box.getBoundingSphere(new THREE.Sphere()) : new THREE.Sphere(new THREE.Vector3(), 1);
+  if (!(sphere.radius > 0)) sphere.radius = 1;
+  return sphere;
+}
+
+function makeLightHelper(light, size) {
+  if (light.isDirectionalLight) return new THREE.DirectionalLightHelper(light, size);
+  // A spot light's cone is drawn with its icon (light-markers.js): three's
+  // helper draws it as long as the light reaches, without end by default.
+  if (light.isPointLight) return new THREE.PointLightHelper(light, size * 0.3);
+  return null;
+}
+
+// The helper (lines from the active light to its target), one at a time,
+// sized to the model; shown while the light is being moved.
+function rebuildLightHelper(light) {
+  const visible = core.lightHelper?.visible === true;
+  if (core.lightHelper) {
+    core.lightHelper.removeFromParent();
+    core.lightHelper.dispose?.();
+    core.lightHelper = null;
+  }
+  if (!light || !core.scene) return;
+  core.lightHelper = makeLightHelper(light, (core.lightBounds?.radius ?? 1) * 0.5);
+  if (!core.lightHelper) return;
+  core.lightHelper.visible = visible;
+  core.scene.add(core.lightHelper);
+  core.lightHelper.update?.();
+}
+
+// A model loaded (viewer-utils.js, fitCameraToCenteredObject): the key light
+// where `placement` says ({position, target}: saved settings), else round
+// the model.
+function placeDirectionalLight(light, box, placement = {}) {
+  if (!light || !core.scene) return;
+  ensureLightTarget(light);
+  core.dirLightTarget = light.target;
+  const sphere = boundsSphere(box);
+  core.lightBounds = sphere;
+  const position = toLightVector(placement.position);
+  if (position) {
+    light.position.copy(position);
+    light.target.position.copy(toLightVector(placement.target) ?? sphere.center);
+    light.target.updateMatrixWorld();
+  } else {
+    fitLightToBounds(light, sphere.center, sphere.radius);
+  }
+  fitLightShadow(light, sphere.center, sphere.radius);
+  // The helper sized to this model.
+  rebuildLightHelper(window.Viewer?.getActiveLight?.() ?? light);
+}
+
+const LIGHT_TYPE_LABELS = {
+  DirectionalLight: ["gui.lightTypeDirectional", "Directional light"],
+  PointLight: ["gui.lightTypePoint", "Point light"],
+  SpotLight: ["gui.lightTypeSpot", "Spot light"],
+};
+
+function typeLabel(type) {
+  const [key, fallback] = LIGHT_TYPE_LABELS[type] || [];
+  return key ? t$1(key, fallback) : type;
+}
+
+function attachSceneLights(Viewer) {
+  // The active light's own settings, for the colour, intensity and the
+  // other fields (lil-gui and the toolbar read and write them).
+  const settings = {};
+  const active = () => Viewer.getActiveLight();
+  const changed = () => Viewer.syncActiveLight();
+  Object.defineProperties(settings, {
+    // Its own name (exported as the manifest light's `name`); empty: the
+    // default one (getLightLabel).
+    name: {
+      enumerable: true,
+      get: () => String(active()?.userData?.label ?? ""),
+      set: (value) => {
+        const light = active();
+        if (!light) return;
+        // Kept as typed (the field reads it back while typing); blank: none.
+        const name = String(value ?? "");
+        if (name.trim()) light.userData.label = name;
+        else delete light.userData.label;
+        Viewer.refreshLightList();
+      },
+    },
+    enabled: {
+      enumerable: true,
+      get: () => active()?.visible !== false,
+      set: (value) => { if (active()) { active().visible = value === true; changed(); } },
+    },
+    color: {
+      enumerable: true,
+      get: () => `#${(active()?.color ?? new THREE.Color(0xffffff)).getHexString()}`,
+      set: (value) => {
+        const light = active();
+        if (!light) return;
+        try {
+          light.color.set(String(value).replace(/^0x/i, "#"));
+        } catch {
+          return;
+        }
+        if (light === core.dirLight) Viewer.colors.DirectionalLight = `#${light.color.getHexString()}`;
+      },
+    },
+    intensity: {
+      enumerable: true,
+      get: () => active()?.intensity ?? 0,
+      set: (value) => {
+        const light = active();
+        if (!light || !Number.isFinite(Number(value))) return;
+        light.intensity = Number(value);
+        if (light === core.dirLight) Viewer.intensity.startIntensityDir = light.intensity;
+      },
+    },
+    castShadow: {
+      enumerable: true,
+      get: () => active()?.castShadow === true,
+      set: (value) => { if (active()) active().castShadow = value === true; },
+    },
+    // A spot light's cone half-angle, in degrees, and its soft edge.
+    angle: {
+      enumerable: true,
+      get: () => (active()?.isSpotLight ? Math.round(THREE.MathUtils.radToDeg(active().angle)) : 30),
+      set: (value) => {
+        const light = active();
+        if (!light?.isSpotLight || !Number.isFinite(Number(value))) return;
+        light.angle = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(Number(value), 1, 90));
+        changed();
+      },
+    },
+    penumbra: {
+      enumerable: true,
+      get: () => (active()?.isSpotLight ? active().penumbra : 0),
+      set: (value) => {
+        const light = active();
+        if (!light?.isSpotLight || !Number.isFinite(Number(value))) return;
+        light.penumbra = THREE.MathUtils.clamp(Number(value), 0, 1);
+      },
+    },
+  });
+
+  Object.assign(Viewer, {
+    activeLightSettings: settings,
+    // The angles the Direction and Height sliders show.
+    lightAngles: { ...LIGHT_ANGLE_DEFAULTS },
+    // The light the Lights folder's list shows (its index in getEditableLights).
+    lightList: { active: 0 },
+
+    // The key light first, then the added and imported ones.
+    getEditableLights() {
+      return [core.dirLight, ...importedLightObjects()].filter(isEditableLight);
+    },
+
+    // The active light, while it is still in the scene; else the key light.
+    getActiveLight() {
+      const light = core.activeLight;
+      if (light && light !== core.dirLight && Viewer.getEditableLights().includes(light)) return light;
+      return core.dirLight ?? null;
+    },
+
+    // Its own name, or (`named` false, or none given) the default one.
+    getLightLabel(light, { named = true } = {}) {
+      if (!light) return "";
+      if (named && light.userData?.label) return String(light.userData.label);
+      if (light === core.dirLight) return t$1("gui.keyLight", "Key light");
+      const sameType = Viewer.getEditableLights().filter((other) => other !== core.dirLight && other.type === light.type);
+      return `${typeLabel(light.type)} ${sameType.indexOf(light) + 1}`;
+    },
+
+    setActiveLight(light) {
+      if (!isEditableLight(light)) return;
+      const mode = Viewer.transformText["Transform Light"];
+      core.transformControlLight?.detach?.();
+      core.transformControlLightTarget?.detach?.();
+      core.activeLight = light;
+      rebuildLightHelper(light);
+      // The handles go along, onto the light (a point light has no target).
+      Viewer.attachLightTransform(mode === "rotate" && !light.target ? "" : mode);
+      Viewer.syncActiveLight();
+      Viewer.refreshLightList();
+    },
+
+    // The handles on the active light ("translate") or its target ("rotate").
+    attachLightTransform(mode) {
+      const light = Viewer.getActiveLight();
+      core.transformControlLight?.detach?.();
+      core.transformControlLightTarget?.detach?.();
+      Viewer.transformText["Transform Light"] = mode === "translate" || (mode === "rotate" && light?.target) ? mode : "";
+      // The helper while it is being moved, and while the lights window is open.
+      if (core.lightHelper) core.lightHelper.visible = Boolean(Viewer.transformText["Transform Light"]) || Viewer.isLightsPanelOpen?.() === true;
+      if (!light) return;
+      if (Viewer.transformText["Transform Light"] === "translate") {
+        core.transformControlLight?.setMode("translate");
+        core.transformControlLight?.attach(light);
+      } else if (Viewer.transformText["Transform Light"] === "rotate") {
+        ensureLightTarget(light);
+        core.transformControlLightTarget?.setMode("translate");
+        core.transformControlLightTarget?.attach(light.target);
+      }
+      Viewer.syncLightsPanelFields?.();
+    },
+
+    // A light of `type` round the model, from another side than the others.
+    addLight(type = "DirectionalLight") {
+      if (!core.scene || !ADDABLE_LIGHT_TYPES.includes(type)) return null;
+      const light = type === "PointLight" ? new THREE.PointLight(0xffffff, 1, 0, 0)
+        : type === "SpotLight" ? new THREE.SpotLight(0xffffff, 1, 0, THREE.MathUtils.degToRad(30), 0.2, 0)
+          : new THREE.DirectionalLight(0xffffff, 1);
+      light.name = `editor-${type}`;
+      light.userData.isEditorLight = true;
+      addImportedLight(light);
+      const bounds = core.lightBounds ?? new THREE.Sphere(new THREE.Vector3(), 1);
+      const count = Viewer.getEditableLights().length - 1;
+      fitLightToBounds(light, bounds.center, bounds.radius, {
+        direction: (LIGHT_ANGLE_DEFAULTS.direction + 120 * count) % 360,
+        height: 40,
+      });
+      Viewer.setActiveLight(light);
+      // Seen where it went at once.
+      if (core.lightHelper) core.lightHelper.visible = true;
+      Viewer.updateLightsSubmenuState?.();
+      return light;
+    },
+
+    // The active light, unless it is the key light (that one is switched off).
+    removeActiveLight() {
+      const light = Viewer.getActiveLight();
+      if (!light || light === core.dirLight) return false;
+      core.transformControlLight?.detach?.();
+      core.transformControlLightTarget?.detach?.();
+      light.target?.removeFromParent();
+      light.removeFromParent();
+      light.dispose?.();
+      Viewer.setActiveLight(core.dirLight);
+      Viewer.updateLightsSubmenuState?.();
+      return true;
+    },
+
+    // After the active light moved or changed (its handles, the numbers, a
+    // manifest): the helper, the shadow, the fields and the sliders follow.
+    syncActiveLight() {
+      const light = Viewer.getActiveLight();
+      if (!light) return;
+      if (core.lightHelper?.light !== light) rebuildLightHelper(light);
+      light.target?.updateMatrixWorld();
+      const bounds = core.lightBounds;
+      if (bounds) fitLightShadow(light, bounds.center, bounds.radius);
+      core.lightHelper?.update?.();
+      const { direction, height } = getLightAngles(light);
+      Viewer.lightAngles.direction = Math.round(direction);
+      Viewer.lightAngles.height = Math.round(height);
+      Viewer.syncActiveLightControls();
+    },
+
+    // Lights came or went (a model, a manifest): the active one and the list.
+    refreshLights() {
+      Viewer.syncActiveLight();
+      Viewer.refreshLightList();
+    },
+
+    // Direction and height in degrees, round the pivot; either may be left out.
+    setLightAngles({ direction, height } = {}) {
+      const light = Viewer.getActiveLight();
+      if (!light) return;
+      setLightAngles(light, { direction: Number(direction), height: Number(height) });
+      Viewer.syncActiveLight();
+    },
+
+    // Back round the model: the key light at the default angles, another
+    // one where it was placed when added.
+    resetActiveLight() {
+      const light = Viewer.getActiveLight();
+      const bounds = core.lightBounds;
+      if (!light || !bounds) return;
+      const angles = light === core.dirLight ? LIGHT_ANGLE_DEFAULTS : getLightAngles(light);
+      fitLightToBounds(light, bounds.center, bounds.radius, angles);
+      Viewer.syncActiveLight();
+    },
+
+    // The lights window (lights-panel.js): the list and the chosen light.
+    refreshLightList() {
+      Viewer.syncLightsPanel?.();
+      Viewer.updateLightsSubmenuState?.();
+    },
+
+    // While the chosen light moves (its handles, the angles): its fields.
+    syncActiveLightControls() {
+      Viewer.syncLightsPanelFields?.();
+    },
+  });
+}
+
 // viewer-utils.js
 
 const initClippingPlanes = () => {
@@ -2401,7 +4135,7 @@ function parseColor(v) {
   }
 
   if (typeof v === "string") {
-    return parseCssColor(v); // #hex / rgb / rgba
+    return parseCssColor$1(v); // #hex / rgb / rgba
   }
 
   return null;
@@ -2599,6 +4333,13 @@ async function setupCamera(_object, _data) {
   if (fitControlsTarget) {
     fitConfig.controlsTarget = fitControlsTarget;
   }
+  // Where the directional light was saved (the metadata, a scene's lights);
+  // without it, it goes round the model (editor/scene-lights.js).
+  const sceneLight = fallback?.scene?.lights?.find?.((light) => light?.type === "directional");
+  if (!fitConfig.lightPosition && sceneLight?.position) {
+    fitConfig.lightPosition = sceneLight.position;
+    fitConfig.lightTarget = sceneLight.target;
+  }
 
   await fitCameraToCenteredObject(_object, true, fitConfig);
 }
@@ -2780,16 +4521,12 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   );
   core.gridSize = Math.max(distance1.x, distance1.y, distance1.z);
 
-  core.dirLightTarget = new THREE.Object3D();
-  core.dirLightTarget.position.set(0, 0, 0);
-
-  core.lightHelper = new THREE.DirectionalLightHelper(core.dirLight, core.gridSize);
-  core.scene.add(core.lightHelper);
-  core.lightHelper.visible = false;
-
-  core.scene.add(core.dirLightTarget);
-  core.dirLight.target = core.dirLightTarget;
-  core.dirLight.target.updateMatrixWorld();
+  // The directional light round the model, or where it was saved.
+  placeDirectionalLight(core.dirLight, boundingBox, {
+    position: cfg?.lightPosition,
+    target: cfg?.lightTarget,
+  });
+  window.Viewer?.refreshLights?.();
 
   buildGround(boundingBox);
  
@@ -2984,7 +4721,7 @@ function applyGradientCss(gradient) {
 function solidBackgroundHex(_type, _color1, _color2) {
   const solid = _type === "linear" || String(_color1).trim() === String(_color2).trim();
   if (!solid || typeof _color1 !== "string") return null;
-  const parsed = parseCssColor(_color1);
+  const parsed = parseCssColor$1(_color1);
   if (!parsed) return null;
   return `#${[parsed.r, parsed.g, parsed.b].map((value) => Math.round(value).toString(16).padStart(2, "0")).join("")}`;
 }
@@ -4939,7 +6676,7 @@ function isContainer(value) {
   return value !== null && typeof value === "object";
 }
 
-function typeOf$1(value) {
+function typeOf(value) {
   if (value === null) return "null";
   if (Array.isArray(value)) return "array";
   return typeof value;
@@ -5134,7 +6871,7 @@ class ManifestTreeEditor {
       leaf.append(document.createTextNode(":"));
     }
 
-    const valueType = typeOf$1(value);
+    const valueType = typeOf(value);
     if (valueType === "boolean") {
       leaf.appendChild(this.createBooleanEditor(value, setValue));
       return leaf;
@@ -5152,7 +6889,7 @@ class ManifestTreeEditor {
     let current = value;
     let swatch = null;
     const commit = () => {
-      const next = parseEdited(valueEl.textContent, typeOf$1(current));
+      const next = parseEdited(valueEl.textContent, typeOf(current));
       if (next === undefined) {
         valueEl.classList.add("mt-invalid");
         setTimeout(() => valueEl.classList.remove("mt-invalid"), 900);
@@ -5162,7 +6899,7 @@ class ManifestTreeEditor {
       if (next === current) return;
       current = next;
       setValue(next);
-      valueEl.className = `mt-value mt-${typeOf$1(next)}`;
+      valueEl.className = `mt-value mt-${typeOf(next)}`;
       if (typeof next === "string" && URL_RE.test(next)) valueEl.classList.add("mt-url");
       valueEl.textContent = next === null ? "null" : isContainer(next) ? JSON.stringify(next) : String(next);
       if (swatch && typeof next === "string" && COLOR_RE.test(next)) swatch.value = expandHex(next);
@@ -7707,7 +9444,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BkZCFP-P.js');
+const loadTilesPlugins = () => import('./index.three-plugins-Da-tzrsW.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -7994,271 +9731,6 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
   return tiles.group;
 }
 
-// The size of one scene unit, in meters, for measurements. Taken from, in
-// this order:
-//   user      the unit picked in the measurement menu, remembered per model
-//   manifest  IIIF Presentation 4 Scene.spatialScale, or AIM3DViewer units
-//   file      the model file's own unit (FBX UnitScaleFactor, 3MF / AMF unit,
-//             USD metersPerUnit, COLLADA <unit>)
-//   config    viewer.measurement.modelUnitInMeters (viewer-settings.json)
-//   default   meters (glTF, IFC and point clouds are meters by definition;
-//             OBJ, STL, PLY have no unit)
-// Files are wrong sometimes (a model made in centimeters, exported to glTF
-// as if in meters): a model of implausible size gets a hint in the
-// measurement panel, with the units that would make it plausible.
-
-const MODEL_UNITS = {
-  m: 1,
-  cm: 0.01,
-  mm: 0.001,
-  in: 0.0254,
-  ft: 0.3048,
-};
-
-// Unit names as manifests and files write them.
-const UNIT_ALIASES = {
-  m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
-  cm: 0.01, centimeter: 0.01, centimeters: 0.01, centimetre: 0.01, centimetres: 0.01,
-  mm: 0.001, millimeter: 0.001, millimeters: 0.001, millimetre: 0.001, millimetres: 0.001,
-  um: 1e-6, micron: 1e-6, micrometer: 1e-6, micrometre: 1e-6,
-  km: 1000, kilometer: 1000, kilometre: 1000,
-  in: 0.0254, inch: 0.0254, inches: 0.0254,
-  ft: 0.3048, foot: 0.3048, feet: 0.3048,
-  yd: 0.9144, yard: 0.9144,
-};
-
-// A model whose largest side lies outside this range (in meters) is
-// probably in another unit than the one assumed.
-const PLAUSIBLE_SIZE = { min: 0.005, max: 500 };
-// ...and the units suggested are those giving it a size in this range.
-const SUGGESTED_SIZE = { min: 0.05, max: 300 };
-
-const STORAGE_PREFIX = "dfg3dviewer-model-unit:";
-const DISPLAY_STORAGE_KEY = "dfg3dviewer-measure-display";
-
-function unitNameToMeters(name) {
-  const meters = UNIT_ALIASES[String(name || "").trim().toLowerCase()];
-  return Number.isFinite(meters) ? meters : null;
-}
-
-// The unit key of a size in meters (0.01 -> "cm"), or null for another one.
-function unitKeyOf(meters) {
-  return Object.keys(MODEL_UNITS).find((key) => Math.abs(MODEL_UNITS[key] - meters) <= MODEL_UNITS[key] * 1e-6) || null;
-}
-
-function readStorage(key) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch (_error) {
-    return null;
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
-  } catch (_error) {
-    // Storage blocked: the choice lasts for this page only.
-  }
-}
-
-// The 3MF model part's unit attribute (default millimeter), read from the
-// archive without parsing its geometry again.
-async function read3MFUnit(url) {
-  const response = await fetch(url);
-  if (!response.ok) return null;
-  const files = unzipSync$1(new Uint8Array(await response.arrayBuffer()), {
-    filter: (file) => /\.model$/i.test(file.name),
-  });
-  const model = Object.values(files)[0];
-  if (!model) return null;
-  const head = new TextDecoder().decode(model.subarray(0, 4096));
-  const unit = head.match(/<model\b[^>]*\bunit\s*=\s*["']([^"']+)["']/i)?.[1] || "millimeter";
-  return unitNameToMeters(unit);
-}
-
-// The unit of a loaded model file, in meters per unit of its geometry - or
-// null when the file has none. Call before the loader's root transform is
-// reset (loaders.js): COLLADA and USD put their unit in the root's scale.
-async function detectFileUnit(object, extension, url) {
-  const ext = String(extension || "").toLowerCase();
-  const root = Array.isArray(object) ? object[0] : object;
-  if (!root) return null;
-  try {
-    if (ext === "fbx") {
-      // Centimeters per unit.
-      const factor = Number(root.userData?.unitScaleFactor);
-      return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
-    }
-    if (ext === "amf") {
-      // AMFLoader scales the geometry to millimeters.
-      return 0.001;
-    }
-    if (ext === "3mf") {
-      return url ? await read3MFUnit(url) : 0.001;
-    }
-    if (ext === "dae" || ext === "usd" || ext === "usda" || ext === "usdc" || ext === "usdz") {
-      // <unit meter="..."> / metersPerUnit, as the root's (uniform) scale.
-      const { x, y, z } = root.scale;
-      const uniform = Math.abs(x - y) < 1e-9 && Math.abs(x - z) < 1e-9;
-      return uniform && x > 0 && Math.abs(x - 1) > 1e-9 ? x : null;
-    }
-  } catch (error) {
-    console.warn("Could not read the model file's unit", error);
-  }
-  return null;
-}
-
-function trim(value, digits) {
-  return Number(value.toFixed(digits)).toString();
-}
-
-function attachModelUnits(Viewer) {
-  Object.assign(Viewer, {
-    // Set per load: the manifest's unit and the file's (meters per unit).
-    manifestUnitMeters: null,
-    detectedModelUnitMeters: null,
-
-    resetModelUnits() {
-      Viewer.manifestUnitMeters = null;
-      Viewer.detectedModelUnitMeters = null;
-    },
-
-    // The model the user's unit choice is remembered for.
-    getModelUnitStorageKey() {
-      const id = core.fileObject?.originalPath || "";
-      return id ? `${STORAGE_PREFIX}${id}` : null;
-    },
-
-    getModelUnitOverride() {
-      const key = Viewer.getModelUnitStorageKey();
-      const stored = key ? readStorage(key) : null;
-      return stored && MODEL_UNITS[stored] ? stored : null;
-    },
-
-    // { meters, source, key } for one scene unit.
-    resolveModelUnit() {
-      const pick = (meters, source) => ({ meters, source, key: unitKeyOf(meters) });
-      const override = Viewer.getModelUnitOverride();
-      if (override) return pick(MODEL_UNITS[override], "user");
-      if (Number(Viewer.manifestUnitMeters) > 0) return pick(Number(Viewer.manifestUnitMeters), "manifest");
-      if (Number(Viewer.detectedModelUnitMeters) > 0) return pick(Number(Viewer.detectedModelUnitMeters), "file");
-      const configured = Number(core.CONFIG?.viewer?.measurement?.modelUnitInMeters);
-      if (Number.isFinite(configured) && configured > 0 && configured !== 1) return pick(configured, "config");
-      return pick(1, "default");
-    },
-
-    // "auto" (or null) forgets the user's choice for this model.
-    setModelUnit(unit) {
-      const key = Viewer.getModelUnitStorageKey();
-      if (key) writeStorage(key, unit && unit !== "auto" && MODEL_UNITS[unit] ? unit : null);
-      Viewer.refreshMeasurementUnits?.();
-      Viewer.updateEditorToolbarState?.();
-    },
-
-    getMeasureDisplaySystem() {
-      return readStorage(DISPLAY_STORAGE_KEY) === "imperial" ? "imperial" : "metric";
-    },
-
-    setMeasureDisplaySystem(system) {
-      writeStorage(DISPLAY_STORAGE_KEY, system === "imperial" ? "imperial" : null);
-      Viewer.refreshMeasurementUnits?.();
-      Viewer.updateEditorToolbarState?.();
-    },
-
-    // ---- formatting, from scene units -------------------------------------
-
-    formatLength(sceneUnits) {
-      const meters = sceneUnits * Viewer.resolveModelUnit().meters;
-      if (!Number.isFinite(meters)) return { text: "0", meters: 0 };
-      if (Viewer.getMeasureDisplaySystem() === "imperial") {
-        const feet = meters / 0.3048;
-        if (feet >= 5280) return { text: `${trim(feet / 5280, 2)} mi`, meters };
-        if (feet >= 1) return { text: `${feet.toFixed(2)} ft`, meters };
-        return { text: `${(feet * 12).toFixed(feet * 12 >= 1 ? 1 : 2)} in`, meters };
-      }
-      if (meters >= 1000) return { text: `${trim(meters / 1000, 2)} km`, meters };
-      if (meters >= 1) return { text: `${meters.toFixed(2)} m`, meters };
-      if (meters >= 0.01) return { text: `${(meters * 100).toFixed(1)} cm`, meters };
-      return { text: `${(meters * 1000).toFixed(meters * 1000 >= 1 ? 0 : 2)} mm`, meters };
-    },
-
-    formatArea(sceneUnits2) {
-      const scale = Viewer.resolveModelUnit().meters;
-      const m2 = sceneUnits2 * scale * scale;
-      if (!Number.isFinite(m2)) return "0";
-      if (Viewer.getMeasureDisplaySystem() === "imperial") {
-        const ft2 = m2 / (0.3048 * 0.3048);
-        if (ft2 >= 1) return `${ft2.toFixed(2)} ft²`;
-        return `${(ft2 * 144).toFixed(1)} in²`;
-      }
-      if (m2 >= 1e6) return `${trim(m2 / 1e6, 3)} km²`;
-      if (m2 >= 0.01) return `${m2.toFixed(m2 >= 1 ? 2 : 3)} m²`;
-      if (m2 >= 1e-4) return `${(m2 * 1e4).toFixed(1)} cm²`;
-      return `${(m2 * 1e6).toFixed(0)} mm²`;
-    },
-
-    formatVolume(sceneUnits3) {
-      const scale = Viewer.resolveModelUnit().meters;
-      const m3 = sceneUnits3 * scale * scale * scale;
-      if (!Number.isFinite(m3)) return "0";
-      if (Viewer.getMeasureDisplaySystem() === "imperial") {
-        const ft3 = m3 / (0.3048 ** 3);
-        if (ft3 >= 1000) return `${Math.round(ft3).toLocaleString("en-US")} ft³`;
-        if (ft3 >= 1) return `${ft3.toFixed(2)} ft³`;
-        return `${(ft3 * 1728).toFixed(1)} in³`;
-      }
-      if (m3 >= 1e9) return `${trim(m3 / 1e9, 2)} km³`;
-      if (m3 >= 1000) return `${Math.round(m3).toLocaleString("en-US")} m³`;
-      if (m3 >= 0.001) return `${m3.toFixed(3)} m³`;
-      if (m3 >= 1e-6) return `${(m3 * 1e6).toFixed(1)} cm³`;
-      return `${(m3 * 1e9).toFixed(0)} mm³`;
-    },
-
-    // ---- plausibility -----------------------------------------------------
-
-    // The models' largest side, in scene units (0 when nothing is loaded).
-    getModelLargestSide() {
-      const box = new THREE.Box3();
-      (core.mainObject || []).flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
-        .filter((root) => root?.isObject3D)
-        .forEach((root) => box.expandByObject(root));
-      if (box.isEmpty()) return 0;
-      const size = box.getSize(new THREE.Vector3());
-      return Math.max(size.x, size.y, size.z);
-    },
-
-    // null, or { meters: the largest side as measured now, suggestions: unit
-    // keys that would make it plausible } - unless the user chose the unit.
-    getModelUnitWarning() {
-      const unit = Viewer.resolveModelUnit();
-      if (unit.source === "user") return null;
-      const side = Viewer.getModelLargestSide();
-      if (!(side > 0)) return null;
-      const meters = side * unit.meters;
-      if (meters >= PLAUSIBLE_SIZE.min && meters <= PLAUSIBLE_SIZE.max) return null;
-      const suggestions = Object.keys(MODEL_UNITS)
-        .filter((key) => key !== unit.key)
-        .filter((key) => {
-          const size = side * MODEL_UNITS[key];
-          return size >= SUGGESTED_SIZE.min && size <= SUGGESTED_SIZE.max;
-        })
-        // Metric first, then the closest to the unit assumed now.
-        .sort((a, b) => {
-          const imperial = (key) => (key === "in" || key === "ft" ? 1 : 0);
-          const distance = (key) => Math.abs(Math.log(MODEL_UNITS[key] / unit.meters));
-          return imperial(a) - imperial(b) || distance(a) - distance(b);
-        });
-      return { meters, suggestions: suggestions.slice(0, 3) };
-    },
-
-    describeModelUnitSource(source) {
-      return t$1(`measurement.unitSource.${source}`, source);
-    },
-  });
-}
-
 // Which renderer draws the viewer: three's WebGLRenderer (the default, every
 // feature) or its WebGPURenderer (opt-in). Chosen once, when the viewer
 // starts, from
@@ -8397,7 +9869,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-mWjXOmUR.js'),
+    import('./rendering-webgpu-BjXPZiJU.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -8529,9 +10001,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-UO7rg_jC.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-ocNkXCFc.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-BQCpBI7d.js');
+const loadSplats = async () => import('./splats-CoEPiz34.js');
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -12102,7 +13574,7 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function el$4(tag, className, text) {
+function el$5(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -12197,12 +13669,12 @@ function attachValidationReport(Viewer) {
       const body = this.validationReportBody;
       if (!body) return;
       body.textContent = "";
-      body.appendChild(el$4("p", "models-panel-empty", t$1("validationReport.checking", "Checking...")));
+      body.appendChild(el$5("p", "models-panel-empty", t$1("validationReport.checking", "Checking...")));
       const manifest = this.currentManifestForReport();
       if (!manifest) {
         this.validationReport = null;
         body.textContent = "";
-        body.appendChild(el$4("p", "models-panel-empty", t$1("validationReport.noModel", "Open a model to check it.")));
+        body.appendChild(el$5("p", "models-panel-empty", t$1("validationReport.noModel", "Open a model to check it.")));
         return;
       }
       const modelReport = await fetchModelValidation(core.fileObject.originalPath, { refresh });
@@ -12220,16 +13692,16 @@ function attachValidationReport(Viewer) {
       body.textContent = "";
 
       // Overall: the ring with X/Y passed and what that means.
-      const summary = el$4("div", "validation-report-summary");
+      const summary = el$5("div", "validation-report-summary");
       summary.dataset.status = report.status;
       const ratio = report.total ? report.passed / report.total : 0;
-      const ring = el$4("div", "validation-report-ring");
+      const ring = el$5("div", "validation-report-ring");
       ring.style.setProperty("--ratio", String(ratio));
       ring.append(
-        el$4("strong", "", t$1("validationReport.passed", { passed: report.passed, total: report.total }, "{passed}/{total}")),
-        el$4("span", "", t$1("validationReport.passedLabel", "passed")),
+        el$5("strong", "", t$1("validationReport.passed", { passed: report.passed, total: report.total }, "{passed}/{total}")),
+        el$5("span", "", t$1("validationReport.passedLabel", "passed")),
       );
-      const verdict = el$4("div", "validation-report-verdict");
+      const verdict = el$5("div", "validation-report-verdict");
       const headline = {
         ok: t$1("validationReport.ready", "Ready"),
         warning: t$1("validationReport.mostlyReady", "Mostly ready"),
@@ -12240,14 +13712,14 @@ function attachValidationReport(Viewer) {
         warning: t$1("validationReport.mostlyReadyHint", "The model can be published. Review the remaining items first."),
         error: t$1("validationReport.notReadyHint", "Some values cannot be used. Fix the failed items before publishing."),
       }[report.status];
-      verdict.append(el$4("strong", "", headline), el$4("p", "", explanation));
+      verdict.append(el$5("strong", "", headline), el$5("p", "", explanation));
       summary.append(ring, verdict);
       body.appendChild(summary);
 
       if (this.validationAIState && this.validationAIState !== "off") body.appendChild(this.renderValidationAISection());
 
       // The checklist.
-      const list = el$4("ul", "validation-report-list");
+      const list = el$5("ul", "validation-report-list");
       report.rows.forEach((row) => list.appendChild(this.renderValidationReportRow(row)));
       body.appendChild(list);
 
@@ -12255,35 +13727,35 @@ function attachValidationReport(Viewer) {
     },
 
     renderValidationReportRow(row) {
-      const item = el$4("li", "validation-report-row");
+      const item = el$5("li", "validation-report-row");
       item.dataset.status = row.status;
       item.dataset.check = row.id;
-      const details = el$4("details");
-      const head = el$4("summary");
-      const icon = el$4("span", "validation-report-icon");
+      const details = el$5("details");
+      const head = el$5("summary");
+      const icon = el$5("span", "validation-report-icon");
       icon.innerHTML = featureIconSvg(row.icon);
-      const text = el$4("span", "validation-report-text");
-      text.append(el$4("strong", "", row.label + (row.count > 1 ? ` (${row.count})` : "")));
-      if (row.description) text.appendChild(el$4("span", "", row.description));
-      const pill = el$4("span", "validation-report-pill", statusLabel(row.status));
+      const text = el$5("span", "validation-report-text");
+      text.append(el$5("strong", "", row.label + (row.count > 1 ? ` (${row.count})` : "")));
+      if (row.description) text.appendChild(el$5("span", "", row.description));
+      const pill = el$5("span", "validation-report-pill", statusLabel(row.status));
       head.append(icon, text, pill);
       details.appendChild(head);
 
-      const issues = el$4("ul", "validation-report-issues");
-      if (row.note) issues.appendChild(el$4("li", "validation-report-note", row.note));
+      const issues = el$5("ul", "validation-report-issues");
+      if (row.note) issues.appendChild(el$5("li", "validation-report-note", row.note));
       if (!row.issues.length && !row.note) {
-        issues.appendChild(el$4("li", "validation-report-note", row.status === "missing"
+        issues.appendChild(el$5("li", "validation-report-note", row.status === "missing"
           ? t$1("validationReport.notSetHint", "The manifest does not set this yet.")
           : t$1("validationReport.noIssues", "No issues.")));
       }
       row.issues.slice(0, MAX_ISSUES_SHOWN).forEach((issue) => {
-        const line = el$4("li");
+        const line = el$5("li");
         line.dataset.level = issue.level;
-        line.append(el$4("code", "", issue.path), el$4("span", "", issue.message));
+        line.append(el$5("code", "", issue.path), el$5("span", "", issue.message));
         issues.appendChild(line);
       });
       if (row.issues.length > MAX_ISSUES_SHOWN) {
-        issues.appendChild(el$4("li", "validation-report-note",
+        issues.appendChild(el$5("li", "validation-report-note",
           t$1("validationReport.moreIssues", { count: row.issues.length - MAX_ISSUES_SHOWN }, "...and {count} more (download the report)")));
       }
       details.appendChild(issues);
@@ -12293,12 +13765,12 @@ function attachValidationReport(Viewer) {
 
     // What the checks looked at: the model's numbers and the manifest's.
     renderValidationReportDetails(report) {
-      const section = el$4("section", "validation-report-details");
-      section.appendChild(el$4("h3", "", t$1("validationReport.details", "Details")));
-      const table = el$4("dl");
+      const section = el$5("section", "validation-report-details");
+      section.appendChild(el$5("h3", "", t$1("validationReport.details", "Details")));
+      const table = el$5("dl");
       const add = (label, value) => {
         if (value === undefined || value === null || value === "") return;
-        table.append(el$4("dt", "", label), el$4("dd", "", String(value)));
+        table.append(el$5("dt", "", label), el$5("dd", "", String(value)));
       };
       const model = report.modelReport;
       add(t$1("validationReport.file", "File"), model?.file?.name || core.fileObject?.filename);
@@ -12324,52 +13796,52 @@ function attachValidationReport(Viewer) {
 
     // The AI explanation: a button, then the answer (or why there is none).
     renderValidationAISection() {
-      const section = el$4("section", "validation-report-ai ai-answer");
+      const section = el$5("section", "validation-report-ai ai-answer");
       if (this.validationAIState === "locked") {
-        const button = el$4("button", "ai-button ai-button-locked", t$1("ai.validation.explain", "Explain in plain language (AI)"));
+        const button = el$5("button", "ai-button ai-button-locked", t$1("ai.validation.explain", "Explain in plain language (AI)"));
         button.type = "button";
         button.prepend(createLockIcon());
         button.title = t$1("ai.locked", "Available with the Business plan");
         this.bindEventListener(button, "click", () => showAILocked(this));
-        section.append(button, el$4("p", "ai-disclaimer", t$1("ai.locked", "Available with the Business plan")));
+        section.append(button, el$5("p", "ai-disclaimer", t$1("ai.locked", "Available with the Business plan")));
         return section;
       }
       const state = this.validationAIExplanation;
       if (!state || state.state === "error") {
-        const button = el$4("button", "ai-button", t$1("ai.validation.explain", "Explain in plain language (AI)"));
+        const button = el$5("button", "ai-button", t$1("ai.validation.explain", "Explain in plain language (AI)"));
         button.type = "button";
         button.title = t$1("ai.validation.explainHint", "Sends the model check report (not the model) to the AI assistant.");
         this.bindEventListener(button, "click", () => this.explainValidationWithAI());
         section.appendChild(button);
-        if (state?.error) section.appendChild(el$4("p", "ai-error", state.error));
+        if (state?.error) section.appendChild(el$5("p", "ai-error", state.error));
         return section;
       }
       if (state.state === "loading") {
-        section.appendChild(el$4("p", "ai-loading", t$1("ai.thinking", "The AI assistant is looking at it...")));
+        section.appendChild(el$5("p", "ai-loading", t$1("ai.thinking", "The AI assistant is looking at it...")));
         return section;
       }
       const answer = state.answer || {};
-      section.appendChild(el$4("h3", "", t$1("ai.validation.title", "Explained by AI")));
-      if (answer.headline) section.appendChild(el$4("p", "ai-headline", answer.headline));
-      if (answer.summary) section.appendChild(el$4("p", "", answer.summary));
+      section.appendChild(el$5("h3", "", t$1("ai.validation.title", "Explained by AI")));
+      if (answer.headline) section.appendChild(el$5("p", "ai-headline", answer.headline));
+      if (answer.summary) section.appendChild(el$5("p", "", answer.summary));
       const findings = Array.isArray(answer.findings) ? answer.findings : [];
       if (findings.length) {
-        const list = el$4("ul", "ai-findings");
+        const list = el$5("ul", "ai-findings");
         findings.forEach((finding) => {
-          const item = el$4("li");
+          const item = el$5("li");
           item.dataset.level = finding.level || "info";
-          item.appendChild(el$4("strong", "", finding.title || ""));
-          if (finding.explanation) item.appendChild(el$4("p", "", finding.explanation));
+          item.appendChild(el$5("strong", "", finding.title || ""));
+          if (finding.explanation) item.appendChild(el$5("p", "", finding.explanation));
           if (finding.fix) {
-            const fix = el$4("p", "ai-fix");
-            fix.append(el$4("span", "", t$1("ai.validation.fix", "What to do: ")), document.createTextNode(finding.fix));
+            const fix = el$5("p", "ai-fix");
+            fix.append(el$5("span", "", t$1("ai.validation.fix", "What to do: ")), document.createTextNode(finding.fix));
             item.appendChild(fix);
           }
           list.appendChild(item);
         });
         section.appendChild(list);
       }
-      section.appendChild(el$4("p", "ai-disclaimer", aiDisclaimer(answer.model)));
+      section.appendChild(el$5("p", "ai-disclaimer", aiDisclaimer(answer.model)));
       return section;
     },
 
@@ -12788,6 +14260,8 @@ const PANEL_ICONS = {
   certainty: svg('<path d="M8 2 14.5 5.5 8 9 1.5 5.5z"/><path d="m1.5 8.5 6.5 3.5 6.5-3.5M1.5 11.5 8 15l6.5-3.5"/>'),
   material: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13c1 0 1.5-.7 1.2-1.6-.4-1 .3-1.9 1.3-1.9h1.6a2.9 2.9 0 0 0 2.9-2.9C15 4.4 11.9 1.5 8 1.5z"/><circle cx="4.8" cy="7" r=".9" fill="currentColor"/><circle cx="7.5" cy="4.5" r=".9" fill="currentColor"/><circle cx="10.8" cy="5.5" r=".9" fill="currentColor"/>'),
   prepare: svg('<path d="M5.5 2.5h5v2h-5z"/><path d="M4.5 3.5H3v11h10v-11h-1.5"/><path d="m5.5 9.5 1.8 1.8 3.4-3.6"/>'),
+  shading: svg('<circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/>'),
+  light: svg('<path d="M6 12.5h4M6.8 14.5h2.4"/><path d="M8 1.5a4.5 4.5 0 0 0-2.6 8.2v1.3h5.2V9.7A4.5 4.5 0 0 0 8 1.5z"/>'),
   animation: svg('<circle cx="8" cy="8" r="6.5"/><path d="m6.5 5.3 4 2.7-4 2.7z" fill="currentColor"/>')};
 
 // The minimized panel: a round icon that restores it on a tap and moves it
@@ -13547,7 +15021,7 @@ function formatNumber(value) {
     : "–";
 }
 
-function el$3(tag, className, text) {
+function el$4(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -13692,7 +15166,7 @@ function attachIfcQuery(Viewer) {
 
     createIfcQueryPanel() {
       if (!core.container || this.ifcQueryPanel) return;
-      const panel = el$3("div");
+      const panel = el$4("div");
       panel.id = "ifcQueryPanel";
       panel.hidden = true;
       panel.setAttribute("role", "dialog");
@@ -13755,7 +15229,7 @@ function attachIfcQuery(Viewer) {
       examples.textContent = "";
       examples.setAttribute("aria-label", t$1("ai.ifc.examples", "Examples"));
       (selection ? SELECTION_EXAMPLES : ["example1", "example2", "example3"]).forEach((key) => {
-        const chip = el$3("button", "ifc-query-example", t$1(`ai.ifc.${key}`, key));
+        const chip = el$4("button", "ifc-query-example", t$1(`ai.ifc.${key}`, key));
         chip.type = "button";
         chip.addEventListener("click", () => {
           input.value = chip.textContent;
@@ -13808,55 +15282,55 @@ function attachIfcQuery(Viewer) {
       });
       if (!state) return;
       if (state.state === "loading") {
-        body.appendChild(el$3("p", "ai-loading", t$1("ai.thinking", "The AI assistant is looking at it...")));
+        body.appendChild(el$4("p", "ai-loading", t$1("ai.thinking", "The AI assistant is looking at it...")));
         return;
       }
       if (state.state === "error") {
-        body.appendChild(el$3("p", "ai-error", state.error));
+        body.appendChild(el$4("p", "ai-error", state.error));
         return;
       }
       const { answer, result } = state;
-      const section = el$3("section", "ai-answer");
-      if (answer.interpretation) section.appendChild(el$3("p", "ai-headline", answer.interpretation));
+      const section = el$4("section", "ai-answer");
+      if (answer.interpretation) section.appendChild(el$4("p", "ai-headline", answer.interpretation));
       if (answer.understood === false) {
-        section.appendChild(el$3("p", "", t$1("ai.ifc.notUnderstood", "This cannot be answered from the model's properties.")));
+        section.appendChild(el$4("p", "", t$1("ai.ifc.notUnderstood", "This cannot be answered from the model's properties.")));
       } else {
         // The filter, so the user sees what was searched for.
-        const filter = el$3("p", "ifc-query-filter");
-        filter.appendChild(el$3("span", "", `${t$1("ai.ifc.filter", "Filter")}: `));
+        const filter = el$4("p", "ifc-query-filter");
+        filter.appendChild(el$4("span", "", `${t$1("ai.ifc.filter", "Filter")}: `));
         (answer.conditions || []).forEach((condition, index) => {
-          if (index) filter.appendChild(el$3("span", "ifc-query-join", answer.match === "any" ? " ∨ " : " ∧ "));
-          filter.appendChild(el$3("code", "", describeCondition(condition)));
+          if (index) filter.appendChild(el$4("span", "ifc-query-join", answer.match === "any" ? " ∨ " : " ∧ "));
+          filter.appendChild(el$4("code", "", describeCondition(condition)));
         });
         section.appendChild(filter);
-        section.appendChild(el$3("p", "ifc-query-count", result.guids.length
+        section.appendChild(el$4("p", "ifc-query-count", result.guids.length
           ? t$1("ai.ifc.found", { count: result.guids.length }, "{count} element(s) found")
           : t$1("ai.ifc.noneFound", "No element matches.")));
         const aggregate = result.aggregate;
         if (aggregate && aggregate.kind !== "count") {
           const value = `${formatNumber(aggregate.value)}${aggregate.unit ? ` ${aggregate.unit}` : ""}`;
-          section.appendChild(el$3("p", "ifc-query-aggregate", t$1(`ai.ifc.aggregate.${aggregate.kind}`, { property: aggregate.property, value }, "{property}: {value}")));
+          section.appendChild(el$4("p", "ifc-query-aggregate", t$1(`ai.ifc.aggregate.${aggregate.kind}`, { property: aggregate.property, value }, "{property}: {value}")));
           if (aggregate.missing) {
-            section.appendChild(el$3("p", "ai-disclaimer", t$1("ai.ifc.missingValues", { count: aggregate.missing, property: aggregate.property }, "{count} matching element(s) have no {property}.")));
+            section.appendChild(el$4("p", "ai-disclaimer", t$1("ai.ifc.missingValues", { count: aggregate.missing, property: aggregate.property }, "{count} matching element(s) have no {property}.")));
           }
         }
         if (result.guids.length) section.appendChild(this.renderIfcQueryActions());
       }
-      if (answer.note) section.appendChild(el$3("p", "ifc-query-note", answer.note));
-      section.appendChild(el$3("p", "ai-disclaimer", aiDisclaimer(answer.model)));
+      if (answer.note) section.appendChild(el$4("p", "ifc-query-note", answer.note));
+      section.appendChild(el$4("p", "ai-disclaimer", aiDisclaimer(answer.model)));
       body.appendChild(section);
       if (result.guids.length) body.appendChild(this.renderIfcQueryList(result.guids));
     },
 
     renderIfcQueryActions() {
-      const actions = el$3("div", "ifc-query-actions");
+      const actions = el$4("div", "ifc-query-actions");
       [
         ["highlight", t$1("ai.ifc.show", "Highlight")],
         ["isolate", t$1("ai.ifc.isolate", "Show only these")],
         ["hide", t$1("ai.ifc.hide", "Hide these")],
         ["reset", t$1("ai.ifc.reset", "Show all")],
       ].forEach(([action, label]) => {
-        const button = el$3("button", "", label);
+        const button = el$4("button", "", label);
         button.type = "button";
         button.dataset.action = action;
         button.classList.toggle("is-active", this.ifcQueryState?.view === action);
@@ -13871,16 +15345,16 @@ function attachIfcQuery(Viewer) {
 
     renderIfcQueryList(guids) {
       const data = this.ifcQueryData;
-      const details = el$3("details", "ifc-query-list");
-      details.appendChild(el$3("summary", "", `${t$1("ai.ifc.list", "Elements")} (${guids.length})`));
-      const list = el$3("ul");
+      const details = el$4("details", "ifc-query-list");
+      details.appendChild(el$4("summary", "", `${t$1("ai.ifc.list", "Elements")} (${guids.length})`));
+      const list = el$4("ul");
       guids.slice(0, MAX_LIST).forEach((guid) => {
         const entry = data?.elements?.[guid] || {};
-        const item = el$3("li");
-        const button = el$3("button", "", entry.name || guid);
+        const item = el$4("li");
+        const button = el$4("button", "", entry.name || guid);
         button.type = "button";
         button.title = guid;
-        button.appendChild(el$3("small", "", ` ${entry.type || ""}`));
+        button.appendChild(el$4("small", "", ` ${entry.type || ""}`));
         button.addEventListener("click", () => {
           // A .ifc opened directly has no node per element: the element
           // alone is highlighted instead of its properties opened.
@@ -13895,7 +15369,7 @@ function attachIfcQuery(Viewer) {
         item.appendChild(button);
         list.appendChild(item);
       });
-      if (guids.length > MAX_LIST) list.appendChild(el$3("li", "ai-disclaimer", `+${guids.length - MAX_LIST}`));
+      if (guids.length > MAX_LIST) list.appendChild(el$4("li", "ai-disclaimer", `+${guids.length - MAX_LIST}`));
       details.appendChild(list);
       return details;
     },
@@ -14125,7 +15599,7 @@ function buildVariantsPayload(Viewer) {
   };
 }
 
-function el$2(tag, className, text) {
+function el$3(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -14159,7 +15633,7 @@ function attachVariantsReview(Viewer) {
       container.hidden = Viewer.variantsAIState === "off";
       if (Viewer.variantsAIState === "off") return;
       if (Viewer.variantsAIState === "locked") {
-        const button = el$2("button", "ai-button ai-button-locked", t$1("ai.variants.describe", "Compare and review paradata (AI)"));
+        const button = el$3("button", "ai-button ai-button-locked", t$1("ai.variants.describe", "Compare and review paradata (AI)"));
         button.type = "button";
         button.prepend(createLockIcon());
         button.title = t$1("ai.locked", "Available with the Business plan");
@@ -14169,59 +15643,59 @@ function attachVariantsReview(Viewer) {
       }
       const review = Viewer.variantsAIReview;
       if (!review || review.state === "error") {
-        const button = el$2("button", "ai-button", t$1("ai.variants.describe", "Compare and review paradata (AI)"));
+        const button = el$3("button", "ai-button", t$1("ai.variants.describe", "Compare and review paradata (AI)"));
         button.type = "button";
         button.title = t$1("ai.variants.describeHint", "");
         button.addEventListener("click", () => Viewer.reviewVariantsWithAI());
         container.appendChild(button);
-        if (review?.error) container.appendChild(el$2("p", "ai-error", review.error));
+        if (review?.error) container.appendChild(el$3("p", "ai-error", review.error));
         return;
       }
       if (review.state === "loading") {
-        container.appendChild(el$2("p", "ai-loading", t$1("ai.thinking", "The AI assistant is looking at it...")));
+        container.appendChild(el$3("p", "ai-loading", t$1("ai.thinking", "The AI assistant is looking at it...")));
         return;
       }
       const answer = review.answer || {};
-      const section = el$2("section", "ai-answer");
-      section.appendChild(el$2("h3", "", t$1("ai.variants.title", "Variants compared by AI")));
-      if (answer.summary) section.appendChild(el$2("p", "", answer.summary));
+      const section = el$3("section", "ai-answer");
+      section.appendChild(el$3("h3", "", t$1("ai.variants.title", "Variants compared by AI")));
+      if (answer.summary) section.appendChild(el$3("p", "", answer.summary));
       const labelOf = (id) => {
         const item = Viewer.variantsState?.items.find((variant) => variant.id === id);
         return readText$4(item?.label, core.currentLanguage || "en") || id;
       };
       if (answer.differences?.length) {
-        section.appendChild(el$2("h4", "", t$1("ai.variants.differences", "Differences")));
-        const list = el$2("ul", "ai-findings");
+        section.appendChild(el$3("h4", "", t$1("ai.variants.differences", "Differences")));
+        const list = el$3("ul", "ai-findings");
         answer.differences.forEach((difference) => {
-          const item = el$2("li");
-          item.appendChild(el$2("strong", "", difference.aspect || ""));
-          if (difference.variants?.length) item.appendChild(el$2("small", "", ` (${difference.variants.map(labelOf).join(", ")})`));
-          item.appendChild(el$2("p", "", difference.detail || ""));
+          const item = el$3("li");
+          item.appendChild(el$3("strong", "", difference.aspect || ""));
+          if (difference.variants?.length) item.appendChild(el$3("small", "", ` (${difference.variants.map(labelOf).join(", ")})`));
+          item.appendChild(el$3("p", "", difference.detail || ""));
           list.appendChild(item);
         });
         section.appendChild(list);
       }
       if (answer.paradata?.length) {
-        section.appendChild(el$2("h4", "", t$1("ai.variants.paradata", "Paradata review")));
-        const list = el$2("ul", "ai-findings");
+        section.appendChild(el$3("h4", "", t$1("ai.variants.paradata", "Paradata review")));
+        const list = el$3("ul", "ai-findings");
         answer.paradata.forEach((entry) => {
-          const item = el$2("li");
+          const item = el$3("li");
           item.dataset.status = entry.status;
           item.dataset.variant = entry.variant;
-          const head = el$2("strong", "", labelOf(entry.variant));
-          head.appendChild(el$2("span", "ai-status", ` · ${t$1(`ai.variants.status.${entry.status}`, entry.status)}`));
+          const head = el$3("strong", "", labelOf(entry.variant));
+          head.appendChild(el$3("span", "ai-status", ` · ${t$1(`ai.variants.status.${entry.status}`, entry.status)}`));
           item.appendChild(head);
-          (entry.issues || []).forEach((issue) => item.appendChild(el$2("p", "", issue)));
+          (entry.issues || []).forEach((issue) => item.appendChild(el$3("p", "", issue)));
           if (entry.suggestions?.length) {
-            const suggestions = el$2("p", "ai-fix");
-            suggestions.append(el$2("span", "", t$1("ai.variants.suggestions", "Suggestions: ")), document.createTextNode(entry.suggestions.join(" · ")));
+            const suggestions = el$3("p", "ai-fix");
+            suggestions.append(el$3("span", "", t$1("ai.variants.suggestions", "Suggestions: ")), document.createTextNode(entry.suggestions.join(" · ")));
             item.appendChild(suggestions);
           }
           list.appendChild(item);
         });
         section.appendChild(list);
       }
-      section.appendChild(el$2("p", "ai-disclaimer", aiDisclaimer(answer.model)));
+      section.appendChild(el$3("p", "ai-disclaimer", aiDisclaimer(answer.model)));
       container.appendChild(section);
     },
 
@@ -15666,6 +17140,8 @@ function attachLocalizationTheme(viewer) {
       this.updateIIIFFormLabels();
       this.updateMetadataPanelLabels();
       this.updateMaterialsPanelLabels?.();
+      this.updateLightsPanelLabels?.();
+      this.updateShadingPanelLabels?.();
       this.refreshStatusNoticeLanguage();
       UltraLoader$1.relocalize?.();
       this.circle?.relocalize?.();
@@ -16179,7 +17655,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "5a838ee9" ;
+const BUILD_ID$2 = "2088c548" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -16230,8 +17706,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "5a838ee9" ;
-const BUILD_TIME$1 = "2026-10-29T09:48:26.501Z" ;
+const BUILD_ID$1 = "2088c548" ;
+const BUILD_TIME$1 = "2026-10-29T15:51:16.583Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -16633,7 +18109,7 @@ function categoryOf(key) {
   return CATEGORIES.find((category) => category.tools.includes(key)) || null;
 }
 
-function el$1(tag, className, attrs = {}) {
+function el$2(tag, className, attrs = {}) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, value));
@@ -16646,30 +18122,30 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
   toolbar.classList.add("viewer-menus");
   toolbar.classList.remove("collapsed");
 
-  const nav = el$1("div", "viewer-menus_nav");
+  const nav = el$2("div", "viewer-menus_nav");
   // The grip that moves the bar (desktop only).
   const grip = buttons.moveToolbar || null;
   if (grip) grip.classList.add("viewer-menus_grip");
-  const tabs = el$1("div", "viewer-menus_tabs", { role: "group" });
-  const dock = el$1("div", "viewer-menus_dock");
-  const panel = el$1("div", "viewer-menus_panel", { role: "dialog" });
+  const tabs = el$2("div", "viewer-menus_tabs", { role: "group" });
+  const dock = el$2("div", "viewer-menus_dock");
+  const panel = el$2("div", "viewer-menus_panel", { role: "dialog" });
   panel.hidden = true;
-  const header = el$1("div", "viewer-menus_panel-header");
-  const title = el$1("div", "viewer-menus_panel-title");
-  const close = el$1("button", "viewer-menus_close", { type: "button" });
+  const header = el$2("div", "viewer-menus_panel-header");
+  const title = el$2("div", "viewer-menus_panel-title");
+  const close = el$2("button", "viewer-menus_close", { type: "button" });
   close.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   header.append(title, close);
   // The sheet's grip (phone upright): dragged, with the header, to make the
   // sheet lower or taller, or down to close it.
-  const sheetGrip = el$1("div", "viewer-menus_sheet-grip", { "aria-hidden": "true" });
-  const body = el$1("div", "viewer-menus_panel-body");
+  const sheetGrip = el$2("div", "viewer-menus_sheet-grip", { "aria-hidden": "true" });
+  const body = el$2("div", "viewer-menus_panel-body");
   panel.append(sheetGrip, header, body);
 
   const groups = {};
   CATEGORIES.forEach((category) => {
-    const group = el$1("div", "viewer-menus_group");
+    const group = el$2("div", "viewer-menus_group");
     group.dataset.category = category.id;
-    const heading = el$1("div", "viewer-menus_group-title");
+    const heading = el$2("div", "viewer-menus_group-title");
     group.appendChild(heading);
     groups[category.id] = { group, heading, count: 0 };
     body.appendChild(group);
@@ -16679,11 +18155,11 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
   NAV_TRANSFORM.forEach((key) => {
     if (buttons[key]) nav.appendChild(buttons[key]);
   });
-  nav.appendChild(el$1("span", "viewer-menus_nav-divider", { "aria-hidden": "true" }));
+  nav.appendChild(el$2("span", "viewer-menus_nav-divider", { "aria-hidden": "true" }));
   NAV_VIEW.forEach((key) => {
     if (buttons[key]) nav.appendChild(buttons[key]);
   });
-  const device = el$1("div", "viewer-menus_device");
+  const device = el$2("div", "viewer-menus_device");
   DEVICE_TOOLS.forEach((key) => {
     const button = buttons[key];
     if (!button) return;
@@ -16726,7 +18202,7 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
 
   const tabButtons = {};
   const addTab = (category) => {
-    const tab = el$1("button", "viewer-menus_tab", { type: "button", "aria-expanded": "false" });
+    const tab = el$2("button", "viewer-menus_tab", { type: "button", "aria-expanded": "false" });
     tab.dataset.menu = category.id;
     if (category.more) tab.dataset.more = "true";
     tab.innerHTML = `<span class="viewer-menus_tab-icon" aria-hidden="true">${category.icon}</span><span class="viewer-menus_tab-label"></span><span class="viewer-menus_tab-chevron" aria-hidden="true"></span>`;
@@ -16752,7 +18228,7 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
   addTab(MORE);
   Object.values(groups).forEach(({ group, count }) => { group.hidden = count === 0; });
 
-  nav.append(el$1("span", "viewer-menus_nav-divider viewer-menus_nav-divider--device", { "aria-hidden": "true" }), device);
+  nav.append(el$2("span", "viewer-menus_nav-divider viewer-menus_nav-divider--device", { "aria-hidden": "true" }), device);
   dock.append(nav, tabs);
   toolbar.append(dock, panel);
 
@@ -17302,6 +18778,78 @@ function placeHandHint() {
   // split the space instead - so `bottom` is cleared.
   hint.style.bottom = "auto";
   hint.style.top = `${Math.max(Math.round(top), 8)}px`;
+}
+
+// The hand is dark: over a dark model or background it turns light
+// (.hand-hint-on-dark in main.css). What is under it is read from the
+// rendered canvas (preserveDrawingBuffer) a few times a second; where the
+// canvas is transparent (alpha), the page behind it counts.
+const HAND_CONTRAST_INTERVAL = 150;
+// Hysteresis, so it does not flicker over mid greys.
+const HAND_DARK_BELOW = 0.4;
+const HAND_LIGHT_ABOVE = 0.5;
+let handSampleCanvas = null;
+let handSampleTime = -Infinity;
+
+function parseCssColor(value) {
+  const m = /rgba?\(([^)]+)\)/.exec(value || "");
+  if (!m) return null;
+  const [r, g, b, a = 1] = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  return { r, g, b, a };
+}
+
+// The first opaque background colour behind the canvas.
+function backdropColor(element) {
+  for (let el = element; el; el = el.parentElement) {
+    const color = parseCssColor(getComputedStyle(el).backgroundColor);
+    if (color && color.a > 0.5) return color;
+  }
+  return { r: 255, g: 255, b: 255, a: 1 };
+}
+
+function updateHandHintContrast(time = performance.now()) {
+  const hint = core.handHint;
+  const canvas = core.renderer?.domElement;
+  if (!hint || hint.hidden || !canvas) return;
+  if (time - handSampleTime < HAND_CONTRAST_INTERVAL) return;
+  handSampleTime = time;
+
+  const hintRect = hint.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  if (!hintRect.width || !canvasRect.width || !canvas.width) return;
+  const scaleX = canvas.width / canvasRect.width;
+  const scaleY = canvas.height / canvasRect.height;
+  const sx = (hintRect.left - canvasRect.left) * scaleX;
+  const sy = (hintRect.top - canvasRect.top) * scaleY;
+  const sw = hintRect.width * scaleX;
+  const sh = hintRect.height * scaleY;
+
+  const size = 8;
+  handSampleCanvas ??= Object.assign(document.createElement("canvas"), { width: size, height: size });
+  const ctx = handSampleCanvas.getContext("2d", { willReadFrequently: true });
+  let data;
+  try {
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, size, size);
+    data = ctx.getImageData(0, 0, size, size).data;
+  } catch {
+    // WebGPU canvas or a tainted one: keep the current colour.
+    return;
+  }
+
+  const back = backdropColor(canvas.parentElement);
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3] / 255;
+    const r = data[i] * a + back.r * (1 - a);
+    const g = data[i + 1] * a + back.g * (1 - a);
+    const b = data[i + 2] * a + back.b * (1 - a);
+    sum += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  }
+  const luminance = sum / (data.length / 4);
+  const onDark = hint.classList.contains("hand-hint-on-dark");
+  if (!onDark && luminance < HAND_DARK_BELOW) hint.classList.add("hand-hint-on-dark");
+  else if (onDark && luminance > HAND_LIGHT_ABOVE) hint.classList.remove("hand-hint-on-dark");
 }
 
 // Where the notices start at the top of a phone's viewer (px) before the
@@ -18114,8 +19662,6 @@ function appendLightsSubmenuItems(viewer, items, container) {
     }
 
     if (
-      item.key === "lightTargetTransformMove" ||
-      item.key === "lightTargetTransformTarget" ||
       item.key.startsWith("environmentMap") ||
       item.key.startsWith("rendering") ||
       item.key.startsWith("lightRaking") ||
@@ -18382,79 +19928,6 @@ const LIGHTS_SUBMENU_ITEMS = {
         },
       ],
     },
-    {
-      key: "lightTarget",
-      icon: "lightTarget",
-      label: t$1("gui.target", "Target"),
-      children: [
-        {
-          key: "lightTargetColor",
-          icon: "color",
-          label: t$1("gui.color", "Color"),
-          type: "color",
-          value: () => viewer.colors.DirectionalLight,
-          onChange: (value) => {
-            viewer.colors.DirectionalLight = value;
-            core.lightObjects[0].color = new THREE.Color(value);
-          },
-        },
-        {
-          key: "lightTargetIntensity",
-          icon: "intensity",
-          label: t$1("gui.intensity", "Intensity"),
-          type: "slider",
-          min: 0,
-          max: 10,
-          step: 0.01,
-          value: () => viewer.intensity.startIntensityDir,
-          onChange: (value) => {
-            viewer.intensity.startIntensityDir = value;
-            core.lightObjects[0].intensity = value;
-          },
-        },
-        {
-          key: "lightTargetTransform",
-          icon: "move",
-          label: t$1("gui.transform", "Transform"),
-          children: [
-            { key: "lightTargetTransformMove", icon: "move", label: t$1("gui.move", "Move"), onClick: () => viewer.toggleLightTransformMode("translate") },
-            { key: "lightTargetTransformTarget", icon: "lightTarget", label: t$1("gui.target", "Target"), onClick: () => viewer.toggleLightTransformMode("rotate") },
-          ],
-        },
-      ],
-    },
-    {
-      key: "lightAmbient",
-      icon: "ambientLight",
-      label: t$1("gui.ambient", "Ambient"),
-      children: [
-        {
-          key: "lightAmbientColor",
-          icon: "color",
-          label: t$1("gui.color", "Color"),
-          type: "color",
-          value: () => viewer.colors.AmbientLight,
-          onChange: (value) => {
-            viewer.colors.AmbientLight = value;
-            viewer.ambientLight.color = new THREE.Color(value);
-          },
-        },
-        {
-          key: "lightAmbientIntensity",
-          icon: "intensity",
-          label: t$1("gui.intensity", "Intensity"),
-          type: "slider",
-          min: 0,
-          max: 10,
-          step: 0.01,
-          value: () => viewer.intensity.startIntensityAmbient,
-          onChange: (value) => {
-            viewer.intensity.startIntensityAmbient = value;
-            viewer.ambientLight.intensity = value;
-          },
-        },
-      ],
-    },
     /*{
       key: "lightCamera",
       icon: "cameraLight",
@@ -18519,7 +19992,9 @@ function createEditorToolbar(viewer) {
     { key: "projection", group: "view", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
     { key: "clippingPlanes", group: "view", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
     // Appearance.
-    { key: "lights", group: "appearance", icon: "lights", onClick: () => {}, pressed: false, primary: false },
+    // The lights window (editor/lights-panel.js); the sun and the raking
+    // light in its submenu.
+    { key: "lights", group: "appearance", icon: "lights", onClick: () => viewer.toggleLightsPanel(), pressed: true, primary: false },
     { key: "environmentMap", group: "appearance", icon: "environmentMap", onClick: () => {}, pressed: true, primary: false },
     // Rain, snow, fog and storms: their window (editor/weather.js).
     { key: "weather", group: "appearance", icon: "weather", onClick: () => viewer.toggleWeatherPanel(), pressed: true, primary: false },
@@ -18530,7 +20005,7 @@ function createEditorToolbar(viewer) {
     // The model's materials, with built-in material types
     // (editor/materials-editor.js).
     { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.toggleMaterialsPanel(), pressed: true, primary: false },
-    { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
+    { key: "shading", group: "appearance", icon: "shading", onClick: () => viewer.toggleShadingPanel(), pressed: true, primary: false },
     { key: "wireframe", group: "appearance", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
     { key: "background", group: "appearance", icon: "background", onClick: () => {}, pressed: false, primary: false },
     // What the model stands on: a window of tiles (ui/ground-panel.js).
@@ -18958,8 +20433,13 @@ function createEditorToolbar(viewer) {
       // In the menus the sun and the raking light are under Analysis.
       const items = LIGHTS_SUBMENU_ITEMS[tool.key](viewer)
         .filter((item) => !menus || (item.key !== "lightSun" && item.key !== "lightRaking"));
-      appendLightsSubmenuItems(viewer, items, submenu);
-      button.appendChild(submenu);
+      if (items.length) {
+        appendLightsSubmenuItems(viewer, items, submenu);
+        button.appendChild(submenu);
+      } else {
+        // The menus: nothing left under Lights, which opens its window.
+        button.classList.remove("has-submenu");
+      }
     } else if (tool.key === "sunStudy" || tool.key === "rakingLight") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
@@ -19120,62 +20600,6 @@ function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
-    } else if (tool.key === "shading") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu--grid";
-      viewer.shadingSubmenuButtons = {};
-
-      // The model as loaded, then the material models, then the views
-      // for reading a scan's geometry.
-      const shadingModes = [
-        { key: "original", icon: "shadingOriginal", label: t$1("gui.shadingOriginal", "Original materials") },
-        { key: "standard", icon: "shadingStandard", label: t$1("gui.shadingStandard", "Standard (PBR)") },
-        { key: "phong", icon: "shadingPhong", label: t$1("gui.shadingPhong", "Phong") },
-        { key: "lambert", icon: "shadingLambert", label: t$1("gui.shadingLambert", "Lambert") },
-        { key: "toon", icon: "shadingToon", label: t$1("gui.shadingToon", "Toon") },
-        { key: "clay", icon: "shadingClay", label: t$1("gui.shadingClay", "Clay (no texture)") },
-        { key: "matcap", icon: "shadingMatcap", label: t$1("gui.shadingMatcap", "Matcap (studio clay)") },
-        { key: "flat", icon: "shadingFlat", label: t$1("gui.shadingFlat", "Flat shading (show faces)") },
-        { key: "normals", icon: "shadingNormals", label: t$1("gui.shadingNormals", "Normals") },
-      ];
-
-      shadingModes.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = `shading-${item.key}`;
-        subButton.setAttribute("title", item.label);
-        subButton.setAttribute("aria-label", item.label);
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          viewer.setShadingMode(item.key);
-        });
-        viewer.shadingSubmenuButtons[item.key] = subButton;
-        submenu.appendChild(subButton);
-      });
-
-      const customButton = document.createElement("button");
-      customButton.type = "button";
-      customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-      customButton.dataset.tool = "shading-custom";
-      const customLabel = t$1("gui.shadingCustom", "Custom shader");
-      customButton.setAttribute("title", customLabel);
-      customButton.setAttribute("aria-label", customLabel);
-      customButton.innerHTML = `
-        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
-      `;
-      viewer.bindEventListener(customButton, "click", (event) => {
-        event.stopPropagation();
-        viewer.openCustomShaderDialog();
-      });
-      viewer.shadingSubmenuButtons.custom = customButton;
-      submenu.appendChild(customButton);
-
-      button.appendChild(submenu);
     } else if (tool.key === "download") {
       if (!core.isLightweight || core.isLocalPreview) {
         button.href = core.downloadModelElement;
@@ -19184,7 +20608,9 @@ function createEditorToolbar(viewer) {
         button.download = core.fileObject.filename;
       }
     }
-    viewer.bindEventListener(button, "click", () => {
+    viewer.bindEventListener(button, "click", (event) => {
+      // A click on one of its submenu's items is that item's.
+      if (event.target.closest?.(".viewer-editor-tool_submenu")) return;
       viewer.stopHandMode();
       if (tool.onClick) {
         tool.onClick();
@@ -19378,20 +20804,13 @@ function updateUpAxisSubmenuState(viewer) {
   });
 }
 
+// The shading window (editor/shading.js) shows the mode.
 function updateShadingSubmenuState(viewer) {
-  if (!viewer.shadingSubmenuButtons) return;
-  const activeMode = viewer.shadingMode || "original";
-  Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
-    button?.classList.toggle("is-active", key === activeMode);
-  });
-  // GLSL needs the WebGL renderer (renderer-backend.js).
-  const custom = viewer.shadingSubmenuButtons.custom;
-  if (custom) custom.hidden = core.rendererBackend === "webgpu";
+  viewer.syncShadingPanel?.();
 }
 
 function updateLightsSubmenuState(viewer) {
   if (!viewer.lightsSubmenuButtons) return;
-  const activeMode = viewer.transformText["Transform Light"];
   const environmentMapToggle = viewer.lightsSubmenuButtons.environmentMapToggle;
   if (environmentMapToggle) {
     const toggleLabel = environmentMapToggle.querySelector('.viewer-editor-tool_submenu-toggle-state');
@@ -19401,14 +20820,6 @@ function updateLightsSubmenuState(viewer) {
     environmentMapToggle.classList.toggle("is-active", isEnabled);
   }
 
-  viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
-    "is-active",
-    activeMode === "translate"
-  );
-  viewer.lightsSubmenuButtons.lightTargetTransformTarget?.classList.toggle(
-    "is-active",
-    activeMode === "rotate"
-  );
 
   const rendering = getRenderingSettings();
   const setPressed = (button, isActive) => {
@@ -19675,8 +21086,6 @@ function updateEditorToolbarLabels(viewer) {
 
   if (viewer.lightsSubmenuButtons) {
     const lightsSubmenuLabels = {
-      lightTargetTransformMove: t$1("gui.move", "Move"),
-      lightTargetTransformTarget: t$1("gui.target", "Target"),
       environmentMapToggle: t$1("gui.environmentMapToggle", "Environment map"),
       environmentMapIntensity: t$1("gui.intensity", "Intensity"),
       environmentMapStyleNeutral: t$1("gui.environmentMapNeutral", "Neutral"),
@@ -19834,6 +21243,8 @@ function updateEditorToolbarState(viewer) {
     weather: viewer.weather?.enabled === true || viewer.isWeatherPanelOpen?.() === true,
     sceneSuggest: viewer.isSceneSuggestPanelOpen?.() === true,
     materials: viewer.isMaterialsPanelOpen?.() === true,
+    shading: viewer.isShadingPanelOpen?.() === true,
+    lights: viewer.isLightsPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,
@@ -22482,6 +23893,7 @@ function attachShadingEditor(Viewer) {
       this.applyShadingMode();
       this.updateEditorToolbarState?.();
       this.updateShadingSubmenuState?.();
+      this.syncShadingPanel();
       // Its note on the other modes (editor/materials-editor.js).
       this.syncMaterialsPanel?.();
 
@@ -22513,193 +23925,152 @@ function attachShadingEditor(Viewer) {
       };
     },
 
+    // ---- the window (Look > Shading) -------------------------------------
+    // The modes, and the custom shader's code (GLSL, WebGL only) under them.
+    // Like the other tool panels it can be moved and minimized to an icon.
+
+    isShadingPanelOpen() {
+      return Boolean(this.shadingPanel);
+    },
+
+    toggleShadingPanel(open = !this.shadingPanel) {
+      if (open) this.createShadingPanel();
+      else this.removeShadingPanel();
+      this.updateEditorToolbarState?.();
+    },
+
+    // The window with the custom shader's code open (the old dialog's name).
     openCustomShaderDialog() {
-      this.buildShadingDialog();
-      if (!this.shadingDialog) return;
-
-      if (this.shadingDialogInputs) {
-        this.shadingDialogInputs.vertex.value = this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
-        this.shadingDialogInputs.fragment.value = this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
-      }
-
-      this.updateShadingDialogBounds();
-      this.shadingDialog.hidden = false;
-      this.closeActionMenu?.();
+      this.toggleShadingPanel(true);
+      const ui = this.shadingPanel;
+      if (!ui) return;
+      ui.shader.open = true;
+      ui.fragment.focus({ preventScroll: true });
     },
 
-    closeShadingDialog() {
-      if (!this.shadingDialog) return;
-      this.shadingDialog.hidden = true;
-    },
+    createShadingPanel() {
+      if (this.shadingPanel || !core.container || this.urlOptions?.hideUi === true) return;
+      const el = (tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        return node;
+      };
+      const button = (className, onClick) => {
+        const node = el("button", className);
+        node.type = "button";
+        node.addEventListener("click", onClick);
+        return node;
+      };
+      const panel = el("section", "viewer-shading viewer-scene");
+      panel.id = "viewerShading";
+      panel.setAttribute("role", "group");
+      const header = el("div", "viewer-scene_header");
+      const title = el("span", "viewer-scene_title");
+      const closeButton = button("viewer-scene_icon", () => this.toggleShadingPanel(false));
+      closeButton.textContent = "×";
+      header.append(title, closeButton);
 
-    buildShadingDialog() {
-      if (!core.container || this.shadingDialog) return;
+      // The model as loaded, then the material models, then the views for
+      // reading a scan's geometry.
+      const modes = el("div", "viewer-shading_modes");
+      modes.setAttribute("role", "radiogroup");
+      const modeButtons = {};
+      SHADING_MODES.filter((mode) => mode !== "custom").forEach((mode) => {
+        const modeButton = button("viewer-shading_mode", () => this.setShadingMode(mode));
+        modeButton.dataset.mode = mode;
+        modeButton.setAttribute("role", "radio");
+        const icon = el("span", "viewer-shading_mode-icon");
+        icon.setAttribute("aria-hidden", "true");
+        icon.innerHTML = getEditorToolbarIcon(`shading${mode[0].toUpperCase()}${mode.slice(1)}`);
+        modeButton.append(icon, el("span", "viewer-shading_mode-name"));
+        modes.append(modeButton);
+        modeButtons[mode] = modeButton;
+      });
 
-      const dialog = document.createElement("div");
-      dialog.id = "shadingDialog";
-      dialog.className = "materials-dialog";
-      dialog.hidden = true;
-      dialog.innerHTML = `
-        <div class="materials-dialog__backdrop" data-shading-dismiss="true"></div>
-        <div class="materials-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="shadingDialogTitle">
-          <div class="materials-dialog__header">
-            <h3 id="shadingDialogTitle">${t$1("gui.shadingCustom", "Custom shader")}</h3>
-            <button type="button" class="materials-dialog__close" data-shading-dismiss="true" aria-label="${t$1("gui.shadingCustom", "Custom shader")}">&times;</button>
-          </div>
-          <div class="materials-dialog__body">
-            <label class="materials-dialog__field">
-              <span>${t$1("gui.shadingCustomVertex", "Vertex shader")}</span>
-              <textarea id="shadingDialogVertex" class="shading-dialog__textarea" spellcheck="false"></textarea>
-            </label>
-            <label class="materials-dialog__field">
-              <span>${t$1("gui.shadingCustomFragment", "Fragment shader")}</span>
-              <textarea id="shadingDialogFragment" class="shading-dialog__textarea" spellcheck="false"></textarea>
-            </label>
-            <div class="shading-dialog__actions">
-              <button type="button" id="shadingDialogReset" class="shading-dialog__button">${t$1("gui.shadingCustomReset", "Reset to default")}</button>
-              <button type="button" id="shadingDialogApply" class="shading-dialog__button shading-dialog__button-primary">${t$1("gui.shadingCustomApply", "Apply")}</button>
-            </div>
-          </div>
-        </div>
-      `;
+      const shader = el("details", "viewer-shading_shader");
+      const summary = el("summary", "viewer-shading_shader-title");
+      const vertexLabel = el("label", "viewer-shading_code");
+      const vertexName = el("span");
+      const vertex = el("textarea", "viewer-shading_textarea");
+      vertex.spellcheck = false;
+      vertexLabel.append(vertexName, vertex);
+      const fragmentLabel = el("label", "viewer-shading_code");
+      const fragmentName = el("span");
+      const fragment = el("textarea", "viewer-shading_textarea");
+      fragment.spellcheck = false;
+      fragmentLabel.append(fragmentName, fragment);
+      const actions = el("div", "viewer-scene_actions");
+      const resetButton = button("viewer-shading_reset", () => {
+        vertex.value = DEFAULT_CUSTOM_VERTEX_SHADER;
+        fragment.value = DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      });
+      const applyButton = button("viewer-scene_apply", () => {
+        this.setShadingMode("custom", { vertexShader: vertex.value, fragmentShader: fragment.value });
+      });
+      actions.append(resetButton, applyButton);
+      shader.append(summary, vertexLabel, fragmentLabel, actions);
+      vertex.value = this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+      fragment.value = this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
 
-      document.body.appendChild(dialog);
-      this.shadingDialog = dialog;
-      this.shadingDialogPosition = null;
-      const panel = dialog.querySelector(".materials-dialog__panel");
-      const header = dialog.querySelector(".materials-dialog__header");
+      const note = el("p", "viewer-scene_status");
+
+      panel.append(header, modes, shader, note);
+      ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
+        panel.addEventListener(type, (event) => event.stopPropagation());
+      });
       attachToolPanelChrome(panel, header, {
-        before: header.querySelector(".materials-dialog__close"),
-        movable: false,
-        visibilityRoot: dialog,
-        icon: PANEL_ICONS.material,
+        before: closeButton,
+        icon: PANEL_ICONS.shading,
+        label: () => t$1("gui.shading", "Shading"),
       });
-      this.shadingDialogInputs = {
-        vertex: dialog.querySelector("#shadingDialogVertex"),
-        fragment: dialog.querySelector("#shadingDialogFragment"),
+      getViewerSideStack()?.append(panel);
+      fitPanelToViewer(panel);
+      this.shadingPanel = {
+        panel, title, closeButton, modeButtons, shader, summary, vertexName, vertex, fragmentName, fragment,
+        resetButton, applyButton, note,
       };
-
-      this.bindEventListener(dialog, "click", (event) => {
-        const dismissTrigger = event.target?.closest?.("[data-shading-dismiss='true']");
-        if (dismissTrigger) {
-          this.closeShadingDialog();
-        }
-      });
-
-      this.bindEventListener(document, "keydown", (event) => {
-        if (event.key !== "Escape") return;
-        if (!this.shadingDialog || this.shadingDialog.hidden) return;
-        event.preventDefault();
-        this.closeShadingDialog();
-      });
-
-      this.bindEventListener(dialog.querySelector("#shadingDialogReset"), "click", () => {
-        this.shadingDialogInputs.vertex.value = DEFAULT_CUSTOM_VERTEX_SHADER;
-        this.shadingDialogInputs.fragment.value = DEFAULT_CUSTOM_FRAGMENT_SHADER;
-      });
-
-      this.bindEventListener(dialog.querySelector("#shadingDialogApply"), "click", () => {
-        const vertexShader = this.shadingDialogInputs.vertex.value;
-        const fragmentShader = this.shadingDialogInputs.fragment.value;
-        this.setShadingMode("custom", { vertexShader, fragmentShader });
-      });
-
-      this.bindEventListener(header, "pointerdown", (event) => {
-        if (event.button !== 0) return;
-        if (event.target?.closest?.(".materials-dialog__close")) return;
-        const targetRect =
-          Viewer.mainCanvas?.getBoundingClientRect?.() ||
-          core.container?.getBoundingClientRect?.();
-        const panelRect = panel?.getBoundingClientRect?.();
-        if (!targetRect || !panelRect) return;
-
-        this.shadingDialogDragging = {
-          offsetX: event.clientX - panelRect.left,
-          offsetY: event.clientY - panelRect.top,
-        };
-        panel.setPointerCapture?.(event.pointerId);
-        panel.classList.add("is-dragging");
-        event.preventDefault();
-      });
-
-      this.bindEventListener(document, "pointermove", (event) => {
-        if (!this.shadingDialogDragging || !this.shadingDialog || this.shadingDialog.hidden) return;
-        const targetRect =
-          Viewer.mainCanvas?.getBoundingClientRect?.() ||
-          core.container?.getBoundingClientRect?.();
-        const panelRect = panel?.getBoundingClientRect?.();
-        if (!targetRect || !panelRect) return;
-
-        const nextLeft = event.clientX - this.shadingDialogDragging.offsetX;
-        const nextTop = event.clientY - this.shadingDialogDragging.offsetY;
-        const minLeft = targetRect.left + 12;
-        const maxLeft = targetRect.right - panelRect.width - 12;
-        const minTop = targetRect.top + 12;
-        const maxTop = targetRect.bottom - panelRect.height - 12;
-
-        this.shadingDialogPosition = {
-          left: Math.min(Math.max(nextLeft, minLeft), Math.max(minLeft, maxLeft)),
-          top: Math.min(Math.max(nextTop, minTop), Math.max(minTop, maxTop)),
-        };
-
-        this.updateShadingDialogBounds();
-      });
-
-      const stopShadingDialogDrag = () => {
-        this.shadingDialogDragging = false;
-        panel?.classList.remove("is-dragging");
-      };
-
-      this.bindEventListener(document, "pointerup", stopShadingDialogDrag);
-      this.bindEventListener(document, "pointercancel", stopShadingDialogDrag);
-
-      this.bindEventListener(window, "resize", () => this.updateShadingDialogBounds());
-      this.bindEventListener(window, "scroll", () => this.updateShadingDialogBounds(), true);
-      this.bindEventListener(document, "fullscreenchange", () => this.updateShadingDialogBounds());
+      this.updateShadingPanelLabels();
     },
 
-    updateShadingDialogBounds() {
-      if (!this.shadingDialog) return;
-      const targetRect =
-        Viewer.mainCanvas?.getBoundingClientRect?.() ||
-        core.container?.getBoundingClientRect?.();
-      if (!targetRect) return;
+    removeShadingPanel() {
+      this.shadingPanel?.panel.remove();
+      this.shadingPanel = null;
+    },
 
-      const left = Math.max(0, Math.round(targetRect.left));
-      const top = Math.max(0, Math.round(targetRect.top));
-      const width = Math.max(0, Math.round(targetRect.width));
-      const height = Math.max(0, Math.round(targetRect.height));
-      const panel = this.shadingDialog.querySelector(".materials-dialog__panel");
-      const panelWidth = panel?.offsetWidth || Math.min(640, width - 24);
-      const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
+    updateShadingPanelLabels() {
+      const ui = this.shadingPanel;
+      if (!ui) return;
+      const name = t$1("gui.shading", "Shading");
+      ui.panel.setAttribute("aria-label", name);
+      ui.title.textContent = name;
+      refreshToolPanelChrome(ui.panel);
+      ui.closeButton.title = t$1("scene.close", "Close");
+      ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
+      Object.entries(ui.modeButtons).forEach(([mode, modeButton]) => {
+        const label = shadingModeLabel(mode);
+        modeButton.querySelector(".viewer-shading_mode-name").textContent = label;
+        modeButton.title = label;
+      });
+      ui.summary.textContent = t$1("gui.shadingCustom", "Custom shader");
+      ui.vertexName.textContent = t$1("gui.shadingCustomVertex", "Vertex shader");
+      ui.fragmentName.textContent = t$1("gui.shadingCustomFragment", "Fragment shader");
+      ui.resetButton.textContent = t$1("gui.shadingCustomReset", "Reset to default");
+      ui.applyButton.textContent = t$1("gui.shadingCustomApply", "Apply");
+      ui.note.textContent = t$1("gui.shadingNote", "The model's own materials stay as they are: Original materials shows them again.");
+      this.syncShadingPanel();
+    },
 
-      if (!this.shadingDialogPosition) {
-        // The top right corner, like the other tool panels (side stack).
-        this.shadingDialogPosition = {
-          left: Math.max(left + 12, left + width - panelWidth - 12),
-          top: top + 12,
-        };
-      } else {
-        const minLeft = left + 12;
-        const maxLeft = left + width - panelWidth - 12;
-        const minTop = top + 12;
-        const maxTop = top + height - panelHeight - 12;
-        this.shadingDialogPosition = {
-          left: Math.min(Math.max(this.shadingDialogPosition.left, minLeft), Math.max(minLeft, maxLeft)),
-          top: Math.min(Math.max(this.shadingDialogPosition.top, minTop), Math.max(minTop, maxTop)),
-        };
-      }
-
-      this.shadingDialog.style.left = `${left}px`;
-      this.shadingDialog.style.top = `${top}px`;
-      this.shadingDialog.style.width = `${width}px`;
-      this.shadingDialog.style.height = `${height}px`;
-      if (panel) {
-        panel.style.left = `${this.shadingDialogPosition.left - left}px`;
-        panel.style.top = `${this.shadingDialogPosition.top - top}px`;
-        panel.style.right = "auto";
-        panel.style.transform = "none";
-      }
+    // The mode chosen; the custom shader only with WebGL (renderer-backend.js).
+    syncShadingPanel() {
+      const ui = this.shadingPanel;
+      if (!ui) return;
+      const active = this.shadingMode || DEFAULT_SHADING_MODE;
+      Object.entries(ui.modeButtons).forEach(([mode, modeButton]) => {
+        modeButton.classList.toggle("is-active", mode === active);
+        modeButton.setAttribute("aria-checked", String(mode === active));
+      });
+      ui.shader.hidden = core.rendererBackend === "webgpu";
+      ui.summary.classList.toggle("is-active", active === "custom");
     },
   });
 }
@@ -22736,7 +24107,7 @@ const BRIGHTNESS_SIZE = 96;
 const ORIENTATION_HINT_DELAY_MS = 1500;
 const ORIENTATION_HINT_TIMEOUT_MS = 60000;
 
-function el(tag, className, text) {
+function el$1(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text != null) node.textContent = text;
@@ -23310,7 +24681,7 @@ function attachPublishCheck(Viewer) {
       const icon = button.querySelector(".viewer-editor-tool_icon") || button;
       let badge = icon.querySelector(":scope > .viewer-tool-badge");
       if (!badge) {
-        badge = el("span", "viewer-tool-badge");
+        badge = el$1("span", "viewer-tool-badge");
         badge.setAttribute("aria-hidden", "true");
         icon.append(badge);
       }
@@ -23445,36 +24816,36 @@ function attachPublishCheck(Viewer) {
       if (!core.container || Viewer.urlOptions?.hideUi === true) return;
       hideSmartHint("publishGuard");
       const button = (className, onClick) => {
-        const node = el("button", className);
+        const node = el$1("button", className);
         node.type = "button";
         node.addEventListener("click", onClick);
         return node;
       };
-      const panel = el("section", "viewer-prepare viewer-scene");
+      const panel = el$1("section", "viewer-prepare viewer-scene");
       panel.id = "viewerPublishCheck";
       panel.setAttribute("role", "group");
-      const header = el("div", "viewer-scene_header");
-      const title = el("span", "viewer-scene_title");
+      const header = el$1("div", "viewer-scene_header");
+      const title = el$1("span", "viewer-scene_title");
       const closeButton = button("viewer-scene_icon", () => Viewer.togglePublishCheckPanel(false));
       closeButton.textContent = "×";
       header.append(title, closeButton);
-      const intro = el("p", "viewer-scene_intro");
-      const summary = el("div", "viewer-prepare_summary");
-      const list = el("ul", "viewer-prepare_items");
-      const actions = el("div", "viewer-scene_actions");
+      const intro = el$1("p", "viewer-scene_intro");
+      const summary = el$1("div", "viewer-prepare_summary");
+      const list = el$1("ul", "viewer-prepare_items");
+      const actions = el$1("div", "viewer-scene_actions");
       const fixAllButton = button("viewer-scene_apply viewer-prepare_fix-all", () => {
         const fixed = Viewer.fixAllPublishChecks();
         Viewer.publishCheckPanel.status.textContent = t$1("prepare.fixed", { count: fixed }, "Fixed: {count}.");
       });
       const recheckButton = button("viewer-prepare_recheck", () => Viewer.refreshPublishCheck());
       actions.append(fixAllButton, recheckButton);
-      const passed = el("details", "viewer-scene_basis viewer-prepare_passed");
-      const passedSummary = el("summary");
-      const passedList = el("ul");
+      const passed = el$1("details", "viewer-scene_basis viewer-prepare_passed");
+      const passedSummary = el$1("summary");
+      const passedList = el$1("ul");
       passed.append(passedSummary, passedList);
-      const stepsTitle = el("div", "viewer-materials_heading");
-      const steps = el("ol", "viewer-prepare_steps");
-      const status = el("p", "viewer-scene_status");
+      const stepsTitle = el$1("div", "viewer-materials_heading");
+      const steps = el$1("ol", "viewer-prepare_steps");
+      const status = el$1("p", "viewer-scene_status");
       status.setAttribute("role", "status");
       panel.append(header, intro, summary, list, actions, passed, stepsTitle, steps, status);
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
@@ -23537,17 +24908,17 @@ function attachPublishCheck(Viewer) {
           : t$1("prepare.summary.ready", { tips: tips.length }, "Ready to publish · tips: {tips}");
       ui.list.replaceChildren(...open.map((check) => {
         const words = Viewer.describePublishCheck(check);
-        const row = el("li", "viewer-prepare_item");
+        const row = el$1("li", "viewer-prepare_item");
         row.dataset.check = check.key;
         row.dataset.level = check.level;
-        const mark = el("span", "viewer-prepare_mark", check.level === "fix" ? "!" : check.level === "wait" ? "…" : "i");
+        const mark = el$1("span", "viewer-prepare_mark", check.level === "fix" ? "!" : check.level === "wait" ? "…" : "i");
         mark.setAttribute("aria-hidden", "true");
-        const text = el("div", "viewer-prepare_text");
-        text.append(el("strong", null, words.title));
-        if (words.detail) text.append(el("span", null, words.detail));
+        const text = el$1("div", "viewer-prepare_text");
+        text.append(el$1("strong", null, words.title));
+        if (words.detail) text.append(el$1("span", null, words.detail));
         row.append(mark, text);
         if (words.fixLabel && Viewer.canFixPublishCheck(check)) {
-          const fix = el("button", "viewer-prepare_fix", words.fixLabel);
+          const fix = el$1("button", "viewer-prepare_fix", words.fixLabel);
           fix.type = "button";
           fix.addEventListener("click", () => {
             Viewer.fixPublishCheck(check);
@@ -23562,7 +24933,7 @@ function attachPublishCheck(Viewer) {
       ui.fixAllButton.disabled = fixable === 0;
       ui.passed.hidden = ok.length === 0;
       ui.passedSummary.textContent = t$1("prepare.passed", { count: ok.length }, "Passed: {count}");
-      ui.passedList.replaceChildren(...ok.map((check) => el("li", null, Viewer.describePublishCheck(check).title)));
+      ui.passedList.replaceChildren(...ok.map((check) => el$1("li", null, Viewer.describePublishCheck(check).title)));
       Viewer.syncPublishSteps();
     },
 
@@ -23605,8 +24976,8 @@ function attachPublishCheck(Viewer) {
         note.textContent = step.note;
         text.append(label, note);
         if (step.key === "thumbnails") {
-          const front = el("label", "viewer-prepare_front");
-          const input = el("input");
+          const front = el$1("label", "viewer-prepare_front");
+          const input = el$1("input");
           input.type = "checkbox";
           input.checked = Viewer.publishCheck.frontFromView;
           input.addEventListener("change", () => Viewer.setThumbnailFrontFromView(input.checked));
@@ -23614,7 +24985,7 @@ function attachPublishCheck(Viewer) {
           const words = Viewer.publishCheck.startViewChosen
             ? t$1("prepare.step.front", { angle }, "Front: the side the start view looks from ({angle}°)")
             : t$1("prepare.step.frontNone", "Front: the side the start view looks from (none saved yet: the file's front)");
-          front.append(input, el("span", null, words));
+          front.append(input, el$1("span", null, words));
           text.append(front);
         }
         const action = document.createElement("button");
@@ -23730,9 +25101,9 @@ function buildEditorMetadata(viewer, rotateMetadata) {
   metadata.lightTarget = pickMetadataValue(
     saveProperties.DirectionalLight,
     [
-      core.dirLight.rotation._x,
-      core.dirLight.rotation._y,
-      core.dirLight.rotation._z
+      core.dirLight.target.position.x,
+      core.dirLight.target.position.y,
+      core.dirLight.target.position.z
     ],
     originalMetadata.lightTarget
   );
@@ -23853,1083 +25224,6 @@ async function saveToWorker(viewer) {
 async function saveEditorMetadata(viewer) {
   if (!core.EDITOR || !core.helperObjects?.[0]) return false;
   return saveToWorker(viewer);
-}
-
-// IIIF Presentation 4 (3D) scene content beyond the models themselves, read
-// from and written to plain manifest JSON (draft spec, IIIF 3D TSG; the
-// vocabulary @iiif/3d-manifesto-dev implements):
-//
-//   cameras   painting annotations with a PerspectiveCamera (fieldOfView,
-//             near, far, lookAt) or OrthographicCamera (viewHeight) body,
-//             positioned by the target's PointSelector
-//   lights    painting annotations with AmbientLight / DirectionalLight /
-//             PointLight / SpotLight bodies: color, intensity {type: "Value",
-//             unit: "relative"}, lookAt, angle (spot half-angle, degrees)
-//   comments  commenting annotations (on the Scene or the Manifest) targeting
-//             a point in the scene (SpecificResource + PointSelector); the
-//             camera annotation referenced by its `scope` is the view to show
-//             it from (as in the IIIF 3D "activating annotations" examples)
-//
-// Scene coordinates are the viewer's world coordinates; point annotations are
-// stored relative to the model root so they follow it when it is moved.
-
-const CAMERA_TYPES = new Set(["PerspectiveCamera", "OrthographicCamera"]);
-const LIGHT_TYPES = new Set(["AmbientLight", "DirectionalLight", "PointLight", "SpotLight"]);
-const COMMENT_MOTIVATIONS = new Set(["commenting", "describing", "tagging", "identifying", "linking"]);
-// three.js intensity for a relative intensity of 1.
-const LIGHT_INTENSITY_SCALE = { AmbientLight: 1, DirectionalLight: 3, PointLight: 3, SpotLight: 3 };
-
-let importedLights = null;
-// The viewer's own lights while a manifest's lights replace them.
-let defaultLightState = null;
-
-const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
-const typeOf = (value) => value?.type || value?.["@type"] || null;
-
-// ---- comment text -----------------------------------------------------------
-
-// A IIIF language map ({ en: ["Glove"], es: ["Guante"] }) or a plain string as
-// { language: text }; "none" for text without a language.
-function languageMap(value) {
-  if (typeof value === "string") return value.trim() ? { none: value.trim() } : {};
-  if (!value || typeof value !== "object") return {};
-  const map = {};
-  Object.entries(value).forEach(([language, texts]) => {
-    const text = String(asArray(texts)[0] ?? "").trim();
-    if (text) map[language] = text;
-  });
-  return map;
-}
-
-// Plain text of an HTML fragment: the markup is parsed, never rendered or run.
-function htmlToText(html) {
-  const source = String(html ?? "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr)>/gi, "$&\n");
-  if (typeof DOMParser === "undefined") return source.replace(/<[^>]*>/g, "").trim();
-  const doc = new DOMParser().parseFromString(source, "text/html");
-  doc.querySelectorAll("script, style, template").forEach((node) => node.remove());
-  return String(doc.body?.textContent || "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-// Text of a TextualBody (HTML turned into plain text).
-function bodyText(body) {
-  if (typeof body === "string") return body.trim();
-  const value = String(body?.value ?? "");
-  return /html/i.test(String(body?.format || "")) ? htmlToText(value) : value.trim();
-}
-
-// Title and description of a comment annotation, per language: the label's
-// language map, and the TextualBody - or a Choice of them, one per language.
-function readCommentText(annotation) {
-  const bodies = asArray(annotation?.body)
-    .flatMap((body) => (typeOf(body) === "Choice" ? asArray(body.items) : [body]))
-    .filter((body) => typeof body === "string" || typeOf(body) === "TextualBody" || typeof body?.value === "string");
-  const descriptions = {};
-  bodies.forEach((body) => {
-    const text = bodyText(body);
-    const language = String(asArray(body?.language)[0] || "none");
-    if (text && !(language in descriptions)) descriptions[language] = text;
-  });
-  let titles = languageMap(annotation?.label);
-  if (!Object.keys(titles).length) titles = languageMap(bodies.find((body) => body?.label)?.label);
-  return { titles, descriptions };
-}
-
-// The language of a text map to show: the viewer's, then English, then text
-// without a language, then any.
-function pickLanguageKey(map, language = core.currentLanguage) {
-  const keys = Object.keys(map || {});
-  if (!keys.length) return null;
-  const wanted = String(language || "en").toLowerCase();
-  return keys.find((key) => key.toLowerCase() === wanted)
-    || keys.find((key) => key.toLowerCase().split("-")[0] === wanted.split("-")[0])
-    || (keys.includes("en") ? "en" : null)
-    || (keys.includes("none") ? "none" : null)
-    || keys[0];
-}
-
-function pickLanguage(map, language) {
-  const key = pickLanguageKey(map, language);
-  return key ? map[key] : "";
-}
-
-// A label (IIIF language map or string) in the viewer's language.
-function labelText(value) {
-  return pickLanguage(languageMap(value));
-}
-
-// The Scenes of a manifest a viewer offers, with their labels (a Scene
-// nested in another is shown as part of it).
-function manifestScenes(manifest) {
-  const nested = nestedSceneIds(manifest);
-  return scenesOf(manifest)
-    .map((scene, index) => ({ index, id: scene.id || "", label: labelText(scene.label) }))
-    .filter((scene) => !nested.has(scene.id));
-}
-
-// Title and description texts of an annotation entry in several languages;
-// null when there is only one.
-function localizedTexts(titles, descriptions) {
-  const several = (map) => Object.keys(map || {}).length > 1;
-  if (!several(titles) && !several(descriptions)) return null;
-  return {
-    ...(several(titles) ? { title: { ...titles } } : {}),
-    ...(several(descriptions) ? { description: { ...descriptions } } : {}),
-  };
-}
-
-// Points of a WKT geometry with z ("POLYGON Z ((x y z, ...))", also POINT Z,
-// LINESTRING Z, MULTIPOINT Z); a polygon's closing point is dropped.
-function parseWkt(value) {
-  const match = String(value || "").match(/^\s*(POLYGON|LINESTRING|MULTIPOINT|POINT)\s*Z?\s*\(+([^)]*)\)/i);
-  if (!match) return null;
-  const points = match[2]
-    .split(",")
-    .map((pair) => pair.trim().replace(/^\(|\)$/g, "").split(/\s+/).map(Number))
-    .filter((values) => values.length >= 3 && values.slice(0, 3).every(Number.isFinite))
-    .map((values) => new THREE.Vector3(values[0], values[1], values[2]));
-  if (points.length > 2 && points[0].equals(points[points.length - 1])) points.pop();
-  return points.length ? { type: match[1].toUpperCase(), points } : null;
-}
-
-function wktPolygon(points) {
-  const ring = points.concat(points.slice(0, 1));
-  return `POLYGON Z ((${ring.map((point) => [point.x, point.y, point.z].map(round$1).join(" ")).join(", ")}))`;
-}
-
-function centroidOf(points) {
-  if (!points?.length) return null;
-  return points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / points.length);
-}
-
-// The points of a WktSelector among the selectors, if any.
-function polygonFromSelector(selector) {
-  const wkt = asArray(selector).find((item) => typeOf(item) === "WktSelector");
-  return wkt ? parseWkt(wkt.value)?.points || null : null;
-}
-
-// A PointSelector's point - or the centre of a WktSelector's geometry.
-function pointFromSelector(selector) {
-  const point = asArray(selector).find((item) => typeOf(item) === "PointSelector");
-  if (!point) return centroidOf(polygonFromSelector(selector));
-  const values = [point.x, point.y, point.z].map(Number);
-  return values.every(Number.isFinite) ? new THREE.Vector3(...values) : null;
-}
-
-// The body itself, or the source of a SpecificResource wrapping it.
-function resolveBody(body) {
-  const first = asArray(body)[0];
-  if (typeOf(first) === "SpecificResource" && first.source && typeof first.source === "object") {
-    return { resource: first.source, wrapper: first };
-  }
-  return { resource: first, wrapper: null };
-}
-
-// Every resource of a body: a Choice gives one per item (the first is the
-// default), each possibly wrapped in a SpecificResource.
-function bodyResources(body) {
-  return asArray(body).flatMap((item) => (
-    typeOf(item) === "Choice"
-      ? asArray(item.items).map((choiceItem) => ({ ...resolveBody(choiceItem), choice: item.id || true }))
-      : [{ ...resolveBody(item), choice: null }]
-  ));
-}
-
-// behavior: ["hidden"] - not shown until an activating annotation shows it.
-const isHidden = (annotation) => asArray(annotation?.behavior).some((value) => String(value).toLowerCase() === "hidden");
-
-const idOf = (value) => (typeof value === "string" ? value : value?.id || null);
-
-// Position a painting/commenting annotation places its body at.
-function targetPoint(annotation) {
-  const target = asArray(annotation?.target)[0];
-  if (!target || typeof target !== "object") return null;
-  return pointFromSelector(target.selector);
-}
-
-function scenesOf(manifest) {
-  return asArray(manifest?.items).filter((item) => typeOf(item) === "Scene");
-}
-
-function annotationsOfPages(pages) {
-  return asArray(pages)
-    .filter((page) => typeOf(page) === "AnnotationPage")
-    .flatMap((page) => asArray(page.items))
-    .filter((annotation) => typeOf(annotation) === "Annotation");
-}
-
-function motivationsOf(annotation) {
-  return asArray(annotation?.motivation).map((value) => String(value).toLowerCase());
-}
-
-// lookAt: a PointSelector, a SpecificResource with one, or the id of another
-// annotation in the scene (its target point). Missing: the scene origin.
-function resolveLookAt(lookAt, sceneAnnotations) {
-  if (!lookAt) return new THREE.Vector3();
-  if (typeOf(lookAt) === "PointSelector" || typeOf(lookAt) === "WktSelector") {
-    return pointFromSelector(lookAt) || new THREE.Vector3();
-  }
-  if (typeOf(lookAt) === "SpecificResource") return pointFromSelector(lookAt.selector) || new THREE.Vector3();
-  const id = typeof lookAt === "string" ? lookAt : lookAt.id;
-  const referenced = sceneAnnotations.find((annotation) => annotation.id === id);
-  return (referenced && targetPoint(referenced)) || new THREE.Vector3();
-}
-
-// A transform list (ScaleTransform / RotateTransform / TranslateTransform) as
-// one matrix, applied in the order listed: [translate, rotate] moves the
-// resource, then rotates it about the scene origin. RotateTransform angles are
-// degrees, as a three.js "XYZ" Euler rotation - the order the IIIF 3D
-// examples use (tipped_and_rotated_astronaut undoes its model's own rotation
-// exactly with it).
-function transformMatrix(transforms) {
-  const matrix = new THREE.Matrix4();
-  const step = new THREE.Matrix4();
-  asArray(transforms).forEach((transform) => {
-    const x = Number(transform?.x);
-    const y = Number(transform?.y);
-    const z = Number(transform?.z);
-    const type = typeOf(transform);
-    if (type === "ScaleTransform") {
-      step.makeScale(Number.isFinite(x) ? x : 1, Number.isFinite(y) ? y : 1, Number.isFinite(z) ? z : 1);
-    } else if (type === "RotateTransform") {
-      step.makeRotationFromEuler(new THREE.Euler(
-        THREE.MathUtils.degToRad(x || 0), THREE.MathUtils.degToRad(y || 0), THREE.MathUtils.degToRad(z || 0), "XYZ"
-      ));
-    } else if (type === "TranslateTransform") {
-      step.makeTranslation(x || 0, y || 0, z || 0);
-    } else {
-      return;
-    }
-    matrix.premultiply(step);
-  });
-  return matrix;
-}
-
-// A model root's matrix as that position / rotation / scale.
-function matrixTransformConfig(matrix) {
-  const position = new THREE.Vector3();
-  const quaternion = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  matrix.decompose(position, quaternion, scale);
-  const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
-  // Floating-point noise from composing and decomposing (0.9999999 for 1).
-  const clean = (value) => {
-    const nearest = Math.round(value);
-    return Math.abs(value - nearest) < 1e-9 ? nearest + 0 : value;
-  };
-  return {
-    position: { x: clean(position.x), y: clean(position.y), z: clean(position.z) },
-    rotation: {
-      x: clean(THREE.MathUtils.radToDeg(rotation.x)),
-      y: clean(THREE.MathUtils.radToDeg(rotation.y)),
-      z: clean(THREE.MathUtils.radToDeg(rotation.z)),
-    },
-    scale: { x: clean(scale.x), y: clean(scale.y), z: clean(scale.z) },
-  };
-}
-
-// Orientation from the body's transforms (a SpecificResource around a camera
-// or light): the resource starts at the origin facing its default direction -
-// cameras face -Z, lights shine along -Y - is transformed in order, and is
-// then placed at the target's point.
-function applyBodyTransforms(wrapper, defaultDirection, position) {
-  const matrix = transformMatrix(wrapper?.transform);
-  const direction = defaultDirection.clone().transformDirection(matrix);
-  const moved = position.clone().add(new THREE.Vector3().applyMatrix4(matrix));
-  return { direction, position: moved };
-}
-
-function colorFrom(value, fallback = "#ffffff") {
-  try {
-    return new THREE.Color(typeof value === "string" ? value : fallback);
-  } catch (_error) {
-    return new THREE.Color(fallback);
-  }
-}
-
-// intensity: a number, or a Quantity {quantityValue, unit: "relative"} (older
-// drafts: a Value with `value`).
-function relativeIntensity(value) {
-  if (Number.isFinite(Number(value))) return Number(value);
-  if (value && typeof value === "object") {
-    const amount = Number(value.quantityValue ?? value.value);
-    if (Number.isFinite(amount)) return amount;
-  }
-  return 1;
-}
-
-// ---- reading ---------------------------------------------------------------
-
-// Ids of the Scenes painted into another Scene (nesting): they are shown as
-// part of it, not on their own.
-function nestedSceneIds(manifest) {
-  const ids = new Set();
-  scenesOf(manifest).forEach((scene) => {
-    annotationsOfPages(scene.items).forEach((annotation) => {
-      const { resource } = resolveBody(annotation.body);
-      if (typeOf(resource) === "Scene" && idOf(resource) && idOf(resource) !== scene.id) ids.add(idOf(resource));
-    });
-  });
-  return ids;
-}
-
-// The index of the Scene to show: `index` when the manifest has it, else its
-// first Scene that is not nested in another.
-function sceneIndexOf(manifest, index) {
-  const scenes = scenesOf(manifest);
-  if (Number.isInteger(index) && index >= 0 && index < scenes.length) return index;
-  const nested = nestedSceneIds(manifest);
-  const first = scenes.findIndex((scene) => !nested.has(scene.id));
-  return first >= 0 ? first : 0;
-}
-
-// Everything painted into a Scene at its place: its models and Canvases, and
-// those of the Scenes painted into it, each with its whole transform - the
-// target's point, after the body's transform list, inside the transform of
-// the Scene it is nested in. Hidden ones (behavior: hidden) are left out.
-function scenePlacements(manifest, sceneIndex) {
-  const placements = { models: [], canvases: [] };
-  const scenes = scenesOf(manifest);
-  const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
-  if (!scene) return placements;
-  const resources = new Map(asArray(manifest?.items).filter((item) => item?.id).map((item) => [item.id, item]));
-  const full = (resource) => (resource && (resource.items ? resource : resources.get(idOf(resource)))) || null;
-
-  const visit = (container, parentMatrix, seen) => {
-    annotationsOfPages(container.items).forEach((annotation) => {
-      if (!motivationsOf(annotation).includes("painting") || isHidden(annotation)) return;
-      const { resource, wrapper } = resolveBody(annotation.body);
-      const type = typeOf(resource);
-      if (CAMERA_TYPES.has(type) || LIGHT_TYPES.has(type)) return;
-      const point = targetPoint(annotation) || new THREE.Vector3();
-      const matrix = parentMatrix.clone()
-        .multiply(new THREE.Matrix4().makeTranslation(point.x, point.y, point.z))
-        .multiply(transformMatrix(wrapper?.transform));
-      if (type === "Scene") {
-        const nested = full(resource);
-        if (nested && !seen.has(nested.id) && seen.size < 16) visit(nested, matrix, new Set(seen).add(nested.id));
-        return;
-      }
-      if (type === "Canvas") {
-        const canvas = full(resource);
-        if (canvas) placements.canvases.push({ canvas, matrix, annotation });
-        return;
-      }
-      const url = isModelBody(annotation.body) ? modelUrlOf(annotation.body) : null;
-      if (!url) return;
-      placements.models.push({
-        url,
-        format: resource?.format || null,
-        matrix,
-        annotation,
-        // exclude: the model's own "Cameras" / "Lights" (/ "Audio",
-        // "Animations") are not used.
-        exclude: asArray(annotation.exclude).map((value) => String(value).toLowerCase()),
-      });
-    });
-  };
-  visit(scene, new THREE.Matrix4(), new Set([scene.id]));
-  return placements;
-}
-
-// Scene.spatialScale: the size of one scene unit, a Quantity
-// ({ quantityValue: 0.01, unit: "m" } - one unit is a centimeter). In
-// meters, or null when the scene does not say.
-function readSpatialScale(manifest, sceneIndex) {
-  const scene = scenesOf(manifest)[sceneIndexOf(manifest, sceneIndex)];
-  const scale = scene?.spatialScale;
-  if (!scale || typeof scale !== "object") return null;
-  const value = Number(scale.quantityValue ?? scale.value);
-  const unitMeters = unitNameToMeters(scale.unit || "m");
-  return Number.isFinite(value) && value > 0 && unitMeters ? value * unitMeters : null;
-}
-
-function buildSpatialScale(meters) {
-  return { type: "Quantity", quantityValue: round$1(meters), unit: "m" };
-}
-
-// A manifest-level annotation belongs to the scene its target names; one
-// that names no scene belongs to the first.
-function targetsScene(annotation, scene, scenes) {
-  const target = asArray(annotation?.target)[0];
-  const sourceId = typeof target === "string"
-    ? target.split("#")[0]
-    : target?.source?.id || (typeof target?.source === "string" ? target.source : null) || target?.id || null;
-  const sceneIds = scenes.map((item) => item.id).filter(Boolean);
-  if (!sourceId || !sceneIds.includes(sourceId)) return scene === scenes[0];
-  return sourceId === scene.id;
-}
-
-// Cameras, lights and point comments of one Scene of the manifest.
-function readSceneContent(manifest, sceneIndex = 0) {
-  const scenes = scenesOf(manifest);
-  const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
-  if (!scene) return { cameras: [], cameraChoices: [], defaultCamera: null, lights: [], comments: [] };
-  const painting = annotationsOfPages(scene.items);
-  const all = painting.concat(annotationsOfPages(scene.annotations));
-
-  const cameras = [];
-  const lights = [];
-  const camerasById = new Map();
-  painting.forEach((annotation) => {
-    if (!motivationsOf(annotation).includes("painting")) return;
-    const hidden = isHidden(annotation);
-    bodyResources(annotation.body).forEach(({ resource, wrapper, choice }, choiceIndex) => {
-      const type = typeOf(resource);
-      const isCamera = CAMERA_TYPES.has(type);
-      if (!isCamera && !LIGHT_TYPES.has(type)) return;
-      const oriented = applyBodyTransforms(
-        wrapper,
-        isCamera ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, -1, 0),
-        targetPoint(annotation) || new THREE.Vector3()
-      );
-      const position = oriented.position;
-      // Either an explicit lookAt point, or a direction (lookAt: null).
-      const lookAt = resource.lookAt ? resolveLookAt(resource.lookAt, all) : null;
-      if (isCamera) {
-        const camera = {
-          id: (choice ? idOf(resource) : null) || annotation.id || null,
-          annotationId: annotation.id || null,
-          type,
-          label: labelText(resource.label) || labelText(annotation.label),
-          hidden,
-          // A Choice's items after the first are alternatives, not defaults.
-          alternative: Boolean(choice) && choiceIndex > 0,
-          position,
-          lookAt,
-          direction: oriented.direction,
-          fieldOfView: Number(resource.fieldOfView),
-          viewHeight: Number(resource.viewHeight),
-          near: Number(resource.near),
-          far: Number(resource.far),
-        };
-        cameras.push(camera);
-        [camera.id, camera.annotationId, idOf(resource)].filter(Boolean).forEach((id) => {
-          if (!camerasById.has(id)) camerasById.set(id, camera);
-        });
-      } else if (!hidden) {
-        lights.push({
-          type,
-          position,
-          lookAt,
-          direction: oriented.direction,
-          color: colorFrom(resource.color),
-          intensity: relativeIntensity(resource.intensity),
-          angle: Number(resource.angle),
-        });
-      }
-    });
-  });
-
-  const sceneComments = annotationsOfPages(scene.annotations)
-    .concat(annotationsOfPages(manifest.annotations).filter((annotation) => targetsScene(annotation, scene, scenes)));
-
-  // activating annotations: selecting their target (a comment) activates
-  // their body's source - here, a camera: the comment's view.
-  const activatedCameras = new Map();
-  sceneComments.concat(painting)
-    .filter((annotation) => motivationsOf(annotation).includes("activating"))
-    .forEach((annotation) => {
-      const camera = asArray(annotation.body)
-        .map((body) => idOf(typeOf(body) === "SpecificResource" ? body.source : body))
-        .map((id) => camerasById.get(id))
-        .find(Boolean);
-      if (!camera) return;
-      asArray(annotation.target).map(idOf).filter(Boolean).forEach((id) => {
-        if (!activatedCameras.has(id)) activatedCameras.set(id, camera);
-      });
-    });
-
-  const comments = sceneComments
-    .filter((annotation) => motivationsOf(annotation).some((motivation) => COMMENT_MOTIVATIONS.has(motivation)))
-    .map((annotation) => {
-      const point = targetPoint(annotation);
-      if (!point) return null;
-      const { titles, descriptions } = readCommentText(annotation);
-      const target = asArray(annotation.target)[0];
-      const scopeCamera = cameraView(asArray(annotation.scope).map((ref) => camerasById.get(idOf(ref))).find(Boolean))
-        || cameraView(activatedCameras.get(annotation.id))
-        || readScopeCamera(target?.scope, all);
-      const polygon = polygonFromSelector(target?.selector);
-      return {
-        id: String(annotation.id || ""),
-        title: pickLanguage(titles),
-        description: pickLanguage(descriptions),
-        localized: localizedTexts(titles, descriptions),
-        point,
-        ...(polygon && polygon.length > 1 ? { polygon } : {}),
-        view: scopeCamera,
-        created: annotation.created || "",
-        modified: annotation.modified || "",
-        custom: annotation.AIM3DViewer || null,
-      };
-    })
-    .filter(Boolean);
-
-  // Cameras a viewer may offer: not hidden, not a Choice's alternative - the
-  // first is the scene's default view. `choices` are all the shown ones.
-  const choices = cameras.filter((camera) => !camera.hidden);
-  const defaultCamera = choices.find((camera) => !camera.alternative) || null;
-  return { cameras, cameraChoices: choices, defaultCamera, lights, comments };
-}
-
-// A scene camera as a stored annotation view.
-function cameraView(camera) {
-  if (!camera) return null;
-  const target = camera.lookAt
-    || camera.position.clone().addScaledVector(camera.direction, Math.max(camera.position.length(), 1));
-  const view = { position: camera.position.toArray(), target: target.toArray() };
-  if (Number.isFinite(camera.fieldOfView) && camera.fieldOfView > 0) view.fov = camera.fieldOfView;
-  return view;
-}
-
-// Older form: a camera painted inside a content-state `scope` on the target.
-function readScopeCamera(scope, sceneAnnotations) {
-  const scopeTarget = asArray(scope?.target)[0];
-  const annotations = annotationsOfPages(scopeTarget?.items);
-  for (const annotation of annotations) {
-    const { resource, wrapper } = resolveBody(annotation.body);
-    if (!CAMERA_TYPES.has(typeOf(resource))) continue;
-    const point = targetPoint(annotation);
-    if (!point) continue;
-    const { position, direction } = applyBodyTransforms(wrapper, new THREE.Vector3(0, 0, -1), point);
-    const target = resource.lookAt
-      ? resolveLookAt(resource.lookAt, sceneAnnotations)
-      : position.clone().addScaledVector(direction, Math.max(position.length(), 1));
-    const view = { position: position.toArray(), target: target.toArray() };
-    const fov = Number(resource.fieldOfView);
-    if (Number.isFinite(fov) && fov > 0) view.fov = fov;
-    return view;
-  }
-  return null;
-}
-
-// ---- applying --------------------------------------------------------------
-
-function removeImportedLights() {
-  restoreDefaultLights();
-  if (!importedLights) return;
-  importedLights.traverse((child) => child.dispose?.());
-  importedLights.removeFromParent();
-  importedLights = null;
-}
-
-// The viewer's own lights (hemisphere, ambient, key and camera light) light a
-// scene only when its manifest brings no lights. A manifest that does switches
-// them off - reusing the ambient and key light for its first ambient and
-// directional light - until the next model is loaded. With `hide` false they
-// are only remembered, for a manifest that sets them itself.
-function suspendDefaultLights({ hide = true } = {}) {
-  if (defaultLightState || !core.scene) return;
-  defaultLightState = [];
-  core.scene.children.forEach((light) => {
-    if (!light.isLight) return;
-    defaultLightState.push({
-      light,
-      visible: light.visible,
-      intensity: light.intensity,
-      color: light.color.clone(),
-      position: light.position.clone(),
-      target: light.target?.position?.clone?.() || null,
-    });
-    if (hide) light.visible = false;
-  });
-}
-
-function restoreDefaultLights() {
-  if (!defaultLightState) return;
-  defaultLightState.forEach(({ light, visible, intensity, color, position, target }) => {
-    light.visible = visible;
-    light.intensity = intensity;
-    light.color.copy(color);
-    light.position.copy(position);
-    if (target && light.target) {
-      light.target.position.copy(target);
-      light.target.updateMatrixWorld?.();
-    }
-  });
-  defaultLightState = null;
-}
-
-// Imported lights the viewer has no own light for live in one group, removed
-// again with the model (removeImportedLights).
-function addImportedLight(light) {
-  if (!core.scene) return light;
-  if (!importedLights) {
-    importedLights = new THREE.Group();
-    importedLights.name = "iiif-lights";
-    core.scene.add(importedLights);
-  }
-  if (light.target) importedLights.add(light.target);
-  importedLights.add(light);
-  return light;
-}
-
-// The imported lights, for exporting them again.
-function importedLightObjects() {
-  return importedLights ? importedLights.children.filter((child) => child.isLight) : [];
-}
-
-// ---- Canvases in a scene ----------------------------------------------------
-
-let importedCanvases = null;
-// Longest side, in pixels, of an image fetched from a IIIF Image service.
-const CANVAS_IMAGE_SIZE = 2048;
-
-function removeImportedCanvases() {
-  if (!importedCanvases) return;
-  importedCanvases.traverse((child) => {
-    child.geometry?.dispose?.();
-    child.material?.map?.dispose?.();
-    child.material?.dispose?.();
-  });
-  importedCanvases.removeFromParent();
-  importedCanvases = null;
-}
-
-// Where an image goes on its Canvas: the target's xywh fragment (in the URL
-// or a FragmentSelector), else the whole Canvas.
-function canvasRegion(target, width, height) {
-  const first = asArray(target)[0];
-  const fragment = typeof first === "string"
-    ? first.split("#")[1]
-    : asArray(first?.selector).find((selector) => typeOf(selector) === "FragmentSelector")?.value
-      || String(first?.id || "").split("#")[1];
-  const match = String(fragment || "").match(/xywh=(?:pixel:)?([\d.]+),([\d.]+),([\d.]+),([\d.]+)/);
-  if (!match) return { x: 0, y: 0, width, height };
-  const [x, y, w, h] = match.slice(1).map(Number);
-  return { x, y, width: w, height: h };
-}
-
-// The URL to fetch an Image body from: its IIIF Image service at a size a
-// texture can take, else the image itself.
-function canvasImageUrl(image) {
-  const service = asArray(image?.service)[0];
-  const base = String(service?.id || service?.["@id"] || "").replace(/\/$/, "");
-  if (base) {
-    const size = Math.min(CANVAS_IMAGE_SIZE, Number(image.width) || CANVAS_IMAGE_SIZE);
-    return `${base}/full/${Math.round(size)},/0/default.jpg`;
-  }
-  return idOf(image);
-}
-
-// Each Canvas painted into the scene as a flat panel: the target point is its
-// top-left corner, x to the right and y down the Canvas (scene -y), in Canvas
-// units (Scale/Rotate/TranslateTransform size and turn it). Its background
-// colour, then its images, each on its own region.
-function applyCanvases(canvasPlacements) {
-  removeImportedCanvases();
-  if (!canvasPlacements?.length || !core.scene) return 0;
-  importedCanvases = new THREE.Group();
-  importedCanvases.name = "iiif-canvases";
-  const loader = new THREE.TextureLoader();
-  loader.setCrossOrigin("anonymous");
-
-  const panel = (region, material, depth) => {
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(region.width, region.height), material);
-    mesh.position.set(region.x + region.width / 2, -(region.y + region.height / 2), depth);
-    return mesh;
-  };
-
-  canvasPlacements.forEach(({ canvas, matrix }) => {
-    const width = Number(canvas.width) || 1;
-    const height = Number(canvas.height) || 1;
-    const group = new THREE.Group();
-    group.name = `iiif-canvas:${canvas.id || ""}`;
-    group.matrixAutoUpdate = false;
-    group.matrix.copy(matrix);
-    // A hand-set matrix: three.js only recomputes matrixWorld from it when
-    // told to (updateWorldMatrix checks this flag), not just on a render.
-    group.matrixWorldNeedsUpdate = true;
-    if (canvas.backgroundColor) {
-      group.add(panel(
-        { x: 0, y: 0, width, height },
-        new THREE.MeshBasicMaterial({ color: colorFrom(canvas.backgroundColor), side: THREE.DoubleSide }),
-        0
-      ));
-    }
-    annotationsOfPages(canvas.items)
-      .filter((annotation) => motivationsOf(annotation).includes("painting"))
-      .forEach((annotation, index) => {
-        const { resource } = bodyResources(annotation.body)[0] || {};
-        if (typeOf(resource) !== "Image") return;
-        const url = canvasImageUrl(resource);
-        if (!url) return;
-        const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, transparent: true });
-        loader.load(url, (texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          material.map = texture;
-          material.needsUpdate = true;
-        }, undefined, (error) => console.warn("Could not load a Canvas image", url, error));
-        // Slightly in front of the background, later images above earlier.
-        group.add(panel(canvasRegion(annotation.target, width, height), material, 0.001 * (index + 1)));
-      });
-    importedCanvases.add(group);
-  });
-  core.scene.add(importedCanvases);
-  return canvasPlacements.length;
-}
-
-// ---- the models' own cameras and lights -------------------------------------
-
-// A model may bring its own cameras and lights (glTF). Unless its painting
-// annotation excludes them, they are used where the manifest has none: its
-// camera is the view, its lights replace the viewer's. Excluded lights are
-// switched off. `roots` are the models' roots, in the placements' order.
-function applyModelFeatures(modelPlacements, roots, content, viewer) {
-  let modelCamera = null;
-  let modelLights = false;
-  roots.forEach((root, index) => {
-    if (!root) return;
-    const exclude = modelPlacements?.[index]?.exclude || [];
-    root.traverse((object) => {
-      if (object.isLight) {
-        if (exclude.includes("lights")) object.visible = false;
-        else if (object.visible) modelLights = true;
-      } else if (object.isCamera && !modelCamera && !exclude.includes("cameras")) {
-        modelCamera = object;
-      }
-    });
-  });
-  if (modelLights && !content?.lights?.length) suspendDefaultLights();
-  if (modelCamera && !content?.defaultCamera) {
-    modelCamera.updateWorldMatrix(true, false);
-    const position = modelCamera.getWorldPosition(new THREE.Vector3());
-    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(modelCamera.getWorldQuaternion(new THREE.Quaternion()));
-    applyCamera({
-      type: modelCamera.isOrthographicCamera ? "OrthographicCamera" : "PerspectiveCamera",
-      position,
-      lookAt: null,
-      direction,
-      fieldOfView: modelCamera.fov,
-      near: modelCamera.near,
-      far: modelCamera.far,
-    }, viewer);
-    return true;
-  }
-  return false;
-}
-
-// Centre and radius of the loaded models (targets for direction-only lights).
-function sceneBounds() {
-  const box = new THREE.Box3();
-  (core.mainObject || []).flat().forEach((object) => {
-    if (object?.isObject3D) box.expandByObject(object);
-  });
-  if (box.isEmpty()) return { center: new THREE.Vector3(), radius: 1 };
-  const sphere = box.getBoundingSphere(new THREE.Sphere());
-  return { center: sphere.center, radius: sphere.radius || 1 };
-}
-
-// Where a light points, and where a directional light sits: an explicit
-// lookAt, or the light's direction through the middle of the scene.
-function lightAim(light) {
-  const bounds = sceneBounds();
-  if (light.lookAt) return { position: light.position, target: light.lookAt };
-  if (light.type === "DirectionalLight") {
-    return {
-      position: bounds.center.clone().addScaledVector(light.direction, -2 * bounds.radius),
-      target: bounds.center.clone(),
-    };
-  }
-  return { position: light.position, target: light.position.clone().addScaledVector(light.direction, bounds.radius) };
-}
-
-// Cancels the intro fly-in a model load starts, so it doesn't overwrite a
-// camera applied from a manifest.
-function stopCameraIntro() {
-  core.cameraTweenToken = (core.cameraTweenToken ?? 0) + 1;
-  core.cameraTween?.stop?.();
-  core.targetTween?.stop?.();
-  if (core.GESTURE?.active) window.Viewer?.stopGesture?.();
-  if (core.GESTURE) core.GESTURE.rotate = false;
-  if (core.handHint) core.handHint.hidden = true;
-}
-
-function applyCamera(camera, viewer) {
-  if (!camera || !core.camera || !core.controls) return false;
-  stopCameraIntro();
-  viewer?.setCameraProjection?.(camera.type === "OrthographicCamera" ? "orthographic" : "perspective");
-  core.camera.position.copy(camera.position);
-  // Without lookAt: along the camera's direction, as far as the model is.
-  const target = camera.lookAt || camera.position.clone().addScaledVector(
-    camera.direction,
-    Math.max(camera.position.distanceTo(sceneBounds().center), 1e-3)
-  );
-  core.controls.target.copy(target);
-  if (core.camera.isPerspectiveCamera && Number.isFinite(camera.fieldOfView) && camera.fieldOfView > 0) {
-    core.camera.fov = THREE.MathUtils.clamp(camera.fieldOfView, 1, 179);
-  }
-  if (Number.isFinite(camera.near) && camera.near > 0) core.camera.near = camera.near;
-  if (Number.isFinite(camera.far) && camera.far > core.camera.near) core.camera.far = camera.far;
-  if (core.camera.isOrthographicCamera && Number.isFinite(camera.viewHeight) && camera.viewHeight > 0) {
-    const frustumHeight = core.camera.top - core.camera.bottom;
-    if (frustumHeight > 0) core.camera.zoom = frustumHeight / camera.viewHeight;
-  }
-  core.camera.updateProjectionMatrix();
-  core.cameraLight?.position?.copy?.(core.camera.position);
-  // The camera may sit farther out than the model's fitted limit - update()
-  // would pull it in.
-  const distance = core.camera.position.distanceTo(core.controls.target);
-  if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
-  core.controls.update();
-  // "Reset camera" returns to the manifest's camera.
-  core.cameraCoords = core.camera.position.clone();
-  core.controlsTarget = core.controls.target.clone();
-  return true;
-}
-
-function applyLights(lights) {
-  removeImportedLights();
-  if (!lights.length || !core.scene) return 0;
-  suspendDefaultLights();
-  let usedAmbient = false;
-  let usedDirectional = false;
-  lights.forEach((light) => {
-    const intensity = light.intensity * (LIGHT_INTENSITY_SCALE[light.type] || 1);
-    if (light.type === "AmbientLight") {
-      if (core.ambientLight && !usedAmbient) {
-        usedAmbient = true;
-        core.ambientLight.visible = true;
-        core.ambientLight.color.copy(light.color);
-        core.ambientLight.intensity = intensity;
-      } else {
-        addImportedLight(new THREE.AmbientLight(light.color, intensity));
-      }
-      return;
-    }
-    if (light.type === "DirectionalLight" && !usedDirectional && core.dirLight) {
-      // The first directional light drives the viewer's own, which the light
-      // controls in the editor act on.
-      usedDirectional = true;
-      const aim = lightAim(light);
-      core.dirLight.visible = true;
-      core.dirLight.color.copy(light.color);
-      core.dirLight.intensity = intensity;
-      core.dirLight.position.copy(aim.position);
-      core.dirLight.target?.position?.copy?.(aim.target);
-      core.dirLight.target?.updateMatrixWorld?.();
-      return;
-    }
-    let object;
-    if (light.type === "DirectionalLight") {
-      object = new THREE.DirectionalLight(light.color, intensity);
-    } else if (light.type === "PointLight") {
-      object = new THREE.PointLight(light.color, intensity, 0, 0);
-    } else {
-      const angle = Number.isFinite(light.angle) && light.angle > 0 ? light.angle : 30;
-      object = new THREE.SpotLight(light.color, intensity, 0, THREE.MathUtils.degToRad(angle), 0.2, 0);
-    }
-    const aim = lightAim(light);
-    object.position.copy(aim.position);
-    object.target?.position.copy(aim.target);
-    object.name = `iiif-${light.type}`;
-    addImportedLight(object);
-  });
-  return lights.length;
-}
-
-// Comments -> viewer annotation entries anchored to a point of the model root.
-function commentsToAnnotationEntries(comments, root) {
-  if (!root) return [];
-  root.updateMatrixWorld(true);
-  const inverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
-  return comments.map((comment, index) => ({
-    id: comment.id || `anno-point-${index + 1}`,
-    point: comment.point.clone().applyMatrix4(inverse).toArray(),
-    ...(comment.polygon ? { polygon: comment.polygon.map((point) => point.clone().applyMatrix4(inverse).toArray()) } : {}),
-    title: comment.title,
-    description: comment.description,
-    ...(comment.localized ? { localized: comment.localized } : {}),
-    ...(comment.view ? { view: comment.view } : {}),
-    createdAt: comment.created ? String(comment.created) : "",
-    updatedAt: comment.modified ? String(comment.modified) : "",
-  }));
-}
-
-// ---- writing ---------------------------------------------------------------
-
-const round$1 = (value) => Math.round(value * 1e6) / 1e6;
-const pointSelector = (vector) => ({
-  type: "PointSelector",
-  x: round$1(vector.x),
-  y: round$1(vector.y),
-  z: round$1(vector.z),
-});
-
-function scenePointTarget(sceneId, vector) {
-  return {
-    type: "SpecificResource",
-    source: { id: sceneId, type: "Scene" },
-    selector: [pointSelector(vector)],
-  };
-}
-
-function buildCameraAnnotation(sceneId, id) {
-  const camera = core.camera;
-  const target = core.controls?.target || new THREE.Vector3();
-  const body = camera.isOrthographicCamera
-    ? {
-      type: "OrthographicCamera",
-      viewHeight: round$1((camera.top - camera.bottom) / (camera.zoom || 1)),
-      near: round$1(camera.near),
-      far: round$1(camera.far),
-      lookAt: pointSelector(target),
-    }
-    : {
-      type: "PerspectiveCamera",
-      fieldOfView: round$1(camera.fov),
-      near: round$1(camera.near),
-      far: round$1(camera.far),
-      lookAt: pointSelector(target),
-    };
-  return {
-    id,
-    type: "Annotation",
-    motivation: ["painting"],
-    body,
-    target: scenePointTarget(sceneId, camera.position),
-  };
-}
-
-function buildLightAnnotations(sceneId, baseId) {
-  const annotations = [];
-  const toHex = (color) => `#${color.getHexString()}`;
-  const intensityValue = (light, type) => ({
-    type: "Quantity",
-    quantityValue: round$1(light.intensity / (LIGHT_INTENSITY_SCALE[type] || 1)),
-    unit: "relative",
-  });
-  const lights = [];
-  core.scene?.traverse((object) => {
-    if (object.isLight && object.visible !== false) lights.push(object);
-  });
-  lights.forEach((light, index) => {
-    const type = light.isAmbientLight ? "AmbientLight"
-      : light.isDirectionalLight ? "DirectionalLight"
-        : light.isSpotLight ? "SpotLight"
-          : light.isPointLight ? "PointLight" : null;
-    if (!type) return;
-    const body = { type, color: toHex(light.color), intensity: intensityValue(light, type) };
-    if (light.target) body.lookAt = pointSelector(light.target.getWorldPosition(new THREE.Vector3()));
-    if (type === "SpotLight") body.angle = round$1(THREE.MathUtils.radToDeg(light.angle));
-    const position = light.getWorldPosition(new THREE.Vector3());
-    annotations.push({
-      id: `${baseId}/${index + 1}`,
-      type: "Annotation",
-      motivation: ["painting"],
-      body,
-      target: type === "AmbientLight" ? { id: sceneId, type: "Scene" } : scenePointTarget(sceneId, position),
-    });
-  });
-  return annotations;
-}
-
-// A model painted into the scene: SpecificResource with the root transform
-// (scale, then rotation in degrees, then translation).
-function buildModelAnnotation(sceneId, id, modelBody, root) {
-  const transform = [];
-  if (root) {
-    const { scale, position } = root;
-    // RotateTransform angles are a three.js "XYZ" Euler rotation.
-    const rotation = new THREE.Euler().setFromQuaternion(root.quaternion, "XYZ");
-    if (round$1(scale.x) !== 1 || round$1(scale.y) !== 1 || round$1(scale.z) !== 1) {
-      transform.push({ type: "ScaleTransform", x: round$1(scale.x), y: round$1(scale.y), z: round$1(scale.z) });
-    }
-    if (round$1(rotation.x) || round$1(rotation.y) || round$1(rotation.z)) {
-      transform.push({
-        type: "RotateTransform",
-        x: round$1(THREE.MathUtils.radToDeg(rotation.x)),
-        y: round$1(THREE.MathUtils.radToDeg(rotation.y)),
-        z: round$1(THREE.MathUtils.radToDeg(rotation.z)),
-      });
-    }
-    if (position.x || position.y || position.z) {
-      transform.push({ type: "TranslateTransform", x: round$1(position.x), y: round$1(position.y), z: round$1(position.z) });
-    }
-  }
-  return {
-    id,
-    type: "Annotation",
-    motivation: ["painting"],
-    body: transform.length
-      ? { type: "SpecificResource", source: modelBody, transform }
-      : modelBody,
-    target: { id: sceneId, type: "Scene" },
-  };
-}
-
-// A Canvas painted into the scene, placed as `matrix` places it: its size and
-// turn as Scale / RotateTransform, its top-left corner as the target point.
-function buildCanvasAnnotation(sceneId, id, canvas, matrix) {
-  const position = new THREE.Vector3();
-  const quaternion = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  matrix.decompose(position, quaternion, scale);
-  const rotation = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
-  const transform = [];
-  if (round$1(scale.x) !== 1 || round$1(scale.y) !== 1 || round$1(scale.z) !== 1) {
-    transform.push({ type: "ScaleTransform", x: round$1(scale.x), y: round$1(scale.y), z: round$1(scale.z) });
-  }
-  if (round$1(rotation.x) || round$1(rotation.y) || round$1(rotation.z)) {
-    transform.push({
-      type: "RotateTransform",
-      x: round$1(THREE.MathUtils.radToDeg(rotation.x)),
-      y: round$1(THREE.MathUtils.radToDeg(rotation.y)),
-      z: round$1(THREE.MathUtils.radToDeg(rotation.z)),
-    });
-  }
-  // By reference to a Canvas of the manifest; a Canvas without an id inline.
-  const source = canvas.id ? { id: canvas.id, type: "Canvas" } : structuredClone(canvas);
-  return {
-    id,
-    type: "Annotation",
-    motivation: ["painting"],
-    body: transform.length ? { type: "SpecificResource", source, transform } : source,
-    target: scenePointTarget(sceneId, position),
-  };
-}
-
-// A comment's target: a point of the scene - or, for a comment on a region,
-// the polygon (WktSelector), with its centre as the PointSelector.
-function buildCommentTarget(sceneId, worldPoint, worldPolygon = null) {
-  const target = scenePointTarget(sceneId, worldPoint);
-  if (worldPolygon?.length > 1) target.selector = [{ type: "WktSelector", value: wktPolygon(worldPolygon) }];
-  return target;
-}
-
-// A comment's saved view as a camera painted into the scene; the comment
-// refers to it from `scope: [{ id, type: "Annotation" }]`.
-function buildViewCameraAnnotation(sceneId, id, view) {
-  if (!view?.position || !view?.target) return null;
-  return {
-    id,
-    type: "Annotation",
-    motivation: ["painting"],
-    body: {
-      type: "PerspectiveCamera",
-      ...(Number.isFinite(view.fov) ? { fieldOfView: round$1(view.fov) } : {}),
-      lookAt: pointSelector(new THREE.Vector3().fromArray(view.target)),
-    },
-    target: scenePointTarget(sceneId, new THREE.Vector3().fromArray(view.position)),
-  };
-}
-
-// Model painting annotation? (Model body, or a SpecificResource around one.)
-// Other kinds of resource a Scene may be painted with.
-const NON_MODEL_TYPES = new Set(["Scene", "Canvas", "Image", "Video", "Sound", "Audio", "Text", "TextualBody", "Choice"]);
-
-function isModelBody(body) {
-  const { resource } = resolveBody(body);
-  const type = String(typeOf(resource) || "").toLowerCase();
-  return type === "model" || (!CAMERA_TYPES.has(typeOf(resource)) && !LIGHT_TYPES.has(typeOf(resource))
-    && !NON_MODEL_TYPES.has(typeOf(resource))
-    && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
-}
-
-function modelUrlOf(body) {
-  return resolveBody(body).resource?.id || null;
 }
 
 // What a manifest says about itself, and a Scene about itself - kept when a
@@ -26474,7 +26768,9 @@ function attachAnnotations(Viewer) {
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
           },
 
-          // The viewer's own lights plus the ones imported from a manifest.
+          // The viewer's own lights plus the ones imported from a manifest
+          // or added in the editor (scene-lights.js); not the raking light
+          // or the sun study, which are tools.
           lights: [...(core.scene?.children || []), ...importedLightObjects()]
             .filter((child) =>
               [
@@ -26484,9 +26780,13 @@ function attachAnnotations(Viewer) {
                 "AmbientLight",
                 "HemisphereLight"
               ].includes(child.type)
+              && !child.userData?.isRakingLight
+              && !child.userData?.isSunLight
             )
             .map((light) => ({
               type: light.type,
+
+              ...(light.userData?.label ? { name: String(light.userData.label) } : {}),
 
               position: light.position?.toArray?.() || [0, 0, 0],
 
@@ -26498,6 +26798,10 @@ function attachAnnotations(Viewer) {
               intensity: light.intensity,
 
               ...(light.visible === false ? { visible: false } : {}),
+
+              ...(light.isDirectionalLight || light.isPointLight || light.isSpotLight
+                ? { castShadow: light.castShadow === true }
+                : {}),
 
               ...(light.isHemisphereLight
                 ? { groundColor: `#${light.groundColor.getHexString()}` }
@@ -26989,6 +27293,12 @@ function attachAnnotations(Viewer) {
         }
         if (Number.isFinite(intensity)) target.intensity = intensity;
         target.visible = data.visible !== false;
+        // Left out (older manifests): the light keeps its own.
+        if (typeof data.castShadow === "boolean" && "castShadow" in target) target.castShadow = data.castShadow;
+        // The name the editor's list shows (scene-lights.js).
+        const name = typeof data.name === "string" ? data.name.trim() : "";
+        if (name) target.userData.label = name;
+        else delete target.userData.label;
         if (color) {
           try {
             target.color?.set?.(color);
@@ -27047,6 +27357,8 @@ function attachAnnotations(Viewer) {
       pointLights.forEach(addExtraLight);
       spotLights.forEach(addExtraLight);
 
+      // The lights' list, the active one's helper, shadow and angles (scene-lights.js).
+      this.refreshLights?.();
       this.updateLightsSubmenuState?.();
       return true;
     },
@@ -30842,7 +31154,7 @@ function toVector(value) {
   return null;
 }
 
-function round(value, digits = 4) {
+function round$1(value, digits = 4) {
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
 }
@@ -31529,11 +31841,11 @@ function attachPhotoOverlay(Viewer) {
       ui.fov.disabled = fovValue == null;
       if (fovValue != null) {
         ui.fov.value = String(fovValue);
-        ui.fovValue.textContent = `${round(fovValue, 1)}°`;
+        ui.fovValue.textContent = `${round$1(fovValue, 1)}°`;
       }
       const roll = item.view?.roll ?? 0;
       ui.roll.value = String(roll);
-      ui.rollValue.textContent = `${round(roll, 1)}°`;
+      ui.rollValue.textContent = `${round$1(roll, 1)}°`;
     },
 
     // ---- manifests ------------------------------------------------------------
@@ -31551,13 +31863,13 @@ function attachPhotoOverlay(Viewer) {
         ...(item.description ? { description: item.description } : {}),
         ...(item.source ? { source: item.source } : {}),
         ...(item.year != null ? { year: item.year } : {}),
-        ...(item.opacity != null ? { opacity: round(item.opacity, 2) } : {}),
+        ...(item.opacity != null ? { opacity: round$1(item.opacity, 2) } : {}),
         ...(item.view ? {
           view: {
-            position: item.view.position.toArray().map((value) => round(value)),
-            target: item.view.target.toArray().map((value) => round(value)),
-            ...(item.view.fov != null ? { fov: round(item.view.fov, 2) } : {}),
-            ...(item.view.roll ? { roll: round(item.view.roll, 2) } : {}),
+            position: item.view.position.toArray().map((value) => round$1(value)),
+            target: item.view.target.toArray().map((value) => round$1(value)),
+            ...(item.view.fov != null ? { fov: round$1(item.view.fov, 2) } : {}),
+            ...(item.view.roll ? { roll: round$1(item.view.roll, 2) } : {}),
           },
         } : {}),
       }));
@@ -38934,6 +39246,684 @@ function applyOverlayOpacity(material, opacity) {
   material.transparent = transparent;
   material.opacity = opacity;
   material.depthWrite = !transparent;
+}
+
+// The lights window (the Lights tool): the scene's lights listed -
+// the key light and the ones added here or brought by a manifest - one of
+// them chosen and edited (scene-lights.js: where it is, where it aims, its
+// colour and strength), lights added and removed, and the ambient light.
+// Like the other tool panels it can be moved and minimized to an icon.
+// While it is open the chosen light shows its helper and every light its
+// icon (light-markers.js); closing it puts them and the handles away.
+// With Gaussian splats in the scene, it also turns their lighting by these
+// lights on and off (splat-lighting.js).
+
+// The chosen light's own fields (Viewer.activeLightSettings); `spot`: only
+// for a spot light.
+const LIGHT_FIELDS = [
+  { key: "enabled", type: "toggle", label: ["gui.lightEnabled", "On"] },
+  { key: "color", type: "color", label: ["gui.color", "Color"] },
+  { key: "intensity", type: "range", min: 0, max: 10, step: 0.01, label: ["gui.intensity", "Intensity"], format: (value) => value.toFixed(2) },
+  { key: "castShadow", type: "toggle", label: ["gui.lightCastShadow", "Shadows"] },
+  { key: "angle", type: "range", min: 1, max: 90, step: 1, spot: true, label: ["gui.lightConeAngle", "Cone angle"], format: (value) => `${Math.round(value)}°` },
+  { key: "penumbra", type: "range", min: 0, max: 1, step: 0.01, spot: true, label: ["gui.lightPenumbra", "Soft edge"], format: (value) => value.toFixed(2) },
+];
+
+// Round its target (Viewer.lightAngles).
+const ANGLE_FIELDS = [
+  { key: "direction", min: 0, max: 359, label: ["gui.lightDirection", "Direction"] },
+  { key: "height", min: -89, max: 89, label: ["gui.lightHeight", "Height"] },
+];
+
+const TYPE_ADD_LABELS = {
+  DirectionalLight: ["gui.lightTypeDirectional", "Directional light"],
+  PointLight: ["gui.lightTypePoint", "Point light"],
+  SpotLight: ["gui.lightTypeSpot", "Spot light"],
+};
+
+const label = ([key, fallback]) => t$1(key, fallback);
+const round = (value) => Math.round(value * 1000) / 1000;
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+function button(className, onClick) {
+  const node = el("button", className);
+  node.type = "button";
+  node.addEventListener("click", onClick);
+  return node;
+}
+
+// A row: name, input, value shown beside it.
+function fieldRow(type, { min, max, step } = {}) {
+  const row = el("label", "viewer-lights_field");
+  const name = el("span", "viewer-lights_field-name");
+  const input = el("input");
+  if (type === "range") {
+    input.type = "range";
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step ?? 1);
+  } else if (type === "toggle") {
+    input.type = "checkbox";
+  } else {
+    input.type = "color";
+  }
+  const value = el("span", "viewer-lights_field-value");
+  row.append(name, input, value);
+  return { row, name, input, value };
+}
+
+// x, y, z number fields of a vector of the chosen light.
+function vectorRow(onChange) {
+  const row = el("div", "viewer-lights_vector");
+  const name = el("span", "viewer-lights_field-name");
+  row.append(name);
+  const inputs = ["x", "y", "z"].map((axis) => {
+    const input = el("input", "viewer-lights_number");
+    input.type = "number";
+    input.step = "any";
+    input.dataset.axis = axis;
+    input.setAttribute("aria-label", axis.toUpperCase());
+    input.addEventListener("change", () => {
+      const values = inputs.map((item) => Number(item.value));
+      if (values.every(Number.isFinite)) onChange(values);
+    });
+    row.append(input);
+    return input;
+  });
+  return { row, name, inputs };
+}
+
+function hasSplats() {
+  let found = false;
+  core.scene?.traverse((object) => {
+    found ||= object.userData?.isGaussianSplats === true;
+  });
+  return found;
+}
+
+function setIfIdle(input, value) {
+  if (document.activeElement === input) return;
+  if (input.type === "checkbox") input.checked = Boolean(value);
+  else if (input.value !== String(value)) input.value = String(value);
+}
+
+function attachLightsPanel(Viewer) {
+  Object.assign(Viewer, {
+    lightsPanel: null,
+
+    isLightsPanelOpen() {
+      return Boolean(Viewer.lightsPanel);
+    },
+
+    toggleLightsPanel(open = !Viewer.lightsPanel) {
+      if (open) Viewer.createLightsPanel();
+      else Viewer.removeLightsPanel();
+      Viewer.updateLightsSubmenuState?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    createLightsPanel() {
+      if (Viewer.lightsPanel || !core.container || Viewer.urlOptions?.hideUi === true) return;
+      const panel = el("section", "viewer-lights viewer-scene");
+      panel.id = "viewerLights";
+      panel.setAttribute("role", "group");
+      const header = el("div", "viewer-scene_header");
+      const title = el("span", "viewer-scene_title");
+      const closeButton = button("viewer-scene_icon", () => Viewer.toggleLightsPanel(false));
+      closeButton.textContent = "×";
+      header.append(title, closeButton);
+
+      const list = el("ul", "viewer-lights_list");
+      list.setAttribute("role", "listbox");
+
+      const addBar = el("div", "viewer-lights_add");
+      const addTitle = el("span", "viewer-lights_add-title");
+      addBar.append(addTitle);
+      const addButtons = {};
+      ADDABLE_LIGHT_TYPES.forEach((type) => {
+        const addButton = button("viewer-lights_add-button", () => Viewer.addLight(type));
+        addButton.dataset.type = type;
+        addBar.append(addButton);
+        addButtons[type] = addButton;
+      });
+
+      // The chosen light.
+      const current = el("div", "viewer-lights_current");
+      const nameInput = el("input", "viewer-lights_name");
+      nameInput.type = "text";
+      nameInput.addEventListener("input", () => {
+        Viewer.activeLightSettings.name = nameInput.value;
+      });
+      const removeButton = button("viewer-lights_remove", () => Viewer.removeActiveLight());
+      current.append(nameInput, removeButton);
+
+      const placementTitle = el("div", "viewer-lights_heading");
+      const handles = el("div", "viewer-lights_handles");
+      const handlesName = el("span", "viewer-lights_field-name");
+      const moveButton = button("viewer-lights_handle", () => Viewer.toggleLightTransformMode("translate"));
+      const targetButton = button("viewer-lights_handle", () => Viewer.toggleLightTransformMode("rotate"));
+      handles.append(handlesName, moveButton, targetButton);
+      const angleInputs = {};
+      const angleRows = ANGLE_FIELDS.map((field) => {
+        const row = fieldRow("range", field);
+        row.input.addEventListener("input", () => Viewer.setLightAngles({ [field.key]: Number(row.input.value) }));
+        angleInputs[field.key] = { ...row, field };
+        return row.row;
+      });
+      const position = vectorRow((values) => {
+        Viewer.getActiveLight()?.position.fromArray(values);
+        Viewer.syncActiveLight();
+      });
+      const target = vectorRow((values) => {
+        Viewer.getActiveLight()?.target?.position.fromArray(values);
+        Viewer.syncActiveLight();
+      });
+      const fitButton = button("viewer-lights_fit", () => Viewer.resetActiveLight());
+
+      const settingsTitle = el("div", "viewer-lights_heading");
+      const fields = el("div", "viewer-lights_fields");
+      const fieldInputs = {};
+      LIGHT_FIELDS.forEach((field) => {
+        const row = fieldRow(field.type, field);
+        const read = () => (field.type === "toggle" ? row.input.checked : field.type === "range" ? Number(row.input.value) : row.input.value);
+        row.input.addEventListener("input", () => {
+          Viewer.activeLightSettings[field.key] = read();
+          Viewer.syncLightsPanelFields();
+          Viewer.syncLightsList();
+        });
+        fields.append(row.row);
+        fieldInputs[field.key] = { ...row, field };
+      });
+
+      // The ambient light: the viewer's own, everywhere at once.
+      const ambientTitle = el("div", "viewer-lights_heading");
+      const ambientColor = fieldRow("color");
+      ambientColor.input.addEventListener("input", () => {
+        Viewer.colors.AmbientLight = ambientColor.input.value;
+        Viewer.ambientLight?.color.set(ambientColor.input.value);
+      });
+      const ambientIntensity = fieldRow("range", { min: 0, max: 10, step: 0.01 });
+      ambientIntensity.input.addEventListener("input", () => {
+        const value = Number(ambientIntensity.input.value);
+        Viewer.intensity.startIntensityAmbient = value;
+        if (Viewer.ambientLight) Viewer.ambientLight.intensity = value;
+        ambientIntensity.value.textContent = value.toFixed(2);
+      });
+
+      // Gaussian splats: lit by these lights or as captured.
+      const splatsTitle = el("div", "viewer-lights_heading");
+      const splatsEnabled = fieldRow("toggle");
+      splatsEnabled.input.addEventListener("input", () => {
+        core.splatLighting.enabled = splatsEnabled.input.checked;
+        Viewer.syncLightsPanelFields();
+      });
+      const splatsStrength = fieldRow("range", { min: 0, max: 1, step: 0.01 });
+      splatsStrength.input.addEventListener("input", () => {
+        core.splatLighting.strength = Number(splatsStrength.input.value);
+        Viewer.syncLightsPanelFields();
+      });
+
+      const note = el("p", "viewer-scene_status");
+
+      panel.append(
+        header, list, addBar, current,
+        placementTitle, handles, ...angleRows, position.row, target.row, fitButton,
+        settingsTitle, fields,
+        ambientTitle, ambientColor.row, ambientIntensity.row,
+        splatsTitle, splatsEnabled.row, splatsStrength.row,
+        note,
+      );
+      ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
+        panel.addEventListener(type, (event) => event.stopPropagation());
+      });
+      attachToolPanelChrome(panel, header, {
+        before: closeButton,
+        icon: PANEL_ICONS.light,
+        label: () => t$1("gui.sceneLights", "Scene lights"),
+      });
+      getViewerSideStack()?.append(panel);
+      fitPanelToViewer(panel);
+      Viewer.lightsPanel = {
+        panel, title, closeButton, list, addTitle, addButtons, nameInput, removeButton,
+        placementTitle, handlesName, moveButton, targetButton, angleInputs, position, target, fitButton,
+        settingsTitle, fieldInputs, ambientTitle, ambientColor, ambientIntensity,
+        splatsTitle, splatsEnabled, splatsStrength, note,
+      };
+      Viewer.updateLightsPanelLabels();
+      // The chosen light's helper while the window is open.
+      Viewer.attachLightTransform?.(Viewer.transformText["Transform Light"]);
+    },
+
+    removeLightsPanel() {
+      const ui = Viewer.lightsPanel;
+      if (!ui) return;
+      ui.panel.remove();
+      Viewer.lightsPanel = null;
+      // The handles and the helper go with the window.
+      Viewer.setLightTransformMode?.("");
+    },
+
+    updateLightsPanelLabels() {
+      const ui = Viewer.lightsPanel;
+      if (!ui) return;
+      const name = t$1("gui.sceneLights", "Scene lights");
+      ui.panel.setAttribute("aria-label", name);
+      ui.title.textContent = name;
+      refreshToolPanelChrome(ui.panel);
+      ui.closeButton.title = t$1("scene.close", "Close");
+      ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
+      ui.list.setAttribute("aria-label", name);
+      ui.addTitle.textContent = t$1("gui.addLight", "Add light");
+      Object.entries(ui.addButtons).forEach(([type, addButton]) => {
+        addButton.textContent = `+ ${label(TYPE_ADD_LABELS[type])}`;
+      });
+      ui.nameInput.setAttribute("aria-label", t$1("gui.lightName", "Name"));
+      ui.removeButton.textContent = t$1("gui.removeLight", "Remove light");
+      ui.placementTitle.textContent = t$1("gui.lightPlacement", "Placement");
+      ui.handlesName.textContent = t$1("gui.lightHandles", "Handles");
+      ui.moveButton.textContent = t$1("gui.move", "Move");
+      ui.targetButton.textContent = t$1("gui.target", "Target");
+      Object.values(ui.angleInputs).forEach(({ name: fieldName, field }) => {
+        fieldName.textContent = label(field.label);
+      });
+      ui.position.name.textContent = t$1("gui.position", "Position");
+      ui.target.name.textContent = t$1("gui.target", "Target");
+      ui.fitButton.textContent = t$1("gui.lightReset", "Fit to the model");
+      ui.settingsTitle.textContent = t$1("gui.light", "Light");
+      Object.values(ui.fieldInputs).forEach(({ name: fieldName, field }) => {
+        fieldName.textContent = label(field.label);
+      });
+      ui.ambientTitle.textContent = t$1("gui.ambientLight", "Ambient Light");
+      ui.ambientColor.name.textContent = t$1("gui.color", "Color");
+      ui.ambientIntensity.name.textContent = t$1("gui.intensity", "Intensity");
+      ui.splatsTitle.textContent = t$1("gui.splatLighting", "Gaussian splats");
+      ui.splatsEnabled.name.textContent = t$1("gui.splatLightingEnabled", "Lit by the lights");
+      ui.splatsStrength.name.textContent = t$1("gui.splatLightingStrength", "Strength");
+      ui.note.textContent = t$1("gui.lightsNote", "The added lights are saved in the exported manifest.");
+      Viewer.syncLightsPanel();
+    },
+
+    // Everything: the list and the chosen light's fields.
+    syncLightsPanel() {
+      if (!Viewer.lightsPanel) return;
+      Viewer.syncLightsList();
+      Viewer.syncLightsPanelFields();
+    },
+
+    syncLightsList() {
+      const ui = Viewer.lightsPanel;
+      if (!ui) return;
+      const active = Viewer.getActiveLight();
+      ui.list.replaceChildren(...Viewer.getEditableLights().map((light) => {
+        const item = el("li", "viewer-lights_item");
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", String(light === active));
+        item.classList.toggle("is-selected", light === active);
+        item.classList.toggle("is-off", light.visible === false);
+        item.tabIndex = 0;
+        const swatch = el("span", "viewer-lights_swatch");
+        swatch.style.background = `#${light.color.getHexString()}`;
+        const text = el("span", "viewer-lights_item-name", Viewer.getLightLabel(light));
+        const kind = el("span", "viewer-lights_item-meta", label(TYPE_ADD_LABELS[light.type] || [light.type, light.type]));
+        item.append(swatch, text, kind);
+        const choose = () => Viewer.setActiveLight(light);
+        item.addEventListener("click", choose);
+        item.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            choose();
+          }
+        });
+        return item;
+      }));
+    },
+
+    // The chosen light's fields; while dragged by its handles, every change.
+    syncLightsPanelFields() {
+      const ui = Viewer.lightsPanel;
+      const light = Viewer.getActiveLight();
+      if (!ui || !light) return;
+      const settings = Viewer.activeLightSettings;
+      setIfIdle(ui.nameInput, settings.name);
+      ui.nameInput.placeholder = Viewer.getLightLabel(light, { named: false });
+      ui.removeButton.disabled = light === core.dirLight;
+      ui.removeButton.title = light === core.dirLight
+        ? t$1("gui.keyLightStays", "The key light stays: switch it off instead")
+        : "";
+      const mode = Viewer.transformText["Transform Light"];
+      ui.moveButton.classList.toggle("is-active", mode === "translate");
+      ui.targetButton.classList.toggle("is-active", mode === "rotate");
+      ui.targetButton.disabled = !light.target;
+      Object.values(ui.angleInputs).forEach(({ input, value, field }) => {
+        const angle = Viewer.lightAngles[field.key];
+        setIfIdle(input, angle);
+        value.textContent = `${angle}°`;
+      });
+      ui.position.inputs.forEach((input) => setIfIdle(input, round(light.position[input.dataset.axis])));
+      ui.target.row.hidden = !light.target;
+      if (light.target) ui.target.inputs.forEach((input) => setIfIdle(input, round(light.target.position[input.dataset.axis])));
+      Object.values(ui.fieldInputs).forEach(({ row, input, value, field }) => {
+        row.hidden = field.spot === true && !light.isSpotLight;
+        if (row.hidden) return;
+        const current = settings[field.key];
+        setIfIdle(input, current);
+        value.textContent = field.format ? field.format(Number(current)) : "";
+      });
+      const ambient = Viewer.ambientLight;
+      if (ambient) {
+        setIfIdle(ui.ambientColor.input, `#${ambient.color.getHexString()}`);
+        setIfIdle(ui.ambientIntensity.input, ambient.intensity);
+        ui.ambientIntensity.value.textContent = ambient.intensity.toFixed(2);
+      }
+      const splats = hasSplats();
+      [ui.splatsTitle, ui.splatsEnabled.row, ui.splatsStrength.row].forEach((node) => {
+        node.hidden = !splats;
+      });
+      setIfIdle(ui.splatsEnabled.input, core.splatLighting.enabled);
+      setIfIdle(ui.splatsStrength.input, core.splatLighting.strength);
+      ui.splatsStrength.value.textContent = core.splatLighting.strength.toFixed(2);
+      ui.splatsStrength.input.disabled = !core.splatLighting.enabled;
+    },
+  });
+}
+
+// Where each light is, as in Blender's viewport: while the lights window
+// (lights-panel.js) is open, every light the editor moves gets a small icon
+// at its place - a sun for a directional light, a bulb for a point light, a
+// bulb with a cone for a spot light - in its own colour, the chosen one
+// ringed in gold, a switched-off one faded, and a dashed line to where a
+// directional or spot light aims - for a spot light, its cone. The icons
+// keep their size on screen and
+// show through the model. A click on one chooses that light; on the chosen
+// one the click goes to its handles (TransformControls) underneath.
+
+// The icon's size on screen, in CSS pixels.
+const MARKER_PX = 44;
+const TEXTURE_PX = 128;
+const GOLD = "#e9b264";
+const ORDER = 999;
+
+const textures = new Map();
+const projected = new THREE.Vector3();
+const worldPosition = new THREE.Vector3();
+const targetPosition = new THREE.Vector3();
+const axis = new THREE.Vector3();
+const side = new THREE.Vector3();
+const up = new THREE.Vector3();
+// Segments of a spot light's cone: its rim, and four lines from the bulb.
+const CONE_SEGMENTS = 32;
+const CONE_SIDES = 4;
+
+// The icon of a light, drawn once per look and kept.
+function markerTexture(type, color, selected, on) {
+  const key = `${type}|${color}|${selected}|${on}`;
+  if (textures.has(key)) return textures.get(key);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = TEXTURE_PX;
+  const ctx = canvas.getContext("2d");
+  const c = TEXTURE_PX / 2;
+  const r = TEXTURE_PX * 0.2;
+  ctx.globalAlpha = on ? 1 : 0.45;
+  ctx.lineCap = "round";
+  const ring = selected ? GOLD : "#ffffff";
+  // Strokes twice: a dark halo, then light, readable on any background.
+  const stroke = (path, width) => {
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.lineWidth = width + 5;
+    path();
+    ctx.stroke();
+    ctx.strokeStyle = ring;
+    ctx.lineWidth = width;
+    path();
+    ctx.stroke();
+  };
+  if (type === "DirectionalLight") {
+    // Sun: rays round the disc.
+    stroke(() => {
+      ctx.beginPath();
+      for (let i = 0; i < 8; i += 1) {
+        const angle = (i / 8) * Math.PI * 2;
+        ctx.moveTo(c + Math.cos(angle) * (r + 9), c + Math.sin(angle) * (r + 9));
+        ctx.lineTo(c + Math.cos(angle) * (r + 22), c + Math.sin(angle) * (r + 22));
+      }
+    }, 6);
+  } else if (type === "SpotLight") {
+    // Spot: a cone opening below the bulb.
+    stroke(() => {
+      ctx.beginPath();
+      ctx.moveTo(c - r * 0.7, c + r * 0.7);
+      ctx.lineTo(c - r - 16, c + r + 24);
+      ctx.moveTo(c + r * 0.7, c + r * 0.7);
+      ctx.lineTo(c + r + 16, c + r + 24);
+    }, 6);
+  }
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  stroke(() => {
+    ctx.beginPath();
+    ctx.arc(c, c, r, 0, Math.PI * 2);
+  }, selected ? 8 : 6);
+  if (type === "PointLight") {
+    // Point: a dot in the bulb, as Blender's.
+    ctx.beginPath();
+    ctx.arc(c, c, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = ring;
+    ctx.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  textures.set(key, texture);
+  return texture;
+}
+
+function makeMarker() {
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    depthTest: false,
+    depthWrite: false,
+    transparent: true,
+  }));
+  sprite.renderOrder = ORDER;
+  // Chosen by a click on the screen (pickLightMarker), never by the
+  // scene's raycasts (picking, measuring).
+  sprite.raycast = () => {};
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+    new THREE.LineDashedMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false, depthWrite: false }),
+  );
+  line.renderOrder = ORDER;
+  line.raycast = () => {};
+  line.frustumCulled = false;
+  const cone = new THREE.LineSegments(
+    new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array((CONE_SEGMENTS + CONE_SIDES) * 2 * 3), 3)),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, depthTest: false, depthWrite: false }),
+  );
+  cone.renderOrder = ORDER;
+  cone.raycast = () => {};
+  cone.frustumCulled = false;
+  return { sprite, line, cone };
+}
+
+// A spot light's cone, from the bulb to the plane of its target.
+function placeCone(cone, light, from, to) {
+  axis.subVectors(to, from);
+  const length = axis.length();
+  if (length < 1e-9) return;
+  axis.divideScalar(length);
+  const rim = Math.tan(Math.min(light.angle, Math.PI / 2 - 0.01)) * length;
+  side.set(0, 1, 0);
+  if (Math.abs(axis.dot(side)) > 0.99) side.set(1, 0, 0);
+  up.crossVectors(axis, side).normalize();
+  side.crossVectors(up, axis).normalize();
+  const positions = cone.geometry.attributes.position;
+  const point = (angle, target) => target.copy(to)
+    .addScaledVector(side, Math.cos(angle) * rim)
+    .addScaledVector(up, Math.sin(angle) * rim);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  let index = 0;
+  for (let i = 0; i < CONE_SEGMENTS; i += 1) {
+    point((i / CONE_SEGMENTS) * Math.PI * 2, a);
+    point(((i + 1) / CONE_SEGMENTS) * Math.PI * 2, b);
+    positions.setXYZ(index++, a.x, a.y, a.z);
+    positions.setXYZ(index++, b.x, b.y, b.z);
+  }
+  for (let i = 0; i < CONE_SIDES; i += 1) {
+    point((i / CONE_SIDES) * Math.PI * 2, a);
+    positions.setXYZ(index++, from.x, from.y, from.z);
+    positions.setXYZ(index++, a.x, a.y, a.z);
+  }
+  positions.needsUpdate = true;
+}
+
+// World units one CSS pixel covers at `position`, for the camera.
+function worldPerPixel(camera, position, viewportHeight) {
+  if (camera.isOrthographicCamera) return (camera.top - camera.bottom) / camera.zoom / viewportHeight;
+  const distance = camera.position.distanceTo(position);
+  return (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * distance) / (camera.zoom || 1) / viewportHeight;
+}
+
+function attachLightMarkers(Viewer) {
+  const markers = new Map();
+  let group = null;
+  let bound = false;
+  let pressed = null;
+
+  const remove = (light) => {
+    const marker = markers.get(light);
+    if (!marker) return;
+    marker.sprite.removeFromParent();
+    marker.sprite.material.dispose();
+    [marker.line, marker.cone].forEach((line) => {
+      line.removeFromParent();
+      line.geometry.dispose();
+      line.material.dispose();
+    });
+    markers.delete(light);
+  };
+
+  // The light whose icon is under the pointer, if any.
+  const lightAt = (event) => {
+    const canvas = core.renderer?.domElement;
+    const camera = core.camera;
+    if (!group?.visible || !canvas || !camera) return null;
+    const rect = canvas.getBoundingClientRect();
+    let best = null;
+    let bestDistance = MARKER_PX * 0.6;
+    markers.forEach((marker, light) => {
+      projected.copy(marker.sprite.position).project(camera);
+      if (projected.z > 1) return;
+      const x = rect.left + ((projected.x + 1) / 2) * rect.width;
+      const y = rect.top + ((1 - projected.y) / 2) * rect.height;
+      const distance = Math.hypot(event.clientX - x, event.clientY - y);
+      if (distance < bestDistance) {
+        best = light;
+        bestDistance = distance;
+      }
+    });
+    return best;
+  };
+
+  // Before the camera controls, the handles and picking (capture, on the
+  // canvas): a click on another light's icon chooses it and goes no further.
+  const bindPicking = () => {
+    const canvas = core.renderer?.domElement;
+    if (bound || !canvas) return;
+    bound = true;
+    Viewer.bindEventListener(canvas, "pointerdown", (event) => {
+      pressed = null;
+      if (!event.isPrimary || event.button !== 0) return;
+      const light = lightAt(event);
+      if (!light || light === Viewer.getActiveLight()) return;
+      pressed = { light, x: event.clientX, y: event.clientY };
+      event.stopImmediatePropagation();
+      event.preventDefault();
+    }, { capture: true });
+    Viewer.bindEventListener(canvas, "pointerup", (event) => {
+      const press = pressed;
+      pressed = null;
+      if (!press) return;
+      event.stopImmediatePropagation();
+      if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > 8) return;
+      Viewer.setActiveLight(press.light);
+    }, { capture: true });
+  };
+
+  Object.assign(Viewer, {
+    // Every frame (main.js animate): the icons where the lights are.
+    updateLightMarkers() {
+      if (!core.scene || !core.camera) return;
+      const visible = Viewer.isLightsPanelOpen?.() === true;
+      if (!visible) {
+        if (group) group.visible = false;
+        return;
+      }
+      if (!group) {
+        group = new THREE.Group();
+        group.name = "light-markers";
+        group.userData.isEditorHelper = true;
+      }
+      if (group.parent !== core.scene) core.scene.add(group);
+      group.visible = true;
+      bindPicking();
+
+      const lights = Viewer.getEditableLights();
+      [...markers.keys()].forEach((light) => {
+        if (!lights.includes(light)) remove(light);
+      });
+      const active = Viewer.getActiveLight();
+      const height = core.renderer?.domElement?.clientHeight || 1;
+      const radius = core.lightBounds?.radius ?? 1;
+      lights.forEach((light) => {
+        let marker = markers.get(light);
+        if (!marker) {
+          marker = makeMarker();
+          markers.set(light, marker);
+          group.add(marker.sprite, marker.line, marker.cone);
+        }
+        light.updateWorldMatrix(true, false);
+        light.getWorldPosition(worldPosition);
+        const selected = light === active;
+        const on = light.visible !== false;
+        const map = markerTexture(light.type, `#${light.color.getHexString()}`, selected, on);
+        if (marker.sprite.material.map !== map) {
+          marker.sprite.material.map = map;
+          marker.sprite.material.needsUpdate = true;
+        }
+        marker.sprite.position.copy(worldPosition);
+        const size = MARKER_PX * worldPerPixel(core.camera, worldPosition, height);
+        marker.sprite.scale.set(size, size, 1);
+
+        // To where it aims.
+        marker.line.visible = Boolean(light.target);
+        if (light.target) {
+          light.target.getWorldPosition(targetPosition);
+          const positions = marker.line.geometry.attributes.position;
+          positions.setXYZ(0, worldPosition.x, worldPosition.y, worldPosition.z);
+          positions.setXYZ(1, targetPosition.x, targetPosition.y, targetPosition.z);
+          positions.needsUpdate = true;
+          marker.line.computeLineDistances();
+          marker.line.material.color.set(selected ? GOLD : 0xffffff);
+          marker.line.material.opacity = on ? 0.8 : 0.35;
+          marker.line.material.dashSize = radius * 0.06;
+          marker.line.material.gapSize = radius * 0.04;
+        }
+        marker.cone.visible = Boolean(light.isSpotLight && light.target);
+        if (marker.cone.visible) {
+          placeCone(marker.cone, light, worldPosition, targetPosition);
+          marker.cone.material.color.set(selected ? GOLD : 0xffffff);
+          marker.cone.material.opacity = on ? 0.7 : 0.3;
+        }
+      });
+    },
+  });
 }
 
 // Axes gizmo in a corner of the canvas. Clicking an axis turns the camera to
@@ -51212,8 +52202,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "5a838ee9" ;
-const BUILD_TIME = "2026-10-29T09:48:26.501Z" ;
+const BUILD_ID = "2088c548" ;
+const BUILD_TIME = "2026-10-29T15:51:16.583Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -51566,6 +52556,11 @@ const Viewer$1 = {
           return core.camera;
         },
 
+        // The model's sphere the lights are placed round (editor/scene-lights.js).
+        get lightBounds() {
+          return core.lightBounds;
+        },
+
         get scene() {
           return core.scene;
         },
@@ -51820,6 +52815,10 @@ const Viewer$1 = {
       core.controls.object = core.camera;
       core.controls.update();
     }
+    // The handles pick with the camera they were given: the new one.
+    [core.transformControl, core.transformControlLight, core.transformControlLightTarget].forEach((control) => {
+      if (control) control.camera = core.camera;
+    });
 
     this.updateCamera();
     this.updateFullscreenButtonIcon();
@@ -51993,12 +52992,13 @@ const Viewer$1 = {
 
   setLightTransformMode(mode = "") {
     const normalizedMode = ["translate", "rotate"].includes(mode) ? mode : "";
-
-    if (core.i18nGui.transformLightController?.setValue) {
-      core.i18nGui.transformLightController.setValue(normalizedMode);
-    } else {
-      this.transformText["Transform Light"] = normalizedMode;
-    }
+    this.attachLightTransform(normalizedMode);
+    const hints = {
+      translate: t$1("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
+      rotate: t$1("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
+    };
+    const hint = hints[this.transformText["Transform Light"]];
+    if (hint) showToast(hint, { duration: 5200 });
     this.updateEditorToolbarState();
   },
 
@@ -52007,12 +53007,9 @@ const Viewer$1 = {
     this.setLightTransformMode(nextMode);
   },
 
-  openLightFolder(name) {
-    this.setEditorAdvancedPanelVisible(true);
-    const folder = core.i18nGui?.[name];
-    if (folder?.open) {
-      folder.open();
-    }
+  // The lights are in their own window now (editor/lights-panel.js).
+  openLightFolder() {
+    this.toggleLightsPanel(true);
   },
 
   togglePickingMode() {
@@ -52825,6 +53822,7 @@ const Viewer$1 = {
     core.transformControlLightTarget?.detach?.();
     Viewer$1.transformText["Transform 3D Object"] = "";
     Viewer$1.transformText["Transform Light"] = "";
+    if (core.lightHelper) core.lightHelper.visible = false;
     Viewer$1.pickingMode = false;
     Viewer$1.RULER_MODE = false;
     // Section planes stay as they are; refreshClippingForModel() fits them
@@ -53711,6 +54709,8 @@ const Viewer$1 = {
       '--hand-x',
       `${s * core.GESTURE.handPx}px`
     );
+    // light over dark, dark over light
+    updateHandHintContrast(time);
 
     // camera - orbit
     const sph = g.baseAngle.clone();
@@ -53828,6 +54828,7 @@ const Viewer$1 = {
     Viewer$1.updateTour(time);
     Viewer$1.updatePhotoOverlay(time);
     Viewer$1.updateRakingLight(delta);
+    Viewer$1.updateLightMarkers();
     Viewer$1.updateSunStudy(delta);
     Viewer$1.updateWeather(delta);
     Viewer$1.updateTimeline(delta);
@@ -53988,8 +54989,9 @@ const Viewer$1 = {
     Viewer$1.refreshClippingForModel();
   },
 
+  // The light or its target dragged by its handles.
   changeLightRotation() {
-    core.lightHelper.update();
+    Viewer$1.syncActiveLight();
   },
 
   takeScreenshot() {
@@ -54234,18 +55236,6 @@ const Viewer$1 = {
         });
     };
 
-    const showTransformLightHintToast = (mode) => {
-      const hints = {
-        translate: t$1("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
-        rotate: t$1("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
-      };
-      const message = hints[mode];
-      if (!message) return;
-        showToast(message, {
-          duration: 5200
-        });
-    };
-
     core.i18nGui.transformObjectController = Viewer$1.editorFolder
       .add(Viewer$1.transformText, "Transform 3D Object", {
         [t$1("gui.none", "None")]: "",
@@ -54286,67 +55276,8 @@ const Viewer$1 = {
         core.transformControl.space = value;
         Viewer$1.updateEditorToolbarState();
       });
-    const lightFolder = Viewer$1.editorFolder.addFolder(t$1("gui.directionalLight", "Directional Light")).close();
-    core.i18nGui.lightFolder = lightFolder;
-    core.i18nGui.transformLightController = lightFolder
-      .add(Viewer$1.transformText, "Transform Light", {
-        [t$1("gui.none", "None")]: "",
-        [t$1("gui.move", "Move")]: "translate",
-        [t$1("gui.target", "Target")]: "rotate",
-      })
-      .name(t$1("gui.transformLight", "Transform Light"))
-      .onChange(function (value) {
-        if (value === "") {
-          core.transformControlLight.detach();
-          core.transformControlLightTarget.detach();
-          core.lightHelper.visible = false;
-        } else {
-          core.lightHelper.visible = true;
-          if (value === "translate") {
-            core.transformControlLight.setMode("translate");
-            core.transformControlLight.attach(core.dirLight);
-            core.transformControlLightTarget.detach();
-            showTransformLightHintToast("translate");
-          } else {
-            core.transformControlLightTarget.setMode("translate");
-            core.transformControlLightTarget.attach(core.dirLightTarget);
-            core.transformControlLight.detach();
-            showTransformLightHintToast("rotate");
-          }
-        }
-        Viewer$1.updateEditorToolbarState();
-      });
-    core.i18nGui.directionalLightColorController = lightFolder
-      .addColor(Viewer$1.colors, "DirectionalLight")
-      .name(t$1("gui.color", "Color"))
-      .onChange(function (value) {
-        core.lightObjects[0].color = new THREE.Color(value);
-      })
-      .listen();
-    core.i18nGui.directionalLightIntensityController = lightFolder
-      .add(Viewer$1.intensity, "startIntensityDir", 0, 10)
-      .name(t$1("gui.intensity", "Intensity"))
-      .onChange(function (value) {
-        core.lightObjects[0].intensity = value;
-      })
-      .listen();
-
-    const lightFolderAmbient = Viewer$1.editorFolder.addFolder(t$1("gui.ambientLight", "Ambient Light")).close();
-    core.i18nGui.lightFolderAmbient = lightFolderAmbient;
-    core.i18nGui.ambientLightColorController = lightFolderAmbient
-      .addColor(Viewer$1.colors, "AmbientLight")
-      .name(t$1("gui.color", "Color"))
-      .onChange(function (value) {
-        Viewer$1.ambientLight.color = new THREE.Color(value);
-      })
-      .listen();
-    core.i18nGui.ambientLightIntensityController = lightFolderAmbient
-      .add(Viewer$1.intensity, "startIntensityAmbient", 0, 10)
-      .name(t$1("gui.intensity", "Intensity"))
-      .onChange(function (value) {
-        Viewer$1.ambientLight.intensity = value;
-      })
-      .listen();
+    // The lights (key, added, imported, ambient) are edited in their own
+    // window (editor/lights-panel.js, Lights > Scene lights).
 
     /*const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
     core.i18nGui.lightFolderCamera = lightFolderCamera;
@@ -55370,7 +56301,7 @@ const Viewer$1 = {
         Viewer$1.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
         Viewer$1.transformControlLight.space = "local";
         Viewer$1.transformControlLight.addEventListener("change", Viewer$1.render);
-        //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
+        Viewer$1.transformControlLight.addEventListener("objectChange", Viewer$1.changeLightRotation);
         Viewer$1.transformControlLight.addEventListener(
           "dragging-changed",
           function (event) {
@@ -55768,6 +56699,9 @@ attachAnnotationSpread(Viewer$1);
 attachAnnotationStack(Viewer$1);
 attachCertainty(Viewer$1);
 attachRakingLight(Viewer$1);
+attachSceneLights(Viewer$1);
+attachLightsPanel(Viewer$1);
+attachLightMarkers(Viewer$1);
 attachViewHelper(Viewer$1);
 attachClipping(Viewer$1);
 attachEmbedConfigurator(Viewer$1);
@@ -55820,4 +56754,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-BnblMdyj.js.map
+//# sourceMappingURL=main-BWoYCEQB.js.map

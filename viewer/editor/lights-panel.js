@@ -11,6 +11,8 @@ import { ADDABLE_LIGHT_TYPES } from "./scene-lights.js";
 // Like the other tool panels it can be moved and minimized to an icon.
 // While it is open the chosen light shows its helper and every light its
 // icon (light-markers.js); closing it puts them and the handles away.
+// With Gaussian splats in the scene, it also turns their lighting by these
+// lights on and off (splat-lighting.js).
 
 // The chosen light's own fields (Viewer.activeLightSettings); `spot`: only
 // for a spot light.
@@ -91,6 +93,14 @@ function vectorRow(onChange) {
     return input;
   });
   return { row, name, inputs };
+}
+
+function hasSplats() {
+  let found = false;
+  core.scene?.traverse((object) => {
+    found ||= object.userData?.isGaussianSplats === true;
+  });
+  return found;
 }
 
 function setIfIdle(input, value) {
@@ -202,6 +212,19 @@ export function attachLightsPanel(Viewer) {
         ambientIntensity.value.textContent = value.toFixed(2);
       });
 
+      // Gaussian splats: lit by these lights or as captured.
+      const splatsTitle = el("div", "viewer-lights_heading");
+      const splatsEnabled = fieldRow("toggle");
+      splatsEnabled.input.addEventListener("input", () => {
+        core.splatLighting.enabled = splatsEnabled.input.checked;
+        Viewer.syncLightsPanelFields();
+      });
+      const splatsStrength = fieldRow("range", { min: 0, max: 1, step: 0.01 });
+      splatsStrength.input.addEventListener("input", () => {
+        core.splatLighting.strength = Number(splatsStrength.input.value);
+        Viewer.syncLightsPanelFields();
+      });
+
       const note = el("p", "viewer-scene_status");
 
       panel.append(
@@ -209,6 +232,7 @@ export function attachLightsPanel(Viewer) {
         placementTitle, handles, ...angleRows, position.row, target.row, fitButton,
         settingsTitle, fields,
         ambientTitle, ambientColor.row, ambientIntensity.row,
+        splatsTitle, splatsEnabled.row, splatsStrength.row,
         note,
       );
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
@@ -224,7 +248,8 @@ export function attachLightsPanel(Viewer) {
       Viewer.lightsPanel = {
         panel, title, closeButton, list, addTitle, addButtons, nameInput, removeButton,
         placementTitle, handlesName, moveButton, targetButton, angleInputs, position, target, fitButton,
-        settingsTitle, fieldInputs, ambientTitle, ambientColor, ambientIntensity, note,
+        settingsTitle, fieldInputs, ambientTitle, ambientColor, ambientIntensity,
+        splatsTitle, splatsEnabled, splatsStrength, note,
       };
       Viewer.updateLightsPanelLabels();
       // The chosen light's helper while the window is open.
@@ -273,6 +298,9 @@ export function attachLightsPanel(Viewer) {
       ui.ambientTitle.textContent = t("gui.ambientLight", "Ambient Light");
       ui.ambientColor.name.textContent = t("gui.color", "Color");
       ui.ambientIntensity.name.textContent = t("gui.intensity", "Intensity");
+      ui.splatsTitle.textContent = t("gui.splatLighting", "Gaussian splats");
+      ui.splatsEnabled.name.textContent = t("gui.splatLightingEnabled", "Lit by the lights");
+      ui.splatsStrength.name.textContent = t("gui.splatLightingStrength", "Strength");
       ui.note.textContent = t("gui.lightsNote", "The added lights are saved in the exported manifest.");
       Viewer.syncLightsPanel();
     },
@@ -349,6 +377,14 @@ export function attachLightsPanel(Viewer) {
         setIfIdle(ui.ambientIntensity.input, ambient.intensity);
         ui.ambientIntensity.value.textContent = ambient.intensity.toFixed(2);
       }
+      const splats = hasSplats();
+      [ui.splatsTitle, ui.splatsEnabled.row, ui.splatsStrength.row].forEach((node) => {
+        node.hidden = !splats;
+      });
+      setIfIdle(ui.splatsEnabled.input, core.splatLighting.enabled);
+      setIfIdle(ui.splatsStrength.input, core.splatLighting.strength);
+      ui.splatsStrength.value.textContent = core.splatLighting.strength.toFixed(2);
+      ui.splatsStrength.input.disabled = !core.splatLighting.enabled;
     },
   });
 }

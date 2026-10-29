@@ -213,7 +213,9 @@
               "position": { "$ref": "#/$defs/vector3" },
               "target": { "$ref": "#/$defs/vector3" },
               "color": { "type": "string" },
-              "intensity": { "type": "number" }
+              "intensity": { "type": "number" },
+              "name": { "type": "string" },
+              "castShadow": { "type": "boolean" }
             },
             "additionalProperties": true
           }

@@ -35,6 +35,8 @@ export const core = {
     clippingFolder: null,
     helperObjects: [],
     isOnline: true, // kept current by connectivity.js
+    // Gaussian splats lit by the scene's lights (splat-lighting.js).
+    splatLighting: { enabled: false, strength: 0.8 },
     // Add other shared state here
 };
 
