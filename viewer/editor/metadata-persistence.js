@@ -90,9 +90,9 @@ export function buildEditorMetadata(viewer, rotateMetadata) {
   metadata.lightTarget = pickMetadataValue(
     saveProperties.DirectionalLight,
     [
-      core.dirLight.rotation._x,
-      core.dirLight.rotation._y,
-      core.dirLight.rotation._z
+      core.dirLight.target.position.x,
+      core.dirLight.target.position.y,
+      core.dirLight.target.position.z
     ],
     originalMetadata.lightTarget
   );

@@ -1,0 +1,294 @@
+/* The lights and shading windows (editor/lights-panel.js, editor/shading.js).
+   The lights window: the panel itself is styled as
+   .viewer-scene (viewer-tools.css), like the other tool panels. */
+.viewer-lights {
+  width: 320px;
+}
+
+.viewer-lights_list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 160px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.viewer-lights_item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.viewer-lights_item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.viewer-lights_item.is-selected {
+  border-color: var(--viewer-brand-gold, #e9b264);
+  background: rgba(233, 178, 100, 0.14);
+}
+
+.viewer-lights_item.is-off {
+  opacity: 0.5;
+}
+
+.viewer-lights_swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.24));
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.25);
+}
+
+.viewer-lights_item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-lights_item-meta {
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.viewer-lights_add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viewer-lights_add-title {
+  flex: 1 0 100%;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.viewer-lights_add-button,
+.viewer-lights_handle,
+.viewer-lights_remove,
+.viewer-lights_fit {
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 12px !important;
+}
+
+.viewer-lights_handle.is-active {
+  border-color: var(--viewer-brand-gold, #e9b264) !important;
+  background: rgba(233, 178, 100, 0.18) !important;
+}
+
+.viewer-lights_current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-lights_number {
+  padding: 2px 4px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-lights_name,
+.viewer-lights_number {
+  min-width: 0;
+  height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+.viewer-lights_name {
+  flex: 1 1 auto;
+}
+
+.viewer-lights_heading {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.viewer-lights_fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.viewer-lights_field,
+.viewer-lights_handles,
+.viewer-lights_vector {
+  display: grid;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.viewer-lights_field {
+  grid-template-columns: 96px minmax(0, 1fr) 40px;
+}
+
+.viewer-lights_handles {
+  grid-template-columns: 96px 1fr 1fr;
+}
+
+.viewer-lights_vector {
+  grid-template-columns: 56px repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.viewer-lights_field input[type="range"] {
+  width: 100%;
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-lights_field input[type="color"] {
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.viewer-lights_field input[type="checkbox"] {
+  justify-self: start;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-lights_field-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.75;
+}
+
+.viewer-lights_fit {
+  margin-top: 6px;
+}
+
+@media (pointer: coarse) {
+  .viewer-lights_item,
+  .viewer-lights_field {
+    min-height: 36px;
+  }
+}
+
+/* The shading window (editor/shading.js), also on .viewer-scene. */
+.viewer-shading {
+  width: 340px;
+}
+
+.viewer-shading_modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viewer-shading_mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 6px 4px;
+  font-size: 11px !important;
+  text-align: center;
+}
+
+.viewer-shading_mode.is-active {
+  border-color: var(--viewer-brand-gold, #e9b264) !important;
+  background: rgba(233, 178, 100, 0.14) !important;
+}
+
+.viewer-shading_mode-icon {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+}
+
+.viewer-shading_mode-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Two lines at most ("Flat shading (show faces)"). */
+.viewer-shading_mode-name {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.15;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.viewer-shading_shader {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-shading_shader-title {
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.viewer-shading_shader-title.is-active {
+  color: var(--viewer-brand-gold, #e9b264);
+}
+
+.viewer-shading_code {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.viewer-shading_textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 140px;
+  padding: 6px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+@media (pointer: coarse) {
+  .viewer-shading_mode {
+    min-height: 72px;
+  }
+}

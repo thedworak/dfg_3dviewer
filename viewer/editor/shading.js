@@ -2,7 +2,9 @@ import { core } from "../core.js";
 import { showToast, toastHelper } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
-import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../ui/tool-panel-chrome.js";
+import { fitPanelToViewer, getViewerSideStack } from "../ui/side-stack.js";
+import { getEditorToolbarIcon } from "../editor-toolbar.js";
 
 // "original": the loader's own materials, as loaded. The others are made
 // from them on each switch (see buildMaterialForMode); "clay", "matcap",
@@ -374,6 +376,7 @@ export function attachShadingEditor(Viewer) {
       this.applyShadingMode();
       this.updateEditorToolbarState?.();
       this.updateShadingSubmenuState?.();
+      this.syncShadingPanel();
       // Its note on the other modes (editor/materials-editor.js).
       this.syncMaterialsPanel?.();
 
@@ -405,193 +408,153 @@ export function attachShadingEditor(Viewer) {
       };
     },
 
+    // ---- the window (Look > Shading) -------------------------------------
+    // The modes, and the custom shader's code (GLSL, WebGL only) under them.
+    // Like the other tool panels it can be moved and minimized to an icon.
+
+    isShadingPanelOpen() {
+      return Boolean(this.shadingPanel);
+    },
+
+    toggleShadingPanel(open = !this.shadingPanel) {
+      if (open) this.createShadingPanel();
+      else this.removeShadingPanel();
+      this.updateEditorToolbarState?.();
+    },
+
+    // The window with the custom shader's code open (the old dialog's name).
     openCustomShaderDialog() {
-      this.buildShadingDialog();
-      if (!this.shadingDialog) return;
-
-      if (this.shadingDialogInputs) {
-        this.shadingDialogInputs.vertex.value = this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
-        this.shadingDialogInputs.fragment.value = this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
-      }
-
-      this.updateShadingDialogBounds();
-      this.shadingDialog.hidden = false;
-      this.closeActionMenu?.();
+      this.toggleShadingPanel(true);
+      const ui = this.shadingPanel;
+      if (!ui) return;
+      ui.shader.open = true;
+      ui.fragment.focus({ preventScroll: true });
     },
 
-    closeShadingDialog() {
-      if (!this.shadingDialog) return;
-      this.shadingDialog.hidden = true;
-    },
+    createShadingPanel() {
+      if (this.shadingPanel || !core.container || this.urlOptions?.hideUi === true) return;
+      const el = (tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text != null) node.textContent = text;
+        return node;
+      };
+      const button = (className, onClick) => {
+        const node = el("button", className);
+        node.type = "button";
+        node.addEventListener("click", onClick);
+        return node;
+      };
+      const panel = el("section", "viewer-shading viewer-scene");
+      panel.id = "viewerShading";
+      panel.setAttribute("role", "group");
+      const header = el("div", "viewer-scene_header");
+      const title = el("span", "viewer-scene_title");
+      const closeButton = button("viewer-scene_icon", () => this.toggleShadingPanel(false));
+      closeButton.textContent = "×";
+      header.append(title, closeButton);
 
-    buildShadingDialog() {
-      if (!core.container || this.shadingDialog) return;
+      // The model as loaded, then the material models, then the views for
+      // reading a scan's geometry.
+      const modes = el("div", "viewer-shading_modes");
+      modes.setAttribute("role", "radiogroup");
+      const modeButtons = {};
+      SHADING_MODES.filter((mode) => mode !== "custom").forEach((mode) => {
+        const modeButton = button("viewer-shading_mode", () => this.setShadingMode(mode));
+        modeButton.dataset.mode = mode;
+        modeButton.setAttribute("role", "radio");
+        const icon = el("span", "viewer-shading_mode-icon");
+        icon.setAttribute("aria-hidden", "true");
+        icon.innerHTML = getEditorToolbarIcon(`shading${mode[0].toUpperCase()}${mode.slice(1)}`);
+        modeButton.append(icon, el("span", "viewer-shading_mode-name"));
+        modes.append(modeButton);
+        modeButtons[mode] = modeButton;
+      });
 
-      const dialog = document.createElement("div");
-      dialog.id = "shadingDialog";
-      dialog.className = "materials-dialog";
-      dialog.hidden = true;
-      dialog.innerHTML = `
-        <div class="materials-dialog__backdrop" data-shading-dismiss="true"></div>
-        <div class="materials-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="shadingDialogTitle">
-          <div class="materials-dialog__header">
-            <h3 id="shadingDialogTitle">${t("gui.shadingCustom", "Custom shader")}</h3>
-            <button type="button" class="materials-dialog__close" data-shading-dismiss="true" aria-label="${t("gui.shadingCustom", "Custom shader")}">&times;</button>
-          </div>
-          <div class="materials-dialog__body">
-            <label class="materials-dialog__field">
-              <span>${t("gui.shadingCustomVertex", "Vertex shader")}</span>
-              <textarea id="shadingDialogVertex" class="shading-dialog__textarea" spellcheck="false"></textarea>
-            </label>
-            <label class="materials-dialog__field">
-              <span>${t("gui.shadingCustomFragment", "Fragment shader")}</span>
-              <textarea id="shadingDialogFragment" class="shading-dialog__textarea" spellcheck="false"></textarea>
-            </label>
-            <div class="shading-dialog__actions">
-              <button type="button" id="shadingDialogReset" class="shading-dialog__button">${t("gui.shadingCustomReset", "Reset to default")}</button>
-              <button type="button" id="shadingDialogApply" class="shading-dialog__button shading-dialog__button-primary">${t("gui.shadingCustomApply", "Apply")}</button>
-            </div>
-          </div>
-        </div>
-      `;
+      const shader = el("details", "viewer-shading_shader");
+      const summary = el("summary", "viewer-shading_shader-title");
+      const vertexLabel = el("label", "viewer-shading_code");
+      const vertexName = el("span");
+      const vertex = el("textarea", "viewer-shading_textarea");
+      vertex.spellcheck = false;
+      vertexLabel.append(vertexName, vertex);
+      const fragmentLabel = el("label", "viewer-shading_code");
+      const fragmentName = el("span");
+      const fragment = el("textarea", "viewer-shading_textarea");
+      fragment.spellcheck = false;
+      fragmentLabel.append(fragmentName, fragment);
+      const actions = el("div", "viewer-scene_actions");
+      const resetButton = button("viewer-shading_reset", () => {
+        vertex.value = DEFAULT_CUSTOM_VERTEX_SHADER;
+        fragment.value = DEFAULT_CUSTOM_FRAGMENT_SHADER;
+      });
+      const applyButton = button("viewer-scene_apply", () => {
+        this.setShadingMode("custom", { vertexShader: vertex.value, fragmentShader: fragment.value });
+      });
+      actions.append(resetButton, applyButton);
+      shader.append(summary, vertexLabel, fragmentLabel, actions);
+      vertex.value = this.customVertexShader || DEFAULT_CUSTOM_VERTEX_SHADER;
+      fragment.value = this.customFragmentShader || DEFAULT_CUSTOM_FRAGMENT_SHADER;
 
-      document.body.appendChild(dialog);
-      this.shadingDialog = dialog;
-      this.shadingDialogPosition = null;
-      const panel = dialog.querySelector(".materials-dialog__panel");
-      const header = dialog.querySelector(".materials-dialog__header");
+      const note = el("p", "viewer-scene_status");
+
+      panel.append(header, modes, shader, note);
+      ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
+        panel.addEventListener(type, (event) => event.stopPropagation());
+      });
       attachToolPanelChrome(panel, header, {
-        before: header.querySelector(".materials-dialog__close"),
-        movable: false,
-        visibilityRoot: dialog,
-        icon: PANEL_ICONS.material,
+        before: closeButton,
+        icon: PANEL_ICONS.shading,
+        label: () => t("gui.shading", "Shading"),
       });
-      this.shadingDialogInputs = {
-        vertex: dialog.querySelector("#shadingDialogVertex"),
-        fragment: dialog.querySelector("#shadingDialogFragment"),
+      getViewerSideStack()?.append(panel);
+      fitPanelToViewer(panel);
+      this.shadingPanel = {
+        panel, title, closeButton, modeButtons, shader, summary, vertexName, vertex, fragmentName, fragment,
+        resetButton, applyButton, note,
       };
-
-      this.bindEventListener(dialog, "click", (event) => {
-        const dismissTrigger = event.target?.closest?.("[data-shading-dismiss='true']");
-        if (dismissTrigger) {
-          this.closeShadingDialog();
-        }
-      });
-
-      this.bindEventListener(document, "keydown", (event) => {
-        if (event.key !== "Escape") return;
-        if (!this.shadingDialog || this.shadingDialog.hidden) return;
-        event.preventDefault();
-        this.closeShadingDialog();
-      });
-
-      this.bindEventListener(dialog.querySelector("#shadingDialogReset"), "click", () => {
-        this.shadingDialogInputs.vertex.value = DEFAULT_CUSTOM_VERTEX_SHADER;
-        this.shadingDialogInputs.fragment.value = DEFAULT_CUSTOM_FRAGMENT_SHADER;
-      });
-
-      this.bindEventListener(dialog.querySelector("#shadingDialogApply"), "click", () => {
-        const vertexShader = this.shadingDialogInputs.vertex.value;
-        const fragmentShader = this.shadingDialogInputs.fragment.value;
-        this.setShadingMode("custom", { vertexShader, fragmentShader });
-      });
-
-      this.bindEventListener(header, "pointerdown", (event) => {
-        if (event.button !== 0) return;
-        if (event.target?.closest?.(".materials-dialog__close")) return;
-        const targetRect =
-          Viewer.mainCanvas?.getBoundingClientRect?.() ||
-          core.container?.getBoundingClientRect?.();
-        const panelRect = panel?.getBoundingClientRect?.();
-        if (!targetRect || !panelRect) return;
-
-        this.shadingDialogDragging = {
-          offsetX: event.clientX - panelRect.left,
-          offsetY: event.clientY - panelRect.top,
-        };
-        panel.setPointerCapture?.(event.pointerId);
-        panel.classList.add("is-dragging");
-        event.preventDefault();
-      });
-
-      this.bindEventListener(document, "pointermove", (event) => {
-        if (!this.shadingDialogDragging || !this.shadingDialog || this.shadingDialog.hidden) return;
-        const targetRect =
-          Viewer.mainCanvas?.getBoundingClientRect?.() ||
-          core.container?.getBoundingClientRect?.();
-        const panelRect = panel?.getBoundingClientRect?.();
-        if (!targetRect || !panelRect) return;
-
-        const nextLeft = event.clientX - this.shadingDialogDragging.offsetX;
-        const nextTop = event.clientY - this.shadingDialogDragging.offsetY;
-        const minLeft = targetRect.left + 12;
-        const maxLeft = targetRect.right - panelRect.width - 12;
-        const minTop = targetRect.top + 12;
-        const maxTop = targetRect.bottom - panelRect.height - 12;
-
-        this.shadingDialogPosition = {
-          left: Math.min(Math.max(nextLeft, minLeft), Math.max(minLeft, maxLeft)),
-          top: Math.min(Math.max(nextTop, minTop), Math.max(minTop, maxTop)),
-        };
-
-        this.updateShadingDialogBounds();
-      });
-
-      const stopShadingDialogDrag = () => {
-        this.shadingDialogDragging = false;
-        panel?.classList.remove("is-dragging");
-      };
-
-      this.bindEventListener(document, "pointerup", stopShadingDialogDrag);
-      this.bindEventListener(document, "pointercancel", stopShadingDialogDrag);
-
-      this.bindEventListener(window, "resize", () => this.updateShadingDialogBounds());
-      this.bindEventListener(window, "scroll", () => this.updateShadingDialogBounds(), true);
-      this.bindEventListener(document, "fullscreenchange", () => this.updateShadingDialogBounds());
+      this.updateShadingPanelLabels();
     },
 
-    updateShadingDialogBounds() {
-      if (!this.shadingDialog) return;
-      const targetRect =
-        Viewer.mainCanvas?.getBoundingClientRect?.() ||
-        core.container?.getBoundingClientRect?.();
-      if (!targetRect) return;
+    removeShadingPanel() {
+      this.shadingPanel?.panel.remove();
+      this.shadingPanel = null;
+    },
 
-      const left = Math.max(0, Math.round(targetRect.left));
-      const top = Math.max(0, Math.round(targetRect.top));
-      const width = Math.max(0, Math.round(targetRect.width));
-      const height = Math.max(0, Math.round(targetRect.height));
-      const panel = this.shadingDialog.querySelector(".materials-dialog__panel");
-      const panelWidth = panel?.offsetWidth || Math.min(640, width - 24);
-      const panelHeight = panel?.offsetHeight || Math.min(700, height * 0.88);
+    updateShadingPanelLabels() {
+      const ui = this.shadingPanel;
+      if (!ui) return;
+      const name = t("gui.shading", "Shading");
+      ui.panel.setAttribute("aria-label", name);
+      ui.title.textContent = name;
+      refreshToolPanelChrome(ui.panel);
+      ui.closeButton.title = t("scene.close", "Close");
+      ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
+      Object.entries(ui.modeButtons).forEach(([mode, modeButton]) => {
+        const label = shadingModeLabel(mode);
+        modeButton.querySelector(".viewer-shading_mode-name").textContent = label;
+        modeButton.title = label;
+      });
+      ui.summary.textContent = t("gui.shadingCustom", "Custom shader");
+      ui.vertexName.textContent = t("gui.shadingCustomVertex", "Vertex shader");
+      ui.fragmentName.textContent = t("gui.shadingCustomFragment", "Fragment shader");
+      ui.resetButton.textContent = t("gui.shadingCustomReset", "Reset to default");
+      ui.applyButton.textContent = t("gui.shadingCustomApply", "Apply");
+      ui.note.textContent = t("gui.shadingNote", "The model's own materials stay as they are: Original materials shows them again.");
+      this.syncShadingPanel();
+    },
 
-      if (!this.shadingDialogPosition) {
-        // The top right corner, like the other tool panels (side stack).
-        this.shadingDialogPosition = {
-          left: Math.max(left + 12, left + width - panelWidth - 12),
-          top: top + 12,
-        };
-      } else {
-        const minLeft = left + 12;
-        const maxLeft = left + width - panelWidth - 12;
-        const minTop = top + 12;
-        const maxTop = top + height - panelHeight - 12;
-        this.shadingDialogPosition = {
-          left: Math.min(Math.max(this.shadingDialogPosition.left, minLeft), Math.max(minLeft, maxLeft)),
-          top: Math.min(Math.max(this.shadingDialogPosition.top, minTop), Math.max(minTop, maxTop)),
-        };
-      }
-
-      this.shadingDialog.style.left = `${left}px`;
-      this.shadingDialog.style.top = `${top}px`;
-      this.shadingDialog.style.width = `${width}px`;
-      this.shadingDialog.style.height = `${height}px`;
-      if (panel) {
-        panel.style.left = `${this.shadingDialogPosition.left - left}px`;
-        panel.style.top = `${this.shadingDialogPosition.top - top}px`;
-        panel.style.right = "auto";
-        panel.style.transform = "none";
-      }
+    // The mode chosen; the custom shader only with WebGL (renderer-backend.js).
+    syncShadingPanel() {
+      const ui = this.shadingPanel;
+      if (!ui) return;
+      const active = this.shadingMode || DEFAULT_SHADING_MODE;
+      Object.entries(ui.modeButtons).forEach(([mode, modeButton]) => {
+        modeButton.classList.toggle("is-active", mode === active);
+        modeButton.setAttribute("aria-checked", String(mode === active));
+      });
+      ui.shader.hidden = core.rendererBackend === "webgpu";
+      ui.summary.classList.toggle("is-active", active === "custom");
     },
   });
 }

@@ -880,6 +880,8 @@ export function applyLights(lights) {
     object.name = `iiif-${light.type}`;
     addImportedLight(object);
   });
+  // The editor's list of lights and the active one (editor/scene-lights.js).
+  window.Viewer?.refreshLights?.();
   return lights.length;
 }
 
@@ -956,7 +958,10 @@ export function buildLightAnnotations(sceneId, baseId) {
   });
   const lights = [];
   core.scene?.traverse((object) => {
-    if (object.isLight && object.visible !== false) lights.push(object);
+    if (!object.isLight || object.visible === false) return;
+    // The raking light and the sun study are tools, not the scene's lights.
+    if (object.userData?.isRakingLight || object.userData?.isSunLight) return;
+    lights.push(object);
   });
   lights.forEach((light, index) => {
     const type = light.isAmbientLight ? "AmbientLight"

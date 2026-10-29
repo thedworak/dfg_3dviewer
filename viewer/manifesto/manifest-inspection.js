@@ -364,6 +364,8 @@ const AIM3D_BLOCK = obj({
     angle: leaf(number({ above: 0, max: Math.PI / 2, level: "warning" })),
     penumbra: leaf(number({ min: 0, max: 1, level: "warning" })),
     visible: BOOL,
+    name: TEXT,
+    castShadow: BOOL,
   }))),
   certainty: tag("certainty", obj({
     label: LANG,

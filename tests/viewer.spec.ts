@@ -1444,7 +1444,9 @@ test('WebGPU renderer (on its WebGL 2 backend): materials, ambient occlusion, sc
   expect((await frameStats(page)).mean).toBeGreaterThan(base.mean + 10);
   await page.evaluate(() => window.Viewer.setShadingMode('custom'));
   expect(await page.evaluate(() => window.Viewer.shadingMode)).toBe('clay');
-  await expect(page.locator('button[data-tool="shading-custom"]')).toBeHidden();
+  await page.evaluate(() => window.Viewer.toggleShadingPanel(true));
+  await expect(page.locator('#viewerShading .viewer-shading_shader')).toBeHidden();
+  await page.evaluate(() => window.Viewer.toggleShadingPanel(false));
   await page.evaluate(() => window.Viewer.setShadingMode('original', { silent: true }));
 
   // Section planes clip the model through clipping groups.
@@ -2016,11 +2018,20 @@ test('shading modes: the original materials come back untouched, switched-out on
     viewer.__shadingMesh.material.addEventListener('dispose', () => { viewer.__released = true; });
   });
   expect((await material()).type).toBe('MeshPhongMaterial');
-  // The submenu button (its tool sits in the toolbar's folded tray).
-  await page.evaluate(() => document.querySelector('[data-tool="shading-original"]').click());
+  // The shading window, opened by its tool (in the toolbar's folded tray).
+  await page.evaluate(() => document.querySelector('button[data-tool="shading"]').click());
+  await expect(page.locator('#viewerShading')).toBeVisible();
+  await expect(page.locator('#viewerShading [data-mode="phong"]')).toHaveClass(/is-active/);
+  await page.locator('#viewerShading [data-mode="original"]').click();
   expect(await material()).toMatchObject({ original: true, type: prepared.type });
   expect(await page.evaluate(() => window.Viewer.__released)).toBe(true);
-  await expect(page.locator('[data-tool="shading-original"]')).toHaveClass(/is-active/);
+  await expect(page.locator('#viewerShading [data-mode="original"]')).toHaveClass(/is-active/);
+  // Minimized to its icon, and closed.
+  await page.locator('#viewerShading .tool-panel-chrome_minimize').click();
+  await expect(page.locator('#viewerShading')).toHaveClass(/is-minimized/);
+  await page.locator('#viewerShading .tool-panel-chrome_pip').click();
+  await page.locator('#viewerShading .viewer-scene_header .viewer-scene_icon').click();
+  await expect(page.locator('#viewerShading')).toHaveCount(0);
 
   // Scan views: flat keeps the material and its maps, faceted; clay and
   // matcap drop the texture; normals.
@@ -6118,4 +6129,108 @@ test('prepare for publishing: the toolbar counts what to fix, and the renders st
   // Off: the file's +Z, as before.
   await front.locator('input').uncheck();
   expect(await page.evaluate(() => window.Viewer.getThumbnailFrontAngle())).toBe(0);
+});
+
+test('lights window: the key light round the model, lights added, moved, saved in the manifest and removed', { tag: '@smoke' }, async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+
+  // The key light aims at the middle of the model, from outside it.
+  const key = await page.evaluate(() => {
+    const light = window.Viewer.dirLight;
+    const bounds = window.viewer.lightBounds;
+    return {
+      aimed: light.target.position.distanceTo(bounds.center) < 1e-6,
+      outside: light.position.distanceTo(bounds.center) > bounds.radius,
+    };
+  });
+  expect(key).toEqual({ aimed: true, outside: true });
+
+  // The Lights tool opens the window (its tool sits in the toolbar's folded tray).
+  await page.evaluate(() => document.querySelector('button[data-tool="lights"]').click());
+  const panel = page.locator('#viewerLights');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-lights_item')).toHaveCount(1);
+  // The key light's helper, and an icon where it is.
+  const markers = () => page.evaluate(() => {
+    const group = window.viewer.scene.getObjectByName('light-markers');
+    return group?.visible ? group.children.filter((child) => child.isSprite).length : 0;
+  });
+  const lightHelperShown = () => page.evaluate(() => window.viewer.scene.children.some((child) => /LightHelper$/.test(child.type) && child.visible));
+  expect(await lightHelperShown()).toBe(true);
+  await expect.poll(markers).toBe(1);
+  await expect(panel.locator('.viewer-lights_remove')).toBeDisabled();
+
+  // A spot light: chosen, with its own fields.
+  await panel.locator('.viewer-lights_add-button[data-type="SpotLight"]').click();
+  await expect(panel.locator('.viewer-lights_item')).toHaveCount(2);
+  // It has its icon at once, and (a spot light) its cone, from the bulb.
+  await expect.poll(markers).toBe(2);
+  const cone = await page.evaluate(() => {
+    const group = window.viewer.scene.getObjectByName('light-markers');
+    const cones = group.children.filter((child) => child.isLineSegments && child.visible);
+    const light = window.Viewer.getActiveLight();
+    const bulb = light.getWorldPosition(new window.THREE.Vector3());
+    const positions = cones[0]?.geometry.attributes.position;
+    const fromBulb = positions
+      ? new window.THREE.Vector3().fromBufferAttribute(positions, positions.count - 2).distanceTo(bulb) < 1e-6
+      : false;
+    return { cones: cones.length, fromBulb };
+  });
+  expect(cone).toEqual({ cones: 1, fromBulb: true });
+
+  // A click on the key light's icon chooses it; on the spot light's, back.
+  const clickMarker = async (index) => {
+    const point = await page.evaluate((i) => {
+      const viewer = window.Viewer;
+      const light = viewer.getEditableLights()[i];
+      const canvas = document.getElementById('MainCanvas');
+      const rect = canvas.getBoundingClientRect();
+      const p = light.getWorldPosition(new window.THREE.Vector3()).project(window.viewer.camera);
+      return { x: rect.left + ((p.x + 1) / 2) * rect.width, y: rect.top + ((1 - p.y) / 2) * rect.height, inside: Math.abs(p.x) < 1 && Math.abs(p.y) < 1 && p.z < 1 };
+    }, index);
+    return point;
+  };
+  const keyPoint = await clickMarker(0);
+  if (keyPoint.inside) {
+    await page.mouse.click(keyPoint.x, keyPoint.y);
+    await expect(panel.locator('.viewer-lights_item').nth(0)).toHaveClass(/is-selected/);
+    await panel.locator('.viewer-lights_item').nth(1).click();
+  }
+  await expect(panel.locator('.viewer-lights_item').nth(1)).toHaveClass(/is-selected/);
+  await panel.locator('.viewer-lights_name').fill('Front');
+  await expect(panel.locator('.viewer-lights_item.is-selected .viewer-lights_item-name')).toHaveText('Front');
+  await expect(panel.locator('.viewer-lights_field', { has: page.locator('input[type="range"][max="90"]') })).toBeVisible();
+
+  // Moved by its angles round the target.
+  await page.evaluate(() => window.Viewer.setLightAngles({ direction: 90, height: 0 }));
+  const moved = await page.evaluate(() => {
+    const light = window.Viewer.getActiveLight();
+    const offset = light.position.clone().sub(light.target.position);
+    return { x: offset.x > 0, y: Math.abs(offset.y) < 1e-6, z: Math.abs(offset.z) < 1e-6 };
+  });
+  expect(moved).toEqual({ x: true, y: true, z: true });
+  await expect(panel.locator('.viewer-lights_number[data-axis="x"]').first()).not.toHaveValue('');
+
+  // Its handles go with the window.
+  await panel.locator('.viewer-lights_handle').first().click();
+  expect(await page.evaluate(() => window.Viewer.transformText['Transform Light'])).toBe('translate');
+
+  // In the exported manifest, with its name - and back from it.
+  const lights = await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.lights);
+  expect(lights.some((light) => light.type === 'SpotLight' && light.name === 'Front')).toBe(true);
+  expect(lights.some((light) => light.userData || light.type === 'SpotLight' && !light.target)).toBe(false);
+  await page.evaluate((exported) => window.Viewer.apply3IFManifestLights(exported), lights);
+  await expect(panel.locator('.viewer-lights_item')).toHaveCount(2);
+  await expect(panel.locator('.viewer-lights_item-name').nth(1)).toHaveText('Front');
+  await panel.locator('.viewer-lights_item').nth(1).click();
+
+  await panel.locator('.viewer-lights_remove').click();
+  await expect(panel.locator('.viewer-lights_item')).toHaveCount(1);
+  await page.locator('#viewerLights .viewer-scene_header .viewer-scene_icon').click();
+  await expect(panel).toHaveCount(0);
+  expect(await page.evaluate(() => window.Viewer.transformText['Transform Light'])).toBe('');
+  // The helper and the icons go with the window.
+  expect(await lightHelperShown()).toBe(false);
+  await expect.poll(markers).toBe(0);
 });

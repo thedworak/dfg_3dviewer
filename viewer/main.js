@@ -92,6 +92,9 @@ import { attachAnnotationSpread } from "./editor/annotation-spread.js";
 import { attachAnnotationStack } from "./editor/annotation-stack.js";
 import { attachCertainty } from "./editor/certainty.js";
 import { attachRakingLight } from "./editor/raking-light.js";
+import { attachSceneLights } from "./editor/scene-lights.js";
+import { attachLightsPanel } from "./editor/lights-panel.js";
+import { attachLightMarkers } from "./editor/light-markers.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
@@ -153,6 +156,7 @@ import {
   syncEditorToolbarSecondaryTrayWidth,
   syncNoticeAboveToolbar,
   placeHandHint,
+  updateHandHintContrast,
   toggleToolbarExpanded as toggleEditorToolbarExpanded,
   updateClippingPlanesSubmenuState,
   updateEditorToolbarLabels as syncEditorToolbarLabels,
@@ -291,6 +295,11 @@ export const Viewer = {
 
         get camera() {
           return core.camera;
+        },
+
+        // The model's sphere the lights are placed round (editor/scene-lights.js).
+        get lightBounds() {
+          return core.lightBounds;
         },
 
         get scene() {
@@ -547,6 +556,10 @@ export const Viewer = {
       core.controls.object = core.camera;
       core.controls.update();
     }
+    // The handles pick with the camera they were given: the new one.
+    [core.transformControl, core.transformControlLight, core.transformControlLightTarget].forEach((control) => {
+      if (control) control.camera = core.camera;
+    });
 
     this.updateCamera();
     this.updateFullscreenButtonIcon();
@@ -720,12 +733,13 @@ export const Viewer = {
 
   setLightTransformMode(mode = "") {
     const normalizedMode = ["translate", "rotate"].includes(mode) ? mode : "";
-
-    if (core.i18nGui.transformLightController?.setValue) {
-      core.i18nGui.transformLightController.setValue(normalizedMode);
-    } else {
-      this.transformText["Transform Light"] = normalizedMode;
-    }
+    this.attachLightTransform(normalizedMode);
+    const hints = {
+      translate: t("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
+      rotate: t("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
+    };
+    const hint = hints[this.transformText["Transform Light"]];
+    if (hint) showToast(hint, { duration: 5200 });
     this.updateEditorToolbarState();
   },
 
@@ -734,12 +748,9 @@ export const Viewer = {
     this.setLightTransformMode(nextMode);
   },
 
-  openLightFolder(name) {
-    this.setEditorAdvancedPanelVisible(true);
-    const folder = core.i18nGui?.[name];
-    if (folder?.open) {
-      folder.open();
-    }
+  // The lights are in their own window now (editor/lights-panel.js).
+  openLightFolder() {
+    this.toggleLightsPanel(true);
   },
 
   togglePickingMode() {
@@ -1554,6 +1565,7 @@ export const Viewer = {
     core.transformControlLightTarget?.detach?.();
     Viewer.transformText["Transform 3D Object"] = "";
     Viewer.transformText["Transform Light"] = "";
+    if (core.lightHelper) core.lightHelper.visible = false;
     Viewer.pickingMode = false;
     Viewer.RULER_MODE = false;
     // Section planes stay as they are; refreshClippingForModel() fits them
@@ -2453,6 +2465,8 @@ export const Viewer = {
       '--hand-x',
       `${s * core.GESTURE.handPx}px`
     );
+    // light over dark, dark over light
+    updateHandHintContrast(time);
 
     // camera - orbit
     const sph = g.baseAngle.clone();
@@ -2570,6 +2584,7 @@ export const Viewer = {
     Viewer.updateTour(time);
     Viewer.updatePhotoOverlay(time);
     Viewer.updateRakingLight(delta);
+    Viewer.updateLightMarkers();
     Viewer.updateSunStudy(delta);
     Viewer.updateWeather(delta);
     Viewer.updateTimeline(delta);
@@ -2730,8 +2745,9 @@ export const Viewer = {
     Viewer.refreshClippingForModel();
   },
 
+  // The light or its target dragged by its handles.
   changeLightRotation() {
-    core.lightHelper.update();
+    Viewer.syncActiveLight();
   },
 
   takeScreenshot() {
@@ -2976,18 +2992,6 @@ export const Viewer = {
         });
     };
 
-    const showTransformLightHintToast = (mode) => {
-      const hints = {
-        translate: t("toasts.transformLightMove", "Transform Light - Move: drag axis arrows to move the directional light."),
-        rotate: t("toasts.transformLightTarget", "Transform Light - Target: drag axis arrows to reposition the light target."),
-      };
-      const message = hints[mode];
-      if (!message) return;
-        showToast(message, {
-          duration: 5200
-        });
-    };
-
     core.i18nGui.transformObjectController = Viewer.editorFolder
       .add(Viewer.transformText, "Transform 3D Object", {
         [t("gui.none", "None")]: "",
@@ -3028,67 +3032,8 @@ export const Viewer = {
         core.transformControl.space = value;
         Viewer.updateEditorToolbarState();
       });
-    const lightFolder = Viewer.editorFolder.addFolder(t("gui.directionalLight", "Directional Light")).close();
-    core.i18nGui.lightFolder = lightFolder;
-    core.i18nGui.transformLightController = lightFolder
-      .add(Viewer.transformText, "Transform Light", {
-        [t("gui.none", "None")]: "",
-        [t("gui.move", "Move")]: "translate",
-        [t("gui.target", "Target")]: "rotate",
-      })
-      .name(t("gui.transformLight", "Transform Light"))
-      .onChange(function (value) {
-        if (value === "") {
-          core.transformControlLight.detach();
-          core.transformControlLightTarget.detach();
-          core.lightHelper.visible = false;
-        } else {
-          core.lightHelper.visible = true;
-          if (value === "translate") {
-            core.transformControlLight.setMode("translate");
-            core.transformControlLight.attach(core.dirLight);
-            core.transformControlLightTarget.detach();
-            showTransformLightHintToast("translate");
-          } else {
-            core.transformControlLightTarget.setMode("translate");
-            core.transformControlLightTarget.attach(core.dirLightTarget);
-            core.transformControlLight.detach();
-            showTransformLightHintToast("rotate");
-          }
-        }
-        Viewer.updateEditorToolbarState();
-      });
-    core.i18nGui.directionalLightColorController = lightFolder
-      .addColor(Viewer.colors, "DirectionalLight")
-      .name(t("gui.color", "Color"))
-      .onChange(function (value) {
-        core.lightObjects[0].color = new THREE.Color(value);
-      })
-      .listen();
-    core.i18nGui.directionalLightIntensityController = lightFolder
-      .add(Viewer.intensity, "startIntensityDir", 0, 10)
-      .name(t("gui.intensity", "Intensity"))
-      .onChange(function (value) {
-        core.lightObjects[0].intensity = value;
-      })
-      .listen();
-
-    const lightFolderAmbient = Viewer.editorFolder.addFolder(t("gui.ambientLight", "Ambient Light")).close();
-    core.i18nGui.lightFolderAmbient = lightFolderAmbient;
-    core.i18nGui.ambientLightColorController = lightFolderAmbient
-      .addColor(Viewer.colors, "AmbientLight")
-      .name(t("gui.color", "Color"))
-      .onChange(function (value) {
-        Viewer.ambientLight.color = new THREE.Color(value);
-      })
-      .listen();
-    core.i18nGui.ambientLightIntensityController = lightFolderAmbient
-      .add(Viewer.intensity, "startIntensityAmbient", 0, 10)
-      .name(t("gui.intensity", "Intensity"))
-      .onChange(function (value) {
-        Viewer.ambientLight.intensity = value;
-      })
-      .listen();
+    // The lights (key, added, imported, ambient) are edited in their own
+    // window (editor/lights-panel.js, Lights > Scene lights).
 
     /*const lightFolderCamera = Viewer.editorFolder.addFolder(t("gui.cameraLight", "Camera Light")).close();
     core.i18nGui.lightFolderCamera = lightFolderCamera;
@@ -4112,7 +4057,7 @@ export const Viewer = {
         Viewer.transformControlLight = new TransformControls(core.camera, core.renderer.domElement);
         Viewer.transformControlLight.space = "local";
         Viewer.transformControlLight.addEventListener("change", Viewer.render);
-        //Viewer.transformControlLight.addEventListener('objectChange', changeLightRotation);
+        Viewer.transformControlLight.addEventListener("objectChange", Viewer.changeLightRotation);
         Viewer.transformControlLight.addEventListener(
           "dragging-changed",
           function (event) {
@@ -4517,6 +4462,9 @@ attachAnnotationSpread(Viewer);
 attachAnnotationStack(Viewer);
 attachCertainty(Viewer);
 attachRakingLight(Viewer);
+attachSceneLights(Viewer);
+attachLightsPanel(Viewer);
+attachLightMarkers(Viewer);
 attachViewHelper(Viewer);
 attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);

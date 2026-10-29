@@ -7,6 +7,7 @@ import { t } from "./i18n-utils.js";
 import { isQuietNotice, recordEvent } from "./ui/event-log-store.js";
 import { applyUpAxis, getFirstModelChild, getUpAxis, normalizeUpAxis } from "./up-axis.js";
 import { buildGround, setManifestGround } from "./ground.js";
+import { placeDirectionalLight } from "./editor/scene-lights.js";
 
 export const initClippingPlanes = () => {
   const clippingPlanes = [
@@ -687,6 +688,13 @@ export async function setupCamera(_object, _data) {
   if (fitControlsTarget) {
     fitConfig.controlsTarget = fitControlsTarget;
   }
+  // Where the directional light was saved (the metadata, a scene's lights);
+  // without it, it goes round the model (editor/scene-lights.js).
+  const sceneLight = fallback?.scene?.lights?.find?.((light) => light?.type === "directional");
+  if (!fitConfig.lightPosition && sceneLight?.position) {
+    fitConfig.lightPosition = sceneLight.position;
+    fitConfig.lightTarget = sceneLight.target;
+  }
 
   await fitCameraToCenteredObject(_object, true, fitConfig);
 }
@@ -868,16 +876,12 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   );
   core.gridSize = Math.max(distance1.x, distance1.y, distance1.z);
 
-  core.dirLightTarget = new THREE.Object3D();
-  core.dirLightTarget.position.set(0, 0, 0);
-
-  core.lightHelper = new THREE.DirectionalLightHelper(core.dirLight, core.gridSize);
-  core.scene.add(core.lightHelper);
-  core.lightHelper.visible = false;
-
-  core.scene.add(core.dirLightTarget);
-  core.dirLight.target = core.dirLightTarget;
-  core.dirLight.target.updateMatrixWorld();
+  // The directional light round the model, or where it was saved.
+  placeDirectionalLight(core.dirLight, boundingBox, {
+    position: cfg?.lightPosition,
+    target: cfg?.lightTarget,
+  });
+  window.Viewer?.refreshLights?.();
 
   buildGround(boundingBox);
  

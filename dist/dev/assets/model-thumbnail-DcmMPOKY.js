@@ -121,6 +121,26 @@ const VIEWER_I18N = {
       editor: "Editor",
       transform3dObject: "Transform 3D Object",
       transformLight: "Transform Light",
+      lightDirection: "Direction",
+      lightHeight: "Height",
+      lightReset: "Fit to the model",
+      light: "Light",
+      keyLight: "Key light",
+      lightPlacement: "Placement",
+      lightHandles: "Handles",
+      lightsNote: "The added lights are saved in the exported manifest.",
+      keyLightStays: "The key light stays: switch it off instead",
+      sceneLights: "Scene lights",
+      addLight: "Add light",
+      removeLight: "Remove light",
+      lightName: "Name",
+      lightEnabled: "On",
+      lightCastShadow: "Shadows",
+      lightConeAngle: "Cone angle",
+      lightPenumbra: "Soft edge",
+      lightTypeDirectional: "Directional light",
+      lightTypePoint: "Point light",
+      lightTypeSpot: "Spot light",
       transformMode: "Transform Mode",
       directionalLight: "Directional Light",
       ambientLight: "Ambient Light",
@@ -236,6 +256,7 @@ const VIEWER_I18N = {
       shadingCustomVertex: "Vertex shader",
       shadingCustomFragment: "Fragment shader",
       shadingCustomApply: "Apply",
+      shadingNote: "The model's own materials stay as they are: Original materials shows them again.",
       shadingCustomReset: "Reset to default",
     },
     metadata: {
@@ -1696,6 +1717,26 @@ const VIEWER_I18N = {
       editor: "Edytor",
       transform3dObject: "Transformacja obiektu 3D",
       transformLight: "Transformacja światła",
+      lightDirection: "Kierunek",
+      lightHeight: "Wysokość",
+      lightReset: "Dopasuj do modelu",
+      light: "Światło",
+      keyLight: "Światło główne",
+      lightPlacement: "Położenie",
+      lightHandles: "Uchwyty",
+      lightsNote: "Dodane światła zapisują się w eksportowanym manifeście.",
+      keyLightStays: "Światło główne zostaje: można je wyłączyć",
+      sceneLights: "Światła sceny",
+      addLight: "Dodaj światło",
+      removeLight: "Usuń światło",
+      lightName: "Nazwa",
+      lightEnabled: "Włączone",
+      lightCastShadow: "Cienie",
+      lightConeAngle: "Kąt stożka",
+      lightPenumbra: "Miękka krawędź",
+      lightTypeDirectional: "Światło kierunkowe",
+      lightTypePoint: "Światło punktowe",
+      lightTypeSpot: "Reflektor",
       transformMode: "Tryb transformacji",
       directionalLight: "Światło kierunkowe",
       ambientLight: "Światło otaczające",
@@ -1820,6 +1861,7 @@ const VIEWER_I18N = {
       shadingCustomVertex: "Vertex shader",
       shadingCustomFragment: "Fragment shader",
       shadingCustomApply: "Zastosuj",
+      shadingNote: "Własne materiały modelu się nie zmieniają: Oryginalne materiały pokazują je z powrotem.",
       shadingCustomReset: "Przywróć domyślny",
     },
     metadata: {
@@ -3314,6 +3356,26 @@ const VIEWER_I18N = {
       editor: "Editor",
       transform3dObject: "3D-Objekt transformieren",
       transformLight: "Licht transformieren",
+      lightDirection: "Richtung",
+      lightHeight: "Höhe",
+      lightReset: "An das Modell anpassen",
+      light: "Licht",
+      keyLight: "Hauptlicht",
+      lightPlacement: "Position",
+      lightHandles: "Griffe",
+      lightsNote: "Die hinzugefügten Lichter werden im exportierten Manifest gespeichert.",
+      keyLightStays: "Das Hauptlicht bleibt: stattdessen ausschalten",
+      sceneLights: "Lichter der Szene",
+      addLight: "Licht hinzufügen",
+      removeLight: "Licht entfernen",
+      lightName: "Name",
+      lightEnabled: "An",
+      lightCastShadow: "Schatten",
+      lightConeAngle: "Kegelwinkel",
+      lightPenumbra: "Weicher Rand",
+      lightTypeDirectional: "Gerichtetes Licht",
+      lightTypePoint: "Punktlicht",
+      lightTypeSpot: "Spotlicht",
       transformMode: "Transformationsmodus",
       directionalLight: "Gerichtetes Licht",
       ambientLight: "Umgebungslicht",
@@ -3438,6 +3500,7 @@ const VIEWER_I18N = {
       shadingCustomVertex: "Vertex-Shader",
       shadingCustomFragment: "Fragment-Shader",
       shadingCustomApply: "Anwenden",
+      shadingNote: "Die eigenen Materialien des Modells bleiben, wie sie sind: Originalmaterialien zeigt sie wieder.",
       shadingCustomReset: "Auf Standard zurücksetzen",
     },
     metadata: {
@@ -5340,6 +5403,8 @@ function validateLight(light, path, errors) {
   if (light.target !== undefined) validateVector(light.target, `${path}.target`, errors, 3);
   if (light.color !== undefined) validateString(light.color, `${path}.color`, errors);
   if (light.intensity !== undefined) validateNumber(light.intensity, `${path}.intensity`, errors);
+  if (light.name !== undefined) validateString(light.name, `${path}.name`, errors);
+  if (light.castShadow !== undefined) validateBoolean(light.castShadow, `${path}.castShadow`, errors);
 }
 
 // AIM3DViewer.rakingLight (editor/raking-light.js): direction 0-360 and
@@ -6386,6 +6451,8 @@ const AIM3D_BLOCK = obj({
     angle: leaf(number({ above: 0, max: Math.PI / 2, level: "warning" })),
     penumbra: leaf(number({ min: 0, max: 1, level: "warning" })),
     visible: BOOL,
+    name: TEXT,
+    castShadow: BOOL,
   }))),
   certainty: tag("certainty", obj({
     label: LANG,
@@ -7089,4 +7156,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-DS3LcOKk.js.map
+//# sourceMappingURL=model-thumbnail-DPeuIild.js.map

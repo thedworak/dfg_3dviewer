@@ -1579,7 +1579,9 @@ export function attachAnnotations(Viewer) {
             imageGeneration: core.CONFIG.viewer.imageGeneration || "f605dc6b727a1099b9e52b3ccbdf5673",
           },
 
-          // The viewer's own lights plus the ones imported from a manifest.
+          // The viewer's own lights plus the ones imported from a manifest
+          // or added in the editor (scene-lights.js); not the raking light
+          // or the sun study, which are tools.
           lights: [...(core.scene?.children || []), ...importedLightObjects()]
             .filter((child) =>
               [
@@ -1589,9 +1591,13 @@ export function attachAnnotations(Viewer) {
                 "AmbientLight",
                 "HemisphereLight"
               ].includes(child.type)
+              && !child.userData?.isRakingLight
+              && !child.userData?.isSunLight
             )
             .map((light) => ({
               type: light.type,
+
+              ...(light.userData?.label ? { name: String(light.userData.label) } : {}),
 
               position: light.position?.toArray?.() || [0, 0, 0],
 
@@ -1603,6 +1609,10 @@ export function attachAnnotations(Viewer) {
               intensity: light.intensity,
 
               ...(light.visible === false ? { visible: false } : {}),
+
+              ...(light.isDirectionalLight || light.isPointLight || light.isSpotLight
+                ? { castShadow: light.castShadow === true }
+                : {}),
 
               ...(light.isHemisphereLight
                 ? { groundColor: `#${light.groundColor.getHexString()}` }
@@ -2094,6 +2104,12 @@ export function attachAnnotations(Viewer) {
         }
         if (Number.isFinite(intensity)) target.intensity = intensity;
         target.visible = data.visible !== false;
+        // Left out (older manifests): the light keeps its own.
+        if (typeof data.castShadow === "boolean" && "castShadow" in target) target.castShadow = data.castShadow;
+        // The name the editor's list shows (scene-lights.js).
+        const name = typeof data.name === "string" ? data.name.trim() : "";
+        if (name) target.userData.label = name;
+        else delete target.userData.label;
         if (color) {
           try {
             target.color?.set?.(color);
@@ -2152,6 +2168,8 @@ export function attachAnnotations(Viewer) {
       pointLights.forEach(addExtraLight);
       spotLights.forEach(addExtraLight);
 
+      // The lights' list, the active one's helper, shadow and angles (scene-lights.js).
+      this.refreshLights?.();
       this.updateLightsSubmenuState?.();
       return true;
     },

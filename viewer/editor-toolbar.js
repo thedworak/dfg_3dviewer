@@ -193,6 +193,78 @@ export function placeHandHint() {
   hint.style.top = `${Math.max(Math.round(top), 8)}px`;
 }
 
+// The hand is dark: over a dark model or background it turns light
+// (.hand-hint-on-dark in main.css). What is under it is read from the
+// rendered canvas (preserveDrawingBuffer) a few times a second; where the
+// canvas is transparent (alpha), the page behind it counts.
+const HAND_CONTRAST_INTERVAL = 150;
+// Hysteresis, so it does not flicker over mid greys.
+const HAND_DARK_BELOW = 0.4;
+const HAND_LIGHT_ABOVE = 0.5;
+let handSampleCanvas = null;
+let handSampleTime = -Infinity;
+
+function parseCssColor(value) {
+  const m = /rgba?\(([^)]+)\)/.exec(value || "");
+  if (!m) return null;
+  const [r, g, b, a = 1] = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  return { r, g, b, a };
+}
+
+// The first opaque background colour behind the canvas.
+function backdropColor(element) {
+  for (let el = element; el; el = el.parentElement) {
+    const color = parseCssColor(getComputedStyle(el).backgroundColor);
+    if (color && color.a > 0.5) return color;
+  }
+  return { r: 255, g: 255, b: 255, a: 1 };
+}
+
+export function updateHandHintContrast(time = performance.now()) {
+  const hint = core.handHint;
+  const canvas = core.renderer?.domElement;
+  if (!hint || hint.hidden || !canvas) return;
+  if (time - handSampleTime < HAND_CONTRAST_INTERVAL) return;
+  handSampleTime = time;
+
+  const hintRect = hint.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  if (!hintRect.width || !canvasRect.width || !canvas.width) return;
+  const scaleX = canvas.width / canvasRect.width;
+  const scaleY = canvas.height / canvasRect.height;
+  const sx = (hintRect.left - canvasRect.left) * scaleX;
+  const sy = (hintRect.top - canvasRect.top) * scaleY;
+  const sw = hintRect.width * scaleX;
+  const sh = hintRect.height * scaleY;
+
+  const size = 8;
+  handSampleCanvas ??= Object.assign(document.createElement("canvas"), { width: size, height: size });
+  const ctx = handSampleCanvas.getContext("2d", { willReadFrequently: true });
+  let data;
+  try {
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, size, size);
+    data = ctx.getImageData(0, 0, size, size).data;
+  } catch {
+    // WebGPU canvas or a tainted one: keep the current colour.
+    return;
+  }
+
+  const back = backdropColor(canvas.parentElement);
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3] / 255;
+    const r = data[i] * a + back.r * (1 - a);
+    const g = data[i + 1] * a + back.g * (1 - a);
+    const b = data[i + 2] * a + back.b * (1 - a);
+    sum += (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  }
+  const luminance = sum / (data.length / 4);
+  const onDark = hint.classList.contains("hand-hint-on-dark");
+  if (!onDark && luminance < HAND_DARK_BELOW) hint.classList.add("hand-hint-on-dark");
+  else if (onDark && luminance > HAND_LIGHT_ABOVE) hint.classList.remove("hand-hint-on-dark");
+}
+
 // Where the notices start at the top of a phone's viewer (px) before the
 // logo has its height: under the model details button (8px + 40px).
 const NOTICE_TOP_FALLBACK = 56;
@@ -1003,8 +1075,6 @@ function appendLightsSubmenuItems(viewer, items, container) {
     }
 
     if (
-      item.key === "lightTargetTransformMove" ||
-      item.key === "lightTargetTransformTarget" ||
       item.key.startsWith("environmentMap") ||
       item.key.startsWith("rendering") ||
       item.key.startsWith("lightRaking") ||
@@ -1271,79 +1341,6 @@ const LIGHTS_SUBMENU_ITEMS = {
         },
       ],
     },
-    {
-      key: "lightTarget",
-      icon: "lightTarget",
-      label: t("gui.target", "Target"),
-      children: [
-        {
-          key: "lightTargetColor",
-          icon: "color",
-          label: t("gui.color", "Color"),
-          type: "color",
-          value: () => viewer.colors.DirectionalLight,
-          onChange: (value) => {
-            viewer.colors.DirectionalLight = value;
-            core.lightObjects[0].color = new THREE.Color(value);
-          },
-        },
-        {
-          key: "lightTargetIntensity",
-          icon: "intensity",
-          label: t("gui.intensity", "Intensity"),
-          type: "slider",
-          min: 0,
-          max: 10,
-          step: 0.01,
-          value: () => viewer.intensity.startIntensityDir,
-          onChange: (value) => {
-            viewer.intensity.startIntensityDir = value;
-            core.lightObjects[0].intensity = value;
-          },
-        },
-        {
-          key: "lightTargetTransform",
-          icon: "move",
-          label: t("gui.transform", "Transform"),
-          children: [
-            { key: "lightTargetTransformMove", icon: "move", label: t("gui.move", "Move"), onClick: () => viewer.toggleLightTransformMode("translate") },
-            { key: "lightTargetTransformTarget", icon: "lightTarget", label: t("gui.target", "Target"), onClick: () => viewer.toggleLightTransformMode("rotate") },
-          ],
-        },
-      ],
-    },
-    {
-      key: "lightAmbient",
-      icon: "ambientLight",
-      label: t("gui.ambient", "Ambient"),
-      children: [
-        {
-          key: "lightAmbientColor",
-          icon: "color",
-          label: t("gui.color", "Color"),
-          type: "color",
-          value: () => viewer.colors.AmbientLight,
-          onChange: (value) => {
-            viewer.colors.AmbientLight = value;
-            viewer.ambientLight.color = new THREE.Color(value);
-          },
-        },
-        {
-          key: "lightAmbientIntensity",
-          icon: "intensity",
-          label: t("gui.intensity", "Intensity"),
-          type: "slider",
-          min: 0,
-          max: 10,
-          step: 0.01,
-          value: () => viewer.intensity.startIntensityAmbient,
-          onChange: (value) => {
-            viewer.intensity.startIntensityAmbient = value;
-            viewer.ambientLight.intensity = value;
-          },
-        },
-      ],
-    },
     /*{
       key: "lightCamera",
       icon: "cameraLight",
@@ -1408,7 +1405,9 @@ export function createEditorToolbar(viewer) {
     { key: "projection", group: "view", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
     { key: "clippingPlanes", group: "view", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
     // Appearance.
-    { key: "lights", group: "appearance", icon: "lights", onClick: () => {}, pressed: false, primary: false },
+    // The lights window (editor/lights-panel.js); the sun and the raking
+    // light in its submenu.
+    { key: "lights", group: "appearance", icon: "lights", onClick: () => viewer.toggleLightsPanel(), pressed: true, primary: false },
     { key: "environmentMap", group: "appearance", icon: "environmentMap", onClick: () => {}, pressed: true, primary: false },
     // Rain, snow, fog and storms: their window (editor/weather.js).
     { key: "weather", group: "appearance", icon: "weather", onClick: () => viewer.toggleWeatherPanel(), pressed: true, primary: false },
@@ -1419,7 +1418,7 @@ export function createEditorToolbar(viewer) {
     // The model's materials, with built-in material types
     // (editor/materials-editor.js).
     { key: "materials", group: "appearance", icon: "materials", onClick: () => viewer.toggleMaterialsPanel(), pressed: true, primary: false },
-    { key: "shading", group: "appearance", icon: "shading", onClick: () => {}, pressed: false, primary: false },
+    { key: "shading", group: "appearance", icon: "shading", onClick: () => viewer.toggleShadingPanel(), pressed: true, primary: false },
     { key: "wireframe", group: "appearance", icon: "wireframe", onClick: () => viewer.toggleWireframeMode(), pressed: true, primary: false },
     { key: "background", group: "appearance", icon: "background", onClick: () => {}, pressed: false, primary: false },
     // What the model stands on: a window of tiles (ui/ground-panel.js).
@@ -1848,8 +1847,13 @@ export function createEditorToolbar(viewer) {
       // In the menus the sun and the raking light are under Analysis.
       const items = LIGHTS_SUBMENU_ITEMS[tool.key](viewer)
         .filter((item) => !menus || (item.key !== "lightSun" && item.key !== "lightRaking"));
-      appendLightsSubmenuItems(viewer, items, submenu);
-      button.appendChild(submenu);
+      if (items.length) {
+        appendLightsSubmenuItems(viewer, items, submenu);
+        button.appendChild(submenu);
+      } else {
+        // The menus: nothing left under Lights, which opens its window.
+        button.classList.remove("has-submenu");
+      }
     } else if (tool.key === "sunStudy" || tool.key === "rakingLight") {
       button.classList.add("has-submenu");
       const submenu = document.createElement("div");
@@ -2010,62 +2014,6 @@ export function createEditorToolbar(viewer) {
         submenu.appendChild(subButton);
       });
       button.appendChild(submenu);
-    } else if (tool.key === "shading") {
-      button.classList.add("has-submenu");
-      const submenu = document.createElement("div");
-      submenu.className = "viewer-editor-tool_submenu viewer-editor-tool_submenu--grid";
-      viewer.shadingSubmenuButtons = {};
-
-      // The model as loaded, then the material models, then the views
-      // for reading a scan's geometry.
-      const shadingModes = [
-        { key: "original", icon: "shadingOriginal", label: t("gui.shadingOriginal", "Original materials") },
-        { key: "standard", icon: "shadingStandard", label: t("gui.shadingStandard", "Standard (PBR)") },
-        { key: "phong", icon: "shadingPhong", label: t("gui.shadingPhong", "Phong") },
-        { key: "lambert", icon: "shadingLambert", label: t("gui.shadingLambert", "Lambert") },
-        { key: "toon", icon: "shadingToon", label: t("gui.shadingToon", "Toon") },
-        { key: "clay", icon: "shadingClay", label: t("gui.shadingClay", "Clay (no texture)") },
-        { key: "matcap", icon: "shadingMatcap", label: t("gui.shadingMatcap", "Matcap (studio clay)") },
-        { key: "flat", icon: "shadingFlat", label: t("gui.shadingFlat", "Flat shading (show faces)") },
-        { key: "normals", icon: "shadingNormals", label: t("gui.shadingNormals", "Normals") },
-      ];
-
-      shadingModes.forEach((item) => {
-        const subButton = document.createElement("button");
-        subButton.type = "button";
-        subButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-        subButton.dataset.tool = `shading-${item.key}`;
-        subButton.setAttribute("title", item.label);
-        subButton.setAttribute("aria-label", item.label);
-        subButton.innerHTML = `
-          <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon(item.icon)}</span>
-        `;
-        viewer.bindEventListener(subButton, "click", (event) => {
-          event.stopPropagation();
-          viewer.setShadingMode(item.key);
-        });
-        viewer.shadingSubmenuButtons[item.key] = subButton;
-        submenu.appendChild(subButton);
-      });
-
-      const customButton = document.createElement("button");
-      customButton.type = "button";
-      customButton.className = "viewer-editor-tool viewer-editor-tool_submenu-button";
-      customButton.dataset.tool = "shading-custom";
-      const customLabel = t("gui.shadingCustom", "Custom shader");
-      customButton.setAttribute("title", customLabel);
-      customButton.setAttribute("aria-label", customLabel);
-      customButton.innerHTML = `
-        <span class="viewer-editor-tool_icon" aria-hidden="true">${getEditorToolbarIcon("shadingCustom")}</span>
-      `;
-      viewer.bindEventListener(customButton, "click", (event) => {
-        event.stopPropagation();
-        viewer.openCustomShaderDialog();
-      });
-      viewer.shadingSubmenuButtons.custom = customButton;
-      submenu.appendChild(customButton);
-
-      button.appendChild(submenu);
     } else if (tool.key === "download") {
       if (!core.isLightweight || core.isLocalPreview) {
         button.href = core.downloadModelElement;
@@ -2074,7 +2022,9 @@ export function createEditorToolbar(viewer) {
         button.download = core.fileObject.filename;
       }
     }
-    viewer.bindEventListener(button, "click", () => {
+    viewer.bindEventListener(button, "click", (event) => {
+      // A click on one of its submenu's items is that item's.
+      if (event.target.closest?.(".viewer-editor-tool_submenu")) return;
       viewer.stopHandMode();
       if (tool.onClick) {
         tool.onClick();
@@ -2268,20 +2218,13 @@ export function updateUpAxisSubmenuState(viewer) {
   });
 }
 
+// The shading window (editor/shading.js) shows the mode.
 export function updateShadingSubmenuState(viewer) {
-  if (!viewer.shadingSubmenuButtons) return;
-  const activeMode = viewer.shadingMode || "original";
-  Object.entries(viewer.shadingSubmenuButtons).forEach(([key, button]) => {
-    button?.classList.toggle("is-active", key === activeMode);
-  });
-  // GLSL needs the WebGL renderer (renderer-backend.js).
-  const custom = viewer.shadingSubmenuButtons.custom;
-  if (custom) custom.hidden = core.rendererBackend === "webgpu";
+  viewer.syncShadingPanel?.();
 }
 
 export function updateLightsSubmenuState(viewer) {
   if (!viewer.lightsSubmenuButtons) return;
-  const activeMode = viewer.transformText["Transform Light"];
   const environmentMapToggle = viewer.lightsSubmenuButtons.environmentMapToggle;
   if (environmentMapToggle) {
     const toggleLabel = environmentMapToggle.querySelector('.viewer-editor-tool_submenu-toggle-state');
@@ -2291,14 +2234,6 @@ export function updateLightsSubmenuState(viewer) {
     environmentMapToggle.classList.toggle("is-active", isEnabled);
   }
 
-  viewer.lightsSubmenuButtons.lightTargetTransformMove?.classList.toggle(
-    "is-active",
-    activeMode === "translate"
-  );
-  viewer.lightsSubmenuButtons.lightTargetTransformTarget?.classList.toggle(
-    "is-active",
-    activeMode === "rotate"
-  );
 
   const rendering = getRenderingSettings();
   const setPressed = (button, isActive) => {
@@ -2565,8 +2500,6 @@ export function updateEditorToolbarLabels(viewer) {
 
   if (viewer.lightsSubmenuButtons) {
     const lightsSubmenuLabels = {
-      lightTargetTransformMove: t("gui.move", "Move"),
-      lightTargetTransformTarget: t("gui.target", "Target"),
       environmentMapToggle: t("gui.environmentMapToggle", "Environment map"),
       environmentMapIntensity: t("gui.intensity", "Intensity"),
       environmentMapStyleNeutral: t("gui.environmentMapNeutral", "Neutral"),
@@ -2724,6 +2657,8 @@ export function updateEditorToolbarState(viewer) {
     weather: viewer.weather?.enabled === true || viewer.isWeatherPanelOpen?.() === true,
     sceneSuggest: viewer.isSceneSuggestPanelOpen?.() === true,
     materials: viewer.isMaterialsPanelOpen?.() === true,
+    shading: viewer.isShadingPanelOpen?.() === true,
+    lights: viewer.isLightsPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,

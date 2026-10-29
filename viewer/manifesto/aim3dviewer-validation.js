@@ -142,6 +142,8 @@ function validateLight(light, path, errors) {
   if (light.target !== undefined) validateVector(light.target, `${path}.target`, errors, 3);
   if (light.color !== undefined) validateString(light.color, `${path}.color`, errors);
   if (light.intensity !== undefined) validateNumber(light.intensity, `${path}.intensity`, errors);
+  if (light.name !== undefined) validateString(light.name, `${path}.name`, errors);
+  if (light.castShadow !== undefined) validateBoolean(light.castShadow, `${path}.castShadow`, errors);
 }
 
 // AIM3DViewer.rakingLight (editor/raking-light.js): direction 0-360 and
