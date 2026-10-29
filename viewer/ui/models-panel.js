@@ -1,5 +1,8 @@
 import { core } from "../core.js";
-import { apiUrl, appRequestHeaders, remoteAssetUrl, isAppBuild, hasRemote, remoteBase, setRemoteUrl } from "../remote.js";
+import {
+  apiUrl, appRequestHeaders, remoteAssetUrl, isAppBuild, hasRemote, remoteBase, setRemoteUrl,
+  defaultRemoteUrl, addedRemoteUrls, removeRemoteUrl, isDefaultRemote,
+} from "../remote.js";
 import { listLibrary, saveToLibrary, repositoryEntryId } from "../offline-library.js";
 import { toastHelper } from "../viewer-utils.js";
 import { isOnline } from "../connectivity.js";
@@ -47,7 +50,7 @@ export function attachModelsPanel(Viewer) {
       if (!core.container || this.modelsPanel) return;
 
       const panelText = {
-        title: t("modelsPanel.title", "Previously generated models"),
+        title: t("modelsPanel.title", "ExHUB"),
         closeAria: t("modelsPanel.closeAria", "Close models panel"),
       };
 
@@ -60,13 +63,21 @@ export function attachModelsPanel(Viewer) {
           <button id="modelsPanelClose" type="button" aria-label="${panelText.closeAria}">X</button>
         </div>
         ${isAppBuild() ? `
-        <form id="modelsPanelRepository" class="models-panel-repository">
-          <label for="modelsPanelRepositoryUrl">${t("modelsPanel.repositoryLabel", "Repository address")}</label>
+        <div id="modelsPanelRepository" class="models-panel-repository">
           <div class="models-panel-repository-row">
-            <input id="modelsPanelRepositoryUrl" type="text" inputmode="url" autocapitalize="off" spellcheck="false" autocomplete="url" placeholder="https://repository.example.org" />
-            <button type="submit">${t("modelsPanel.repositorySave", "Connect")}</button>
+            <span class="models-panel-repository-current"></span>
+            <select id="modelsPanelRepositorySelect" aria-label="${t("modelsPanel.repositoryChoose", "Repository")}"></select>
+            <button type="button" class="models-panel-repository-remove" aria-label="${t("modelsPanel.repositoryRemove", "Remove this repository")}" title="${t("modelsPanel.repositoryRemove", "Remove this repository")}">&minus;</button>
+            <button type="button" class="models-panel-repository-add" aria-label="${t("modelsPanel.repositoryAdd", "Add a repository by its address")}" title="${t("modelsPanel.repositoryAdd", "Add a repository by its address")}" aria-expanded="false">+</button>
           </div>
-        </form>` : ""}
+          <form class="models-panel-repository-form" hidden>
+            <label for="modelsPanelRepositoryUrl">${t("modelsPanel.repositoryLabel", "Repository address")}</label>
+            <div class="models-panel-repository-row">
+              <input id="modelsPanelRepositoryUrl" type="text" inputmode="url" autocapitalize="off" spellcheck="false" autocomplete="url" placeholder="https://repository.example.org" />
+              <button type="submit">${t("modelsPanel.repositorySave", "Connect")}</button>
+            </div>
+          </form>
+        </div>` : ""}
         <ul id="modelsPanelList" class="models-panel-list"></ul>
       `;
 
@@ -78,27 +89,49 @@ export function attachModelsPanel(Viewer) {
       this.modelsList = panel.querySelector("#modelsPanelList");
 
       // The app build reaches the repository over the network (remote.js):
-      // its address is set here and kept on the device. Empty = offline only.
-      const repositoryForm = panel.querySelector("#modelsPanelRepository");
-      if (repositoryForm) {
-        const urlInput = repositoryForm.querySelector("input");
-        urlInput.value = remoteBase();
-        this.bindEventListener(repositoryForm, "submit", (event) => {
-          event.preventDefault();
-          const value = setRemoteUrl(urlInput.value);
+      // ExHUB, the one it was built with, or another one added by its
+      // address - kept on the device.
+      const repository = panel.querySelector("#modelsPanelRepository");
+      if (repository) {
+        const select = repository.querySelector("select");
+        const form = repository.querySelector("form");
+        const addButton = repository.querySelector(".models-panel-repository-add");
+        const urlInput = form.querySelector("input");
+        const switchTo = (url) => {
+          const value = setRemoteUrl(url);
           if (value === null) {
             toastHelper("repositoryUrlInvalid", "error");
-            return;
+            return false;
           }
-          urlInput.value = value;
           this.refreshAuthState?.();
+          this.updateRepositoryFormVisibility();
+          this.loadModelsList();
+          return true;
+        };
+        this.bindEventListener(select, "change", () => switchTo(select.value));
+        this.bindEventListener(repository.querySelector(".models-panel-repository-remove"), "click", () => {
+          removeRemoteUrl(remoteBase());
+          this.refreshAuthState?.();
+          this.updateRepositoryFormVisibility();
           this.loadModelsList();
         });
-        // Locked (hasFeature()): a tap on the field says why.
-        this.bindEventListener(repositoryForm.querySelector(".models-panel-repository-row"), "click", () => {
-          if (repositoryForm.dataset.locked !== "true") return;
-          toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
-          this.showLockedFeature?.("customRepository");
+        // Locked (hasFeature()): a tap on "+" says why.
+        this.bindEventListener(addButton, "click", () => {
+          if (repository.dataset.locked === "true") {
+            toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
+            this.showLockedFeature?.("customRepository");
+            return;
+          }
+          form.hidden = !form.hidden;
+          addButton.setAttribute("aria-expanded", String(!form.hidden));
+          if (!form.hidden) urlInput.focus();
+        });
+        this.bindEventListener(form, "submit", (event) => {
+          event.preventDefault();
+          if (!switchTo(urlInput.value)) return;
+          urlInput.value = "";
+          form.hidden = true;
+          addButton.setAttribute("aria-expanded", "false");
         });
       }
 
@@ -109,21 +142,56 @@ export function attachModelsPanel(Viewer) {
       makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeModelsPanel());
     },
 
-    // The address field can be locked in the app (hasFeature() in
-    // app-features.js), showing the address the app was built with.
+    // The repositories to choose from: ExHUB, then those added. Adding one
+    // can be locked in the app (hasFeature() in app-features.js); then only
+    // ExHUB.
     updateRepositoryFormVisibility() {
-      const form = this.modelsPanel?.querySelector("#modelsPanelRepository");
-      if (!form) return;
-      const allowed = hasFeature("customRepository");
-      const wasLocked = form.dataset.locked === "true";
-      const locked = isFeatureGatingEnabled() && !allowed;
-      form.dataset.locked = locked ? "true" : "false";
-      form.querySelectorAll("input, button").forEach((control) => { control.disabled = locked; });
-      const label = form.querySelector("label");
-      label.querySelector(".plan-lock-icon")?.remove();
-      if (locked) label.appendChild(createLockIcon());
-      form.querySelector("input").value = remoteBase();
+      const repository = this.modelsPanel?.querySelector("#modelsPanelRepository");
+      if (!repository) return;
+      const wasLocked = repository.dataset.locked === "true";
+      const locked = isFeatureGatingEnabled() && !hasFeature("customRepository");
+      repository.dataset.locked = locked ? "true" : "false";
+
+      const current = remoteBase();
+      const choices = [
+        ...(defaultRemoteUrl() ? [defaultRemoteUrl()] : []),
+        ...(locked ? [] : addedRemoteUrls()),
+      ];
+      const select = repository.querySelector("select");
+      select.textContent = "";
+      choices.forEach((url) => {
+        const option = document.createElement("option");
+        option.value = url;
+        option.textContent = this.repositoryName(url);
+        option.title = url;
+        option.selected = url === current;
+        select.appendChild(option);
+      });
+      // One choice: its name, not a list of one.
+      select.hidden = choices.length < 2;
+      const name = repository.querySelector(".models-panel-repository-current");
+      name.hidden = choices.length > 1;
+      name.textContent = current ? this.repositoryName(current) : "";
+      name.title = current;
+      repository.querySelector(".models-panel-repository-remove").hidden = locked || !current || isDefaultRemote(current);
+
+      const addButton = repository.querySelector(".models-panel-repository-add");
+      addButton.classList.toggle("plan-locked", locked);
+      addButton.querySelector(".plan-lock-icon")?.remove();
+      if (locked) addButton.appendChild(createLockIcon());
+      const form = repository.querySelector("form");
+      // No repository at all (an app built without one): the address first.
+      if (locked) form.hidden = true;
+      else if (!current) form.hidden = false;
+      addButton.setAttribute("aria-expanded", String(!form.hidden));
       if (wasLocked !== locked && this.modelsPanel?.hidden === false) this.loadModelsList();
+    },
+
+    // "ExHUB" for the one the app was built with, else the address without
+    // "https://".
+    repositoryName(url) {
+      if (isDefaultRemote(url)) return t("modelsPanel.exhub", "ExHUB");
+      return url.replace(/^https:\/\//, "");
     },
 
     async loadModelsList() {

@@ -2265,18 +2265,17 @@ body.presentation-mode {
 }
 
 /* No network (viewer/connectivity.js) or no repository configured in the app
-   (viewer/remote.js): hide controls that need the server. The model browser
-   stays in the app without a repository - its address is entered there.
+   (viewer/remote.js): hide controls that need the server. ExHUB, the model
+   browser (#browseModelsButton), always stays: it says why it is empty, and
+   in the app another repository is added there by its address.
    The app signs in with a session token (remote.js), like a page does with
    its cookie. */
 body.viewer-offline #uploadModel,
-body.viewer-offline #browseModelsButton,
 body.viewer-offline #loginButton,
 body.viewer-offline #manageUsersButton,
 body.viewer-no-remote #uploadModel,
 body.viewer-no-remote #loginButton,
 body.viewer-no-remote #manageUsersButton,
-body.viewer-app #browseModelsButton,
 body.viewer-app #browseManifestsButton,
 /* ...and the bar that holds only those two, or its empty frame stays in the
    header's corner. */

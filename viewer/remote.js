@@ -11,13 +11,25 @@ export function isAppBuild() {
 }
 
 const REMOTE_URL_KEY = 'dfg3dviewer-remote-url';
+const REMOTE_URLS_KEY = 'dfg3dviewer-remote-urls';
+// Storage blocked: the choice lasts for this session only.
+let remoteUrlInMemory = null;
+let remoteUrlsInMemory = [];
+
+// ExHUB: the repository the app was built with (mobile.remoteUrl). Always
+// one of the choices; other repositories are added by their address
+// (models panel) and kept on the device.
+export function defaultRemoteUrl() {
+  return isAppBuild() ? normalizeRemoteUrl(core.CONFIG.mobile.remoteUrl) || '' : '';
+}
 
 // Set in the app (models panel); wins over mobile.remoteUrl from the build.
+// Empty (an address cleared before ExHUB was always there) = ExHUB.
 function storedRemoteUrl() {
   try {
-    return localStorage.getItem(REMOTE_URL_KEY);
+    return localStorage.getItem(REMOTE_URL_KEY) || null;
   } catch {
-    return null;
+    return remoteUrlInMemory;
   }
 }
 
@@ -26,33 +38,81 @@ export function remoteBase() {
   // Another repository address may not be available (app-features.js); then
   // the one the app was built with.
   const stored = hasFeature('customRepository') ? storedRemoteUrl() : null;
-  const url = stored !== null ? stored : core.CONFIG.mobile.remoteUrl;
-  return String(url || '').trim().replace(/\/+$/, '');
+  return stored ? String(stored).trim().replace(/\/+$/, '') : defaultRemoteUrl();
 }
 
-// "repo.example.org" -> "https://repo.example.org"; "" clears it (offline
-// only). Returns the normalized value, or null when it is not a usable URL.
-export function setRemoteUrl(input) {
+export function isDefaultRemote(url = remoteBase()) {
+  return url === defaultRemoteUrl();
+}
+
+// "repo.example.org" -> "https://repo.example.org". Null when it is not a
+// usable URL.
+function normalizeRemoteUrl(input) {
   let value = String(input || '').trim();
-  if (/\s/.test(value)) return null;
-  if (value && !/^[a-z][\w+.-]*:\/\//i.test(value)) value = `https://${value}`;
-  if (value) {
-    try {
-      const url = new URL(value);
-      if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-      value = url.origin + url.pathname.replace(/\/+$/, '');
-    } catch {
-      return null;
-    }
-  }
+  if (!value || /\s/.test(value)) return null;
+  if (!/^[a-z][\w+.-]*:\/\//i.test(value)) value = `https://${value}`;
   try {
-    localStorage.setItem(REMOTE_URL_KEY, value);
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    return url.origin + url.pathname.replace(/\/+$/, '');
   } catch {
-    // Storage blocked: the setting lasts for this session only.
-    core.CONFIG.mobile.remoteUrl = value;
+    return null;
+  }
+}
+
+// The repositories added by address, besides ExHUB.
+export function addedRemoteUrls() {
+  let urls;
+  try {
+    urls = JSON.parse(localStorage.getItem(REMOTE_URLS_KEY) || '[]');
+  } catch {
+    urls = remoteUrlsInMemory;
+  }
+  // A device that set an address before the list existed: that one.
+  const stored = storedRemoteUrl();
+  if (Array.isArray(urls) && stored && !urls.includes(stored)) urls = [...urls, stored];
+  return (Array.isArray(urls) ? urls : []).filter((url) => typeof url === 'string' && url && !isDefaultRemote(url));
+}
+
+function writeAddedRemoteUrls(urls) {
+  try {
+    localStorage.setItem(REMOTE_URLS_KEY, JSON.stringify(urls));
+  } catch {
+    remoteUrlsInMemory = urls;
+  }
+}
+
+function writeStoredRemoteUrl(value) {
+  try {
+    if (value) localStorage.setItem(REMOTE_URL_KEY, value);
+    else localStorage.removeItem(REMOTE_URL_KEY);
+  } catch {
+    remoteUrlInMemory = value || null;
+  }
+}
+
+// Switches to a repository by its address, adding it to the list when it is
+// not ExHUB; "" goes back to ExHUB. Returns the normalized address, or null
+// when it is not a usable URL.
+export function setRemoteUrl(input) {
+  const value = String(input || '').trim() ? normalizeRemoteUrl(input) : defaultRemoteUrl();
+  if (value === null) return null;
+  if (isDefaultRemote(value)) {
+    writeStoredRemoteUrl(null);
+  } else {
+    const urls = addedRemoteUrls();
+    if (!urls.includes(value)) writeAddedRemoteUrls([...urls, value]);
+    writeStoredRemoteUrl(value);
   }
   initRemote();
   return value;
+}
+
+// Removes an added repository; when it was the one in use, back to ExHUB.
+export function removeRemoteUrl(url) {
+  if (remoteBase() === url) writeStoredRemoteUrl(null);
+  writeAddedRemoteUrls(addedRemoteUrls().filter((added) => added !== url));
+  initRemote();
 }
 
 // The app's session on the repository (worker/auth.py): the app runs on

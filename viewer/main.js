@@ -4224,17 +4224,27 @@ export const Viewer = {
           Viewer.updateUploadMenuEntryState();
           Viewer.bindEventListener(uploadModelButton, "click", openUnder(uploadModelButton, Viewer.openUploadPanel, "uploadPanel", Viewer.closeUploadPanel));
         }
+        // ExHUB, the repository: the same button on a page and in the app,
+        // always there (ui/models-panel.js). In the app it goes through
+        // ui/models-source.js, which remembers it and knows the plan's lock.
         if (browseModelsButton) {
           browseModelsButton.innerHTML = '<span class="browse-models-icon" aria-hidden="true"></span>';
-          const browseModelsLabel = t("menu.openModelsPanel", "Browse previously generated models");
+          const browseModelsLabel = t("menu.openModelsPanel", "ExHUB - models in the repository");
           browseModelsButton.setAttribute("aria-label", browseModelsLabel);
           browseModelsButton.setAttribute("title", browseModelsLabel);
-          Viewer.bindEventListener(browseModelsButton, "click", openUnder(browseModelsButton, Viewer.openModelsPanel, "modelsPanel", Viewer.closeModelsPanel));
+          Viewer.bindEventListener(
+            browseModelsButton,
+            "click",
+            isAppBuild()
+              ? Viewer.toggleExhub.bind(Viewer)
+              : openUnder(browseModelsButton, Viewer.openModelsPanel, "modelsPanel", Viewer.closeModelsPanel)
+          );
+          if (isAppBuild()) Viewer.applyModelsSourceLocks?.();
         }
         if (openLocalFileButton) {
           openLocalFileButton.innerHTML = '<span class="open-local-file-icon" aria-hidden="true"></span>';
-          // The app: one button for the device and the repository
-          // (ui/models-source.js); #browseModelsButton is hidden there.
+          // The app: one button for the device, ExHUB and the examples
+          // (ui/models-source.js), besides ExHUB's own.
           const openLocalFileLabel = isAppBuild()
             ? t("menu.openModels", "Models")
             : t("menu.openLocalFile", "Models on this device");

@@ -1,5 +1,5 @@
-export { V as Viewer, e as expectWebGL } from './assets/main-DPUvgjoz.js';
+export { V as Viewer, e as expectWebGL } from './assets/main-DRZE_X4k.js';
 import './assets/three-9zFNDZnr.js';
-import './assets/model-thumbnail-DmA4mp7z.js';
+import './assets/model-thumbnail-DdZDt4MY.js';
 import './assets/_commonjsHelpers-ChNyZfSg.js';
 //# sourceMappingURL=dfg_3dviewer-module-DS1XAG9f.js.map

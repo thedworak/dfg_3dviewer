@@ -4,12 +4,12 @@ import { toastHelper } from "../viewer-utils.js";
 import { hasFeature } from "../app-features.js";
 import { createLockIcon } from "./lock-icon.js";
 
-// The app has one "Models" button instead of two: it opens the models on the
-// device (library-panel.js), those in the repository (models-panel.js) or the
-// example manifests (examples-panel.js), whichever was used last, and each
-// panel carries a toggle between them.
+// The app's "Models" button opens the models on the device
+// (library-panel.js), those in ExHUB, the repository (models-panel.js), or
+// the example manifests (examples-panel.js), whichever was used last, and
+// each panel carries a toggle between them. ExHUB has its own button too.
 // The repository's models can be locked in the app (hasFeature() in
-// app-features.js): "Remote" then carries a lock.
+// app-features.js): ExHUB then carries a lock.
 const SOURCE_KEY = "dfg3dviewer-models-source";
 
 function storedSource() {
@@ -37,6 +37,17 @@ export function attachModelsSource(Viewer) {
       }
       const source = storedSource();
       this.showModelsSource(source === "remote" && !hasFeature("remoteModels") ? "local" : source);
+    },
+
+    // The ExHUB button in the app's header: the repository's models, or
+    // closes them.
+    toggleExhub(event) {
+      event?.preventDefault?.();
+      if (this.modelsPanel?.hidden === false) {
+        this.closeModelsPanel?.();
+        return;
+      }
+      this.showModelsSource("remote");
     },
 
     showModelsSource(source) {
@@ -81,11 +92,11 @@ export function attachModelsSource(Viewer) {
       toggle.className = "models-source-toggle";
       toggle.setAttribute("role", "group");
       toggle.setAttribute("aria-label", t("modelsSource.aria", "Where the models come from"));
-      // Icons, with the words as tooltip and accessible name: a phone, a
-      // cloud, a star (the .meta-icon masks in models-panel.css).
+      // Icons, with the words as tooltip and accessible name: a phone,
+      // storage, a star (the .meta-icon masks in models-panel.css).
       [
         ["local", "device", t("modelsSource.local", "On this device")],
-        ["remote", "repository", t("modelsSource.remote", "Remote")],
+        ["remote", "repository", t("modelsSource.remote", "ExHUB")],
         ["examples", "examples", t("modelsSource.examples", "Examples")],
       ].forEach(([source, icon, label]) => {
         const button = document.createElement("button");
@@ -108,7 +119,7 @@ export function attachModelsSource(Viewer) {
       return toggle;
     },
 
-    // The lock on "Remote"; called for every toggle when the plan changes.
+    // The lock on ExHUB; called for every toggle when the plan changes.
     updateModelsSourceLock(toggle) {
       const button = toggle.querySelector('[data-source="remote"]');
       if (!button) return;
@@ -120,6 +131,14 @@ export function attachModelsSource(Viewer) {
 
     applyModelsSourceLocks() {
       document.querySelectorAll(".models-source-toggle").forEach((toggle) => this.updateModelsSourceLock(toggle));
+      // ExHUB's own button in the header.
+      const exhubButton = document.getElementById("browseModelsButton");
+      if (exhubButton && isAppBuild()) {
+        const locked = !hasFeature("remoteModels");
+        exhubButton.classList.toggle("plan-locked", locked);
+        exhubButton.querySelector(".plan-lock-icon")?.remove();
+        if (locked) exhubButton.appendChild(createLockIcon());
+      }
       // The plan no longer includes it: back to the models on the device.
       if (!hasFeature("remoteModels") && this.modelsPanel?.hidden === false) this.showModelsSource("local");
     },
