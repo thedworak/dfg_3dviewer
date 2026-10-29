@@ -1,0 +1,185 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/manifest-golden-hour.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Angel - golden hour, a low warm sun and a blue sky (AIM3D)"
+    ],
+    "pl": [
+      "Anioł - złota godzina, niskie ciepłe słońce i niebieskie niebo (AIM3D)"
+    ],
+    "de": [
+      "Engel - goldene Stunde, tiefe warme Sonne und blauer Himmel (AIM3D)"
+    ]
+  },
+  "summary": {
+    "en": [
+      "A low evening sun from the side warms the lit faces and casts long shadows; the sky fills the shadows with blue."
+    ],
+    "pl": [
+      "Niskie wieczorne słońce z boku ociepla oświetlone partie i rzuca długie cienie; niebo wypełnia cienie błękitem."
+    ],
+    "de": [
+      "Eine tiefe Abendsonne von der Seite wärmt die beleuchteten Flächen und wirft lange Schatten; der Himmel füllt die Schatten blau."
+    ]
+  },
+  "items": [
+    {
+      "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Angel"
+        ]
+      },
+      "items": [
+        {
+          "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad",
+                "type": "Model"
+              },
+              "target": {
+                "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-29T00:00:00.000Z",
+    "camera": {
+      "position": [
+        -1.25,
+        0.62,
+        0.5
+      ],
+      "target": [
+        0,
+        0.45,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 1.357,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 0,
+        "preset": "neutral",
+        "enabled": false
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1.35,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "splatLighting": {
+        "enabled": true,
+        "strength": 0.9,
+        "occlusion": 0.7
+      },
+      "backgroundColor": "#2b2530"
+    },
+    "lights": [
+      {
+        "type": "DirectionalLight",
+        "position": [
+          -0.9,
+          0.75,
+          -1.7
+        ],
+        "target": [
+          0,
+          0.45,
+          0
+        ],
+        "color": "#ffb067",
+        "intensity": 3,
+        "castShadow": true,
+        "name": "Sun"
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0.45,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0,
+        "castShadow": false
+      },
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#ffe2c4",
+        "intensity": 0.1
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          2,
+          0
+        ],
+        "color": "#8cb2ff",
+        "groundColor": "#4b3727",
+        "intensity": 0.55
+      }
+    ],
+    "modelTransform": {
+      "upAxis": "Y-",
+      "wireframe": false,
+      "shadingMode": "phong"
+    }
+  },
+  "modified": "2026-10-29T00:00:00.000Z"
+}

@@ -1,6 +1,6 @@
-import { c as core } from './main-xtXULjgi.js';
+import { c as core } from './main-boQvdeCI.js';
 import { C as Color, V as Vector4, dv as Box3, aQ as Matrix4, ar as Vector3, M as Matrix3, x as Mesh, fi as ShaderMaterial, a_ as DoubleSide, ee as GLSL3, aq as Vector2, fI as Timer, fZ as WebGLRenderTarget, aT as SRGBColorSpace, a1 as UnsignedByteType, aY as RGBAFormat, bv as Quaternion, _ as DataTexture, bd as RGBAIntegerFormat, a5 as UnsignedIntType, g9 as WebGLCubeRenderTarget, bj as LinearSRGBColorSpace, J as LinearFilter, bm as LinearMipMapLinearFilter, K as CubeCamera, dA as Camera, ga as PMREMGenerator, al as MeshStandardMaterial, bl as Object3D, cZ as DataArrayTexture, ba as RGIntegerFormat, fY as WebGLArrayRenderTarget, b1 as NearestFilter, o as ColorManagement, aI as PerspectiveCamera, aH as OrthographicCamera, gb as ShaderChunk, em as InstancedBufferGeometry, b5 as BufferAttribute, au as Loader, av as FileLoader, fd as RawShaderMaterial, be as Matrix2, R as REVISION, g5 as FullScreenQuad, g4 as THREE } from './three-9zFNDZnr.js';
-import './model-thumbnail-CGCZaCZh.js';
+import './model-thumbnail-Coz-7yIH.js';
 import './_commonjsHelpers-ChNyZfSg.js';
 
 const LN_SCALE_MIN = -12;
@@ -13995,9 +13995,11 @@ unindent(
 // gets from the scene's lights (three.js's terms: ambient, hemisphere,
 // directional, point and spot, with their distance and cone falloff; the
 // environment as ambient) divided by a reference, the irradiance a surface
-// half turned to every light would get at the middle of the model. With
+// gets on average over all its turns at the middle of the model. With
 // neutral lights the capture looks as it was; turning or dimming a light
-// shades its relief. `strength` blends between the two.
+// shades its relief. `strength` blends between the two. The renderer's
+// exposure (Look > Exposure, a manifest's rendering.exposure) brightens
+// them too, as it does the meshes; Spark draws splats without it.
 //
 // Uploads come with a voxel volume of their surface (<model>.light, built
 // by the worker, worker/splat_volume.py), loaded next to the model when
@@ -14023,8 +14025,10 @@ const MAX_DIRECTIONAL = 4;
 const MAX_LOCAL = 4;
 // Diffuse wrapped round the terminator, so noisy normals do not go black.
 const WRAP = 0.35;
-// The share of a light a surface gets on average (the reference).
-const REFERENCE_SHARE = 0.5;
+// The share of a light a surface gets on average over all its turns: the
+// mean of the wrapped diffuse over the sphere (the reference, and what a
+// round splat gets), so the lights keep the capture as bright as it was.
+const REFERENCE_SHARE = (1 + WRAP) / 4;
 // Brightest a splat may get, against its captured colour.
 const MAX_GAIN = 2.5;
 // Below this ratio of shortest to middle axis a splat counts as flat.
@@ -14050,6 +14054,8 @@ const vec4 = () => dyno.dynoVec4(new THREE.Vector4());
 // Shared by every splat mesh; filled from the scene by updateUniforms().
 const uniforms = {
   strength: dyno.dynoFloat(0),
+  // The renderer's tone mapping exposure, which Spark's splats do not get.
+  exposure: dyno.dynoFloat(1),
   occlusion: dyno.dynoFloat(0),
   reference: dyno.dynoFloat(1),
   ambient: vec3(),
@@ -14114,12 +14120,12 @@ const defineLighting = `
 
 function lightingDyno(gsplat, eye, volume) {
   const inTypes = {
-    gsplat: dyno.Gsplat, eye: "vec3", strength: "float", occlusion: "float", reference: "float",
+    gsplat: dyno.Gsplat, eye: "vec3", strength: "float", exposure: "float", occlusion: "float", reference: "float",
     ambient: "vec3", sky: "vec3", ground: "vec3", dirShadow: "vec4", localShadow: "vec4",
     volumeA: "sampler3D", volumeB: "sampler3D", present: "float", dims: "vec3", worldToVoxel: "mat4", voxelToWorld: "mat3",
   };
   const inputs = {
-    gsplat, eye, strength: uniforms.strength, occlusion: uniforms.occlusion, reference: uniforms.reference,
+    gsplat, eye, strength: uniforms.strength, exposure: uniforms.exposure, occlusion: uniforms.occlusion, reference: uniforms.reference,
     ambient: uniforms.ambient, sky: uniforms.sky, ground: uniforms.ground, dirShadow: uniforms.dirShadow, localShadow: uniforms.localShadow,
     volumeA: volume.a, volumeB: volume.b, present: volume.present, dims: volume.dims, worldToVoxel: volume.worldToVoxel, voxelToWorld: volume.voxelToWorld,
   };
@@ -14226,7 +14232,7 @@ function lightingDyno(gsplat, eye, volume) {
       lines.push(
         `  vec3 gain = min(irr / max(${i.reference}, 1e-6), vec3(${MAX_GAIN.toFixed(2)}));`,
         // The colours are sRGB; the gain is in linear light.
-        `  gain = pow(mix(vec3(1.0), gain, ${i.strength}), vec3(1.0 / 2.2));`,
+        `  gain = pow(mix(vec3(1.0), gain, ${i.strength}) * ${i.exposure}, vec3(1.0 / 2.2));`,
         `  ${g}.rgba.rgb *= gain;`,
         `}`,
       );
@@ -14298,7 +14304,7 @@ function collectLights() {
   return lights;
 }
 
-// What a surface half turned to every light gets at `at`.
+// What a surface gets at `at` on average over all its turns.
 function reference(lights, at) {
   let total = lights.ambient.dot(LUMA) + 0.5 * (lights.sky.dot(LUMA) + lights.ground.dot(LUMA));
   lights.directional.slice(0, MAX_DIRECTIONAL).forEach((light) => {
@@ -14321,19 +14327,21 @@ function copy(uniform, value) {
 
 // Once a frame (any of the splat meshes asks): the lights into the
 // uniforms; lightsVersion goes up when they changed.
-function updateUniforms(stamp) {
+function updateUniforms(stamp, renderer) {
   if (stamp === frameStamp) return;
   frameStamp = stamp;
   const state = core.splatLighting;
   const lights = collectLights();
   if (core.lightBounds?.center) center.copy(core.lightBounds.center);
   else center.set(0, 0, 0);
-  const key = JSON.stringify([state.strength, state.occlusion, center, lights]);
+  const exposure = Number.isFinite(renderer?.toneMappingExposure) ? renderer.toneMappingExposure : 1;
+  const key = JSON.stringify([state.strength, state.occlusion, exposure, center, lights]);
   if (key === lightsKey) return;
   lightsKey = key;
   lightsVersion += 1;
   uniforms.strength.value = THREE.MathUtils.clamp(Number(state.strength) || 0, 0, 1);
   uniforms.occlusion.value = THREE.MathUtils.clamp(Number(state.occlusion) || 0, 0, 1);
+  uniforms.exposure.value = Math.max(exposure, 0);
   uniforms.reference.value = reference(lights, center);
   copy(uniforms.ambient, lights.ambient);
   copy(uniforms.sky, lights.sky);
@@ -14480,7 +14488,7 @@ function attachSplatLighting(mesh, { volumeUrl } = {}) {
     if (on) {
       // Once a render, for all the meshes: Spark's time stands still
       // between renders on demand.
-      updateUniforms(frame.renderer?.info?.render?.frame ?? performance.now());
+      updateUniforms(frame.renderer?.info?.render?.frame ?? performance.now(), frame.renderer);
       const moved = placeVolume(mesh);
       if (lighting.version !== lightsVersion || moved) {
         lighting.version = lightsVersion;
@@ -14665,4 +14673,4 @@ async function buildPagedSplatModel(url, { fileName = "splats.rad", name = "Gaus
 }
 
 export { buildPagedSplatModel, buildSplatModel };
-//# sourceMappingURL=splats-BK7vYEoP.js.map
+//# sourceMappingURL=splats-BVNae4Q1.js.map

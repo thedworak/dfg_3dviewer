@@ -125,7 +125,8 @@ export const MANIFEST_FEATURES = [
   {
     id: "rendering",
     label: "Rendering and environment",
-    count: (m) => has(block(m).viewer?.rendering) + has(block(m).viewer?.environmentMap) + has(block(m).viewer?.backgroundColor),
+    count: (m) => has(block(m).viewer?.rendering) + has(block(m).viewer?.environmentMap) + has(block(m).viewer?.backgroundColor)
+      + has(block(m).viewer?.splatLighting),
   },
   { id: "tour", label: "Guided tour", count: (m) => has(block(m).viewer?.tour) },
   { id: "settings", label: "Viewer settings", count: (m) => has(block(m).viewer) + has(block(m).integration) },
@@ -307,6 +308,11 @@ const VIEWER = obj({
       ao: BOOL,
       aoIntensity: leaf(number({ min: 0, max: 2 })),
     }),
+  })),
+  splatLighting: tag("rendering", obj({
+    enabled: BOOL,
+    strength: leaf(number({ min: 0, max: 1 })),
+    occlusion: leaf(number({ min: 0, max: 1 })),
   })),
   ...Object.fromEntries([
     "presentationMode", "sandbox", "lightweight", "editor", "forceLocalPreview", "autorotate",

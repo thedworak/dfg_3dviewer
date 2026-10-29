@@ -405,6 +405,14 @@
   display: block;
 }
 
+/* The line between a menu's sections. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_separator {
+  flex: 0 0 auto;
+  height: 1px;
+  margin: 5px 10px;
+  background: var(--viewer-panel-border);
+}
+
 /* ---- The tools as rows: icon, name, control ---- */
 
 #viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool {

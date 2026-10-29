@@ -1,4 +1,4 @@
-import { core } from "../core.js";
+import { core, SPLAT_LIGHTING_DEFAULTS } from "../core.js";
 import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makeDraggable } from "../ui/panel-window.js";
@@ -1497,6 +1497,7 @@ export function attachAnnotations(Viewer) {
             },
             ground: getGroundPreset(),
             rendering: getRenderingSettings(),
+            splatLighting: { ...core.splatLighting },
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
             autorotate: core.controls?.autoRotate === true,
@@ -1926,6 +1927,20 @@ export function attachAnnotations(Viewer) {
       if (viewerConfig.rendering && typeof viewerConfig.rendering === "object") {
         applyRenderingSettings(viewerConfig.rendering);
         this.updateLightsSubmenuState?.();
+      }
+
+      // Gaussian splats lit by the lights (splat-lighting.js): what the
+      // manifest gives over the defaults, so one example's strength does not
+      // carry over to the next.
+      if (viewerConfig.splatLighting && typeof viewerConfig.splatLighting === "object") {
+        const { enabled, strength, occlusion } = viewerConfig.splatLighting;
+        const unit = (value, fallback) => (Number.isFinite(value) ? THREE.MathUtils.clamp(value, 0, 1) : fallback);
+        core.splatLighting = {
+          enabled: typeof enabled === "boolean" ? enabled : SPLAT_LIGHTING_DEFAULTS.enabled,
+          strength: unit(strength, SPLAT_LIGHTING_DEFAULTS.strength),
+          occlusion: unit(occlusion, SPLAT_LIGHTING_DEFAULTS.occlusion),
+        };
+        this.syncLightsPanelFields?.();
       }
 
       const backgroundColor = String(viewerConfig.backgroundColor || "").trim();

@@ -1,0 +1,206 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/manifest-night.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Angel - at night, a warm spotlight from below and cold moonlight (AIM3D)"
+    ],
+    "pl": [
+      "Anioł - nocą, ciepły reflektor od dołu i zimne światło księżyca (AIM3D)"
+    ],
+    "de": [
+      "Engel - nachts, warmer Scheinwerfer von unten und kaltes Mondlicht (AIM3D)"
+    ]
+  },
+  "summary": {
+    "en": [
+      "A floodlight at the foot of the statue lights it from below and casts its shadows upwards; faint blue moonlight from behind outlines it."
+    ],
+    "pl": [
+      "Reflektor u stóp posągu oświetla go od dołu i rzuca cienie w górę; słabe niebieskie światło księżyca z tyłu obrysowuje sylwetkę."
+    ],
+    "de": [
+      "Ein Strahler am Fuß der Statue beleuchtet sie von unten und wirft ihre Schatten nach oben; schwaches blaues Mondlicht von hinten umreißt sie."
+    ]
+  },
+  "items": [
+    {
+      "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Angel"
+        ]
+      },
+      "items": [
+        {
+          "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad",
+                "type": "Model"
+              },
+              "target": {
+                "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "https://explora4d.eu/viewer/files/a76b66b7591940e798397a207bc35906/Angel-lod.rad/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-10-29T00:00:00.000Z",
+    "camera": {
+      "position": [
+        -1.25,
+        0.62,
+        0.5
+      ],
+      "target": [
+        0,
+        0.45,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 1.357,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 0,
+        "preset": "neutral",
+        "enabled": false
+      },
+      "performance": "high-performance",
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1.0,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "splatLighting": {
+        "enabled": true,
+        "strength": 1,
+        "occlusion": 0.7
+      },
+      "backgroundColor": "#05070d"
+    },
+    "lights": [
+      {
+        "type": "DirectionalLight",
+        "position": [
+          1.5,
+          1.8,
+          -1.2
+        ],
+        "target": [
+          0,
+          0.45,
+          0
+        ],
+        "color": "#7f97ff",
+        "intensity": 0.5,
+        "castShadow": false,
+        "name": "Moonlight"
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0.45,
+          0
+        ],
+        "color": "#ffffff",
+        "intensity": 0,
+        "castShadow": false
+      },
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#1a2440",
+        "intensity": 0.12
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          2,
+          0
+        ],
+        "color": "#22304f",
+        "groundColor": "#050608",
+        "intensity": 0.1
+      },
+      {
+        "type": "SpotLight",
+        "name": "Floodlight",
+        "position": [
+          -1.15,
+          -0.15,
+          0.35
+        ],
+        "target": [
+          0,
+          0.55,
+          0
+        ],
+        "color": "#ffb36b",
+        "intensity": 6,
+        "distance": 0,
+        "decay": 0,
+        "angle": 0.5,
+        "penumbra": 0.5,
+        "castShadow": true
+      }
+    ],
+    "modelTransform": {
+      "upAxis": "Y-",
+      "wireframe": false,
+      "shadingMode": "phong"
+    }
+  },
+  "modified": "2026-10-29T00:00:00.000Z"
+}

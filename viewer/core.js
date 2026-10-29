@@ -2,6 +2,10 @@ import THREE from "./init.js";
 import TWEEN from "three/examples/jsm/libs/tween.module.js";
 
 // core.js
+// Gaussian splats lit by the scene's lights (splat-lighting.js); a manifest
+// may set them (AIM3DViewer.viewer.splatLighting).
+export const SPLAT_LIGHTING_DEFAULTS = Object.freeze({ enabled: true, strength: 0.8, occlusion: 0.7 });
+
 export const core = {
     clippingPlanes: null,
     materialsFolder: null,
@@ -35,8 +39,7 @@ export const core = {
     clippingFolder: null,
     helperObjects: [],
     isOnline: true, // kept current by connectivity.js
-    // Gaussian splats lit by the scene's lights (splat-lighting.js).
-    splatLighting: { enabled: false, strength: 0.8, occlusion: 0.7 },
+    splatLighting: { ...SPLAT_LIGHTING_DEFAULTS },
     // Add other shared state here
 };
 

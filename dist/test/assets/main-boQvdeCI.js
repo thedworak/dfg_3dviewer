@@ -1,10 +1,14 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-CGCZaCZh.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-Coz-7yIH.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
 
 // core.js
+// Gaussian splats lit by the scene's lights (splat-lighting.js); a manifest
+// may set them (AIM3DViewer.viewer.splatLighting).
+const SPLAT_LIGHTING_DEFAULTS = Object.freeze({ enabled: true, strength: 0.8, occlusion: 0.7 });
+
 const core = {
     clippingPlanes: null,
     materialsFolder: null,
@@ -38,8 +42,7 @@ const core = {
     clippingFolder: null,
     helperObjects: [],
     isOnline: true, // kept current by connectivity.js
-    // Gaussian splats lit by the scene's lights (splat-lighting.js).
-    splatLighting: { enabled: false, strength: 0.8, occlusion: 0.7 },
+    splatLighting: { ...SPLAT_LIGHTING_DEFAULTS },
     // Add other shared state here
 };
 
@@ -7061,6 +7064,13 @@ var groups = {
 			pl: "ExPlora4D showcase",
 			de: "ExPlora4D-Showcase"
 		}
+	},
+	angel: {
+		name: {
+			en: "Angel (Gaussian splats)",
+			pl: "Anioł (Gaussian splats)",
+			de: "Engel (Gaussian Splats)"
+		}
 	}
 };
 var iiif = [
@@ -7837,6 +7847,66 @@ var aim3d = [
 			en: "Thunderstorm",
 			pl: "Burza",
 			de: "Gewitter"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/angel-aim3d-studio.json",
+		name: {
+			en: "Angel - three-point studio light",
+			pl: "Anioł - studyjne światło z trzech punktów",
+			de: "Engel - Studiolicht aus drei Richtungen"
+		},
+		group: "angel",
+		variant: {
+			en: "Three-point studio light",
+			pl: "Studyjne światło z trzech punktów",
+			de: "Studiolicht aus drei Richtungen"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/angel-aim3d-raking.json",
+		name: {
+			en: "Angel - raking light across the feathers",
+			pl: "Anioł - światło grabiące po piórach",
+			de: "Engel - Streiflicht über die Federn"
+		},
+		group: "angel",
+		variant: {
+			en: "Raking light across the feathers",
+			pl: "Światło grabiące po piórach",
+			de: "Streiflicht über die Federn"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/angel-aim3d-night.json",
+		name: {
+			en: "Angel - at night, a spotlight from below",
+			pl: "Anioł - nocą, reflektor od dołu",
+			de: "Engel - nachts, Scheinwerfer von unten"
+		},
+		group: "angel",
+		variant: {
+			en: "At night, a spotlight from below",
+			pl: "Nocą, reflektor od dołu",
+			de: "Nachts, Scheinwerfer von unten"
+		},
+		excludeFromMobile: true
+	},
+	{
+		url: "./manifests/angel-aim3d-golden-hour.json",
+		name: {
+			en: "Angel - golden hour",
+			pl: "Anioł - złota godzina",
+			de: "Engel - goldene Stunde"
+		},
+		group: "angel",
+		variant: {
+			en: "Golden hour",
+			pl: "Złota godzina",
+			de: "Goldene Stunde"
 		},
 		excludeFromMobile: true
 	}
@@ -9444,7 +9514,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BtvXQsg9.js');
+const loadTilesPlugins = () => import('./index.three-plugins-D4CawfW8.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9869,7 +9939,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-COY0ZI_P.js'),
+    import('./rendering-webgpu-DnOuOdx0.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -10001,9 +10071,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-CkQpeZwQ.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DivLKpqG.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-D3GP04wS.js');
+const loadSplats = async () => import('./splats-CKSOQb7u.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -17660,7 +17730,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "14623c19" ;
+const BUILD_ID$2 = "f4cf583a" ;
 const BUILD = "test" ;
 
 let initPromise = null;
@@ -17711,8 +17781,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "14623c19" ;
-const BUILD_TIME$1 = "2026-10-29T16:21:33.574Z" ;
+const BUILD_ID$1 = "f4cf583a" ;
+const BUILD_TIME$1 = "2026-10-29T17:13:07.341Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -18027,45 +18097,51 @@ const CATEGORIES = [
     id: "look",
     label: () => t$1("menus.look", "Look"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["projection", "lights", "weather", "sceneSuggest", "environmentMap", "ground", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
+    tools: ["lights", "weather", "sceneSuggest", "environmentMap", "ground", "background", "compareLook", "rendering"],
+    breaks: ["compareLook"],
   },
   {
     id: "analysis",
     label: () => t$1("menus.analysis", "Analysis"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6 19c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5l7 6M5 9l4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty"],
+    tools: ["rakingLight", "sunStudy", "clippingPlanes", "ruler", "certainty"],
+    breaks: ["clippingPlanes"],
   },
-  // The model itself: moving, turning, scaling and measuring it, its parts,
-  // and what only some models have (shown when the model has it): its
-  // reconstruction variants to compare, IFC properties to ask about, point
-  // cloud settings.
+  // The model itself: its parts and what only some models have (shown when
+  // the model has it: reconstruction variants to compare, IFC properties to
+  // ask about, point cloud settings), then moving, turning and scaling it,
+  // then how its surface is drawn.
   {
     id: "model",
     label: () => t$1("menus.model", "Model"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["modelDetails", "move", "rotate", "scale", "upAxis", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
+    tools: ["modelDetails", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud", "move", "rotate", "scale", "upAxis", "shading", "wireframe", "materials"],
+    breaks: ["move", "shading"],
   },
   {
     id: "story",
     label: () => t$1("menus.story", "Story"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H10l-5 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["annotate", "annotateTour", "annotatePhotos"],
+    tools: ["annotate", "annotateTour", "annotatePhotos", "annotateImport", "annotateExport"],
+    breaks: ["annotateImport"],
   },
   {
     id: "file",
     more: true,
     label: () => t$1("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["publishCheck", "validationReport", "preview", "download", "save", "generateThumbnails", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"],
+    tools: ["publishCheck", "validationReport", "preview", "download", "save", "generateThumbnails", "IIIFimport", "IIIFexport"],
+    breaks: ["download", "IIIFimport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
-  // and theme, first.
+  // and theme, first; then help, then what tells how the viewer is doing.
   {
     id: "settings",
     more: true,
-    label: () => t$1("menus.settings", "Settings"),
+    label: () => t$1("menus.settings", "Settings & help"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
-    tools: ["help", "reportBug", "statistics", "loadingLogs", "eventLog", "credits"],
+    tools: ["resetSettings", "help", "reportBug", "credits", "statistics", "loadingLogs", "eventLog"],
+    breaks: ["help", "statistics"],
   },
 ];
 
@@ -18076,9 +18152,10 @@ const MORE = {
 };
 
 // Always at hand, outside the menus: navigating (which also ends moving,
-// turning or scaling the model - those are under Model), then the view.
+// turning or scaling the model - those are under Model), then the view
+// (the camera's projection among it).
 const NAV_TRANSFORM = ["orbit"];
-const NAV_VIEW = ["resetCamera", "fullScreen"];
+const NAV_VIEW = ["projection", "resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
 // What the phone itself adds - AR in the room (the app's, else the
 // browser's WebXR), a historical photo over the place through the camera,
@@ -18182,7 +18259,15 @@ function buildMenuToolbar(viewer, toolbar, host, buttons) {
     .forEach(([key, button]) => {
       const category = categoryOf(key) || CATEGORIES.find((entry) => entry.id === "settings");
       button.classList.add("viewer-menus_item");
-      groups[category.id].group.appendChild(button);
+      // A line between a menu's sections (`breaks`: the tool each begins
+      // with), also when that tool is missing.
+      const section = (category.breaks || []).filter((start) => category.tools.indexOf(start) <= category.tools.indexOf(key)).length;
+      const group = groups[category.id];
+      if (group.count > 0 && section !== group.section) {
+        group.group.appendChild(el$2("div", "viewer-menus_separator", { role: "separator" }));
+      }
+      group.section = section;
+      group.group.appendChild(button);
       groups[category.id].count += 1;
     });
   // Moving, turning or scaling: the gizmo is on the model, so a phone's
@@ -26691,6 +26776,7 @@ function attachAnnotations(Viewer) {
             },
             ground: getGroundPreset(),
             rendering: getRenderingSettings(),
+            splatLighting: { ...core.splatLighting },
             presentationMode: core.PRESENTATION_MODE || false,
             sandbox: core.SANDBOX_MODE || false,
             autorotate: core.controls?.autoRotate === true,
@@ -27120,6 +27206,20 @@ function attachAnnotations(Viewer) {
       if (viewerConfig.rendering && typeof viewerConfig.rendering === "object") {
         applyRenderingSettings(viewerConfig.rendering);
         this.updateLightsSubmenuState?.();
+      }
+
+      // Gaussian splats lit by the lights (splat-lighting.js): what the
+      // manifest gives over the defaults, so one example's strength does not
+      // carry over to the next.
+      if (viewerConfig.splatLighting && typeof viewerConfig.splatLighting === "object") {
+        const { enabled, strength, occlusion } = viewerConfig.splatLighting;
+        const unit = (value, fallback) => (Number.isFinite(value) ? THREE.MathUtils.clamp(value, 0, 1) : fallback);
+        core.splatLighting = {
+          enabled: typeof enabled === "boolean" ? enabled : SPLAT_LIGHTING_DEFAULTS.enabled,
+          strength: unit(strength, SPLAT_LIGHTING_DEFAULTS.strength),
+          occlusion: unit(occlusion, SPLAT_LIGHTING_DEFAULTS.occlusion),
+        };
+        this.syncLightsPanelFields?.();
       }
 
       const backgroundColor = String(viewerConfig.backgroundColor || "").trim();
@@ -52228,8 +52328,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "14623c19" ;
-const BUILD_TIME = "2026-10-29T16:21:33.574Z" ;
+const BUILD_ID = "f4cf583a" ;
+const BUILD_TIME = "2026-10-29T17:13:07.341Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -56780,4 +56880,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-Baf3I2xd.js.map
+//# sourceMappingURL=main-DJejYTuv.js.map

@@ -3,7 +3,8 @@
   "groups": {
     "tempietto": { "name": { "en": "Tempietto", "pl": "Tempietto", "de": "Tempietto" } },
     "wolpa": { "name": { "en": "Wolpa Synagogue", "pl": "Synagoga w Wołpie", "de": "Synagoge Wolpa" } },
-    "showcase": { "name": { "en": "ExPlora4D showcase", "pl": "ExPlora4D showcase", "de": "ExPlora4D-Showcase" } }
+    "showcase": { "name": { "en": "ExPlora4D showcase", "pl": "ExPlora4D showcase", "de": "ExPlora4D-Showcase" } },
+    "angel": { "name": { "en": "Angel (Gaussian splats)", "pl": "Anioł (Gaussian splats)", "de": "Engel (Gaussian Splats)" } }
   },
   "iiif": [
     { "url": "https://raw.githubusercontent.com/IIIF/3d/main/manifests/4_transform_and_position/model_transform_scale_position.json", "i18n": "iiif.optionModelPositionScale", "fallback": "Model Position and Scale" },
@@ -71,6 +72,10 @@
     { "url": "./manifests/showcase-aim3d-section.json", "name": { "en": "Showcase - section through the hollow pedestal", "pl": "Showcase - przekrój przez pusty postument", "de": "Showcase - Schnitt durch den hohlen Sockel" }, "group": "showcase", "variant": { "en": "Section through the hollow pedestal", "pl": "Przekrój przez pusty postument", "de": "Schnitt durch den hohlen Sockel" }, "excludeFromMobile": true },
     { "url": "./manifests/showcase-aim3d-rain.json", "name": { "en": "Showcase - downpour: wet materials, splashes", "pl": "Showcase - ulewa: mokre materiały, rozbryzgi", "de": "Showcase - Platzregen: nasse Materialien, Spritzer" }, "group": "showcase", "variant": { "en": "Downpour: wet materials, splashes", "pl": "Ulewa: mokre materiały, rozbryzgi", "de": "Platzregen: nasse Materialien, Spritzer" }, "excludeFromMobile": true },
     { "url": "./manifests/showcase-aim3d-fog.json", "name": { "en": "Showcase - morning fog at sunrise", "pl": "Showcase - poranna mgła o wschodzie słońca", "de": "Showcase - Morgennebel bei Sonnenaufgang" }, "group": "showcase", "variant": { "en": "Morning fog at sunrise", "pl": "Poranna mgła o wschodzie słońca", "de": "Morgennebel bei Sonnenaufgang" }, "excludeFromMobile": true },
-    { "url": "./manifests/showcase-aim3d-storm.json", "name": { "en": "Showcase - thunderstorm", "pl": "Showcase - burza", "de": "Showcase - Gewitter" }, "group": "showcase", "variant": { "en": "Thunderstorm", "pl": "Burza", "de": "Gewitter" }, "excludeFromMobile": true }
+    { "url": "./manifests/showcase-aim3d-storm.json", "name": { "en": "Showcase - thunderstorm", "pl": "Showcase - burza", "de": "Showcase - Gewitter" }, "group": "showcase", "variant": { "en": "Thunderstorm", "pl": "Burza", "de": "Gewitter" }, "excludeFromMobile": true },
+    { "url": "./manifests/angel-aim3d-studio.json", "name": { "en": "Angel - three-point studio light", "pl": "Anioł - studyjne światło z trzech punktów", "de": "Engel - Studiolicht aus drei Richtungen" }, "group": "angel", "variant": { "en": "Three-point studio light", "pl": "Studyjne światło z trzech punktów", "de": "Studiolicht aus drei Richtungen" }, "excludeFromMobile": true },
+    { "url": "./manifests/angel-aim3d-raking.json", "name": { "en": "Angel - raking light across the feathers", "pl": "Anioł - światło grabiące po piórach", "de": "Engel - Streiflicht über die Federn" }, "group": "angel", "variant": { "en": "Raking light across the feathers", "pl": "Światło grabiące po piórach", "de": "Streiflicht über die Federn" }, "excludeFromMobile": true },
+    { "url": "./manifests/angel-aim3d-night.json", "name": { "en": "Angel - at night, a spotlight from below", "pl": "Anioł - nocą, reflektor od dołu", "de": "Engel - nachts, Scheinwerfer von unten" }, "group": "angel", "variant": { "en": "At night, a spotlight from below", "pl": "Nocą, reflektor od dołu", "de": "Nachts, Scheinwerfer von unten" }, "excludeFromMobile": true },
+    { "url": "./manifests/angel-aim3d-golden-hour.json", "name": { "en": "Angel - golden hour", "pl": "Anioł - złota godzina", "de": "Engel - goldene Stunde" }, "group": "angel", "variant": { "en": "Golden hour", "pl": "Złota godzina", "de": "Goldene Stunde" }, "excludeFromMobile": true }
   ]
 }

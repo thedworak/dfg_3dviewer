@@ -1312,7 +1312,7 @@ const VIEWER_I18N = {
       story: "Story",
       model: "Model",
       file: "File",
-      settings: "Settings",
+      settings: "Settings & help",
       more: "More",
       close: "Close",
     },
@@ -2958,7 +2958,7 @@ const VIEWER_I18N = {
       story: "Opowieść",
       model: "Model",
       file: "Plik",
-      settings: "Ustawienia",
+      settings: "Ustawienia i pomoc",
       more: "Więcej",
       close: "Zamknij",
     },
@@ -4603,7 +4603,7 @@ const VIEWER_I18N = {
       story: "Geschichte",
       model: "Modell",
       file: "Datei",
-      settings: "Einstellungen",
+      settings: "Einstellungen & Hilfe",
       more: "Mehr",
       close: "Schließen",
     },
@@ -5549,6 +5549,20 @@ function validateViewer(viewer, path, errors) {
       if (viewer.environmentMap.enabled !== undefined) validateBoolean(viewer.environmentMap.enabled, `${path}.environmentMap.enabled`, errors);
     }
   }
+  if (viewer.splatLighting !== undefined) {
+    const splatLighting = viewer.splatLighting;
+    if (!isPlainObject(splatLighting)) {
+      pushError(errors, `${path}.splatLighting`, "must be an object");
+    } else {
+      if (splatLighting.enabled !== undefined) validateBoolean(splatLighting.enabled, `${path}.splatLighting.enabled`, errors);
+      ["strength", "occlusion"].forEach((key) => {
+        const value = splatLighting[key];
+        if (value !== undefined && (!isFiniteNumber$1(value) || value < 0 || value > 1)) {
+          pushError(errors, `${path}.splatLighting.${key}`, "must be a number from 0 to 1");
+        }
+      });
+    }
+  }
   if (viewer.rendering !== undefined) {
     const rendering = viewer.rendering;
     if (!isPlainObject(rendering)) {
@@ -6230,7 +6244,8 @@ const MANIFEST_FEATURES = [
   {
     id: "rendering",
     label: "Rendering and environment",
-    count: (m) => has(block(m).viewer?.rendering) + has(block(m).viewer?.environmentMap) + has(block(m).viewer?.backgroundColor),
+    count: (m) => has(block(m).viewer?.rendering) + has(block(m).viewer?.environmentMap) + has(block(m).viewer?.backgroundColor)
+      + has(block(m).viewer?.splatLighting),
   },
   { id: "tour", label: "Guided tour", count: (m) => has(block(m).viewer?.tour) },
   { id: "settings", label: "Viewer settings", count: (m) => has(block(m).viewer) + has(block(m).integration) },
@@ -6412,6 +6427,11 @@ const VIEWER = obj({
       ao: BOOL,
       aoIntensity: leaf(number({ min: 0, max: 2 })),
     }),
+  })),
+  splatLighting: tag("rendering", obj({
+    enabled: BOOL,
+    strength: leaf(number({ min: 0, max: 1 })),
+    occlusion: leaf(number({ min: 0, max: 1 })),
   })),
   ...Object.fromEntries([
     "presentationMode", "sandbox", "lightweight", "editor", "forceLocalPreview", "autorotate",
@@ -7174,4 +7194,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-BKOl7Lff.js.map
+//# sourceMappingURL=model-thumbnail-BiOhsNMB.js.map

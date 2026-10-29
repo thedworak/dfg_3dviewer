@@ -270,6 +270,20 @@ function validateViewer(viewer, path, errors) {
       if (viewer.environmentMap.enabled !== undefined) validateBoolean(viewer.environmentMap.enabled, `${path}.environmentMap.enabled`, errors);
     }
   }
+  if (viewer.splatLighting !== undefined) {
+    const splatLighting = viewer.splatLighting;
+    if (!isPlainObject(splatLighting)) {
+      pushError(errors, `${path}.splatLighting`, "must be an object");
+    } else {
+      if (splatLighting.enabled !== undefined) validateBoolean(splatLighting.enabled, `${path}.splatLighting.enabled`, errors);
+      ["strength", "occlusion"].forEach((key) => {
+        const value = splatLighting[key];
+        if (value !== undefined && (!isFiniteNumber(value) || value < 0 || value > 1)) {
+          pushError(errors, `${path}.splatLighting.${key}`, "must be a number from 0 to 1");
+        }
+      });
+    }
+  }
   if (viewer.rendering !== undefined) {
     const rendering = viewer.rendering;
     if (!isPlainObject(rendering)) {
