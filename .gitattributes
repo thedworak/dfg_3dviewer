@@ -100,6 +100,7 @@ dist/**  text eol=lf
 *.ksplat binary
 *.sog binary
 *.rad binary
+*.light binary
 *.ktx2 binary
 *.drc binary
 scripts/IfcConvert binary

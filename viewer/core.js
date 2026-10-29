@@ -36,7 +36,7 @@ export const core = {
     helperObjects: [],
     isOnline: true, // kept current by connectivity.js
     // Gaussian splats lit by the scene's lights (splat-lighting.js).
-    splatLighting: { enabled: false, strength: 0.8 },
+    splatLighting: { enabled: false, strength: 0.8, occlusion: 0.7 },
     // Add other shared state here
 };
 

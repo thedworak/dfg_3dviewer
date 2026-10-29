@@ -27,6 +27,9 @@ export const loadRoomEnvironment = async () => (await import("three/examples/jsm
 export const loadLasPointCloud = async () => (await import("./pointcloud-las.js")).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
 export const loadSplats = async () => import("./splats.js");
+// The surface volume the worker builds next to an uploaded splat model
+// (worker/splat_volume.py); none for a model opened from a File.
+const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -860,6 +863,7 @@ export async function loadModel() {
           const object = await buildSplatModel(buffer, {
             fileName: core.fileObject.filename,
             name: core.fileObject.basename || "Gaussian splats",
+            volumeUrl: splatVolumeUrl(modelPath),
           });
           await afterLoad({ object });
           break;
@@ -956,6 +960,7 @@ export async function loadModel() {
         const object = await buildSplatModel(buffer, {
           fileName: core.fileObject.filename,
           name: core.fileObject.basename || "Gaussian splats",
+          volumeUrl: splatVolumeUrl(modelPath),
         });
         await afterLoad({ object });
         break;

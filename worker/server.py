@@ -83,6 +83,7 @@ import model_metadata
 import optimize
 import remote_fetch
 import pointcloud
+import splat_volume
 import splats
 import static_files
 import validate
@@ -319,9 +320,10 @@ def scan_job(job_id: str, job_dir: Path):
         images = sorted(views_dirs[0].glob("*.png"), key=lambda img: (not img.stem.endswith("_side45"), img.name))
         image_urls = [thumbnail_url(job_id, img, job_root) for img in images]
 
-    # The upload, not the -lod.rad built next to it (splats.py).
+    # The upload, not the -lod.rad and .light built next to it (splats.py,
+    # splat_volume.py).
     original_name = next(
-        (p.name for p in sorted(job_root.iterdir(), key=lambda p: (p.name.endswith("-lod.rad"), p.name)) if p.is_file()),
+        (p.name for p in sorted(job_root.iterdir(), key=lambda p: (p.name.endswith(("-lod.rad", ".light")), p.name)) if p.is_file()),
         None,
     )
 
@@ -632,6 +634,11 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                     message = "Splats converted to a level-of-detail .rad (no thumbnails)"
                 else:
                     message = "Uploaded as it is - building the splats' level of detail failed (no thumbnails)"
+            # And the volume of their surface, for lighting them in the
+            # viewer (splat_volume.py), next to the model it is served with.
+            if (ext in splats.LOD_SOURCE_FORMATS or splat_ply) and splat_volume.available():
+                set_job(job_id, status="processing", progress=75, message="Building the splats' surface volume for lighting...")
+                splat_volume.build_volume(work_path, splat_volume.volume_path_for(model_path), log_prefix=f"[job {job_id}]")
             set_job(
                 job_id,
                 status="ready",
@@ -1788,15 +1795,17 @@ class Handler(BaseHTTPRequestHandler):
 
 def rebuild_splats_cli(args) -> None:
     """admin rebuild-splats [--force] [<job id> ...]: the level-of-detail
-    .rad (splats.py) of every splat upload that has none - uploaded before
-    build-lod was in the image, or when it failed. --force rebuilds the
-    existing ones too (new build-lod or WORKER_SPLAT_LOD_ARGS), purging
-    their cached copies from Cloudflare. GET /api/jobs reads the jobs from
+    .rad (splats.py) and the surface volume (splat_volume.py) of every splat
+    upload that has none - uploaded before they were built, or when it
+    failed. --force rebuilds the existing ones too (new build-lod or
+    WORKER_SPLAT_LOD_ARGS), purging their cached copies from Cloudflare.
+    Without build-lod only the volumes are built. GET /api/jobs reads the jobs from
     disk, so the new .rad is served without a restart."""
     force = "--force" in args
     job_ids = [arg for arg in args if arg != "--force"]
-    if not splats.available():
-        sys.exit(f"build-lod not found ({splats.BUILD_LOD}) or WORKER_SPLAT_LOD=off")
+    lod = splats.available()
+    if not lod and not splat_volume.available():
+        sys.exit(f"build-lod not found ({splats.BUILD_LOD}) or WORKER_SPLAT_LOD=off, and WORKER_SPLAT_VOLUME=off")
     for job_id in job_ids:
         if not JOB_ID_RE.fullmatch(job_id) or not (JOBS_DIR / job_id / "input").is_dir():
             sys.exit(f"No such job: {job_id}")
@@ -1804,20 +1813,33 @@ def rebuild_splats_cli(args) -> None:
         d.name for d in JOBS_DIR.iterdir() if d.is_dir() and JOB_ID_RE.fullmatch(d.name) and (d / "input").is_dir()
     )
     counts = {"kept": 0, "built": 0, "failed": 0}
+    volume_counts = {"kept": 0, "built": 0, "failed": 0}
     purge = []
     for job_id in jobs:
         job_root = JOBS_DIR / job_id / "input"
         for source in splats.sources(job_root, pointcloud.is_gaussian_splat_ply):
             had_rad = splats.expected_rad(source).is_file()
-            if not (had_rad and not force):
-                print(f"{job_id}  building  {source.relative_to(job_root)} ...", flush=True)
-            result, rad = splats.rebuild(source, force=force, log_prefix=f"[job {job_id}]")
-            counts[result] += 1
-            name = rad.relative_to(job_root) if rad else "-"
-            print(f"{job_id}  {result:<6}  {name}")
-            if result == "built" and had_rad:
-                purge.append(f"/files/{job_id}/{rad.relative_to(job_root)}")
+            rad = splats.expected_rad(source) if had_rad else None
+            if lod:
+                if not (had_rad and not force):
+                    print(f"{job_id}  building  {source.relative_to(job_root)} ...", flush=True)
+                result, rad = splats.rebuild(source, force=force, log_prefix=f"[job {job_id}]")
+                counts[result] += 1
+                name = rad.relative_to(job_root) if rad else "-"
+                print(f"{job_id}  {result:<6}  {name}")
+                if result == "built" and had_rad:
+                    purge.append(f"/files/{job_id}/{rad.relative_to(job_root)}")
+            # The surface volume (splat_volume.py) of the model as served.
+            model = rad if rad and rad.is_file() else source
+            had_volume = splat_volume.volume_path_for(model).is_file()
+            v_result, volume = splat_volume.rebuild(source, model, force=force, log_prefix=f"[job {job_id}]")
+            if v_result in volume_counts:
+                volume_counts[v_result] += 1
+                print(f"{job_id}  {v_result:<6}  {volume.relative_to(job_root) if volume else '-'}")
+            if v_result == "built" and had_volume:
+                purge.append(f"/files/{job_id}/{volume.relative_to(job_root)}")
     print(f"{counts['built']} built, {counts['kept']} kept (have a .rad; --force rebuilds), {counts['failed']} failed")
+    print(f"Surface volumes: {volume_counts['built']} built, {volume_counts['kept']} kept, {volume_counts['failed']} failed")
     if purge and cloudflare.enabled():
         hosts = cloudflare.public_hosts()
         if not hosts:

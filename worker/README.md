@@ -172,6 +172,7 @@ needing the tag.
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
   - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading. Uploads without a tree (from before `build-lod`, or where it failed) get one with `docker compose exec worker python3 /app/worker/server.py admin rebuild-splats`; `--force` rebuilds the existing trees too (new `build-lod` or `WORKER_SPLAT_LOD_ARGS`, cached copies purged from Cloudflare when `WORKER_PUBLIC_HOSTS` is set), job ids limit it to those jobs. No restart needed: the model list reads the jobs from disk
+  - Gaussian splats in `.splat`, `.spz` or a 3DGS `.ply` also get a voxel volume of their surface, `<model>.light` next to the model served (e.g. `Angel-lod.rad.light`), built with numpy by `worker/splat_volume.py`: the viewer reads normals, occlusion and shadows from it when the splats are lit by the scene's lights (Lights > Gaussian splats). `admin rebuild-splats` builds the missing ones too, also without `build-lod`
   - point clouds converted to a streamed octree (`modelUrl` ends in `tiles/<name>/metadata.json` for Potree 2, `tiles/<name>/tileset.json` for 3D Tiles), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
@@ -276,6 +277,8 @@ Set via environment variables on the `worker` container (see
 | `WORKER_SPLAT_LOD_BIN`     | `build-lod`     | Spark's build-lod executable (name on `PATH` or a path) |
 | `WORKER_SPLAT_LOD_ARGS`    | `--quality`     | build-lod options, e.g. `--quality --max-sh=1` for smaller files without the higher spherical harmonics |
 | `WORKER_SPLAT_LOD_TIMEOUT` | `1800`          | seconds per splat conversion |
+| `WORKER_SPLAT_VOLUME`      | `auto`          | `auto`: splats get a surface volume for lighting (`<model>.light`); `off`: none |
+| `WORKER_SPLAT_VOLUME_RES`  | `128`           | voxels along the longest side of that volume (about 2-5 MB at 128) |
 | `WORKER_GZIP_MAX_BYTES`    | `268435456`    | Largest file served gzip-compressed (`static_files.py`); `0` turns compression off |
 | `WORKER_VALIDATE`          | `true`         | Write `validation.json` for GLB/glTF models (see "Model validation") |
 | `WORKER_GLTF_VALIDATOR_BIN` | `gltf_validator` | Khronos glTF-Validator executable (in the image); without it the report has no spec check |

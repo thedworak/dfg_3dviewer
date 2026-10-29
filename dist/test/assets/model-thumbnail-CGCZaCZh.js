@@ -132,6 +132,9 @@ const VIEWER_I18N = {
       splatLighting: "Gaussian splats",
       splatLightingEnabled: "Lit by the lights",
       splatLightingStrength: "Strength",
+      splatLightingOcclusion: "Occlusion",
+      splatLightingVolume: "Lit by the surface volume of the upload: occlusion, and shadows from the lights that cast them.",
+      splatLightingNoVolume: "Lit by the splats' own orientation: no surface volume for occlusion and shadows (built by the worker on upload).",
       keyLightStays: "The key light stays: switch it off instead",
       sceneLights: "Scene lights",
       addLight: "Add light",
@@ -1731,6 +1734,9 @@ const VIEWER_I18N = {
       splatLighting: "Gaussian splats",
       splatLightingEnabled: "Oświetlane światłami",
       splatLightingStrength: "Siła",
+      splatLightingOcclusion: "Okluzja",
+      splatLightingVolume: "Oświetlenie z wolumenu powierzchni wgranego modelu: okluzja i cienie od świateł, które je rzucają.",
+      splatLightingNoVolume: "Oświetlenie z orientacji samych splatów: brak wolumenu powierzchni dla okluzji i cieni (tworzy go worker przy wgrywaniu).",
       keyLightStays: "Światło główne zostaje: można je wyłączyć",
       sceneLights: "Światła sceny",
       addLight: "Dodaj światło",
@@ -3373,6 +3379,9 @@ const VIEWER_I18N = {
       splatLighting: "Gaussian Splats",
       splatLightingEnabled: "Von den Lichtern beleuchtet",
       splatLightingStrength: "Stärke",
+      splatLightingOcclusion: "Verdeckung",
+      splatLightingVolume: "Beleuchtet über das Oberflächenvolumen des Uploads: Verdeckung und Schatten der Lichter, die welche werfen.",
+      splatLightingNoVolume: "Beleuchtet über die Ausrichtung der Splats: kein Oberflächenvolumen für Verdeckung und Schatten (vom Worker beim Hochladen erzeugt).",
       keyLightStays: "Das Hauptlicht bleibt: stattdessen ausschalten",
       sceneLights: "Lichter der Szene",
       addLight: "Licht hinzufügen",
@@ -7165,4 +7174,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-BukbUDI7.js.map
+//# sourceMappingURL=model-thumbnail-BKOl7Lff.js.map

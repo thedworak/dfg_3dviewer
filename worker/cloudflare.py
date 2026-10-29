@@ -19,10 +19,8 @@ Configuration (environment):
 Without a token or zone id purging is off (the calls do nothing).
 
 CLI (deploy.yml):
-  python3 worker/cloudflare.py <prefix or URL> [...]
+  python3 worker/cloudflare.py <prefix> [<prefix> ...]
   e.g. python3 worker/cloudflare.py dev.example.org/assets/ dev.example.org/examples/
-  A full URL (https://...) purges that one URL only - the way to clear a
-  site's "/" without the whole host.
 """
 
 import json
@@ -53,7 +51,7 @@ def zone_for(prefix: str) -> str:
     setting = os.environ.get("CF_ZONE_ID", "").strip()
     if "=" not in setting:
         return setting
-    host = prefix.split("://", 1)[-1].split("/")[0].lower()
+    host = prefix.split("/")[0].lower()
     zones = dict(part.strip().split("=", 1) for part in setting.split(",") if "=" in part)
     for domain, zone in sorted(zones.items(), key=lambda item: -len(item[0])):
         domain = domain.strip().lower()
@@ -62,10 +60,9 @@ def zone_for(prefix: str) -> str:
     raise RuntimeError(f"No zone in CF_ZONE_ID for {host}")
 
 
-def purge_prefixes(prefixes: list, kind: str = "prefixes") -> None:
+def purge_prefixes(prefixes: list) -> None:
     """Purges every cached URL starting with one of `prefixes` (host/path,
-    no scheme - query-string variants included), or with kind "files"
-    exactly the given URLs (with scheme). Raises RuntimeError with
+    no scheme - query-string variants included). Raises RuntimeError with
     Cloudflare's own error message when a request is refused."""
     if not enabled():
         return
@@ -73,13 +70,13 @@ def purge_prefixes(prefixes: list, kind: str = "prefixes") -> None:
     for prefix in prefixes:
         by_zone.setdefault(zone_for(prefix), []).append(prefix)
     for zone, zone_prefixes in by_zone.items():
-        _purge_zone(zone, zone_prefixes, kind)
+        _purge_zone(zone, zone_prefixes)
 
 
-def _purge_zone(zone: str, prefixes: list, kind: str) -> None:
+def _purge_zone(zone: str, prefixes: list) -> None:
     token = os.environ.get("CF_API_TOKEN", "")
     for start in range(0, len(prefixes), BATCH):
-        body = json.dumps({kind: prefixes[start:start + BATCH]}).encode("utf-8")
+        body = json.dumps({"prefixes": prefixes[start:start + BATCH]}).encode("utf-8")
         request = urllib.request.Request(
             f"{API}/zones/{zone}/purge_cache",
             data=body,
@@ -124,13 +121,8 @@ if __name__ == "__main__":
         sys.exit("CF_API_TOKEN and CF_ZONE_ID must be set.")
     if len(sys.argv) < 2:
         sys.exit(__doc__)
-    urls = [arg for arg in sys.argv[1:] if "://" in arg]
-    prefixes = [arg for arg in sys.argv[1:] if "://" not in arg]
     try:
-        if prefixes:
-            purge_prefixes(prefixes)
-        if urls:
-            purge_prefixes(urls, "files")
+        purge_prefixes(sys.argv[1:])
     except RuntimeError as exc:
         sys.exit(f"Cloudflare cache purge failed: {exc}")
     print(f"Cloudflare cache purged: {' '.join(sys.argv[1:])}")

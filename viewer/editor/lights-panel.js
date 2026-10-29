@@ -12,7 +12,8 @@ import { ADDABLE_LIGHT_TYPES } from "./scene-lights.js";
 // While it is open the chosen light shows its helper and every light its
 // icon (light-markers.js); closing it puts them and the handles away.
 // With Gaussian splats in the scene, it also turns their lighting by these
-// lights on and off (splat-lighting.js).
+// lights on and off and sets its strength and occlusion (splat-lighting.js;
+// occlusion and shadows need the surface volume of an upload).
 
 // The chosen light's own fields (Viewer.activeLightSettings); `spot`: only
 // for a spot light.
@@ -95,10 +96,13 @@ function vectorRow(onChange) {
   return { row, name, inputs };
 }
 
-function hasSplats() {
-  let found = false;
+// { splats, volume }: whether the scene has Gaussian splats, and whether
+// any has its surface volume.
+function splatsInScene() {
+  const found = { splats: false, volume: false };
   core.scene?.traverse((object) => {
-    found ||= object.userData?.isGaussianSplats === true;
+    found.splats ||= object.userData?.isGaussianSplats === true;
+    found.volume ||= object.userData?.gaussianSplats?.surfaceVolume === true;
   });
   return found;
 }
@@ -218,12 +222,21 @@ export function attachLightsPanel(Viewer) {
       splatsEnabled.input.addEventListener("input", () => {
         core.splatLighting.enabled = splatsEnabled.input.checked;
         Viewer.syncLightsPanelFields();
+        Viewer.render?.();
       });
       const splatsStrength = fieldRow("range", { min: 0, max: 1, step: 0.01 });
       splatsStrength.input.addEventListener("input", () => {
         core.splatLighting.strength = Number(splatsStrength.input.value);
         Viewer.syncLightsPanelFields();
+        Viewer.render?.();
       });
+      const splatsOcclusion = fieldRow("range", { min: 0, max: 1, step: 0.01 });
+      splatsOcclusion.input.addEventListener("input", () => {
+        core.splatLighting.occlusion = Number(splatsOcclusion.input.value);
+        Viewer.syncLightsPanelFields();
+        Viewer.render?.();
+      });
+      const splatsVolume = el("p", "viewer-scene_status");
 
       const note = el("p", "viewer-scene_status");
 
@@ -232,7 +245,7 @@ export function attachLightsPanel(Viewer) {
         placementTitle, handles, ...angleRows, position.row, target.row, fitButton,
         settingsTitle, fields,
         ambientTitle, ambientColor.row, ambientIntensity.row,
-        splatsTitle, splatsEnabled.row, splatsStrength.row,
+        splatsTitle, splatsEnabled.row, splatsStrength.row, splatsOcclusion.row, splatsVolume,
         note,
       );
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
@@ -249,7 +262,7 @@ export function attachLightsPanel(Viewer) {
         panel, title, closeButton, list, addTitle, addButtons, nameInput, removeButton,
         placementTitle, handlesName, moveButton, targetButton, angleInputs, position, target, fitButton,
         settingsTitle, fieldInputs, ambientTitle, ambientColor, ambientIntensity,
-        splatsTitle, splatsEnabled, splatsStrength, note,
+        splatsTitle, splatsEnabled, splatsStrength, splatsOcclusion, splatsVolume, note,
       };
       Viewer.updateLightsPanelLabels();
       // The chosen light's helper while the window is open.
@@ -301,6 +314,7 @@ export function attachLightsPanel(Viewer) {
       ui.splatsTitle.textContent = t("gui.splatLighting", "Gaussian splats");
       ui.splatsEnabled.name.textContent = t("gui.splatLightingEnabled", "Lit by the lights");
       ui.splatsStrength.name.textContent = t("gui.splatLightingStrength", "Strength");
+      ui.splatsOcclusion.name.textContent = t("gui.splatLightingOcclusion", "Occlusion");
       ui.note.textContent = t("gui.lightsNote", "The added lights are saved in the exported manifest.");
       Viewer.syncLightsPanel();
     },
@@ -377,14 +391,21 @@ export function attachLightsPanel(Viewer) {
         setIfIdle(ui.ambientIntensity.input, ambient.intensity);
         ui.ambientIntensity.value.textContent = ambient.intensity.toFixed(2);
       }
-      const splats = hasSplats();
-      [ui.splatsTitle, ui.splatsEnabled.row, ui.splatsStrength.row].forEach((node) => {
-        node.hidden = !splats;
+      const splats = splatsInScene();
+      [ui.splatsTitle, ui.splatsEnabled.row, ui.splatsStrength.row, ui.splatsOcclusion.row, ui.splatsVolume].forEach((node) => {
+        node.hidden = !splats.splats;
       });
-      setIfIdle(ui.splatsEnabled.input, core.splatLighting.enabled);
-      setIfIdle(ui.splatsStrength.input, core.splatLighting.strength);
-      ui.splatsStrength.value.textContent = core.splatLighting.strength.toFixed(2);
-      ui.splatsStrength.input.disabled = !core.splatLighting.enabled;
+      const { enabled, strength, occlusion } = core.splatLighting;
+      setIfIdle(ui.splatsEnabled.input, enabled);
+      setIfIdle(ui.splatsStrength.input, strength);
+      ui.splatsStrength.value.textContent = strength.toFixed(2);
+      ui.splatsStrength.input.disabled = !enabled;
+      setIfIdle(ui.splatsOcclusion.input, occlusion);
+      ui.splatsOcclusion.value.textContent = occlusion.toFixed(2);
+      ui.splatsOcclusion.input.disabled = !enabled || !splats.volume;
+      ui.splatsVolume.textContent = splats.volume
+        ? t("gui.splatLightingVolume", "Lit by the surface volume of the upload: occlusion, and shadows from the lights that cast them.")
+        : t("gui.splatLightingNoVolume", "Lit by the splats' own orientation: no surface volume for occlusion and shadows (built by the worker on upload).");
     },
   });
 }

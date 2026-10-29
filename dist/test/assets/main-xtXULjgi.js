@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-Cz3F93ll.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, V as VIEWER_I18N, s as setLanguageSource, w as isAIM3DManifest } from './model-thumbnail-CGCZaCZh.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -39,7 +39,7 @@ const core = {
     helperObjects: [],
     isOnline: true, // kept current by connectivity.js
     // Gaussian splats lit by the scene's lights (splat-lighting.js).
-    splatLighting: { enabled: false, strength: 0.8 },
+    splatLighting: { enabled: false, strength: 0.8, occlusion: 0.7 },
     // Add other shared state here
 };
 
@@ -538,7 +538,7 @@ var DEFAULT_LIST$1 = {
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
-const IS_MOBILE_BUILD$1 = "dev" === "mobile";
+const IS_MOBILE_BUILD$1 = "test" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -7865,7 +7865,7 @@ var DEFAULT_LIST = {
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const IS_MOBILE_BUILD = "dev" === "mobile";
+const IS_MOBILE_BUILD = "test" === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
 const DEFAULT_URL = "./manifests/index.json";
@@ -9444,7 +9444,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BZ72X6Ad.js');
+const loadTilesPlugins = () => import('./index.three-plugins-BtvXQsg9.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9869,7 +9869,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-BG9slNkd.js'),
+    import('./rendering-webgpu-COY0ZI_P.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -10001,9 +10001,12 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BPiAcvnk.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-CkQpeZwQ.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-CFe-J5tf.js');
+const loadSplats = async () => import('./splats-D3GP04wS.js');
+// The surface volume the worker builds next to an uploaded splat model
+// (worker/splat_volume.py); none for a model opened from a File.
+const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
 
 // True for a PLY whose vertices are Gaussians (spherical harmonics colour,
 // scales and rotations) or a PlayCanvas compressed splat PLY.
@@ -10211,7 +10214,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "dev";
+const ENV_BUILD = "test";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -10797,6 +10800,7 @@ async function loadModel() {
           const object = await buildSplatModel(buffer, {
             fileName: core.fileObject.filename,
             name: core.fileObject.basename || "Gaussian splats",
+            volumeUrl: splatVolumeUrl(modelPath),
           });
           await afterLoad({ object });
           break;
@@ -10886,6 +10890,7 @@ async function loadModel() {
         const object = await buildSplatModel(buffer, {
           fileName: core.fileObject.filename,
           name: core.fileObject.basename || "Gaussian splats",
+          volumeUrl: splatVolumeUrl(modelPath),
         });
         await afterLoad({ object });
         break;
@@ -17655,8 +17660,8 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "2088c548" ;
-const BUILD = "dev" ;
+const BUILD_ID$2 = "14623c19" ;
+const BUILD = "test" ;
 
 let initPromise = null;
 
@@ -17706,8 +17711,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "2088c548" ;
-const BUILD_TIME$1 = "2026-10-29T15:44:50.138Z" ;
+const BUILD_ID$1 = "14623c19" ;
+const BUILD_TIME$1 = "2026-10-29T16:21:33.574Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -39256,7 +39261,8 @@ function applyOverlayOpacity(material, opacity) {
 // While it is open the chosen light shows its helper and every light its
 // icon (light-markers.js); closing it puts them and the handles away.
 // With Gaussian splats in the scene, it also turns their lighting by these
-// lights on and off (splat-lighting.js).
+// lights on and off and sets its strength and occlusion (splat-lighting.js;
+// occlusion and shadows need the surface volume of an upload).
 
 // The chosen light's own fields (Viewer.activeLightSettings); `spot`: only
 // for a spot light.
@@ -39339,10 +39345,13 @@ function vectorRow(onChange) {
   return { row, name, inputs };
 }
 
-function hasSplats() {
-  let found = false;
+// { splats, volume }: whether the scene has Gaussian splats, and whether
+// any has its surface volume.
+function splatsInScene() {
+  const found = { splats: false, volume: false };
   core.scene?.traverse((object) => {
-    found ||= object.userData?.isGaussianSplats === true;
+    found.splats ||= object.userData?.isGaussianSplats === true;
+    found.volume ||= object.userData?.gaussianSplats?.surfaceVolume === true;
   });
   return found;
 }
@@ -39462,12 +39471,21 @@ function attachLightsPanel(Viewer) {
       splatsEnabled.input.addEventListener("input", () => {
         core.splatLighting.enabled = splatsEnabled.input.checked;
         Viewer.syncLightsPanelFields();
+        Viewer.render?.();
       });
       const splatsStrength = fieldRow("range", { min: 0, max: 1, step: 0.01 });
       splatsStrength.input.addEventListener("input", () => {
         core.splatLighting.strength = Number(splatsStrength.input.value);
         Viewer.syncLightsPanelFields();
+        Viewer.render?.();
       });
+      const splatsOcclusion = fieldRow("range", { min: 0, max: 1, step: 0.01 });
+      splatsOcclusion.input.addEventListener("input", () => {
+        core.splatLighting.occlusion = Number(splatsOcclusion.input.value);
+        Viewer.syncLightsPanelFields();
+        Viewer.render?.();
+      });
+      const splatsVolume = el("p", "viewer-scene_status");
 
       const note = el("p", "viewer-scene_status");
 
@@ -39476,7 +39494,7 @@ function attachLightsPanel(Viewer) {
         placementTitle, handles, ...angleRows, position.row, target.row, fitButton,
         settingsTitle, fields,
         ambientTitle, ambientColor.row, ambientIntensity.row,
-        splatsTitle, splatsEnabled.row, splatsStrength.row,
+        splatsTitle, splatsEnabled.row, splatsStrength.row, splatsOcclusion.row, splatsVolume,
         note,
       );
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
@@ -39493,7 +39511,7 @@ function attachLightsPanel(Viewer) {
         panel, title, closeButton, list, addTitle, addButtons, nameInput, removeButton,
         placementTitle, handlesName, moveButton, targetButton, angleInputs, position, target, fitButton,
         settingsTitle, fieldInputs, ambientTitle, ambientColor, ambientIntensity,
-        splatsTitle, splatsEnabled, splatsStrength, note,
+        splatsTitle, splatsEnabled, splatsStrength, splatsOcclusion, splatsVolume, note,
       };
       Viewer.updateLightsPanelLabels();
       // The chosen light's helper while the window is open.
@@ -39545,6 +39563,7 @@ function attachLightsPanel(Viewer) {
       ui.splatsTitle.textContent = t$1("gui.splatLighting", "Gaussian splats");
       ui.splatsEnabled.name.textContent = t$1("gui.splatLightingEnabled", "Lit by the lights");
       ui.splatsStrength.name.textContent = t$1("gui.splatLightingStrength", "Strength");
+      ui.splatsOcclusion.name.textContent = t$1("gui.splatLightingOcclusion", "Occlusion");
       ui.note.textContent = t$1("gui.lightsNote", "The added lights are saved in the exported manifest.");
       Viewer.syncLightsPanel();
     },
@@ -39621,14 +39640,21 @@ function attachLightsPanel(Viewer) {
         setIfIdle(ui.ambientIntensity.input, ambient.intensity);
         ui.ambientIntensity.value.textContent = ambient.intensity.toFixed(2);
       }
-      const splats = hasSplats();
-      [ui.splatsTitle, ui.splatsEnabled.row, ui.splatsStrength.row].forEach((node) => {
-        node.hidden = !splats;
+      const splats = splatsInScene();
+      [ui.splatsTitle, ui.splatsEnabled.row, ui.splatsStrength.row, ui.splatsOcclusion.row, ui.splatsVolume].forEach((node) => {
+        node.hidden = !splats.splats;
       });
-      setIfIdle(ui.splatsEnabled.input, core.splatLighting.enabled);
-      setIfIdle(ui.splatsStrength.input, core.splatLighting.strength);
-      ui.splatsStrength.value.textContent = core.splatLighting.strength.toFixed(2);
-      ui.splatsStrength.input.disabled = !core.splatLighting.enabled;
+      const { enabled, strength, occlusion } = core.splatLighting;
+      setIfIdle(ui.splatsEnabled.input, enabled);
+      setIfIdle(ui.splatsStrength.input, strength);
+      ui.splatsStrength.value.textContent = strength.toFixed(2);
+      ui.splatsStrength.input.disabled = !enabled;
+      setIfIdle(ui.splatsOcclusion.input, occlusion);
+      ui.splatsOcclusion.value.textContent = occlusion.toFixed(2);
+      ui.splatsOcclusion.input.disabled = !enabled || !splats.volume;
+      ui.splatsVolume.textContent = splats.volume
+        ? t$1("gui.splatLightingVolume", "Lit by the surface volume of the upload: occlusion, and shadows from the lights that cast them.")
+        : t$1("gui.splatLightingNoVolume", "Lit by the splats' own orientation: no surface volume for occlusion and shadows (built by the worker on upload).");
     },
   });
 }
@@ -52202,8 +52228,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "2088c548" ;
-const BUILD_TIME = "2026-10-29T15:44:50.138Z" ;
+const BUILD_ID = "14623c19" ;
+const BUILD_TIME = "2026-10-29T16:21:33.574Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -52445,7 +52471,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "IIIF" ;
+const SOURCE = "" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
@@ -54122,9 +54148,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    {
+    if (!core.CONFIG.entity.metadata.sourceType) {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -56754,4 +56780,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-DivbB2sp.js.map
+//# sourceMappingURL=main-Baf3I2xd.js.map

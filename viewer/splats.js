@@ -38,8 +38,9 @@ import { attachSplatLighting } from "./splat-lighting.js";
 // from the header. Without range support (a proxy answering 200) the file
 // is loaded whole, as above.
 //
-// Both are lit by the scene's lights when Lights > Splat lighting is on
-// (splat-lighting.js).
+// Both are lit by the scene's lights when Lights > Gaussian splats is on
+// (splat-lighting.js), with the surface volume the worker builds next to
+// an upload (<model>.light) when volumeUrl names one.
 
 const LOD_ABOVE = 300_000;
 // Share of Spark's default per-platform budget (2.5M splats on desktop,
@@ -83,7 +84,7 @@ function centersBox(splats) {
 
 // Builds the splat model from the file's bytes. Resolves once the splats
 // are decoded.
-export async function buildSplatModel(buffer, { fileName = "splats", name = "Gaussian splats", upright = true } = {}) {
+export async function buildSplatModel(buffer, { fileName = "splats", name = "Gaussian splats", upright = true, volumeUrl = null } = {}) {
   ensureSparkRenderer();
   const mesh = new SplatMesh({
     fileBytes: new Uint8Array(buffer),
@@ -103,7 +104,7 @@ export async function buildSplatModel(buffer, { fileName = "splats", name = "Gau
   const count = (lodOnly ?? splats)?.numSplats ?? null;
   mesh.userData.gaussianSplats = { count, format: fileName.split(".").pop().toLowerCase() };
   mesh.userData.isGaussianSplats = true;
-  attachSplatLighting(mesh);
+  attachSplatLighting(mesh, { volumeUrl });
 
   const root = new THREE.Group();
   root.name = name;
@@ -152,7 +153,7 @@ async function rootChunkBox(url, meta, chunksStart) {
 
 // Builds the splat model of a .rad at url, paged (see above). Resolves to
 // null when the server does not answer range requests.
-export async function buildPagedSplatModel(url, { fileName = "splats.rad", name = "Gaussian splats", upright = true } = {}) {
+export async function buildPagedSplatModel(url, { fileName = "splats.rad", name = "Gaussian splats", upright = true, volumeUrl = `${url}.light` } = {}) {
   if (!(await supportsRanges(url))) return null;
   ensureSparkRenderer();
   const mesh = new SplatMesh({ url, paged: true, fileType: SplatFileType.RAD });
@@ -165,7 +166,7 @@ export async function buildPagedSplatModel(url, { fileName = "splats.rad", name 
   if (!box.isEmpty()) mesh.geometry = boundsGeometry(box);
   mesh.userData.gaussianSplats = { count: meta.count ?? null, format: fileName.split(".").pop().toLowerCase(), paged: true };
   mesh.userData.isGaussianSplats = true;
-  attachSplatLighting(mesh);
+  attachSplatLighting(mesh, { volumeUrl });
 
   const root = new THREE.Group();
   root.name = name;
