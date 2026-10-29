@@ -6619,6 +6619,7 @@ const AIM3D_BLOCK = obj({
     position: VEC3,
     rotation: obj({ x: NUM, y: NUM, z: NUM, order: leaf(oneOf(ROTATION_ORDERS, "warning")) }),
     scale: VEC3,
+    upAxis: leaf(oneOf(MODEL_UP_AXES)),
     wireframe: BOOL,
     shadingMode: leaf(oneOf(SHADING_MODES)),
     customShader: obj({ vertexShader: TEXT, fragmentShader: TEXT }),
@@ -7194,4 +7195,4 @@ function fillModelThumbnail(slot, imageUrl, seed) {
 }
 
 export { GENERIC_GALLERY_IMAGE_COUNT as G, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createPasswordField as c, featureIconSvg as d, statusLabel as e, fillModelThumbnail as f, featureLabel as g, featureIconsCaption as h, inspectAIM3DManifest as i, manifestModelUrls as j, getGenericGalleryImageUrl as k, GALLERY_IMAGE_EXT as l, metaCaption as m, normalizeAIM3DManifest as n, formatAIM3DManifestValidationErrors as o, certaintyText as p, normalizeCertaintyScale as q, normalizeCertaintyAssessment as r, setLanguageSource as s, t, certaintyLevelForValue as u, validateAIM3DManifest as v, isAIM3DManifest as w };
-//# sourceMappingURL=model-thumbnail-BiOhsNMB.js.map
+//# sourceMappingURL=model-thumbnail-BPR0ome7.js.map

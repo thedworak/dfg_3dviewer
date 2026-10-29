@@ -2752,8 +2752,10 @@ test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, uprig
     return geometry ? { hasBox: !!geometry.boundingBox, vertices: geometry.getAttribute('position').count } : null;
   });
   expect(bounds).toEqual({ hasBox: true, vertices: 8 });
-  // Drawn once Spark has sorted them, a frame or more after loading.
-  await expect.poll(() => splatPixelShare(page)).toBeGreaterThan(0.02);
+  // Drawn once Spark has sorted them, a frame or more after loading - and,
+  // lit by the scene's lights (splat-lighting.js), once its generator has
+  // run the lighting for every splat, seconds on the software GL of the tests.
+  await expect.poll(() => splatPixelShare(page), { timeout: 45_000 }).toBeGreaterThan(0.02);
 
   // A PLY of Gaussians (here 600 in a ring) is told apart from a mesh PLY.
   const count = 600;
@@ -4022,7 +4024,7 @@ test('example manifests: one folded group per model, its manifests named by what
   });
   const panel = page.locator('#examplesPanel');
   const groups = panel.locator('details.examples-panel-group');
-  await expect(groups.locator('summary > span:first-child')).toHaveText(['Tempietto', 'Wolpa Synagogue', 'ExPlora4D showcase']);
+  await expect(groups.locator('summary > span:first-child')).toHaveText(['Tempietto', 'Wolpa Synagogue', 'ExPlora4D showcase', 'Angel (Gaussian splats)']);
   await expect(panel.locator('details[data-group="aim3d:showcase"] .examples-panel-count')).toHaveText('15');
   // Folded at first; open, only the variants under the model's name.
   const wolpa = panel.locator('details[data-group="aim3d:wolpa"]');

@@ -2,7 +2,7 @@ const DEBUG_BUILD$2 = (typeof __SENTRY_DEBUG__ === 'undefined' || __SENTRY_DEBUG
 
 const GLOBAL_OBJ = globalThis;
 
-const SDK_VERSION = "11.9.0" ;
+const SDK_VERSION = "11.10.0" ;
 
 function getMainCarrier() {
   getSentryCarrier(GLOBAL_OBJ);
@@ -1645,7 +1645,7 @@ function getTraceContextFromScope(scope) {
   return traceContext;
 }
 
-const wr="gen_ai.conversation.id",Po="http.request.header",Vd="sentry.exclusive_time",Jd="sentry.is_localhost",mm="sentry.op",gm="sentry.origin",hm="sentry.profile_id",Nm="sentry.segment.name.source",ib="url.full",mb="user_agent.original";
+const Gr="gen_ai.conversation.id",Qo="http.request.header",xm="sentry.exclusive_time",Mm="sentry.is_localhost",eb="sentry.op",tb="sentry.origin",rb="sentry.profile_id",hb="sentry.segment.name.source",Kg="url.full",ty="user_agent.original";
 
 const SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE = "sentry.sample_rate";
 const SEMANTIC_ATTRIBUTE_SENTRY_PREVIOUS_TRACE_SAMPLE_RATE = "sentry.previous_trace_sample_rate";
@@ -1945,8 +1945,8 @@ function spanToStaticSpanJSON(span) {
       // This is [0,0] by default in OTEL, in which case we want to interpret this as no end time
       timestamp: spanTimeInputToSeconds(endTime) || void 0,
       status: getStatusMessage(status),
-      op: attributes[mm],
-      origin: attributes[gm],
+      op: attributes[eb],
+      origin: attributes[tb],
       links: convertSpanLinksForEnvelope(links)
     };
   }
@@ -2227,7 +2227,7 @@ function getDynamicSamplingContextFromSpan(span) {
     return applyLocalSampleRateToDsc(dscOnTraceState);
   }
   const dsc = getDynamicSamplingContextFromClient(span.spanContext().traceId, client);
-  const source = rootSpanAttributes[Nm];
+  const source = rootSpanAttributes[hb];
   const name = rootSpanJson.description;
   if (source !== "url" && name) {
     dsc.transaction = name;
@@ -3484,8 +3484,8 @@ function convertTransactionEventToSpanJson(event) {
     timestamp: event.timestamp,
     trace_id: trace_id ?? "",
     origin,
-    profile_id: data?.[hm],
-    exclusive_time: data?.[Vd],
+    profile_id: data?.[rb],
+    exclusive_time: data?.[xm],
     measurements: event.measurements,
     is_segment: true
   };
@@ -3506,8 +3506,8 @@ function convertSpanJsonToTransactionEvent(span) {
         origin: span.origin,
         data: {
           ...span.data,
-          ...span.profile_id && { [hm]: span.profile_id },
-          ...span.exclusive_time && { [Vd]: span.exclusive_time }
+          ...span.profile_id && { [rb]: span.profile_id },
+          ...span.exclusive_time && { [xm]: span.exclusive_time }
         }
       }
     },
@@ -3603,6 +3603,11 @@ function _makeDoNotSendEventError(message) {
     message,
     [DO_NOT_SEND_EVENT_SYMBOL]: true
   };
+}
+function _makeSampledOutError(sampleRate) {
+  return _makeDoNotSendEventError(
+    `Discarding event because it's not included in the random sample (sampling rate = ${sampleRate})`
+  );
 }
 function _isInternalError(error) {
   return isObjectLike(error) && INTERNAL_ERROR_SYMBOL in error;
@@ -4153,8 +4158,14 @@ class Client {
     let beforeSendDropReason = "before_send";
     let ignoredSpanCount = 0;
     const parsedSampleRate = typeof sampleRate === "undefined" ? void 0 : parseSampleRate(sampleRate);
+    const isSampledOut = isError && typeof parsedSampleRate === "number" && safeMathRandom() > parsedSampleRate;
     const dataCategory = getDataCategoryByType(event.type);
     let preparedSpanCount = 0;
+    const session = currentScope.getSession() || isolationScope.getSession();
+    if (isSampledOut && session?.status !== "ok") {
+      this.recordDroppedEvent("sample_rate", "error");
+      return rejectedSyncPromise(_makeSampledOutError(sampleRate));
+    }
     return this._prepareEvent(event, hint, currentScope, isolationScope).then((prepared) => {
       if (prepared === null) {
         throw _makeDoNotSendEventError("An event processor returned `null`, will not send event.");
@@ -4190,15 +4201,12 @@ class Client {
         const dropMessage = beforeSendDropReason === "ignored" ? "Transaction matched `ignoreSpans`" : `${beforeSendLabel} ${beforeSendDropReason === "callback_error" ? "threw an error" : "returned `null`"}`;
         throw _makeDoNotSendEventError(`${dropMessage}, will not send event.`);
       }
-      const session = currentScope.getSession() || isolationScope.getSession();
       if (isError && session) {
         this._updateSessionFromEvent(session, processedEvent);
       }
-      if (isError && typeof parsedSampleRate === "number" && safeMathRandom() > parsedSampleRate) {
+      if (isSampledOut) {
         this.recordDroppedEvent("sample_rate", "error");
-        throw _makeDoNotSendEventError(
-          `Discarding event because it's not included in the random sample (sampling rate = ${sampleRate})`
-        );
+        throw _makeSampledOutError(sampleRate);
       }
       if (isTransaction) {
         const droppedSpanCount = preparedSpanCount - ignoredSpanCount - (processedEvent.spans?.length || 0);
@@ -4559,6 +4567,23 @@ function stripDataUrlContent(url, includeDataPrefix = true) {
     return `data:${mimeType}${isBase64 ? ",base64" : ""}${dataPrefix ? `,${dataPrefix}` : ""}`;
   }
   return url;
+}
+
+function getTunnelPath(dsn) {
+  const components = dsn ? makeDsn(dsn) : getClient()?.getDsn();
+  return components ? `/${fnv1a32(dsnToString(components)).toString(36)}` : void 0;
+}
+function normalizeTunnelBasePath(basePath) {
+  const path = (basePath?.startsWith("./") ? basePath.slice(1) : basePath ?? "").replace(/\/$/, "");
+  return !path || path.startsWith("/") ? path : `/${path}`;
+}
+function fnv1a32(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 function addAutoIpAddressToSession(session) {
@@ -5130,7 +5155,7 @@ const _conversationIdIntegration = (() => {
           if (!op?.startsWith("gen_ai.") && !attributes["ai.operationId"] && !name?.startsWith("ai.")) {
             return;
           }
-          span.setAttribute(wr, conversationId);
+          span.setAttribute(Gr, conversationId);
         }
       });
     }
@@ -5240,12 +5265,14 @@ function instrumentFetch(onFetchResolved) {
             const shouldEnhance = enhanceOption !== false;
             if (shouldEnhance && isError(error) && error.name === "TypeError" && (error.message === "Failed to fetch" || error.message === "Load failed" || error.message === "NetworkError when attempting to fetch resource.")) {
               try {
-                const url2 = new URL(handlerData.fetchData.url);
+                const url2 = new URL(handlerData.fetchData.url, GLOBAL_OBJ.location?.href);
                 const hostname = url2.host;
-                if (enhanceOption === "always") {
-                  error.message = `${error.message} (${hostname})`;
-                } else {
-                  addNonEnumerableProperty(error, "__sentry_fetch_url_host__", hostname);
+                if (hostname) {
+                  if (enhanceOption === "always") {
+                    error.message = `${error.message} (${hostname})`;
+                  } else {
+                    addNonEnumerableProperty(error, "__sentry_fetch_url_host__", hostname);
+                  }
                 }
               } catch {
               }
@@ -5367,9 +5394,10 @@ function htmlTreeAsString(elem, options = {}) {
     const sepLength = separator.length;
     let nextStr;
     const keyAttrs = Array.isArray(options) ? options : options.keyAttrs;
+    const maskAttributeFn = Array.isArray(options) ? void 0 : options.maskAttributeFn;
     const maxStringLength = !Array.isArray(options) && options.maxStringLength || DEFAULT_MAX_STRING_LENGTH;
     while (currentElem && height++ < MAX_TRAVERSE_HEIGHT) {
-      nextStr = _htmlElementAsString(currentElem, keyAttrs);
+      nextStr = _htmlElementAsString(currentElem, keyAttrs, maskAttributeFn);
       if (nextStr === "html" || height > 1 && len + out.length * sepLength + nextStr.length >= maxStringLength) {
         break;
       }
@@ -5382,7 +5410,7 @@ function htmlTreeAsString(elem, options = {}) {
     return "<unknown>";
   }
 }
-function _htmlElementAsString(el, keyAttrs) {
+function _htmlElementAsString(el, keyAttrs, maskAttributeFn) {
   const out = [];
   const tagName = _safeRead(el, "tagName");
   if (!tagName) {
@@ -5393,10 +5421,10 @@ function _htmlElementAsString(el, keyAttrs) {
       const dataset = _safeRead(el, "dataset");
       if (dataset) {
         if (dataset["sentryComponent"]) {
-          return dataset["sentryComponent"];
+          return maskAttributeFn ? maskAttributeFn("data-sentry-component", dataset["sentryComponent"], el) : dataset["sentryComponent"];
         }
         if (dataset["sentryElement"]) {
-          return dataset["sentryElement"];
+          return maskAttributeFn ? maskAttributeFn("data-sentry-element", dataset["sentryElement"], el) : dataset["sentryElement"];
         }
       }
     }
@@ -5404,17 +5432,19 @@ function _htmlElementAsString(el, keyAttrs) {
   out.push(tagName.toLowerCase());
   const keyAttrPairs = keyAttrs?.length ? keyAttrs.filter((keyAttr) => _safeRead(el, "getAttribute", keyAttr)).map((keyAttr) => [keyAttr, _safeRead(el, "getAttribute", keyAttr)]) : null;
   if (keyAttrPairs?.length) {
-    keyAttrPairs.forEach((keyAttrPair) => {
-      out.push(`[${keyAttrPair[0]}="${keyAttrPair[1]}"]`);
+    keyAttrPairs.forEach(([key, value]) => {
+      out.push(`[${key}="${maskAttributeFn && value ? maskAttributeFn(key, value, el) : value}"]`);
     });
   } else {
     const id = _safeRead(el, "id");
     if (id) {
-      out.push(`#${id}`);
+      out.push(`#${maskAttributeFn ? maskAttributeFn("id", id, el) : id}`);
     }
     const className = _safeRead(el, "className");
     if (className && isString(className)) {
-      const classes = className.split(/\s+/);
+      const classes = (maskAttributeFn ? maskAttributeFn("class", className, el) : className).split(
+        /\s+/
+      );
       for (const c of classes) {
         out.push(`.${c}`);
       }
@@ -5423,7 +5453,7 @@ function _htmlElementAsString(el, keyAttrs) {
   for (const k of ["aria-label", "type", "name", "title", "alt"]) {
     const attr = _safeRead(el, "getAttribute", k);
     if (attr) {
-      out.push(`[${k}="${attr}"]`);
+      out.push(`[${k}="${maskAttributeFn ? maskAttributeFn(k, attr, el) : attr}"]`);
     }
   }
   return out.join("");
@@ -7028,18 +7058,18 @@ const httpContextIntegration = defineIntegration(() => {
       safeSetSpanJSONAttributes(span, {
         // This attribute is used by the "Filter out events from legacy browsers and crawlers" features on the Sentry backend.
         // Therefore, it's set on every span.
-        [mb]: headers["User-Agent"],
+        [ty]: headers["User-Agent"],
         // Likewise for the "Filter out localhost events" feature. Deliberately inlined rather than
         // sharing the server-side helper, which costs bundle size for request headers and IPs that
         // don't exist here. Mirrors Relay's localhost filter (relay-filter/src/localhost.rs).
-        [Jd]: protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1" || // `location.hostname` keeps the brackets for IPv6 hosts, so this is `[::1]`, not `::1`.
+        [Mm]: protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1" || // `location.hostname` keeps the brackets for IPv6 hosts, so this is `[::1]`, not `::1`.
         hostname === "[::1]" || !!hostname?.endsWith(".localhost"),
         // These attributes, we only need on the segment span (analogous to the `request` context for events)
         ...span.is_segment && {
           // Coerce empty string to undefined so the helper's nullish check drops it,
           // rather than writing an empty `url.full` attribute onto the span.
-          [ib]: span.attributes?.[mm] !== "http.client" ? filterCollectedUrl(reqData.url) : void 0,
-          [`${Po}.referer`]: referer ? [referer] : void 0
+          [Kg]: span.attributes?.[eb] !== "http.client" ? filterCollectedUrl(reqData.url) : void 0,
+          [`${Qo}.referer`]: referer ? [referer] : void 0
         }
       });
     }
@@ -7121,6 +7151,30 @@ function _isEmbeddedBrowserExtension() {
   return !isDedicatedExtensionPage;
 }
 
+function resolveBrowserTunnelOption(options) {
+  const { tunnel, dsn, transportOptions } = options;
+  if (!tunnel || typeof tunnel === "string") {
+    return { tunnel, transportOptions };
+  }
+  const tunnelOptions = tunnel === true ? {} : tunnel;
+  const dsnComponents = dsn && makeDsn(dsn);
+  const tunnelPath = tunnelOptions.path ?? (dsnComponents && getTunnelPath(dsnComponents));
+  if (!tunnelPath) {
+    return { tunnel: void 0, transportOptions };
+  }
+  const basePath = normalizeTunnelBasePath(tunnelOptions.basePath);
+  const resolvedTunnel = `${basePath}${tunnelPath}${tunnelOptions.trailingSlash ? "/" : ""}`;
+  DEBUG_BUILD && debug.log(`Tunneling events to "${resolvedTunnel}"`);
+  return {
+    tunnel: resolvedTunnel,
+    transportOptions: {
+      ...transportOptions,
+      // CSRF protection (SvelteKit, Astro) rejects the default `text/plain` POST to the tunnel as a form submission.
+      headers: { "Content-Type": "application/x-sentry-envelope", ...transportOptions?.headers }
+    }
+  };
+}
+
 function getDefaultIntegrations(_options) {
   return [
     eventFiltersIntegration(),
@@ -7146,6 +7200,7 @@ function init(options = {}) {
   });
   const clientOptions = {
     ...options,
+    ...resolveBrowserTunnelOption(options),
     enabled: shouldDisableBecauseIsBrowserExtenstion ? false : options.enabled,
     stackParser: stackParserFromStackParserOptions(options.stackParser || defaultStackParser),
     integrations,
@@ -7156,4 +7211,4 @@ function init(options = {}) {
 }
 
 export { captureMessage, flush, init, setTag };
-//# sourceMappingURL=error-tracking-sdk-B_jP_48C.js.map
+//# sourceMappingURL=error-tracking-sdk-DNhqkcrf.js.map

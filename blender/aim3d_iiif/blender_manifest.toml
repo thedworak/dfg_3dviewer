@@ -1,0 +1,18 @@
+schema_version = "1.0.0"
+
+id = "aim3d_iiif"
+version = "0.1.0"
+name = "IIIF / AIM3D Manifests"
+tagline = "IIIF Presentation 4 manifests with the AIM3DViewer block"
+maintainer = "DFG 3D Viewer"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+tags = ["Import-Export", "Scene"]
+
+[permissions]
+network = "Downloads manifests and the models they reference"
+files = "Reads manifests and models, writes manifests and GLB"

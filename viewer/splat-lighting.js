@@ -83,9 +83,6 @@ const uniforms = {
   ambient: vec3(),
   sky: vec3(),
   ground: vec3(),
-  // 1 for each light that casts shadows.
-  dirShadow: vec4(),
-  localShadow: vec4(),
   directional: Array.from({ length: MAX_DIRECTIONAL }, () => ({ direction: vec3(), color: vec3() })),
   // params: distance cutoff, decay, cone cosine, penumbra cosine (spot only;
   // a point light has cone cosine -2, everywhere inside).
@@ -140,24 +137,30 @@ const defineLighting = `
   }
 `;
 
-function lightingDyno(gsplat, eye, volume) {
+// The code is made for the lights there are (layout: for the directional
+// and the point and spot lights, whether each casts shadows), and made again
+// when they change: code for every possible light, each with its shadow
+// march, takes seconds to compile without a GPU.
+function lightingDyno(gsplat, eye, volume, layout) {
   const inTypes = {
     gsplat: dyno.Gsplat, eye: "vec3", strength: "float", exposure: "float", occlusion: "float", reference: "float",
-    ambient: "vec3", sky: "vec3", ground: "vec3", dirShadow: "vec4", localShadow: "vec4",
+    ambient: "vec3", sky: "vec3", ground: "vec3",
     volumeA: "sampler3D", volumeB: "sampler3D", present: "float", dims: "vec3", worldToVoxel: "mat4", voxelToWorld: "mat3",
   };
   const inputs = {
     gsplat, eye, strength: uniforms.strength, exposure: uniforms.exposure, occlusion: uniforms.occlusion, reference: uniforms.reference,
-    ambient: uniforms.ambient, sky: uniforms.sky, ground: uniforms.ground, dirShadow: uniforms.dirShadow, localShadow: uniforms.localShadow,
+    ambient: uniforms.ambient, sky: uniforms.sky, ground: uniforms.ground,
     volumeA: volume.a, volumeB: volume.b, present: volume.present, dims: volume.dims, worldToVoxel: volume.worldToVoxel, voxelToWorld: volume.voxelToWorld,
   };
-  uniforms.directional.forEach((light, i) => {
+  layout.directional.forEach((_shadow, i) => {
+    const light = uniforms.directional[i];
     inTypes[`dirDirection${i}`] = "vec3";
     inTypes[`dirColor${i}`] = "vec3";
     inputs[`dirDirection${i}`] = light.direction;
     inputs[`dirColor${i}`] = light.color;
   });
-  uniforms.local.forEach((light, i) => {
+  layout.local.forEach((_shadow, i) => {
+    const light = uniforms.local[i];
     Object.assign(inTypes, { [`localPosition${i}`]: "vec3", [`localColor${i}`]: "vec3", [`localDirection${i}`]: "vec3", [`localParams${i}`]: "vec4" });
     Object.assign(inputs, { [`localPosition${i}`]: light.position, [`localColor${i}`]: light.color, [`localDirection${i}`]: light.direction, [`localParams${i}`]: light.params });
   });
@@ -221,32 +224,34 @@ function lightingDyno(gsplat, eye, volume) {
         // A round splat gets the reference share of every light.
         `  vec3 irr = ao * (${i.ambient} + mix(0.5 * (${i.sky} + ${i.ground}), mix(${i.ground}, ${i.sky}, 0.5 * n.y + 0.5), flatness));`,
       ];
-      uniforms.directional.forEach((_light, k) => {
+      layout.directional.forEach((shadows, k) => {
         const direction = i[`dirDirection${k}`];
         const color = i[`dirColor${k}`];
         lines.push(
-          `  if (${color}.r + ${color}.g + ${color}.b > 0.0) {`,
+          `  {`,
           `    float shadow = 1.0;`,
-          `    if (onVolume && ${i.dirShadow}[${k}] > 0.5) shadow = splatVolumeShadow(${i.volumeB}, ${i.dims}, start, normalize(mat3(${i.worldToVoxel}) * ${direction}), reach);`,
+          ...(shadows ? [`    if (onVolume) shadow = splatVolumeShadow(${i.volumeB}, ${i.dims}, start, normalize(mat3(${i.worldToVoxel}) * ${direction}), reach);`] : []),
           `    irr += ${color} * shadow * mix(${REFERENCE_SHARE.toFixed(3)}, splatWrapDiffuse(dot(n, ${direction})), flatness);`,
           `  }`,
         );
       });
-      uniforms.local.forEach((_light, k) => {
+      layout.local.forEach((shadows, k) => {
         const color = i[`localColor${k}`];
         const params = i[`localParams${k}`];
         const position = i[`localPosition${k}`];
         lines.push(
-          `  if (${color}.r + ${color}.g + ${color}.b > 0.0) {`,
+          `  {`,
           `    vec3 l = ${position} - p;`,
           `    float d = max(length(l), 1e-6);`,
           `    l /= d;`,
           `    float cone = smoothstep(${params}.z, ${params}.w, dot(-l, ${i[`localDirection${k}`]}));`,
           `    float shadow = 1.0;`,
-          `    if (onVolume && cone > 0.0 && ${i.localShadow}[${k}] > 0.5) {`,
-          `      vec3 toLight = (${i.worldToVoxel} * vec4(${position}, 1.0)).xyz - start;`,
-          `      shadow = splatVolumeShadow(${i.volumeB}, ${i.dims}, start, normalize(toLight), length(toLight));`,
-          `    }`,
+          ...(shadows ? [
+            `    if (onVolume && cone > 0.0) {`,
+            `      vec3 toLight = (${i.worldToVoxel} * vec4(${position}, 1.0)).xyz - start;`,
+            `      shadow = splatVolumeShadow(${i.volumeB}, ${i.dims}, start, normalize(toLight), length(toLight));`,
+            `    }`,
+          ] : []),
           `    irr += ${color} * shadow * splatDistanceFalloff(d, ${params}.x, ${params}.y) * cone * mix(${REFERENCE_SHARE.toFixed(3)}, splatWrapDiffuse(dot(n, l)), flatness);`,
           `  }`,
         );
@@ -263,11 +268,11 @@ function lightingDyno(gsplat, eye, volume) {
   });
 }
 
-function makeModifier(mesh) {
+function makeModifier(mesh, layout) {
   const { volume } = mesh.userData.splatLighting;
   return dyno.dynoBlock({ gsplat: dyno.Gsplat }, { gsplat: dyno.Gsplat }, ({ gsplat }) => {
     if (!gsplat) throw new Error("No gsplat input");
-    return { gsplat: lightingDyno(gsplat, mesh.context.viewToWorld.translate, volume).outputs.gsplat };
+    return { gsplat: lightingDyno(gsplat, mesh.context.viewToWorld.translate, volume, layout).outputs.gsplat };
   });
 }
 
@@ -280,6 +285,9 @@ const center = new THREE.Vector3();
 let frameStamp = -1;
 let lightsKey = "";
 let lightsVersion = 0;
+// The lights the code is made for (lightingDyno()), and its key.
+let layout = { directional: [], local: [] };
+let layoutKey = "";
 
 function lightColor(light) {
   color.copy(light.color).multiplyScalar(light.intensity);
@@ -361,6 +369,11 @@ function updateUniforms(stamp, renderer) {
   if (key === lightsKey) return;
   lightsKey = key;
   lightsVersion += 1;
+  layout = {
+    directional: lights.directional.slice(0, MAX_DIRECTIONAL).map((light) => light.shadow === 1),
+    local: lights.local.slice(0, MAX_LOCAL).map((light) => light.shadow === 1),
+  };
+  layoutKey = JSON.stringify(layout);
   uniforms.strength.value = THREE.MathUtils.clamp(Number(state.strength) || 0, 0, 1);
   uniforms.occlusion.value = THREE.MathUtils.clamp(Number(state.occlusion) || 0, 0, 1);
   uniforms.exposure.value = Math.max(exposure, 0);
@@ -372,7 +385,6 @@ function updateUniforms(stamp, renderer) {
     const light = lights.directional[i];
     copy(slot.direction, light?.direction ?? new THREE.Vector3(0, 1, 0));
     copy(slot.color, light?.color ?? new THREE.Vector3());
-    uniforms.dirShadow.value.setComponent(i, light?.shadow ?? 0);
   });
   uniforms.local.forEach((slot, i) => {
     const light = lights.local[i];
@@ -380,7 +392,6 @@ function updateUniforms(stamp, renderer) {
     copy(slot.color, light?.color ?? new THREE.Vector3());
     copy(slot.direction, light?.direction ?? new THREE.Vector3(0, -1, 0));
     copy(slot.params, light?.params ?? new THREE.Vector4(0, 2, -2, -1));
-    uniforms.localShadow.value.setComponent(i, light?.shadow ?? 0);
   });
 }
 
@@ -457,15 +468,20 @@ function placeVolume(mesh) {
 
 // A paged .rad changes its splats while it loads; a generator built with
 // the modifier before that stays stale (draws nothing), so it is built
-// again when they change.
+// again when they change - and when the lights' layout does.
 function setModifier(mesh, on) {
   const lighting = mesh.userData.splatLighting;
   const splats = on ? [mesh.context.splats, mesh.numSplats] : null;
-  if (lighting.on === on && (!on || (splats[0] === lighting.splats[0] && splats[1] === lighting.splats[1]))) return;
+  const same = lighting.on === on && (!on || (splats[0] === lighting.splats[0] && splats[1] === lighting.splats[1] && lighting.layout === layoutKey));
+  if (same) return;
   lighting.on = on;
   lighting.splats = splats;
+  if (on && lighting.layout !== layoutKey) {
+    lighting.layout = layoutKey;
+    lighting.modifier = makeModifier(mesh, layout);
+  }
   mesh.enableViewToWorld = on;
-  mesh.worldModifier = on ? (lighting.modifier ??= makeModifier(mesh)) : undefined;
+  mesh.worldModifier = on ? lighting.modifier : undefined;
   mesh.updateGenerator();
 }
 
@@ -482,7 +498,7 @@ export function attachSplatLighting(mesh, { volumeUrl } = {}) {
     worldToVoxel: dyno.dynoMat4(new THREE.Matrix4()),
     voxelToWorld: dyno.dynoMat3(new THREE.Matrix3()),
   };
-  mesh.userData.splatLighting = { on: false, splats: null, modifier: null, version: -1, volume };
+  mesh.userData.splatLighting = { on: false, splats: null, modifier: null, layout: null, version: -1, volume };
   if (volumeUrl) {
     loadSplatVolume(volumeUrl).then((data) => {
       if (!data) return;
@@ -506,11 +522,14 @@ export function attachSplatLighting(mesh, { volumeUrl } = {}) {
     const lighting = mesh.userData.splatLighting;
     const state = core.splatLighting;
     const on = Boolean(state.enabled) && state.strength > 0;
-    setModifier(mesh, on);
+    // Once a render, for all the meshes: Spark's time stands still
+    // between renders on demand. First, for the layout of the lights.
+    if (on) updateUniforms(frame.renderer?.info?.render?.frame ?? performance.now(), frame.renderer);
+    // Not while Spark swaps the mesh's splats in (its update() does, from an
+    // empty source at first): the generator would be built, and its code
+    // compiled, twice.
+    if (mesh.context.splats === mesh.lastSplats) setModifier(mesh, on);
     if (on) {
-      // Once a render, for all the meshes: Spark's time stands still
-      // between renders on demand.
-      updateUniforms(frame.renderer?.info?.render?.frame ?? performance.now(), frame.renderer);
       const moved = placeVolume(mesh);
       if (lighting.version !== lightsVersion || moved) {
         lighting.version = lightsVersion;
