@@ -27,45 +27,51 @@ const CATEGORIES = [
     id: "look",
     label: () => t("menus.look", "Look"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["projection", "lights", "weather", "sceneSuggest", "environmentMap", "ground", "shading", "compareLook", "wireframe", "materials", "background", "rendering", "resetSettings"],
+    tools: ["lights", "weather", "sceneSuggest", "environmentMap", "ground", "background", "compareLook", "rendering"],
+    breaks: ["compareLook"],
   },
   {
     id: "analysis",
     label: () => t("menus.analysis", "Analysis"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6 19c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5l7 6M5 9l4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["rakingLight", "sunStudy", "clippingPlanes", "certainty"],
+    tools: ["rakingLight", "sunStudy", "clippingPlanes", "ruler", "certainty"],
+    breaks: ["clippingPlanes"],
   },
-  // The model itself: moving, turning, scaling and measuring it, its parts,
-  // and what only some models have (shown when the model has it): its
-  // reconstruction variants to compare, IFC properties to ask about, point
-  // cloud settings.
+  // The model itself: its parts and what only some models have (shown when
+  // the model has it: reconstruction variants to compare, IFC properties to
+  // ask about, point cloud settings), then moving, turning and scaling it,
+  // then how its surface is drawn.
   {
     id: "model",
     label: () => t("menus.model", "Model"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["modelDetails", "move", "rotate", "scale", "upAxis", "ruler", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud"],
+    tools: ["modelDetails", "hierarchy", "picking", "compare", "ifcQuery", "pointCloud", "move", "rotate", "scale", "upAxis", "shading", "wireframe", "materials"],
+    breaks: ["move", "shading"],
   },
   {
     id: "story",
     label: () => t("menus.story", "Story"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v12H10l-5 4z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 9h6M9 12h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["annotate", "annotateTour", "annotatePhotos"],
+    tools: ["annotate", "annotateTour", "annotatePhotos", "annotateImport", "annotateExport"],
+    breaks: ["annotateImport"],
   },
   {
     id: "file",
     more: true,
     label: () => t("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["publishCheck", "validationReport", "preview", "download", "save", "generateThumbnails", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"],
+    tools: ["publishCheck", "validationReport", "preview", "download", "save", "generateThumbnails", "IIIFimport", "IIIFexport"],
+    breaks: ["download", "IIIFimport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
-  // and theme, first.
+  // and theme, first; then help, then what tells how the viewer is doing.
   {
     id: "settings",
     more: true,
-    label: () => t("menus.settings", "Settings"),
+    label: () => t("menus.settings", "Settings & help"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
-    tools: ["help", "reportBug", "statistics", "loadingLogs", "eventLog", "credits"],
+    tools: ["resetSettings", "help", "reportBug", "credits", "statistics", "loadingLogs", "eventLog"],
+    breaks: ["help", "statistics"],
   },
 ];
 
@@ -76,9 +82,10 @@ const MORE = {
 };
 
 // Always at hand, outside the menus: navigating (which also ends moving,
-// turning or scaling the model - those are under Model), then the view.
+// turning or scaling the model - those are under Model), then the view
+// (the camera's projection among it).
 const NAV_TRANSFORM = ["orbit"];
-const NAV_VIEW = ["resetCamera", "fullScreen"];
+const NAV_VIEW = ["projection", "resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
 // What the phone itself adds - AR in the room (the app's, else the
 // browser's WebXR), a historical photo over the place through the camera,
@@ -187,7 +194,15 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     .forEach(([key, button]) => {
       const category = categoryOf(key) || CATEGORIES.find((entry) => entry.id === "settings");
       button.classList.add("viewer-menus_item");
-      groups[category.id].group.appendChild(button);
+      // A line between a menu's sections (`breaks`: the tool each begins
+      // with), also when that tool is missing.
+      const section = (category.breaks || []).filter((start) => category.tools.indexOf(start) <= category.tools.indexOf(key)).length;
+      const group = groups[category.id];
+      if (group.count > 0 && section !== group.section) {
+        group.group.appendChild(el("div", "viewer-menus_separator", { role: "separator" }));
+      }
+      group.section = section;
+      group.group.appendChild(button);
       groups[category.id].count += 1;
     });
   // Moving, turning or scaling: the gizmo is on the model, so a phone's

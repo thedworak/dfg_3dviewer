@@ -4389,7 +4389,7 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
   await expect(toolbar).toHaveAttribute('data-mode', 'desktop');
   const tabs = toolbar.locator('.viewer-menus_tab:visible .viewer-menus_tab-label');
-  await expect(tabs).toHaveText(['Look', 'Analysis', 'Model', 'Story', 'File', 'Settings']);
+  await expect(tabs).toHaveText(['Look', 'Analysis', 'Model', 'Story', 'File', 'Settings & help']);
   // Icons only; the name shows over the icon on keyboard focus (on hover
   // the tab's menu opens, carrying the name), moving nothing.
   const lookTab = toolbar.locator('.viewer-menus_tab[data-menu="look"]');
@@ -4402,15 +4402,18 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   expect((await lookLabel.boundingBox()).y + 5).toBeLessThan((await lookTab.boundingBox()).y);
   expect(await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox()).toEqual(tabBefore);
   await page.mouse.move(700, 300);
-  // At hand, outside the menus: navigating and the view.
+  // At hand, outside the menus: navigating and the view, the projection
+  // among it.
   const nav = toolbar.locator('.viewer-menus_nav > [data-tool]:visible:not(.viewer-menus_grip)');
-  await expect(nav).toHaveCount(3);
-  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'resetCamera', 'fullScreen']);
-  // Moving, turning, scaling and measuring, the parts, and what only some
-  // models have (hidden here: no variants, IFC or point cloud): under Model.
+  await expect(nav).toHaveCount(4);
+  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'projection', 'resetCamera', 'fullScreen']);
+  // The parts and what only some models have (hidden here: no variants, IFC
+  // or point cloud), moving, turning and scaling, then the surface (shading,
+  // wireframe, materials): under Model, a line between the sections.
   await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
   const tools = toolbar.locator('.viewer-menus_group[data-category="model"] > [data-tool]:visible');
-  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['modelDetails', 'move', 'rotate', 'scale', 'upAxis', 'ruler', 'hierarchy', 'picking']);
+  expect(await tools.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['modelDetails', 'hierarchy', 'picking', 'move', 'rotate', 'scale', 'upAxis', 'shading', 'wireframe', 'materials']);
+  await expect(toolbar.locator('.viewer-menus_group[data-category="model"] > .viewer-menus_separator')).toHaveCount(2);
   await toolbar.locator('.viewer-menus_group[data-category="model"] [data-tool="move"]').click();
   expect(await page.evaluate(() => window.Viewer.transformText['Transform 3D Object'])).toBe('translate');
   await toolbar.locator('.viewer-menus_nav [data-tool="orbit"]').click();
@@ -4418,7 +4421,7 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   await page.keyboard.press('Escape');
 
   // Settings: the language and theme of the classic main menu, then help;
-  // its cog is gone. The projection is under Look.
+  // its cog is gone.
   await expect(page.locator('.viewer-menus_cog')).toBeHidden();
 
   // The grip moves the bar, inside the viewer; moved up, a menu opens below.
@@ -4458,14 +4461,15 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   await expect(settings.locator('#viewerThemeMode')).toBeVisible();
   await expect(settings.locator('[data-tool="help"]')).toBeVisible();
   await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
-  await expect(toolbar.locator('.viewer-menus_group[data-category="look"] > [data-tool]').first()).toHaveAttribute('data-tool', 'projection');
+  await expect(toolbar.locator('.viewer-menus_group[data-category="look"] > [data-tool]').first()).toHaveAttribute('data-tool', 'lights');
   await page.keyboard.press('Escape');
 
-  // Analysis: the sun and the raking light, out of Lights.
+  // Analysis: the sun and the raking light, out of Lights; section planes and
+  // the ruler.
   await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').click();
   const panel = toolbar.locator('.viewer-menus_panel');
   await expect(panel).toBeVisible();
-  await expect(panel.locator('.viewer-menus_group.is-shown > [data-tool]:visible')).toHaveCount(4);
+  await expect(panel.locator('.viewer-menus_group.is-shown > [data-tool]:visible')).toHaveCount(5);
   await expect(page.locator('[data-tool="lights"] [data-tool="lightSun"]')).toHaveCount(0);
   const sunToggle = panel.locator('button[data-tool="lightSunToggle"]');
   await expect(sunToggle).toBeHidden();
@@ -4526,7 +4530,7 @@ test('toolbar menus on a phone: tabs along the bottom, a sheet, then a rail once
   await toolbar.locator('.viewer-menus_tab[data-menu="more"]').tap();
   const panel = toolbar.locator('.viewer-menus_panel');
   await expect(panel).toBeVisible();
-  await expect(panel.locator('.viewer-menus_group.is-shown .viewer-menus_group-title')).toHaveText(['File', 'Settings']);
+  await expect(panel.locator('.viewer-menus_group.is-shown .viewer-menus_group-title')).toHaveText(['File', 'Settings & help']);
   // The sheet stands on the tab bar, over the whole width (once slid in).
   await panel.evaluate((el) => Promise.all(el.getAnimations().map((animation) => animation.finished)));
   const [sheet, bar] = await Promise.all([panel.boundingBox(), toolbar.locator('.viewer-menus_tabs').boundingBox()]);
@@ -5775,7 +5779,7 @@ test('materials window: lists the materials, applies a type, edits, resets, pick
   await openViewer(page, '/examples/box.glb', 'ui=menus');
   await waitForCameraIdle(page);
   const toolbar = page.locator('#viewerEditorToolbar');
-  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
   await toolbar.locator('.viewer-menus_panel button[data-tool="materials"]').click();
   const panel = page.locator('#viewerMaterials');
   await expect(panel).toBeVisible();
