@@ -19,9 +19,9 @@ if ($action === 'clear_cache') {
 }
 
 if ($action === 'rebuild_thumbs') {
-    $script = $root . '/scripts/render.sh';
-    if (file_exists($script) && is_executable($script)) {
-        $out = shell_exec(escapeshellcmd($script) . ' 2>&1');
+    $script = $root . '/scripts/render_thumbnails.py';
+    if (file_exists($script)) {
+        $out = shell_exec('python3 ' . escapeshellarg($script) . ' 2>&1');
         json_response(['ok'=>true,'output'=>$out]);
     }
     http_response_code(500); json_response(['error'=>'script_missing']);

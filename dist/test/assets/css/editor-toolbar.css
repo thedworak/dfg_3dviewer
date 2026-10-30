@@ -407,6 +407,17 @@
   border-color: var(--viewer-panel-border);
 }
 
+/* Not for this user (the thumbnails: editor/thumbnail-capture.js). */
+.viewer-editor-tool:disabled,
+.viewer-editor-tool:disabled:hover,
+#viewerEditorToolbar .viewer-editor-tool:disabled:hover {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  background: transparent;
+  border-color: transparent;
+}
+
 .viewer-editor-tool.has-submenu {
   position: relative;
 }

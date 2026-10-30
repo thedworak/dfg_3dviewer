@@ -2,9 +2,9 @@
    confirmation dialog come from the viewer's panel stylesheets; their colours
    (--viewer-panel-*) are set here for the whole page, dark by default like
    the viewer (main.css .viewer-wrapper). */
-@import "./upload-panel.css?v=1f6239e2";
-@import "./models-panel.css?v=1f6239e2";
-@import "./admin-users.css?v=1f6239e2";
+@import "./upload-panel.css?v=4b31f6e3";
+@import "./models-panel.css?v=4b31f6e3";
+@import "./admin-users.css?v=4b31f6e3";
 
 :root {
   color-scheme: dark;

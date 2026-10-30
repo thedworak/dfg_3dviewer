@@ -890,10 +890,9 @@ export function attachPublishCheck(Viewer) {
           action: t("gui.saveSettings", "Save settings"),
         });
       }
-      // The renders only for who may change them (editor/thumbnail-capture.js).
-      if (buttons.generateThumbnails && !buttons.generateThumbnails.disabled) {
+      if (buttons.generateThumbnails) {
         steps.push({ key: "thumbnails", label: t("prepare.step.thumbnails", "Make the renders"), note: t("prepare.step.thumbnailsNote", "Nine views from the model as shown now"), action: t("gui.generateThumbnails", "Generate thumbnails") });
-      } else if (buttons.preview && !buttons.preview.disabled) {
+      } else if (buttons.preview) {
         steps.push({ key: "preview", label: t("prepare.step.preview", "Make the main thumbnail"), note: t("prepare.step.previewNote", "From the current view"), action: t("gui.renderPreview", "Change main thumbnail") });
       }
       ui.stepsTitle.hidden = steps.length === 0;
@@ -927,6 +926,10 @@ export function attachPublishCheck(Viewer) {
         action.type = "button";
         action.className = "viewer-prepare_fix";
         action.textContent = step.action;
+        // The renders only for who may change them (editor/thumbnail-capture.js).
+        if (step.key === "thumbnails" || step.key === "preview") {
+          action.disabled = buttons[step.key === "thumbnails" ? "generateThumbnails" : "preview"].disabled;
+        }
         action.addEventListener("click", async () => {
           await Viewer.runPublishStep(step.key);
           Viewer.syncPublishSteps();

@@ -179,6 +179,12 @@
   font-size: 12px !important;
 }
 
+/* The renders, for who may not change them (editor/thumbnail-capture.js). */
+.viewer-prepare_fix:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .viewer-prepare_item[data-level="fix"] .viewer-prepare_fix {
   border-color: var(--viewer-brand-gold, #e9b264) !important;
 }
