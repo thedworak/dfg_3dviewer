@@ -1,4 +1,4 @@
-export { V as Viewer, e as expectWebGL } from './assets/main-CId-CQG9.js';
+export { V as Viewer, e as expectWebGL } from './assets/main-BH1rx4bP.js';
 import './assets/three-9zFNDZnr.js';
 import './assets/model-thumbnail-ocZdathm.js';
 import './assets/_commonjsHelpers-ChNyZfSg.js';

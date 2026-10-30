@@ -9514,7 +9514,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-CWtblNib.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-DwIudwu1.js');
+const loadTilesPlugins = () => import('./index.three-plugins-D5YD9tZh.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9939,7 +9939,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-Dnh_gPhw.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-cgRF-hxs.js'),
+    import('./rendering-webgpu-BsUWwJVx.js'),
     import('./weather-webgpu-B_7t2yf3.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -10071,9 +10071,9 @@ const loadLWOLoader = async () => (await import('./three-Czfavao3.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-DfOzUqP7.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-Czfavao3.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-BbeLmQeE.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-C4xpyRbw.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-yadS4O1P.js');
+const loadSplats = async () => import('./splats-CsxVuOpy.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -17777,7 +17777,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "4b31f6e3" ;
+const BUILD_ID$2 = "42e7d570" ;
 const BUILD = "drupal" ;
 
 let initPromise = null;
@@ -17828,8 +17828,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "4b31f6e3" ;
-const BUILD_TIME$1 = "2026-10-30T12:03:15.903Z" ;
+const BUILD_ID$1 = "42e7d570" ;
+const BUILD_TIME$1 = "2026-10-30T15:59:49.977Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -52516,8 +52516,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "4b31f6e3" ;
-const BUILD_TIME = "2026-10-30T12:03:15.903Z" ;
+const BUILD_ID = "42e7d570" ;
+const BUILD_TIME = "2026-10-30T15:59:49.977Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -54451,6 +54451,12 @@ const Viewer$1 = {
     }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
+    // viewer.fillViewport (default on): on the standalone page the viewer
+    // takes all the height the header and gallery leave (main.css).
+    document.body.classList.toggle(
+      "viewer-fill-viewport",
+      this.parseBooleanParam(core.CONFIG.viewer.fillViewport) ?? true
+    );
 
     core.container?.appendChild(this.noticeContainer);
     setCore("noticeContainer", this.noticeContainer);
@@ -57062,4 +57068,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-Ddhm_CS-.js.map
+//# sourceMappingURL=main-BfmiiiYk.js.map

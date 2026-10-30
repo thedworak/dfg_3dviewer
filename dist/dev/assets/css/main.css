@@ -2359,6 +2359,26 @@ body.viewer-app.viewer-standalone-page > #DFG_3DViewer {
   overflow: hidden;
 }
 
+/* viewer.fillViewport (main.js): on a desktop browser too, the viewer fills
+   what the header and gallery leave, instead of index.html's 50vh. The
+   body keeps its 8px margin; the phone and app rules above still apply. */
+body.viewer-fill-viewport.viewer-standalone-page:not(.viewer-app) {
+  height: calc(100dvh - 16px);
+  display: flex;
+  flex-direction: column;
+}
+
+body.viewer-fill-viewport.viewer-standalone-page > :not(#DFG_3DViewer) {
+  flex: 0 0 auto;
+}
+
+body.viewer-fill-viewport.viewer-standalone-page > #DFG_3DViewer {
+  flex: 1 1 0;
+  height: auto !important;
+  min-height: 280px;
+  overflow: hidden;
+}
+
 /* Tools and features that are not available (ui/lock-icon.js): a small
    lock - the same icon on the toolbar, in the plans panel and on the
    repository address field. */

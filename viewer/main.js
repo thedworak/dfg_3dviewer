@@ -1893,6 +1893,12 @@ export const Viewer = {
     }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
+    // viewer.fillViewport (default on): on the standalone page the viewer
+    // takes all the height the header and gallery leave (main.css).
+    document.body.classList.toggle(
+      "viewer-fill-viewport",
+      this.parseBooleanParam(core.CONFIG.viewer.fillViewport) ?? true
+    );
 
     core.container?.appendChild(this.noticeContainer);
     setCore("noticeContainer", this.noticeContainer);

@@ -1,6 +1,6 @@
-import { c as core } from './main-BAtp_CY7.js';
-import { C as Color, V as Vector4, dv as Box3, aQ as Matrix4, ar as Vector3, M as Matrix3, x as Mesh, fi as ShaderMaterial, a_ as DoubleSide, ee as GLSL3, aq as Vector2, fI as Timer, fZ as WebGLRenderTarget, aT as SRGBColorSpace, a1 as UnsignedByteType, aY as RGBAFormat, bv as Quaternion, _ as DataTexture, bd as RGBAIntegerFormat, a5 as UnsignedIntType, g9 as WebGLCubeRenderTarget, bj as LinearSRGBColorSpace, J as LinearFilter, bm as LinearMipMapLinearFilter, K as CubeCamera, dA as Camera, ga as PMREMGenerator, al as MeshStandardMaterial, bl as Object3D, cZ as DataArrayTexture, ba as RGIntegerFormat, fY as WebGLArrayRenderTarget, b1 as NearestFilter, o as ColorManagement, aI as PerspectiveCamera, aH as OrthographicCamera, gb as ShaderChunk, em as InstancedBufferGeometry, b5 as BufferAttribute, au as Loader, av as FileLoader, fd as RawShaderMaterial, be as Matrix2, R as REVISION, g5 as FullScreenQuad, g4 as THREE } from './three-9zFNDZnr.js';
-import './model-thumbnail-A3Hl_Qmt.js';
+import { c as core } from './main-DehV_VFW.js';
+import { C as Color, V as Vector4, dv as Box3, aQ as Matrix4, ar as Vector3, M as Matrix3, x as Mesh, fi as ShaderMaterial, a_ as DoubleSide, ee as GLSL3, aq as Vector2, fI as Timer, fZ as WebGLRenderTarget, aT as SRGBColorSpace, a1 as UnsignedByteType, aY as RGBAFormat, bv as Quaternion, _ as DataTexture, bd as RGBAIntegerFormat, a5 as UnsignedIntType, g9 as WebGLCubeRenderTarget, bj as LinearSRGBColorSpace, J as LinearFilter, bm as LinearMipMapLinearFilter, K as CubeCamera, dA as Camera, ga as PMREMGenerator, al as MeshStandardMaterial, bl as Object3D, cZ as DataArrayTexture, ba as RGIntegerFormat, fY as WebGLArrayRenderTarget, b1 as NearestFilter, o as ColorManagement, aI as PerspectiveCamera, aH as OrthographicCamera, gb as ShaderChunk, em as InstancedBufferGeometry, b5 as BufferAttribute, au as Loader, av as FileLoader, fd as RawShaderMaterial, be as Matrix2, R as REVISION, g5 as FullScreenQuad, g4 as THREE } from './three-Czfavao3.js';
+import './model-thumbnail-BbpDUg2D.js';
 import './_commonjsHelpers-ChNyZfSg.js';
 
 const LN_SCALE_MIN = -12;
@@ -14692,4 +14692,4 @@ async function buildPagedSplatModel(url, { fileName = "splats.rad", name = "Gaus
 }
 
 export { buildPagedSplatModel, buildSplatModel };
-//# sourceMappingURL=splats-C57PVFJQ.js.map
+//# sourceMappingURL=splats-gNZhjw2t.js.map

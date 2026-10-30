@@ -1,5 +1,5 @@
 import { a as attribute, f as float, M as MeshBasicNodeMaterial, v as vec4, b as vec3, R as RenderPipeline, p as pass, m as mrt, n as normalView, c as ao, u as uniform, s as screenUV, d as builtinAOContext, e as mix } from './three-webgpu-Dnh_gPhw.js';
-import { c as core, A as AO_RADIUS, a as AO_THICKNESS } from './main-AYTgfl8v.js';
+import { c as core, A as AO_RADIUS, a as AO_THICKNESS } from './main-DehV_VFW.js';
 import { t as RenderTarget, a1 as UnsignedByteType, b1 as NearestFilter } from './three-Czfavao3.js';
 import './model-thumbnail-BbpDUg2D.js';
 import './_commonjsHelpers-ChNyZfSg.js';

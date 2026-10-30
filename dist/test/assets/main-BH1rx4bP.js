@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, w as isAIM3DManifest, V as VIEWER_I18N, s as setLanguageSource } from './model-thumbnail-A3Hl_Qmt.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, w as isAIM3DManifest, V as VIEWER_I18N, s as setLanguageSource } from './model-thumbnail-ocZdathm.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -541,7 +541,7 @@ var DEFAULT_LIST$1 = {
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
-const IS_MOBILE_BUILD$1 = "dev" === "mobile";
+const IS_MOBILE_BUILD$1 = "test" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -7935,7 +7935,7 @@ var DEFAULT_LIST = {
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const IS_MOBILE_BUILD = "dev" === "mobile";
+const IS_MOBILE_BUILD = "test" === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
 const DEFAULT_URL = "./manifests/index.json";
@@ -9514,7 +9514,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-BOcDe4Ys.js');
+const loadTilesPlugins = () => import('./index.three-plugins-D4vAR1nv.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9939,7 +9939,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-C7Trm6O7.js'),
+    import('./rendering-webgpu-D0QzlgLj.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -10071,9 +10071,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DDMOZAue.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DDxBW6tb.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-BbQPDz9M.js');
+const loadSplats = async () => import('./splats-D-Q75CVT.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -10284,7 +10284,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "dev";
+const ENV_BUILD = "test";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -17734,8 +17734,8 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "4b31f6e3" ;
-const BUILD = "dev" ;
+const BUILD_ID$2 = "42e7d570" ;
+const BUILD = "test" ;
 
 let initPromise = null;
 
@@ -17785,8 +17785,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "4b31f6e3" ;
-const BUILD_TIME$1 = "2026-10-30T12:02:43.275Z" ;
+const BUILD_ID$1 = "42e7d570" ;
+const BUILD_TIME$1 = "2026-10-30T15:59:14.878Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -52472,8 +52472,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "4b31f6e3" ;
-const BUILD_TIME = "2026-10-30T12:02:43.275Z" ;
+const BUILD_ID = "42e7d570" ;
+const BUILD_TIME = "2026-10-30T15:59:14.878Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -52715,7 +52715,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "IIIF" ;
+const SOURCE = "" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
@@ -54392,9 +54392,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    {
+    if (!core.CONFIG.entity.metadata.sourceType) {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -54407,6 +54407,12 @@ const Viewer$1 = {
     }
     setCore('container', this.container);
     document.body.classList.toggle("viewer-embed-page", this.isEmbedMode());
+    // viewer.fillViewport (default on): on the standalone page the viewer
+    // takes all the height the header and gallery leave (main.css).
+    document.body.classList.toggle(
+      "viewer-fill-viewport",
+      this.parseBooleanParam(core.CONFIG.viewer.fillViewport) ?? true
+    );
 
     core.container?.appendChild(this.noticeContainer);
     setCore("noticeContainer", this.noticeContainer);
@@ -57040,4 +57046,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-WTWZug8h.js.map
+//# sourceMappingURL=main-Bi3fO1BB.js.map
