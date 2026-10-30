@@ -890,9 +890,10 @@ export function attachPublishCheck(Viewer) {
           action: t("gui.saveSettings", "Save settings"),
         });
       }
-      if (buttons.generateThumbnails) {
+      // The renders only for who may change them (editor/thumbnail-capture.js).
+      if (buttons.generateThumbnails && !buttons.generateThumbnails.disabled) {
         steps.push({ key: "thumbnails", label: t("prepare.step.thumbnails", "Make the renders"), note: t("prepare.step.thumbnailsNote", "Nine views from the model as shown now"), action: t("gui.generateThumbnails", "Generate thumbnails") });
-      } else if (buttons.preview) {
+      } else if (buttons.preview && !buttons.preview.disabled) {
         steps.push({ key: "preview", label: t("prepare.step.preview", "Make the main thumbnail"), note: t("prepare.step.previewNote", "From the current view"), action: t("gui.renderPreview", "Change main thumbnail") });
       }
       ui.stepsTitle.hidden = steps.length === 0;

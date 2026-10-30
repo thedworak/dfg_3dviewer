@@ -93,6 +93,8 @@ export function attachLoginPanel(Viewer) {
       this.renderLoginPanel();
       this.updateLoginMenuEntryState();
       this.updateAdminMenuEntryState?.();
+      // A manifest's thumbnails are for admins, a model's for its owner.
+      this.refreshThumbnailAccess?.();
       return state;
     },
 

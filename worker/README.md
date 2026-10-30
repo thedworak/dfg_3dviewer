@@ -218,6 +218,17 @@ needing the tag.
   Blender render and Drupal's `ThumbnailUploadController` write. Needs the
   rights of `DELETE /api/jobs/<id>` (with accounts on: the uploader or an
   admin).
+- `POST /api/manifests/<name>/thumbnails` - "Generate thumbnails" and
+  "Change main thumbnail" for one of the viewer's own AIM3D manifests
+  (`manifests/<name>.json`): admins only. A multipart form with `manifest`
+  (the manifest, JSON), `baseUrl` (where the client reaches
+  `/api/manifests/<name>/`) and a PNG per view (`side0`..`side315`, `top`).
+  The images and the manifest with them in `AIM3DViewer.thumbnails` are
+  kept in `<jobs dir>/.manifests/<name>/` (`worker/manifests.py`) - the
+  bundled manifests belong to the viewer image and are replaced on every
+  deployment. `GET /api/manifests/<name>.json` serves that copy, which the
+  viewer loads instead of the bundled one; `GET /api/manifests/<name>/<file>.png`
+  the images.
 - `POST /api/model/settings` - the viewer's "Save settings" (File menu): JSON
   `{"path": "/files/<id>/...", "filename": "<the model's file>", "content": {...}}`,
   saved as `metadata/<filename>_viewer.json` next to the model (position,

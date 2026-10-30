@@ -2693,6 +2693,14 @@ export function updateEditorToolbarState(viewer) {
   }
   const creditsButton = viewer.editorToolbarButtons.credits;
   if (creditsButton) creditsButton.hidden = !viewer.creditsWrapper;
+  // The thumbnails only for who may change them, none until that is known
+  // (editor/thumbnail-capture.js refreshThumbnailAccess).
+  const thumbnailsAllowed = viewer.thumbnailAccess === true;
+  ["preview", "generateThumbnails"].forEach((key) => {
+    if (viewer.editorToolbarButtons[key]) viewer.editorToolbarButtons[key].disabled = !thumbnailsAllowed;
+  });
+  core.i18nGui?.renderPreviewController?.enable(thumbnailsAllowed);
+  core.i18nGui?.generateThumbnailsController?.enable(thumbnailsAllowed);
 
   updateHierarchySubmenuState(viewer);
   updateClippingPlanesSubmenuState(viewer);

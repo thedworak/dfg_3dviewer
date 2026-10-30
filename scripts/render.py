@@ -54,6 +54,56 @@ if '--' in sys.argv:
                          help="Render device: CPU (default), GPU, or AUTO (try GPU, fall back to CPU silently)")
     args = parser.parse_known_args(argv)[0]
 
+# Every render carries a small ExPlora4D logo in its bottom right corner:
+# WATERMARK_WIDTH of the image's width, WATERMARK_MARGIN from its edges (the
+# viewer's own renders the same - viewer/editor/thumbnail-capture.js).
+WATERMARK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "watermark.png")
+WATERMARK_WIDTH = 0.1
+WATERMARK_MARGIN = 0.02
+WATERMARK_OPACITY = 0.8
+
+def apply_watermark(path):
+    """Draws the logo onto the PNG at path, in place. Values as stored
+    (Non-Color) and alpha kept straight (Channel Packed), so nothing is
+    converted on the way in or out."""
+    if not os.path.isfile(WATERMARK_PATH) or not os.path.isfile(path):
+        return
+    image = logo = None
+    try:
+        image = bpy.data.images.load(path, check_existing=False)
+        logo = bpy.data.images.load(WATERMARK_PATH, check_existing=False)
+        for img in (image, logo):
+            img.colorspace_settings.name = "Non-Color"
+            img.alpha_mode = "CHANNEL_PACKED"
+        width, height = image.size
+        logo_w = max(1, round(width * WATERMARK_WIDTH))
+        logo_h = max(1, round(logo_w * logo.size[1] / logo.size[0]))
+        margin = round(width * WATERMARK_MARGIN)
+        if logo_w + margin > width or logo_h + margin > height:
+            return
+        logo.scale(logo_w, logo_h)
+        pixels = np.empty(width * height * 4, dtype=np.float32)
+        image.pixels.foreach_get(pixels)
+        pixels = pixels.reshape(height, width, 4)
+        mark = np.empty(logo_w * logo_h * 4, dtype=np.float32)
+        logo.pixels.foreach_get(mark)
+        mark = mark.reshape(logo_h, logo_w, 4)
+        # Rows go bottom up: the bottom right corner.
+        area = pixels[margin:margin + logo_h, width - margin - logo_w:width - margin]
+        mark_a = mark[..., 3:4] * WATERMARK_OPACITY
+        under_a = area[..., 3:4] * (1 - mark_a)
+        out_a = mark_a + under_a
+        area[..., :3] = np.where(out_a > 0, (mark[..., :3] * mark_a + area[..., :3] * under_a) / np.maximum(out_a, 1e-6), 0)
+        area[..., 3:4] = out_a
+        image.pixels.foreach_set(pixels.ravel())
+        image.save()
+    except Exception as exc:  # the render stays without the logo
+        print(f"Watermark failed for {path}: {exc}")
+    finally:
+        for img in (image, logo):
+            if img is not None:
+                bpy.data.images.remove(img)
+
 def try_enable_gpu(preferred_backend=None):
     """
     Tries each Cycles GPU backend in turn (OptiX/CUDA first, since they're
@@ -710,6 +760,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 		scene.render.filepath = f"{mainfilepath}_{suffix}.png"
 		bpy.ops.render.render(write_still=True)
+		apply_watermark(scene.render.filepath)
 
 	# sides
 	for a in [0, 90, 180, 270]:
@@ -725,6 +776,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 	cam.rotation_euler = (0, 0, 0)
 	scene.render.filepath = f"{mainfilepath}_top.png"
 	bpy.ops.render.render(write_still=True)
+	apply_watermark(scene.render.filepath)
 
 	t1 = time.perf_counter()
 

@@ -1,7 +1,10 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
+import { getModuleAssetBasePath } from "../loaders.js";
+import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
 import { renderFrame } from "../rendering.js";
 import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
+import { renderManifestGalleryImages } from "../ui/thumbnail-gallery.js";
 import { toastHelper } from "../viewer-utils.js";
 import { workerJobId } from "../worker-model.js";
 
@@ -32,19 +35,17 @@ function thumbnailUploadUrl() {
 // After saving: the model's gallery and its row in the browse panel show the
 // new image instead of the placeholders.
 async function refreshWorkerThumbnails(viewer, jobId) {
-  try {
-    const response = await fetch(apiUrl("/api/jobs"), { cache: "no-store", headers: appRequestHeaders() });
-    if (!response.ok) return;
-    const job = ((await response.json()).jobs || []).find((entry) => entry.id === jobId);
-    const galleryCfg = core.CONFIG?.viewer?.gallery;
-    if (job?.imageUrls?.length && (galleryCfg?.build === true || galleryCfg?.buildFake === true) &&
-        !core.SANDBOX_MODE && !viewer.isEmbedMode?.()) {
-      viewer.renderModelGalleryImages(job.imageUrls.map(remoteAssetUrl));
-    }
-  } catch {
-    // Only a refresh - the image is saved either way.
+  // Only a refresh - the image is saved either way.
+  const job = await fetchJob(jobId);
+  if (job?.imageUrls?.length && showsGallery(viewer)) {
+    viewer.renderModelGalleryImages(job.imageUrls.map(remoteAssetUrl));
   }
   if (viewer.modelsPanel?.hidden === false) viewer.loadModelsList?.();
+}
+
+function showsGallery(viewer) {
+  const galleryCfg = core.CONFIG?.viewer?.gallery;
+  return (galleryCfg?.build === true || galleryCfg?.buildFake === true) && !core.SANDBOX_MODE && !viewer.isEmbedMode?.();
 }
 
 // The views scripts/render.py (Blender) renders for an uploaded model, named
@@ -68,8 +69,44 @@ function withCaptureCanvas(capture) {
   }
 }
 
-// Renders the current camera view and snapshots the canvas. toBlob copies
-// the canvas when called, so it has to run in the same task as the render.
+// Every render carries a small ExPlora4D logo in its bottom right corner:
+// WATERMARK_WIDTH of the image's width, WATERMARK_MARGIN from its edges (as
+// scripts/render.py does for the Blender renders).
+const WATERMARK_WIDTH = 0.1;
+const WATERMARK_MARGIN = 0.02;
+const WATERMARK_OPACITY = 0.8;
+let watermarkImage = null;
+
+// Loaded before the views are rendered: they are drawn synchronously.
+function loadWatermark() {
+  watermarkImage ??= new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    // Without the logo the renders still go out.
+    image.onerror = () => resolve(null);
+    image.src = `${getModuleAssetBasePath()}/img/logo/ExPlora4D.webp`;
+  });
+  return watermarkImage;
+}
+
+// A copy of `source` (the rendered canvas) with the logo. drawImage copies
+// the WebGL canvas when called, so it has to run in the same task as the
+// render.
+function withWatermark(source, logo) {
+  if (!logo?.naturalWidth) return source;
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d");
+  context.drawImage(source, 0, 0);
+  const width = Math.round(canvas.width * WATERMARK_WIDTH);
+  const height = Math.round(width * logo.naturalHeight / logo.naturalWidth);
+  const margin = Math.round(canvas.width * WATERMARK_MARGIN);
+  context.globalAlpha = WATERMARK_OPACITY;
+  context.drawImage(logo, canvas.width - width - margin, canvas.height - height - margin, width, height);
+  return canvas;
+}
+
 function canvasToPng(canvas) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -79,16 +116,19 @@ function canvasToPng(canvas) {
   });
 }
 
-function renderToBlob(viewer) {
+// Renders the current camera view and snapshots it, with the logo
+// (loadWatermark).
+function renderToBlob(viewer, logo) {
   // WebGPU: drawn into a target and read back (rendering-webgpu.js); the
   // drawing is queued now, at the capture size, the reading follows.
   if (core.rendererBackend === "webgpu" && core.webgpuRendering) {
     const { width, height } = core.renderer.domElement;
-    return core.webgpuRendering.captureWebGPUFrame(core.renderer, width, height).then(canvasToPng);
+    return core.webgpuRendering.captureWebGPUFrame(core.renderer, width, height)
+      .then((canvas) => canvasToPng(withWatermark(canvas, logo)));
   }
   // Through the post-processing chain when it is on, like the live canvas.
   renderFrame();
-  return canvasToPng(viewer.mainCanvas);
+  return canvasToPng(withWatermark(viewer.mainCanvas, logo));
 }
 
 async function uploadThumbnail(blob, view = "side45") {
@@ -123,48 +163,134 @@ async function uploadThumbnail(blob, view = "side45") {
   return data;
 }
 
-// The worker's job of the model on screen, or null after telling the user
-// why its thumbnails cannot be changed: only uploaded models (not the
-// bundled examples or a file opened from this device), and with accounts on
-// only by their owner or an admin. The worker enforces the latter too (403,
-// can_delete_job); asking first spares rendering views it would reject.
-async function requireWorkerJob() {
+// The views of one of the viewer's own AIM3D manifests (manifests/<name>.json,
+// bundled with it): rendered here, sent to the worker with the manifest
+// (worker/manifests.py), which keeps both - the viewer loads its copy
+// from then on (main.js getManifestJson). Answers the updated manifest.
+async function uploadManifestThumbnails(name, manifest, captures) {
+  const fileform = new FormData();
+  fileform.append("manifest", JSON.stringify(manifest));
+  fileform.append("baseUrl", new URL(apiUrl(`/api/manifests/${name}/`), window.location.href).href);
+  captures.forEach(({ view, blob }) => fileform.append(view, blob, `${view}.png`));
+  const res = await fetch(apiUrl(`/api/manifests/${name}/thumbnails`), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: appRequestHeaders(),
+    body: fileform,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.manifest) throw new Error(data.error || `Upload failed (HTTP ${res.status})`);
+  return data.manifest;
+}
+
+// The name of the viewer's own manifest at `url` (manifests/<name>.json
+// next to the page), else null.
+export function bundledManifestName(url) {
+  if (typeof url !== "string" || !url) return null;
+  try {
+    const base = new URL("manifests/", document.baseURI).href;
+    const { href } = new URL(url, document.baseURI);
+    const match = href.startsWith(base) && href.slice(base.length).match(/^([A-Za-z0-9][A-Za-z0-9_.-]*)\.json$/);
+    return match && match[1] !== "index" ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+// Where the thumbnails of what is on screen go: Drupal's entity, the
+// AIM3D manifest shown (one of the viewer's own), the worker's job of the
+// model, or nowhere (null).
+function thumbnailTarget(viewer) {
+  if (BUILD === "drupal") return { kind: "drupal" };
+  const manifest = viewer.currentManifest;
+  const name = manifest?.type === "url" && isAIM3DManifest(manifest.json) ? bundledManifestName(manifest.source) : null;
+  if (name) return { kind: "manifest", name };
   const jobId = workerJobId(core.fileObject.path);
-  if (!jobId) {
+  return jobId ? { kind: "job", jobId } : null;
+}
+
+async function fetchJob(jobId) {
+  try {
+    const response = await fetch(apiUrl("/api/jobs"), { cache: "no-store", headers: appRequestHeaders() });
+    if (!response.ok) return null;
+    return ((await response.json()).jobs || []).find((entry) => entry.id === jobId) || null;
+  } catch {
+    return null;
+  }
+}
+
+let accessCheck = 0;
+
+// Whether the thumbnail buttons can be used (viewer.thumbnailAccess, read
+// by editor-toolbar.js updateEditorToolbarState): a manifest's thumbnails
+// by admins, a model's by its owner or an admin (or anyone on a worker
+// without accounts), Drupal's by whom Drupal lets in; never by default.
+// Called when a model is shown and when the account changes.
+export async function refreshThumbnailAccess(viewer) {
+  const check = ++accessCheck;
+  const target = thumbnailTarget(viewer);
+  let allowed = false;
+  if (target?.kind === "drupal") allowed = true;
+  else if (target?.kind === "manifest") allowed = viewer.isAdminUser?.() === true;
+  else if (target?.kind === "job") allowed = (await fetchJob(target.jobId))?.canDelete === true;
+  if (check !== accessCheck) return;
+  viewer.thumbnailAccess = allowed;
+  viewer.updateEditorToolbarState?.();
+  viewer.syncPublishSteps?.();
+}
+
+// The target of a click, or null after telling the user why its
+// thumbnails cannot be changed: only uploaded models (not the bundled
+// examples or a file opened from this device) and the viewer's own
+// manifests. The worker checks who may too (403); asking first spares
+// rendering views it would reject.
+async function requireTarget(viewer) {
+  const target = thumbnailTarget(viewer);
+  if (!target) {
     toastHelper("previewNotUploaded", "info");
     return null;
   }
-  try {
-    const response = await fetch(apiUrl("/api/jobs"), { cache: "no-store", headers: appRequestHeaders() });
-    if (response.ok) {
-      const job = ((await response.json()).jobs || []).find((entry) => entry.id === jobId);
-      if (job?.canDelete === false) {
-        toastHelper("thumbnailsNotOwner", "warning");
-        return null;
-      }
-    }
-  } catch {
-    // Unknown here - the worker decides on upload.
+  if (target.kind === "manifest" && viewer.isAdminUser?.() !== true) {
+    toastHelper("thumbnailsAdminOnly", "warning");
+    return null;
   }
-  return jobId;
+  if (target.kind === "job" && (await fetchJob(target.jobId))?.canDelete === false) {
+    toastHelper("thumbnailsNotOwner", "warning");
+    return null;
+  }
+  return target;
+}
+
+// The manifest's views sent with the manifest as stored (the bundled one, or
+// the worker's copy with earlier thumbnails - not the copy on screen, which
+// loading may have changed), then shown in its gallery.
+async function saveManifestThumbnails(viewer, name, captures) {
+  const manifest = await uploadManifestThumbnails(name, await viewer.getManifestJson(viewer.currentManifest.source, "url"), captures);
+  viewer.currentManifest.json = manifest;
+  if (showsGallery(viewer)) renderManifestGalleryImages(viewer, manifest.AIM3DViewer?.thumbnails);
 }
 
 // "Change main thumbnail": the current view as <model>_side45.png.
 export async function captureAndUploadThumbnail(viewer) {
-  const jobId = BUILD === "drupal" ? null : await requireWorkerJob();
-  if (BUILD !== "drupal" && !jobId) return;
+  const target = await requireTarget(viewer);
+  if (!target) return;
+  const logo = await loadWatermark();
 
   let capture;
   try {
-    capture = withCaptureCanvas(() => renderToBlob(viewer));
+    capture = withCaptureCanvas(() => renderToBlob(viewer, logo));
   } catch (error) {
     capture = Promise.reject(error);
   }
   capture
-    .then((blob) => uploadThumbnail(blob, "side45"))
-    .then(() => {
+    .then(async (blob) => {
+      if (target.kind === "manifest") {
+        await saveManifestThumbnails(viewer, target.name, [{ view: "side45", blob }]);
+      } else {
+        await uploadThumbnail(blob, "side45");
+        if (target.kind === "job") refreshWorkerThumbnails(viewer, target.jobId);
+      }
       toastHelper("previewSaved", "success");
-      if (jobId) refreshWorkerThumbnails(viewer, jobId);
     })
     .catch((error) => {
       console.error("Thumbnail upload failed:", error);
@@ -240,19 +366,20 @@ export async function generateAllThumbnails(viewer) {
   if (generatingThumbnails) return;
   generatingThumbnails = true;
   try {
-    const jobId = await requireWorkerJob();
-    if (jobId) await renderAndUploadAllViews(viewer, jobId);
+    const target = await requireTarget(viewer);
+    if (target) await renderAndUploadAllViews(viewer, target);
   } finally {
     generatingThumbnails = false;
   }
 }
 
-async function renderAndUploadAllViews(viewer, jobId) {
+async function renderAndUploadAllViews(viewer, target) {
   const box = modelBox();
   if (box.isEmpty()) {
     toastHelper("previewSaveError", "error");
     return;
   }
+  const logo = await loadWatermark();
 
   toastHelper("thumbnailsGenerating", "info");
   const front = viewer.getThumbnailFrontAngle?.(box) ?? 0;
@@ -272,7 +399,7 @@ async function renderAndUploadAllViews(viewer, jobId) {
       captures = withCaptureCanvas(() =>
         ALL_VIEWS.map((view) => {
           placeCaptureCamera(view, box, front);
-          return renderToBlob(viewer).then((blob) => ({ view, blob }));
+          return renderToBlob(viewer, logo).then((blob) => ({ view, blob }));
         })
       );
     } finally {
@@ -287,11 +414,16 @@ async function renderAndUploadAllViews(viewer, jobId) {
       core.controls?.update?.();
       renderFrame();
     }
-    for (const { view, blob } of await Promise.all(captures)) {
-      await uploadThumbnail(blob, view);
+    const views = await Promise.all(captures);
+    if (target.kind === "manifest") {
+      await saveManifestThumbnails(viewer, target.name, views);
+    } else {
+      for (const { view, blob } of views) {
+        await uploadThumbnail(blob, view);
+      }
+      refreshWorkerThumbnails(viewer, target.jobId);
     }
     toastHelper("thumbnailsGenerated", "success");
-    refreshWorkerThumbnails(viewer, jobId);
   } catch (error) {
     console.error("Generating thumbnails failed:", error);
     toastHelper("previewSaveError", "error");

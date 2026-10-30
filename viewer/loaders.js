@@ -1138,6 +1138,8 @@ export async function loadModel() {
     core.loadingLog?.finish?.();
     hideAppSplash();
     onAppModelLoaded();
+    // Who may change its thumbnails (editor/thumbnail-capture.js).
+    window.Viewer?.refreshThumbnailAccess?.();
     // A model lying on its side is pointed out (editor/publish-check.js).
     window.Viewer?.schedulePublishHints?.();
     // Too heavy for this device: the lower quality offered at once

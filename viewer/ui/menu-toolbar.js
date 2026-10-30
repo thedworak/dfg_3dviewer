@@ -60,8 +60,8 @@ const CATEGORIES = [
     more: true,
     label: () => t("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["publishCheck", "validationReport", "preview", "download", "save", "generateThumbnails", "IIIFimport", "IIIFexport"],
-    breaks: ["download", "IIIFimport"],
+    tools: ["publishCheck", "validationReport", "download", "save", "preview", "generateThumbnails", "IIIFimport", "IIIFexport"],
+    breaks: ["download", "preview", "IIIFimport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
   // and theme, first; then help, then what tells how the viewer is doing.

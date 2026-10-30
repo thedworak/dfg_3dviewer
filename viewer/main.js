@@ -43,7 +43,7 @@ import { installDebugOverlay } from './debug-overlay.js';
 import { initConnectivity, isOnline, onConnectivityChange } from './connectivity.js';
 import { retargetManifest } from './manifesto/retarget-manifest.js';
 import { clearExampleModelSelection, getExampleModels, selectExampleModel, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';
-import { initRemote, isAppBuild } from './remote.js';
+import { apiUrl, hasRemote, initRemote, isAppBuild } from './remote.js';
 import { initAppEarly, initAppSettings, attachAppUi, hideAppSplash } from './app-hooks.js';
 
 import {
@@ -105,7 +105,7 @@ import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachModelUnits } from "./editor/model-units.js";
 import { createWebGLRenderer, shouldTryWebGPU, tryCreateWebGPURenderer } from "./renderer-backend.js";
-import { captureAndUploadThumbnail, generateAllThumbnails } from "./editor/thumbnail-capture.js";
+import { bundledManifestName, captureAndUploadThumbnail, generateAllThumbnails, refreshThumbnailAccess } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
@@ -2758,6 +2758,10 @@ export const Viewer = {
     return generateAllThumbnails(this);
   },
 
+  refreshThumbnailAccess() {
+    return refreshThumbnailAccess(this);
+  },
+
   async mainLoadModelWrapper() {
     // Where the model on screen comes from, as given (the embed options,
     // ui/embed-configurator.js); the first model of a scene. A file from
@@ -3448,6 +3452,18 @@ export const Viewer = {
 
     if (manifestUrlOrJson && typeof manifestUrlOrJson === "object") {
       return rebaseManifestUrls(manifestUrlOrJson, baseUrl);
+    }
+
+    // The viewer's own manifests with thumbnails rendered since: the
+    // worker's copy (editor/thumbnail-capture.js), else the bundled one.
+    const name = BUILD !== "drupal" && hasRemote() ? bundledManifestName(manifestUrlOrJson) : null;
+    if (name) {
+      try {
+        const stored = await fetch(apiUrl(`/api/manifests/${name}.json`), { cache: "no-cache" });
+        if (stored.ok) return rebaseManifestUrls(await stored.json(), baseUrl);
+      } catch {
+        // No worker: the bundled manifest.
+      }
     }
 
     const response = await fetch(manifestUrlOrJson);

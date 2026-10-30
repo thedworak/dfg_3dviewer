@@ -79,6 +79,7 @@ import ai
 import cloudflare
 import geonames
 import mailer
+import manifests
 import model_metadata
 import optimize
 import remote_fetch
@@ -120,6 +121,9 @@ UPLOAD_CHUNK_BYTES = int(os.environ.get("WORKER_UPLOAD_CHUNK_BYTES", str(16 * 10
 UPLOAD_EXPIRY_SECONDS = 24 * 3600
 # A "Render preview" PNG (1024x1024) - far below this.
 MAX_THUMBNAIL_BYTES = 20 * 1024 * 1024
+# Thumbnails of the viewer's bundled AIM3D manifests (worker/manifests.py),
+# on the same volume, in a dot-directory the job listing skips.
+MANIFESTS_DIR = JOBS_DIR / ".manifests"
 # A model's saved viewer settings (POST /api/model/settings): transforms,
 # camera, lights, edited materials and its annotations as IIIF.
 MAX_SETTINGS_BYTES = 5 * 1024 * 1024
@@ -1237,6 +1241,15 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_metadata_get(match.group(1))
             return
 
+        match = re.fullmatch(r"/api/manifests/([^/]+)\.json", path)
+        if match:
+            self._serve_manifest(match.group(1))
+            return
+        match = re.fullmatch(r"/api/manifests/([^/]+)/([^/]+\.png)", path)
+        if match:
+            self._serve_manifest_image(match.group(1), match.group(2))
+            return
+
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
         if match:
             self._serve_file(match.group(1), match.group(2))
@@ -1263,6 +1276,10 @@ class Handler(BaseHTTPRequestHandler):
         # Drupal module's route; still accepted here for older viewers.
         if path in ("/api/model/thumbnail", "/api/editor/upload-thumbnail"):
             self._handle_thumbnail_upload()
+            return
+        match = re.fullmatch(r"/api/manifests/([^/]+)/thumbnails", path)
+        if match:
+            self._handle_manifest_thumbnails(match.group(1))
             return
         # The viewer's "Save settings" (metadata-persistence.js); the Drupal
         # module has /api/editor/save-metadata for the same.
@@ -1704,6 +1721,82 @@ class Handler(BaseHTTPRequestHandler):
         # Cloudflare's copies of the older render (any ?v=, or none).
         cloudflare.purge_paths_async([plain_url], self.headers.get("Host", ""))
         self._send_json(200, {"message": f"Thumbnail saved ({len(image)} bytes)", "imageUrl": image_url})
+
+    def _handle_manifest_thumbnails(self, name: str) -> None:
+        """The viewer's "Generate thumbnails" / "Change main thumbnail" for
+        one of its bundled AIM3D manifests (manifests/<name>.json): admins
+        only. Multipart: `manifest` (the manifest as shown, JSON), `baseUrl`
+        (where the client reaches /api/manifests/<name>/) and a PNG per view
+        (side0..side315, top). Answers {manifest}: the manifest with the new
+        thumbnails, served from now on by GET /api/manifests/<name>.json."""
+        if self._require_admin() is None:
+            return
+        if not manifests.valid_name(name):
+            self._send_json(400, {"error": "Invalid manifest name"})
+            return
+        try:
+            fields, files = parse_multipart_form(self, MAX_THUMBNAIL_BYTES * len(manifests.VIEWS))
+        except UploadTooLarge as exc:
+            self._send_json(413, {"error": str(exc)})
+            return
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+        try:
+            manifest = json.loads(fields.get("manifest", ""))
+            if not isinstance(manifest, dict):
+                raise ValueError
+        except ValueError:
+            self._send_json(400, {"error": "Expected the manifest as a JSON object"})
+            return
+        base_url = fields.get("baseUrl", "")
+        if not manifests.valid_base_url(base_url, name):
+            self._send_json(400, {"error": "Invalid baseUrl"})
+            return
+        images = {view: data for view, data in files.items() if view in manifests.VIEWS}
+        if not images or len(images) != len(files):
+            self._send_json(400, {"error": "Expected PNG images named by their view"})
+            return
+        if any(not data.startswith(b"\x89PNG\r\n\x1a\n") or len(data) > MAX_THUMBNAIL_BYTES for data in images.values()):
+            self._send_json(415, {"error": "Expected PNG images"})
+            return
+        saved = manifests.save(MANIFESTS_DIR, name, manifest, base_url, images)
+        # Cloudflare's copies of the older renders (any ?v=, or none).
+        cloudflare.purge_paths_async(
+            [urlparse(f"{base_url}{name}_{view}.png").path for view in images], self.headers.get("Host", ""))
+        self._send_json(200, {"manifest": saved})
+
+    def _serve_manifest(self, name: str) -> None:
+        manifest = manifests.read_manifest(MANIFESTS_DIR, name) if manifests.valid_name(name) else None
+        if manifest is None:
+            self._send_json(404, {"error": "not found"})
+            return
+        # Rewritten in place, like the bundled manifests (docker/nginx.conf).
+        body = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_manifest_image(self, name: str, filename: str) -> None:
+        match = re.fullmatch(rf"{re.escape(name)}_([a-z0-9]+)\.png", filename)
+        target = manifests.image_path(MANIFESTS_DIR, name, match.group(1)) \
+            if match and match.group(1) in manifests.VIEWS and manifests.valid_name(name) else None
+        if target is None or not target.is_file():
+            self._send_json(404, {"error": "not found"})
+            return
+        # The manifest hands them out versioned (?v=), like a model's views.
+        versioned = "v" in parse_qs(urlparse(self.path).query)
+        headers = {
+            "Cache-Control": "public, max-age=2592000, s-maxage=2592000" if versioned
+            else "public, max-age=300, s-maxage=2592000",
+            "Last-Modified": formatdate(target.stat().st_mtime, usegmt=True),
+            "Access-Control-Allow-Origin": "*",
+        }
+        static_files.send_file(self, target, "image/png", headers)
 
     def _handle_settings_save(self) -> None:
         """The viewer's "Save settings": the model's transforms, camera,
