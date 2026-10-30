@@ -300,7 +300,7 @@ class DFG3dViewerConfigForm extends FormBase {
 		'#default_value' => $default_settings['conversion_backend'],
 		'#type' => 'select',
 		'#options' => [
-			'local' => $this->t('Local scripts (scripts/convert.sh + render.sh, requires Blender on this host)'),
+			'local' => $this->t('Local scripts (scripts/convert.py + render_thumbnails.py, requires Blender on this host)'),
 			'docker' => $this->t('Standalone worker container (Docker)'),
 		],
 		'#title' => $this->t('Conversion backend'),

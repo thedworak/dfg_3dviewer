@@ -62,7 +62,7 @@ def try_enable_gpu(preferred_backend=None):
     backend name on success, or None if no GPU device was found - the caller
     is expected to fall back to CPU rendering in that case rather than treat
     this as an error, since "no GPU in this environment" is an expected,
-    common outcome (e.g. scripts/render.sh's default CPU-only behavior).
+    common outcome (e.g. scripts/render_thumbnails.py's default CPU-only behavior).
     """
     cycles_prefs = bpy.context.preferences.addons['cycles'].preferences
     backends = ['OPTIX', 'CUDA', 'HIP', 'ONEAPI', 'METAL']
@@ -351,7 +351,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	# respect --samples when the caller passed one; otherwise fall back to
 	# the higher-quality default (previously this was always hard-reset to
-	# 256, silently ignoring --samples/render.sh's RENDER_SAMPLES)
+	# 256, silently ignoring --samples/render_thumbnails.py's RENDER_SAMPLES)
 	scene.cycles.samples = int(args.samples) if args.samples else 256
 	scene.cycles.use_adaptive_sampling = True
 	scene.cycles.adaptive_threshold = 0.03

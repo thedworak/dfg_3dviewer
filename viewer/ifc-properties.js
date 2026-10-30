@@ -551,7 +551,7 @@ function renderPanel(entry, guid) {
 
 /**
  * <dir>/gltf/<name>.glb -> <dir>/metadata/<name>_ifc.json (the layout produced by
- * scripts/convert.sh), independent of the Drupal metadataUrl setting so it also
+ * scripts/convert.py), independent of the Drupal metadataUrl setting so it also
  * works for the standalone worker and local previews.
  */
 export function ifcPropertiesUrlForModel(modelPath) {

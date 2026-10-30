@@ -1,11 +1,11 @@
 # Standalone conversion worker
 
 Runs the existing model → glTF conversion + thumbnail-rendering pipeline
-(`scripts/convert.sh`, `scripts/render.sh`, Blender, the Python converters)
+(`scripts/convert.py`, `scripts/render_thumbnails.py`, Blender, the Python converters)
 in a container, behind a small HTTP API - no Drupal required.
 
 This is additive: the Drupal-integrated path (`ConvertWorker` queue plugin →
-`scripts/worker.sh` → `drush` → `convert.sh`) is untouched and keeps working
+`scripts/worker.py` → `drush` → `convert.py`) is untouched and keeps working
 exactly as before for the existing instance. This worker is a second, generic
 front door onto the same conversion scripts.
 
@@ -13,7 +13,7 @@ front door onto the same conversion scripts.
 
 `ConvertProcessService` (used by the `ConvertWorker` queue plugin) can
 optionally delegate conversion/rendering to this worker container instead of
-running `scripts/convert.sh`/`render.sh` directly on the Drupal host — useful
+running `scripts/convert.py`/`render_thumbnails.py` directly on the Drupal host — useful
 when you don't want Blender installed next to Drupal. This is opt-in and
 fully backward compatible:
 
@@ -31,7 +31,7 @@ fully backward compatible:
   changes.
 - With the `docker` backend, archive extraction (`zip`/`rar`/`tar`/`gz`/`xz`)
   also happens inside the worker container — Drupal uploads the raw archive
-  as-is and never runs `ZipArchive` or `scripts/uncompress.sh` locally, so no
+  as-is and never runs `ZipArchive` or `scripts/uncompress.py` locally, so no
   archive-tool dependencies (`unzip`, `unrar`, `7z`, `tar`) need to be
   installed next to Drupal. With the `local` backend, extraction still runs
   on the Drupal host exactly as before.
@@ -79,7 +79,7 @@ The worker image is split in two so that code changes do not reinstall Blender:
 `docker compose build` / `up --build` builds the base first. The first time that downloads Blender; afterwards every base layer comes from the local build cache, so a code change only rebuilds the thin worker layer. Editing `Dockerfile.base` invalidates just the layers from the edit onwards - no tags to bump.
 
 - `.github/workflows/worker-base.yml` publishes the base to `ghcr.io/thedworak/dfg-3dviewer-worker-base:latest` with inline cache metadata whenever `Dockerfile.base` changes; compose uses it as `cache_from`, so machines without a local cache (GitHub runners, a new server) skip the Blender download too. Make the GHCR package public after its first publish (or log the machine in to `ghcr.io`); until then the base is simply built locally - a missing cache image is only a warning.
-- `scripts/docker.sh base` rebuilds the base from scratch (`--no-cache --pull`), e.g. to pick up Ubuntu security updates.
+- `scripts/docker.py base` rebuilds the base from scratch (`--no-cache --pull`), e.g. to pick up Ubuntu security updates.
 - By hand: `docker build -f worker/Dockerfile.base -t dfg-3dviewer-worker-base worker`, then `docker build -f worker/Dockerfile --build-context worker-base=docker-image://dfg-3dviewer-worker-base -t dfg-3dviewer-worker .`
 
 ### Exposing this on a real domain
@@ -168,7 +168,7 @@ needing the tag.
 
 - `POST /api/model/create` - multipart upload, one file field (any name,
   first file part wins). Accepts, plus `.zip` archives containing one of them:
-  - Blender importers via `scripts/convert.sh`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
+  - Blender importers via `scripts/convert.py`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
   - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading. Uploads without a tree (from before `build-lod`, or where it failed) get one with `docker compose exec worker python3 /app/worker/server.py admin rebuild-splats`; `--force` rebuilds the existing trees too (new `build-lod` or `WORKER_SPLAT_LOD_ARGS`, cached copies purged from Cloudflare when `WORKER_PUBLIC_HOSTS` is set), job ids limit it to those jobs. No restart needed: the model list reads the jobs from disk
@@ -262,8 +262,8 @@ Set via environment variables on the `worker` container (see
 | `WORKER_PUBLIC_URL`        | unset          | Viewer address included in that email     |
 | `WORKER_AUTH_SECRET`       | generated      | Session-signing key; otherwise generated once into the volume |
 | `WORKER_AUTH_SESSION_TTL`  | `604800`       | Login lifetime in seconds (7 days)        |
-| `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.sh call is killed|
-| `WORKER_RENDER_TIMEOUT`    | `900`          | Seconds before a render.sh call is killed |
+| `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.py call is killed|
+| `WORKER_RENDER_TIMEOUT`    | `900`          | Seconds before a render_thumbnails.py call is killed |
 | `WORKER_RENDER_DEVICE`     | `CPU`          | `CPU`, `GPU`, or `AUTO` - see below       |
 | `WORKER_POINTCLOUD_JOBS`   | CPUs (max 8)   | Parallel py3dtiles workers for point clouds (PotreeConverter uses all cores) |
 | `WORKER_POINTCLOUD_TIMEOUT` | `3600`        | Seconds before a point cloud conversion is killed |
@@ -454,8 +454,8 @@ container, which is what the toolkit above provides.
   survive, only the status lookup by id is lost).
 - Archive support covers `zip`, `rar`, `tar`, `gz`, `xz` (`zip` via an
   in-process, path-traversal-checked extractor; the rest by shelling out to
-  `scripts/uncompress.sh`, already baked into this image - `unrar-free` and
-  `tar` are installed in `worker/Dockerfile.base` for this). `scripts/convert.sh`
+  `scripts/uncompress.py`, already baked into this image - `unrar-free` and
+  `tar` are installed in `worker/Dockerfile.base` for this). `scripts/convert.py`
   itself has no built-in archive handling; that logic normally lives in
   `ConvertWorker.php` on the Drupal side, so this worker reimplements
   first-supported-file detection after extraction to be useful standalone.

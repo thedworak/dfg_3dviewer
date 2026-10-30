@@ -7,7 +7,7 @@
 Usage: convert_mesh.py -i model.step -o gltf/model.glb [--tol-linear 0.01]
 
 Exit code 0 only when a non-empty GLB was written. Called by
-worker/server.py for these extensions (scripts/convert.sh handles the
+worker/server.py for these extensions (scripts/convert.py handles the
 Blender-importable ones); the worker image installs cascadio and trimesh (see
 worker/Dockerfile).
 """

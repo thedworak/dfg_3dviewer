@@ -293,7 +293,7 @@ class ConvertWorker extends QueueWorkerBase {
       if ($use_worker_for_archive) {
         // The worker container extracts the archive, finds the model inside
         // it, converts and renders it in a single job - no local ZipArchive
-        // or scripts/uncompress.sh dependency needed on the Drupal host.
+        // or scripts/uncompress.py dependency needed on the Drupal host.
         // See worker/README.md and ConvertProcessService::runViaWorker().
         $this->updateProgress($entity, 10, 'processing', 'Uploading archive to conversion worker...');
 

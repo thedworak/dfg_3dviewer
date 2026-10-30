@@ -44,7 +44,7 @@ Open `http://localhost:1234` — viewer only, no conversion pipeline.
 The topics below used to live in this file; they now have their own page in [`docs/`](docs/):
 
 - [Minimal local setup, npm scripts, build/packaging, Tauri app](docs/development.md)
-- [Standalone Docker setup](docs/docker.md) — profiles, `scripts/docker.sh`, static export, uploads/accounts
+- [Standalone Docker setup](docs/docker.md) — profiles, `scripts/docker.py`, static export, uploads/accounts
 - [Admin panel setup](docs/admin-panel.md)
 - [Server-side conversion and rendering](docs/conversion-pipeline.md) — pipeline, supported conversion inputs, script flags/env vars
 - [`viewer-settings.json` explained](docs/viewer-settings.md)
@@ -89,7 +89,7 @@ The topics below used to live in this file; they now have their own page in [`do
 | E57 (point clouds) | – | Potree 2 / 3D Tiles ¹¹ |
 | Gaussian splats: SPZ / SPLAT / KSPLAT / SOG, PLY of splats | ✅ ¹³ | – |
 
-> - ¹ via Blender (`scripts/convert.sh`)
+> - ¹ via Blender (`scripts/convert.py`)
 > - ² via `IfcConvert` (+ metadata export, see below)
 > - ³ via a three.js loader
 > - ⁴ needs a USD-enabled Blender build

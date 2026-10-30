@@ -28,7 +28,7 @@ class ConvertProcessService {
      * Reads the conversion backend ("local" or "docker") and, for "docker",
      * the base URL of the standalone worker container (see worker/README.md).
      * Defaults to "local" so existing installs that never set these config
-     * keys keep running scripts/convert.sh & render.sh directly, exactly as
+     * keys keep running scripts/convert.py & render_thumbnails.py directly, exactly as
      * before this option was introduced.
      */
     public function getBackendConfig(): array {
@@ -132,7 +132,7 @@ class ConvertProcessService {
     }
 
     /**
-     * Run convert.sh process.
+     * Run convert.py process.
      *
      * @param string $spath
      * @param string $inputPath
@@ -159,7 +159,7 @@ class ConvertProcessService {
             }
         }
 
-        $script = $spath . '/scripts/convert.sh';
+        $script = $spath . '/scripts/convert.py';
 
         if (!file_exists($script)) {
             return [
@@ -171,6 +171,7 @@ class ConvertProcessService {
         }
 
         $args = [
+            'python3',
             $script,
             '-t', $this->boolToString($lightweight),
             '-c', $this->boolToString($options['c'] ?? true),
@@ -359,7 +360,7 @@ class ConvertProcessService {
                 // When $options['o'] is set (the archive-passthrough case -
                 // see ConvertWorker.php), $inputPath is the raw archive file
                 // itself, not the model inside it, so its own dirname isn't
-                // where render.sh would have written thumbnails; use the
+                // where render_thumbnails.py would have written thumbnails; use the
                 // caller-provided output base instead, mirroring
                 // resolveConvertedOutputPath()'s handling of the same option.
                 $thumbnails_dir = !empty($options['o'])
@@ -408,7 +409,7 @@ class ConvertProcessService {
     }
 
     /**
-     * Run render.sh process.
+     * Run render_thumbnails.py process.
      *
      * @param string $spath
      * @param string $inputPath
@@ -421,7 +422,7 @@ class ConvertProcessService {
         string $inputPath,
         array $options = []
     ) : array {
-        $script = $spath . '/scripts/render.sh';
+        $script = $spath . '/scripts/render_thumbnails.py';
 
         if (!file_exists($script)) {
             return [
@@ -433,6 +434,7 @@ class ConvertProcessService {
         }
 
         $args = [
+            'python3',
             $script,
             '-i', $inputPath,
             '-a', $this->boolToString($options['a'] ?? false),
@@ -466,7 +468,7 @@ class ConvertProcessService {
         array $options = []
         ) : array {
 
-        $script = $spath . '/scripts/uncompress.sh';
+        $script = $spath . '/scripts/uncompress.py';
 
         if (!file_exists($script)) {
             return [
@@ -478,6 +480,7 @@ class ConvertProcessService {
         }
 
         $args = [
+            'python3',
             $script,
             '-t', $type,
             '-i', $inputPath,

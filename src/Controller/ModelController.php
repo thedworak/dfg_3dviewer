@@ -23,7 +23,7 @@ class ModelController {
 
     $id = $node->id();
 
-    exec("/opt/drupal/scripts/worker.sh $id > /dev/null 2>&1 &");
+    exec("python3 /opt/drupal/scripts/worker.py $id > /dev/null 2>&1 &");
 
     return new JsonResponse([
       'entity_id' => $id,

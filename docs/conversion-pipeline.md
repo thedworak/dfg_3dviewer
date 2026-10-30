@@ -7,16 +7,17 @@ Main workflow is divided into two automatic parts:
 The conversion pipeline lives in `scripts/` and `php/`.
 
 After uploading 3D model into repository there are triggered following steps:
-- uncompressing 3D models - it is done on Drupal side module script inside ```dfg_3dviewer_entity_presave``` and supports following archive formats: zip, rar, tar, xz, gz. According to the format, the bash script is triggered with following arguments:
-```/scripts/uncompress.sh archiveType -i inputPath -o extractPath -n fileName```
+- uncompressing 3D models - it is done on Drupal side module script inside ```dfg_3dviewer_entity_presave``` and supports following archive formats: zip, rar, tar, xz, gz. The Python script `scripts/uncompress.py` extracts it and then calls `convert.py` in-process for every model found in the extraction root:
+```python3 scripts/uncompress.py -t archiveType -i inputPath -o extractPath/ -n fileName```
 - automatic conversion into glTF (glb) format for the following supported formats:
-    - abc, dae, fbx, obj, ply, stl, wrl, x3d, usd, usda, usdc, usdz - function ```handle_file``` (the usd* formats need a Blender build with USD support, e.g. the official release; distro packages such as Ubuntu's often lack it)
-    - ifc - function ```handle_ifc_file```
-    - blend (in progress) - function ```handle_blend_file```
-    - glb - triggers next step - function ```render_preview```
-    - step, stp, iges, igs, 3mf - not handled by `convert.sh`: the standalone Docker worker converts them with `scripts/convert_mesh.py` (OpenCASCADE/trimesh) instead
+    - abc, dae, fbx, obj, ply, stl, wrl, x3d, usd, usda, usdc, usdz - method ```Converter.handle_file``` (the usd* formats need a Blender build with USD support, e.g. the official release; distro packages such as Ubuntu's often lack it)
+    - ifc - method ```Converter.handle_ifc_file```
+    - blend (in progress) - method ```Converter.handle_blend_file```
+    - gml - method ```Converter.handle_gml_file``` (CityGML2OBJ, then Blender)
+    - glb - already converted, goes straight to rendering (`scripts/render_thumbnails.py`)
+    - step, stp, iges, igs, 3mf - not handled by `convert.py`: the standalone Docker worker converts them with `scripts/convert_mesh.py` (OpenCASCADE/trimesh) instead
 
-This step is performed inside ```scripts/convert.sh``` bash script, which is the primary helper for converting files to glTF/GLB and rendering preview images with Blender.
+This step is performed by ```scripts/convert.py``` (conversion to glTF/GLB) followed by ```scripts/render_thumbnails.py``` (Blender preview images). Both read `scripts/.env` and share their helpers in `scripts/script_env.py`.
 Defaults .env variables should be adjusted due to your needs:
 
 ```
@@ -46,7 +47,7 @@ The Docker worker additionally compresses every converted GLB with gltfpack (Mes
 
 ## Supported conversion inputs
 
-- Blender importers (`scripts/convert.sh`): abc, dae, fbx, obj, ply, stl, wrl, x3d, usd, usda, usdc, usdz, ifc, blend, gml, glb
+- Blender importers (`scripts/convert.py`): abc, dae, fbx, obj, ply, stl, wrl, x3d, usd, usda, usdc, usdz, ifc, blend, gml, glb
 - Without Blender (`scripts/convert_mesh.py`, used by the worker): step, stp, iges, igs (tessellated by OpenCASCADE, so `--tol-linear` trades detail for size), 3mf
 - Viewer-native, kept as uploaded and without thumbnails: gltf (inside a .zip with its .bin/textures), 3ds, pcd, xyz, amf, kmz, vox, lwo, Gaussian splats (spz, splat, ksplat, sog, rad, and a .ply whose vertices are Gaussians; the worker adds a level-of-detail `<name>-lod.rad` built by Spark's `build-lod`, see `worker/splats.py`)
 
@@ -55,13 +56,13 @@ The Docker worker additionally compresses every converted GLB with gltfpack (Mes
 Convert an OBJ to GLB and render previews:
 
 ```bash
-./scripts/convert.sh -c true -l 3 -i '/path/to/input.obj' -b true
+./scripts/convert.py -c true -l 3 -i '/path/to/input.obj' -b true
 ```
 
 Convert an IFC with IfcConvert:
 
 ```bash
-./scripts/convert.sh -i '/path/to/building.ifc'
+./scripts/convert.py -i '/path/to/building.ifc'
 ```
 
 IFC conversion produces two files: the GLB (IfcConvert with `--use-element-guids`, so node names are IFC GlobalIds) and `metadata/<name>_ifc.json` with the spatial tree and per-element type, name, material, property sets and quantities, keyed by GlobalId (`scripts/ifc_metadata.py`). glTF cannot hold IFC property sets, hence the separate file. When the viewer finds it next to the model, clicking an element opens a properties panel.
@@ -71,7 +72,7 @@ The metadata export needs the `ifcopenshell` Python package on the conversion ho
 Run lightweight conversion without xvfb checks:
 
 ```bash
-./scripts/convert.sh -t true -c false -i '/path/to/input.obj'
+./scripts/convert.py -t true -c false -i '/path/to/input.obj'
 ```
 
 ## Script flags

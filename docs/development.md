@@ -102,6 +102,6 @@ This repo also includes a Tauri desktop wrapper in `src-tauri/`.
 - `viewer/viewer-settings-example.json` — runtime configuration template
 - `viewer/viewer-settings.js` — runtime settings loader used by built/source bundles
 - `rollup.config.js` — build output and asset copy configuration
-- `scripts/convert.sh` — conversion and Blender rendering helper
+- `scripts/convert.py` — conversion and Blender rendering helper
 - `scripts/ifc_metadata.py` — exports IFC property sets/spatial tree to `<name>_ifc.json` (needs `ifcopenshell`)
 - `dfg_3dviewer.libraries.tpl.yml` — Drupal libraries template used in Drupal build

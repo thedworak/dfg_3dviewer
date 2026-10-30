@@ -1,6 +1,6 @@
 # Standalone Docker setup
 
-The conversion pipeline (Blender + Python + `scripts/convert.sh`/`scripts/render.sh`) can also run without Drupal, as a small HTTP worker, alongside a static build of the viewer:
+The conversion pipeline (Blender + Python + `scripts/convert.py`/`scripts/render_thumbnails.py`) can also run without Drupal, as a small HTTP worker, alongside a static build of the viewer:
 
 ```bash
 docker compose up --build
@@ -30,14 +30,14 @@ At build time the profile is validated (`node scripts/validate-docker-profiles.m
 docker build -f Dockerfile.viewer --build-arg BUILD_TARGET=dev --build-arg VIEWER_PROFILE=dev -t dfg-3dviewer-viewer-dev .
 ```
 
-## Helper script: `scripts/docker.sh`
+## Helper script: `scripts/docker.py`
 
 A small wrapper around `docker compose` for the everyday operations. Requirements: Docker with the Compose plugin, run from anywhere (the script switches to the repo root itself).
 
 ```bash
-scripts/docker.sh <command> [profile] [--up]
-scripts/docker.sh                # no arguments: interactive menu
-scripts/docker.sh --help
+scripts/docker.py <command> [profile] [--up]
+scripts/docker.py                # no arguments: interactive menu
+scripts/docker.py --help
 ```
 
 **Commands**
@@ -66,16 +66,16 @@ Default ports: `viewer-test` 3000, `viewer-dev` 3001, `viewer-sandbox` 3002, `wo
 **Examples**
 
 ```bash
-scripts/docker.sh build                  # all images
-scripts/docker.sh rebuild sandbox --up   # rebuild and start just the sandbox viewer
-scripts/docker.sh down dev               # remove only the dev viewer container
-scripts/docker.sh down                   # remove everything (volumes are kept)
-scripts/docker.sh prune                  # free disk space, asks first
+scripts/docker.py build                  # all images
+scripts/docker.py rebuild sandbox --up   # rebuild and start just the sandbox viewer
+scripts/docker.py down dev               # remove only the dev viewer container
+scripts/docker.py down                   # remove everything (volumes are kept)
+scripts/docker.py prune                  # free disk space, asks first
 ```
 
 **Notes**
 - The profile is passed to `docker-compose.yml` as the `VIEWER_PROFILE` variable (`${VIEWER_PROFILE:-<default>}` in each service's build args); the compose file itself is never rewritten. A `VIEWER_PROFILE` already exported in your shell therefore also affects plain `docker compose build`.
-- Compose variables such as `WORKER_AUTH_MODE` or `WORKER_ADMIN_USER` come from a `.env` file next to `docker-compose.yml` (git-ignored). After editing it, run `scripts/docker.sh rebuild --up`.
+- Compose variables such as `WORKER_AUTH_MODE` or `WORKER_ADMIN_USER` come from a `.env` file next to `docker-compose.yml` (git-ignored). After editing it, run `scripts/docker.py rebuild --up`.
 - Existing settings volumes keep their old `viewer-settings.json`; see the volume note under "Docker profiles" above.
 
 ## Publishing for a portfolio (cheap static hosting)
@@ -95,6 +95,6 @@ Uploads are capped at 100 MB by default (`WORKER_MAX_UPLOAD_BYTES` in `docker-co
 
 Both `viewer-settings.json` and the profile manifest are persisted in the service's settings volume and seeded only on first start, so edits survive rebuilds. **Existing volumes** keep their old `viewer-settings.json` (without the manifest pointer) and will not pick up the profile until you delete the volume (`docker compose down -v` for that service) or add the two `entity.metadata` values yourself. The `dev` build still loads IIIF models (that build forces the IIIF source); it only takes its settings from the profile.
 
-See [`worker/README.md`](../worker/README.md) for the worker's API contract/configuration, and how to add a fourth `dist/prod` service the same way. Each viewer's main menu gets an "Upload & convert" button in this mode, driving the same pipeline through the browser. This is additive — the existing Drupal-integrated pipeline (`ConvertWorker` queue plugin, `scripts/worker.sh`, `drush`) is untouched and keeps working as-is for the current instance.
+See [`worker/README.md`](../worker/README.md) for the worker's API contract/configuration, and how to add a fourth `dist/prod` service the same way. Each viewer's main menu gets an "Upload & convert" button in this mode, driving the same pipeline through the browser. This is additive — the existing Drupal-integrated pipeline (`ConvertWorker` queue plugin, `scripts/worker.py`, `drush`) is untouched and keeps working as-is for the current instance.
 
 The Drupal module can also optionally be pointed at the `worker` container instead of running Blender locally — set the module's "Conversion backend" to Docker and give it the worker's URL — without changing anything else about the module's own upload/queue/field workflow. See "Using this worker from the Drupal module" in [`worker/README.md`](../worker/README.md).

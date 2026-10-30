@@ -726,13 +726,15 @@ GPU picking of point clouds: the point under the cursor, exactly as drawn. Used 
   - Load `viewer-settings.json` relative to the current module path.
   - Used by source-mode development and runtime config loading.
 
-## scripts/convert.sh
-- ```handle_file``` - uses python script (downloaded and modified version of https://github.com/ux3d/2gltf2/tree/master) triggered by blender 
-```${BLENDER_PATH}blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- "$INPATH/$FILENAME" "$GLTF" "$COMPRESSION" "$COMPRESSION_LEVEL" "$OUTPUT$OUTPUTPATH"```
-- ```handle_ifc_file``` - uses IfcConvert script (available at https://ifcopenshell.sourceforge.net/ifcconvert.html)
-```${SPATH}/scripts/IfcConvert "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
-- ```handle_blend_file``` - uses python script triggered by blender
-```${BLENDER_PATH}blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
+## scripts/convert.py
+- ```Converter.handle_file``` - uses python script (downloaded and modified version of https://github.com/ux3d/2gltf2/tree/master) triggered by blender
+```blender -b -P ${SPATH}/scripts/2gltf2/2gltf2.py -- --input "$INPATH/$FILENAME" --ext glb --compression true --compression_level 3 [--output "$OUTPUT$OUTPUTPATH"]```
+- ```Converter.handle_ifc_file``` - uses IfcConvert script (available at https://ifcopenshell.sourceforge.net/ifcconvert.html), then ```scripts/ifc_metadata.py```
+```${SPATH}/scripts/IfcConvert --use-element-guids "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
+- ```Converter.handle_blend_file``` - uses python script triggered by blender
+```blender -b -P ${SPATH}/scripts/convert-blender-to-gltf.py -- "$INPATH/$FILENAME" "$INPATH/gltf/$NAME.glb"```
+- ```Converter.handle_gml_file``` - CityGML2OBJ, then the same 2gltf2.py call as above
 
-- automatic rendering of 3D model for thumbnails - function ```render_preview```, which uses wrapper for triggering virtual environment (xvfb-run) for blender and it’s python script
-```xvfb-run --auto-servernum --server-args="-screen 0 512x512x16" sudo ${BLENDER_PATH}blender -b -P ${SPATH}/scripts/render.py -- "$INPATH/$NAME.glb" "glb" $1 "$INPATH/views/" $IS_ARCHIVE -E BLENDER_EEVEE -f 1```
+## scripts/render_thumbnails.py
+- automatic rendering of 3D model for thumbnails, which uses wrapper for triggering virtual environment (xvfb-run) for blender and its python script
+```xvfb-run --auto-servernum --server-args="-screen 0 1024x1024x16" blender -b -P ${SPATH}/scripts/render.py -- --input "$INPATH/gltf/$NAME.glb" --ext glb --org_ext "$EXT" --output "$INPATH/views/" --is_archive false --resolution 1024x1024x16 --samples 20 --hdri ${SPATH}/scripts/maps/default.exr --device CPU -E BLENDER_EEVEE -f 1```

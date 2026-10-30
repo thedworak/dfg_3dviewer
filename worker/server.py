@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Standalone conversion worker for the DFG 3D Viewer pipeline.
 
-Wraps scripts/convert.sh and scripts/render.sh (unchanged) behind a small
+Wraps scripts/convert.py and scripts/render_thumbnails.py (unchanged) behind a small
 HTTP API so the model->glTF conversion + thumbnail rendering pipeline can run
 without a Drupal install. The response shape intentionally mirrors the
 existing Drupal endpoints (src/Controller/ModelController.php) so a client
@@ -43,7 +43,7 @@ could talk to either backend interchangeably:
   GET  /healthz                 liveness check
 
 Accepted uploads (see the *_FORMATS sets below): Blender importers via
-scripts/convert.sh (abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend
+scripts/convert.py (abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend
 gml glb), STEP/IGES/3MF via scripts/convert_mesh.py (step stp iges igs 3mf), and
 formats the viewer reads itself, stored as uploaded without thumbnails (gltf 3ds
 pcd xyz amf kmz vox lwo, and Gaussian splats: spz splat ksplat sog rad, and a
@@ -100,9 +100,9 @@ from limits import business_limits as account_business_limits
 
 APP_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("WORKER_SCRIPTS_DIR", str(APP_DIR / "scripts")))
-CONVERT_SCRIPT = SCRIPTS_DIR / "convert.sh"
-RENDER_SCRIPT = SCRIPTS_DIR / "render.sh"
-UNCOMPRESS_SCRIPT = SCRIPTS_DIR / "uncompress.sh"
+CONVERT_SCRIPT = SCRIPTS_DIR / "convert.py"
+RENDER_SCRIPT = SCRIPTS_DIR / "render_thumbnails.py"
+UNCOMPRESS_SCRIPT = SCRIPTS_DIR / "uncompress.py"
 JOBS_DIR = Path(os.environ.get("WORKER_JOBS_DIR", "/data/jobs"))
 PORT = int(os.environ.get("WORKER_PORT", "8080"))
 SKIP_RENDER = os.environ.get("WORKER_SKIP_RENDER", "false").lower() == "true"
@@ -143,7 +143,7 @@ RENDER_TIMEOUT = int(os.environ.get("WORKER_RENDER_TIMEOUT", "900"))
 
 CONVERT_MESH_SCRIPT = SCRIPTS_DIR / "convert_mesh.py"
 
-# Extensions scripts/convert.sh actually has a case-branch for (Blender
+# Extensions scripts/convert.py actually has a case-branch for (Blender
 # importers; the usd* ones need a Blender build with USD support - the
 # official release this image installs has it).
 DIRECT_FORMATS = {"abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "usd", "usda", "usdc", "usdz"}
@@ -166,7 +166,7 @@ SUPPORTED_FORMATS = (
 )
 # Mirrors ModelFormatManager::getZipFormats() on the Drupal side. "zip" is
 # extracted in-process (safe_extract_zip); the rest shell out to the same
-# scripts/uncompress.sh the Drupal module itself uses locally, so behavior
+# scripts/uncompress.py the Drupal module itself uses locally, so behavior
 # (including its "unrar/7z/tar" dependency requirements) stays identical
 # between the docker and non-docker paths - just moved into this container.
 ARCHIVE_FORMATS = {"zip", "rar", "tar", "gz", "xz"}
@@ -222,7 +222,7 @@ def safe_extract_zip(zip_path: Path, dest: Path) -> None:
 def extract_archive(archive_path: Path, dest: Path, archive_type: str) -> None:
     """Extracts archive_path (of archive_type, one of ARCHIVE_FORMATS) into
     dest. "zip" is handled in-process; everything else shells out to
-    scripts/uncompress.sh (already present in this image - see
+    scripts/uncompress.py (already present in this image - see
     worker/Dockerfile), the same script ConvertProcessService::uncompress()
     calls on the Drupal side for the non-docker backend."""
     if archive_type == "zip":
@@ -230,20 +230,20 @@ def extract_archive(archive_path: Path, dest: Path, archive_type: str) -> None:
         return
 
     if not UNCOMPRESS_SCRIPT.is_file():
-        raise RuntimeError(f"uncompress.sh not found at {UNCOMPRESS_SCRIPT}")
+        raise RuntimeError(f"uncompress.py not found at {UNCOMPRESS_SCRIPT}")
 
     dest.mkdir(parents=True, exist_ok=True)
-    # uncompress.sh's legacy auto-convert loop globs "$OUTPUT"* and expects a
+    # uncompress.py's legacy auto-convert loop globs "$OUTPUT"* and expects a
     # trailing slash on -o to treat it as a directory prefix, not a filename
-    # prefix - see scripts/uncompress.sh.
+    # prefix - see scripts/uncompress.py.
     output_arg = str(dest) + "/"
     result = subprocess.run(
-        [str(UNCOMPRESS_SCRIPT), "-t", archive_type, "-i", str(archive_path), "-o", output_arg, "-n", archive_path.stem, "-f", "true"],
+        [sys.executable, str(UNCOMPRESS_SCRIPT), "-t", archive_type, "-i", str(archive_path), "-o", output_arg, "-n", archive_path.stem, "-f", "true"],
         capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
     )
     if result.returncode != 0:
         detail = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(f"uncompress.sh failed (exit={result.returncode}): {detail}")
+        raise RuntimeError(f"uncompress.py failed (exit={result.returncode}): {detail}")
 
 
 def find_model_file(root: Path):
@@ -287,7 +287,7 @@ def scan_job(job_id: str, job_dir: Path):
         if not p.name.endswith((".preview.glb", ".tmp.glb"))
     )
     if glb_candidates:
-        # A file under a "gltf" folder is convert.sh's own output and is
+        # A file under a "gltf" folder is convert.py's own output and is
         # preferred; otherwise fall back to whatever .glb is there (e.g. a
         # passthrough upload that skipped conversion entirely).
         glb_path = next(
@@ -487,7 +487,7 @@ def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool,
             [sys.executable, str(CONVERT_MESH_SCRIPT), "-i", str(work_path), "-o", str(glb_path)],
             capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
         )
-        # Always print, not just on a non-zero exit - see the render.sh
+        # Always print, not just on a non-zero exit - see the render_thumbnails.py
         # logging below for why a 0 exit code alone isn't enough signal.
         print(
             f"[job {job_id}] convert_mesh.py exit={result.returncode}:\n"
@@ -499,19 +499,19 @@ def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool,
             raise RuntimeError(f"convert_mesh.py failed (exit={result.returncode}): {detail}")
     else:
         set_job(job_id, status="processing", progress=25, message="Converting model...")
-        print(f"[job {job_id}] running convert.sh on {work_path}...", file=sys.stderr)
+        print(f"[job {job_id}] running convert.py on {work_path}...", file=sys.stderr)
         result = subprocess.run(
-            [str(CONVERT_SCRIPT), "-i", str(work_path), "-c", "false" if optimizing else "true", "-l", "3", "-b", "true", "-f", "true"],
+            [sys.executable, str(CONVERT_SCRIPT), "-i", str(work_path), "-c", "false" if optimizing else "true", "-l", "3", "-b", "true", "-f", "true"],
             capture_output=True, text=True, timeout=CONVERT_TIMEOUT,
         )
         print(
-            f"[job {job_id}] convert.sh exit={result.returncode}:\n"
+            f"[job {job_id}] convert.py exit={result.returncode}:\n"
             f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}",
             file=sys.stderr,
         )
         if result.returncode != 0:
             detail = result.stderr.strip() or result.stdout.strip()
-            raise RuntimeError(f"convert.sh failed (exit={result.returncode}): {detail}")
+            raise RuntimeError(f"convert.py failed (exit={result.returncode}): {detail}")
         glb_path = work_path.parent / "gltf" / (work_path.stem + ".glb")
 
     if not glb_path.is_file():
@@ -527,15 +527,15 @@ def convert_and_render(job_id: str, work_path: Path, ext: str, is_archive: bool,
     if not SKIP_RENDER:
         set_job(job_id, status="rendering", progress=70, message="Rendering thumbnails...")
         render_result = subprocess.run(
-            [str(RENDER_SCRIPT), "-i", str(work_path), "-a", "true" if is_archive else "false", "-d", RENDER_DEVICE],
+            [sys.executable, str(RENDER_SCRIPT), "-i", str(work_path), "-a", "true" if is_archive else "false", "-d", RENDER_DEVICE],
             capture_output=True, text=True, timeout=RENDER_TIMEOUT,
         )
-        # Always print render.sh's output (not just on a non-zero exit) -
+        # Always print render_thumbnails.py's output (not just on a non-zero exit) -
         # a Python exception inside render.py can leave Blender's own
         # process exiting 0 while writing no output files, which a
         # returncode-only check would miss entirely.
         print(
-            f"[job {job_id}] render.sh exit={render_result.returncode}:\n"
+            f"[job {job_id}] render_thumbnails.py exit={render_result.returncode}:\n"
             f"--- stdout ---\n{render_result.stdout}\n--- stderr ---\n{render_result.stderr}",
             file=sys.stderr,
         )
@@ -2026,7 +2026,7 @@ def main() -> None:
     if geonames.INDEX.state != "off":
         print(f"Place search (GeoNames): {geonames.INDEX.state}, index {geonames.INDEX.db_path}.")
     if not CONVERT_SCRIPT.is_file():
-        sys.exit(f"convert.sh not found at {CONVERT_SCRIPT} - set WORKER_SCRIPTS_DIR")
+        sys.exit(f"convert.py not found at {CONVERT_SCRIPT} - set WORKER_SCRIPTS_DIR")
     if not CONVERT_MESH_SCRIPT.is_file():
         sys.exit(f"convert_mesh.py not found at {CONVERT_MESH_SCRIPT} - set WORKER_SCRIPTS_DIR")
 
