@@ -94,7 +94,6 @@ export function getEditorToolbarIcon(icon) {
     IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     ifcQuery: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-4 6 4v11z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M18.5 2.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" fill="currentColor"/></svg>',
     publishCheck: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3.5h7v3h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5H4.5v16h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M17 5h2.5v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 11h6M8 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 15v2.2M18.5 20.8V23M15.2 19h2.2M19.6 19h2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -1452,7 +1451,6 @@ export function createEditorToolbar(viewer) {
     tools.splice(tools.findIndex((tool) => tool.group === "help"), 0,
       // What to fix before saving and rendering (editor/publish-check.js).
       { key: "publishCheck", group: "file", icon: "publishCheck", onClick: () => viewer.togglePublishCheckPanel(), pressed: true, primary: false },
-      { key: "loadingLogs", group: "file", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
       { key: "download", group: "file", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
       { key: "preview", group: "file", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
       // All the views of a model uploaded to the worker (thumbnail-capture.js);
@@ -2040,7 +2038,7 @@ export function createEditorToolbar(viewer) {
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
-  const actionMenuToolKeys = ["statistics", "publishCheck", "validationReport", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
+  const actionMenuToolKeys = ["statistics", "publishCheck", "validationReport", "background", "preview", "generateThumbnails", "save"];
   if (viewer.actionMenuPanel && !menus) {
     actionMenuToolKeys.forEach((key) => {
       const button = viewer.editorToolbarButtons[key];
@@ -2391,9 +2389,6 @@ export function updateEditorToolbarLabels(viewer) {
     wireframe: viewer.wireframeMode
       ? t("gui.disableWireframeMode", "Disable wireframe mode")
       : t("gui.enableWireframeMode", "Enable wireframe mode"),
-    loadingLogs: viewer.showLoadingLogs
-      ? t("gui.hideLoadingLogs", "Hide loading logs")
-      : t("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t("gui.hierarchy", "Hierarchy"),
     materials: t("gui.materials", "Materials"),
     shading: t("gui.shading", "Shading"),
@@ -2644,7 +2639,6 @@ export function updateEditorToolbarState(viewer) {
     clippingPlanes: viewer.clippingMode === true,
     advancedEditor: viewer.isEditorAdvancedPanelVisible(),
     fullScreen: viewer.FULLSCREEN === true,
-    loadingLogs: viewer.showLoadingLogs === true,
     credits: Boolean(viewer.creditsWrapper && !viewer.creditsWrapper.hidden),
     validationReport: viewer.isValidationReportOpen?.() === true,
     modelDetails: isMetadataWindowOpen(),

@@ -1,18 +1,10 @@
 import { core } from "../core.js";
 import { syncNoticeAboveToolbar } from "../editor-toolbar.js";
 import { t } from "../i18n-utils.js";
+import { recordEvent } from "./event-log-store.js";
 
 export function attachLoadingStatus(viewer) {
   Object.assign(viewer, {
-    toggleLoadingLogs() {
-      this.showLoadingLogs = !this.showLoadingLogs;
-      if (core.loadingLog.get()) {
-        core.loadingLog.get().classList.toggle("editorToolbar-visible", this.showLoadingLogs);
-      }
-      this.updateEditorToolbarLabels();
-      this.updateEditorToolbarState();
-    },
-
     getLoadingLogMessages() {
       return this.loadingLogMessageKeys.map((key) => t(key));
     },
@@ -190,229 +182,38 @@ export function attachLoadingStatus(viewer) {
       };
     },
 
+    // The loading steps go into the event log (ui/event-log-store.js); the
+    // progress itself is shown by createModelLoadingProgress().
     createLoadingLog() {
-      const shell = document.createElement("div");
-      shell.id = "loading-log";
-      shell.setAttribute("aria-live", "polite");
-      shell.hidden = true;
-
-      const collapsedToggle = document.createElement("button");
-      collapsedToggle.type = "button";
-      collapsedToggle.className = "loading-log__collapsed-toggle";
-      collapsedToggle.setAttribute("aria-label", t("loadingLog.title", "Loading process log"));
-      collapsedToggle.setAttribute("aria-expanded", "false");
-      shell.appendChild(collapsedToggle);
-
-      const header = document.createElement("button");
-      header.type = "button";
-      header.className = "loading-log__header";
-      header.setAttribute("aria-expanded", "false");
-
-      const headerTitle = document.createElement("span");
-      headerTitle.className = "loading-log__title";
-      headerTitle.textContent = t("loadingLog.title", "Loading process log");
-
-      const headerSummary = document.createElement("span");
-      headerSummary.className = "loading-log__summary";
-
-      header.append(headerTitle, headerSummary);
-      shell.appendChild(header);
-
-      const body = document.createElement("div");
-      body.className = "loading-log__body";
-
-      const list = document.createElement("div");
-      list.className = "loading-log__messages";
-
-      const progress = document.createElement("div");
-      progress.className = "loading-log__progress";
-      progress.setAttribute("role", "progressbar");
-      progress.setAttribute("aria-valuemin", "0");
-      progress.setAttribute("aria-valuemax", "100");
-      progress.setAttribute("aria-valuenow", "0");
-
-      const progressBar = document.createElement("div");
-      progressBar.className = "loading-log__progress-bar";
-      progress.appendChild(progressBar);
-
-      body.append(list, progress);
-      shell.appendChild(body);
-      core.container.appendChild(shell);
-
-      shell.classList.add("editorToolbar-hidden");
-
-      let timer = null;
-      let messageIndex = 0;
-      let visibleCount = 0;
-      let currentProgress = 0;
+      let active = false;
       let startedAt = 0;
-      let hideTimer = null;
-      let progressUpdated = false;
-      const minVisibleMs = 900;
-      let loadingMessages = this.getLoadingLogMessages();
-      let messagesDone = false;
-      const loadingStageKeyToIndex = new Map(
-        this.loadingLogMessageKeys.map((key, index) => [key, index])
-      );
-      const loadingModelMessageIndex = Math.max(
-        0,
-        loadingStageKeyToIndex.get("loadingLog.loadingModel") ?? 0
-      );
-      let isExpanded = false;
-
-      const setExpanded = (expanded) => {
-        isExpanded = expanded;
-        shell.dataset.expanded = expanded ? "true" : "false";
-        header.setAttribute("aria-expanded", expanded ? "true" : "false");
-        collapsedToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
-      };
-
-      const updateSummary = () => {
-        const activeMessage = loadingMessages[messageIndex] || loadingMessages[loadingModelMessageIndex] || "";
-        headerSummary.textContent = `${currentProgress}% • ${activeMessage}`;
-      };
-
-      header.addEventListener("click", () => {
-        if (shell.hidden) return;
-        setExpanded(!isExpanded);
-      });
-
-      collapsedToggle.addEventListener("click", () => {
-        if (shell.hidden) return;
-        setExpanded(!isExpanded);
-      });
-
-      const renderMessages = (allDone = false) => {
-        messagesDone = allDone;
-        const messages = loadingMessages
-          .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
-        list.replaceChildren(...messages.map((message, index) => {
-          const row = document.createElement("div");
-          row.className = "loading-log__message";
-          if (allDone) {
-            row.classList.add("loading-log__message--done");
-          } else if (index === messages.length - 1) {
-            row.classList.add("loading-log__message--active");
-          }
-          row.textContent = message;
-          return row;
-        }));
-      };
-
-      const setProgress = (value) => {
-        const normalizedValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
-        currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
-        progressBar.style.width = `${currentProgress}%`;
-        progress.setAttribute("aria-valuenow", String(currentProgress));
-        updateSummary();
-      };
-
-      const tick = () => {
-        visibleCount = Math.min(4, visibleCount + 1);
-        if (!progressUpdated) {
-          messageIndex = loadingModelMessageIndex;
-          setProgress(Math.min(currentProgress + 8, 12));
-        }
-        renderMessages();
-      };
-
-      const stop = () => {
-        if (timer) {
-          window.clearInterval(timer);
-          timer = null;
-        }
-      };
-
-      const clearHideTimer = () => {
-        if (hideTimer) {
-          window.clearTimeout(hideTimer);
-          hideTimer = null;
-        }
-      };
-
-      const collapseLog = () => {
-        shell.classList.remove("loading-log--done");
-        shell.classList.remove("loading-log--error");
-        setExpanded(false);
-        hideTimer = null;
-      };
+      let lastStageKey = "";
+      const record = (message, extra = {}) => recordEvent({ tone: "info", message, source: "loading", quiet: true, ...extra });
 
       return {
         start: () => {
-          stop();
-          clearHideTimer();
-          progressUpdated = false;
+          active = true;
           startedAt = performance.now();
-          shell.hidden = false;
-          setExpanded(false);
-          shell.classList.remove("loading-log--done", "loading-log--error");
-          messageIndex = loadingModelMessageIndex;
-          visibleCount = 1;
-          currentProgress = 0;
-          renderMessages();
-          setProgress(6);
-          timer = window.setInterval(tick, 520);
+          lastStageKey = "loadingLog.loadingModel";
+          record(t("loadingLog.loadingModel", "Loading 3D model..."), { detail: core.fileObject?.filename || "" });
         },
-        update: (value) => {
-          if (shell.hidden) return;
-          progressUpdated = true;
-          const normalized = Number.isFinite(value) ? value : 0;
-          messageIndex = loadingModelMessageIndex;
-          visibleCount = Math.min(4, Math.max(visibleCount, 2));
-          renderMessages();
-          setProgress(Math.min(normalized, 99));
-        },
-        setStage: (stageKey, progressValue = null) => {
-          if (shell.hidden) return;
-          const stageIndex = loadingStageKeyToIndex.get(stageKey);
-          if (typeof stageIndex === "number") {
-            messageIndex = stageIndex;
-            visibleCount = Math.min(4, Math.max(visibleCount, 2));
-            renderMessages();
-            updateSummary();
-          }
-          if (Number.isFinite(progressValue)) {
-            setProgress(progressValue);
-          }
+        update: () => {},
+        setStage: (stageKey) => {
+          // "Model has been loaded" is the modelLoaded notice (loaders.js).
+          if (!active || stageKey === lastStageKey || stageKey === "loadingLog.modelLoaded") return;
+          lastStageKey = stageKey;
+          record(t(stageKey));
         },
         finish: () => {
-          if (shell.hidden) return;
-          stop();
-          const messageCount = loadingMessages.length;
-          messageIndex = messageCount - 1;
-          visibleCount = messageCount;
-          renderMessages(true);
-          setProgress(100);
-          updateSummary();
-          shell.classList.add("loading-log--done");
-          const visibleFor = performance.now() - startedAt;
-          const hideDelay = Math.max(1200, minVisibleMs - visibleFor + 800);
-          clearHideTimer();
-          hideTimer = window.setTimeout(() => {
-            collapseLog();
-          }, hideDelay);
+          if (!active) return;
+          active = false;
+          const seconds = ((performance.now() - startedAt) / 1000).toFixed(1);
+          record(t("loadingLog.loadTime", { seconds }, "Loaded in {seconds} s"), { tone: "success" });
         },
+        // The error itself is logged by reportLoadError() (loaders.js).
         fail: () => {
-          if (shell.hidden) return;
-          stop();
-          clearHideTimer();
-          setExpanded(true);
-          shell.classList.add("loading-log--error");
-          hideTimer = window.setTimeout(() => {
-            shell.classList.remove("loading-log--error");
-            setExpanded(false);
-            hideTimer = null;
-          }, 2000);
+          active = false;
         },
-        // Re-translates the title and messages after a language change.
-        relocalize: () => {
-          loadingMessages = this.getLoadingLogMessages();
-          headerTitle.textContent = t("loadingLog.title", "Loading process log");
-          collapsedToggle.setAttribute("aria-label", t("loadingLog.title", "Loading process log"));
-          renderMessages(messagesDone);
-          updateSummary();
-        },
-        get: () => shell,
       };
     },
 

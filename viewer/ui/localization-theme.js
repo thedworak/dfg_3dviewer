@@ -162,7 +162,6 @@ export function attachLocalizationTheme(viewer) {
       this.refreshStatusNoticeLanguage();
       UltraLoader.relocalize?.();
       this.circle?.relocalize?.();
-      this.loadingLog?.relocalize?.();
       this.updatePickingHintVisibility?.();
       if (this.clippingHint) this.clippingHint.textContent = t("hints.clipping", "Drag active clipping plane helper to adjust cut");
     },

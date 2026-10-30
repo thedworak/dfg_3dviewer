@@ -70,7 +70,7 @@ const CATEGORIES = [
     more: true,
     label: () => t("menus.settings", "Settings & help"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
-    tools: ["resetSettings", "help", "reportBug", "credits", "statistics", "loadingLogs", "eventLog"],
+    tools: ["resetSettings", "help", "reportBug", "credits", "statistics", "eventLog"],
     breaks: ["help", "statistics"],
   },
 ];

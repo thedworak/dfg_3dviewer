@@ -2826,9 +2826,6 @@ export const Viewer = {
       core.mainObject.length = 0;
     }
 
-    if (core.loadingLog) {
-      core.loadingLog.finish?.();
-    }
     if (core.circle) {
       core.circle.set?.(0, 100);
       core.circle.complete();

@@ -6,8 +6,9 @@ import { clearEventLog, eventLogListeners, getEventLog, recordEvent } from "./ev
 
 // The full log (Settings -> Event log, ui/event-log-store.js): every notice
 // the viewer raised, including the ones it keeps quiet (QUIET_NOTICE_KEYS -
-// states the toolbar already shows, routine loading steps), and the errors
-// and warnings of the console. The toasts are only for what matters: the
+// states the toolbar already shows), the steps of each model load
+// (createLoadingLog(), ui/loading-status.js), and the errors and warnings
+// of the console. The toasts are only for what matters: the
 // model loaded, something missing or failed, a hint for the tool just picked.
 
 function formatTime(date) {
@@ -16,7 +17,7 @@ function formatTime(date) {
 
 function entryText(entry) {
   const tone = entry.tone.toUpperCase();
-  const source = entry.source === "console" ? " [console]" : entry.quiet ? " [quiet]" : "";
+  const source = entry.source === "console" || entry.source === "loading" ? ` [${entry.source}]` : entry.quiet ? " [quiet]" : "";
   return `${formatTime(entry.time)} ${tone}${source} ${entry.message}${entry.detail ? ` - ${entry.detail}` : ""}`;
 }
 
