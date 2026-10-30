@@ -2155,7 +2155,9 @@ body.viewer-app.viewer-standalone-page > #DFG_3DViewer {
 
 /* viewer.fillViewport (main.js): on a desktop browser too, the viewer fills
    what the header and gallery leave, instead of index.html's 50vh. The
-   body keeps its 8px margin; the phone and app rules above still apply. */
+   body keeps its 8px margin; the phone and app rules above still apply.
+   A window moved or resized by its controls (ui/window-controls.js) keeps
+   the size it was given. */
 body.viewer-fill-viewport.viewer-standalone-page:not(.viewer-app) {
   height: calc(100dvh - 16px);
   display: flex;
@@ -2166,7 +2168,7 @@ body.viewer-fill-viewport.viewer-standalone-page > :not(#DFG_3DViewer) {
   flex: 0 0 auto;
 }
 
-body.viewer-fill-viewport.viewer-standalone-page > #DFG_3DViewer {
+body.viewer-fill-viewport.viewer-standalone-page > #DFG_3DViewer:not(.viewer-window-detached) {
   flex: 1 1 0;
   height: auto !important;
   min-height: 280px;

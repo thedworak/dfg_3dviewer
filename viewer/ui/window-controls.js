@@ -185,6 +185,7 @@ function clampWindowValue(value, min, max) {
 // the content below it (credits, the manifest form) instead of staying put.
 function placeWindow(container, left, top) {
   container.style.position = 'absolute';
+  container.classList.add('viewer-window-detached');
   const parent = container.offsetParent;
   const isPageRelative = !parent
     || (parent === document.body && getComputedStyle(parent).position === 'static');

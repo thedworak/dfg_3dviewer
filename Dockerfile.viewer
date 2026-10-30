@@ -54,6 +54,9 @@ RUN node scripts/validate-docker-profiles.mjs ${VIEWER_PROFILE}
 FROM nginx:alpine
 ARG BUILD_TARGET
 ARG VIEWER_PROFILE
+# bash for `docker compose exec viewer-... bash` (Alpine ships only sh).
+# Before the COPYs below, so the layer stays cached across builds.
+RUN apk add --no-cache bash
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/${BUILD_TARGET} /usr/share/nginx/html
 # The viewer settings come from the profile's AIM3D manifest (see
