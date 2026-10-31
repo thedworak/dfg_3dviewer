@@ -17,6 +17,19 @@ import { ifcPropertiesUrlForModel, setPendingIfcProperties } from "../ifc-proper
 import { setPendingSavedSettings } from "../metadata.js";
 import { clearExampleModelSelection } from "../example-models.js";
 import { modelLicenseLabel, modelTypeLabel } from "./model-metadata.js";
+import { blockedUsers, blockUser, isBlockedUser, unblockUser } from "../blocked-users.js";
+import { openFormDialog } from "./form-dialog.js";
+
+// Why a model is reported (worker/reports.py REASONS).
+const REPORT_REASONS = [
+  ["offensive", "Offensive or inappropriate"],
+  ["sexual", "Sexual content"],
+  ["violence", "Violence or dangerous content"],
+  ["hate", "Hate speech or harassment"],
+  ["copyright", "Copyright infringement"],
+  ["spam", "Spam or misleading"],
+  ["other", "Something else"],
+];
 
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated
@@ -247,11 +260,18 @@ export function attachModelsPanel(Viewer) {
         return;
       }
 
+      // Models of blocked uploaders are left out (blocked-users.js); one's
+      // own stay.
+      const me = this.authState?.user || null;
+      const blockedCount = jobs.filter((job) => job.owner && job.owner !== me && isBlockedUser(job.owner)).length;
+      jobs = jobs.filter((job) => !(job.owner && job.owner !== me && isBlockedUser(job.owner)));
+
       if (jobs.length === 0) {
         const emptyItem = document.createElement("li");
         emptyItem.className = "models-panel-empty";
         emptyItem.textContent = t("modelsPanel.empty", "No previously generated models yet.");
         list.appendChild(emptyItem);
+        if (blockedUsers().length) list.appendChild(this.renderBlockedUsersRow(blockedCount));
         return;
       }
 
@@ -262,6 +282,163 @@ export function attachModelsPanel(Viewer) {
         // No IndexedDB (e.g. blocked storage): rows just offer saving.
       }
       jobs.forEach((job) => list.appendChild(this.renderModelRow(job, savedIds.has(repositoryEntryId(job.id)))));
+      if (blockedUsers().length) list.appendChild(this.renderBlockedUsersRow(blockedCount));
+    },
+
+    // "Blocked users (n)" under the list: unblocking brings their models back.
+    renderBlockedUsersRow(hiddenModels = 0) {
+      const item = document.createElement("li");
+      item.className = "models-panel-blocked";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = t(
+        "modelsPanel.blockedUsers",
+        { count: blockedUsers().length, models: hiddenModels },
+        "Blocked users: {count} ({models} models hidden) - manage"
+      );
+      this.bindEventListener(button, "click", () => this.openBlockedUsersDialog());
+      item.appendChild(button);
+      return item;
+    },
+
+    async openBlockedUsersDialog() {
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t(
+        "modelsPanel.blockedIntro",
+        "Models of these users are hidden on this device. Unblock a user to see their models again."
+      );
+      const list = document.createElement("ul");
+      list.className = "models-panel-blocked-list";
+      const render = () => {
+        list.textContent = "";
+        blockedUsers().forEach((name) => {
+          const row = document.createElement("li");
+          const label = document.createElement("span");
+          label.textContent = name;
+          const unblock = document.createElement("button");
+          unblock.type = "button";
+          unblock.textContent = t("modelsPanel.unblock", "Unblock");
+          unblock.addEventListener("click", () => {
+            unblockUser(name);
+            render();
+          });
+          row.append(label, " ", unblock);
+          list.appendChild(row);
+        });
+        if (!list.children.length) {
+          const none = document.createElement("li");
+          none.textContent = t("modelsPanel.blockedNone", "No blocked users.");
+          list.appendChild(none);
+        }
+      };
+      render();
+      body.append(intro, list);
+      await openFormDialog({
+        title: t("modelsPanel.blockedTitle", "Blocked users"),
+        body,
+        confirmLabel: t("modelsPanel.blockedDone", "Done"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+      });
+      this.loadModelsList();
+    },
+
+    // Reporting a model to the repository's moderators (POST
+    // /api/jobs/<id>/report, worker/reports.py) and, optionally, blocking
+    // its uploader on this device (blocked-users.js) - App Store guideline 1.2.
+    async openReportDialog(job, name) {
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t(
+        "modelsPanel.reportIntro",
+        { name },
+        "Report \"{name}\" to the moderators of this repository. They review reports within 24 hours and remove content that breaks the terms of use."
+      );
+      body.appendChild(intro);
+
+      const reasonLabel = document.createElement("label");
+      reasonLabel.textContent = t("modelsPanel.reportReason", "Reason");
+      const reason = document.createElement("select");
+      REPORT_REASONS.forEach(([value, fallback]) => {
+        reason.appendChild(new Option(t(`modelsPanel.reportReason_${value}`, fallback), value));
+      });
+      reasonLabel.appendChild(reason);
+      body.appendChild(reasonLabel);
+
+      const detailsLabel = document.createElement("label");
+      detailsLabel.textContent = t("modelsPanel.reportDetails", "Details (optional)");
+      const details = document.createElement("textarea");
+      details.maxLength = 1000;
+      detailsLabel.appendChild(details);
+      body.appendChild(detailsLabel);
+
+      let block = null;
+      if (job.owner && job.owner !== this.authState?.user) {
+        const blockLabel = document.createElement("label");
+        blockLabel.className = "viewer-form-dialog-check";
+        block = document.createElement("input");
+        block.type = "checkbox";
+        const text = document.createElement("span");
+        text.textContent = t(
+          "modelsPanel.reportBlock",
+          { user: job.owner },
+          "Also block {user}: hide all their models on this device"
+        );
+        blockLabel.append(block, text);
+        body.appendChild(blockLabel);
+      }
+
+      const sent = await openFormDialog({
+        title: t("modelsPanel.reportTitle", "Report or block"),
+        body,
+        confirmLabel: t("modelsPanel.reportSend", "Report"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+        danger: true,
+        onConfirm: async () => {
+          const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}/report`), {
+            method: "POST",
+            headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.value, details: details.value }),
+          });
+          if (!response.ok) {
+            let message = "";
+            try {
+              message = (await response.json()).error || "";
+            } catch {
+              // Non-JSON error page.
+            }
+            throw new Error(message || t("modelsPanel.reportError", "The report could not be sent. Try again later."));
+          }
+          return true;
+        },
+      });
+      if (!sent) return;
+      if (block?.checked) {
+        blockUser(job.owner);
+        toastHelper("userBlocked", "info", { user: job.owner });
+        this.loadModelsList();
+      } else {
+        toastHelper("modelReported", "success");
+      }
+    },
+
+    // Blocking without reporting, from the same row.
+    async blockUploader(job) {
+      if (!job.owner) return;
+      const confirmed = await this.confirmDialog({
+        message: t(
+          "modelsPanel.blockConfirm",
+          { user: job.owner },
+          "Block {user}? Their models will be hidden on this device. You can unblock them under the list."
+        ),
+        confirmLabel: t("modelsPanel.block", "Block"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+        danger: true,
+      });
+      if (!confirmed) return;
+      blockUser(job.owner);
+      toastHelper("userBlocked", "info", { user: job.owner });
+      this.loadModelsList();
     },
 
     // App build only (the browser has the repository at hand). Single-file
@@ -416,6 +593,14 @@ export function attachModelsPanel(Viewer) {
           modelCheckPart(job.validation),
         ]));
       }
+      // Reported by several people (worker/reports.py): only its owner and
+      // admins still see it, until an admin decides.
+      if (job.underReview) {
+        const review = document.createElement("span");
+        review.className = "models-panel-under-review";
+        review.textContent = t("modelsPanel.underReview", "Reported - hidden from others until reviewed");
+        text.appendChild(review);
+      }
 
       button.appendChild(text);
 
@@ -438,6 +623,29 @@ export function attachModelsPanel(Viewer) {
           this.saveModelOffline(job, saveButton);
         });
         item.appendChild(saveButton);
+      }
+
+      // Someone else's model: report it, or block whoever uploaded it.
+      const me = this.authState?.user || null;
+      if (!(me && job.owner === me)) {
+        const reportButton = document.createElement("button");
+        reportButton.type = "button";
+        reportButton.className = "models-panel-report";
+        const reportAria = t("modelsPanel.reportAria", { name }, "Report {name} or block its uploader");
+        reportButton.setAttribute("aria-label", reportAria);
+        reportButton.title = reportAria;
+        reportButton.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M5 21V4M5 4h11l-2 4 2 4H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        this.bindEventListener(reportButton, "click", (event) => {
+          event.stopPropagation();
+          this.openReportDialog(job, name);
+        });
+        // A long press (or right click) blocks straight away.
+        this.bindEventListener(reportButton, "contextmenu", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.blockUploader(job);
+        });
+        item.appendChild(reportButton);
       }
 
       // canDelete is computed by the worker (own uploads, or admin, or

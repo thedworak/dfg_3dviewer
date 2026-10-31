@@ -215,3 +215,85 @@ body {
   border-color: color-mix(in srgb, #d54646 60%, var(--viewer-panel-border));
   color: #d54646;
 }
+
+/* Reported models (sections/reports.js) */
+.exadmin-reports-hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.exadmin-reports-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exadmin-report {
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+}
+
+.exadmin-report[data-status="open"] {
+  border-left: 4px solid #d54646;
+}
+
+.exadmin-report-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.exadmin-report-date,
+.exadmin-report-meta {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.exadmin-report-meta {
+  margin: 4px 0;
+}
+
+.exadmin-report blockquote {
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 2px solid var(--viewer-panel-border);
+  white-space: pre-wrap;
+}
+
+.exadmin-report a {
+  color: inherit;
+  font-size: 12px;
+}
+
+.exadmin-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.exadmin-report-actions button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.exadmin-report-actions .exadmin-report-danger {
+  border-color: #d54646;
+  color: #d54646;
+}
+
+.exadmin-reports-toggle {
+  font-size: 13px;
+}

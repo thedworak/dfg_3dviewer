@@ -271,6 +271,8 @@ Set via environment variables on the `worker` container (see
 | `WORKER_ADMIN_USER` / `WORKER_ADMIN_PASSWORD` | unset | Creates/resets an admin account on start (password >= 8 chars) |
 | `WORKER_SMTP_HOST` (+ `_PORT`, `_SECURITY` = `starttls`\|`ssl`\|`none`, `_USER`, `_PASSWORD`, `_FROM`) | unset | Sends an email to a user when an admin approves their pending account; mail is off without the host |
 | `WORKER_PUBLIC_URL`        | unset          | Viewer address included in that email     |
+| `WORKER_REPORTS_EMAIL`     | unset          | Moderators mailed about each reported model (comma-separated; needs `WORKER_SMTP_*`) |
+| `WORKER_REPORT_HIDE_THRESHOLD` | `3`        | A model reported by this many different people leaves the list for everyone but its owner and admins until an admin decides; `0` = never |
 | `WORKER_AUTH_SECRET`       | generated      | Session-signing key; otherwise generated once into the volume |
 | `WORKER_AUTH_SESSION_TTL`  | `604800`       | Login lifetime in seconds (7 days)        |
 | `WORKER_CONVERT_TIMEOUT`   | `1800`         | Seconds before a convert.py call is killed|
@@ -310,6 +312,8 @@ With `WORKER_AUTH_MODE=required`, uploading and deleting need a logged-in accoun
 - Set the variables in a `.env` next to `docker-compose.yml` (e.g. `WORKER_AUTH_MODE=required`, `WORKER_ADMIN_USER=you`, `WORKER_ADMIN_PASSWORD=...`), then recreate the worker.
 - Visitors register in the viewer's upload panel. With the default `approval` registration, new accounts stay *pending* until you approve them.
 - Endpoints: `GET /api/auth/config`, `GET /api/auth/me`, `POST /api/auth/register|login|logout` (JSON `{username, password}`; the session is an HttpOnly, SameSite=Lax cookie, `Secure` when the proxy sends `X-Forwarded-Proto: https`). An app build runs on another origin and never gets that cookie: it logs in with `{"session": "token"}`, gets the same signed token back in the response (`token`) and sends it as `Authorization: Bearer <token>`. A failed login says `Unknown username.` or `Invalid password.`; five failed logins lock a username for five minutes.
+- **Deleting one's own account:** `POST /api/auth/delete-account` with `{"password": "..."}` as the signed-in account (cookie or Bearer token). It deletes the account, every model it uploaded (with their Cloudflare copies), the app purchase linked to it (and, with the app's entitlements module, its customer record at the purchase service), and its name in the reports it sent - at once, as the App Store requires (guideline 5.1.1(v)). The password is checked like a login (five failures lock it for five minutes); the last active admin cannot delete itself (409). The viewer offers it as *Delete account and data* in the account panel and the app's plans panel. A subscription is not cancelled: it belongs to the store account that bought it.
+- **Reporting models** (`worker/reports.py`, App Store guideline 1.2): anyone who sees a model in the list can report it, `POST /api/jobs/<id>/report` with `{"reason": "offensive"|"sexual"|"violence"|"hate"|"copyright"|"spam"|"other", "details": "..."}` (20 reports an hour per account, app user or IP; the same reporter reporting the same model again updates their report). Reports are stored in `.reports/reports.json` on the jobs volume, mailed to `WORKER_REPORTS_EMAIL` and listed for admins on `/exadmin/#reports` (`GET /api/admin/reports`), where `POST /api/admin/reports/<id>` with `{"action": "dismiss"|"remove-model"|"disable-user"}` closes every open report of that model. A model reported by `WORKER_REPORT_HIDE_THRESHOLD` people is left out of `GET /api/jobs` for everyone but its owner and admins (`underReview: true`) until then. Blocking a user is done in the viewer, on the device (`viewer/blocked-users.js`): their models are no longer listed there.
 - Every upload records its account, original filename and size in `<job>/owner.json`. Users can delete only their own uploads; admins can delete any. Jobs from before accounts were enabled are admin-only.
 - Admins can correct who uploaded a model and when: on the admin pages, `/exadmin/` ("Edit" next to a model), or `POST /api/admin/jobs/<id>` with `{"owner": "alice", "createdAt": 1767225600}` (`owner: null` = no owner; `createdAt` in Unix seconds). It rewrites `<job>/owner.json`, so storage quotas move with the owner.
 - Supervise from the command line (there is deliberately no admin HTTP API):
@@ -318,6 +322,8 @@ With `WORKER_AUTH_MODE=required`, uploading and deleting need a logged-in accoun
 docker compose exec worker python3 /app/worker/server.py admin users
 docker compose exec worker python3 /app/worker/server.py admin uploads
 docker compose exec worker python3 /app/worker/server.py admin approve alice
+docker compose exec worker python3 /app/worker/server.py admin reports          # open reports ("all" for every one)
+docker compose exec worker python3 /app/worker/server.py admin report <id> remove-model
 # also: disable <user>, promote <user>, demote <user>, delete-user <user>
 docker compose exec worker python3 /app/worker/server.py admin plan alice business 30   # grant Business for 30 days
 docker compose exec worker python3 /app/worker/server.py admin plan acme enterprise      # grant Enterprise, no end

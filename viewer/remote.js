@@ -182,6 +182,31 @@ export function deleteAccountUrl() {
   return remoteAssetUrl('/delete-account.html');
 }
 
+// The terms of use (viewer/legal/terms.html in the app's builds), served
+// next to delete-account.html. Elsewhere only when the settings name one
+// (viewer.auth.termsUrl): a plain viewer has no terms of its own.
+export function termsUrl() {
+  const configured = core.CONFIG?.viewer?.auth?.termsUrl;
+  if (configured) return configured;
+  return isAppBuild() && remoteBase() ? remoteAssetUrl('/terms.html') : '';
+}
+
+export function privacyUrl() {
+  const configured = core.CONFIG?.viewer?.auth?.privacyUrl;
+  if (configured) return configured;
+  return isAppBuild() && remoteBase() ? remoteAssetUrl('/privacy.html') : '';
+}
+
+// Where the store's subscriptions are managed (cancelled): deleting an
+// account cancels nothing - a subscription belongs to the Apple ID or
+// Google account that bought it. Empty outside the apps.
+export function manageSubscriptionsUrl() {
+  const platform = window.Capacitor?.getPlatform?.();
+  if (platform === 'ios') return 'https://apps.apple.com/account/subscriptions';
+  if (platform === 'android') return 'https://play.google.com/store/account/subscriptions';
+  return '';
+}
+
 // body.viewer-app hides what the app does not use; body.viewer-no-remote
 // hides everything that needs a repository when none is configured.
 export function initRemote() {

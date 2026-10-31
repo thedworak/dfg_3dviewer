@@ -698,3 +698,102 @@ body[data-viewer-theme="dark"] #planButton {
 .plans-account-form .password-field {
   flex: 1 1 120px;
 }
+
+/* "Delete account and data" (login-panel.js createDeleteAccountButton):
+   deletes the account in the viewer, after its password. */
+.delete-account-button {
+  align-self: flex-start;
+  border: 1px solid #d54646;
+  border-radius: 6px;
+  background: transparent;
+  color: #d54646;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.delete-account-button:hover,
+.delete-account-button:focus-visible {
+  background: #d54646;
+  color: #fff;
+}
+
+/* Terms of use before registering (login-panel.js). */
+.login-terms {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.login-terms a {
+  color: inherit;
+}
+
+/* "Report or block" on someone else's model (models-panel.js
+   openReportDialog; App Store guideline 1.2). */
+.models-panel-report {
+  flex: none;
+  width: 28px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+}
+
+.models-panel-report:hover,
+.models-panel-report:focus-visible {
+  opacity: 1;
+  color: #d54646;
+}
+
+.models-panel-under-review {
+  display: block;
+  font-size: 11px;
+  color: #d54646;
+}
+
+.models-panel-blocked button {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px dashed var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.models-panel-blocked-list {
+  list-style: none;
+  padding: 0;
+}
+
+.models-panel-blocked-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.models-panel-blocked-list button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+}

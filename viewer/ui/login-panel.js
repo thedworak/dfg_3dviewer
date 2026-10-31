@@ -1,9 +1,14 @@
 import { core } from "../core.js";
-import { apiUrl, appRequestHeaders, deleteAccountUrl, hasRemote, isAppBuild, setSessionToken } from "../remote.js";
+import {
+  apiUrl, appRequestHeaders, deleteAccountUrl, hasRemote, isAppBuild, manageSubscriptionsUrl, privacyUrl,
+  setSessionToken, termsUrl,
+} from "../remote.js";
 import { t } from "../i18n-utils.js";
 import { onAccountChange, onAppLogin } from "../app-hooks.js";
+import { toastHelper } from "../viewer-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 import { createPasswordField } from "./password-field.js";
+import { openFormDialog } from "./form-dialog.js";
 
 // Worker endpoints (see worker/auth.py). On a page the repository serves,
 // the session is a same-origin cookie; the app (another origin) sends its
@@ -30,15 +35,63 @@ async function authRequest(path, body) {
   return data;
 }
 
-// Opens outside the viewer (in the app: the system browser).
+// Opens outside the viewer (in the app: the system browser): what deleting
+// an account removes, and the other ways to ask for it. Deleting itself is
+// done in the viewer (createDeleteAccountButton).
 export function createDeleteAccountLink() {
   const link = document.createElement("a");
   link.className = "delete-account-link";
   link.href = deleteAccountUrl();
   link.target = "_blank";
   link.rel = "noopener";
-  link.textContent = t("plans.accountDelete", "Delete account and data");
+  link.textContent = t("plans.accountDeleteInfo", "What deleting removes, and other ways");
   return link;
+}
+
+// "Delete account": the signed-in account deletes itself, right here
+// (Viewer.openDeleteAccountDialog; POST /api/auth/delete-account) - the App
+// Store asks for deletion that starts in the app (guideline 5.1.1(v)).
+export function createDeleteAccountButton(Viewer) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "delete-account-button";
+  button.textContent = t("plans.accountDelete", "Delete account and data");
+  button.addEventListener("click", () => Viewer.openDeleteAccountDialog());
+  return button;
+}
+
+// A link opening outside the viewer, for the dialogs and forms below.
+function externalLink(href, text) {
+  const link = document.createElement("a");
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = text;
+  return link;
+}
+
+// "I agree to the Terms of Use and the Privacy Policy" before registering,
+// when there are terms (remote.js termsUrl): they forbid objectionable
+// content (App Store guideline 1.2). Null without terms.
+function createTermsCheckbox() {
+  const terms = termsUrl();
+  if (!terms) return null;
+  const label = document.createElement("label");
+  label.className = "login-terms";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  label.appendChild(box);
+  const text = document.createElement("span");
+  const [before, middle, after] = t(
+    "loginPanel.acceptTerms",
+    "I agree to the {terms} and the {privacy}. Objectionable content and abusive users are not tolerated."
+  ).split(/\{terms\}|\{privacy\}/);
+  text.append(before || "", externalLink(terms, t("legal.terms", "Terms of Use")), middle || "");
+  const privacy = privacyUrl();
+  text.append(privacy ? externalLink(privacy, t("legal.privacy", "Privacy Policy")) : t("legal.privacy", "Privacy Policy"));
+  text.append(after || "");
+  label.appendChild(text);
+  return { element: label, input: box };
 }
 
 // The plan of an account (worker/auth.py effective_app_plan), next to its name.
@@ -192,7 +245,7 @@ export function attachLoginPanel(Viewer) {
         logout.type = "button";
         logout.textContent = t("uploadPanel.logout", "Log out");
         this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
-        section.append(label, logout, createDeleteAccountLink());
+        section.append(label, logout, createDeleteAccountButton(this), createDeleteAccountLink());
         return;
       }
 
@@ -225,15 +278,96 @@ export function attachLoginPanel(Viewer) {
         const register = document.createElement("button");
         register.type = "button";
         register.textContent = t("uploadPanel.register", "Register");
-        this.bindEventListener(register, "click", () =>
+        const terms = createTermsCheckbox();
+        this.bindEventListener(register, "click", () => {
+          if (terms && !terms.input.checked) {
+            this.setLoginStatusText(
+              t("loginPanel.acceptTermsRequired", "To register, agree to the Terms of Use."), "error");
+            terms.input.focus();
+            return;
+          }
           this.handleAuthAction("register", {
             username: username.value.trim(),
             password: password.value,
             email: email.value.trim(),
-          })
-        );
-        section.append(email, register);
+            ...(terms ? { acceptedTerms: true } : {}),
+          });
+        });
+        section.append(email);
+        if (terms) section.append(terms.element);
+        section.append(register);
       }
+    },
+
+    // Deleting the signed-in account, confirmed with its password. Resolves
+    // true once it is gone (signed out everywhere in the viewer).
+    async openDeleteAccountDialog() {
+      const user = this.authState?.user;
+      if (!user) return false;
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t(
+        "loginPanel.deleteIntro",
+        { user },
+        "This permanently deletes the account {user} on this repository, right away. It cannot be undone. Deleted are:"
+      );
+      const list = document.createElement("ul");
+      [
+        t("loginPanel.deleteWhatAccount", "your username, e-mail address and password"),
+        t("loginPanel.deleteWhatModels", "every model you uploaded, with its converted files and thumbnails"),
+        t("loginPanel.deleteWhatPlan", "the app plan linked to the account"),
+      ].forEach((text) => {
+        const item = document.createElement("li");
+        item.textContent = text;
+        list.appendChild(item);
+      });
+      body.append(intro, list);
+
+      // Only the store cancels a subscription; deleting the account does not.
+      const note = document.createElement("p");
+      note.className = "viewer-form-dialog-note";
+      note.textContent = t(
+        "loginPanel.deleteSubscriptionNote",
+        "A subscription is not cancelled by deleting the account: it belongs to your Apple ID or Google account. Cancel it in the store's subscription settings first, if you have one. Purchases can be restored on this device later."
+      );
+      const manage = manageSubscriptionsUrl();
+      if (manage) {
+        note.append(" ", externalLink(manage, t("plans.manageSubscription", "Manage subscriptions")));
+      }
+      body.appendChild(note);
+
+      const { field: passwordField, input: password } = createPasswordField();
+      const passwordLabel = document.createElement("label");
+      passwordLabel.textContent = t("loginPanel.deletePassword", "Enter your password to confirm");
+      passwordLabel.appendChild(passwordField);
+      body.appendChild(passwordLabel);
+
+      const more = document.createElement("p");
+      more.appendChild(externalLink(deleteAccountUrl(), t("plans.accountDeleteInfo", "What deleting removes, and other ways")));
+      body.appendChild(more);
+
+      const result = await openFormDialog({
+        title: t("loginPanel.deleteTitle", "Delete account"),
+        body,
+        confirmLabel: t("loginPanel.deleteConfirm", "Delete account"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+        danger: true,
+        onConfirm: async () => {
+          if (!password.value) {
+            throw new Error(t("loginPanel.deletePasswordMissing", "Enter your password."));
+          }
+          return authRequest("delete-account", { password: password.value });
+        },
+      });
+      if (!result) return false;
+      setSessionToken("");
+      onAccountChange(null);
+      await this.refreshAuthState();
+      this.refreshAIConfig?.();
+      if (this.plansPanel?.hidden === false) this.renderPlansPanel?.();
+      this.loadModelsList?.();
+      toastHelper("accountDeleted", "success");
+      return true;
     },
 
     async handleAuthAction(action, credentials) {

@@ -198,7 +198,7 @@ class AuthStore:
 
     # ---- accounts ------------------------------------------------------
 
-    def register(self, username: str, password: str, email: str) -> dict:
+    def register(self, username: str, password: str, email: str, accepted_terms: bool = False) -> dict:
         if not self.enabled:
             raise AuthError(404, "Accounts are not enabled.")
         if self.registration == "closed":
@@ -218,6 +218,10 @@ class AuthStore:
                 "status": status,
                 "createdAt": int(time.time()),
             }
+            # When the registration form asked for the terms of use (the
+            # app's, viewer/ui/login-panel.js): when they were accepted.
+            if accepted_terms:
+                users[username]["termsAcceptedAt"] = int(time.time())
             self._save(users)
         return {"username": username, "status": status}
 
@@ -446,6 +450,37 @@ class AuthStore:
         if was_pending and record.get("email"):
             return {"username": username, "email": record["email"]}
         return None
+
+    def delete_own_account(self, username: str, password: str) -> dict:
+        """Deleting an account by its owner (POST /api/auth/delete-account,
+        App Store guideline 5.1.1(v)): the password confirms it, like a login,
+        with the same lockout. The last active admin cannot delete itself -
+        the server would be left without one. Returns the removed record
+        (its appPlan tells the caller which store customer to forget)."""
+        if not self.enabled:
+            raise AuthError(404, "Accounts are not enabled.")
+        key = str(username).lower()
+        count, locked_until = self._failures.get(key, (0, 0))
+        if locked_until > time.time():
+            raise AuthError(429, "Too many failed attempts. Try again in a few minutes.")
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            if not _verify_password(str(password), record.get("passwordHash", "")):
+                count += 1
+                self._failures[key] = (count, time.time() + LOCKOUT_SECONDS if count >= MAX_FAILED_LOGINS else 0)
+                raise AuthError(401, "Invalid password.")
+            self._failures.pop(key, None)
+            if record.get("role") == "admin":
+                others = [name for name, rec in users.items()
+                          if name != username and rec.get("role") == "admin" and rec.get("status") == "active"]
+                if not others:
+                    raise AuthError(409, "The last administrator cannot delete their account.")
+            users.pop(username)
+            self._save(users)
+        return record
 
     def delete_user(self, username: str) -> None:
         with self._lock:

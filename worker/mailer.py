@@ -76,3 +76,46 @@ def send_account_approved(username: str, email: str, background: bool = True) ->
         threading.Thread(target=run, daemon=True).start()
     else:
         run()
+
+
+def send_content_report(report: dict, background: bool = True) -> None:
+    """Tells the moderators (WORKER_REPORTS_EMAIL, comma-separated) about a
+    reported model (reports.py). Never raises: the report is stored anyway
+    and listed in the admin panel."""
+    recipients = [part.strip() for part in os.environ.get("WORKER_REPORTS_EMAIL", "").split(",") if part.strip()]
+    if not enabled() or not recipients:
+        return
+    sender = os.environ.get("WORKER_SMTP_FROM") or os.environ.get("WORKER_SMTP_USER", "")
+    if not sender:
+        print("mail: WORKER_SMTP_FROM (or WORKER_SMTP_USER) is required to send mail", file=sys.stderr)
+        return
+    url = os.environ.get("WORKER_PUBLIC_URL", "").strip()
+    message = EmailMessage()
+    message["Subject"] = f"Model reported: {report.get('reason')} ({report.get('jobId')})"
+    message["From"] = sender
+    message["To"] = ", ".join(recipients)
+    lines = [
+        "A model was reported and is waiting for a decision (please act within 24 hours).",
+        "",
+        f"Model:    {report.get('jobId')}",
+        f"Uploader: {report.get('owner') or '(anonymous)'}",
+        f"Reason:   {report.get('reason')}",
+        f"Reporter: {report.get('reporterUser') or '(not signed in)'}",
+        "",
+        report.get("details") or "(no details)",
+        "",
+        f"Decide in the admin panel ({url}/exadmin/), Reports." if url else "Decide in the admin panel, Reports.",
+        "Or: docker compose exec worker python3 /app/worker/server.py admin reports",
+    ]
+    message.set_content("\n".join(lines))
+
+    def run() -> None:
+        try:
+            _send(message)
+        except Exception as exc:  # noqa: BLE001 - logged, never propagated
+            print(f"mail: could not send report mail: {exc}", file=sys.stderr)
+
+    if background:
+        threading.Thread(target=run, daemon=True).start()
+    else:
+        run()

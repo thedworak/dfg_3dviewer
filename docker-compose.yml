@@ -76,6 +76,11 @@ services:
       - WORKER_SMTP_PASSWORD=${WORKER_SMTP_PASSWORD:-}
       - WORKER_SMTP_FROM=${WORKER_SMTP_FROM:-}
       - WORKER_PUBLIC_URL=${WORKER_PUBLIC_URL:-}
+      # Reported models (worker/reports.py): who gets mailed about a report
+      # (comma-separated; needs the SMTP settings above), and after how many
+      # reporters a model leaves the list until an admin decides (0 = never).
+      - WORKER_REPORTS_EMAIL=${WORKER_REPORTS_EMAIL:-}
+      - WORKER_REPORT_HIDE_THRESHOLD=${WORKER_REPORT_HIDE_THRESHOLD:-3}
       # Optional AI assistance (Claude API) - see docs/ai.md. Off unless
       # WORKER_AI_ENABLED=true and an ANTHROPIC_API_KEY is set.
       - WORKER_AI_ENABLED=${WORKER_AI_ENABLED:-false}

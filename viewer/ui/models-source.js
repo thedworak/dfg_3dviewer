@@ -3,6 +3,15 @@ import { t } from "../i18n-utils.js";
 import { toastHelper } from "../viewer-utils.js";
 import { hasFeature } from "../app-features.js";
 import { createLockIcon } from "./lock-icon.js";
+import { anchorPanelUnder } from "./panel-window.js";
+
+// The header button a panel was opened from (event.currentTarget), so the
+// panel drops down under it like on the web page (anchorPanelUnder) rather
+// than at its default place inside the viewer, below the thumbnail gallery.
+function headerButtonOf(event) {
+  const target = event?.currentTarget;
+  return target instanceof Element && target.closest("header, #example-model-picker") ? target : null;
+}
 
 // The app's "Models" button opens the models on the device
 // (library-panel.js), those in ExHUB, the repository (models-panel.js), or
@@ -27,6 +36,7 @@ export function attachModelsSource(Viewer) {
     // opens the one used last.
     toggleModelsSource(event) {
       event?.preventDefault?.();
+      this.modelsSourceAnchor = headerButtonOf(event) || this.modelsSourceAnchor;
       const open = this.libraryPanel?.hidden === false || this.modelsPanel?.hidden === false ||
         this.examplesPanel?.hidden === false;
       if (open) {
@@ -43,6 +53,7 @@ export function attachModelsSource(Viewer) {
     // closes them.
     toggleExhub(event) {
       event?.preventDefault?.();
+      this.modelsSourceAnchor = headerButtonOf(event) || this.modelsSourceAnchor;
       if (this.modelsPanel?.hidden === false) {
         this.closeModelsPanel?.();
         return;
@@ -54,6 +65,7 @@ export function attachModelsSource(Viewer) {
       if (source === "remote" && !hasFeature("remoteModels")) {
         toastHelper("planLocked", "info", { key: "plan-locked", replace: true });
         this.showLockedFeature?.("remoteModels");
+        if (this.modelsSourceAnchor?.isConnected) anchorPanelUnder(this.plansPanel, this.modelsSourceAnchor);
         return;
       }
       try {
@@ -83,6 +95,9 @@ export function attachModelsSource(Viewer) {
         this.libraryPanel.hidden = false;
         this.loadLibraryList();
       }
+      // Switching between the sources keeps the panel in the same place.
+      const panel = { examples: this.examplesPanel, remote: this.modelsPanel }[source] || this.libraryPanel;
+      if (this.modelsSourceAnchor?.isConnected) anchorPanelUnder(panel, this.modelsSourceAnchor);
     },
 
     // Placed under a panel's header; `active` is the panel it sits in.

@@ -4176,7 +4176,12 @@ export const Viewer = {
         if (loginButton) {
           Viewer.loginButton = loginButton;
           Viewer.updateLoginMenuEntryState();
-          Viewer.bindEventListener(loginButton, "click", Viewer.openLoginPanel.bind(Viewer));
+          // In the app the account panel drops down under its button too
+          // (otherwise it sits inside the viewer, below the gallery).
+          Viewer.bindEventListener(loginButton, "click", (event) => {
+            Viewer.openLoginPanel(event);
+            if (isAppBuild()) anchorPanelUnder(Viewer.loginPanel, loginButton);
+          });
         }
         if (manageUsersButton) {
           Viewer.manageUsersButton = manageUsersButton;

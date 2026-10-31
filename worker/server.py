@@ -31,8 +31,11 @@ could talk to either backend interchangeably:
   POST /api/jobs/<id>/metadata  {name, type, ...} - owner or admin
                                 (model_metadata.py)
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
+  POST /api/jobs/<id>/report {reason, details} - anyone who sees it (reports.py)
+  GET  /api/admin/reports       POST /api/admin/reports/<rid> {action} - admins
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
-  GET  /api/auth/me                 POST /api/auth/register|login|logout -
+  GET  /api/auth/me                 POST /api/auth/register|login|logout|
+                                    delete-account -
   POST /api/auth/...                see worker/auth.py and worker/README.md)
   POST /api/app/link|sync|unlink  an app's plan on an account (only with an
                                   entitlements module, see below)
@@ -82,6 +85,7 @@ import mailer
 import manifests
 import model_metadata
 import optimize
+import reports
 import remote_fetch
 import pointcloud
 import splat_volume
@@ -135,6 +139,8 @@ AUTH = AuthStore(
     registration=os.environ.get("WORKER_AUTH_REGISTRATION", "approval").lower(),
     secret=os.environ.get("WORKER_AUTH_SECRET", ""),
 )
+# Reports of objectionable models (worker/reports.py), next to the accounts.
+REPORTS = reports.ReportStore(JOBS_DIR / ".reports")
 # Upload limits (see worker/limits.py for the per-account WORKER_LIMIT_*
 # defaults). Conversions beyond this many at once wait in the "queued" status.
 MAX_CONCURRENT_CONVERSIONS = int(os.environ.get("WORKER_MAX_CONCURRENT_CONVERSIONS", "2"))
@@ -415,15 +421,51 @@ def can_delete_job(job_id: str, user) -> bool:
     return bool(owner and owner.get("user") == user["username"])
 
 
+def is_under_review(job_id: str, owner, user, hidden: set) -> bool:
+    """A model reported by enough people (reports.py hidden_jobs) is left
+    out for everyone but its owner and admins until an admin decides."""
+    if job_id not in hidden:
+        return False
+    if user and (user.get("role") == "admin" or (owner and owner.get("user") == user.get("username"))):
+        return False
+    return True
+
+
+def remove_job(job_id: str, host: str = "") -> bool:
+    """Deletes a job's folder (input, converted files, renders) and purges
+    it from Cloudflare. False when there was nothing to delete."""
+    job_dir = JOBS_DIR / job_id
+    if not JOB_ID_RE.fullmatch(job_id) or not job_dir.is_dir():
+        return False
+    shutil.rmtree(job_dir)
+    with JOBS_LOCK:
+        JOBS.pop(job_id, None)
+    cloudflare.purge_paths_async([f"/files/{job_id}/"], host)
+    return True
+
+
+def jobs_owned_by(username: str) -> list:
+    if not username or not JOBS_DIR.is_dir():
+        return []
+    return [
+        job_dir.name for job_dir in JOBS_DIR.iterdir()
+        if job_dir.is_dir() and JOB_ID_RE.fullmatch(job_dir.name)
+        and (read_owner(job_dir.name) or {}).get("user") == username
+    ]
+
+
 def list_jobs(user=None):
     jobs = []
     if not JOBS_DIR.is_dir():
         return jobs
+    hidden = REPORTS.hidden_jobs()
     for job_dir in JOBS_DIR.iterdir():
         if not job_dir.is_dir() or not JOB_ID_RE.fullmatch(job_dir.name):
             continue
         owner = read_owner(job_dir.name)
         if not can_see_job(owner, user):
+            continue
+        if is_under_review(job_dir.name, owner, user, hidden):
             continue
         try:
             job = scan_job(job_dir.name, job_dir)
@@ -441,6 +483,10 @@ def list_jobs(user=None):
             # field comes back null.
             job["owner"] = owner.get("user") if owner else None
             job["private"] = bool(owner and owner.get("private"))
+            # Shown to its owner and admins: out of the list for the others
+            # until an admin decides on the reports (reports.py).
+            if job_dir.name in hidden:
+                job["underReview"] = True
             # Name, type, author... (model_metadata.py); null for models
             # added without them.
             job["metadata"] = model_metadata.read(job_dir)
@@ -961,9 +1007,13 @@ class Handler(BaseHTTPRequestHandler):
             if action == "logout":
                 self._send_json(200, {"status": "ok"}, cookie=AUTH.cookie_header("", self._cookie_is_secure(), clear=True))
                 return
+            if action == "delete-account":
+                self._handle_delete_account()
+                return
             data = self._read_json_body()
             if action == "register":
-                result = AUTH.register(data.get("username", ""), data.get("password", ""), data.get("email", ""))
+                result = AUTH.register(data.get("username", ""), data.get("password", ""), data.get("email", ""),
+                                       accepted_terms=data.get("acceptedTerms") is True)
                 self._send_json(201, result)
             elif action == "login":
                 user = AUTH.login(data.get("username", ""), data.get("password", ""))
@@ -975,6 +1025,120 @@ class Handler(BaseHTTPRequestHandler):
                     payload["token"] = token
                 self._send_json(200, payload, cookie=AUTH.cookie_header(token, self._cookie_is_secure()))
         except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_delete_account(self) -> None:
+        """POST /api/auth/delete-account {"password"}: the signed-in account
+        deletes itself and everything it owns on this server, at once (App
+        Store guideline 5.1.1(v)): its uploaded models, the app purchase
+        linked to it (and, when the entitlements module can, its customer
+        record at the purchase service) and its name in the reports it sent. Purchases stay with
+        the store account (Apple ID / Google account) that made them, and a
+        subscription is not cancelled - only the store can do that."""
+        user = self._current_user()
+        if not AUTH.enabled:
+            raise AuthError(404, "Accounts are not enabled.")
+        if user is None:
+            raise AuthError(401, "Login required")
+        data = self._read_json_body()
+        username = user["username"]
+        record = AUTH.delete_own_account(username, data.get("password", ""))
+        host = self.headers.get("Host", "")
+        removed = sum(1 for job_id in jobs_owned_by(username) if remove_job(job_id, host))
+        REPORTS.forget_reporter_user(username)
+        app_user_id = (record.get("appPlan") or {}).get("appUserId")
+        store_customer_deleted = False
+        delete_customer = getattr(ENTITLEMENTS, "delete_customer", None)
+        if app_user_id and delete_customer:
+            try:
+                store_customer_deleted = bool(delete_customer(app_user_id))
+            except Exception as exc:  # noqa: BLE001 - the account is gone either way
+                print(f"[account] {username}: store customer not deleted: {exc}", file=sys.stderr)
+        print(f"[account] {username} deleted their account ({removed} models)", file=sys.stderr)
+        self._send_json(200, {
+            "status": "deleted",
+            "removedModels": removed,
+            "storeCustomerDeleted": store_customer_deleted,
+        }, cookie=AUTH.cookie_header("", self._cookie_is_secure(), clear=True))
+
+    def _reporter_key(self, user) -> str:
+        """Who sent a report: one report per model each, and the hourly
+        limit. An account, else the app's user id, else the IP."""
+        if user:
+            return f"user:{user['username']}"
+        app_user_id = self.headers.get("X-App-User-Id", "").strip()
+        if app_user_id and re.fullmatch(r"[A-Za-z0-9_$:.@-]{1,200}", app_user_id):
+            return f"app:{app_user_id}"
+        return f"ip:{self._client_ip()}"
+
+    def _handle_report(self, job_id: str) -> None:
+        """POST /api/jobs/<id>/report {"reason", "details"}: anyone who sees
+        the model in the list may report it (reports.py)."""
+        user = self._current_user()
+        owner = read_owner(job_id)
+        if not (JOBS_DIR / job_id).is_dir() or not can_see_job(owner, user):
+            self._send_json(404, {"error": "not found"})
+            return
+        try:
+            data = self._read_json_body(8192)
+            report = REPORTS.add(
+                job_id, (owner or {}).get("user"), self._reporter_key(user),
+                user["username"] if user else None, data.get("reason", ""), data.get("details", ""),
+            )
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        except reports.ReportError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        mailer.send_content_report(report)
+        print(f"[report] {job_id}: {report['reason']} by {report['reporter']}", file=sys.stderr)
+        self._send_json(201, {"status": "reported", "id": report["id"]})
+
+    def _admin_reports_payload(self) -> dict:
+        items = REPORTS.list()
+        for item in items:
+            owner = read_owner(item["jobId"])
+            job_dir = JOBS_DIR / item["jobId"]
+            item["modelExists"] = job_dir.is_dir()
+            try:
+                item["modelUrl"] = (scan_job(item["jobId"], job_dir) or {}).get("modelUrl") if job_dir.is_dir() else None
+            except OSError:
+                item["modelUrl"] = None
+            item["modelName"] = ((model_metadata.read(job_dir) or {}).get("name") if job_dir.is_dir() else None) \
+                or (owner or {}).get("filename")
+            # Reporters are kept apart, not named: an IP or app id stays here.
+            item.pop("reporter", None)
+        return {"reports": items, "hideThreshold": REPORTS.hide_threshold}
+
+    def _handle_admin_resolve_report(self, report_id: str) -> None:
+        """POST /api/admin/reports/<id> {"action": "dismiss" | "remove-model"
+        | "disable-user"}: closes the report (and the model's other open
+        ones), deleting the model or disabling its uploader on the way."""
+        admin = self._require_admin()
+        if admin is None:
+            return
+        try:
+            action = self._read_json_body().get("action")
+            report = REPORTS.get(report_id)
+            if report is None:
+                raise reports.ReportError(404, "No such report.")
+            if action not in reports.ACTIONS:
+                raise reports.ReportError(400, f"action must be one of {', '.join(reports.ACTIONS)}")
+            if action == "remove-model":
+                remove_job(report["jobId"], self.headers.get("Host", ""))
+            elif action == "disable-user":
+                owner = report.get("owner")
+                if not owner:
+                    raise reports.ReportError(400, "This model has no owner to disable.")
+                if owner == admin["username"]:
+                    raise reports.ReportError(400, "You cannot demote or disable your own account.")
+                AUTH.update_user(owner, status="disabled")
+            REPORTS.resolve(report_id, action, admin["username"])
+            self._send_json(200, {"status": "ok"})
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+        except reports.ReportError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
     def _verified_app_plan(self, app_user_id: str, claimed_tier: str = "") -> dict:
@@ -1241,6 +1405,12 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_metadata_get(match.group(1))
             return
 
+        if path == "/api/admin/reports":
+            if self._require_admin() is None:
+                return
+            self._send_json(200, self._admin_reports_payload())
+            return
+
         match = re.fullmatch(r"/api/manifests/([^/]+)\.json", path)
         if match:
             self._serve_manifest(match.group(1))
@@ -1286,7 +1456,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/model/settings":
             self._handle_settings_save()
             return
-        match = re.fullmatch(r"/api/auth/(register|login|logout)", path)
+        match = re.fullmatch(r"/api/auth/(register|login|logout|delete-account)", path)
         if match:
             self._handle_auth(match.group(1))
             return
@@ -1308,6 +1478,14 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)/metadata", path)
         if match:
             self._handle_metadata_save(match.group(1))
+            return
+        match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)/report", path)
+        if match:
+            self._handle_report(match.group(1))
+            return
+        match = re.fullmatch(r"/api/admin/reports/([0-9a-f]{16})", path)
+        if match:
+            self._handle_admin_resolve_report(match.group(1))
             return
         match = re.fullmatch(r"/api/admin/jobs/([A-Za-z0-9_-]+)", path)
         if match:
@@ -1431,10 +1609,7 @@ class Handler(BaseHTTPRequestHandler):
         if not can_delete_job(job_id, user or None):
             self._send_json(403, {"error": "You can only delete your own uploads"})
             return
-        shutil.rmtree(job_dir)
-        with JOBS_LOCK:
-            JOBS.pop(job_id, None)
-        cloudflare.purge_paths_async([f"/files/{job_id}/"], self.headers.get("Host", ""))
+        remove_job(job_id, self.headers.get("Host", ""))
         self._send_json(200, {"status": "deleted"})
 
     def _handle_create(self) -> None:
@@ -2003,6 +2178,7 @@ def admin_cli(args) -> None:
         "users | uploads | usage | limits <user> [key=value|key=default ...] | "
         "plan <user> [free|pro|business|enterprise|purchase] [days] | "
         "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user> | "
+        "reports [all] | report <id> dismiss|remove-model|disable-user | "
         "rebuild-splats [--force] [<job id> ...] | import <file> [--user <name>]"
     )
     if not args:
@@ -2070,6 +2246,22 @@ def admin_cli(args) -> None:
             if record is None:
                 sys.exit(f"No such user: {user}")
             print(json.dumps(record["plan"], indent=2))
+        elif command == "reports":
+            for item in REPORTS.list(None if rest[:1] == ["all"] else "open"):
+                when = time.strftime("%Y-%m-%d %H:%M", time.localtime(item["createdAt"]))
+                state = item["status"] if item["status"] == "open" else f"{item['status']}: {item.get('action')}"
+                print(f"{when}  {item['id']}  {item['jobId']}  {item.get('owner') or '(none)':<20} "
+                      f"{item['reason']:<10} [{state}]  {item.get('details', '')[:60]}")
+        elif command == "report" and len(rest) == 2:
+            report = REPORTS.get(rest[0])
+            if report is None:
+                sys.exit(f"No such report: {rest[0]}")
+            if rest[1] == "remove-model":
+                remove_job(report["jobId"])
+            elif rest[1] == "disable-user" and report.get("owner"):
+                AUTH.update_user(report["owner"], status="disabled")
+            REPORTS.resolve(rest[0], rest[1], "cli")
+            print(f"ok: {rest[1]} ({report['jobId']})")
         elif command == "rebuild-splats":
             rebuild_splats_cli(rest)
         elif command == "import":
@@ -2092,7 +2284,7 @@ def admin_cli(args) -> None:
             print(f"ok: {command} {user}")
         else:
             sys.exit(f"usage: server.py admin {commands}")
-    except AuthError as exc:
+    except (AuthError, reports.ReportError) as exc:
         sys.exit(exc.message)
 
 

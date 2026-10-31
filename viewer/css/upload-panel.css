@@ -514,3 +514,80 @@
     transition: none;
   }
 }
+
+/* Dialog with fields (form-dialog.js): deleting an account, reporting a model */
+.viewer-form-dialog {
+  width: min(380px, 100%);
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+}
+
+.viewer-form-dialog-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.viewer-form-dialog p {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.viewer-form-dialog ul {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+
+.viewer-form-dialog label {
+  display: block;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.viewer-form-dialog label.viewer-form-dialog-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-weight: 400;
+}
+
+.viewer-form-dialog input:not([type="checkbox"]),
+.viewer-form-dialog select,
+.viewer-form-dialog textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--viewer-panel-border);
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-weight: 400;
+}
+
+.viewer-form-dialog textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.viewer-form-dialog a {
+  color: inherit;
+}
+
+.viewer-form-dialog .viewer-form-dialog-note {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 8%, transparent);
+}
+
+.viewer-form-dialog-error {
+  color: #d54646;
+  font-weight: 600;
+}
+
+.viewer-form-dialog .viewer-confirm-ok:disabled,
+.viewer-form-dialog .viewer-confirm-cancel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
