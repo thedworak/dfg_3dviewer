@@ -729,6 +729,19 @@ body[data-viewer-theme="dark"] #planButton {
   line-height: 1.4;
 }
 
+/* Not the text fields' full width (upload-panel.css .upload-panel-auth
+   input), which left no room for the text beside it. */
+.upload-panel-auth .login-terms input {
+  flex: none;
+  width: auto;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.login-terms span {
+  min-width: 0;
+}
+
 .login-terms a {
   color: inherit;
 }

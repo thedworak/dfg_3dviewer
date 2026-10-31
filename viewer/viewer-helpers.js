@@ -313,6 +313,24 @@ export function shouldIgnoreLegacyEmbedDefaultModel(viewer) {
   return /^(?:\.{1,2}\/)?examples\/box\.stl(?:\?.*)?$/i.test(currentModelAttr);
 }
 
+// The container's model is the "3d" attribute. setAttribute("3d", ...)
+// throws InvalidCharacterError in WebKit before the DOM spec relaxed
+// attribute names (iOS 26 and older, so the iOS app too): a name can't
+// start with a digit there. The HTML parser takes it, and an Attr node
+// is set without the name check, so the node comes from the parser.
+export function setModelAttribute(element, value) {
+  const existing = element.getAttributeNode("3d");
+  if (existing) {
+    existing.value = value;
+    return;
+  }
+  const template = document.createElement("template");
+  template.innerHTML = '<div 3d=""></div>';
+  const attr = template.content.firstElementChild.getAttributeNode("3d").cloneNode();
+  attr.value = value;
+  element.setAttributeNode(attr);
+}
+
 export function buildGallery(viewer) {
   return buildThumbnailGallery(viewer);
 }

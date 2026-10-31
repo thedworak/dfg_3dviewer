@@ -190,6 +190,7 @@ import {
   recreateBoundingBox,
   normalizeFileUrl,
   shouldIgnoreLegacyEmbedDefaultModel,
+  setModelAttribute,
   buildGallery,
   renderModelGalleryImages,
   toHexColor,
@@ -1909,7 +1910,7 @@ export const Viewer = {
     setCore('currentLanguage', this.currentLanguage);
 
     if (this.urlOptions.model) {
-      this.container.setAttribute("3d", this.urlOptions.model);
+      setModelAttribute(this.container, this.urlOptions.model);
     }
     if (this.shouldIgnoreLegacyEmbedDefaultModel()) {
       this.container.removeAttribute("3d");
@@ -1920,7 +1921,7 @@ export const Viewer = {
     this.baseContainerRect = { width: this.rect.width, height: this.rect.height };
     const e2eModel = this.getE2EModelOverride();
     if (e2eModel) {
-      core.container.setAttribute("3d", e2eModel);
+      setModelAttribute(core.container, e2eModel);
     }
 
     this.fileObject.originalPath = this.normalizeFileUrl(core.container.getAttribute("3d"));
@@ -4280,7 +4281,7 @@ export const Viewer = {
           renderExampleModelOptions(selectModel);
           selectExampleModel(selectModel, selectedModel);
           Viewer.watchExampleModelList(selectModel);
-          viewerElement.setAttribute('3d', selectedModel);
+          setModelAttribute(viewerElement, selectedModel);
           if (themeToggle) {
             themeToggle.hidden = true;
           }
