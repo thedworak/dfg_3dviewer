@@ -4075,6 +4075,107 @@ test('volumes in a .zip by URL: opened in the browser when the repository has no
   }
 });
 
+test('volume settings on a phone: minimized to their icon, opened as a modal window, folded by a tap beside it', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const phone = await context.newPage();
+  await openViewer(phone, '/examples/volumes/capsid.mrc');
+  await waitForModel(phone, 40_000);
+  const panel = phone.locator('#viewerVolumePanel');
+  const pip = panel.locator('.tool-panel-chrome_pip');
+  const backdrop = phone.locator('.tool-panel-chrome_backdrop');
+  const toolButton = phone.locator('button[data-tool="volume"]');
+  // There, but only as its icon.
+  await expect(panel).toHaveClass(/is-minimized/);
+  await expect(pip).toBeVisible();
+  await expect(panel.locator('.viewer-pointcloud-panel_body')).toBeHidden();
+  await expect(backdrop).toHaveCount(0);
+  await expect(toolButton).toHaveAttribute('aria-pressed', 'false');
+  const place = () => panel.evaluate((el) => el.parentElement?.className || el.parentElement?.id);
+  const docked = await place();
+
+  // A tap: a window over the viewer, on a backdrop.
+  await pip.click();
+  await expect(panel).toHaveClass(/is-modal-open/);
+  await expect(panel).toHaveAttribute('aria-modal', 'true');
+  await expect(backdrop).toBeVisible();
+  await expect(toolButton).toHaveAttribute('aria-pressed', 'true');
+  const box = await panel.boundingBox();
+  expect(Math.abs(box.x + box.width / 2 - 195)).toBeLessThan(4);
+  expect(box.width).toBeLessThanOrEqual(380);
+
+  // A tap beside it: back to its icon, where it was.
+  await backdrop.click({ position: { x: 20, y: 20 } });
+  await expect(panel).toHaveClass(/is-minimized/);
+  await expect(panel).not.toHaveClass(/is-modal-open/);
+  await expect(backdrop).toHaveCount(0);
+  expect(await place()).toBe(docked);
+
+  // The toolbar's button opens it and folds it; Escape folds it too.
+  await phone.evaluate(() => window.Viewer.toggleVolumePanel());
+  await expect(panel).toHaveClass(/is-modal-open/);
+  await phone.keyboard.press('Escape');
+  await expect(panel).toHaveClass(/is-minimized/);
+  await phone.evaluate(() => window.Viewer.toggleVolumePanel());
+  await phone.evaluate(() => window.Viewer.toggleVolumePanel());
+  await expect(panel).toHaveClass(/is-minimized/);
+  await context.close();
+});
+
+test('point cloud settings on a phone: minimized to their icon, opened as a modal window, folded by a tap beside it', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const phone = await context.newPage();
+  await openViewer(phone, '/examples/points.laz');
+  await phone.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
+  const panel = phone.locator('#viewerPointCloudPanel');
+  const pip = panel.locator('.tool-panel-chrome_pip');
+  const backdrop = phone.locator('.tool-panel-chrome_backdrop');
+  const toolButton = phone.locator('button[data-tool="pointCloud"]');
+  await expect(panel).toHaveClass(/is-minimized/);
+  await expect(pip).toBeVisible();
+  await expect(panel.locator('.viewer-pointcloud-panel_body')).toBeHidden();
+  await expect(toolButton).toHaveAttribute('aria-pressed', 'false');
+  const docked = await panel.evaluate((el) => el.parentElement?.className || el.parentElement?.id);
+
+  await pip.click();
+  await expect(panel).toHaveClass(/is-modal-open/);
+  await expect(backdrop).toBeVisible();
+  await expect(panel.locator('.viewer-pointcloud-panel_body')).toBeVisible();
+  await expect(toolButton).toHaveAttribute('aria-pressed', 'true');
+  // The settings work in the window.
+  await panel.locator('select').nth(2).selectOption('height');
+  expect(await phone.evaluate(() => window.Viewer.pointCloudState.colorMode)).toBe('height');
+
+  await backdrop.click({ position: { x: 20, y: 20 } });
+  await expect(panel).toHaveClass(/is-minimized/);
+  await expect(backdrop).toHaveCount(0);
+  expect(await panel.evaluate((el) => el.parentElement?.className || el.parentElement?.id)).toBe(docked);
+
+  await phone.evaluate(() => window.Viewer.togglePointCloudPanel());
+  await expect(panel).toHaveClass(/is-modal-open/);
+  await phone.keyboard.press('Escape');
+  await expect(panel).toHaveClass(/is-minimized/);
+
+  // Drawing a profile: the window folds, so its two clicks reach the cloud.
+  await pip.click();
+  await panel.getByRole('button', { name: 'Draw profile' }).click();
+  await expect(panel).toHaveClass(/is-minimized/);
+  await expect(backdrop).toHaveCount(0);
+  expect(await phone.evaluate(() => window.Viewer.isPointCloudProfilePicking())).toBe(true);
+  await context.close();
+});
+
+test('volume settings on a desktop: open in the side stack, not modal', async ({ page }) => {
+  await openViewer(page, '/examples/volumes/capsid.mrc');
+  await waitForModel(page, 40_000);
+  const panel = page.locator('#viewerVolumePanel');
+  await expect(panel.locator('.viewer-pointcloud-panel_body')).toBeVisible();
+  await expect(panel).not.toHaveClass(/is-minimized|is-modal-open/);
+  await panel.locator('.tool-panel-chrome_minimize').click();
+  await panel.locator('.tool-panel-chrome_pip').click();
+  await expect(panel).not.toHaveClass(/is-modal-open/);
+  await expect(page.locator('.tool-panel-chrome_backdrop')).toHaveCount(0);
+});
+
 test('a .zip the repository converted: loaded from its conversion, not downloaded', async ({ page }) => {
   // The repository keeps <name>_ZIP/<name>.glb next to the archive.
   const glb = fs.readFileSync('viewer/examples/box.glb');

@@ -1,7 +1,7 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 import { toastHelper } from "../viewer-utils.js";
 
@@ -16,8 +16,11 @@ import { toastHelper } from "../viewer-utils.js";
 //   microscope, lasers, when it was taken.
 //
 // The settings live on the volume mesh (userData.volume) and are pushed into
-// its shader by applyVolumeSettings(). Like the point cloud window, it opens
-// by itself except on phones; the toolbar's volume button toggles it.
+// its shader by applyVolumeSettings(). It opens by itself, in the side
+// stack; on phones - where its settings would cover the model - it appears
+// minimized to its icon and opens as a modal window over the viewer
+// (tool-panel-chrome.js), folded again by a tap beside it. The toolbar's
+// volume button toggles it (on phones: opens or folds the window).
 
 const DENSITY_MIN = 0.002;
 const DENSITY_MAX = 1;
@@ -41,6 +44,7 @@ const CT_WINDOWS = [
 ];
 
 const percent = (value) => `${Math.round(value * 100)}%`;
+const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
 
 export function attachVolumePanel(Viewer) {
   Object.assign(Viewer, {
@@ -60,7 +64,7 @@ export function attachVolumePanel(Viewer) {
         api: null,
         loading: false,
         collapsed: false,
-        hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
+        hidden: false,
         ui: null,
       };
       Viewer.volumeState = state;
@@ -85,14 +89,26 @@ export function attachVolumePanel(Viewer) {
       return Boolean(Viewer.volumeState?.ui);
     },
 
+    // Its toolbar button pressed: shown - on phones, open (not its icon).
     isVolumePanelVisible() {
       const state = Viewer.volumeState;
-      return Boolean(state?.ui && !state.hidden);
+      return Boolean(state?.ui && !state.hidden && !(isPhone() && isToolPanelMinimized(state.ui.root)));
     },
 
     toggleVolumePanel() {
       const state = Viewer.volumeState;
       if (!state?.ui) return;
+      // Phones: the modal window opens (from its icon, or closed), or folds
+      // back to its icon.
+      if (isPhone()) {
+        const open = !state.hidden && !isToolPanelMinimized(state.ui.root);
+        state.hidden = false;
+        state.collapsed = false;
+        Viewer.syncVolumePanel();
+        setToolPanelMinimized(state.ui.root, open);
+        Viewer.updateEditorToolbarState?.();
+        return;
+      }
       state.hidden = !state.hidden;
       if (!state.hidden) state.collapsed = false;
       Viewer.syncVolumePanel();
@@ -150,7 +166,9 @@ export function attachVolumePanel(Viewer) {
       header.append(title, collapse);
       attachToolPanelChrome(root, header, {
         icon: PANEL_ICONS.volume,
-        onClose: () => Viewer.toggleVolumePanel(),
+        label: () => t("volume.title", "Volume"),
+        modal: isPhone,
+        onClose: () => Viewer.closeVolumePanel(),
       });
 
       const body = document.createElement("div");
@@ -159,6 +177,18 @@ export function attachVolumePanel(Viewer) {
       stack.appendChild(root);
       state.ui = { root, title, collapse, body, labels: [] };
       Viewer.buildVolumePanelBody();
+      if (isPhone()) setToolPanelMinimized(root, true, { focus: false });
+      // Minimized or restored from its icon, its backdrop or Escape too.
+      new MutationObserver(() => Viewer.updateEditorToolbarState?.()).observe(root, { attributes: true, attributeFilter: ["class"] });
+    },
+
+    // Its close button: gone until the toolbar's volume button.
+    closeVolumePanel() {
+      const state = Viewer.volumeState;
+      if (!state?.ui) return;
+      state.hidden = true;
+      Viewer.syncVolumePanel();
+      Viewer.updateEditorToolbarState?.();
     },
 
     // The controls, built again when the stack or the rendering changes
@@ -378,7 +408,8 @@ export function attachVolumePanel(Viewer) {
       ui.root.setAttribute("aria-label", title);
       ui.title.textContent = state.loading ? t("volume.loading", "Loading the stack…") : title;
       ui.root.hidden = state.hidden;
-      ui.body.hidden = state.collapsed;
+      // A modal window (phones) has no folding of its own: its icon is that.
+      ui.body.hidden = state.collapsed && !isPhone();
       ui.collapse.textContent = state.collapsed ? "+" : "–";
       const collapseLabel = state.collapsed ? t("volume.expand", "Show settings") : t("volume.collapse", "Hide settings");
       ui.collapse.title = collapseLabel;

@@ -18,6 +18,7 @@
 
 ## Done
 
+- [x] ~~**Volumes and point clouds: settings on phones as a minimized modal window**~~ (2026-11-02) - the Volume and Point cloud panels appear as its icon; a tap opens it centred over the viewer on a backdrop, a tap beside it, Escape or the toolbar button folds it (`modal` option of `attachToolPanelChrome`, `setToolPanelMinimized`); drawing a profile folds the point cloud window so its clicks reach the cloud
 - [x] ~~**Volumes: CT exports - image slices, .vgi, .xtekct; .zip by URL**~~ (2026-11-02) - PNG / JPEG / BMP slices in a .zip (`image_slices.py`, `image-slices-reader.js`), voxel size from a SkyScan `_rec.log` (also for TIFF slices); Volume Graphics `.vgi` and Nikon `.xtekct` + `.vol` in `raw_volume.py` / `raw-volume-reader.js` (Nikon's type by the .vol's size); a `.zip` URL without the repository's `<name>_ZIP/` conversion is downloaded and opened in the browser (`Viewer.openZipFromUrl`), so the CT archives are in the example list
 - [x] ~~**Volumes: MRC and Zeiss LSM**~~ (2026-11-02) - MRC/CCP4 (`.mrc`, `.rec`, `.ccp4`; modes 0/1/2/6/12, any axis order in the worker) in `raw_volume.py` / `raw-volume-reader.js`; LSM (channels as samples, thumbnails skipped, CZ_LSMINFO voxel size, Zeiss' BitsPerSample offset) in `tiff_stack.py` / `tiff-reader.js`; samples `capsid.mrc`, `cells.lsm`
 - [x] ~~**Volumes: DICOM series**~~ (2026-11-02) - worker `dicom_series.py` (pydicom + JPEG plugins), viewer `dicom-reader.js` (uncompressed), HU windows in the panel, samples in `viewer/examples/volumes/`

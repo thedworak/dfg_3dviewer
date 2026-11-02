@@ -2,7 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { getActiveTiles, getPointCloudPlugin, getPotreeAttributes, getTiledModelBox } from "../tiles.js";
 import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 import { setPointRaycastSkipped } from "../pointcloud-picking.js";
@@ -27,9 +27,13 @@ import {
 // Defaults: viewer-settings.json -> viewer.pointCloud (colorMode, pointShape,
 // sizeMode, pointSize, edlStrength) and viewer.tiles (edlStrength, pointShape).
 //
-// The window opens by itself except on phones, where it would cover the
-// model; there (and everywhere) the toolbar's point cloud button, shown while
-// a point cloud is loaded, opens and closes it.
+// The window opens by itself, in the side stack; on phones - where it would
+// cover the model - it appears minimized to its icon and opens as a modal
+// window over the viewer (tool-panel-chrome.js), folded again by a tap
+// beside it. The toolbar's point cloud button, shown while a point cloud is
+// loaded, opens and closes it (on phones: opens or folds the window).
+
+const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
 
 const SIZE_MIN = 0.25;
 const SIZE_MAX = 4;
@@ -89,7 +93,7 @@ export function attachPointCloudPanel(Viewer) {
         edl: plugin ? plugin.edlStrength
           : Math.min(1, Math.max(0, finiteOr(config.edlStrength, finiteOr(tilesConfig.edlStrength, DEFAULT_EDL)))),
         collapsed: false,
-        hidden: window.matchMedia(PHONE_TOOLBAR_QUERY).matches,
+        hidden: false,
         // Streamed clouds: the colour uniforms all tiles share.
         colorUniforms: isTiled ? createColorUniforms() : null,
         // Classes present (id -> point count; streamed: found as tiles load)
@@ -162,15 +166,27 @@ export function attachPointCloudPanel(Viewer) {
       return Boolean(Viewer.pointCloudState?.ui);
     },
 
+    // Its toolbar button pressed: shown - on phones, open (not its icon).
     isPointCloudPanelVisible() {
       const state = Viewer.pointCloudState;
-      return Boolean(state?.ui && !state.hidden);
+      return Boolean(state?.ui && !state.hidden && !(isPhone() && isToolPanelMinimized(state.ui.root)));
     },
 
-    // The toolbar button: shows the window (with its settings open) or hides it.
+    // The toolbar button: shows the window (with its settings open) or hides
+    // it; on phones opens the modal window (from its icon, or closed) or
+    // folds it back to its icon.
     togglePointCloudPanel() {
       const state = Viewer.pointCloudState;
       if (!state?.ui) return;
+      if (isPhone()) {
+        const open = !state.hidden && !isToolPanelMinimized(state.ui.root);
+        state.hidden = false;
+        state.collapsed = false;
+        Viewer.syncPointCloudPanel();
+        setToolPanelMinimized(state.ui.root, open);
+        Viewer.updateEditorToolbarState?.();
+        return;
+      }
       state.hidden = !state.hidden;
       if (!state.hidden) state.collapsed = false;
       Viewer.syncPointCloudPanel();
@@ -324,7 +340,9 @@ export function attachPointCloudPanel(Viewer) {
       // window into an icon, close hides it like the toolbar button.
       attachToolPanelChrome(root, header, {
         icon: PANEL_ICONS.pointCloud,
-        onClose: () => Viewer.togglePointCloudPanel(),
+        label: () => t("pointCloud.title", "Point cloud"),
+        modal: isPhone,
+        onClose: () => Viewer.closePointCloudPanel(),
       });
 
       const body = document.createElement("div");
@@ -389,6 +407,18 @@ export function attachPointCloudPanel(Viewer) {
         root, title, collapse, body, size, sizeLabel, sizeMode, sizeModeLabel, shape, shapeLabel, color, colorLabel, edl, edlLabel, summary,
       };
       Viewer.syncPointCloudPanel();
+      if (isPhone()) setToolPanelMinimized(root, true, { focus: false });
+      // Minimized or restored from its icon, its backdrop or Escape too.
+      new MutationObserver(() => Viewer.updateEditorToolbarState?.()).observe(root, { attributes: true, attributeFilter: ["class"] });
+    },
+
+    // Its close button: gone until the toolbar's point cloud button.
+    closePointCloudPanel() {
+      const state = Viewer.pointCloudState;
+      if (!state?.ui) return;
+      state.hidden = true;
+      Viewer.syncPointCloudPanel();
+      Viewer.updateEditorToolbarState?.();
     },
 
     syncPointCloudPanel() {
@@ -398,7 +428,8 @@ export function attachPointCloudPanel(Viewer) {
       ui.root.setAttribute("aria-label", t("pointCloud.title", "Point cloud"));
       ui.title.textContent = t("pointCloud.title", "Point cloud");
       ui.root.hidden = state.hidden;
-      ui.body.hidden = state.collapsed;
+      // A modal window (phones) has no folding of its own: its icon is that.
+      ui.body.hidden = state.collapsed && !isPhone();
       ui.collapse.textContent = state.collapsed ? "+" : "–";
       const collapseLabel = state.collapsed ? t("pointCloud.expand", "Show settings") : t("pointCloud.collapse", "Hide settings");
       ui.collapse.title = collapseLabel;

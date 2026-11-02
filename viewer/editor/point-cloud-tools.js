@@ -5,6 +5,7 @@ import { toastHelper } from "../viewer-utils.js";
 import { getTiledModelBox } from "../tiles.js";
 import { CLASSIFICATION_COLORS } from "../pointcloud-material.js";
 import { remoteAssetUrl } from "../remote.js";
+import { setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 
 // Point cloud tools in the point cloud panel (point-cloud-panel.js):
 //
@@ -124,6 +125,10 @@ export function attachPointCloudTools(Viewer) {
       Viewer.updatePickingModeControllerLabel?.();
       toastHelper("profileStart", "info");
       Viewer.syncPointCloudPanel();
+      // Its two clicks go to the cloud: a modal window (phones) folds to its
+      // icon, out of their way.
+      const root = state.ui?.root;
+      if (root?.classList.contains("is-modal-open")) setToolPanelMinimized(root, true, { focus: false });
     },
 
     cancelPointCloudProfile() {

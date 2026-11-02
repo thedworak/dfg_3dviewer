@@ -6,7 +6,10 @@ import { t } from "../i18n-utils.js";
 // timeline) get a grip in their header to drag the panel anywhere over the
 // viewer (double tap: back to the side stack), a button that minimizes it to
 // a small round icon (tap: restore, drag: move) and, for panels without one
-// of their own, a close button.
+// of their own, a close button. A `modal` panel (phones: its settings take
+// the screen) restores as a window centred over the viewer, on a dimmed
+// backdrop; a tap on the backdrop, Escape or its minimize button folds it
+// back to its icon.
 
 const DOUBLE_TAP_MS = 320;
 const TAP_SLOP_PX = 6;
@@ -211,14 +214,72 @@ function createPip(panel) {
   return pip;
 }
 
-function setMinimized(panel, minimized) {
+function isModal(panel) {
+  const modal = panel.toolPanelChrome?.options?.modal;
+  return Boolean(typeof modal === "function" ? modal() : modal);
+}
+
+function createBackdrop(panel) {
+  const backdrop = document.createElement("div");
+  backdrop.className = "tool-panel-chrome_backdrop";
+  ["pointerdown", "pointerup", "wheel", "touchstart"].forEach((type) => {
+    backdrop.addEventListener(type, (event) => event.stopPropagation(), { passive: type !== "pointerdown" });
+  });
+  backdrop.addEventListener("click", () => setMinimized(panel, true));
+  return backdrop;
+}
+
+// Restored as a modal window: in the viewer container, above a backdrop;
+// where it was (the side stack, or where its icon was dragged) is kept for
+// minimizing again.
+function openModal(panel) {
+  const chrome = panel.toolPanelChrome;
+  const container = core.container;
+  if (!chrome || !container || panel.classList.contains("is-modal-open")) return;
+  if (panel.parentElement !== container) {
+    chrome.modalMark = document.createComment("modal tool panel");
+    panel.before(chrome.modalMark);
+  }
+  chrome.backdrop ||= createBackdrop(panel);
+  chrome.backdrop.setAttribute("aria-label", t("toolPanel.minimize", "Minimize panel"));
+  container.append(chrome.backdrop, panel);
+  panel.classList.add("is-modal-open");
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+}
+
+function closeModal(panel) {
+  const chrome = panel.toolPanelChrome;
+  if (!chrome || !panel.classList.contains("is-modal-open")) return;
+  panel.classList.remove("is-modal-open");
+  panel.removeAttribute("aria-modal");
+  chrome.backdrop?.remove();
+  if (chrome.modalMark?.isConnected) chrome.modalMark.replaceWith(panel);
+  else chrome.modalMark?.remove();
+  chrome.modalMark = null;
+}
+
+function setMinimized(panel, minimized, { focus = true } = {}) {
+  if (minimized) closeModal(panel);
+  else if (isModal(panel)) openModal(panel);
   panel.classList.toggle("is-minimized", minimized);
   const { minimize, pip } = panel.toolPanelChrome || {};
   if (minimize) syncMinimize(panel, minimize);
   if (pip) pip.hidden = !minimized;
-  if (minimized) pip?.focus({ preventScroll: true });
-  else minimize?.focus({ preventScroll: true });
+  if (focus && minimized) pip?.focus({ preventScroll: true });
+  else if (focus) minimize?.focus({ preventScroll: true });
   if (panel.classList.contains("is-undocked")) clampPanel(panel);
+}
+
+// Minimizes (true) or restores a panel with this chrome - a modal one as its
+// window. focus: false leaves the focus where it is (a panel minimized as
+// it appears).
+export function setToolPanelMinimized(panel, minimized, options) {
+  if (panel?.toolPanelChrome) setMinimized(panel, minimized, options);
+}
+
+export function isToolPanelMinimized(panel) {
+  return Boolean(panel?.classList.contains("is-minimized"));
 }
 
 function createClose(onClose) {
@@ -271,7 +332,9 @@ function syncPip(panel, pip, icon, label) {
 // `onClose`: adds a close button (last) for panels without one of their own.
 // `movable: false` for dialogs that already drag by their header;
 // `visibilityRoot`: the element whose `hidden` shows and hides the panel,
-// when that is not the panel itself. Safe to call again on every render:
+// when that is not the panel itself. `modal` (or a function, asked at each
+// restore): restored as a modal window (setMinimized). Safe to call again on
+// every render:
 // panels that rebuild their contents get the same buttons put back.
 export function attachToolPanelChrome(panel, header, {
   before = null,
@@ -281,6 +344,7 @@ export function attachToolPanelChrome(panel, header, {
   icon = WINDOW_ICON,
   label = null,
   onClose = null,
+  modal = false,
 } = {}) {
   if (!panel || !header) return;
   if (!panel.toolPanelChrome) {
@@ -292,8 +356,15 @@ export function attachToolPanelChrome(panel, header, {
     };
     panel.classList.add("has-tool-chrome");
     watchPanelVisibility(panel, visibilityRoot);
+    // A modal window: Escape folds it; hidden or removed, its backdrop goes.
+    panel.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && panel.classList.contains("is-modal-open")) setMinimized(panel, true);
+    });
+    new MutationObserver(() => {
+      if ((panel.hidden || visibilityRoot.hidden) && panel.classList.contains("is-modal-open")) closeModal(panel);
+    }).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
   }
-  Object.assign(panel.toolPanelChrome, { header, options: { before, icon, label } });
+  Object.assign(panel.toolPanelChrome, { header, options: { before, icon, label, modal } });
   const { grip, minimize, pip, close } = panel.toolPanelChrome;
   header.classList.add("tool-panel-chrome");
   if (grip) {
