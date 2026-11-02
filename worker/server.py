@@ -35,7 +35,8 @@ could talk to either backend interchangeably:
   GET  /api/admin/reports       POST /api/admin/reports/<rid> {action} - admins
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
   GET  /api/auth/me                 POST /api/auth/register|login|logout|
-                                    delete-account -
+                                    delete-account|change-password|
+                                    forgot-password|reset-password -
   POST /api/auth/...                see worker/auth.py and worker/README.md)
   POST /api/app/link|sync|unlink  an app's plan on an account (only with an
                                   entitlements module, see below)
@@ -92,7 +93,7 @@ import splat_volume
 import splats
 import static_files
 import validate
-from auth import APP_TIERS, AuthError, AuthStore
+from auth import APP_TIERS, RESET_TTL, AuthError, AuthStore
 try:
     # Plans sold by an app built on the viewer: an optional module next to
     # this one (not part of this repository). Without it the worker has no
@@ -1010,6 +1011,9 @@ class Handler(BaseHTTPRequestHandler):
             if action == "delete-account":
                 self._handle_delete_account()
                 return
+            if action == "change-password":
+                self._handle_change_password()
+                return
             data = self._read_json_body()
             if action == "register":
                 result = AUTH.register(data.get("username", ""), data.get("password", ""), data.get("email", ""),
@@ -1024,8 +1028,40 @@ class Handler(BaseHTTPRequestHandler):
                 if data.get("session") == "token":
                     payload["token"] = token
                 self._send_json(200, payload, cookie=AUTH.cookie_header(token, self._cookie_is_secure()))
+            elif action == "forgot-password":
+                # The same answer whether or not the account exists, so this
+                # does not tell which e-mail addresses are registered.
+                if not mailer.password_reset_enabled():
+                    raise AuthError(404, "Password reset by e-mail is not available on this server.")
+                reset = AUTH.request_password_reset(data.get("identifier", ""))
+                if reset:
+                    mailer.send_password_reset(reset["username"], reset["email"], reset["token"],
+                                               RESET_TTL // 60)
+                self._send_json(200, {"status": "ok"})
+            elif action == "reset-password":
+                username = AUTH.reset_password(data.get("token", ""), data.get("password", ""))
+                print(f"[account] {username} reset their password", file=sys.stderr)
+                self._send_json(200, {"status": "ok", "username": username})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_change_password(self) -> None:
+        """POST /api/auth/change-password {"currentPassword", "password"}:
+        the signed-in account sets a new password. The answer carries a new
+        session (cookie, and the token when asked for {"session": "token"}),
+        since the new password ends every older one."""
+        user = self._current_user()
+        if not AUTH.enabled:
+            raise AuthError(404, "Accounts are not enabled.")
+        if user is None:
+            raise AuthError(401, "Login required")
+        data = self._read_json_body()
+        AUTH.change_password(user["username"], data.get("currentPassword", ""), data.get("password", ""))
+        token = AUTH.issue_token(user["username"])
+        payload = {"status": "ok"}
+        if data.get("session") == "token":
+            payload["token"] = token
+        self._send_json(200, payload, cookie=AUTH.cookie_header(token, self._cookie_is_secure()))
 
     def _handle_delete_account(self) -> None:
         """POST /api/auth/delete-account {"password"}: the signed-in account
@@ -1356,6 +1392,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "mode": AUTH.mode,
                 "registration": AUTH.registration,
+                "passwordReset": AUTH.enabled and mailer.password_reset_enabled(),
                 "maxUploadBytes": MAX_UPLOAD_BYTES,
             })
             return
@@ -1456,7 +1493,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/model/settings":
             self._handle_settings_save()
             return
-        match = re.fullmatch(r"/api/auth/(register|login|logout|delete-account)", path)
+        match = re.fullmatch(r"/api/auth/(register|login|logout|delete-account|change-password|forgot-password|reset-password)", path)
         if match:
             self._handle_auth(match.group(1))
             return

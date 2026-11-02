@@ -46,6 +46,10 @@ COOKIE_NAME = "dfg3d_session"
 SESSION_TTL = int(os.environ.get("WORKER_AUTH_SESSION_TTL", str(7 * 24 * 3600)))
 MAX_FAILED_LOGINS = 5
 LOCKOUT_SECONDS = 300
+# A password reset link (request_password_reset) works for this long, and
+# one account gets at most one such mail per cooldown.
+RESET_TTL = 3600
+RESET_COOLDOWN = 300
 
 MODES = ("off", "required")
 REGISTRATION_MODES = ("open", "approval", "closed")
@@ -265,7 +269,7 @@ class AuthStore:
 
     def issue_token(self, username: str) -> str:
         payload = base64.urlsafe_b64encode(
-            json.dumps({"u": username, "exp": int(time.time()) + SESSION_TTL}).encode("utf-8")
+            json.dumps({"u": username, "iat": int(time.time()), "exp": int(time.time()) + SESSION_TTL}).encode("utf-8")
         ).decode("ascii")
         signature = hmac.new(self._key(), payload.encode("ascii"), hashlib.sha256).hexdigest()
         return f"{payload}.{signature}"
@@ -294,13 +298,16 @@ class AuthStore:
             return None
         try:
             data = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
-            username, expires = data["u"], int(data["exp"])
+            username, expires, issued = data["u"], int(data["exp"]), int(data.get("iat", 0))
         except (ValueError, KeyError, TypeError):
             return None
         if expires < time.time():
             return None
         record = self._load().get(username)
         if not record or record["status"] != "active":
+            return None
+        # A new password signs out the sessions started before it.
+        if issued < record.get("passwordChangedAt", 0):
             return None
         return {"username": username, "role": record["role"], "plan": effective_app_plan(record)}
 
@@ -450,6 +457,106 @@ class AuthStore:
         if was_pending and record.get("email"):
             return {"username": username, "email": record["email"]}
         return None
+
+    # ---- passwords -----------------------------------------------------
+
+    def _set_password(self, record: dict, password: str) -> None:
+        record["passwordHash"] = _hash_password(password)
+        record["passwordChangedAt"] = int(time.time())
+
+    def change_password(self, username: str, current: str, new: str) -> None:
+        """The signed-in account sets a new password (POST
+        /api/auth/change-password): the current one confirms it, like a
+        login, with the same lockout. Its other sessions end."""
+        if not self.enabled:
+            raise AuthError(404, "Accounts are not enabled.")
+        self._validate_credentials(username, new)
+        key = str(username).lower()
+        count, locked_until = self._failures.get(key, (0, 0))
+        if locked_until > time.time():
+            raise AuthError(429, "Too many failed attempts. Try again in a few minutes.")
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            if not _verify_password(str(current), record.get("passwordHash", "")):
+                count += 1
+                self._failures[key] = (count, time.time() + LOCKOUT_SECONDS if count >= MAX_FAILED_LOGINS else 0)
+                raise AuthError(401, "Invalid password.")
+            self._failures.pop(key, None)
+            self._set_password(record, new)
+            self._save(users)
+
+    def _reset_signature(self, payload: str) -> str:
+        # Its own purpose, so a session token can never pass as a reset token.
+        return hmac.new(self._key(), b"reset:" + payload.encode("ascii"), hashlib.sha256).hexdigest()
+
+    def request_password_reset(self, identifier: str):
+        """"Forgot password" (POST /api/auth/forgot-password): the account
+        with this username or e-mail address gets a reset token. Returns
+        {"username", "email", "token"} to mail, or None - no such active
+        account with an address, or one was mailed less than RESET_COOLDOWN
+        ago. The caller answers the same either way.
+
+        The token is stateless and single-use: it is signed, expires after
+        RESET_TTL and carries a fingerprint of the password hash, so setting
+        any new password (or another reset) makes it worthless."""
+        if not self.enabled or not isinstance(identifier, str) or not identifier.strip():
+            return None
+        needle = identifier.strip().lower()
+        with self._lock:
+            users = self._load()
+            match = next((name for name in users if name.lower() == needle), None)
+            if match is None and "@" in needle:
+                match = next((name for name, rec in users.items()
+                              if (rec.get("email") or "").strip().lower() == needle), None)
+            record = users.get(match) if match else None
+            if not record or record.get("status") != "active" or not record.get("email"):
+                return None
+            now = int(time.time())
+            if record.get("passwordResetSentAt", 0) > now - RESET_COOLDOWN:
+                return None
+            record["passwordResetSentAt"] = now
+            self._save(users)
+        fingerprint = hashlib.sha256(record.get("passwordHash", "").encode("utf-8")).hexdigest()[:16]
+        payload = base64.urlsafe_b64encode(
+            json.dumps({"u": match, "exp": now + RESET_TTL, "p": fingerprint}).encode("utf-8")
+        ).decode("ascii").rstrip("=")
+        return {"username": match, "email": record["email"], "token": f"{payload}.{self._reset_signature(payload)}"}
+
+    def reset_password(self, token: str, new: str) -> str:
+        """Sets a new password with a token from request_password_reset.
+        Returns the username; every session of the account ends."""
+        if not self.enabled:
+            raise AuthError(404, "Accounts are not enabled.")
+        invalid = AuthError(400, "This reset link is invalid or has expired. Ask for a new one.")
+        if not isinstance(token, str) or "." not in token:
+            raise invalid
+        payload, _, signature = token.rpartition(".")
+        if not hmac.compare_digest(signature, self._reset_signature(payload)):
+            raise invalid
+        try:
+            data = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+            username, expires, fingerprint = data["u"], int(data["exp"]), str(data["p"])
+        except (ValueError, KeyError, TypeError):
+            raise invalid from None
+        if expires < time.time():
+            raise invalid
+        self._validate_credentials(username, new)
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if not record or record.get("status") != "active":
+                raise invalid
+            current = hashlib.sha256(record.get("passwordHash", "").encode("utf-8")).hexdigest()[:16]
+            if not hmac.compare_digest(current, fingerprint):
+                raise invalid
+            self._set_password(record, new)
+            record.pop("passwordResetSentAt", None)
+            self._save(users)
+        self._failures.pop(username.lower(), None)
+        return username
 
     def delete_own_account(self, username: str, password: str) -> dict:
         """Deleting an account by its owner (POST /api/auth/delete-account,

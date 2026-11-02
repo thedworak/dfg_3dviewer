@@ -1,7 +1,8 @@
 """Optional outgoing mail for the standalone worker (stdlib only).
 
-Off unless WORKER_SMTP_HOST is set. Currently used for one message: telling a
-user their account was approved. Configuration (all environment variables):
+Off unless WORKER_SMTP_HOST is set. Used to tell a user their account was
+approved, to send a password reset link, and to tell the moderators about a
+reported model. Configuration (all environment variables):
 
   WORKER_SMTP_HOST      SMTP server; unset disables mail entirely
   WORKER_SMTP_PORT      default 587 (465 with ssl)
@@ -9,6 +10,7 @@ user their account was approved. Configuration (all environment variables):
   WORKER_SMTP_USER / WORKER_SMTP_PASSWORD   optional login
   WORKER_SMTP_FROM      sender address (default: WORKER_SMTP_USER)
   WORKER_PUBLIC_URL     link put in the message, e.g. https://viewer.example.org
+                        (a password reset needs it: the link points there)
 """
 
 import os
@@ -43,6 +45,60 @@ def _send(message: EmailMessage) -> None:
         if user:
             client.login(user, os.environ.get("WORKER_SMTP_PASSWORD", ""))
         client.send_message(message)
+
+
+def _sender() -> str:
+    sender = os.environ.get("WORKER_SMTP_FROM") or os.environ.get("WORKER_SMTP_USER", "")
+    if not sender:
+        print("mail: WORKER_SMTP_FROM (or WORKER_SMTP_USER) is required to send mail", file=sys.stderr)
+    return sender
+
+
+def public_url() -> str:
+    return os.environ.get("WORKER_PUBLIC_URL", "").strip().rstrip("/")
+
+
+def password_reset_enabled() -> bool:
+    """A reset link needs mail and an address of the viewer to point at -
+    never the request's Host header, which the requester controls."""
+    return enabled() and bool(public_url())
+
+
+def send_password_reset(username: str, email: str, token: str, ttl_minutes: int, background: bool = True) -> None:
+    """The "forgot password" link (auth.py request_password_reset): the
+    viewer opens a form for a new password with ?resetPassword=<token>.
+    Never raises."""
+    if not password_reset_enabled() or not email:
+        return
+    sender = _sender()
+    if not sender:
+        return
+    message = EmailMessage()
+    message["Subject"] = "Reset your DLF AIM 3D Viewer password"
+    message["From"] = sender
+    message["To"] = email
+    lines = [
+        f"Hello {username},",
+        "",
+        "Someone (hopefully you) asked to reset the password of this account.",
+        f"To choose a new password, open this link within {ttl_minutes} minutes:",
+        "",
+        f"{public_url()}/?resetPassword={token}",
+        "",
+        "If you did not ask for it, ignore this message - your password stays as it is.",
+    ]
+    message.set_content("\n".join(lines))
+
+    def run() -> None:
+        try:
+            _send(message)
+        except Exception as exc:  # noqa: BLE001 - logged, never propagated
+            print(f"mail: could not send password reset mail to {email}: {exc}", file=sys.stderr)
+
+    if background:
+        threading.Thread(target=run, daemon=True).start()
+    else:
+        run()
 
 
 def send_account_approved(username: str, email: str, background: bool = True) -> None:

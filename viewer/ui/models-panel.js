@@ -550,6 +550,7 @@ export function attachModelsPanel(Viewer) {
         metadata?.author,
         metadata?.date,
         modelLicenseLabel(metadata?.license),
+        metadata?.copyright,
         metadata && job.name && job.name !== name ? job.name : "",
       ].filter(Boolean).join(" · ");
 
@@ -591,6 +592,16 @@ export function attachModelsPanel(Viewer) {
             ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleDateString())
             : null,
           modelCheckPart(job.validation),
+        ]));
+      }
+      // Its licence and copyright, when entered, on a line of their own.
+      const licenseLabel = modelLicenseLabel(metadata?.license);
+      if (licenseLabel || metadata?.copyright) {
+        text.appendChild(metaCaption([
+          licenseLabel ? metaPart("license", t("modelMetadata.fields.license", "Licence"), licenseLabel) : null,
+          metadata?.copyright
+            ? metaPart("copyright", t("modelMetadata.fields.copyright", "Copyright"), metadata.copyright)
+            : null,
         ]));
       }
       // Reported by several people (worker/reports.py): only its owner and

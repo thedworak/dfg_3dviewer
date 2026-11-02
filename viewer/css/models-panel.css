@@ -111,6 +111,11 @@ body[data-viewer-theme="dark"] #planButton {
   scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
 }
 
+/* ExHUB: wider, for the type, licence and copyright under each name. */
+#modelsPanel {
+  width: min(460px, calc(100vw - 36px));
+}
+
 @media (max-width: 640px) {
   #modelsPanel,
   #libraryPanel,
@@ -285,6 +290,19 @@ body[data-viewer-theme="dark"] #planButton {
   text-overflow: ellipsis;
 }
 
+/* A long value (a copyright line) ends in "..." - the whole is in the
+   row's tooltip. */
+.meta-part > span:not(.meta-icon) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The licence stays whole; the copyright beside it gives way. */
+.meta-part:has(> [data-icon="license"]) {
+  flex: none;
+}
+
 .meta-icon {
   flex: none;
   width: 11px;
@@ -307,6 +325,10 @@ body[data-viewer-theme="dark"] #planButton {
 .meta-icon[data-icon="no-user"] { --meta-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4.5 20.5a7.5 7.5 0 0 1 15 0M3 3l18 18'/%3E%3C/svg%3E"); }
 
 .meta-icon[data-icon="examples"] { --meta-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z'/%3E%3C/svg%3E"); }
+
+.meta-icon[data-icon="license"] { --meta-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5M9 13h6M9 17h4'/%3E%3C/svg%3E"); }
+
+.meta-icon[data-icon="copyright"] { --meta-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M14.8 9.2a4 4 0 1 0 0 5.6'/%3E%3C/svg%3E"); }
 
 .meta-icon[data-icon="private"] { --meta-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E"); }
 

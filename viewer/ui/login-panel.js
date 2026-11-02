@@ -60,6 +60,44 @@ export function createDeleteAccountButton(Viewer) {
   return button;
 }
 
+// A labelled password field for the dialogs below (new-password fields let a
+// password manager offer one).
+function labelledPasswordField(text, autocomplete) {
+  const { field, input } = createPasswordField({ autocomplete });
+  const label = document.createElement("label");
+  label.textContent = text;
+  label.appendChild(field);
+  return { label, input };
+}
+
+// The new password twice; check() throws the message to show in the dialog.
+function newPasswordFields() {
+  const first = labelledPasswordField(t("loginPanel.newPassword", "New password"), "new-password");
+  const second = labelledPasswordField(t("loginPanel.repeatPassword", "Repeat the new password"), "new-password");
+  return {
+    labels: [first.label, second.label],
+    value: () => first.input.value,
+    check() {
+      if (!first.input.value) throw new Error(t("loginPanel.newPasswordMissing", "Enter a new password."));
+      if (first.input.value !== second.input.value) {
+        throw new Error(t("loginPanel.passwordsDiffer", "The two new passwords are not the same."));
+      }
+    },
+  };
+}
+
+// The token of a "forgot password" e-mail (worker/mailer.py
+// send_password_reset): the viewer opened as /?resetPassword=<token>.
+function resetTokenFromUrl() {
+  return new URLSearchParams(window.location.search).get("resetPassword") || "";
+}
+
+function removeResetTokenFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("resetPassword");
+  window.history.replaceState(window.history.state, "", url);
+}
+
 // A link opening outside the viewer, for the dialogs and forms below.
 function externalLink(href, text) {
   const link = document.createElement("a");
@@ -111,7 +149,9 @@ export function attachLoginPanel(Viewer) {
     // allowRegistration:false hides the register button.
     async refreshAuthState() {
       const uiConfig = core.CONFIG?.viewer?.auth || {};
-      const state = { required: false, registration: false, user: null, role: null, plan: null, maxUploadBytes: 0 };
+      const state = {
+        required: false, registration: false, passwordReset: false, user: null, role: null, plan: null, maxUploadBytes: 0,
+      };
       // The upload limit is reported by the same endpoint, so query it even
       // when the manifest hides the login UI. The app build with no
       // repository configured has no worker to ask: accounts off.
@@ -123,6 +163,8 @@ export function attachLoginPanel(Viewer) {
             state.required = serverConfig.mode === "required";
             state.registration =
               serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+            // "Forgot password?" needs mail on the worker (WORKER_SMTP_*).
+            state.passwordReset = serverConfig.passwordReset === true;
             if (state.required) {
               const me = await authRequest("me");
               state.user = me.user || null;
@@ -148,6 +190,11 @@ export function attachLoginPanel(Viewer) {
       this.updateAdminMenuEntryState?.();
       // A manifest's thumbnails are for admins, a model's for its owner.
       this.refreshThumbnailAccess?.();
+      // Opened from a password reset e-mail: once, with accounts known on.
+      if (state.required && !this.resetLinkHandled && resetTokenFromUrl()) {
+        this.resetLinkHandled = true;
+        this.openResetPasswordDialog(resetTokenFromUrl());
+      }
       return state;
     },
 
@@ -245,7 +292,11 @@ export function attachLoginPanel(Viewer) {
         logout.type = "button";
         logout.textContent = t("uploadPanel.logout", "Log out");
         this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
-        section.append(label, logout, createDeleteAccountButton(this), createDeleteAccountLink());
+        const changePassword = document.createElement("button");
+        changePassword.type = "button";
+        changePassword.textContent = t("loginPanel.changePassword", "Change password");
+        this.bindEventListener(changePassword, "click", () => this.openChangePasswordDialog());
+        section.append(label, logout, changePassword, createDeleteAccountButton(this), createDeleteAccountLink());
         return;
       }
 
@@ -266,6 +317,14 @@ export function attachLoginPanel(Viewer) {
         if (event.key === "Enter") login.click();
       });
       section.append(username, passwordField, login);
+      if (state.passwordReset) {
+        const forgot = document.createElement("button");
+        forgot.type = "button";
+        forgot.className = "login-forgot-link";
+        forgot.textContent = t("loginPanel.forgotPassword", "Forgot password?");
+        this.bindEventListener(forgot, "click", () => this.openForgotPasswordDialog(username.value.trim()));
+        section.append(forgot);
+      }
       if (state.registration) {
         // Only needed to register (AUTH.register() rejects a missing/invalid
         // address server-side); login doesn't use it, so it stays out of the
@@ -297,6 +356,107 @@ export function attachLoginPanel(Viewer) {
         if (terms) section.append(terms.element);
         section.append(register);
       }
+    },
+
+    // A new password for the signed-in account, confirmed with the current
+    // one (POST /api/auth/change-password). The worker ends the older
+    // sessions and answers with a new one - in the app, as a token.
+    async openChangePasswordDialog() {
+      if (!this.authState?.user) return false;
+      const body = document.createElement("div");
+      const current = labelledPasswordField(t("loginPanel.currentPassword", "Current password"), "current-password");
+      const fresh = newPasswordFields();
+      const note = document.createElement("p");
+      note.className = "viewer-form-dialog-note";
+      note.textContent = t("loginPanel.changePasswordNote", "You stay signed in here; other devices are signed out.");
+      body.append(current.label, ...fresh.labels, note);
+      const result = await openFormDialog({
+        title: t("loginPanel.changePasswordTitle", "Change password"),
+        body,
+        confirmLabel: t("loginPanel.changePasswordConfirm", "Change password"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+        onConfirm: async () => {
+          if (!current.input.value) {
+            throw new Error(t("loginPanel.deletePasswordMissing", "Enter your password."));
+          }
+          fresh.check();
+          return authRequest("change-password", {
+            currentPassword: current.input.value,
+            password: fresh.value(),
+            ...(isAppBuild() ? { session: "token" } : {}),
+          });
+        },
+      });
+      if (!result) return false;
+      if (result.token) setSessionToken(result.token);
+      toastHelper("passwordChanged", "success");
+      return true;
+    },
+
+    // "Forgot password?": a reset link is mailed to the account's address
+    // (POST /api/auth/forgot-password). The worker answers the same whether
+    // the account exists or not, and so does this.
+    async openForgotPasswordDialog(prefill = "") {
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t(
+        "loginPanel.forgotIntro",
+        "Enter your username or e-mail address. We will send a link for choosing a new password to the address of the account."
+      );
+      const label = document.createElement("label");
+      label.textContent = t("loginPanel.forgotIdentifier", "Username or e-mail");
+      const identifier = document.createElement("input");
+      identifier.type = "text";
+      identifier.autocomplete = "username";
+      identifier.autocapitalize = "off";
+      identifier.value = prefill;
+      label.appendChild(identifier);
+      body.append(intro, label);
+      const result = await openFormDialog({
+        title: t("loginPanel.forgotTitle", "Reset password"),
+        body,
+        confirmLabel: t("loginPanel.forgotConfirm", "Send link"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+        onConfirm: async () => {
+          if (!identifier.value.trim()) {
+            throw new Error(t("loginPanel.forgotIdentifierMissing", "Enter your username or e-mail address."));
+          }
+          return authRequest("forgot-password", { identifier: identifier.value.trim() });
+        },
+      });
+      if (!result) return false;
+      this.setLoginStatusText(
+        t("loginPanel.forgotSent", "If the account exists, a link has been sent to its e-mail address. It works for an hour."),
+        "success"
+      );
+      return true;
+    },
+
+    // Opened from the reset e-mail's link: the new password, then the login
+    // panel to sign in with it.
+    async openResetPasswordDialog(token) {
+      const body = document.createElement("div");
+      const fresh = newPasswordFields();
+      body.append(...fresh.labels);
+      const result = await openFormDialog({
+        title: t("loginPanel.resetTitle", "Choose a new password"),
+        body,
+        confirmLabel: t("loginPanel.resetConfirm", "Save password"),
+        cancelLabel: t("modelsPanel.deleteCancel", "Cancel"),
+        onConfirm: async () => {
+          fresh.check();
+          return authRequest("reset-password", { token, password: fresh.value() });
+        },
+      });
+      removeResetTokenFromUrl();
+      if (!result) return false;
+      this.createLoginPanel();
+      if (this.loginPanel?.hidden) this.toggleLoginPanel();
+      this.setLoginStatusText(
+        t("loginPanel.resetDone", { user: result.username }, "Password changed. Log in as {user} with the new password."),
+        "success"
+      );
+      return true;
     },
 
     // Deleting the signed-in account, confirmed with its password. Resolves

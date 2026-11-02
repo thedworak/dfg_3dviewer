@@ -1,4 +1,6 @@
-"""Tests of deleting one's own account (POST /api/auth/delete-account) and of
+"""Tests of deleting one's own account (POST /api/auth/delete-account), of
+changing and resetting a password (POST /api/auth/change-password,
+forgot-password, reset-password) and of
 reporting models (POST /api/jobs/<id>/report, /api/admin/reports):
 
   python3 -m unittest discover -s worker/tests
@@ -9,6 +11,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -18,7 +21,7 @@ from unittest import mock
 WORKER_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(WORKER_DIR))
 
-from auth import AuthStore  # noqa: E402
+from auth import AuthError, AuthStore  # noqa: E402
 from reports import ReportStore  # noqa: E402
 from http.server import ThreadingHTTPServer  # noqa: E402
 
@@ -131,6 +134,91 @@ class AccountAndReportsTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(body["storeCustomerDeleted"])
         self.assertEqual(deleted, ["$RCAnonymousID:abc"])
+
+    # ---- passwords ----------------------------------------------------------
+
+    def test_change_password(self):
+        status, body = self.request("POST", "/api/auth/change-password", "alice",
+                                    {"currentPassword": PASSWORD, "password": "new-password-1", "session": "token"})
+        self.assertEqual(status, 200)
+        self.assertTrue(self.auth.user_from_token(body["token"]))
+        self.assertEqual(self.auth.login("alice", "new-password-1")["username"], "alice")
+
+    def test_change_password_needs_current_password(self):
+        status, _ = self.request("POST", "/api/auth/change-password", "alice",
+                                 {"currentPassword": "wrong-password", "password": "new-password-1"})
+        self.assertEqual(status, 401)
+        self.assertEqual(self.auth.login("alice", PASSWORD)["username"], "alice")
+
+    def test_change_password_validates_new_password(self):
+        status, _ = self.request("POST", "/api/auth/change-password", "alice",
+                                 {"currentPassword": PASSWORD, "password": "short"})
+        self.assertEqual(status, 400)
+
+    def test_change_password_needs_login(self):
+        status, _ = self.request("POST", "/api/auth/change-password", None,
+                                 {"currentPassword": PASSWORD, "password": "new-password-1"})
+        self.assertEqual(status, 401)
+
+    def test_new_password_ends_older_sessions(self):
+        old_token = self.auth.issue_token("alice")
+        record = self.auth._load()
+        record["alice"]["passwordChangedAt"] = int(time.time()) + 1
+        self.auth._save(record)
+        self.assertIsNone(self.auth.user_from_token(old_token))
+
+    def forgot(self, identifier):
+        sent = []
+        with mock.patch.object(server.mailer, "password_reset_enabled", lambda: True), \
+                mock.patch.object(server.mailer, "send_password_reset",
+                                  lambda username, email, token, minutes: sent.append((username, email, token))):
+            status, body = self.request("POST", "/api/auth/forgot-password", None, {"identifier": identifier})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["status"], "ok")
+        return sent
+
+    def test_forgot_password_by_username_or_email(self):
+        sent = self.forgot("Alice")
+        self.assertEqual([(u, e) for u, e, _ in sent], [("alice", "alice@example.org")])
+        self.auth.update_user("bob", passwordResetSentAt=0)
+        self.assertEqual(self.forgot("BOB@example.org")[0][0], "bob")
+
+    def test_forgot_password_unknown_account_answers_the_same(self):
+        self.assertEqual(self.forgot("nobody@example.org"), [])
+
+    def test_forgot_password_has_a_cooldown(self):
+        self.assertEqual(len(self.forgot("alice")), 1)
+        self.assertEqual(self.forgot("alice"), [])
+
+    def test_forgot_password_without_mail(self):
+        with mock.patch.object(server.mailer, "password_reset_enabled", lambda: False):
+            status, _ = self.request("POST", "/api/auth/forgot-password", None, {"identifier": "alice"})
+        self.assertEqual(status, 404)
+
+    def test_reset_password_once(self):
+        token = self.forgot("alice")[0][2]
+        status, body = self.request("POST", "/api/auth/reset-password", None,
+                                    {"token": token, "password": "new-password-1"})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["username"], "alice")
+        self.assertEqual(self.auth.login("alice", "new-password-1")["username"], "alice")
+        # The link is spent with the old password.
+        status, _ = self.request("POST", "/api/auth/reset-password", None,
+                                 {"token": token, "password": "new-password-2"})
+        self.assertEqual(status, 400)
+
+    def test_reset_password_rejects_forged_and_expired_tokens(self):
+        token = self.forgot("alice")[0][2]
+        status, _ = self.request("POST", "/api/auth/reset-password", None,
+                                 {"token": token[:-1] + ("0" if token[-1] != "0" else "1"), "password": "new-password-1"})
+        self.assertEqual(status, 400)
+        # A session token is no reset token.
+        status, _ = self.request("POST", "/api/auth/reset-password", None,
+                                 {"token": self.tokens["alice"], "password": "new-password-1"})
+        self.assertEqual(status, 400)
+        with mock.patch("auth.time.time", return_value=time.time() + 2 * 3600):
+            with self.assertRaises(AuthError):
+                self.auth.reset_password(token, "new-password-1")
 
     # ---- reports ------------------------------------------------------------
 
