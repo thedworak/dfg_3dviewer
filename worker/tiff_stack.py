@@ -8,10 +8,14 @@ The TIFFs microscopes, Fiji / ImageJ and CT scanners write:
 - an OME-TIFF: the OME-XML in the first page says the sizes, the order of
   the pages (DimensionOrder), the voxel size (PhysicalSize*), the channels'
   names and colours and the instrument; every image in it is a stack;
+- a Zeiss LSM (.lsm, LSM 510/710/880 confocals): a page per plane with the
+  channels as its samples, each followed by a thumbnail; sizes, voxel size
+  and channel colours in its CZ_LSMINFO;
 - slices one file each, as CT software exports them (in a .zip): a
   single-page TIFF next to others of the same size and type is one slice
   of a stack of all of them, in natural name order (slice_2 before
-  slice_10).
+  slice_10); a SkyScan reconstruction log (<name>_rec.log) next to them
+  gives the voxel size.
 
 Read with tifffile (all compressions, BigTIFF, tiles; imagecodecs for
 LZW, JPEG, zstd...), a page at a time. Any pixel type: 8/16/32-bit
@@ -28,24 +32,19 @@ Output and manifest: volumes.py. The viewer reads these TIFFs itself too
 Also usable on its own: python3 tiff_stack.py stack.tif [out_dir]
 """
 
-import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
 
-from volumes import MAX_SIZE, ManifestWriter, VolumeError, default_colors, microns_per_unit, run_cli
+from volumes import MAX_SIZE, ManifestWriter, VolumeError, default_colors, microns_per_unit, natural_key, run_cli, skyscan_pixel_size
 
-FORMATS = {"tif", "tiff"}
+FORMATS = {"tif", "tiff", "lsm"}
 RESOLUTION_CENTIMETER = 3
 
 
 class TiffStackError(VolumeError):
     pass
-
-
-def _natural_key(path: Path):
-    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", path.name)]
 
 
 def _tifffile():
@@ -68,9 +67,11 @@ class PagedChannel:
     def __getitem__(self, key):
         planes = []
         for z in range(*key.indices(self.shape[0])):
-            plane = self.page_of(z).asarray()
+            page = self.page_of(z)
+            plane = page.asarray()
             if self.sample is not None:
-                plane = plane[..., self.sample]
+                # (y, x, s), or (s, y, x) for samples stored one after another.
+                plane = np.take(plane, self.sample, axis=page.axes.index("S") if "S" in page.axes else -1)
             planes.append(plane)
         return np.stack(planes)
 
@@ -159,9 +160,28 @@ def _imagej(tif, page):
     return _voxel(xy, z)
 
 
+def _lsm(tif):
+    """Voxel size, unit and channel colours of a Zeiss LSM."""
+    meta = tif.lsm_metadata or {}
+    size = [meta.get(f"VoxelSize{axis}") or 0 for axis in "XYZ"]
+    voxel, unit = _voxel([s * 1e6 for s in size[:2]] if all(size[:2]) else None, size[2] * 1e6 if size[2] else None)
+    colors = []
+    for rgba in (meta.get("ChannelColors") or {}).get("Colors") or []:
+        color = "#" + "".join(f"{int(v) & 255:02x}" for v in list(rgba)[:3])
+        colors.append({"name": "", "color": None if color == "#000000" else color})
+    names = (meta.get("ChannelColors") or {}).get("ColorNames") or []
+    for c, name in enumerate(names[: len(colors)]):
+        colors[c]["name"] = str(name)
+    return voxel, unit, colors
+
+
 def _series_views(series):
     """(views per channel, frames) of a tifffile series, or a skip reason."""
     axes = series.axes
+    first = series.pages[0] if len(series.pages) else None
+    # LSM: the channels are the samples of every page.
+    if "C" in axes and "S" not in axes and first is not None and "S" in first.axes and first.shape[first.axes.index("S")] == series.shape[axes.index("C")]:
+        axes = axes.replace("C", "S")
     shape = dict(zip(axes, series.shape))
     if "Y" not in shape or "X" not in shape:
         return "not an image"
@@ -203,8 +223,8 @@ def _slice_stack(source: Path, tifffile):
         first = tif.pages[0]
         signature = (first.shape, first.dtype)
     slices = []
-    for path in sorted(source.parent.iterdir(), key=_natural_key):
-        if path.suffix.lower().lstrip(".") not in FORMATS or not path.is_file():
+    for path in sorted(source.parent.iterdir(), key=natural_key):
+        if path.suffix.lower().lstrip(".") not in ("tif", "tiff") or not path.is_file():
             continue
         try:
             with tifffile.TiffFile(path) as tif:
@@ -219,7 +239,7 @@ def convert(source: Path, manifest: Path, max_size: int = MAX_SIZE, log_prefix: 
     """Writes the manifest and the volumes of the stacks in `source` (or of
     the slices next to it). Raises TiffStackError when nothing can be shown."""
     tifffile = _tifffile()
-    writer = ManifestWriter(source, manifest, max_size, log_prefix, label="TIFF")
+    writer = ManifestWriter(source, manifest, max_size, log_prefix, label="LSM" if source.suffix.lower() == ".lsm" else "TIFF")
     try:
         tif = tifffile.TiffFile(source)
     except Exception as exc:  # noqa: BLE001 - any parse error is "not a TIFF"
@@ -229,23 +249,27 @@ def convert(source: Path, manifest: Path, max_size: int = MAX_SIZE, log_prefix: 
         if single_page and (slices := _slice_stack(source, tifffile)):
             return _convert_slices(slices, writer, tifffile)
         ome = _ome(tif.ome_metadata) if tif.is_ome and tif.ome_metadata else []
-        for index, series in enumerate(tif.series):
+        # An LSM's second series is its thumbnails.
+        all_series = tif.series[:1] if tif.is_lsm else tif.series
+        for index, series in enumerate(all_series):
             name = (ome[index]["name"] if index < len(ome) else "") or series.name or source.stem
-            name = name if len(tif.series) == 1 or name != source.stem else f"{source.stem} {index + 1}"
+            name = name if len(all_series) == 1 or name != source.stem else f"{source.stem} {index + 1}"
             found = _series_views(series)
             if isinstance(found, str):
                 writer.skip(name, f"{source.name}/{index}", found)
                 continue
             views, frames = found
             page = series.pages[0]
-            if index < len(ome):
+            meta = ome[index]["channels"] if index < len(ome) else []
+            if tif.is_lsm:
+                voxel, unit, meta = _lsm(tif)
+            elif index < len(ome):
                 size = ome[index]["size"]
                 voxel, unit = _voxel(size[:2] if all(size[:2]) else None, size[2])
             elif tif.is_imagej:
                 voxel, unit = _imagej(tif, page)
             else:
                 voxel, unit = _voxel(_resolution_size(page), None)
-            meta = ome[index]["channels"] if index < len(ome) else []
             colors = default_colors(len(views))
             channels = [
                 {
@@ -271,7 +295,9 @@ def _convert_slices(slices, writer, tifffile):
         first = files[0].pages[0]
         ny, nx = first.shape
         view = PagedChannel((len(files), ny, nx), lambda z: files[z].pages[0])
-        voxel, unit = _voxel(_resolution_size(first), None)
+        # A SkyScan reconstruction log next to them says the voxel size.
+        logged = skyscan_pixel_size(slices[0].parent)
+        voxel, unit = _voxel([logged, logged], logged) if logged else _voxel(_resolution_size(first), None)
         name = slices[0].parent.name if slices[0].parent.name not in ("", "extracted") else slices[0].stem
         writer.add(
             name,

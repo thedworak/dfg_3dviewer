@@ -737,6 +737,13 @@ body[data-viewer-theme="dark"] #example-model-picker {
     display: none;
   }
 
+  /* Between groups of the example list (example-models.js). */
+  #example-model-picker select hr {
+    margin: 4px 6px;
+    border: 0;
+    border-top: 1px solid var(--example-picker-border);
+  }
+
   /* An example from the site, not in the app (example-models.js): a globe,
      as in the examples panel; greyed out without network. */
   #example-model-picker option[data-online] {

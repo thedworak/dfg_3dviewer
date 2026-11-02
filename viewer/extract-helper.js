@@ -3,6 +3,8 @@ import { loadDroppedModel } from "./sandbox.js";
 import { core } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
 import { isDicomFile, modelExtension } from "./model-extension.js";
+import { naturalKey } from "./slice-stack.js";
+import { isImageSlice } from "./image-slices-reader.js";
 
 let archiveFileMap = {};
 
@@ -84,6 +86,14 @@ export async function loadDroppedArchive (archiveFile) {
       }
     }
 
+    // Else slices one image each (PNG, JPEG, BMP - micro-CT exports): the
+    // folder with the most of one kind; images next to a model are its
+    // textures, found above.
+    if (!modelFile) {
+      modelFile = findImageSlices(extractedFiles);
+      if (modelFile) modelFormat = modelExtension(modelFile.name);
+    }
+
     if (!modelFile) {
       throw new Error('No supported model file found in archive');
     }
@@ -101,6 +111,17 @@ export async function loadDroppedArchive (archiveFile) {
     return false;
   }
 };
+
+function findImageSlices (files) {
+  const groups = new Map();
+  files.filter((file) => isImageSlice(file.name)).forEach((file) => {
+    const key = file.name.replace(/[^/]*$/, '') + '|' + modelExtension(file.name).replace('jpeg', 'jpg');
+    groups.set(key, [...(groups.get(key) || []), file]);
+  });
+  const largest = [...groups.values()].sort((a, b) => b.length - a.length)[0];
+  if (!largest || largest.length < 2) return null;
+  return largest.sort((a, b) => naturalKey(a.name).localeCompare(naturalKey(b.name)))[0];
+}
 
 function findMainModelFile (files) {
   const priority = core.SUPPORTED_EXTENSIONS;

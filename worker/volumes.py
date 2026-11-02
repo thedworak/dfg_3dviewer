@@ -82,6 +82,29 @@ def microns_per_unit(unit):
     return UNIT_TO_MICRONS.get(key)
 
 
+def natural_key(path: Path):
+    """slice_2 before slice_10."""
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", path.name)]
+
+
+SKYSCAN_PIXEL = re.compile(r"^\s*Image Pixel Size \(um\)\s*=\s*([0-9.eE+-]+)", re.MULTILINE)
+
+
+def skyscan_pixel_size(folder: Path):
+    """SkyScan / Bruker micro-CT: the voxel edge in µm (the same along z)
+    from the reconstruction log next to the slices (<name>_rec.log, NRecon:
+    "Image Pixel Size (um)=..."), or None."""
+    logs = sorted(folder.glob("*.log"), key=lambda path: (not path.name.lower().endswith("_rec.log"), path.name))
+    for log in logs:
+        try:
+            match = SKYSCAN_PIXEL.search(log.read_text("latin-1"))
+        except OSError:
+            continue
+        if match and float(match.group(1)) > 0:
+            return float(match.group(1))
+    return None
+
+
 def default_colors(count):
     """One grey channel, or the palette for several."""
     return [DEFAULT_COLOR] if count == 1 else [PALETTE[i % len(PALETTE)] for i in range(count)]

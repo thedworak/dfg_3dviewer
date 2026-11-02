@@ -9,8 +9,10 @@ import DEFAULT_LIST from "./examples/index.json";
 // a new example needs no new build or app release. The bundled copy is
 // examples/index.json, the same file published at <site>/examples/index.json.
 //
-// Format: { "models": [entry] }, entry = { url, name, app? }. "name" may be a
-// string or { en, de, pl }; "./examples/..." URLs are served with the viewer.
+// Format: { "models": [entry] }, entry = { url, name, group?, app? }. "name"
+// may be a string or { en, de, pl }; "./examples/..." URLs are served with
+// the viewer. group: any id ("tempietto", "volumes"...) - a line separates
+// the entries of one group from the next (renderExampleModelOptions()).
 // app: false - not offered in the app (test files, and models the app has a
 // lighter version of; the app build leaves them out of its bundle).
 //
@@ -73,6 +75,7 @@ export function renderExampleModelOptions(select) {
     value: base && isRelativeUrl(entry.url) ? base + entry.url.replace(/^\.\//, "") : entry.url,
     text: localizedName(entry.name) || entry.url,
     online: entry.online,
+    group: typeof entry.group === "string" ? entry.group : "",
   }));
   // Shown while the model on screen came from elsewhere (the repository, the
   // device, a manifest): clearExampleModelSelection().
@@ -91,15 +94,24 @@ export function renderExampleModelOptions(select) {
   if (select.dataset.exampleList !== signature) {
     select.dataset.exampleList = signature;
     const value = select.value;
-    select.querySelectorAll("option:not([data-keep]):not([data-placeholder])").forEach((option) => option.remove());
+    select.querySelectorAll("option:not([data-keep]):not([data-placeholder]), hr[data-example-group]").forEach((option) => option.remove());
     const kept = select.querySelector("option[data-keep]");
-    options.forEach(({ value: url, text, online: needsNetwork }) => {
+    // A line between groups (and before the page's own data-keep options).
+    // Customizable selects draw it; native lists may leave it out.
+    const separate = () => {
+      const line = document.createElement("hr");
+      line.dataset.exampleGroup = "true";
+      select.insertBefore(line, kept);
+    };
+    options.forEach(({ value: url, text, online: needsNetwork, group }, index) => {
+      if (index > 0 && group !== options[index - 1].group) separate();
       const option = document.createElement("option");
       option.value = url;
       option.textContent = text;
       if (needsNetwork) option.dataset.online = "true";
       select.insertBefore(option, kept);
     });
+    if (kept && options.length) separate();
     select.value = value;
     if (select.selectedIndex < 0) select.value = "";
   }

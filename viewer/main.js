@@ -2843,6 +2843,9 @@ export const Viewer = {
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel();
     } else if (Viewer.SUPPORTED_ARCHIVES.includes(Viewer._ext)) {
+      // A .zip by URL the repository has not converted (an example, a
+      // link): opened in the browser, as when dropped.
+      if (Viewer._ext === "zip" && await Viewer.openZipFromUrl()) return;
       core.loadedFile = "_" + Viewer._ext.toUpperCase() + "/";
       core.fileObject.path = core.fileObject.path + core.fileObject.basename + core.loadedFile
       core.fileObject.extension = "glb";
@@ -2857,6 +2860,38 @@ export const Viewer = {
     }
 
     this.applyCameraOverridesFromUrl();
+  },
+
+  // A .zip URL: the repository keeps its conversion next to it
+  // (<name>_ZIP/<name>.glb, or under gltf/), loaded as before. Without one -
+  // a 404, not a server that only refuses HEAD - the archive itself is
+  // downloaded and opened like a dropped one (extract-helper.js): a model
+  // with its textures, TIFF or image slices, a volume header with its data
+  // file, a DICOM series. Resolves to whether it took the model over.
+  async openZipFromUrl() {
+    const { path, filename, basename } = core.fileObject;
+    if (!filename || filename.startsWith("blob:")) return false;
+    const proxied = (url) => (core.CONFIG.entity?.proxyPath !== undefined ? core.getProxyPath(url, core.CONFIG, core.fileObject) : url);
+    const converted = `${path}${basename}_ZIP/`;
+    for (const candidate of [`${converted}${basename}.glb`, `${converted}gltf/${basename}.glb`]) {
+      const response = await fetch(proxied(candidate), { method: "HEAD" }).catch(() => null);
+      // A page in its place (a server answering every path) is no model.
+      const page = response?.ok && /text\/html/i.test(response.headers.get("Content-Type") || "");
+      if (!response || (response.ok && !page) || (!page && ![404, 410].includes(response.status))) return false;
+    }
+    let response;
+    try {
+      response = await fetch(proxied(path + filename));
+    } catch {
+      return false;
+    }
+    if (!response.ok) return false;
+    const blob = await response.blob();
+    // Opened as if dropped, but still the model of this URL (embedding).
+    const shown = Viewer.shownModelUrl;
+    await loadDroppedArchive(new File([blob], filename, { type: blob.type || "application/zip" }));
+    Viewer.shownModelUrl = shown;
+    return true;
   },
 
   prepareSandboxScene() {

@@ -86,6 +86,7 @@ import ai
 import cloudflare
 import geonames
 import dicom_series
+import image_slices
 import lif
 import raw_volume
 import tiff_stack
@@ -185,6 +186,7 @@ VOLUME_CONVERTERS = {
     **{ext: tiff_stack.convert for ext in tiff_stack.FORMATS},
     **{ext: raw_volume.convert for ext in raw_volume.FORMATS},
     **{ext: dicom_series.convert for ext in dicom_series.FORMATS},
+    **{ext: image_slices.convert for ext in image_slices.FORMATS},
 }
 VOLUME_FORMATS = set(VOLUME_CONVERTERS)
 SUPPORTED_FORMATS = (
@@ -278,11 +280,20 @@ def find_model_file(root: Path):
         path for path in sorted(root.rglob("*"))
         if path.is_file() and raw_volume.model_ext(path) in SUPPORTED_FORMATS
     ]
-    # A TIFF is a stack only when nothing else is there: next to a model it
-    # is a texture.
-    models = [path for path in found if path.suffix.lower().lstrip(".") not in tiff_stack.FORMATS]
-    if models or found:
-        return (models or found)[0]
+    # A TIFF or another image (PNG, JPEG, BMP slices) is a stack only when
+    # nothing else is there: next to a model it is a texture.
+    textures = {"tif", "tiff"} | image_slices.FORMATS
+    models = [path for path in found if path.suffix.lower().lstrip(".") not in textures]
+    if models:
+        return models[0]
+    if found:
+        # The folder with the most slices of one kind (not a few previews).
+        groups = {}
+        for path in found:
+            kind = path.suffix.lower().lstrip(".").replace("jpeg", "jpg").replace("tiff", "tif")
+            groups.setdefault((path.parent, kind), []).append(path)
+        largest = max(groups.values(), key=len)
+        return sorted(largest, key=volumes.natural_key)[0]
     # DICOM files often have no extension (IM0001, ...): told by their marker.
     return next((path for path in sorted(root.rglob("*")) if path.is_file() and dicom_series.is_dicom(path)), None)
 

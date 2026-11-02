@@ -1,8 +1,9 @@
-"""NRRD, NIfTI and MetaImage volumes -> volumes the viewer renders
+"""NRRD, NIfTI, MetaImage and MRC volumes -> volumes the viewer renders
 (viewer/volume.js).
 
-Three formats of a header and the raw voxels, from medicine (CT, MRI),
-neuroimaging and image analysis tools (3D Slicer, ITK, ITK-SNAP, Fiji):
+Formats of a header and the raw voxels, from medicine (CT, MRI),
+neuroimaging and image analysis tools (3D Slicer, ITK, ITK-SNAP, Fiji)
+and electron microscopy (RELION, cryoSPARC, IMOD, ChimeraX):
 
 - NRRD: .nrrd (header and data in one file) or .nhdr (header; the data in
   the file its "data file" names). Encodings raw, gzip, bzip2 and ascii;
@@ -12,14 +13,23 @@ neuroimaging and image analysis tools (3D Slicer, ITK, ITK-SNAP, Fiji):
   channels; scl_slope / scl_inter applied;
 - MetaImage: .mha (one file) or .mhd (header; data in ElementDataFile,
   LOCAL or a file next to it), zlib-compressed or not, with
-  ElementNumberOfChannels interleaved per voxel.
+  ElementNumberOfChannels interleaved per voxel;
+- MRC / CCP4 maps: .mrc, .rec (IMOD tomograms), .ccp4 - MRC2014 and older;
+  modes 0 (8-bit, signed or not by the header), 1 (int16), 2 (float32),
+  6 (uint16) and 12 (float16); the extended header skipped; axes in any
+  order (MAPC/MAPR/MAPS), taken back to x, y, z;
+- industrial CT, a header and a raw .vol next to it: Volume Graphics .vgi
+  (VGStudio MAX; type, sizes, voxel size and the data file's name in it)
+  and Nikon .xtekct (CT Pro; sizes and voxel size in mm, the data in
+  <Name>.vol - 32-bit float, or 16/8-bit integers, told by its size).
 
 Of a time series only the first time point is taken; the stack is taken
 axis-aligned (the files' direction cosines, oblique slices, are not applied).
 
 Units: NIfTI says them (xyzt_units: m, mm, µm); NRRD in "space units", else
 millimetres when it has a space (medical data), else unknown; MetaImage, by
-ITK's convention, millimetres. Sizes in an unknown unit keep their ratios
+ITK's convention, millimetres; MRC ångströms (CELLA / MX, MY, MZ); .vgi
+its [geometry] unit (millimetres when none), .xtekct millimetres. Sizes in an unknown unit keep their ratios
 under the unit "px".
 
 Data is read a plane at a time by seeking in the file - in the decompressed
@@ -43,7 +53,10 @@ import numpy as np
 
 from volumes import MAX_SIZE, ManifestWriter, VolumeError, default_colors, microns_per_unit, run_cli
 
-FORMATS = {"nrrd", "nhdr", "nii", "mha", "mhd"}
+FORMATS = {"nrrd", "nhdr", "nii", "mha", "mhd", "mrc", "rec", "ccp4", "vgi", "xtekct"}
+# The value type of a .vol whose header does not say it (Nikon): by the
+# bytes per voxel.
+TYPE_BY_BYTES = {1: "u1", 2: "u2", 4: "f4"}
 
 NRRD_TYPES = {
     "uchar": "u1", "unsigned char": "u1", "uint8": "u1", "uint8_t": "u1",
@@ -62,6 +75,10 @@ MET_TYPES = {
     "MET_UCHAR": "u1", "MET_CHAR": "i1", "MET_USHORT": "u2", "MET_SHORT": "i2", "MET_UINT": "u4", "MET_INT": "i4",
     "MET_ULONG": "u4", "MET_LONG": "i4", "MET_ULONG_LONG": "u8", "MET_LONG_LONG": "i8", "MET_FLOAT": "f4", "MET_DOUBLE": "f8",
 }
+# MRC modes; 0 is signed or not by the header (read_mrc()).
+MRC_MODES = {1: "i2", 2: "f4", 6: "u2", 12: "f2"}
+MRC_HEADER = 1024
+IMOD_STAMP = 1146047817
 NRRD_NON_SPATIAL = {"vector", "covariant-vector", "normal", "list", "point", "rgb-color", "hsv-color", "xyz-color",
                     "rgba-color", "complex", "2-vector", "3-color", "3-vector", "4-color", "4-vector"}
 
@@ -147,6 +164,18 @@ class Volume:
         self.name, self.shape, self.channels, self.dtype = name, shape, channels, np.dtype(dtype)
         self.open_data, self.offset, self.interleaved, self.channel_stride = open_data, offset, interleaved, channel_stride
         self.voxel, self.unit, self.frames, self.slope, self.intercept = list(voxel), unit, frames, slope, intercept
+
+
+class ArrayView:
+    """A (z, y, x) view of a volume read whole (an MRC map stored in another
+    axis order)."""
+
+    def __init__(self, array):
+        self.array = array
+        self.shape = array.shape
+
+    def __getitem__(self, key):
+        return np.asarray(self.array[key], dtype=np.float32)
 
 
 class PlaneView:
@@ -375,7 +404,147 @@ def read_metaimage(path: Path) -> Volume:
                   [s * 1e3 for s in size], "µm", frames)
 
 
-READERS = {"nrrd": read_nrrd, "nhdr": read_nrrd, "nii": read_nifti, "mha": read_metaimage, "mhd": read_metaimage}
+# MRC.
+
+def read_mrc(path: Path):
+    """A Volume, or (for a map stored in another axis order than x, y, z) an
+    ArrayView of it in x, y, z, and the Volume's other fields."""
+    with open(path, "rb") as file:
+        head = file.read(MRC_HEADER)
+    if len(head) < MRC_HEADER:
+        raise RawVolumeError(f"{path.name} is not an MRC file")
+
+    def sane(endian):
+        nx, ny, nz, mode = struct.unpack(endian + "4i", head[:16])
+        return all(0 < n < 1 << 20 for n in (nx, ny, nz)) and (mode == 0 or mode in MRC_MODES)
+
+    # The machine stamp (0x44 little, 0x11 big endian); old files have none.
+    endian = ">" if head[212] == 0x11 else "<"
+    if not sane(endian):
+        endian = "<" if endian == ">" else ">"
+    if not sane(endian):
+        mode = struct.unpack("<i", head[12:16])[0]
+        raise RawVolumeError(f"{path.name}: unsupported MRC mode {mode}" if mode in (3, 4, 101) else f"{path.name} is not an MRC file")
+    ints = lambda at, n=1: struct.unpack(f"{endian}{n}i", head[at:at + 4 * n])  # noqa: E731
+    nc, nr, ns, mode = ints(0, 4)
+    if mode == 0:
+        # Signed by MRC2014; IMOD says so in its flags, older files mean unsigned.
+        imod = ints(152)[0] == IMOD_STAMP
+        signed = (ints(156)[0] & 1) == 1 if imod else ints(108)[0] >= 20140
+        dtype = "i1" if signed else "u1"
+    else:
+        dtype = MRC_MODES[mode]
+    axes = ints(64, 3)
+    axes = (1, 2, 3) if axes == (0, 0, 0) else axes
+    if sorted(axes) != [1, 2, 3]:
+        raise RawVolumeError(f"{path.name}: invalid MRC axis order {axes}")
+    sampling = ints(28, 3)
+    cell = struct.unpack(endian + "3f", head[40:52])
+    offset = MRC_HEADER + max(0, ints(92)[0])
+    # Sizes per x, y, z: column, row and section are the axes `axes` names.
+    stored = (nc, nr, ns)
+    size_of = {axes[i]: stored[i] for i in range(3)}
+    nx, ny, nz = size_of[1], size_of[2], size_of[3]
+    if nz < 2:
+        raise RawVolumeError(f"{path.name}: a single plane, not a stack")
+    size = [c / m if c > 0 and m > 0 else 0.0 for c, m in zip(cell, sampling)]
+    voxel, unit = ([s * 1e-4 for s in size], "µm") if all(s > 0 and np.isfinite(s) for s in size) else ([1.0, 1.0, 1.0], "px")
+    volume = Volume(stem(path), (nz, ny, nx), 1, endian + dtype, lambda: open(path, "rb"), offset, True, 0, voxel, unit)
+    if axes == (1, 2, 3):
+        return volume
+    # Stored (section, row, column): moved to (z, y, x).
+    data = np.memmap(path, dtype=endian + dtype, mode="r", offset=offset, shape=(ns, nr, nc))
+    # Array axis 0 is the section, 1 the row, 2 the column.
+    return volume, ArrayView(np.transpose(data, [2 - axes.index(a) for a in (3, 2, 1)]))
+
+
+# Industrial CT: .vgi and .xtekct headers of a raw .vol.
+
+def _ini(path: Path):
+    """{section: {key: value}} of an INI-like header ("{block}" lines
+    ignored, lower-case keys, the first section of a name winning)."""
+    sections, current = {}, None
+    for raw in path.read_text("latin-1").splitlines():
+        line = raw.strip()
+        if line.startswith("[") and line.endswith("]"):
+            key = line[1:-1].strip().lower()
+            current = None if key in sections else sections.setdefault(key, {})
+        elif line.startswith("{"):
+            current = None
+        elif current is not None and "=" in line:
+            key, value = line.split("=", 1)
+            current[key.strip().lower()] = value.strip()
+    return sections
+
+
+def _numbers(text):
+    return [float(v) for v in re.split(r"[\s,]+", str(text or "").strip()) if v]
+
+
+def _data_file(path: Path, names):
+    """The first of `names` next to path (case aside)."""
+    files = {p.name.lower(): p for p in path.parent.iterdir() if p.is_file()}
+    for name in names:
+        found = files.get(Path(name.replace("\\", "/")).name.lower())
+        if found:
+            return found
+    raise RawVolumeError(f"{path.name} keeps its voxels in {names[0]}: upload a .zip with both files")
+
+
+def _typed(path, data_path, dtype, offset, shape):
+    """dtype, or (None) the one the data file's size fits."""
+    if dtype:
+        return dtype
+    voxels = int(np.prod(shape))
+    per = (data_path.stat().st_size - offset) / voxels
+    if per not in TYPE_BY_BYTES:
+        raise RawVolumeError(f"{path.name}: the data file's size does not fit {' x '.join(map(str, shape[::-1]))} voxels")
+    return TYPE_BY_BYTES[int(per)]
+
+
+def read_vgi(path: Path) -> Volume:
+    sections = _ini(path)
+    file, representation, geometry = (sections.get(k, {}) for k in ("file1", "representation", "geometry"))
+    sizes = [int(v) for v in _numbers(file.get("size") or representation.get("size"))]
+    if len(sizes) < 3:
+        raise RawVolumeError(f"{path.name} is not a Volume Graphics .vgi file")
+    nx, ny, nz = sizes[:3]
+    if nz < 2:
+        raise RawVolumeError(f"{path.name}: a single plane, not a stack")
+    if (file.get("fileformat") or "raw").lower() != "raw":
+        raise RawVolumeError(f"{path.name}: unsupported .vgi file format {file.get('fileformat')!r}")
+    kind = (file.get("datatype") or representation.get("datatype") or "").lower()
+    bits = int(float(file.get("bitsperelement") or representation.get("bitsperelement") or 0))
+    prefix = "f" if kind.startswith("float") else "i" if kind.startswith("signed") else "u" if kind.startswith("unsigned") else None
+    dtype = f"{prefix}{bits // 8}" if prefix and bits in (8, 16, 32, 64) and not (prefix == "f" and bits < 32) else None
+    data_path = _data_file(path, [file.get("name") or f"{stem(path)}.vol"])
+    offset = int(float(file.get("skipheader") or 0))
+    dtype = _typed(path, data_path, dtype, offset, (nz, ny, nx))
+    endian = ">" if (file.get("endian") or file.get("endianness") or file.get("byteorder") or "little").lower().startswith("big") else "<"
+    resolution = _numbers(geometry.get("resolution"))
+    scale = microns_per_unit(geometry.get("unit") or "mm")
+    voxel, unit = ([r * scale for r in resolution[:3]], "µm") if len(resolution) >= 3 and all(r > 0 for r in resolution[:3]) and scale else ([1.0, 1.0, 1.0], "px")
+    return Volume(stem(path), (nz, ny, nx), 1, endian + dtype, lambda: open(data_path, "rb"), offset, True, 0, voxel, unit)
+
+
+def read_xtekct(path: Path) -> Volume:
+    fields = _ini(path).get("xtekct")
+    sizes = [int(float((fields or {}).get(f"voxels{axis}", 0))) for axis in "xyz"]
+    if not fields or not all(n > 0 for n in sizes):
+        raise RawVolumeError(f"{path.name} is not a Nikon .xtekct file")
+    nx, ny, nz = sizes
+    if nz < 2:
+        raise RawVolumeError(f"{path.name}: a single plane, not a stack")
+    names = [f"{Path(fields['name'].replace(chr(92), '/')).name}.vol"] if fields.get("name") else []
+    data_path = _data_file(path, names + [f"{stem(path)}.vol"])
+    dtype = _typed(path, data_path, None, 0, (nz, ny, nx))
+    size = [float(fields.get(f"voxelsize{axis}") or 0) for axis in "xyz"]
+    voxel, unit = ([s * 1e3 for s in size], "µm") if all(s > 0 for s in size) else ([1.0, 1.0, 1.0], "px")
+    return Volume(stem(path), (nz, ny, nx), 1, "<" + dtype, lambda: open(data_path, "rb"), 0, True, 0, voxel, unit)
+
+
+READERS = {"nrrd": read_nrrd, "nhdr": read_nrrd, "nii": read_nifti, "mha": read_metaimage, "mhd": read_metaimage,
+           "mrc": read_mrc, "rec": read_mrc, "ccp4": read_mrc, "vgi": read_vgi, "xtekct": read_xtekct}
 
 
 def convert(source: Path, manifest: Path, max_size: int = MAX_SIZE, log_prefix: str = "") -> dict:
@@ -386,6 +555,9 @@ def convert(source: Path, manifest: Path, max_size: int = MAX_SIZE, log_prefix: 
         raise RawVolumeError(f"Unsupported volume format: {source.name}")
     try:
         volume = reader(source)
+        reordered = None
+        if isinstance(volume, tuple):
+            volume, reordered = volume
     except (OSError, struct.error, ValueError, zlib.error, EOFError) as exc:
         if isinstance(exc, VolumeError):
             raise
@@ -393,7 +565,7 @@ def convert(source: Path, manifest: Path, max_size: int = MAX_SIZE, log_prefix: 
     writer = ManifestWriter(source, manifest, max_size, log_prefix, label=model_ext(source).upper())
     data = volume.open_data()
     try:
-        views = [PlaneView(volume, c, data) for c in range(volume.channels)]
+        views = [reordered] if reordered is not None else [PlaneView(volume, c, data) for c in range(volume.channels)]
         colors = default_colors(volume.channels)
         writer.add(
             volume.name, source.name, views,
@@ -410,4 +582,4 @@ def convert(source: Path, manifest: Path, max_size: int = MAX_SIZE, log_prefix: 
 
 
 if __name__ == "__main__":
-    run_cli(convert, "Usage: python3 raw_volume.py volume.nrrd|.nhdr|.nii|.nii.gz|.mha|.mhd [out_dir]")
+    run_cli(convert, "Usage: python3 raw_volume.py volume.nrrd|.nhdr|.nii|.nii.gz|.mha|.mhd|.mrc|.rec|.vgi|.xtekct [out_dir]")

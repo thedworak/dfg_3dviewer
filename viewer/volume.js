@@ -421,15 +421,17 @@ const DIRECT_READERS = {
   tiff: async (source, fileName, siblings) => (await import("./tiff-reader.js")).openTiff(source, fileName, siblings),
   raw: async (source, fileName, siblings) => (await import("./raw-volume-reader.js")).openRawVolume(source, fileName, siblings),
   dicom: async (source, fileName, siblings) => (await import("./dicom-reader.js")).openDicom(source, fileName, siblings),
+  slices: async (source, fileName, siblings) => (await import("./image-slices-reader.js")).openImageSlices(source, fileName, siblings),
 };
 const DIRECT_FORMATS = {
-  lif: "lif", tif: "tiff", tiff: "tiff", nrrd: "raw", nhdr: "raw", nii: "raw", mha: "raw", mhd: "raw", dcm: "dicom", dicom: "dicom",
+  lif: "lif", tif: "tiff", tiff: "tiff", nrrd: "raw", nhdr: "raw", nii: "raw", mha: "raw", mhd: "raw", mrc: "raw", rec: "raw", ccp4: "raw", vgi: "raw", xtekct: "raw", lsm: "tiff", dcm: "dicom", dicom: "dicom",
+  png: "slices", jpg: "slices", jpeg: "slices", bmp: "slices",
 };
 export const DIRECT_VOLUME_EXTENSIONS = Object.keys(DIRECT_FORMATS);
 
 // An image stack read in the browser from a File ({ file }) or a URL
 // ({ url }), with its first stack loaded; siblings: the other files of the
-// archive it came from (TIFF slices, a .nhdr's or .mhd's data file).
+// archive it came from (TIFF or image slices, a header's data file).
 export async function buildDirectVolumeModel(extension, source, { name = "Volume", fileName = "image", siblings = null, onProgress } = {}) {
   const reader = await DIRECT_READERS[DIRECT_FORMATS[extension]](source, fileName, siblings);
   const root = createVolumeRoot(reader.manifest, null, name);

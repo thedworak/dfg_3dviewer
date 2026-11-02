@@ -12,7 +12,7 @@ import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterial
 import { deviceTier, qualityForWeight } from '../viewer/editor/performance-rules.js';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD, LIF, NRRD, NHDR, NII, MHA, MHD, DCM, DICOM, TIF, TIFF';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD, LIF, NRRD, NHDR, NII, MHA, MHD, MRC, REC, CCP4, VGI, XTEKCT, DCM, DICOM, LSM, TIF, TIFF';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
 const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
 const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
@@ -4028,6 +4028,11 @@ test('example model list: fetched from examples/index.json, so a new example nee
   const select = page.locator('#example-model-select');
   await expect(select.locator('option', { hasText: 'New example' })).toHaveAttribute('value', './examples/box.glb');
   await expect(select.locator('option[value="./examples/tempietto/Tempietto.glb"]')).toHaveText('GLB');
+  // A line between groups: after the last Tempietto, before the first Wolpa
+  // (the added entries, without a group, are one more group).
+  const groups = list.models.map((entry) => entry.group || '').filter((group, index, all) => index === 0 || group !== all[index - 1]);
+  await expect(select.locator('hr')).toHaveCount(groups.length - 1);
+  expect(await select.evaluate((element) => element.querySelector('hr')?.nextElementSibling?.getAttribute('value'))).toBe('./examples/WolpaSynagogue.glb');
   // Another site: marked, and disabled without network.
   const elsewhere = select.locator('option', { hasText: 'Elsewhere' });
   await expect(elsewhere).toHaveAttribute('data-online', 'true');
@@ -4041,6 +4046,48 @@ test('example model list: fetched from examples/index.json, so a new example nee
   await page.evaluate(() => window.Viewer.selectLanguage('pl'));
   await expect(select.locator('option[value="./examples/box.glb"]')).toHaveText('Nowy przykład');
   expect(await page.evaluate(() => localStorage.getItem('dfg3dviewer-example-models'))).toBeNull();
+});
+
+// The volume on screen: its manifest series (volume.js), or null.
+function shownVolume(page) {
+  return page.evaluate(() => {
+    let found = null;
+    window.viewer?.scene?.traverse?.((object) => {
+      if (!found && object.userData?.volumeSeries) found = object.userData.volumeSeries;
+    });
+    return found && { name: found.name, dims: found.dims, voxelSize: found.voxelSize, unit: found.unit };
+  });
+}
+
+test('volumes in a .zip by URL: opened in the browser when the repository has no conversion of it', async ({ page }) => {
+  test.setTimeout(120_000);
+  const cases = [
+    ['/examples/volumes/amphora-ct-png-slices.zip', { name: 'amphora-ct_rec', dims: [72, 72, 120], voxelSize: [400, 400, 400] }],
+    ['/examples/volumes/amphora-ct-vgi.zip', { name: 'amphora-ct', dims: [72, 72, 120], voxelSize: [400, 400, 400] }],
+    ['/examples/volumes/amphora-ct-xtekct.zip', { name: 'amphora-ct', dims: [36, 36, 60], voxelSize: [800, 800, 800] }],
+    ['/examples/volumes/amphora-ct-dicom.zip', { dims: [72, 72, 120] }],
+  ];
+  for (const [model, expected] of cases) {
+    await openViewer(page, model);
+    await waitForModel(page, 40_000);
+    const volume = await shownVolume(page);
+    expect(volume, model).toMatchObject({ unit: 'µm', ...expected });
+  }
+});
+
+test('a .zip the repository converted: loaded from its conversion, not downloaded', async ({ page }) => {
+  // The repository keeps <name>_ZIP/<name>.glb next to the archive.
+  const glb = fs.readFileSync('viewer/examples/box.glb');
+  let archiveFetched = false;
+  await page.route('**/examples/archived/house_ZIP/**', (route) => route.fulfill({ contentType: 'model/gltf-binary', body: glb }));
+  await page.route('**/examples/archived/house.zip', (route) => {
+    archiveFetched = true;
+    return route.fulfill({ status: 404 });
+  });
+  await openViewer(page, '/examples/archived/house.zip');
+  await waitForModel(page);
+  expect(archiveFetched).toBe(false);
+  expect(await shownVolume(page)).toBeNull();
 });
 
 test('example model select: a model opened from elsewhere leaves it on none of the examples', async ({ page }) => {

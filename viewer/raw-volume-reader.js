@@ -1,9 +1,11 @@
 import { ChannelAccumulator, runVolumeWorker } from "./volume-voxels.js";
 
-// NRRD, NIfTI and MetaImage volumes read in the browser, without the worker
-// - the same files and rules as worker/raw_volume.py (see there): .nrrd,
-// .nhdr (+ its data file), .nii, .nii.gz, .mha, .mhd (+ its data file). A
-// detached data file is taken from the same archive (a .zip dropped from the
+// NRRD, NIfTI, MetaImage and MRC volumes read in the browser, without the
+// worker - the same files and rules as worker/raw_volume.py (see there):
+// .nrrd, .nhdr (+ its data file), .nii, .nii.gz, .mha, .mhd (+ its data
+// file), .mrc, .rec, .ccp4 (electron microscopy: cryo-EM maps, tomograms),
+// and the industrial CT headers of a raw .vol: Volume Graphics .vgi
+// (VGStudio) and Nikon .xtekct (CT Pro). A detached data file is taken from the same archive (a .zip dropped from the
 // disk) or, for a URL, from next to it.
 //
 // The header is read first (main thread, a few kB). The voxels are then
@@ -12,7 +14,8 @@ import { ChannelAccumulator, runVolumeWorker } from "./volume-voxels.js";
 // in a Web Worker (raw-volume-worker.js); nothing but the result is kept.
 // 8/16-bit integers are mapped as they are; other types, and data with a
 // NIfTI scaling, between their minimum and maximum, found by reading the
-// data once more before. bzip2 and ASCII NRRD are left to the worker.
+// data once more before. bzip2 and ASCII NRRD, and MRC maps stored in
+// another axis order than x, y, z, are left to the worker.
 
 export const MAX_SIZE = 512;
 const HEAD_BYTES = 65536;
@@ -21,6 +24,8 @@ const TYPES = {
   u1: [Uint8Array, 1], i1: [Int8Array, 1], u2: [Uint16Array, 2], i2: [Int16Array, 2],
   u4: [Uint32Array, 4], i4: [Int32Array, 4], f4: [Float32Array, 4], f8: [Float64Array, 8],
   u8: [BigUint64Array, 8], i8: [BigInt64Array, 8],
+  // Half floats (MRC mode 12), widened in decodeValues().
+  f2: [Uint16Array, 2],
 };
 const NRRD_TYPES = {
   uchar: "u1", "unsigned char": "u1", uint8: "u1", uint8_t: "u1",
@@ -39,11 +44,19 @@ const MET_TYPES = {
   MET_UCHAR: "u1", MET_CHAR: "i1", MET_USHORT: "u2", MET_SHORT: "i2", MET_UINT: "u4", MET_INT: "i4",
   MET_ULONG: "u4", MET_LONG: "i4", MET_ULONG_LONG: "u8", MET_LONG_LONG: "i8", MET_FLOAT: "f4", MET_DOUBLE: "f8",
 };
+// MRC modes; 0 is signed or not by the header (describeMrc()).
+const MRC_MODES = { 1: "i2", 2: "f4", 6: "u2", 12: "f2" };
+const MRC_HEADER = 1024;
+const IMOD_STAMP = 1146047817;
 const NRRD_NON_SPATIAL = new Set(["vector", "covariant-vector", "normal", "list", "point", "rgb-color", "hsv-color",
   "xyz-color", "rgba-color", "complex", "2-vector", "3-color", "3-vector", "4-color", "4-vector"]);
 const UNIT_TO_MICRONS = { m: 1e6, cm: 1e4, mm: 1e3, um: 1, "µm": 1, micron: 1, microns: 1, nm: 1e-3 };
 const PALETTE = ["#00ff00", "#ff00ff", "#00ffff", "#ffff00", "#ff0000", "#0000ff"];
 
+export const MRC_FORMATS = new Set(["mrc", "rec", "ccp4"]);
+// The value type of a .vol whose header does not say it (Nikon): by the
+// bytes per voxel.
+const TYPE_BY_BYTES = { 1: "u1", 2: "u2", 4: "f4" };
 export const volumeFormat = (name) => (/\.nii\.gz$/i.test(name) ? "nii" : name.split(".").pop().toLowerCase());
 const stemOf = (name) => name.split("/").pop().replace(/\.nii\.gz$/i, "").replace(/\.[^.]+$/, "");
 const micronsPer = (unit) => (unit ? UNIT_TO_MICRONS[String(unit).trim().toLowerCase().replace("μ", "µ")] ?? null : null);
@@ -156,7 +169,17 @@ function decodeValues(bytes, type, littleEndian) {
     for (let i = 0; i < copy.length; i += size) copy.subarray(i, i + size).reverse();
   }
   const values = new Type(copy.buffer);
+  if (type === "f2") return Float32Array.from(values, halfToFloat);
   return Type === BigInt64Array || Type === BigUint64Array ? Float64Array.from(values, Number) : values;
+}
+
+function halfToFloat(bits) {
+  const exponent = (bits >> 10) & 31;
+  const fraction = bits & 1023;
+  const sign = bits & 32768 ? -1 : 1;
+  if (exponent === 0) return sign * 2 ** -14 * (fraction / 1024);
+  if (exponent === 31) return fraction ? NaN : sign * Infinity;
+  return sign * 2 ** (exponent - 15) * (1 + fraction / 1024);
 }
 
 // Headers.
@@ -330,6 +353,162 @@ function describeMetaImage(bytes, name) {
   };
 }
 
+// MRC2014 (and the older MRC / CCP4 maps): a 1024-byte header, an
+// extended header of NSYMBT bytes, then the voxels, x fastest. Sizes in
+// ångströms: CELLA over MX, MY, MZ.
+function describeMrc(bytes, name) {
+  if (bytes.length < MRC_HEADER) throw new Error("Not an MRC file");
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const sane = (little) => {
+    const dims = [0, 4, 8].map((at) => view.getInt32(at, little));
+    const mode = view.getInt32(12, little);
+    return dims.every((n) => n > 0 && n < 1 << 20) && (mode === 0 || mode in MRC_MODES);
+  };
+  // The machine stamp (0x44 little, 0x11 big endian); old files have none.
+  let little = bytes[212] !== 0x11;
+  if (!sane(little)) little = !little;
+  if (!sane(little)) {
+    const mode = view.getInt32(12, true);
+    throw new Error(mode === 101 || mode === 3 || mode === 4 ? `Unsupported MRC mode ${mode}` : "Not an MRC file");
+  }
+  const int = (at) => view.getInt32(at, little);
+  const [nx, ny, nz] = [int(0), int(4), int(8)];
+  const mode = int(12);
+  if (nz < 2) throw new Error("A single plane, not a stack");
+  const axes = [int(64), int(68), int(72)];
+  if (axes.some(Boolean) && axes.join() !== "1,2,3") throw new Error(`MRC axis order ${axes.join(" ")} is read by the server's conversion only`);
+  // Mode 0: signed bytes by MRC2014; IMOD says so in its flags, and its
+  // older files (and other old writers) mean unsigned.
+  let type = MRC_MODES[mode];
+  if (mode === 0) {
+    const signed = int(152) === IMOD_STAMP ? (int(156) & 1) === 1 : int(108) >= 20140;
+    type = signed ? "i1" : "u1";
+  }
+  const sampling = [int(28), int(32), int(36)];
+  const cell = [40, 44, 48].map((at) => view.getFloat32(at, little));
+  const size = cell.map((length, i) => (length > 0 && sampling[i] > 0 ? length / sampling[i] : 0));
+  const known = size.every((s) => s > 0 && Number.isFinite(s));
+  return {
+    name,
+    shape: [nz, ny, nx],
+    channels: 1,
+    type,
+    littleEndian: little,
+    interleaved: true,
+    channelStride: 0,
+    // Ångströms: 1e-4 µm.
+    voxel: known ? size.map((s) => s * 1e-4) : [1, 1, 1],
+    unit: known ? "µm" : "px",
+    frames: 1,
+    data: { offset: MRC_HEADER + Math.max(0, int(92)) },
+    encoding: "raw",
+    skip: 0,
+  };
+}
+
+// INI-like headers: "{block}", "[section]", "key = value" -> the fields of
+// each section (lower-case keys), the first of a name winning.
+function iniSections(bytes) {
+  const sections = {};
+  let current = null;
+  new TextDecoder("latin1").decode(bytes).split(/\r?\n/).forEach((raw) => {
+    const line = raw.trim();
+    const section = /^\[([^\]]+)\]$/.exec(line);
+    if (section) {
+      const key = section[1].trim().toLowerCase();
+      current = sections[key] ? null : (sections[key] = {});
+      return;
+    }
+    if (line.startsWith("{")) {
+      current = null;
+      return;
+    }
+    const at = line.indexOf("=");
+    if (current && at > 0) current[line.slice(0, at).trim().toLowerCase()] = line.slice(at + 1).trim();
+  });
+  return sections;
+}
+
+const numbers = (text) => String(text || "").trim().split(/[\s,]+/).filter(Boolean).map(Number);
+const baseName = (path) => String(path || "").split(/[\\/]/).pop();
+
+// Volume Graphics (VGStudio MAX) .vgi: sizes and value type in [file1] /
+// [representation], the voxel size in [geometry] (resolution, unit), the
+// voxels in the raw file [file1] names (a .vol next to it).
+function describeVgi(bytes, name) {
+  const sections = iniSections(bytes);
+  const file = sections.file1 || {};
+  const representation = sections.representation || {};
+  const geometry = sections.geometry || {};
+  const sizes = numbers(file.size || representation.size);
+  if (sizes.length < 3) throw new Error("Not a Volume Graphics .vgi file");
+  if (sizes[2] < 2) throw new Error("A single plane, not a stack");
+  const format = (file.fileformat || "raw").toLowerCase();
+  if (format !== "raw") throw new Error(`Unsupported .vgi file format ${file.fileformat}`);
+  const kind = (file.datatype || representation.datatype || "").toLowerCase();
+  const bits = Number(file.bitsperelement || representation.bitsperelement) || 0;
+  const prefix = kind.startsWith("float") ? "f" : kind.startsWith("signed") ? "i" : kind.startsWith("unsigned") ? "u" : null;
+  const type = prefix && TYPES[`${prefix}${bits / 8}`] ? `${prefix}${bits / 8}` : null;
+  const resolution = numbers(geometry.resolution);
+  const scale = micronsPer(geometry.unit || "mm");
+  const known = resolution.length >= 3 && resolution.every((r) => r > 0) && scale;
+  return {
+    name,
+    shape: [sizes[2], sizes[1], sizes[0]],
+    channels: 1,
+    type,
+    littleEndian: !/^big/i.test(file.endian || file.endianness || file.byteorder || "little"),
+    interleaved: true,
+    channelStride: 0,
+    voxel: known ? resolution.slice(0, 3).map((r) => r * scale) : [1, 1, 1],
+    unit: known ? "µm" : "px",
+    frames: 1,
+    data: { file: baseName(file.name) || `${name}.vol`, offset: Number(file.skipheader) || 0 },
+    encoding: "raw",
+    skip: 0,
+  };
+}
+
+// Nikon CT Pro .xtekct: [XTekCT] VoxelsX/Y/Z and VoxelSizeX/Y/Z (mm); the
+// voxels in <Name>.vol next to it - 32-bit float, or 16/8-bit integers,
+// told by the file's size.
+function describeXtekct(bytes, name) {
+  const fields = iniSections(bytes).xtekct;
+  const sizes = ["voxelsx", "voxelsy", "voxelsz"].map((key) => Number(fields?.[key]));
+  if (!fields || !sizes.every((n) => n > 0)) throw new Error("Not a Nikon .xtekct file");
+  if (sizes[2] < 2) throw new Error("A single plane, not a stack");
+  const size = ["voxelsizex", "voxelsizey", "voxelsizez"].map((key) => Number(fields[key]));
+  const known = size.every((s) => s > 0);
+  const own = fields.name ? `${baseName(fields.name)}.vol` : null;
+  return {
+    name,
+    shape: [sizes[2], sizes[1], sizes[0]],
+    channels: 1,
+    type: null,
+    littleEndian: true,
+    interleaved: true,
+    channelStride: 0,
+    voxel: known ? size.map((s) => s * 1e3) : [1, 1, 1],
+    unit: known ? "µm" : "px",
+    frames: 1,
+    data: { file: own || `${name}.vol`, alternatives: own && own !== `${name}.vol` ? [`${name}.vol`] : [], offset: 0 },
+    encoding: "raw",
+    skip: 0,
+  };
+}
+
+// Bytes in source ({ file } or { url }), or null (a URL that is not there).
+async function sourceSize(source) {
+  if (source.file) return source.file.size;
+  const head = await fetch(source.url, { method: "HEAD" }).catch(() => null);
+  if (head?.ok && Number(head.headers.get("Content-Length")) > 0) return Number(head.headers.get("Content-Length"));
+  if (head && (head.status === 404 || head.status === 410)) return null;
+  const response = await fetch(source.url, { headers: { Range: "bytes=0-0" } });
+  if (!response.ok) return null;
+  response.body?.cancel();
+  return Number(/\/(\d+)$/.exec(response.headers.get("Content-Range") || "")?.[1]) || null;
+}
+
 function manifestFor(volume, fileName) {
   const [nz, ny, nx] = volume.shape;
   const factors = volume.shape.map((n) => Math.max(1, Math.ceil(n / MAX_SIZE)));
@@ -363,7 +542,13 @@ export async function describeRawVolume(source, fileName, siblings = null) {
   const format = volumeFormat(fileName);
   const name = stemOf(fileName);
   let volume;
-  if (format === "nii") {
+  if (MRC_FORMATS.has(format)) {
+    volume = describeMrc(await readHead(source, MRC_HEADER), name);
+  } else if (format === "vgi") {
+    volume = describeVgi(await readHead(source), name);
+  } else if (format === "xtekct") {
+    volume = describeXtekct(await readHead(source), name);
+  } else if (format === "nii") {
     const gzipped = /\.gz$/i.test(fileName);
     volume = describeNifti(await readHead(source, 540, gzipped ? "gzip" : null), name, gzipped);
   } else {
@@ -371,15 +556,38 @@ export async function describeRawVolume(source, fileName, siblings = null) {
     volume = format === "nrrd" || format === "nhdr" ? describeNrrd(head, name) : describeMetaImage(head, name);
   }
   let dataSource = source;
+  let dataSize = null;
   if (volume.data.file) {
+    const candidates = [volume.data.file, ...(volume.data.alternatives || [])];
     if (source.file) {
       const folder = fileName.replace(/[^/]*$/, "");
-      const file = siblings?.find((f) => f.name === folder + volume.data.file || f.name.split("/").pop() === volume.data.file);
-      if (!file) throw new Error(`${fileName} keeps its voxels in ${volume.data.file}: open a .zip with both files`);
+      const file = candidates
+        .map((wanted) => siblings?.find((f) => f.name === folder + wanted)
+          || siblings?.find((f) => f.name.split("/").pop().toLowerCase() === wanted.toLowerCase()))
+        .find(Boolean);
+      if (!file) throw new Error(`${fileName.split("/").pop()} keeps its voxels in ${volume.data.file}: open a .zip with both files`);
       dataSource = { file };
-    } else {
+    } else if (candidates.length === 1 || volume.type) {
       dataSource = { url: new URL(volume.data.file, source.url).href };
+    } else {
+      // The first data file that is there.
+      for (const wanted of candidates) {
+        const candidate = { url: new URL(wanted, source.url).href };
+        dataSize = await sourceSize(candidate);
+        if (dataSize) {
+          dataSource = candidate;
+          break;
+        }
+      }
+      if (!dataSize) throw new Error(`${fileName.split("/").pop()} keeps its voxels in ${volume.data.file}, which is not next to it`);
     }
+  }
+  if (!volume.type) {
+    // The bytes per voxel tell the type.
+    const voxels = volume.shape.reduce((a, b) => a * b, 1);
+    const size = dataSize ?? (await sourceSize(dataSource));
+    volume.type = TYPE_BY_BYTES[size ? (size - volume.data.offset) / voxels : 0];
+    if (!volume.type) throw new Error(`${fileName.split("/").pop()}: the data file's size does not fit ${volume.shape.slice().reverse().join(" × ")} voxels`);
   }
   return { manifest: manifestFor(volume, fileName), dataSource };
 }
@@ -485,7 +693,7 @@ export async function readRawVolume(source, layout, { onProgress } = {}) {
   return { bytes, channels: results };
 }
 
-// A NRRD / NIfTI / MetaImage file from a File ({ file }) or a URL ({ url }),
+// A NRRD / NIfTI / MetaImage / MRC / VGI / XTEKCT file from a File ({ file }) or a URL ({ url }),
 // with the other files of its archive: its manifest, and loadSeries(0).
 export async function openRawVolume(source, fileName, siblings = null) {
   const { manifest, dataSource } = await describeRawVolume(source, fileName, siblings);

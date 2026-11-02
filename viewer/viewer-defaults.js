@@ -5,7 +5,7 @@ export const VIEWER_DEFAULTS = {
   CONFIG: null,
   PRESENTATION_MODE: false,
   SANDBOX_MODE: false,
-  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'usd', 'usda', 'usdc', 'usdz', '3mf', 'amf', 'wrl', 'kmz', 'vox', 'lwo', 'las', 'laz', 'spz', 'splat', 'ksplat', 'sog', 'rad', 'dfgvol', 'lif', 'nrrd', 'nhdr', 'nii', 'mha', 'mhd', 'dcm', 'dicom', 'tif', 'tiff'],
+  SUPPORTED_EXTENSIONS: ['glb', 'gltf', 'obj', 'dae', 'fbx', 'ply', 'ifc', 'stl', 'xyz', 'json', '3ds', 'pcd', 'usd', 'usda', 'usdc', 'usdz', '3mf', 'amf', 'wrl', 'kmz', 'vox', 'lwo', 'las', 'laz', 'spz', 'splat', 'ksplat', 'sog', 'rad', 'dfgvol', 'lif', 'nrrd', 'nhdr', 'nii', 'mha', 'mhd', 'mrc', 'rec', 'ccp4', 'vgi', 'xtekct', 'dcm', 'dicom', 'lsm', 'tif', 'tiff'],
   SUPPORTED_ARCHIVES: ['zip', 'rar', 'tar', 'xz', 'gz'],
   camera: null,
   embedCamera: null,

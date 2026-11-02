@@ -347,6 +347,9 @@ export function attachVolumePanel(Viewer) {
       const length = (value) => {
         const unit = series.unit || "µm";
         if (unit === "µm" && value >= 1000) return `${Number((value / 1000).toPrecision(3))} mm`;
+        // Electron microscopy (MRC): nanometres, and ångströms below one.
+        if (unit === "µm" && value > 0 && value < 0.001) return `${Number((value * 1e4).toPrecision(3))} Å`;
+        if (unit === "µm" && value > 0 && value < 0.1) return `${Number((value * 1000).toPrecision(3))} nm`;
         return `${Number(value.toPrecision(3))} ${unit}`;
       };
       const [nx, ny, nz] = series.dims;

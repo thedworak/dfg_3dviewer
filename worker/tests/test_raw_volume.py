@@ -1,4 +1,5 @@
-"""Tests of worker/raw_volume.py, on NRRD, NIfTI and MetaImage files
+"""Tests of worker/raw_volume.py, on NRRD, NIfTI, MetaImage, MRC, .vgi and
+.xtekct files
 written here:
 
   python3 -m unittest discover -s worker/tests
@@ -149,6 +150,117 @@ class RawVolumeTest(unittest.TestCase):
         source.write_text("ObjectType = Image\nNDims = 3\nDimSize = 10 8 6\nElementType = MET_FLOAT\nElementDataFile = f.raw\n")
         series, voxels = self.convert(source)
         self.assert_same_order(voxels[0], values)
+
+    def mrc(self, stored, mode, endian="<", axes=(1, 2, 3), cell=(5.0, 4.0, 7.5), extended=0, imod_flags=None, version=20140):
+        """An MRC of `stored` (section, row, column)."""
+        ns, nr, nc = stored.shape
+        size_of = dict(zip(axes, (nc, nr, ns)))
+        header = bytearray(1024)
+        struct.pack_into(endian + "10i", header, 0, nc, nr, ns, mode, 0, 0, 0, size_of[1], size_of[2], size_of[3])
+        struct.pack_into(endian + "3f", header, 40, *cell)
+        struct.pack_into(endian + "3i", header, 64, *axes)
+        struct.pack_into(endian + "i", header, 92, extended)
+        struct.pack_into(endian + "i", header, 108, version)
+        if imod_flags is not None:
+            struct.pack_into(endian + "2i", header, 152, 1146047817, imod_flags)
+        header[208:212] = b"MAP "
+        header[212:214] = b"\x11\x11" if endian == ">" else b"\x44\x44"
+        return bytes(header) + bytes(extended) + stored.astype(endian + stored.dtype.str[1:]).tobytes()
+
+    def test_mrc_float_with_extended_header(self):
+        values = volume(seed=9).astype(np.float32) / 3
+        source = self.dir / "map.mrc"
+        source.write_bytes(self.mrc(values, 2, extended=96))
+        self.assertIn("mrc", raw_volume.FORMATS)
+        series, voxels = self.convert(source)
+        self.assertEqual(series["dims"], [10, 8, 6])
+        # Å: cell 5 x 4 x 7.5 over 10 x 8 x 6 voxels.
+        self.assertEqual(series["unit"], "µm")
+        self.assertEqual([round(v * 1e4, 4) for v in series["voxelSize"]], [0.5, 0.5, 1.25])
+        self.assert_same_order(voxels[0], values)
+
+    def test_mrc_bytes_signed_or_not(self):
+        unsigned = np.random.default_rng(10).integers(0, 256, size=(6, 8, 10)).astype(np.uint8)
+        # IMOD without its "signed" flag, and old files: unsigned.
+        for name, flags, version in (("tomo.rec", 0, 0), ("old.mrc", None, 0)):
+            source = self.dir / name
+            source.write_bytes(self.mrc(unsigned, 0, imod_flags=flags, version=version))
+            series, voxels = self.convert(source)
+            self.assertGreaterEqual(series["channels"][0]["range"][0], 0)
+            self.assert_same_order(voxels[0], unsigned)
+        # MRC2014: signed.
+        signed = (unsigned.astype(np.int16) - 128).astype(np.int8)
+        source = self.dir / "new.mrc"
+        source.write_bytes(self.mrc(signed, 0))
+        series, voxels = self.convert(source)
+        self.assertLess(series["channels"][0]["range"][0], 0)
+        self.assert_same_order(voxels[0], signed)
+
+    def test_mrc_big_endian_other_axis_order(self):
+        values = volume(seed=11)  # (z, y, x)
+        # Stored with sections along y, rows along x, columns along z.
+        stored = np.ascontiguousarray(values.transpose(1, 2, 0))  # (y, x, z)
+        source = self.dir / "map.ccp4"
+        source.write_bytes(self.mrc(stored, 1, endian=">", axes=(3, 1, 2)))
+        series, voxels = self.convert(source)
+        self.assertEqual(series["dims"], [10, 8, 6])
+        self.assert_same_order(voxels[0], values)
+
+    def test_mrc_unsupported_mode(self):
+        source = self.dir / "complex.mrc"
+        source.write_bytes(self.mrc(volume().astype(np.float32), 4))
+        with self.assertRaises(raw_volume.RawVolumeError) as caught:
+            self.convert(source)
+        self.assertIn("mode 4", str(caught.exception))
+
+    def test_vgi_uint16(self):
+        values = (volume(seed=12).astype(np.int32) + 1024).astype(np.uint16)
+        (self.dir / "scan data.vol").write_bytes(values.tobytes())
+        source = self.dir / "scan.vgi"
+        source.write_text(
+            "{volume1}\n[representation]\nsize = 10 8 6\ndatatype = unsigned integer\nbitsperelement = 16\n"
+            "[file1]\nFileFormat = raw\nSize = 10 8 6\nName = C:\\scans\\scan data.vol\n"
+            "Datatype = unsigned integer\nBitsPerElement = 16\n"
+            "{volumeprimitive12}\n[geometry]\nresolution = 0.05 0.05 0.1\nunit = mm\n"
+        )
+        self.assertIn("vgi", raw_volume.FORMATS)
+        series, voxels = self.convert(source)
+        self.assertEqual(series["dims"], [10, 8, 6])
+        self.assertEqual(series["voxelSize"], [50.0, 50.0, 100.0])
+        self.assertEqual(series["channels"][0]["bits"], 16)
+        self.assert_same_order(voxels[0], values)
+
+    def test_vgi_float_without_name_or_unit(self):
+        values = volume(seed=13).astype(np.float32) / 100
+        (self.dir / "part.vol").write_bytes(values.tobytes())
+        source = self.dir / "part.vgi"
+        source.write_text("{volume1}\n[file1]\nSize = 10 8 6\nDatatype = float\nBitsPerElement = 32\n[geometry]\nresolution = 0.02 0.02 0.02\n")
+        series, voxels = self.convert(source)
+        # Millimetres when the geometry has no unit.
+        self.assertEqual(series["voxelSize"], [20.0, 20.0, 20.0])
+        self.assert_same_order(voxels[0], values)
+
+    def test_xtekct_type_from_the_data_size(self):
+        values = volume(seed=14)
+        for dtype, bits in ((np.float32, 32), (np.uint16, 16)):
+            stored = (values.astype(np.float32) / 3000 if dtype is np.float32 else values.astype(np.int32) + 1024).astype(dtype)
+            (self.dir / "Amphora.vol").write_bytes(stored.tobytes())
+            source = self.dir / "Amphora.xtekct"
+            source.write_text(
+                "[XTekCT]\nName=Amphora\nVoxelsX=10\nVoxelsY=8\nVoxelsZ=6\n"
+                "VoxelSizeX=0.04\nVoxelSizeY=0.04\nVoxelSizeZ=0.04\n"
+            )
+            series, voxels = self.convert(source)
+            self.assertEqual(series["voxelSize"], [40.0, 40.0, 40.0])
+            self.assertEqual(series["channels"][0]["bits"], bits)
+            self.assert_same_order(voxels[0], stored)
+
+    def test_header_without_its_data(self):
+        source = self.dir / "lonely.xtekct"
+        source.write_text("[XTekCT]\nName=lonely\nVoxelsX=10\nVoxelsY=8\nVoxelsZ=6\n")
+        with self.assertRaises(raw_volume.RawVolumeError) as caught:
+            self.convert(source)
+        self.assertIn("lonely.vol", str(caught.exception))
 
     def test_single_plane(self):
         source = self.dir / "flat.nrrd"

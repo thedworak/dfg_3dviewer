@@ -89,8 +89,11 @@ The topics below used to live in this file; they now have their own page in [`do
 | E57 (point clouds) | – | Potree 2 / 3D Tiles ¹¹ |
 | Gaussian splats: SPZ / SPLAT / KSPLAT / SOG, PLY of splats | ✅ ¹³ | – |
 | LIF (Leica microscope image stacks) | ✅ ¹⁴ | volume ¹⁴ |
-| TIFF / OME-TIFF image stacks, .zip of TIFF slices (microscopy, CT) | ✅ ¹⁴ | volume ¹⁴ |
+| TIFF / OME-TIFF image stacks, Zeiss LSM, .zip of TIFF slices (microscopy, CT) | ✅ ¹⁴ | volume ¹⁴ |
+| .zip of PNG / JPEG / BMP slices (micro-CT exports; voxel size from a SkyScan `_rec.log`) | ✅ ¹⁴ | volume ¹⁴ |
 | NRRD / NIfTI (.nii, .nii.gz) / MetaImage (.mha, .mhd) volumes (CT, MRI) | ✅ ¹⁴ | volume ¹⁴ |
+| MRC / CCP4 maps (.mrc, .rec, .ccp4) - cryo-EM, electron tomography | ✅ ¹⁴ | volume ¹⁴ |
+| Industrial CT: Volume Graphics .vgi, Nikon .xtekct, each with its .vol (in a .zip) | ✅ ¹⁴ | volume ¹⁴ |
 | DICOM series (.zip of a study, .dcm) - CT, MRI, micro-CT | ✅ ¹⁴ ¹⁵ | volume ¹⁴ |
 
 > - ¹ via Blender (`scripts/convert.py`)
@@ -106,7 +109,7 @@ The topics below used to live in this file; they now have their own page in [`do
 > - ¹¹ converted to a streamed octree by the standalone worker: Potree 2 via PotreeConverter (default; keeps intensity and classification, read by HTTP range requests) or 3D Tiles via `py3dtiles`; a PLY without faces is treated the same way
 > - ¹² loaded directly in a Web Worker (LAS 1.0-1.4 all point formats, decoded while downloading; LAZ point formats 0-3 with loaders.gl + laz-perf), shown progressively and thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming - see [docs/point-clouds.md](docs/point-clouds.md)
 > - ¹³ drawn with Spark (sparkjs.dev), downloaded with the first splat file; a PLY is read as splats when its vertices carry Gaussians (`f_dc_0`, `scale_0`, `rot_0`), and the worker keeps such a PLY as uploaded
-> - ¹⁴ every Z stack becomes an 8-bit volume, drawn by ray marching - maximum intensity, translucent or surface - with per-channel colours and windows. Opened directly, the viewer reads only the stack shown, in a Web Worker (`viewer/lif-reader.js`, `viewer/tiff-reader.js`, `viewer/raw-volume-reader.js`, `viewer/dicom-reader.js`; from the disk, or by HTTP range requests); the standalone worker (`worker/lif.py`, `worker/tiff_stack.py`, `worker/raw_volume.py`, `worker/dicom_series.py`) converts the file once, with a thumbnail - see "Image stacks (volumes)" in [`worker/README.md`](worker/README.md). Synthetic samples of every format: `viewer/examples/volumes/` (`scripts/generate-volume-samples.py`)
+> - ¹⁴ every Z stack becomes an 8-bit volume, drawn by ray marching - maximum intensity, translucent or surface - with per-channel colours and windows. Opened directly, the viewer reads only the stack shown, in a Web Worker (`viewer/lif-reader.js`, `viewer/tiff-reader.js`, `viewer/raw-volume-reader.js`, `viewer/dicom-reader.js`, `viewer/image-slices-reader.js`; from the disk, or by HTTP range requests; a `.zip` by URL that the repository has not converted is downloaded and opened as if dropped); the standalone worker (`worker/lif.py`, `worker/tiff_stack.py`, `worker/raw_volume.py`, `worker/dicom_series.py`, `worker/image_slices.py`) converts the file once, with a thumbnail - see "Image stacks (volumes)" in [`worker/README.md`](worker/README.md). Synthetic samples of every format: `viewer/examples/volumes/` (`scripts/generate-volume-samples.py`)
 > - ¹⁵ uncompressed series in the viewer itself (`viewer/dicom-reader.js`); compressed (JPEG, JPEG 2000, RLE) and multi-frame files by the worker (`worker/dicom_series.py`). CT is shown in Hounsfield units with the usual windows. Anonymise studies before uploading them
 >
 > Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/GCode/BVH (not general model formats). NRRD is read as a volume (above), not by the three.js loader.

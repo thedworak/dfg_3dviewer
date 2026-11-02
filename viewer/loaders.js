@@ -991,14 +991,25 @@ export async function loadModel() {
       case "nii":
       case "mha":
       case "mhd":
+      case "mrc":
+      case "rec":
+      case "ccp4":
+      case "vgi":
+      case "xtekct":
+      case "png":
+      case "jpg":
+      case "jpeg":
+      case "bmp":
+      case "lsm":
       case "dcm":
       case "dicom": {
         // Image stacks opened without the worker: read in the browser, a
         // stack at a time (lif-reader.js, tiff-reader.js,
         // raw-volume-reader.js) - from the File when dropped, else by HTTP
         // (range) requests. A file unpacked from a .zip may need the
-        // archive's other files: TIFF slices, a header's data file, the
-        // rest of a DICOM series.
+        // archive's other files: TIFF or image slices (PNG, JPEG, BMP only
+        // come here from a .zip), a header's data file, the rest of a
+        // DICOM series.
         const { buildDirectVolumeModel } = await loadVolume();
         const file = core.localFiles.get(modelPath);
         const object = await buildDirectVolumeModel(
@@ -1197,8 +1208,11 @@ export async function loadModel() {
     window.Viewer?.assessModelWeight?.();
     if (!core.PRESENTATION_MODE) {
       maybeShowFirstRunHints();
+      // A file from the device (or a .zip by URL) is a blob: URL - its own
+      // name instead.
+      const { filename, basename, extension } = core.fileObject;
       toastHelper("modelLoaded", "success", {
-        filename: core.fileObject.filename
+        filename: filename.startsWith("blob:") ? `${basename}.${extension}` : filename
       });
     } else {
       toastHelper("presentationModeReady", "success");

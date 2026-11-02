@@ -1,13 +1,14 @@
 import { addDecoder, fromBlob, fromUrl } from "geotiff";
 import LzwDecoder from "./tiff-lzw.js";
 import { cellCounts, finishChannel, runVolumeWorker } from "./volume-voxels.js";
+import { skyscanPixelSize, slicesNextTo } from "./slice-stack.js";
 
 // geotiff.js's LZW decoder fails on full code tables (tiff-lzw.js).
 addDecoder(5, async () => LzwDecoder);
 
 // TIFF image stacks read in the browser, without the worker - the same
 // files as worker/tiff_stack.py: multi-page TIFFs, ImageJ hyperstacks,
-// OME-TIFF, and slices one file each (a .zip of them, unpacked by
+// OME-TIFF, Zeiss LSM, and slices one file each (a .zip of them, unpacked by
 // extract-helper.js). Decoded by geotiff.js (all compressions, BigTIFF,
 // tiles), a page at a time: from the File, or by HTTP range requests.
 //
@@ -30,7 +31,6 @@ const FORMAT_FLOAT = 3;
 
 const micronsPer = (unit) => (unit ? UNIT_TO_MICRONS[String(unit).trim().toLowerCase().replace("μ", "µ").replace("\\u00b5", "µ")] ?? null : null);
 const defaultColors = (count) => (count === 1 ? ["#ffffff"] : Array.from({ length: count }, (_v, i) => PALETTE[i % PALETTE.length]));
-const naturalKey = (name) => name.toLowerCase().split(/(\d+)/).map((part) => (/^\d+$/.test(part) ? part.padStart(12, "0") : part)).join("");
 
 function openTiffSource(source) {
   return source.file ? fromBlob(source.file) : fromUrl(source.url);
@@ -126,6 +126,39 @@ function omeImages(xml) {
   }).filter(Boolean);
 }
 
+// Zeiss LSM (LSM 510/710/880 confocals): a TIFF whose pages alternate a
+// plane - all channels, as samples - and its thumbnail; the CZ_LSMINFO tag
+// (34412) holds the sizes and the voxel size in metres.
+const LSM_TAG = 34412;
+const LSM_MAGIC = [0x00300494c, 0x00400494c];
+
+async function lsmInfo(image) {
+  if (!image.fileDirectory.hasTag(LSM_TAG)) return null;
+  const raw = await image.fileDirectory.loadValue(LSM_TAG);
+  const bytes = raw && typeof raw !== "number" ? Uint8Array.from(raw) : null;
+  if (!bytes || bytes.length < 64) return null;
+  const view = new DataView(bytes.buffer);
+  if (!LSM_MAGIC.includes(view.getUint32(0, true))) return null;
+  const int = (at) => view.getInt32(at, true);
+  const size = [40, 48, 56].map((at) => view.getFloat64(at, true) * 1e6);
+  return {
+    nx: int(8), ny: int(12), nz: int(16), channels: int(20), frames: int(24),
+    voxel: size.every((s) => s > 0 && Number.isFinite(s)) ? size : null,
+  };
+}
+
+// Zeiss writes the BitsPerSample of two channels - which fit in the tag -
+// as an offset to them all the same; tifffile corrects it the same way.
+const BITS_PER_SAMPLE = 258;
+async function fixLsmBits(image) {
+  const directory = image.fileDirectory;
+  const bits = directory.getValue(BITS_PER_SAMPLE);
+  if (!bits || bits.length !== 2 || (bits[0] === bits[1] && [8, 16, 32].includes(bits[0]))) return;
+  const [buffer] = await image.source.fetch([{ offset: bits[0] + bits[1] * 65536, length: 4 }]);
+  const view = new DataView(buffer);
+  directory.actualizedFields.set(BITS_PER_SAMPLE, [view.getUint16(0, true), view.getUint16(2, true)]);
+}
+
 // Page of (z, c) when the pages run in `order` (e.g. "ZCT") over counts.
 function pageLayout(order, counts, start) {
   const steps = {};
@@ -163,11 +196,13 @@ export async function describeTiff(source, fileName, siblings = null) {
   const nx = image.getWidth();
   const ny = image.getHeight();
   const samples = image.getSamplesPerPixel();
+  const lsm = await lsmInfo(image);
+  if (lsm) await fixLsmBits(image);
   const pixel = { format: image.getSampleFormat(), bits: image.getBitsPerSample() };
   if (pixel.format === FORMAT_FLOAT && pixel.bits === 16) throw new Error("16-bit float TIFFs are not supported");
   // Writers end it with a NUL, which DOMParser refuses.
   const description = String((await image.fileDirectory.loadValue("ImageDescription")) || "").replace(/\0+$/, "");
-  const base = fileName.replace(/\.ome\.tiff?$|\.tiff?$/i, "");
+  const base = fileName.replace(/\.ome\.tiff?$|\.tiff?$|\.lsm$/i, "");
   const manifest = { format: "dfg-volume", version: 1, source: fileName, series: [], skipped: [] };
   const channelList = (count, meta = [], fallback = base) => {
     const colors = defaultColors(count);
@@ -178,7 +213,25 @@ export async function describeTiff(source, fileName, siblings = null) {
     }));
   };
 
-  if (description.includes("<OME")) {
+  if (lsm) {
+    // A thumbnail after every plane, unless the file was saved without.
+    const count = await tiff.getImageCount();
+    const step = count >= 2 * lsm.nz * lsm.frames ? 2 : 1;
+    if (lsm.nz < 2) {
+      manifest.skipped.push({ name: base, path: base, reason: "a single plane, not a stack" });
+    } else {
+      manifest.series.push(series({
+        name: base,
+        nx,
+        ny,
+        nz: lsm.nz,
+        channels: channelList(samples),
+        ...voxel(lsm.voxel?.slice(0, 2), lsm.voxel?.[2]),
+        frames: Math.max(1, lsm.frames),
+        layout: { pixel, lsm: true, channels: Array.from({ length: samples }, (_v, c) => ({ start: 0, sample: c })), zStep: step },
+      }));
+    }
+  } else if (description.includes("<OME")) {
     omeImages(description).forEach((ome, index) => {
       const name = ome.name || (index ? `${base} ${index + 1}` : base);
       if (ome.counts.Z < 2) {
@@ -233,21 +286,19 @@ export async function describeTiff(source, fileName, siblings = null) {
     }
   } else {
     const count = await tiff.getImageCount();
-    const slices = count === 1 && siblings
-      ? siblings
-        .filter((file) => /\.tiff?$/i.test(file.name) && file.name.replace(/[^/]*$/, "") === fileName.replace(/[^/]*$/, ""))
-        .sort((a, b) => naturalKey(a.name).localeCompare(naturalKey(b.name)))
-      : null;
+    const slices = count === 1 && siblings ? slicesNextTo(fileName, siblings, (name) => /\.tiff?$/i.test(name)) : null;
     const xy = await resolutionSize(image);
     if (slices && slices.length >= 2) {
       const folder = fileName.split("/").slice(-2, -1)[0] || base;
+      // A SkyScan reconstruction log next to them says the voxel size.
+      const logged = await skyscanPixelSize(fileName, siblings);
       manifest.series.push(series({
         name: folder,
         nx,
         ny,
         nz: slices.length,
         channels: channelList(samples, [], folder),
-        ...voxel(xy, null),
+        ...(logged ? voxel([logged, logged], logged) : voxel(xy, null)),
         layout: { pixel, slices: true, channels: Array.from({ length: samples }, (_v, c) => ({ start: 0, sample: c })), zStep: 1 },
       }));
       manifest.slices = slices;
@@ -329,6 +380,7 @@ export async function readTiffVolume(source, layout, { onProgress } = {}) {
       const image = layout.slices
         ? await tiffs[z].getImage(0)
         : await tiffs[0].getImage(start + z * layout.zStep);
+      if (layout.lsm) await fixLsmBits(image);
       return (await image.readRasters({ samples: [sample] }))[0];
     };
     const { levels, toLevel, toValue } = await levelsFor(layout.pixel, readPlane, nz);
