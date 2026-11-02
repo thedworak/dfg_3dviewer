@@ -252,13 +252,26 @@ function volumeTexture(data, x, y, z) {
 // whole box; the window starts at half the channel's threshold, above the
 // background noise.
 function channelSettings(series) {
-  return series.channels.slice(0, MAX_CHANNELS).map((channel) => ({
-    name: channel.name,
-    on: !/^trans\b/i.test(channel.name),
-    color: channel.color || "#ffffff",
-    low: Math.min(0.5, (Number(channel.threshold) || 0) * 0.5),
-    high: 1,
-  }));
+  return series.channels.slice(0, MAX_CHANNELS).map((channel) => {
+    const settings = {
+      name: channel.name,
+      on: !/^trans\b/i.test(channel.name),
+      color: channel.color || "#ffffff",
+      low: Math.min(0.5, (Number(channel.threshold) || 0) * 0.5),
+      high: 1,
+      window: "",
+    };
+    // A DICOM file's own window (centre / width, in its unit) when it has one.
+    const window = channel.windows?.[0];
+    const [from, to] = channel.range || [];
+    if (window && to > from) {
+      const fraction = (value) => Math.min(1, Math.max(0, (value - from) / (to - from)));
+      settings.low = fraction(window.center - window.width / 2);
+      settings.high = Math.max(fraction(window.center + window.width / 2), settings.low + 0.004);
+      settings.window = "file-0";
+    }
+    return settings;
+  });
 }
 
 export function getVolumeMesh(root) {
@@ -407,8 +420,11 @@ const DIRECT_READERS = {
   lif: async (source, fileName) => (await import("./lif-reader.js")).openLif(source, fileName),
   tiff: async (source, fileName, siblings) => (await import("./tiff-reader.js")).openTiff(source, fileName, siblings),
   raw: async (source, fileName, siblings) => (await import("./raw-volume-reader.js")).openRawVolume(source, fileName, siblings),
+  dicom: async (source, fileName, siblings) => (await import("./dicom-reader.js")).openDicom(source, fileName, siblings),
 };
-const DIRECT_FORMATS = { lif: "lif", tif: "tiff", tiff: "tiff", nrrd: "raw", nhdr: "raw", nii: "raw", mha: "raw", mhd: "raw" };
+const DIRECT_FORMATS = {
+  lif: "lif", tif: "tiff", tiff: "tiff", nrrd: "raw", nhdr: "raw", nii: "raw", mha: "raw", mhd: "raw", dcm: "dicom", dicom: "dicom",
+};
 export const DIRECT_VOLUME_EXTENSIONS = Object.keys(DIRECT_FORMATS);
 
 // An image stack read in the browser from a File ({ file }) or a URL

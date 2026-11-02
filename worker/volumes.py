@@ -9,7 +9,8 @@ slab of planes at a time, so stacks larger than memory are fine:
   integer factor, averaging blocks of voxels, the voxel size scaled with it;
 - each channel is mapped to 0..255 between low and high percentiles of its
   values (kept in the manifest as "range", in the file's own units), NaN
-  (in float data) as the lowest;
+  (in float data) as the lowest; channels in Hounsfield units ("unit":
+  "HU", CT) up to their maximum, so CT windows reach metal and bone;
 - the deepest stack comes first in the manifest: the one the viewer opens.
 
 Output, next to the upload:
@@ -108,12 +109,12 @@ def downsample(view, factors):
     return out
 
 
-def to_bytes(values):
+def to_bytes(values, high_percentile=HIGH_PERCENTILE):
     """(uint8 voxels, [low, high]) - values mapped between their percentiles."""
     sample = values[:: max(1, values.shape[0] // 64)]
     if not np.isfinite(sample).any():
         return np.zeros(values.shape, dtype=np.uint8), [0.0, 1.0]
-    low, high = (float(v) for v in np.nanpercentile(sample, [LOW_PERCENTILE, HIGH_PERCENTILE]))
+    low, high = (float(v) for v in np.nanpercentile(sample, [LOW_PERCENTILE, high_percentile]))
     if high <= low:
         high = low + 1.0
     scaled = np.clip(np.nan_to_num((values - low) * (255.0 / (high - low)), nan=0.0), 0, 255)
@@ -196,7 +197,9 @@ class ManifestWriter:
         factors = self.factors((nz, ny, nx))
         planes = []
         for view, channel in zip(views, channels):
-            voxels, value_range = to_bytes(downsample(view, factors))
+            # Hounsfield units up to the maximum: metal and bone, rare
+            # voxels, stay inside the range for the CT windows.
+            voxels, value_range = to_bytes(downsample(view, factors), 100.0 if channel.get("unit") == "HU" else HIGH_PERCENTILE)
             planes.append(voxels)
             channel["range"] = value_range
             channel["threshold"] = otsu(voxels)
@@ -214,7 +217,8 @@ class ManifestWriter:
             "path": path,
             "dims": [ox, oy, oz],
             "sourceDims": [nx, ny, nz],
-            "voxelSize": [round(v * f, 6) for v, f in zip(voxel_size, (factors[2], factors[1], factors[0]))],
+            # 6 significant digits: float32 headers say 0.4 as 0.4000000059.
+            "voxelSize": [float(f"{v * f:.6g}") for v, f in zip(voxel_size, (factors[2], factors[1], factors[0]))],
             "unit": unit,
             "frames": frames,
             "data": f"{self.data_dir.name}/{data_file.name}",

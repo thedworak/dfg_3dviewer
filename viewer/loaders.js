@@ -990,12 +990,15 @@ export async function loadModel() {
       case "nhdr":
       case "nii":
       case "mha":
-      case "mhd": {
+      case "mhd":
+      case "dcm":
+      case "dicom": {
         // Image stacks opened without the worker: read in the browser, a
         // stack at a time (lif-reader.js, tiff-reader.js,
         // raw-volume-reader.js) - from the File when dropped, else by HTTP
         // (range) requests. A file unpacked from a .zip may need the
-        // archive's other files: TIFF slices, a header's data file.
+        // archive's other files: TIFF slices, a header's data file, the
+        // rest of a DICOM series.
         const { buildDirectVolumeModel } = await loadVolume();
         const file = core.localFiles.get(modelPath);
         const object = await buildDirectVolumeModel(

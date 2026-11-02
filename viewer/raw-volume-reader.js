@@ -346,7 +346,7 @@ function manifestFor(volume, fileName) {
       path: fileName,
       dims: volume.shape.map((n, i) => Math.ceil(n / factors[i])).reverse(),
       sourceDims: [nx, ny, nz],
-      voxelSize: volume.voxel.map((v, i) => Number((v * factors[2 - i]).toFixed(6))),
+      voxelSize: volume.voxel.map((v, i) => Number((v * factors[2 - i]).toPrecision(6))),
       unit: volume.unit,
       frames: volume.frames,
       channels: colors.map((color, c) => ({ name: volume.channels === 1 ? volume.name : `Channel ${c + 1}`, color, bits })),

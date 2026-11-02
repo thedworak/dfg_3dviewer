@@ -173,7 +173,7 @@ needing the tag.
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
   - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading. Uploads without a tree (from before `build-lod`, or where it failed) get one with `docker compose exec worker python3 /app/worker/server.py admin rebuild-splats`; `--force` rebuilds the existing trees too (new `build-lod` or `WORKER_SPLAT_LOD_ARGS`, cached copies purged from Cloudflare when `WORKER_PUBLIC_HOSTS` is set), job ids limit it to those jobs. No restart needed: the model list reads the jobs from disk
   - Gaussian splats in `.splat`, `.spz` or a 3DGS `.ply` also get a voxel volume of their surface, `<model>.light` next to the model served (e.g. `Angel-lod.rad.light`), built with numpy by `worker/splat_volume.py`: the viewer reads normals, occlusion and shadows from it when the splats are lit by the scene's lights (Lights > Gaussian splats). `admin rebuild-splats` builds the missing ones too, also without `build-lod`
-  - image stacks - Leica `.lif`, TIFF / OME-TIFF (`tif tiff`, also a `.zip` of single-slice TIFFs), NRRD (`nrrd`, `nhdr` + its data file in a `.zip`), NIfTI (`nii`, `nii.gz` - a NIfTI, not an archive) and MetaImage (`mha`, `mhd` + its data file in a `.zip`): every Z stack becomes a volume, `modelUrl` ends in `volume/<name>.dfgvol` - see "Image stacks (volumes)" below. In an archive with a model, a TIFF is a texture: it is taken as a stack only when nothing else is there
+  - image stacks - Leica `.lif`, TIFF / OME-TIFF (`tif tiff`, also a `.zip` of single-slice TIFFs), NRRD (`nrrd`, `nhdr` + its data file in a `.zip`), NIfTI (`nii`, `nii.gz` - a NIfTI, not an archive) and MetaImage (`mha`, `mhd` + its data file in a `.zip`) and DICOM (a `.zip` of a series - files `.dcm` or without extension -, or one multi-frame `.dcm`): every Z stack becomes a volume, `modelUrl` ends in `volume/<name>.dfgvol` - see "Image stacks (volumes)" below. In an archive with a model, a TIFF is a texture: it is taken as a stack only when nothing else is there
   - point clouds converted to a streamed octree (`modelUrl` ends in `tiles/<name>/metadata.json` for Potree 2, `tiles/<name>/tileset.json` for 3D Tiles), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
@@ -394,7 +394,7 @@ The viewer's suggested scene (Look > Suggested scene, `docs/ai.md`) puts the sun
 
 ### Image stacks (volumes)
 
-Microscope, CT and MRI image stacks become volumes the viewer draws by ray marching. `worker/volumes.py` holds what the converters share (reduction, 8-bit mapping, the manifest and thumbnail below); `worker/lif.py`, `worker/tiff_stack.py` and `worker/raw_volume.py` read the formats.
+Microscope, CT and MRI image stacks become volumes the viewer draws by ray marching. `worker/volumes.py` holds what the converters share (reduction, 8-bit mapping, the manifest and thumbnail below); `worker/lif.py`, `worker/tiff_stack.py`, `worker/raw_volume.py` and `worker/dicom_series.py` read the formats. Small synthetic samples of every format are in `viewer/examples/volumes/` (`scripts/generate-volume-samples.py`).
 
 #### Leica LIF
 
@@ -439,6 +439,19 @@ The viewer opens these TIFFs without the worker too (`viewer/tiff-reader.js`, ge
 Units: NIfTI says them (m, mm, µm); NRRD in `space units`, else millimetres when it has a space (medical data), else unknown (`px`, keeping the spacings' ratio); MetaImage by ITK's convention millimetres. Of a time series only the first time point is taken. The stack is taken axis-aligned: direction cosines (oblique acquisitions, NIfTI's qform/sform rotations) are not applied. Data is read a slice at a time, seeking in the decompressed stream, so files larger than memory are fine. Standalone: `python3 worker/raw_volume.py brain.nii.gz [out_dir]`.
 
 The viewer opens these files without the worker too (`viewer/raw-volume-reader.js`): it reads the voxels once as a stream - from the dropped file or one HTTP request - decompressing gzip and zlib on the way, and a detached data file from the same `.zip` or next to the URL. 32-bit and float data, and NIfTI with a scaling, are read twice (minimum and maximum first). bzip2 and ascii NRRD, `byte skip: -1` and MetaImage `HeaderSize = -1` are left to the worker.
+
+#### DICOM
+
+`worker/dicom_series.py` reads CT, MRI and micro-CT studies with `pydicom` (in `Dockerfile.base`, with `pylibjpeg`'s plugins for compressed series):
+
+- upload a `.zip` of the study: files are told apart by their `DICM` marker, not their names (`IM0001`, `*.dcm`, a `DICOMDIR` tree), and grouped by series; every series of two or more slices becomes a volume, single images (localizers, X-rays) are listed as skipped;
+- slices are ordered along the slice normal (`ImageOrientationPatient` × `ImagePositionPatient`), the spacing is the median step between them; multi-frame (enhanced CT / MR) files use their per-frame positions;
+- values are rescaled per slice (`RescaleSlope` / `RescaleIntercept`): CT in Hounsfield units, mapped up to the maximum (metal, bone), with the windows the files suggest (`WindowCenter` / `WindowWidth`); the viewer's volume panel offers them and the usual CT windows (soft tissue, bone, lung, brain), its sliders in HU;
+- transfer syntaxes: uncompressed, RLE, JPEG baseline / lossless / JPEG-LS, JPEG 2000.
+
+**Patient data**: only what describes the image goes into the manifest - modality, device, body part, sizes, the series' description - never names, identifiers or dates. The upload itself stays in the job folder as uploaded (as every upload does, served under `/files/`): **anonymise studies before uploading them**.
+
+The viewer reads uncompressed series without the worker too (`viewer/dicom-reader.js`, a `.zip` or file dropped from the disk); compressed and multi-frame ones are listed as skipped there, for the worker to convert.
 
 ### Serving converted files
 

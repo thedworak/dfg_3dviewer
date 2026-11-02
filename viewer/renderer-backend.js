@@ -28,7 +28,7 @@ export const RENDERER_PREFERENCES = ["webgl", "webgpu", "auto"];
 
 // Point clouds and splat scenes. A PLY may be either (or a mesh): it stays
 // on WebGL too.
-export const WEBGL_ONLY_EXTENSIONS = ["las", "laz", "xyz", "pcd", "ply", "spz", "splat", "ksplat", "sog", "rad", "dfgvol", "lif", "tif", "tiff", "nrrd", "nhdr", "nii", "mha", "mhd"];
+export const WEBGL_ONLY_EXTENSIONS = ["las", "laz", "xyz", "pcd", "ply", "spz", "splat", "ksplat", "sog", "rad", "dfgvol", "lif", "tif", "tiff", "nrrd", "nhdr", "nii", "mha", "mhd", "dcm", "dicom"];
 // Streamed tilesets (3D Tiles, Potree), by file name.
 const WEBGL_ONLY_FILES = ["tileset.json", "metadata.json"];
 

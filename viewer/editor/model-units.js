@@ -101,7 +101,7 @@ export async function detectFileUnit(object, extension, url) {
       const factor = Number(root.userData?.unitScaleFactor);
       return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
     }
-    if (["dfgvol", "lif", "tif", "tiff", "nrrd", "nhdr", "nii", "mha", "mhd"].includes(ext)) {
+    if (["dfgvol", "lif", "tif", "tiff", "nrrd", "nhdr", "nii", "mha", "mhd", "dcm", "dicom"].includes(ext)) {
       // Volumes are built in micrometres (volume.js) - or in voxels when the
       // file gives no size.
       return root.userData?.volumeSeries?.unit === "px" ? null : 1e-6;

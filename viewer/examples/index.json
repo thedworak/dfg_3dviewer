@@ -27,6 +27,11 @@
     {"url": "./examples/tiles/wolpa-points/tileset.json", "name": "Wolpa Synagogue (point cloud, 3D Tiles)"},
     {"url": "./examples/points.laz", "name": "Point cloud (LAZ, UTM coordinates)"},
     {"url": "./examples/potree/scan/metadata.json", "name": "Point cloud (Potree 2, classified)", "app": false},
-    {"url": "./examples/animated.glb", "name": "Animated GLB"}
+    {"url": "./examples/animated.glb", "name": "Animated GLB"},
+    {"url": "./examples/volumes/amphora-ct.nii.gz", "name": {"en": "Amphora micro-CT (volume, NIfTI)", "pl": "Amfora, mikro-CT (wolumen, NIfTI)", "de": "Amphore, Mikro-CT (Volumen, NIfTI)"}, "app": false},
+    {"url": "./examples/volumes/amphora-ct.nrrd", "name": {"en": "Amphora micro-CT (volume, NRRD)", "pl": "Amfora, mikro-CT (wolumen, NRRD)", "de": "Amphore, Mikro-CT (Volumen, NRRD)"}, "app": false},
+    {"url": "./examples/volumes/amphora-ct.mha", "name": {"en": "Amphora micro-CT (volume, MetaImage)", "pl": "Amfora, mikro-CT (wolumen, MetaImage)", "de": "Amphore, Mikro-CT (Volumen, MetaImage)"}, "app": false},
+    {"url": "./examples/volumes/cells.ome.tif", "name": {"en": "Cells, 2 channels (volume, OME-TIFF)", "pl": "Komórki, 2 kanały (wolumen, OME-TIFF)", "de": "Zellen, 2 Kanäle (Volumen, OME-TIFF)"}, "app": false},
+    {"url": "./examples/volumes/cells.lif", "name": {"en": "Cells, 2 channels (volume, Leica LIF)", "pl": "Komórki, 2 kanały (wolumen, Leica LIF)", "de": "Zellen, 2 Kanäle (Volumen, Leica LIF)"}, "app": false}
   ]
 }

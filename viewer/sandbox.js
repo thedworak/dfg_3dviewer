@@ -96,8 +96,8 @@ export async function createCreditsElement() {
   return creditsDiv;
 }
 
-export async function loadDroppedModel (file) {
-  const extension = modelExtension(file.name);
+// extension: the format, when the name does not say it (DICOM files).
+export async function loadDroppedModel (file, extension = modelExtension(file.name)) {
 
   // As before a model opened from a URL (models panel): the previous one
   // goes with its selection, tools and helpers, or the editing tools and

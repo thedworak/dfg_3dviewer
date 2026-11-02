@@ -105,7 +105,7 @@ import { attachBackNavigation } from "./ui/back-navigation.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachVolumePanel } from "./editor/volume-panel.js";
-import { modelBasename, modelExtension } from "./model-extension.js";
+import { isDicomFile, modelBasename, modelExtension } from "./model-extension.js";
 import { attachModelUnits } from "./editor/model-units.js";
 import { createWebGLRenderer, shouldTryWebGPU, tryCreateWebGPURenderer } from "./renderer-backend.js";
 import { ALL_VIEWS as THUMBNAIL_VIEWS, bundledManifestName, captureAndUploadThumbnail, generateAllThumbnails, refreshThumbnailAccess } from "./editor/thumbnail-capture.js";
@@ -2697,6 +2697,18 @@ export const Viewer = {
 
     if (Viewer.SUPPORTED_ARCHIVES.includes(extension)) {
       return loadDroppedArchive(file);
+    }
+
+    // A DICOM file without an extension (IM0001...).
+    if (await isDicomFile(file)) {
+      clearExampleModelSelection();
+      Viewer.shownModelUrl = null;
+      try {
+        await loadDroppedModel(file, "dcm");
+        return true;
+      } catch (_error) {
+        return false;
+      }
     }
 
     toastHelper("unsupportedFormat", "error");

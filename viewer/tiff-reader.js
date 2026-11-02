@@ -146,7 +146,7 @@ function series({ name, nx, ny, nz, channels, voxelSize, unit, frames = 1, acqui
     path: name,
     dims: [ox, oy, oz],
     sourceDims: [nx, ny, nz],
-    voxelSize: voxelSize.map((v, i) => Number((v * factors[2 - i]).toFixed(6))),
+    voxelSize: voxelSize.map((v, i) => Number((v * factors[2 - i]).toPrecision(6))),
     unit,
     frames,
     channels,

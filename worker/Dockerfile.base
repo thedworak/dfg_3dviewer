@@ -159,12 +159,15 @@ RUN curl -fsSL "https://github.com/KhronosGroup/glTF-Validator/releases/download
 COPY --from=spark-build-lod /usr/local/bin/build-lod /usr/local/bin/build-lod
 RUN { build-lod 2>&1 || true; } | grep -q "Usage: build-lod"
 
-# tifffile (+ imagecodecs for LZW, JPEG, zstd...) reads TIFF image stacks
-# and OME-TIFF for worker/tiff_stack.py. Last, so adding it does not rebuild
-# the Blender and PotreeConverter layers above. numpy is held at the apt
+# Image stacks (worker/volumes.py): tifffile (+ imagecodecs for LZW, JPEG,
+# zstd...) reads TIFF and OME-TIFF for tiff_stack.py; pydicom DICOM series
+# for dicom_series.py, with pylibjpeg's plugins for JPEG (baseline,
+# lossless, JPEG-LS) and JPEG 2000. Last, so adding them does not rebuild the
+# Blender and PotreeConverter layers above. numpy is held at the apt
 # package's version (pip cannot replace a Debian package): pip then picks
-# the newest tifffile and imagecodecs that work with it.
+# the newest versions of the others that work with it.
 RUN pip3 install --no-cache-dir --break-system-packages tifffile imagecodecs \
+        pydicom pylibjpeg pylibjpeg-libjpeg pylibjpeg-openjpeg \
         "numpy==$(python3 -c 'import numpy; print(numpy.__version__)')"
 
 # Runtime defaults that do not depend on the code.

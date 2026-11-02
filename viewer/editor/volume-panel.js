@@ -31,6 +31,14 @@ function densityToSlider(density) {
 }
 
 const SAMPLING = [0.5, 1, 2];
+// Radiology's usual CT windows (Hounsfield units), offered with the ones a
+// DICOM file suggests.
+const CT_WINDOWS = [
+  { id: "soft", center: 40, width: 400 },
+  { id: "bone", center: 400, width: 1800 },
+  { id: "lung", center: -600, width: 1500 },
+  { id: "brain", center: 40, width: 80 },
+];
 
 const percent = (value) => `${Math.round(value * 100)}%`;
 
@@ -230,19 +238,70 @@ export function attachVolumePanel(Viewer) {
         ui.labels.push([on, () => t("volume.channelShown", "Show channel")]);
         ui.labels.push([color, () => t("volume.channelColor", "Channel colour")]);
         group.appendChild(head);
+        // In the channel's unit when it has one (CT: HU), else in percent.
+        const meta = series.channels[index] || {};
+        const inUnits = Boolean(meta.unit) && Array.isArray(meta.range);
+        const toUnits = (fraction) => meta.range[0] + fraction * (meta.range[1] - meta.range[0]);
+        const level = (fraction) => (inUnits ? `${Math.round(toUnits(fraction))} ${meta.unit}` : percent(fraction));
+        const windows = [
+          ...(meta.windows || []).map((w, i) => ({ ...w, id: `file-${i}` })),
+          ...(meta.unit === "HU" ? CT_WINDOWS : []),
+        ];
+        if (windows.length && inUnits) {
+          const fraction = (value) => Math.min(1, Math.max(0, (value - meta.range[0]) / (meta.range[1] - meta.range[0])));
+          const choice = select(
+            ["", ...windows.map((w) => w.id), "full"],
+            channel.window || "",
+            (id) => {
+              if (!id) return "–";
+              if (id === "full") return t("volume.windows.full", "Full range");
+              const w = windows.find((item) => item.id === id);
+              const label = id.startsWith("file-") ? w.name : t(`volume.windows.${id}`, id);
+              return `${label} (${w.center} / ${w.width})`;
+            },
+            (id) => Viewer.updateVolumeSettings((s) => {
+              const target = s.channels[index];
+              target.window = id;
+              if (id === "full") {
+                target.low = 0;
+                target.high = 1;
+              } else if (id) {
+                const w = windows.find((item) => item.id === id);
+                target.low = fraction(w.center - w.width / 2);
+                target.high = Math.max(fraction(w.center + w.width / 2), target.low + 0.004);
+              }
+            }, { rebuild: true }),
+          );
+          row(() => t("volume.window", "Window (centre / width)"), choice, group);
+        }
         row(
-          () => t("volume.low", { value: percent(Viewer.volumeState.mesh.userData.volume.channels[index].low) }, "Black below {value}"),
-          slider(channel.low * 100, (value) => Viewer.updateVolumeSettings((s) => { s.channels[index].low = value / 100; })),
+          () => t("volume.low", { value: level(Viewer.volumeState.mesh.userData.volume.channels[index].low) }, "Black below {value}"),
+          slider(channel.low * 100, (value) => Viewer.updateVolumeSettings((s) => {
+            s.channels[index].low = value / 100;
+            s.channels[index].window = "";
+          })),
           group,
         );
         row(
-          () => t("volume.high", { value: percent(Viewer.volumeState.mesh.userData.volume.channels[index].high) }, "Full above {value}"),
-          slider(channel.high * 100, (value) => Viewer.updateVolumeSettings((s) => { s.channels[index].high = Math.max(value / 100, 0.01); })),
+          () => t("volume.high", { value: level(Viewer.volumeState.mesh.userData.volume.channels[index].high) }, "Full above {value}"),
+          slider(channel.high * 100, (value) => Viewer.updateVolumeSettings((s) => {
+            s.channels[index].high = Math.max(value / 100, 0.01);
+            s.channels[index].window = "";
+          })),
           group,
         );
         ui.body.appendChild(group);
       });
 
+      // The threshold in the surface channel's unit (CT: HU), else in percent.
+      const isoLevel = () => {
+        const current = Viewer.volumeState.mesh.userData.volume;
+        const channel = current.channels[current.isoChannel];
+        const meta = series.channels[current.isoChannel] || {};
+        if (!meta.unit || !Array.isArray(meta.range) || !channel) return percent(current.iso);
+        const fraction = channel.low + current.iso * (channel.high - channel.low);
+        return `${Math.round(meta.range[0] + fraction * (meta.range[1] - meta.range[0]))} ${meta.unit}`;
+      };
       if (settings.mode === "iso") {
         if (settings.channels.length > 1) {
           row(() => t("volume.isoChannel", "Surface of"), select(
@@ -253,7 +312,7 @@ export function attachVolumePanel(Viewer) {
           ));
         }
         row(
-          () => t("volume.iso", { value: percent(Viewer.volumeState.mesh.userData.volume.iso) }, "Threshold {value}"),
+          () => t("volume.iso", { value: isoLevel() }, "Threshold {value}"),
           slider(settings.iso * 100, (value) => Viewer.updateVolumeSettings((s) => { s.iso = Math.max(value / 100, 0.01); })),
         );
       }
@@ -296,8 +355,10 @@ export function attachVolumePanel(Viewer) {
       fact(() => t("volume.voxelSize", "Voxel size"), series.voxelSize.map(length).join(" × "));
       fact(() => t("volume.size", "Size"), series.voxelSize.map((v, i) => length(v * series.dims[i])).join(" × "));
       const acquisition = series.acquisition || {};
+      fact(() => t("volume.modality", "Modality"), acquisition.modality);
+      fact(() => t("volume.bodyPart", "Body part"), acquisition.bodyPart);
       fact(() => t("volume.objective", "Objective"), acquisition.objective);
-      fact(() => t("volume.microscope", "Microscope"), [acquisition.system, acquisition.stand].filter(Boolean).join(", "));
+      fact(() => t("volume.microscope", "Instrument"), [acquisition.system, acquisition.stand].filter(Boolean).join(", "));
       fact(() => t("volume.lasers", "Lasers"), acquisition.laserLinesNm?.map((nm) => `${nm} nm`).join(", "));
       fact(() => t("volume.acquired", "Acquired"), acquisition.acquired ? new Date(acquisition.acquired).toLocaleString() : "");
       if (series.frames > 1) fact(() => t("volume.frames", "Time points"), t("volume.firstFrame", { total: series.frames }, "first of {total}"));

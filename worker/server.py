@@ -53,8 +53,8 @@ formats the viewer reads itself, stored as uploaded without thumbnails (gltf 3ds
 pcd xyz amf kmz vox lwo, and Gaussian splats: spz splat ksplat sog rad, and a
 .ply of splats - turned into a level-of-detail .rad by splats.py when build-lod
 is installed), image stacks - Leica .lif (lif.py), TIFF / OME-TIFF
-(tiff_stack.py), NRRD, NIfTI and MetaImage (raw_volume.py) - turned into
-volumes, plus .zip/.rar/.tar/.xz/.gz archives of any of these (a .nii.gz is
+(tiff_stack.py), NRRD, NIfTI and MetaImage (raw_volume.py), DICOM series
+(dicom_series.py) - turned into volumes, plus .zip/.rar/.tar/.xz/.gz archives of any of these (a .nii.gz is
 a NIfTI file, not an archive).
 
 This process is single-node and keeps in-flight job state (progress/status
@@ -85,6 +85,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 import ai
 import cloudflare
 import geonames
+import dicom_series
 import lif
 import raw_volume
 import tiff_stack
@@ -183,6 +184,7 @@ VOLUME_CONVERTERS = {
     **{ext: lif.convert for ext in lif.FORMATS},
     **{ext: tiff_stack.convert for ext in tiff_stack.FORMATS},
     **{ext: raw_volume.convert for ext in raw_volume.FORMATS},
+    **{ext: dicom_series.convert for ext in dicom_series.FORMATS},
 }
 VOLUME_FORMATS = set(VOLUME_CONVERTERS)
 SUPPORTED_FORMATS = (
@@ -279,7 +281,10 @@ def find_model_file(root: Path):
     # A TIFF is a stack only when nothing else is there: next to a model it
     # is a texture.
     models = [path for path in found if path.suffix.lower().lstrip(".") not in tiff_stack.FORMATS]
-    return (models or found or [None])[0]
+    if models or found:
+        return (models or found)[0]
+    # DICOM files often have no extension (IM0001, ...): told by their marker.
+    return next((path for path in sorted(root.rglob("*")) if path.is_file() and dicom_series.is_dicom(path)), None)
 
 
 JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
@@ -644,6 +649,8 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
             work_path = model_file
 
         ext = raw_volume.model_ext(work_path)
+        if ext not in SUPPORTED_FORMATS and dicom_series.is_dicom(work_path):
+            ext = "dcm"
         if ext not in SUPPORTED_FORMATS:
             raise RuntimeError(f"Unsupported source format: .{ext}")
 
@@ -691,16 +698,21 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                 on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
             ):
                 set_job(job_id, status="processing", progress=25, message="Converting image stacks to volumes...")
+                options = {}
                 manifest = volumes.manifest_path_for(work_path)
+                if ext in dicom_series.FORMATS:
+                    # A DICOM series is every file of the upload: named after it.
+                    options["root"] = job_root / "extracted" if is_archive else work_path.parent
+                    manifest = volumes.manifest_path_for(input_path)
                 manifest.parent.mkdir(parents=True, exist_ok=True)
                 try:
-                    converted = VOLUME_CONVERTERS[ext](work_path, manifest, log_prefix=f"[job {job_id}]")
+                    converted = VOLUME_CONVERTERS[ext](work_path, manifest, log_prefix=f"[job {job_id}]", **options)
                 except volumes.VolumeError as exc:
                     raise RuntimeError(str(exc)) from exc
                 # The thumbnail is a projection of the voxels, not a Blender render.
                 image_urls = []
                 try:
-                    preview = volumes.write_preview(manifest, converted, work_path.parent / "views" / f"{manifest.stem}_side45.png")
+                    preview = volumes.write_preview(manifest, converted, manifest.parent.parent / "views" / f"{manifest.stem}_side45.png")
                     image_urls = [thumbnail_url(job_id, preview, job_root)]
                 except Exception as exc:  # noqa: BLE001 - thumbnails are best-effort
                     print(f"[job {job_id}] volume thumbnail failed: {exc}", file=sys.stderr)

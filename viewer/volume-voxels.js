@@ -46,10 +46,11 @@ function otsu(histogram) {
 
 // Writes the 8-bit voxels of a channel into target, from its means (levels)
 // and their histogram. Returns { low, high } (levels) and its threshold.
-export function finishChannel(means, histogram, target) {
+// highPercentile 100 keeps the maximum (CT in Hounsfield units: metal).
+export function finishChannel(means, histogram, target, highPercentile = HIGH_PERCENTILE) {
   const voxels = means.length;
   const low = percentileOf(histogram, voxels, LOW_PERCENTILE);
-  let high = percentileOf(histogram, voxels, HIGH_PERCENTILE);
+  let high = percentileOf(histogram, voxels, highPercentile);
   if (high <= low) high = low + 1;
   const scale = 255 / (high - low);
   const bytes = new Float64Array(256);
@@ -114,9 +115,9 @@ export class ChannelAccumulator {
     this.depth = 0;
   }
 
-  finish(target) {
+  finish(target, highPercentile) {
     this.flush();
-    return finishChannel(this.means, this.histogram, target);
+    return finishChannel(this.means, this.histogram, target, highPercentile);
   }
 }
 

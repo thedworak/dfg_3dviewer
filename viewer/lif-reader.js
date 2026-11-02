@@ -216,7 +216,7 @@ export function describeLif(xml, blocks, fileName, maxSize = MAX_SIZE) {
             path: itemPath,
             dims: [nx, ny, nz],
             sourceDims: [shape[2], shape[1], shape[0]],
-            voxelSize: [[DIM_X, 2], [DIM_Y, 1], [DIM_Z, 0]].map(([d, i]) => Number((voxelSize(dims[d]) * factors[i]).toFixed(6))),
+            voxelSize: [[DIM_X, 2], [DIM_Y, 1], [DIM_Z, 0]].map(([d, i]) => Number((voxelSize(dims[d]) * factors[i]).toPrecision(6))),
             unit: "µm",
             frames: dims[DIM_T]?.count || 1,
             channels: channels.map((c) => ({ name: c.name, color: LUT_COLORS[c.lut.toLowerCase()] || "#ffffff", bits: c.bits })),

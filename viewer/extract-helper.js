@@ -2,7 +2,7 @@ import { unzipSync } from 'fflate';
 import { loadDroppedModel } from "./sandbox.js";
 import { core } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
-import { modelExtension } from "./model-extension.js";
+import { isDicomFile, modelExtension } from "./model-extension.js";
 
 let archiveFileMap = {};
 
@@ -71,7 +71,18 @@ export async function loadDroppedArchive (archiveFile) {
       throw new Error('Archive is empty');
     }
 
-    const modelFile = findMainModelFile(extractedFiles);
+    let modelFile = findMainModelFile(extractedFiles);
+    // Else a DICOM series, its files often without an extension (IM0001...).
+    let modelFormat;
+    if (!modelFile) {
+      for (const file of extractedFiles) {
+        if (await isDicomFile(file)) {
+          modelFile = file;
+          modelFormat = 'dcm';
+          break;
+        }
+      }
+    }
 
     if (!modelFile) {
       throw new Error('No supported model file found in archive');
@@ -80,7 +91,7 @@ export async function loadDroppedArchive (archiveFile) {
     buildArchiveFileMap(extractedFiles);
     core.archiveFiles = extractedFiles;
 
-    await loadDroppedModel(modelFile);
+    await loadDroppedModel(modelFile, modelFormat);
     return true;
 
   } catch (err) {

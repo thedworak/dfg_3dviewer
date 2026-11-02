@@ -24,6 +24,10 @@ env:
 
 jobs:
   publish:
+    # Only the repository the GHCR package belongs to may push it: in the
+    # public copy (sync-public.yml) the push fails with
+    # "permission_denied: write_package".
+    if: github.repository == 'thedworak/ExPlora4D'
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout
