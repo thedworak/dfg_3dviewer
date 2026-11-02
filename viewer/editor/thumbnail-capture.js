@@ -51,7 +51,7 @@ function showsGallery(viewer) {
 // The views scripts/render.py (Blender) renders for an uploaded model, named
 // <model>_<view>.png in its views/ folder. side45 is the main thumbnail.
 const SIDE_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
-const ALL_VIEWS = [...SIDE_ANGLES.map((angle) => `side${angle}`), "top"];
+export const ALL_VIEWS = [...SIDE_ANGLES.map((angle) => `side${angle}`), "top"];
 const CAPTURE_SIZE = 1024;
 
 // Square captures at CAPTURE_SIZE, the live canvas size restored afterwards.
@@ -267,6 +267,8 @@ async function requireTarget(viewer) {
 async function saveManifestThumbnails(viewer, name, captures) {
   const manifest = await uploadManifestThumbnails(name, await viewer.getManifestJson(viewer.currentManifest.source, "url"), captures);
   viewer.currentManifest.json = manifest;
+  // The thumbnails icon in the list of example manifests.
+  viewer.forgetExampleInspections?.();
   if (showsGallery(viewer)) renderManifestGalleryImages(viewer, manifest.AIM3DViewer?.thumbnails);
 }
 

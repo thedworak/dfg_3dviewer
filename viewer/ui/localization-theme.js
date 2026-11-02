@@ -219,6 +219,7 @@ export function attachLocalizationTheme(viewer) {
       // The Level of Certainty legend and dialog field name their levels.
       this.applyCertaintyLanguage?.();
       this.localizeValidationReport?.();
+      this.localizeManifestPreview?.();
       this.localizeGroundPanel?.();
       this.localizeEventLog?.();
     },

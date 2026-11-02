@@ -91,6 +91,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Selected faces",
     },
     gui: {
+      manifestPreview: "Preview manifest",
       on: "ON",
       off: "OFF",
       environmentMapNeutral: "Neutral",
@@ -607,6 +608,7 @@ export const VIEWER_I18N = {
       iiif: "IIIF manifests",
       bundled: "In the app, works offline",
       online: "Needs an internet connection",
+      thumbnails: "Thumbnails saved in the manifest: {count}",
       refresh: "Refresh",
     },
     ai: {
@@ -668,6 +670,12 @@ export const VIEWER_I18N = {
         status: { ok: "Documented", incomplete: "Incomplete", inconsistent: "Inconsistent" },
         suggestions: "Suggestions: ",
       },
+    },
+    manifestPreview: {
+      title: "Manifest preview",
+      copy: "Copy the JSON",
+      refresh: "Build again from the current state",
+      noModel: "Open a model to see its manifest.",
     },
     validationReport: {
       title: "Validation report",
@@ -893,6 +901,8 @@ export const VIEWER_I18N = {
       disabled: "disabled"
     },
     toasts: {
+      manifestCopied: "Manifest copied to the clipboard.",
+      manifestCopyFailed: "Could not copy the manifest.",
       passwordChanged: "Your password was changed.",
       accountDeleted: "Your account and its data were deleted.",
       modelReported: "Thank you. The model was reported to the moderators.",
@@ -1786,6 +1796,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Wybrane sciany",
     },
     gui: {
+      manifestPreview: "Podgląd manifestu",
       on: "WŁ.",
       off: "WYŁ.",
       environmentMapNeutral: "Neutralna",
@@ -2301,6 +2312,7 @@ export const VIEWER_I18N = {
       iiif: "Manifesty IIIF",
       bundled: "W aplikacji, działa offline",
       online: "Wymaga połączenia z internetem",
+      thumbnails: "Miniatury zapisane w manifeście: {count}",
       refresh: "Odśwież",
     },
     ai: {
@@ -2362,6 +2374,12 @@ export const VIEWER_I18N = {
         status: { ok: "Udokumentowany", incomplete: "Niekompletny", inconsistent: "Niespójny" },
         suggestions: "Sugestie: ",
       },
+    },
+    manifestPreview: {
+      title: "Podgląd manifestu",
+      copy: "Kopiuj JSON",
+      refresh: "Zbuduj ponownie z bieżącego stanu",
+      noModel: "Otwórz model, aby zobaczyć jego manifest.",
     },
     validationReport: {
       title: "Raport walidacji",
@@ -2622,6 +2640,8 @@ export const VIEWER_I18N = {
       disabled: "wyłączony"
     },
     toasts: {
+      manifestCopied: "Manifest skopiowany do schowka.",
+      manifestCopyFailed: "Nie udało się skopiować manifestu.",
       passwordChanged: "Hasło zostało zmienione.",
       accountDeleted: "Twoje konto i jego dane zostały usunięte.",
       modelReported: "Dziękujemy. Model został zgłoszony moderatorom.",
@@ -3514,6 +3534,7 @@ export const VIEWER_I18N = {
       selectedFaces: "Ausgewählte Flächen",
     },
     gui: {
+      manifestPreview: "Manifest-Vorschau",
       on: "AN",
       off: "AUS",
       environmentMapNeutral: "Neutral",
@@ -4064,6 +4085,7 @@ export const VIEWER_I18N = {
       iiif: "IIIF-Manifeste",
       bundled: "In der App, funktioniert offline",
       online: "Benötigt eine Internetverbindung",
+      thumbnails: "Im Manifest gespeicherte Vorschaubilder: {count}",
       refresh: "Aktualisieren",
     },
     ai: {
@@ -4125,6 +4147,12 @@ export const VIEWER_I18N = {
         status: { ok: "Dokumentiert", incomplete: "Unvollständig", inconsistent: "Widersprüchlich" },
         suggestions: "Vorschläge: ",
       },
+    },
+    manifestPreview: {
+      title: "Manifest-Vorschau",
+      copy: "JSON kopieren",
+      refresh: "Aus dem aktuellen Stand neu erstellen",
+      noModel: "Öffne ein Modell, um sein Manifest zu sehen.",
     },
     validationReport: {
       title: "Prüfbericht",
@@ -4350,6 +4378,8 @@ export const VIEWER_I18N = {
       disabled: "deaktiviert"
     },
     toasts: {
+      manifestCopied: "Manifest in die Zwischenablage kopiert.",
+      manifestCopyFailed: "Das Manifest konnte nicht kopiert werden.",
       passwordChanged: "Dein Passwort wurde geändert.",
       accountDeleted: "Dein Konto und seine Daten wurden gelöscht.",
       modelReported: "Danke. Das Modell wurde den Moderatoren gemeldet.",

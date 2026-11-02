@@ -5,6 +5,7 @@
   "label": {
     "en": ["Box (AIM3D, localhost)"]
   },
+  "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "items": [
     {
       "id": "./examples/box.glb/scene",

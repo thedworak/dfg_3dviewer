@@ -24,14 +24,15 @@ const isBundled = (url) => url.startsWith("./");
 // What each manifest contains and whether its values are right
 // (manifest-inspection.js), with the check of its model file when a worker
 // serves it: fetched once per manifest and session, shown as icons under its
-// name (feature-icons.js).
+// name (feature-icons.js). The manifest as the viewer loads it (main.js
+// getManifestJson): for a bundled one, the worker's copy with the thumbnails
+// rendered since, when there is one - so its thumbnails icon shows them.
 const inspections = new Map();
 
-function inspectExample(url) {
+function inspectExample(url, loadManifest) {
   if (!inspections.has(url)) {
     const absolute = new URL(url, window.location.href).href;
-    inspections.set(url, fetch(absolute)
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+    inspections.set(url, loadManifest(url)
       .then(async (manifest) => ({
         inspection: inspectAIM3DManifest(manifest),
         modelValidation: await fetchModelValidation(manifestModelUrls(manifest, absolute)[0]),
@@ -51,6 +52,13 @@ const displayName = (name) => name.replace(/\s*\(localhost\)\s*$/i, "");
 
 export function attachExamplesPanel(Viewer) {
   Object.assign(Viewer, {
+    // After thumbnails were saved to a manifest (thumbnail-capture.js): its
+    // icons are checked again on the next render of the list.
+    forgetExampleInspections() {
+      inspections.clear();
+      if (this.examplesPanel?.hidden === false) this.loadExamplesList();
+    },
+
     closeExamplesPanel() {
       if (this.examplesPanel) this.examplesPanel.hidden = true;
     },
@@ -181,8 +189,21 @@ export function attachExamplesPanel(Viewer) {
       button.append(text, source);
       button.disabled = !online && !bundled;
       if (!button.disabled) {
-        inspectExample(url).then((result) => {
-          if (result && text.isConnected) text.appendChild(featureIconsCaption(result.inspection, result.modelValidation));
+        inspectExample(url, (manifestUrl) => this.getManifestJson(manifestUrl, "url")).then((result) => {
+          if (!result || !text.isConnected) return;
+          text.appendChild(featureIconsCaption(result.inspection, result.modelValidation));
+          // Thumbnails saved in the manifest (AIM3DViewer.thumbnails): a
+          // badge of its own beside the source, not one icon among many.
+          const thumbnails = result.inspection.features.find((feature) => feature.id === "thumbnails");
+          if (thumbnails?.present) {
+            const label = t("examplesPanel.thumbnails", { count: thumbnails.count }, "Thumbnails saved in the manifest: {count}");
+            const badge = document.createElement("span");
+            badge.className = "examples-panel-thumbnails";
+            badge.setAttribute("role", "img");
+            badge.setAttribute("aria-label", label);
+            badge.title = label;
+            source.before(badge);
+          }
         });
       }
       this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));

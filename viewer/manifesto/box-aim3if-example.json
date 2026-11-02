@@ -7,6 +7,7 @@
       "box"
     ]
   },
+  "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "items": [
     {
       "id": "http://127.0.0.1:8080/examples/box.stl/scene",

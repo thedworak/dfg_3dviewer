@@ -60,7 +60,7 @@ const CATEGORIES = [
     more: true,
     label: () => t("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["publishCheck", "validationReport", "download", "save", "preview", "generateThumbnails", "IIIFimport", "IIIFexport"],
+    tools: ["publishCheck", "validationReport", "download", "save", "preview", "generateThumbnails", "IIIFimport", "IIIFexport", "manifestPreview"],
     breaks: ["download", "preview", "IIIFimport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
@@ -582,6 +582,7 @@ export function updateMenuToolbarLabels(viewer) {
     annotateExport: t("gui.annotateExport", "Export Annotations"),
     IIIFimport: t("gui.IIIFimport", "Import 3IF"),
     IIIFexport: t("gui.IIIFexport", "Export to IIIF"),
+    manifestPreview: t("gui.manifestPreview", "Preview manifest"),
   };
   Object.entries(labels).forEach(([key, label]) => {
     const button = buttons[key];

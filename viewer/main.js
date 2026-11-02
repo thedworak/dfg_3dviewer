@@ -59,6 +59,7 @@ import { attachLibraryPanel } from "./ui/library-panel.js";
 import { attachModelsSource } from "./ui/models-source.js";
 import { attachExamplesPanel } from "./ui/examples-panel.js";
 import { attachValidationReport } from "./ui/validation-report.js";
+import { attachManifestPreview } from "./ui/manifest-preview.js";
 import { attachGroundPanel } from "./ui/ground-panel.js";
 import { attachEventLogPanel } from "./ui/event-log.js";
 import { installEventLog } from "./ui/event-log-store.js";
@@ -105,7 +106,7 @@ import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachModelUnits } from "./editor/model-units.js";
 import { createWebGLRenderer, shouldTryWebGPU, tryCreateWebGPURenderer } from "./renderer-backend.js";
-import { bundledManifestName, captureAndUploadThumbnail, generateAllThumbnails, refreshThumbnailAccess } from "./editor/thumbnail-capture.js";
+import { ALL_VIEWS as THUMBNAIL_VIEWS, bundledManifestName, captureAndUploadThumbnail, generateAllThumbnails, refreshThumbnailAccess } from "./editor/thumbnail-capture.js";
 import { attachWindowControls } from "./ui/window-controls.js";
 
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
@@ -273,6 +274,32 @@ function rebaseManifestUrls(value, baseUrl) {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, rebaseManifestUrls(item, baseUrl)]));
   }
   return value;
+}
+
+// A bundled manifest with the thumbnails the worker keeps for it. The
+// worker's copy is the whole manifest as it was when they were saved, so
+// only its thumbnails are taken - everything else (rights, lights, ...) comes
+// from the bundled one, edited perhaps since. As the worker merges them
+// (worker/manifests.py save): its views first, then the bundled entries,
+// unless it has all of the views.
+
+function withStoredThumbnails(manifest, storedManifest, name) {
+  const storedThumbnails = storedManifest?.AIM3DViewer?.thumbnails;
+  if (!Array.isArray(storedThumbnails)) return manifest;
+  const marker = `/api/manifests/${name}/`;
+  const ours = storedThumbnails.filter((entry) => {
+    const src = typeof entry === "string" ? entry : entry?.src;
+    return typeof src === "string" && src.includes(marker);
+  });
+  if (!ours.length) return manifest;
+  const bundled = Array.isArray(manifest.AIM3DViewer?.thumbnails) ? manifest.AIM3DViewer.thumbnails : [];
+  return {
+    ...manifest,
+    AIM3DViewer: {
+      ...manifest.AIM3DViewer,
+      thumbnails: ours.length >= THUMBNAIL_VIEWS.length ? ours : [...ours, ...bundled],
+    },
+  };
 }
 
 export const Viewer = {
@@ -3459,23 +3486,21 @@ export const Viewer = {
     }
 
     // The viewer's own manifests with thumbnails rendered since: the
-    // worker's copy (editor/thumbnail-capture.js), else the bundled one.
+    // worker's copy (editor/thumbnail-capture.js) holds them.
     const name = BUILD !== "drupal" && hasRemote() ? bundledManifestName(manifestUrlOrJson) : null;
-    if (name) {
-      try {
-        const stored = await fetch(apiUrl(`/api/manifests/${name}.json`), { cache: "no-cache" });
-        if (stored.ok) return rebaseManifestUrls(await stored.json(), baseUrl);
-      } catch {
-        // No worker: the bundled manifest.
-      }
-    }
+    const stored = name
+      ? fetch(apiUrl(`/api/manifests/${name}.json`), { cache: "no-cache" })
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null) // No worker: the bundled manifest.
+      : null;
 
     const response = await fetch(manifestUrlOrJson);
     if (!response.ok) {
       throw new Error(`Unable to load manifest: ${response.status} ${response.statusText}`);
     }
-
-    return rebaseManifestUrls(await response.json(), baseUrl);
+    const manifest = await response.json();
+    const storedManifest = await stored;
+    return rebaseManifestUrls(storedManifest ? withStoredThumbnails(manifest, storedManifest, name) : manifest, baseUrl);
   },
 
   async setupManifestSource(type, { loadInitialManifest = true } = {}) {
@@ -4501,6 +4526,7 @@ attachLibraryPanel(Viewer);
 attachModelsSource(Viewer);
 attachExamplesPanel(Viewer);
 attachValidationReport(Viewer);
+attachManifestPreview(Viewer);
 attachGroundPanel(Viewer);
 attachEventLogPanel(Viewer);
 // From the start, so the log has the console's errors of the loading too.
