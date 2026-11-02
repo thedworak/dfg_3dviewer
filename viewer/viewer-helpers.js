@@ -5,6 +5,7 @@ import { markViewerUsed } from "./viewer-utils.js";
 import { buildThumbnailGallery, renderModelGalleryImages as renderModelGalleryImagesFromUrls } from "./ui/thumbnail-gallery.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { modelBasename, modelExtension } from "./model-extension.js";
 
 export function normalizeDrupalFilesPath(path) {
   if (!path || typeof path !== "string") {
@@ -59,8 +60,8 @@ export function setModelPaths(viewer) {
   }
 
   core.fileObject.filename = core.fileObject.originalPath.split("/").pop();
-  core.fileObject.basename = core.fileObject.filename.substring(0, core.fileObject.filename.lastIndexOf("."));
-  core.fileObject.extension = core.fileObject.filename.substring(core.fileObject.filename.lastIndexOf(".") + 1);
+  core.fileObject.basename = modelBasename(core.fileObject.filename);
+  core.fileObject.extension = modelExtension(core.fileObject.filename);
   core.fileObject.path = core.fileObject.originalPath.substring(0, core.fileObject.originalPath.lastIndexOf(core.fileObject.filename)) || "/";
   core.fileObject.uri = core.fileObject.path.replace(core.CONFIG.mainUrl + "/", "");
   core.fileObject.relativePath = normalizeDrupalFilesPath(core.fileObject.uri);

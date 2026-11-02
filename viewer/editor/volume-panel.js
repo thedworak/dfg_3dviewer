@@ -284,7 +284,12 @@ export function attachVolumePanel(Viewer) {
         summary.append(dt, dd);
         ui.labels.push([dt, term]);
       };
-      const length = (value) => `${Number(value.toPrecision(3))} ${series.unit || "µm"}`;
+      // Micrometres, millimetres from 1 mm on (CT, MRI).
+      const length = (value) => {
+        const unit = series.unit || "µm";
+        if (unit === "µm" && value >= 1000) return `${Number((value / 1000).toPrecision(3))} mm`;
+        return `${Number(value.toPrecision(3))} ${unit}`;
+      };
       const [nx, ny, nz] = series.dims;
       const reduced = series.sourceDims && series.sourceDims.join() !== series.dims.join();
       fact(() => t("volume.voxels", "Voxels"), `${nx}×${ny}×${nz}${reduced ? ` (${series.sourceDims.join("×")})` : ""}`);

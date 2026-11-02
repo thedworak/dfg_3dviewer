@@ -71,6 +71,55 @@ export function cellCounts(ny, nx, fy, fx) {
   return counts;
 }
 
+// One channel's block means, fed a source plane at a time in increasing z:
+// levels - 256 or 65536 - and toLevel(value) map the values to integer
+// levels; finish() writes the 8-bit voxels.
+export class ChannelAccumulator {
+  constructor([nz, ny, nx], [fz, fy, fx], { levels, toLevel }) {
+    Object.assign(this, { nz, ny, nx, fz, fy, fx, toLevel });
+    this.ox = Math.ceil(nx / fx);
+    this.oy = Math.ceil(ny / fy);
+    this.cells = cellCounts(ny, nx, fy, fx);
+    this.sums = new Float32Array(this.oy * this.ox);
+    this.means = levels === 256 ? new Uint8Array(this.ox * this.oy * Math.ceil(nz / fz)) : new Uint16Array(this.ox * this.oy * Math.ceil(nz / fz));
+    this.histogram = new Float64Array(levels);
+    this.slab = 0;
+    this.depth = 0;
+  }
+
+  // Plane z: values[start + i * step] for the i-th pixel, x fastest.
+  add(z, values, start = 0, step = 1) {
+    const slab = Math.floor(z / this.fz);
+    if (slab !== this.slab) this.flush();
+    this.slab = slab;
+    const { ny, nx, fy, fx, ox, sums, toLevel } = this;
+    for (let y = 0; y < ny; y += 1) {
+      const cellRow = Math.floor(y / fy) * ox;
+      let at = start + y * nx * step;
+      for (let x = 0; x < nx; x += 1, at += step) sums[cellRow + Math.floor(x / fx)] += toLevel(values[at]);
+    }
+    this.depth += 1;
+  }
+
+  flush() {
+    if (!this.depth) return;
+    const { sums, cells, means, histogram, depth } = this;
+    const planeOut = this.slab * this.oy * this.ox;
+    for (let i = 0; i < sums.length; i += 1) {
+      const value = Math.round(sums[i] / (cells[i] * depth));
+      means[planeOut + i] = value;
+      histogram[value] += 1;
+    }
+    sums.fill(0);
+    this.depth = 0;
+  }
+
+  finish(target) {
+    this.flush();
+    return finishChannel(this.means, this.histogram, target);
+  }
+}
+
 // Runs a reader in a Web Worker - createWorker() returns it, or throws when
 // module workers do not start - or, then, on the main thread (onMainThread).
 // The worker answers "ready", then "progress" and "done" or "error".

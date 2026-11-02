@@ -50,7 +50,7 @@ The Docker worker additionally compresses every converted GLB with gltfpack (Mes
 - Blender importers (`scripts/convert.py`): abc, dae, fbx, obj, ply, stl, wrl, x3d, usd, usda, usdc, usdz, ifc, blend, gml, glb
 - Without Blender (`scripts/convert_mesh.py`, used by the worker): step, stp, iges, igs (tessellated by OpenCASCADE, so `--tol-linear` trades detail for size), 3mf
 - Viewer-native, kept as uploaded and without thumbnails: gltf (inside a .zip with its .bin/textures), 3ds, pcd, xyz, amf, kmz, vox, lwo, Gaussian splats (spz, splat, ksplat, sog, rad, and a .ply whose vertices are Gaussians; the worker adds a level-of-detail `<name>-lod.rad` built by Spark's `build-lod`, see `worker/splats.py`)
-- Image stacks (`worker/lif.py`, `worker/tiff_stack.py`): Leica .lif, TIFF / OME-TIFF / ImageJ hyperstacks, and a .zip of single-slice TIFFs - every Z stack becomes an 8-bit volume the viewer ray-marches, with a maximum intensity projection as thumbnail; see "Image stacks (volumes)" in the worker README
+- Image stacks (`worker/lif.py`, `worker/tiff_stack.py`, `worker/raw_volume.py`): Leica .lif, TIFF / OME-TIFF / ImageJ hyperstacks, a .zip of single-slice TIFFs, NRRD (.nrrd, .nhdr), NIfTI (.nii, .nii.gz) and MetaImage (.mha, .mhd) - every Z stack becomes an 8-bit volume the viewer ray-marches, with a maximum intensity projection as thumbnail; see "Image stacks (volumes)" in the worker README
 
 ## Minimal conversion examples
 

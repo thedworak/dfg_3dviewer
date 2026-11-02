@@ -8,9 +8,10 @@ import THREE from "./init.js";
 // the file, each with its 8-bit voxels in a gzip file next to it (channel by
 // channel, x fastest), its voxel size in µm and its channels' colours and
 // value ranges. One stack is shown at a time; loadVolumeSeries() switches.
-// A .lif or TIFF stack opened without the worker (from the disk, or a URL)
-// is read here in the browser - lif-reader.js, tiff-reader.js - into the
-// same manifest and voxels.
+// A .lif, TIFF stack, NRRD, NIfTI or MetaImage file opened without the
+// worker (from the disk, or a URL) is read here in the browser -
+// lif-reader.js, tiff-reader.js, raw-volume-reader.js - into the same
+// manifest and voxels.
 //
 // The stack is a unit box under a group (afterLoad() resets the root's
 // transform), scaled to its size in µm - the scene unit is a micrometre
@@ -401,13 +402,20 @@ export async function buildVolumeModel(url, { name = "Volume", onProgress } = {}
   return root;
 }
 
-// A .lif or TIFF read in the browser from a File ({ file }) or a URL
+// Readers of the formats opened without the worker, by model extension.
+const DIRECT_READERS = {
+  lif: async (source, fileName) => (await import("./lif-reader.js")).openLif(source, fileName),
+  tiff: async (source, fileName, siblings) => (await import("./tiff-reader.js")).openTiff(source, fileName, siblings),
+  raw: async (source, fileName, siblings) => (await import("./raw-volume-reader.js")).openRawVolume(source, fileName, siblings),
+};
+const DIRECT_FORMATS = { lif: "lif", tif: "tiff", tiff: "tiff", nrrd: "raw", nhdr: "raw", nii: "raw", mha: "raw", mhd: "raw" };
+export const DIRECT_VOLUME_EXTENSIONS = Object.keys(DIRECT_FORMATS);
+
+// An image stack read in the browser from a File ({ file }) or a URL
 // ({ url }), with its first stack loaded; siblings: the other files of the
-// archive it came from (a TIFF stack of one file per slice).
-export async function buildDirectVolumeModel(format, source, { name = "Volume", fileName = "image", siblings = null, onProgress } = {}) {
-  const reader = format === "lif"
-    ? await (await import("./lif-reader.js")).openLif(source, fileName)
-    : await (await import("./tiff-reader.js")).openTiff(source, fileName, siblings);
+// archive it came from (TIFF slices, a .nhdr's or .mhd's data file).
+export async function buildDirectVolumeModel(extension, source, { name = "Volume", fileName = "image", siblings = null, onProgress } = {}) {
+  const reader = await DIRECT_READERS[DIRECT_FORMATS[extension]](source, fileName, siblings);
   const root = createVolumeRoot(reader.manifest, null, name);
   directReaders.set(getVolumeMesh(root), reader);
   await loadVolumeSeries(root, 0, { onProgress });

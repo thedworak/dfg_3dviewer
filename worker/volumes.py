@@ -67,8 +67,10 @@ class VolumeError(ValueError):
 
 
 def manifest_path_for(source: Path) -> Path:
-    """Where the manifest of `source` goes: Intro.lif -> volume/Intro.dfgvol."""
-    return source.parent / "volume" / (source.stem + MANIFEST_SUFFIX)
+    """Where the manifest of `source` goes: Intro.lif -> volume/Intro.dfgvol
+    (brain.nii.gz -> volume/brain.dfgvol)."""
+    name = source.name[:-3] if source.name.lower().endswith(".gz") else source.name
+    return source.parent / "volume" / (Path(name).stem + MANIFEST_SUFFIX)
 
 
 def microns_per_unit(unit):
@@ -254,10 +256,9 @@ def run_cli(convert, usage):
         print(usage, file=sys.stderr)
         sys.exit(2)
     source = Path(sys.argv[1]).resolve()
-    target = (
-        Path(sys.argv[2]).resolve() / (source.stem + MANIFEST_SUFFIX)
-        if len(sys.argv) == 3 else manifest_path_for(source)
-    )
+    target = manifest_path_for(source)
+    if len(sys.argv) == 3:
+        target = Path(sys.argv[2]).resolve() / target.name
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         written = convert(source, target, log_prefix=f"[{Path(sys.argv[0]).stem}]")

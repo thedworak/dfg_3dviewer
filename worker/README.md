@@ -173,7 +173,7 @@ needing the tag.
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
   - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading. Uploads without a tree (from before `build-lod`, or where it failed) get one with `docker compose exec worker python3 /app/worker/server.py admin rebuild-splats`; `--force` rebuilds the existing trees too (new `build-lod` or `WORKER_SPLAT_LOD_ARGS`, cached copies purged from Cloudflare when `WORKER_PUBLIC_HOSTS` is set), job ids limit it to those jobs. No restart needed: the model list reads the jobs from disk
   - Gaussian splats in `.splat`, `.spz` or a 3DGS `.ply` also get a voxel volume of their surface, `<model>.light` next to the model served (e.g. `Angel-lod.rad.light`), built with numpy by `worker/splat_volume.py`: the viewer reads normals, occlusion and shadows from it when the splats are lit by the scene's lights (Lights > Gaussian splats). `admin rebuild-splats` builds the missing ones too, also without `build-lod`
-  - image stacks - Leica `.lif`, TIFF / OME-TIFF (`tif tiff`, also a `.zip` of single-slice TIFFs): every Z stack becomes a volume, `modelUrl` ends in `volume/<name>.dfgvol` - see "Image stacks (volumes)" below. In an archive with a model, a TIFF is a texture: it is taken as a stack only when nothing else is there
+  - image stacks - Leica `.lif`, TIFF / OME-TIFF (`tif tiff`, also a `.zip` of single-slice TIFFs), NRRD (`nrrd`, `nhdr` + its data file in a `.zip`), NIfTI (`nii`, `nii.gz` - a NIfTI, not an archive) and MetaImage (`mha`, `mhd` + its data file in a `.zip`): every Z stack becomes a volume, `modelUrl` ends in `volume/<name>.dfgvol` - see "Image stacks (volumes)" below. In an archive with a model, a TIFF is a texture: it is taken as a stack only when nothing else is there
   - point clouds converted to a streamed octree (`modelUrl` ends in `tiles/<name>/metadata.json` for Potree 2, `tiles/<name>/tileset.json` for 3D Tiles), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
@@ -394,7 +394,7 @@ The viewer's suggested scene (Look > Suggested scene, `docs/ai.md`) puts the sun
 
 ### Image stacks (volumes)
 
-Microscope and CT image stacks become volumes the viewer draws by ray marching. `worker/volumes.py` holds what the converters share (reduction, 8-bit mapping, the manifest and thumbnail below); `worker/lif.py` and `worker/tiff_stack.py` read the formats.
+Microscope, CT and MRI image stacks become volumes the viewer draws by ray marching. `worker/volumes.py` holds what the converters share (reduction, 8-bit mapping, the manifest and thumbnail below); `worker/lif.py`, `worker/tiff_stack.py` and `worker/raw_volume.py` read the formats.
 
 #### Leica LIF
 
@@ -427,6 +427,18 @@ Details:
 Any pixel type: 8/16/32-bit integers, signed (CT in Hounsfield units) or not, and float (NaN as the lowest value). The voxel size comes from OME-XML, ImageJ, or a resolution in centimetres; resolutions in inches (usually a meaningless 72 dpi) are ignored. A stack without a slice spacing is taken as isotropic; without any size the unit is `px` (voxels, measurements in scene units). Standalone: `python3 worker/tiff_stack.py stack.tif [out_dir]`.
 
 The viewer opens these TIFFs without the worker too (`viewer/tiff-reader.js`, geotiff.js in a Web Worker; a `.zip` of slices dropped from the disk). It decodes LZW with its own decoder (`viewer/tiff-lzw.js`): geotiff.js's fails on streams that fill the code table, as imagecodecs writes them.
+
+#### NRRD, NIfTI and MetaImage
+
+`worker/raw_volume.py` reads the formats of a header and raw voxels that 3D Slicer, ITK / ITK-SNAP, FSL and Fiji write (numpy alone, no extra packages):
+
+- NRRD: `.nrrd`, or `.nhdr` with its `data file` (upload both in a `.zip`); encodings raw, gzip, bzip2 and ascii; a non-spatial first axis (kinds `vector`, `list`, `RGB-color`...) is the channels, a fourth domain axis time;
+- NIfTI-1 and NIfTI-2: `.nii`, `.nii.gz`; dim 4 is time, dim 5 the channels; `scl_slope` / `scl_inter` applied (CT in Hounsfield units). The `.hdr` / `.img` pair is not read;
+- MetaImage: `.mha`, or `.mhd` with its `ElementDataFile` (in a `.zip`); zlib-compressed or not; `ElementNumberOfChannels` as channels.
+
+Units: NIfTI says them (m, mm, µm); NRRD in `space units`, else millimetres when it has a space (medical data), else unknown (`px`, keeping the spacings' ratio); MetaImage by ITK's convention millimetres. Of a time series only the first time point is taken. The stack is taken axis-aligned: direction cosines (oblique acquisitions, NIfTI's qform/sform rotations) are not applied. Data is read a slice at a time, seeking in the decompressed stream, so files larger than memory are fine. Standalone: `python3 worker/raw_volume.py brain.nii.gz [out_dir]`.
+
+The viewer opens these files without the worker too (`viewer/raw-volume-reader.js`): it reads the voxels once as a stream - from the dropped file or one HTTP request - decompressing gzip and zlib on the way, and a detached data file from the same `.zip` or next to the URL. 32-bit and float data, and NIfTI with a scaling, are read twice (minimum and maximum first). bzip2 and ascii NRRD, `byte skip: -1` and MetaImage `HeaderSize = -1` are left to the worker.
 
 ### Serving converted files
 

@@ -1,5 +1,6 @@
 import THREE from "./init.js";
 import { core, setCore } from "./core.js";
+import { modelExtension } from "./model-extension.js";
 
 // Which renderer draws the viewer: three's WebGLRenderer (the default, every
 // feature) or its WebGPURenderer (opt-in). Chosen once, when the viewer
@@ -27,7 +28,7 @@ export const RENDERER_PREFERENCES = ["webgl", "webgpu", "auto"];
 
 // Point clouds and splat scenes. A PLY may be either (or a mesh): it stays
 // on WebGL too.
-export const WEBGL_ONLY_EXTENSIONS = ["las", "laz", "xyz", "pcd", "ply", "spz", "splat", "ksplat", "sog", "rad", "dfgvol", "lif", "tif", "tiff"];
+export const WEBGL_ONLY_EXTENSIONS = ["las", "laz", "xyz", "pcd", "ply", "spz", "splat", "ksplat", "sog", "rad", "dfgvol", "lif", "tif", "tiff", "nrrd", "nhdr", "nii", "mha", "mhd"];
 // Streamed tilesets (3D Tiles, Potree), by file name.
 const WEBGL_ONLY_FILES = ["tileset.json", "metadata.json"];
 
@@ -63,8 +64,7 @@ export function modelNeedsWebGL(fileName) {
   const name = String(fileName || "").split(/[?#]/)[0].split("/").pop().toLowerCase();
   if (!name) return false;
   if (WEBGL_ONLY_FILES.includes(name)) return true;
-  const extension = name.includes(".") ? name.split(".").pop() : "";
-  return WEBGL_ONLY_EXTENSIONS.includes(extension);
+  return WEBGL_ONLY_EXTENSIONS.includes(modelExtension(name));
 }
 
 export function isWebGPUBackend() {

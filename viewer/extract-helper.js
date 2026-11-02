@@ -2,6 +2,7 @@ import { unzipSync } from 'fflate';
 import { loadDroppedModel } from "./sandbox.js";
 import { core } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
+import { modelExtension } from "./model-extension.js";
 
 let archiveFileMap = {};
 
@@ -95,7 +96,7 @@ function findMainModelFile (files) {
 
   for (const ext of priority) {
     const found = files.find(file => {
-      const fileExt = file.name.split('.').pop().toLowerCase();
+      const fileExt = modelExtension(file.name);
       return fileExt === ext;
     });
 

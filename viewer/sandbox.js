@@ -2,6 +2,7 @@ import THREE from "./init.js";
 import { core, setCore } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
 import { t } from './i18n-utils.js';
+import { modelBasename, modelExtension } from "./model-extension.js";
 
 const BUILD_ID = (typeof __BUILD_ID__ !== "undefined") ? __BUILD_ID__ : "";
 const BUILD_TIME = (typeof __BUILD_TIME__ !== "undefined") ? __BUILD_TIME__ : "";
@@ -96,7 +97,7 @@ export async function createCreditsElement() {
 }
 
 export async function loadDroppedModel (file) {
-  const extension = file.name.split('.').pop().toLowerCase();
+  const extension = modelExtension(file.name);
 
   // As before a model opened from a URL (models panel): the previous one
   // goes with its selection, tools and helpers, or the editing tools and
@@ -109,7 +110,7 @@ export async function loadDroppedModel (file) {
 
   core.fileObject.originalPath = url;
   core.fileObject.filename = url;
-  core.fileObject.basename = file.name.substring(0, file.name.lastIndexOf('.'));
+  core.fileObject.basename = modelBasename(file.name);
   core.fileObject.extension = extension;
   core.fileObject.path = '';
   core.fileObject.uri = url;

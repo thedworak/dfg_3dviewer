@@ -90,6 +90,7 @@ The topics below used to live in this file; they now have their own page in [`do
 | Gaussian splats: SPZ / SPLAT / KSPLAT / SOG, PLY of splats | ✅ ¹³ | – |
 | LIF (Leica microscope image stacks) | ✅ ¹⁴ | volume ¹⁴ |
 | TIFF / OME-TIFF image stacks, .zip of TIFF slices (microscopy, CT) | ✅ ¹⁴ | volume ¹⁴ |
+| NRRD / NIfTI (.nii, .nii.gz) / MetaImage (.mha, .mhd) volumes (CT, MRI) | ✅ ¹⁴ | volume ¹⁴ |
 
 > - ¹ via Blender (`scripts/convert.py`)
 > - ² via `IfcConvert` (+ metadata export, see below)
@@ -104,9 +105,9 @@ The topics below used to live in this file; they now have their own page in [`do
 > - ¹¹ converted to a streamed octree by the standalone worker: Potree 2 via PotreeConverter (default; keeps intensity and classification, read by HTTP range requests) or 3D Tiles via `py3dtiles`; a PLY without faces is treated the same way
 > - ¹² loaded directly in a Web Worker (LAS 1.0-1.4 all point formats, decoded while downloading; LAZ point formats 0-3 with loaders.gl + laz-perf), shown progressively and thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming - see [docs/point-clouds.md](docs/point-clouds.md)
 > - ¹³ drawn with Spark (sparkjs.dev), downloaded with the first splat file; a PLY is read as splats when its vertices carry Gaussians (`f_dc_0`, `scale_0`, `rot_0`), and the worker keeps such a PLY as uploaded
-> - ¹⁴ every Z stack becomes an 8-bit volume, drawn by ray marching - maximum intensity, translucent or surface - with per-channel colours and windows. Opened directly, the viewer reads only the stack shown, in a Web Worker (`viewer/lif-reader.js`, `viewer/tiff-reader.js`; from the disk, or by HTTP range requests); the standalone worker (`worker/lif.py`, `worker/tiff_stack.py`) converts the file once, with a thumbnail - see "Image stacks (volumes)" in [`worker/README.md`](worker/README.md)
+> - ¹⁴ every Z stack becomes an 8-bit volume, drawn by ray marching - maximum intensity, translucent or surface - with per-channel colours and windows. Opened directly, the viewer reads only the stack shown, in a Web Worker (`viewer/lif-reader.js`, `viewer/tiff-reader.js`, `viewer/raw-volume-reader.js`; from the disk, or by HTTP range requests); the standalone worker (`worker/lif.py`, `worker/tiff_stack.py`, `worker/raw_volume.py`) converts the file once, with a thumbnail - see "Image stacks (volumes)" in [`worker/README.md`](worker/README.md)
 >
-> Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/NRRD/GCode/BVH (not general model formats).
+> Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/GCode/BVH (not general model formats). NRRD is read as a volume (above), not by the three.js loader.
 
 There is also a pre-configured complete workflow to handle more file formats and allow to render thumbnails for entries. If an uploaded file is saved in one of the compression-supported formats, it is compressed on-the-fly and converted into GLB format and triggers automatic rendering (based on Blender utility). See [Server-side conversion and rendering](docs/conversion-pipeline.md) for details.
 

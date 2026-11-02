@@ -985,16 +985,21 @@ export async function loadModel() {
 
       case "lif":
       case "tif":
-      case "tiff": {
+      case "tiff":
+      case "nrrd":
+      case "nhdr":
+      case "nii":
+      case "mha":
+      case "mhd": {
         // Image stacks opened without the worker: read in the browser, a
-        // stack at a time (lif-reader.js, tiff-reader.js) - from the File
-        // when dropped, else by HTTP range requests. A TIFF unpacked from a
-        // .zip may be one slice of a stack: the archive's other files go
-        // with it.
+        // stack at a time (lif-reader.js, tiff-reader.js,
+        // raw-volume-reader.js) - from the File when dropped, else by HTTP
+        // (range) requests. A file unpacked from a .zip may need the
+        // archive's other files: TIFF slices, a header's data file.
         const { buildDirectVolumeModel } = await loadVolume();
         const file = core.localFiles.get(modelPath);
         const object = await buildDirectVolumeModel(
-          core.fileObject.extension.toLowerCase() === "lif" ? "lif" : "tiff",
+          core.fileObject.extension.toLowerCase(),
           file ? { file } : { url: new URL(modelPath, window.location.href).href },
           {
             name: core.fileObject.basename || "Volume",

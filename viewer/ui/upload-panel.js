@@ -8,6 +8,7 @@ import { makePanelWindow } from "./panel-window.js";
 import { hidePreviewBadge, showPreviewBadge } from "../loaders.js";
 import { clearExampleModelSelection } from "../example-models.js";
 import { nameFromFileName } from "./model-metadata.js";
+import { modelExtension } from "../model-extension.js";
 
 // Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
 // converted without Blender, and formats the viewer reads directly (kept as
@@ -21,7 +22,7 @@ const SUPPORTED_EXTENSIONS = [
   "gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo",
   "las", "laz", "e57",
   "spz", "splat", "ksplat", "sog", "rad",
-  "lif", "tif", "tiff",
+  "lif", "tif", "tiff", "nrrd", "nhdr", "nii", "mha", "mhd",
   "zip",
 ];
 
@@ -572,7 +573,7 @@ export function attachUploadPanel(Viewer) {
         return;
       }
 
-      const extension = (file.name.split(".").pop() || "").toLowerCase();
+      const extension = modelExtension(file.name);
       if (!SUPPORTED_EXTENSIONS.includes(extension)) {
         this.setUploadStatusText(
           t("uploadPanel.unsupportedFormat", { ext: extension }, "Unsupported file format: .{ext}"),

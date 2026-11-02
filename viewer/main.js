@@ -105,6 +105,7 @@ import { attachBackNavigation } from "./ui/back-navigation.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachVolumePanel } from "./editor/volume-panel.js";
+import { modelBasename, modelExtension } from "./model-extension.js";
 import { attachModelUnits } from "./editor/model-units.js";
 import { createWebGLRenderer, shouldTryWebGPU, tryCreateWebGPURenderer } from "./renderer-backend.js";
 import { ALL_VIEWS as THUMBNAIL_VIEWS, bundledManifestName, captureAndUploadThumbnail, generateAllThumbnails, refreshThumbnailAccess } from "./editor/thumbnail-capture.js";
@@ -2675,10 +2676,7 @@ export const Viewer = {
   // dropped on the viewer, or picked in the library panel. Resolves to
   // whether it loaded.
   async openLocalFile(file) {
-    const extension = file.name
-      .split('.')
-      .pop()
-      .toLowerCase();
+    const extension = modelExtension(file.name);
 
     // Not one of the examples: the select says so. Nor on the web: nothing
     // to embed.
@@ -2811,15 +2809,9 @@ export const Viewer = {
       core.autoPath = Viewer.normalizeFileUrl(core.autoPath);
       core.autoPath = Viewer.normalizeArchiveModelPath(core.autoPath);
       core.fileObject.filename = core.autoPath.split('/').pop();
-      core.fileObject.basename =
-        core.fileObject.filename.substring(
-          0,
-          core.fileObject.filename.lastIndexOf('.')
-        );
-      core.fileObject.extension =
-        core.fileObject.filename.substring(
-          core.fileObject.filename.lastIndexOf('.') + 1
-        );
+      // brain.nii.gz: "brain", "nii" - a volume, not a gzip archive.
+      core.fileObject.basename = modelBasename(core.fileObject.filename);
+      core.fileObject.extension = modelExtension(core.fileObject.filename);
       Viewer._ext = core.fileObject.extension.toLowerCase();
       core.fileObject.path =
         core.autoPath.substring(0, core.autoPath.lastIndexOf(core.fileObject.filename));

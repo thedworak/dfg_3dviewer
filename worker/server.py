@@ -52,9 +52,10 @@ gml glb), STEP/IGES/3MF via scripts/convert_mesh.py (step stp iges igs 3mf), and
 formats the viewer reads itself, stored as uploaded without thumbnails (gltf 3ds
 pcd xyz amf kmz vox lwo, and Gaussian splats: spz splat ksplat sog rad, and a
 .ply of splats - turned into a level-of-detail .rad by splats.py when build-lod
-is installed), image stacks - Leica .lif (lif.py) and TIFF / OME-TIFF
-(tiff_stack.py) - turned into volumes, plus .zip/.rar/.tar/.xz/.gz archives
-of any of these.
+is installed), image stacks - Leica .lif (lif.py), TIFF / OME-TIFF
+(tiff_stack.py), NRRD, NIfTI and MetaImage (raw_volume.py) - turned into
+volumes, plus .zip/.rar/.tar/.xz/.gz archives of any of these (a .nii.gz is
+a NIfTI file, not an archive).
 
 This process is single-node and keeps in-flight job state (progress/status
 messages) in memory only, so that is lost on restart - it is meant for
@@ -85,6 +86,7 @@ import ai
 import cloudflare
 import geonames
 import lif
+import raw_volume
 import tiff_stack
 import volumes
 import mailer
@@ -180,6 +182,7 @@ POINTCLOUD_FORMATS = pointcloud.POINTCLOUD_FORMATS
 VOLUME_CONVERTERS = {
     **{ext: lif.convert for ext in lif.FORMATS},
     **{ext: tiff_stack.convert for ext in tiff_stack.FORMATS},
+    **{ext: raw_volume.convert for ext in raw_volume.FORMATS},
 }
 VOLUME_FORMATS = set(VOLUME_CONVERTERS)
 SUPPORTED_FORMATS = (
@@ -271,7 +274,7 @@ def extract_archive(archive_path: Path, dest: Path, archive_type: str) -> None:
 def find_model_file(root: Path):
     found = [
         path for path in sorted(root.rglob("*"))
-        if path.is_file() and path.suffix.lower().lstrip(".") in SUPPORTED_FORMATS
+        if path.is_file() and raw_volume.model_ext(path) in SUPPORTED_FORMATS
     ]
     # A TIFF is a stack only when nothing else is there: next to a model it
     # is a texture.
@@ -628,7 +631,8 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
         set_job(job_id, status="preparing", progress=5, message="Preparing...")
 
         work_path = input_path
-        is_archive = original_ext in ARCHIVE_FORMATS
+        # A .nii.gz is a NIfTI volume, not a gzip archive.
+        is_archive = original_ext in ARCHIVE_FORMATS and raw_volume.model_ext(input_path) not in VOLUME_FORMATS
 
         if is_archive:
             set_job(job_id, status="processing", progress=10, message="Extracting archive...")
@@ -639,7 +643,7 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                 raise RuntimeError("No supported 3D model found in archive.")
             work_path = model_file
 
-        ext = work_path.suffix.lower().lstrip(".")
+        ext = raw_volume.model_ext(work_path)
         if ext not in SUPPORTED_FORMATS:
             raise RuntimeError(f"Unsupported source format: .{ext}")
 
@@ -696,7 +700,7 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                 # The thumbnail is a projection of the voxels, not a Blender render.
                 image_urls = []
                 try:
-                    preview = volumes.write_preview(manifest, converted, work_path.parent / "views" / f"{work_path.stem}_side45.png")
+                    preview = volumes.write_preview(manifest, converted, work_path.parent / "views" / f"{manifest.stem}_side45.png")
                     image_urls = [thumbnail_url(job_id, preview, job_root)]
                 except Exception as exc:  # noqa: BLE001 - thumbnails are best-effort
                     print(f"[job {job_id}] volume thumbnail failed: {exc}", file=sys.stderr)
