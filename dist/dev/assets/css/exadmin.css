@@ -2,9 +2,9 @@
    confirmation dialog come from the viewer's panel stylesheets; their colours
    (--viewer-panel-*) are set here for the whole page, dark by default like
    the viewer (main.css .viewer-wrapper). */
-@import "./upload-panel.css?v=42e7d570";
-@import "./models-panel.css?v=42e7d570";
-@import "./admin-users.css?v=42e7d570";
+@import "./upload-panel.css?v=ba32f4ce";
+@import "./models-panel.css?v=ba32f4ce";
+@import "./admin-users.css?v=ba32f4ce";
 
 :root {
   color-scheme: dark;
@@ -15,6 +15,8 @@
   --viewer-panel-border: rgba(255, 255, 255, 0.12);
   --viewer-panel-shadow: 0 12px 30px rgba(12, 10, 8, 0.28);
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
+  /* Native dropdown lists need an opaque background to go with the text. */
+  --viewer-option-bg: #1a1714;
 }
 
 :root[data-viewer-theme="light"] {
@@ -26,6 +28,7 @@
   --viewer-panel-border: rgba(164, 151, 132, 0.28);
   --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
   --viewer-panel-text: rgba(37, 33, 28, 0.92);
+  --viewer-option-bg: #fcfaf6;
 }
 
 * {
@@ -121,7 +124,8 @@ body {
 }
 
 .exadmin-account select option {
-  color: initial;
+  background: var(--viewer-option-bg);
+  color: var(--viewer-panel-text);
 }
 
 .exadmin-main {
@@ -214,4 +218,86 @@ body {
 .exadmin-toast[data-tone="error"] {
   border-color: color-mix(in srgb, #d54646 60%, var(--viewer-panel-border));
   color: #d54646;
+}
+
+/* Reported models (sections/reports.js) */
+.exadmin-reports-hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.exadmin-reports-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exadmin-report {
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+}
+
+.exadmin-report[data-status="open"] {
+  border-left: 4px solid #d54646;
+}
+
+.exadmin-report-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.exadmin-report-date,
+.exadmin-report-meta {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.exadmin-report-meta {
+  margin: 4px 0;
+}
+
+.exadmin-report blockquote {
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 2px solid var(--viewer-panel-border);
+  white-space: pre-wrap;
+}
+
+.exadmin-report a {
+  color: inherit;
+  font-size: 12px;
+}
+
+.exadmin-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.exadmin-report-actions button {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.exadmin-report-actions .exadmin-report-danger {
+  border-color: #d54646;
+  color: #d54646;
+}
+
+.exadmin-reports-toggle {
+  font-size: 13px;
 }

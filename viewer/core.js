@@ -40,6 +40,12 @@ export const core = {
     helperObjects: [],
     isOnline: true, // kept current by connectivity.js
     splatLighting: { ...SPLAT_LIGHTING_DEFAULTS },
+    // Files opened from the disk, by their blob: URL (sandbox.js): formats
+    // read in pieces (.lif, lif-reader.js) need the File, not its URL.
+    localFiles: new Map(),
+    // The files of the last archive opened from the disk (extract-helper.js):
+    // a TIFF among them may be one slice of a stack of all of them.
+    archiveFiles: null,
     // Add other shared state here
 };
 

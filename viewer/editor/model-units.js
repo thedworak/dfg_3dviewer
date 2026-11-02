@@ -20,6 +20,7 @@ export const MODEL_UNITS = {
   m: 1,
   cm: 0.01,
   mm: 0.001,
+  "µm": 1e-6,
   in: 0.0254,
   ft: 0.3048,
 };
@@ -99,6 +100,11 @@ export async function detectFileUnit(object, extension, url) {
       // Centimeters per unit.
       const factor = Number(root.userData?.unitScaleFactor);
       return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
+    }
+    if (["dfgvol", "lif", "tif", "tiff"].includes(ext)) {
+      // Volumes are built in micrometres (volume.js) - or in voxels when the
+      // file gives no size.
+      return root.userData?.volumeSeries?.unit === "px" ? null : 1e-6;
     }
     if (ext === "amf") {
       // AMFLoader scales the geometry to millimeters.
@@ -190,7 +196,8 @@ export function attachModelUnits(Viewer) {
       if (meters >= 1000) return { text: `${trim(meters / 1000, 2)} km`, meters };
       if (meters >= 1) return { text: `${meters.toFixed(2)} m`, meters };
       if (meters >= 0.01) return { text: `${(meters * 100).toFixed(1)} cm`, meters };
-      return { text: `${(meters * 1000).toFixed(meters * 1000 >= 1 ? 0 : 2)} mm`, meters };
+      if (meters >= 1e-4) return { text: `${(meters * 1000).toFixed(meters * 1000 >= 1 ? 0 : 2)} mm`, meters };
+      return { text: `${(meters * 1e6).toFixed(meters * 1e6 >= 10 ? 0 : 1)} µm`, meters };
     },
 
     formatArea(sceneUnits2) {
@@ -243,6 +250,8 @@ export function attachModelUnits(Viewer) {
     getModelUnitWarning() {
       const unit = Viewer.resolveModelUnit();
       if (unit.source === "user") return null;
+      // A microscope stack states its voxel size: small is right.
+      if ((core.mainObject || []).some((root) => root?.userData?.isVolume)) return null;
       const side = Viewer.getModelLargestSide();
       if (!(side > 0)) return null;
       const meters = side * unit.meters;

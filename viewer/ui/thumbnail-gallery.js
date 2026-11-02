@@ -26,9 +26,38 @@ function galleryAnchor(host) {
   return previous?.classList.contains("viewer-window-placeholder") ? previous : host;
 }
 
+// viewer.gallery.position: "right" (default) puts the views in a drawer on
+// the viewer's right edge, over the canvas; "top" keeps the row above the
+// viewer (pages built around it).
+function getGalleryPosition() {
+  return getGalleryConfig().position === "top" ? "top" : "right";
+}
+
+// Phones: no room for a column of views beside the model - the drawer is a
+// single button that opens the lightbox (its filmstrip lists them all).
+const GALLERY_PHONE_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
+const GALLERY_COLLAPSED_KEY = "viewer.gallery.collapsed";
+
+// Hidden unless opened last time.
+function readDrawerCollapsed() {
+  try {
+    return localStorage.getItem(GALLERY_COLLAPSED_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function writeDrawerCollapsed(collapsed) {
+  try {
+    localStorage.setItem(GALLERY_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Storage off (private window): the drawer just forgets.
+  }
+}
+
 function removeExistingGalleryDom() {
   const imageList = document.getElementById("image-list");
-  (imageList?.closest(".image-list-scroller") || imageList)?.remove();
+  (imageList?.closest(".image-list-drawer") || imageList?.closest(".image-list-scroller") || imageList)?.remove();
   document.getElementById("modalGallery")?.remove();
 }
 
@@ -235,8 +264,8 @@ const SCROLL_HINT_ICONS = {
 // which nothing on screen gave away. The wrapper fades the edge that has
 // more thumbnails behind it and shows a small chevron there (tapping it
 // scrolls); both only when the row overflows that way, and CSS keeps them
-// to the phone layout.
-function wrapWithScrollHints(Viewer, imageList) {
+// to the phone layout. `vertical`: the drawer's column, which scrolls down.
+function wrapWithScrollHints(Viewer, imageList, vertical = false) {
   const scroller = document.createElement("div");
   scroller.className = "image-list-scroller";
   scroller.setAttribute("role", "region");
@@ -255,17 +284,21 @@ function wrapWithScrollHints(Viewer, imageList) {
     button.innerHTML = SCROLL_HINT_ICONS[direction];
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      const step = Math.max(64, imageList.clientWidth * 0.8);
-      imageList.scrollBy({ left: direction === "next" ? step : -step, behavior: "smooth" });
+      const step = Math.max(64, (vertical ? imageList.clientHeight : imageList.clientWidth) * 0.8);
+      const delta = direction === "next" ? step : -step;
+      imageList.scrollBy({ [vertical ? "top" : "left"]: delta, behavior: "smooth" });
     });
     scroller.appendChild(button);
     return button;
   });
 
   const update = () => {
-    const max = imageList.scrollWidth - imageList.clientWidth;
-    const canPrev = imageList.scrollLeft > 2;
-    const canNext = imageList.scrollLeft < max - 2;
+    const max = vertical
+      ? imageList.scrollHeight - imageList.clientHeight
+      : imageList.scrollWidth - imageList.clientWidth;
+    const scrolled = vertical ? imageList.scrollTop : imageList.scrollLeft;
+    const canPrev = scrolled > 2;
+    const canNext = scrolled < max - 2;
     scroller.classList.toggle("can-scroll-prev", canPrev);
     scroller.classList.toggle("can-scroll-next", canNext);
     prevButton.hidden = !canPrev;
@@ -278,6 +311,90 @@ function wrapWithScrollHints(Viewer, imageList) {
   imageList.addEventListener("load", update, true);
   requestAnimationFrame(update);
   return scroller;
+}
+
+const DRAWER_ICONS = {
+  views: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v9.59l3.3-3.3a1 1 0 0 1 1.4 0L13 15.6l2.3-2.3a1 1 0 0 1 1.4 0L19 15.6V6H5Zm10.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></svg>',
+};
+
+// The hidden drawer, once, on the first gallery of the page: after a pause
+// it leans out a little - the edge of its views - and slowly back, so it is
+// seen that there are any (gallery.css times the motion).
+const DRAWER_PEEK_DELAY = 1500;
+const DRAWER_PEEK_HOLD = 4200;
+const DRAWER_PEEK_RETURN = 2000;
+let drawerPeeked = false;
+
+// The drawer on the viewer's right edge (viewer.gallery.position "right"):
+// the column of views and, on its left, a tab that hides it into the edge
+// and brings it back (remembered per browser; hidden at first). On a phone
+// the tab alone shows, and opens the lightbox.
+function wrapAsDrawer(scroller, count, openAt) {
+  const drawer = document.createElement("div");
+  drawer.className = "image-list-drawer";
+  const phone = window.matchMedia?.(GALLERY_PHONE_QUERY);
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "image-list-drawer-toggle";
+  toggle.innerHTML =
+    DRAWER_ICONS.views +
+    `<span class="image-list-drawer-count">${count}</span>` +
+    SCROLL_HINT_ICONS.next.replace("<svg", '<svg class="image-list-drawer-chevron"');
+  scroller.id = "image-list-drawer-panel";
+  toggle.setAttribute("aria-controls", scroller.id);
+
+  const setCollapsed = (collapsed) => {
+    drawer.classList.toggle("is-collapsed", collapsed);
+    const label = collapsed
+      ? t("gallery.show", "Show views")
+      : t("gallery.hide", "Hide views");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+    // Hidden views are out of the tab order.
+    scroller.inert = collapsed;
+  };
+  setCollapsed(readDrawerCollapsed());
+
+  // Hidden on the page's first gallery: it leans out and back; on a phone
+  // the tab glows once. Not with reduced motion, nor once the tab was used.
+  let peekTimer = 0;
+  const endPeek = () => {
+    clearTimeout(peekTimer);
+    drawer.classList.remove("is-peeking");
+    peekTimer = setTimeout(() => drawer.classList.remove("is-peek-motion"), DRAWER_PEEK_RETURN);
+  };
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (!drawerPeeked && !reducedMotion && drawer.classList.contains("is-collapsed")) {
+    drawerPeeked = true;
+    peekTimer = setTimeout(() => {
+      if (!drawer.isConnected || !drawer.classList.contains("is-collapsed")) return;
+      if (phone?.matches) {
+        toggle.classList.add("is-pulsing");
+        toggle.addEventListener("animationend", () => toggle.classList.remove("is-pulsing"), { once: true });
+        return;
+      }
+      drawer.classList.add("is-peek-motion", "is-peeking");
+      peekTimer = setTimeout(endPeek, DRAWER_PEEK_HOLD);
+    }, DRAWER_PEEK_DELAY);
+  }
+
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (phone?.matches) {
+      openAt(0);
+      return;
+    }
+    clearTimeout(peekTimer);
+    drawer.classList.remove("is-peeking", "is-peek-motion");
+    const collapsed = !drawer.classList.contains("is-collapsed");
+    setCollapsed(collapsed);
+    writeDrawerCollapsed(collapsed);
+  });
+
+  drawer.append(toggle, scroller);
+  return drawer;
 }
 
 // Swaps the thumbnail shimmer placeholder for the real image once it has
@@ -771,7 +888,12 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   ) {
     const galleryHost = galleryAnchor(getGalleryHost(Viewer, mainElement));
     galleryHost.insertAdjacentElement("beforebegin", modalGallery);
-    galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
+    if (getGalleryPosition() === "right" && core.container) {
+      const scroller = wrapWithScrollHints(Viewer, imageList, true);
+      core.container.appendChild(wrapAsDrawer(scroller, galleryImages.length, openModalGalleryAtIndex));
+    } else {
+      galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
+    }
   }
 }
 

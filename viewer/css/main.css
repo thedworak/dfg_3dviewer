@@ -1969,48 +1969,55 @@ body.presentation-mode {
   }
 }
 
-/* Model details on a phone: a small round "i" in the corner instead of the
-   file name card, so it keeps off the model. The name stays in the button's
-   aria-label; a tap opens the window out of it. */
-@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
-  #metadata-card {
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 0;
-    min-height: 0;
-    margin: 8px 0 0 max(8px, env(safe-area-inset-left));
-    padding: 0;
-    border-radius: 999px;
-    transform: none;
-    transition: none;
-  }
+/* Model details: a small round "i" in the corner instead of the file name
+   card, so it keeps off the model. The name stays in the button's
+   aria-label and tooltip; a click opens the window out of it. The IIIF
+   icon (a manifest's model) sits beside it. */
+#metadata-card {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 0;
+  min-height: 0;
+  margin: 8px 0 0 max(8px, env(safe-area-inset-left));
+  padding: 0;
+  border-radius: 999px;
+  overflow: visible;
+  transform: none;
+  transition: none;
+}
 
-  #metadata-card .metadata-drag-handle,
-  #metadata-card .metadata-toggle-copy {
-    display: none;
-  }
+#metadata-card .metadata-drag-handle,
+#metadata-card .metadata-toggle-copy {
+  display: none;
+}
 
-  #metadata-card #metadata-collapse {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    min-height: 0;
-    gap: 0;
-  }
+#metadata-card #metadata-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+}
 
-  #metadata-card .metadata-toggle-chevron {
-    width: 20px;
-    height: 20px;
-    border-radius: 0;
-    background-color: var(--metadata-value-color);
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
-  }
+#metadata-card .metadata-toggle-chevron {
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+  background-color: var(--metadata-value-color);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 
-  #metadata-card .metadata-toggle-chevron::before {
-    display: none;
-  }
+#metadata-card .metadata-toggle-chevron::before {
+  display: none;
+}
+
+#metadata-card .metadata-iiif {
+  top: 50%;
+  right: auto;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
 }
 
 /* The menus on a phone or a tablet on its side (ui/menu-toolbar.js): the

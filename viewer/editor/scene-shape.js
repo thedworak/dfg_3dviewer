@@ -41,7 +41,7 @@ const DIRECTIONS = (() => {
 function collectMeshes(roots) {
   const meshes = [];
   roots.forEach((root) => root.traverse((object) => {
-    if (!object.isMesh || object.userData?.isWeather || object.userData?.isGaussianSplats) return;
+    if (!object.isMesh || object.userData?.isWeather || object.userData?.isGaussianSplats || object.userData?.isVolume) return;
     if (!object.geometry?.attributes?.position) return;
     meshes.push(object);
   }));

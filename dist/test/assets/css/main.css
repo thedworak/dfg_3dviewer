@@ -4,6 +4,7 @@
 @import "./models-panel.css";
 @import "./gallery.css";
 @import "./validation-report.css";
+@import "./manifest-preview.css";
 @import "./ground-panel.css";
 @import "./event-log.css";
 @import "./ai.css";
@@ -657,212 +658,6 @@ canvas {
   }
 }
 
-#loading-log {
-  position: fixed;
-  left: 0px;
-  bottom: 0px;
-  z-index: 90;
-  width: min(260px, calc(100% - 32px));
-  padding: 6px 10px;
-  color: rgba(255, 255, 255, 0.78);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 10px;
-  line-height: 1.3;
-  pointer-events: auto;
-  background: rgba(8, 7, 5, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(10px);
-  opacity: 1;
-  transition: opacity 180ms ease, transform 180ms ease, border-color 180ms ease;
-  transform: translateX(8px) translateY(50vh) scale(var(--viewer-toolbar-scale));
-}
-
-#loading-log[hidden] {
-  display: block;
-  opacity: 0;
-  transform: translateY(8px);
-  visibility: hidden;
-}
-
-.loading-log__collapsed-toggle {
-  display: none;
-}
-
-.loading-log__header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 8px;
-  min-height: 18px;
-  padding: 0 16px 0 0;
-  border: 0;
-  color: rgba(238, 237, 231, 0.82);
-  font: inherit;
-  text-align: left;
-  background: transparent;
-  cursor: pointer;
-}
-
-.loading-log__header::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 1px;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid rgba(255, 255, 255, 0.62);
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.62);
-  transform: translateY(-60%) rotate(45deg);
-  transition: transform 180ms ease, opacity 180ms ease;
-  opacity: 0.8;
-}
-
-.loading-log__header:hover::after,
-.loading-log__header:focus-visible::after {
-  opacity: 1;
-}
-
-.loading-log__header:focus-visible {
-  outline: 0;
-}
-
-.loading-log__title {
-  font-weight: 600;
-  font-size: 11px;
-}
-
-.loading-log__summary {
-  min-width: 0;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 9px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.loading-log__body {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 220ms ease, opacity 220ms ease;
-  opacity: 0.96;
-}
-
-.loading-log__body > * {
-  min-height: 0;
-  overflow: hidden;
-}
-
-#loading-log[data-expanded="true"] .loading-log__header::after {
-  transform: translateY(-30%) rotate(225deg);
-}
-
-#loading-log[data-expanded="true"] .loading-log__body {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-
-#loading-log[data-expanded="true"] {
-  padding: 8px 10px;
-  background: rgba(8, 7, 5, 0.44);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(10px);
-}
-
-#loading-log:not([data-expanded="true"]) .loading-log__messages {
-  display: none;
-}
-
-#loading-log:not([data-expanded="true"]) .loading-log__body {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-
-#loading-log:not([data-expanded="true"]) .loading-log__summary {
-  display: none;
-}
-
-.loading-log__messages {
-  min-height: 48px;
-  display: grid;
-  align-content: end;
-  gap: 3px;
-  padding-top: 8px;
-}
-
-.loading-log__message {
-  opacity: 0.46;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.loading-log__message--active {
-  color: rgba(255, 255, 255, 0.92);
-  opacity: 1;
-}
-
-.loading-log__message--done {
-  color: rgba(210, 255, 233, 0.82);
-  opacity: 0.82;
-}
-
-.loading-log__message--done::before {
-  content: "✓";
-  display: inline-block;
-  width: 10px;
-  color: rgba(114, 224, 184, 0.9);
-}
-
-.loading-log__progress {
-  height: 3px;
-  margin-top: 8px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-}
-
-#loading-log:not([data-expanded="true"]) .loading-log__progress {
-  height: 2px;
-  margin-top: 6px;
-  background: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-}
-
-@media (max-width: 520px) {
-  #loading-log {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    width: auto;
-  }
-}
-
-.loading-log__progress-bar {
-  width: 0%;
-  height: 100%;
-  background: linear-gradient(90deg, rgba(110, 168, 254, 0.82), rgba(114, 224, 184, 0.9));
-  border-radius: inherit;
-  transition: width 220ms ease;
-}
-
-.loading-log--done .loading-log__progress-bar {
-  background: rgba(114, 224, 184, 0.92);
-}
-
-.loading-log--error {
-  border-color: rgba(255, 93, 93, 0.35);
-}
-
-.loading-log__header {
-  margin-bottom: 0;
-}
-
 .toastify {
   padding: 12px 20px;
   color: #ffffff;
@@ -998,11 +793,13 @@ html[data-viewer-theme="light"],
   --viewer-notice-container-text: rgba(255, 255, 255, 0.94);
   --viewer-panel-embed-bg: rgba(22, 19, 16, 0.92);
   --viewer-panel-bg-embed-hover: rgba(22, 19, 16, 1.0);
+  --viewer-option-bg: #1a1714;
   background: var(--viewer-shell-bg);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] {
   --viewer-shell-bg: linear-gradient(180deg, #f7f5f1 0%, #ebe7df 100%);
+  --viewer-option-bg: #fcfaf6;
   --viewer-panel-bg: rgba(252, 250, 246, 0.94);
   --viewer-panel-bg-hover: rgba(255, 253, 249, 0.98);
   --viewer-panel-border: rgba(164, 151, 132, 0.28);
@@ -2172,48 +1969,55 @@ body.presentation-mode {
   }
 }
 
-/* Model details on a phone: a small round "i" in the corner instead of the
-   file name card, so it keeps off the model. The name stays in the button's
-   aria-label; a tap opens the window out of it. */
-@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
-  #metadata-card {
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 0;
-    min-height: 0;
-    margin: 8px 0 0 max(8px, env(safe-area-inset-left));
-    padding: 0;
-    border-radius: 999px;
-    transform: none;
-    transition: none;
-  }
+/* Model details: a small round "i" in the corner instead of the file name
+   card, so it keeps off the model. The name stays in the button's
+   aria-label and tooltip; a click opens the window out of it. The IIIF
+   icon (a manifest's model) sits beside it. */
+#metadata-card {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 0;
+  min-height: 0;
+  margin: 8px 0 0 max(8px, env(safe-area-inset-left));
+  padding: 0;
+  border-radius: 999px;
+  overflow: visible;
+  transform: none;
+  transition: none;
+}
 
-  #metadata-card .metadata-drag-handle,
-  #metadata-card .metadata-toggle-copy {
-    display: none;
-  }
+#metadata-card .metadata-drag-handle,
+#metadata-card .metadata-toggle-copy {
+  display: none;
+}
 
-  #metadata-card #metadata-collapse {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    min-height: 0;
-    gap: 0;
-  }
+#metadata-card #metadata-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+}
 
-  #metadata-card .metadata-toggle-chevron {
-    width: 20px;
-    height: 20px;
-    border-radius: 0;
-    background-color: var(--metadata-value-color);
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
-  }
+#metadata-card .metadata-toggle-chevron {
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+  background-color: var(--metadata-value-color);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='.6' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 
-  #metadata-card .metadata-toggle-chevron::before {
-    display: none;
-  }
+#metadata-card .metadata-toggle-chevron::before {
+  display: none;
+}
+
+#metadata-card .metadata-iiif {
+  top: 50%;
+  right: auto;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
 }
 
 /* The menus on a phone or a tablet on its side (ui/menu-toolbar.js): the
@@ -2361,7 +2165,9 @@ body.viewer-app.viewer-standalone-page > #DFG_3DViewer {
 
 /* viewer.fillViewport (main.js): on a desktop browser too, the viewer fills
    what the header and gallery leave, instead of index.html's 50vh. The
-   body keeps its 8px margin; the phone and app rules above still apply. */
+   body keeps its 8px margin; the phone and app rules above still apply.
+   A window moved or resized by its controls (ui/window-controls.js) keeps
+   the size it was given. */
 body.viewer-fill-viewport.viewer-standalone-page:not(.viewer-app) {
   height: calc(100dvh - 16px);
   display: flex;
@@ -2372,7 +2178,7 @@ body.viewer-fill-viewport.viewer-standalone-page > :not(#DFG_3DViewer) {
   flex: 0 0 auto;
 }
 
-body.viewer-fill-viewport.viewer-standalone-page > #DFG_3DViewer {
+body.viewer-fill-viewport.viewer-standalone-page > #DFG_3DViewer:not(.viewer-window-detached) {
   flex: 1 1 0;
   height: auto !important;
   min-height: 280px;

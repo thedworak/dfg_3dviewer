@@ -104,6 +104,8 @@ export async function loadDroppedModel (file) {
   Viewer.resetLoadedModelState();
 
   const url = URL.createObjectURL(file);
+  core.localFiles.clear();
+  core.localFiles.set(url, file);
 
   core.fileObject.originalPath = url;
   core.fileObject.filename = url;

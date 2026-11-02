@@ -33,7 +33,8 @@
 }
 
 .admin-users-sort select option {
-  color: initial;
+  background: var(--viewer-option-bg);
+  color: var(--viewer-panel-text);
 }
 
 .admin-users-sort button {
@@ -253,7 +254,8 @@
 }
 
 .admin-users-limits-field select option {
-  color: initial;
+  background: var(--viewer-option-bg);
+  color: var(--viewer-panel-text);
 }
 
 /* A model in a user's list: name, owner and date; edit and delete buttons;

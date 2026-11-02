@@ -71,7 +71,7 @@ function measureEnds(roots, box) {
   let total = 0;
   roots.forEach((root) => root.traverse((object) => {
     if (!object.isMesh || !object.geometry?.attributes?.position) return;
-    if (object.userData?.isCertaintyOverlay || object.userData?.isWeather || object.userData?.isGaussianSplats) return;
+    if (object.userData?.isCertaintyOverlay || object.userData?.isWeather || object.userData?.isGaussianSplats || object.userData?.isVolume) return;
     const geometry = object.geometry;
     const count = Math.floor((geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3);
     meshes.push({ object, count });

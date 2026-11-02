@@ -1510,6 +1510,62 @@
   opacity: 0.7;
 }
 
+/* Volume controls (editor/volume-panel.js), on the point cloud panel's. */
+.viewer-volume-panel {
+  max-height: min(80vh, 720px);
+  overflow-y: auto;
+}
+
+.viewer-volume-panel_channel {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+}
+
+.viewer-volume-panel_channel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-volume-panel_channel-head > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-volume-panel_channel-head input[type="color"] {
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.viewer-volume-panel_summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.viewer-volume-panel_summary dt {
+  opacity: 0.8;
+}
+
+.viewer-volume-panel_summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Profile and classes (editor/point-cloud-tools.js). */
 .viewer-pointcloud-panel_row[hidden],
 .viewer-pointcloud-panel_classes[hidden] {

@@ -36,6 +36,7 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.gallery.container` — DOM container for generated gallery thumbnails
 - `viewer.gallery.imageClass` — class used to locate gallery images
 - `viewer.gallery.imageId` — optional gallery image ID selector
+- `viewer.gallery.position` — where the views of the model show: `right` (default; a drawer on the viewer's right edge, over the canvas, hidden and shown by its tab - remembered per browser; on a phone only the tab, which opens the lightbox) or `top` (the row above the viewer, as before)
 - `viewer.background` — CSS background string for viewer canvas
 - `viewer.ground` — what the model stands on: `contact` (default; a soft contact shadow, no visible floor), `mirror` (fading reflection), `grid` (technical grid without edges, fading out, axes in colour), `turntable` (disc with a compass, N = -Z, and a scale bar in the model's unit), `spotlight` (dark room with a pool of light; sets a dark background while chosen) or `dots` (dot grid). Changeable in the Ground window (Look menu); `?ground=` in the page URL and `ground` in a manifest (`scenes[id].ground`, `scene.ground`, `globals.ground` or AIM3DViewer `viewer.ground`, written by the viewer's own export) win over it. With the WebGPU renderer the contact shadow is a blurred blob, `mirror` falls back to it and `grid` is a plain grid; see `viewer/ground.js`
 - `viewer.performanceMode` — performance mode config object

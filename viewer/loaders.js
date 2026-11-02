@@ -27,6 +27,8 @@ export const loadRoomEnvironment = async () => (await import("three/examples/jsm
 export const loadLasPointCloud = async () => (await import("./pointcloud-las.js")).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
 export const loadSplats = async () => import("./splats.js");
+// Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
+export const loadVolume = async () => import("./volume.js");
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -406,7 +408,8 @@ function setupSingleMaterial(materials, material) {
 
 function setupMaterials(_object) {
   var materials = [];
-  if (_object.isMesh) {
+  // A volume's ray-marching shader draws its back faces and casts no shadow.
+  if (_object.isMesh && !_object.userData?.isVolume) {
     _object.castShadow = true;
     _object.receiveShadow = true;
     if (
@@ -689,6 +692,7 @@ export async function loadModel() {
     core.mainObject.push(object);
     window.Viewer?.setupModelAnimations?.(object);
     window.Viewer?.setupPointCloudControls?.(object);
+    window.Viewer?.setupVolumeControls?.(object);
     window.Viewer?.refreshClippingForModel?.(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
@@ -962,6 +966,44 @@ export async function loadModel() {
           name: core.fileObject.basename || "Gaussian splats",
           volumeUrl: splatVolumeUrl(modelPath),
         });
+        await afterLoad({ object });
+        break;
+      }
+
+      case "dfgvol": {
+        // Image stacks converted by the worker (worker/lif.py): the manifest,
+        // then the voxels of its first stack.
+        const { buildVolumeModel } = await loadVolume();
+        const object = await buildVolumeModel(new URL(modelPath, window.location.href).href, {
+          name: core.fileObject.basename || "Volume",
+          onProgress,
+        });
+        updateLoadingStage("loadingLog.preparingGeometry", 99);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "lif":
+      case "tif":
+      case "tiff": {
+        // Image stacks opened without the worker: read in the browser, a
+        // stack at a time (lif-reader.js, tiff-reader.js) - from the File
+        // when dropped, else by HTTP range requests. A TIFF unpacked from a
+        // .zip may be one slice of a stack: the archive's other files go
+        // with it.
+        const { buildDirectVolumeModel } = await loadVolume();
+        const file = core.localFiles.get(modelPath);
+        const object = await buildDirectVolumeModel(
+          core.fileObject.extension.toLowerCase() === "lif" ? "lif" : "tiff",
+          file ? { file } : { url: new URL(modelPath, window.location.href).href },
+          {
+            name: core.fileObject.basename || "Volume",
+            fileName: file?.name || core.fileObject.filename,
+            siblings: file && core.archiveFiles?.includes(file) ? core.archiveFiles : null,
+            onProgress,
+          },
+        );
+        updateLoadingStage("loadingLog.preparingGeometry", 99);
         await afterLoad({ object });
         break;
       }

@@ -52,7 +52,9 @@ gml glb), STEP/IGES/3MF via scripts/convert_mesh.py (step stp iges igs 3mf), and
 formats the viewer reads itself, stored as uploaded without thumbnails (gltf 3ds
 pcd xyz amf kmz vox lwo, and Gaussian splats: spz splat ksplat sog rad, and a
 .ply of splats - turned into a level-of-detail .rad by splats.py when build-lod
-is installed), plus .zip/.rar/.tar/.xz/.gz archives of any of these.
+is installed), image stacks - Leica .lif (lif.py) and TIFF / OME-TIFF
+(tiff_stack.py) - turned into volumes, plus .zip/.rar/.tar/.xz/.gz archives
+of any of these.
 
 This process is single-node and keeps in-flight job state (progress/status
 messages) in memory only, so that is lost on restart - it is meant for
@@ -82,6 +84,9 @@ from urllib.parse import parse_qs, unquote, urlparse
 import ai
 import cloudflare
 import geonames
+import lif
+import tiff_stack
+import volumes
 import mailer
 import manifests
 import model_metadata
@@ -171,9 +176,15 @@ VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo"
 # Point clouds become a streamed 3D Tiles tileset (worker/pointcloud.py);
 # a .ply without faces joins them at run time (is_point_cloud()).
 POINTCLOUD_FORMATS = pointcloud.POINTCLOUD_FORMATS
+# Image stacks become volumes the viewer ray-marches (worker/volumes.py).
+VOLUME_CONVERTERS = {
+    **{ext: lif.convert for ext in lif.FORMATS},
+    **{ext: tiff_stack.convert for ext in tiff_stack.FORMATS},
+}
+VOLUME_FORMATS = set(VOLUME_CONVERTERS)
 SUPPORTED_FORMATS = (
     DIRECT_FORMATS | SPECIAL_FORMATS | PASSTHROUGH_FORMATS | MESH_CONVERT_FORMATS | VIEWER_NATIVE_FORMATS
-    | POINTCLOUD_FORMATS
+    | POINTCLOUD_FORMATS | VOLUME_FORMATS
 )
 # Mirrors ModelFormatManager::getZipFormats() on the Drupal side. "zip" is
 # extracted in-process (safe_extract_zip); the rest shell out to the same
@@ -258,10 +269,14 @@ def extract_archive(archive_path: Path, dest: Path, archive_type: str) -> None:
 
 
 def find_model_file(root: Path):
-    for path in sorted(root.rglob("*")):
-        if path.is_file() and path.suffix.lower().lstrip(".") in SUPPORTED_FORMATS:
-            return path
-    return None
+    found = [
+        path for path in sorted(root.rglob("*"))
+        if path.is_file() and path.suffix.lower().lstrip(".") in SUPPORTED_FORMATS
+    ]
+    # A TIFF is a stack only when nothing else is there: next to a model it
+    # is a texture.
+    models = [path for path in found if path.suffix.lower().lstrip(".") not in tiff_stack.FORMATS]
+    return (models or found or [None])[0]
 
 
 JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
@@ -308,6 +323,9 @@ def scan_job(job_id: str, job_dir: Path):
     elif (tilesets := sorted([*job_root.glob("tiles/*/metadata.json"), *job_root.glob("tiles/*/tileset.json")])):
         # A point cloud converted to Potree 2 or 3D Tiles (worker/pointcloud.py).
         glb_path = tilesets[0]
+    elif (manifests := sorted(job_root.rglob(f"*{volumes.MANIFEST_SUFFIX}"))):
+        # Image stacks converted to volumes (worker/volumes.py).
+        glb_path = manifests[0]
     else:
         # Viewer-native formats are served as uploaded (no GLB exists).
         native = [
@@ -661,6 +679,34 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
                 ),
                 model_url=f"/files/{job_id}/{tileset.relative_to(job_root)}",
                 image_urls=[],
+            )
+            return
+
+        if ext in VOLUME_FORMATS:
+            with LIMITS.conversion_slot(
+                on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
+            ):
+                set_job(job_id, status="processing", progress=25, message="Converting image stacks to volumes...")
+                manifest = volumes.manifest_path_for(work_path)
+                manifest.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    converted = VOLUME_CONVERTERS[ext](work_path, manifest, log_prefix=f"[job {job_id}]")
+                except volumes.VolumeError as exc:
+                    raise RuntimeError(str(exc)) from exc
+                # The thumbnail is a projection of the voxels, not a Blender render.
+                image_urls = []
+                try:
+                    preview = volumes.write_preview(manifest, converted, work_path.parent / "views" / f"{work_path.stem}_side45.png")
+                    image_urls = [thumbnail_url(job_id, preview, job_root)]
+                except Exception as exc:  # noqa: BLE001 - thumbnails are best-effort
+                    print(f"[job {job_id}] volume thumbnail failed: {exc}", file=sys.stderr)
+            set_job(
+                job_id,
+                status="ready",
+                progress=100,
+                message=f"{len(converted['series'])} image stack(s) converted to volumes",
+                model_url=f"/files/{job_id}/{manifest.relative_to(job_root)}",
+                image_urls=image_urls,
             )
             return
 

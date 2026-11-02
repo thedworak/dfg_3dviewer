@@ -1,5 +1,5 @@
 import { g4 as THREE, gc as exports$1, gd as Reflector, ge as HorizontalBlurShader, gf as VerticalBlurShader, g5 as FullScreenQuad, gg as unzipSync$1, gh as GTAOPass, gi as EffectComposer, gj as RenderPass, gk as SMAAPass, gl as OutputPass, gm as FXAAPass, gn as Sky, go as USDZExporter, gp as ViewHelper, aR as PointsMaterial, aq as Vector2, ar as Vector3, gq as Vector3$1, gr as Matrix4, gs as Quaternion, gt as Euler, gu as MathUtils$1, gv as FontLoader, gw as TextGeometry, gx as OrbitControls, gy as TransformControls } from './three-9zFNDZnr.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, w as isAIM3DManifest, V as VIEWER_I18N, s as setLanguageSource } from './model-thumbnail-ocZdathm.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, d as featureIconSvg, e as statusLabel, i as inspectAIM3DManifest, g as featureLabel, h as featureIconsCaption, j as manifestModelUrls, c as createPasswordField, G as GENERIC_GALLERY_IMAGE_COUNT, k as getGenericGalleryImageUrl, l as GALLERY_IMAGE_EXT, n as normalizeAIM3DManifest, v as validateAIM3DManifest, o as formatAIM3DManifestValidationErrors, p as certaintyText, q as normalizeCertaintyScale, r as normalizeCertaintyAssessment, u as certaintyLevelForValue, w as isAIM3DManifest, V as VIEWER_I18N, s as setLanguageSource } from './model-thumbnail-CNFNwvhq.js';
 import { a as getDefaultExportFromCjs, c as commonjsGlobal } from './_commonjsHelpers-ChNyZfSg.js';
 
 window.THREE = THREE;
@@ -541,7 +541,7 @@ var DEFAULT_LIST$1 = {
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
-const IS_MOBILE_BUILD$1 = "test" === "mobile";
+const IS_MOBILE_BUILD$1 = "dev" === "mobile";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL$1 = "./examples/index.json";
 
@@ -848,6 +848,31 @@ function remoteAssetUrl(url) {
 // served by the repository the account lives on.
 function deleteAccountUrl() {
   return remoteAssetUrl('/delete-account.html');
+}
+
+// The terms of use (viewer/legal/terms.html in the app's builds), served
+// next to delete-account.html. Elsewhere only when the settings name one
+// (viewer.auth.termsUrl): a plain viewer has no terms of its own.
+function termsUrl() {
+  const configured = core.CONFIG?.viewer?.auth?.termsUrl;
+  if (configured) return configured;
+  return isAppBuild() && remoteBase() ? remoteAssetUrl('/terms.html') : '';
+}
+
+function privacyUrl() {
+  const configured = core.CONFIG?.viewer?.auth?.privacyUrl;
+  if (configured) return configured;
+  return isAppBuild() && remoteBase() ? remoteAssetUrl('/privacy.html') : '';
+}
+
+// Where the store's subscriptions are managed (cancelled): deleting an
+// account cancels nothing - a subscription belongs to the Apple ID or
+// Google account that bought it. Empty outside the apps.
+function manageSubscriptionsUrl() {
+  const platform = window.Capacitor?.getPlatform?.();
+  if (platform === 'ios') return 'https://apps.apple.com/account/subscriptions';
+  if (platform === 'android') return 'https://play.google.com/store/account/subscriptions';
+  return '';
 }
 
 // body.viewer-app hides what the app does not use; body.viewer-no-remote
@@ -7935,7 +7960,7 @@ var DEFAULT_LIST = {
 // excludeFromMobile: its model is not in the app (left out of the app
 // bundle by its build extension), so the app loads it from the site the list comes from
 // (online only) - entry.baseUrl, passed on to Viewer.setupManifesto.
-const IS_MOBILE_BUILD = "test" === "mobile";
+const IS_MOBILE_BUILD = "dev" === "mobile";
 // The web viewer serves the list itself (a build shows its own examples,
 // not those of the last deployment); the app fetches it from the site.
 const DEFAULT_URL = "./manifests/index.json";
@@ -8879,7 +8904,8 @@ async function handleMetadataResponse(
     '<div id="metadata-card"' + (iiifLink ? ' class="metadata-has-iiif"' : '') + '>' +
       '<div class="metadata-drag-handle" title="' + escapeHtml$1(t$1("metadata.move", "Move")) + '"></div>' +
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-window"' +
-        ' aria-label="' + escapeHtml$1(t$1("metadata.modelDetails", "Model details")) + ': ' + escapeHtml$1(fileName) + '">' +
+        ' aria-label="' + escapeHtml$1(t$1("metadata.modelDetails", "Model details")) + ': ' + escapeHtml$1(fileName) + '"' +
+        ' title="' + escapeHtml$1(fileName) + '">' +
         '<span class="metadata-toggle-copy">' +
           '<span class="metadata-toggle-title" title="' + escapeHtml$1(fileName) + '">' + escapeHtml$1(fileName) + '</span>' +
           '<span class="metadata-toggle-summary" data-format="' + escapeHtml$1(fileFormat) + '" data-vertices="' + escapeHtml$1(metadata["vertices"]) + '">' +
@@ -9514,7 +9540,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-DzDS9R_D.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-D4vAR1nv.js');
+const loadTilesPlugins = () => import('./index.three-plugins-CajFOd_b.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -9939,7 +9965,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-DZhgNic1.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-D0QzlgLj.js'),
+    import('./rendering-webgpu-C3szD2cG.js'),
     import('./weather-webgpu-BVBE46-g.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -10071,9 +10097,9 @@ const loadLWOLoader = async () => (await import('./three-9zFNDZnr.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-BVz5506w.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-9zFNDZnr.js').then(function (n) { return n.gV; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-DDxBW6tb.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-BxNQxSwp.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-D-Q75CVT.js');
+const loadSplats = async () => import('./splats-BEkHj3PZ.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -10284,7 +10310,7 @@ async function createLoader(ext) {
   return new LoaderClass();
 }
 
-const ENV_BUILD = "test";
+const ENV_BUILD = "dev";
 const MODULES_PATH = "";
 const ENV_SUBDIR = "";
 console.log('[loaders] ENV_BUILD:', ENV_BUILD);
@@ -12458,6 +12484,155 @@ function createLockIcon() {
   return icon;
 }
 
+// Uploaders this viewer no longer shows models of (the models panel's
+// "Report or block"): the App Store asks apps with user-generated content
+// for a way to block abusive users (guideline 1.2). Kept on this device, per
+// repository address - user names are only unique on one repository. The
+// models stay on the repository; reporting them is what reaches the
+// moderators (worker/reports.py).
+const STORAGE_KEY = 'dfg3dviewer-blocked-users';
+let inMemory = {};
+
+function readAll() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    return data && typeof data === 'object' ? data : {};
+  } catch {
+    return inMemory;
+  }
+}
+
+function writeAll(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // Storage blocked: blocked until the viewer is closed.
+    inMemory = data;
+  }
+}
+
+// The web viewer's repository is the page's own origin ('' as the key).
+const repositoryKey = () => remoteBase() || window.location.origin;
+
+function blockedUsers() {
+  const list = readAll()[repositoryKey()];
+  return Array.isArray(list) ? list.filter((name) => typeof name === 'string') : [];
+}
+
+function isBlockedUser(name) {
+  return Boolean(name) && blockedUsers().includes(name);
+}
+
+function blockUser(name) {
+  if (!name || isBlockedUser(name)) return;
+  const data = readAll();
+  data[repositoryKey()] = [...blockedUsers(), name];
+  writeAll(data);
+}
+
+function unblockUser(name) {
+  const data = readAll();
+  data[repositoryKey()] = blockedUsers().filter((blocked) => blocked !== name);
+  writeAll(data);
+}
+
+// A confirmation dialog with fields (the look of confirmDialog in
+// upload-panel.js, .viewer-confirm): deleting an account with its password,
+// reporting a model. `body` is the dialog's content; onConfirm() runs on the
+// confirm button and keeps the dialog open while it runs - a thrown error
+// is shown in it, and it stays open for another try. Resolves with
+// onConfirm's result, or null on cancel, Escape or a click beside it.
+function openFormDialog({ title, body, confirmLabel, cancelLabel, danger = false, onConfirm }) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "viewer-confirm-backdrop";
+    const dialog = document.createElement("form");
+    dialog.className = "viewer-confirm viewer-form-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.noValidate = true;
+    if (title) {
+      const heading = document.createElement("h3");
+      heading.className = "viewer-form-dialog-title";
+      heading.id = `viewerFormDialog${Date.now()}`;
+      heading.textContent = title;
+      dialog.setAttribute("aria-labelledby", heading.id);
+      dialog.appendChild(heading);
+    }
+    if (body) dialog.appendChild(body);
+    const error = document.createElement("p");
+    error.className = "viewer-form-dialog-error";
+    error.setAttribute("role", "alert");
+    error.hidden = true;
+    const actions = document.createElement("div");
+    actions.className = "viewer-confirm-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "viewer-confirm-cancel";
+    cancel.textContent = cancelLabel;
+    const ok = document.createElement("button");
+    ok.type = "submit";
+    ok.className = `viewer-confirm-ok${danger ? " viewer-confirm-ok--danger" : ""}`;
+    ok.textContent = confirmLabel;
+    actions.append(cancel, ok);
+    dialog.append(error, actions);
+    backdrop.appendChild(dialog);
+
+    let busy = false;
+    const finish = (value) => {
+      document.removeEventListener("keydown", onKey, true);
+      backdrop.remove();
+      resolve(value);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape" && !busy) {
+        event.preventDefault();
+        event.stopPropagation();
+        finish(null);
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+    cancel.addEventListener("click", () => !busy && finish(null));
+    backdrop.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      if (event.target === backdrop && !busy) finish(null);
+    });
+    // Keys typed into the fields stay out of the viewer's shortcuts.
+    dialog.addEventListener("keydown", (event) => event.stopPropagation());
+    dialog.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (busy) return;
+      busy = true;
+      ok.disabled = true;
+      cancel.disabled = true;
+      error.hidden = true;
+      try {
+        finish(onConfirm ? await onConfirm() : true);
+      } catch (failure) {
+        error.textContent = failure?.message || String(failure);
+        error.hidden = false;
+        busy = false;
+        ok.disabled = false;
+        cancel.disabled = false;
+      }
+    });
+
+    (core.container || document.body).appendChild(backdrop);
+    (dialog.querySelector("input, select, textarea") || cancel).focus();
+  });
+}
+
+// Why a model is reported (worker/reports.py REASONS).
+const REPORT_REASONS = [
+  ["offensive", "Offensive or inappropriate"],
+  ["sexual", "Sexual content"],
+  ["violence", "Violence or dangerous content"],
+  ["hate", "Hate speech or harassment"],
+  ["copyright", "Copyright infringement"],
+  ["spam", "Spam or misleading"],
+  ["other", "Something else"],
+];
+
 // GET /api/jobs is public (see worker/server.py's list_jobs) - browsing
 // finished models doesn't require an account, only deleting one does (gated
 // server-side per job's canDelete, computed from ownership/role). So unlike
@@ -12675,11 +12850,18 @@ function attachModelsPanel(Viewer) {
         return;
       }
 
+      // Models of blocked uploaders are left out (blocked-users.js); one's
+      // own stay.
+      const me = this.authState?.user || null;
+      const blockedCount = jobs.filter((job) => job.owner && job.owner !== me && isBlockedUser(job.owner)).length;
+      jobs = jobs.filter((job) => !(job.owner && job.owner !== me && isBlockedUser(job.owner)));
+
       if (jobs.length === 0) {
         const emptyItem = document.createElement("li");
         emptyItem.className = "models-panel-empty";
         emptyItem.textContent = t$1("modelsPanel.empty", "No previously generated models yet.");
         list.appendChild(emptyItem);
+        if (blockedUsers().length) list.appendChild(this.renderBlockedUsersRow(blockedCount));
         return;
       }
 
@@ -12690,6 +12872,163 @@ function attachModelsPanel(Viewer) {
         // No IndexedDB (e.g. blocked storage): rows just offer saving.
       }
       jobs.forEach((job) => list.appendChild(this.renderModelRow(job, savedIds.has(repositoryEntryId(job.id)))));
+      if (blockedUsers().length) list.appendChild(this.renderBlockedUsersRow(blockedCount));
+    },
+
+    // "Blocked users (n)" under the list: unblocking brings their models back.
+    renderBlockedUsersRow(hiddenModels = 0) {
+      const item = document.createElement("li");
+      item.className = "models-panel-blocked";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = t$1(
+        "modelsPanel.blockedUsers",
+        { count: blockedUsers().length, models: hiddenModels },
+        "Blocked users: {count} ({models} models hidden) - manage"
+      );
+      this.bindEventListener(button, "click", () => this.openBlockedUsersDialog());
+      item.appendChild(button);
+      return item;
+    },
+
+    async openBlockedUsersDialog() {
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t$1(
+        "modelsPanel.blockedIntro",
+        "Models of these users are hidden on this device. Unblock a user to see their models again."
+      );
+      const list = document.createElement("ul");
+      list.className = "models-panel-blocked-list";
+      const render = () => {
+        list.textContent = "";
+        blockedUsers().forEach((name) => {
+          const row = document.createElement("li");
+          const label = document.createElement("span");
+          label.textContent = name;
+          const unblock = document.createElement("button");
+          unblock.type = "button";
+          unblock.textContent = t$1("modelsPanel.unblock", "Unblock");
+          unblock.addEventListener("click", () => {
+            unblockUser(name);
+            render();
+          });
+          row.append(label, " ", unblock);
+          list.appendChild(row);
+        });
+        if (!list.children.length) {
+          const none = document.createElement("li");
+          none.textContent = t$1("modelsPanel.blockedNone", "No blocked users.");
+          list.appendChild(none);
+        }
+      };
+      render();
+      body.append(intro, list);
+      await openFormDialog({
+        title: t$1("modelsPanel.blockedTitle", "Blocked users"),
+        body,
+        confirmLabel: t$1("modelsPanel.blockedDone", "Done"),
+        cancelLabel: t$1("modelsPanel.deleteCancel", "Cancel"),
+      });
+      this.loadModelsList();
+    },
+
+    // Reporting a model to the repository's moderators (POST
+    // /api/jobs/<id>/report, worker/reports.py) and, optionally, blocking
+    // its uploader on this device (blocked-users.js) - App Store guideline 1.2.
+    async openReportDialog(job, name) {
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t$1(
+        "modelsPanel.reportIntro",
+        { name },
+        "Report \"{name}\" to the moderators of this repository. They review reports within 24 hours and remove content that breaks the terms of use."
+      );
+      body.appendChild(intro);
+
+      const reasonLabel = document.createElement("label");
+      reasonLabel.textContent = t$1("modelsPanel.reportReason", "Reason");
+      const reason = document.createElement("select");
+      REPORT_REASONS.forEach(([value, fallback]) => {
+        reason.appendChild(new Option(t$1(`modelsPanel.reportReason_${value}`, fallback), value));
+      });
+      reasonLabel.appendChild(reason);
+      body.appendChild(reasonLabel);
+
+      const detailsLabel = document.createElement("label");
+      detailsLabel.textContent = t$1("modelsPanel.reportDetails", "Details (optional)");
+      const details = document.createElement("textarea");
+      details.maxLength = 1000;
+      detailsLabel.appendChild(details);
+      body.appendChild(detailsLabel);
+
+      let block = null;
+      if (job.owner && job.owner !== this.authState?.user) {
+        const blockLabel = document.createElement("label");
+        blockLabel.className = "viewer-form-dialog-check";
+        block = document.createElement("input");
+        block.type = "checkbox";
+        const text = document.createElement("span");
+        text.textContent = t$1(
+          "modelsPanel.reportBlock",
+          { user: job.owner },
+          "Also block {user}: hide all their models on this device"
+        );
+        blockLabel.append(block, text);
+        body.appendChild(blockLabel);
+      }
+
+      const sent = await openFormDialog({
+        title: t$1("modelsPanel.reportTitle", "Report or block"),
+        body,
+        confirmLabel: t$1("modelsPanel.reportSend", "Report"),
+        cancelLabel: t$1("modelsPanel.deleteCancel", "Cancel"),
+        danger: true,
+        onConfirm: async () => {
+          const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(job.id)}/report`), {
+            method: "POST",
+            headers: { ...appRequestHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.value, details: details.value }),
+          });
+          if (!response.ok) {
+            let message = "";
+            try {
+              message = (await response.json()).error || "";
+            } catch {
+              // Non-JSON error page.
+            }
+            throw new Error(message || t$1("modelsPanel.reportError", "The report could not be sent. Try again later."));
+          }
+          return true;
+        },
+      });
+      if (!sent) return;
+      if (block?.checked) {
+        blockUser(job.owner);
+        toastHelper("userBlocked", "info", { user: job.owner });
+        this.loadModelsList();
+      } else {
+        toastHelper("modelReported", "success");
+      }
+    },
+
+    // Blocking without reporting, from the same row.
+    async blockUploader(job) {
+      if (!job.owner) return;
+      const confirmed = await this.confirmDialog({
+        message: t$1(
+          "modelsPanel.blockConfirm",
+          { user: job.owner },
+          "Block {user}? Their models will be hidden on this device. You can unblock them under the list."
+        ),
+        confirmLabel: t$1("modelsPanel.block", "Block"),
+        cancelLabel: t$1("modelsPanel.deleteCancel", "Cancel"),
+        danger: true,
+      });
+      if (!confirmed) return;
+      blockUser(job.owner);
+      toastHelper("userBlocked", "info", { user: job.owner });
+      this.loadModelsList();
     },
 
     // App build only (the browser has the repository at hand). Single-file
@@ -12801,6 +13140,7 @@ function attachModelsPanel(Viewer) {
         metadata?.author,
         metadata?.date,
         modelLicenseLabel(metadata?.license),
+        metadata?.copyright,
         metadata && job.name && job.name !== name ? job.name : "",
       ].filter(Boolean).join(" · ");
 
@@ -12844,6 +13184,24 @@ function attachModelsPanel(Viewer) {
           modelCheckPart(job.validation),
         ]));
       }
+      // Its licence and copyright, when entered, on a line of their own.
+      const licenseLabel = modelLicenseLabel(metadata?.license);
+      if (licenseLabel || metadata?.copyright) {
+        text.appendChild(metaCaption([
+          licenseLabel ? metaPart("license", t$1("modelMetadata.fields.license", "Licence"), licenseLabel) : null,
+          metadata?.copyright
+            ? metaPart("copyright", t$1("modelMetadata.fields.copyright", "Copyright"), metadata.copyright)
+            : null,
+        ]));
+      }
+      // Reported by several people (worker/reports.py): only its owner and
+      // admins still see it, until an admin decides.
+      if (job.underReview) {
+        const review = document.createElement("span");
+        review.className = "models-panel-under-review";
+        review.textContent = t$1("modelsPanel.underReview", "Reported - hidden from others until reviewed");
+        text.appendChild(review);
+      }
 
       button.appendChild(text);
 
@@ -12866,6 +13224,29 @@ function attachModelsPanel(Viewer) {
           this.saveModelOffline(job, saveButton);
         });
         item.appendChild(saveButton);
+      }
+
+      // Someone else's model: report it, or block whoever uploaded it.
+      const me = this.authState?.user || null;
+      if (!(me && job.owner === me)) {
+        const reportButton = document.createElement("button");
+        reportButton.type = "button";
+        reportButton.className = "models-panel-report";
+        const reportAria = t$1("modelsPanel.reportAria", { name }, "Report {name} or block its uploader");
+        reportButton.setAttribute("aria-label", reportAria);
+        reportButton.title = reportAria;
+        reportButton.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M5 21V4M5 4h11l-2 4 2 4H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        this.bindEventListener(reportButton, "click", (event) => {
+          event.stopPropagation();
+          this.openReportDialog(job, name);
+        });
+        // A long press (or right click) blocks straight away.
+        this.bindEventListener(reportButton, "contextmenu", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.blockUploader(job);
+        });
+        item.appendChild(reportButton);
       }
 
       // canDelete is computed by the worker (own uploads, or admin, or
@@ -13275,6 +13656,14 @@ function attachLibraryPanel(Viewer) {
   });
 }
 
+// The header button a panel was opened from (event.currentTarget), so the
+// panel drops down under it like on the web page (anchorPanelUnder) rather
+// than at its default place inside the viewer, below the thumbnail gallery.
+function headerButtonOf(event) {
+  const target = event?.currentTarget;
+  return target instanceof Element && target.closest("header, #example-model-picker") ? target : null;
+}
+
 // The app's "Models" button opens the models on the device
 // (library-panel.js), those in ExHUB, the repository (models-panel.js), or
 // the example manifests (examples-panel.js), whichever was used last, and
@@ -13298,6 +13687,7 @@ function attachModelsSource(Viewer) {
     // opens the one used last.
     toggleModelsSource(event) {
       event?.preventDefault?.();
+      this.modelsSourceAnchor = headerButtonOf(event) || this.modelsSourceAnchor;
       const open = this.libraryPanel?.hidden === false || this.modelsPanel?.hidden === false ||
         this.examplesPanel?.hidden === false;
       if (open) {
@@ -13314,6 +13704,7 @@ function attachModelsSource(Viewer) {
     // closes them.
     toggleExhub(event) {
       event?.preventDefault?.();
+      this.modelsSourceAnchor = headerButtonOf(event) || this.modelsSourceAnchor;
       if (this.modelsPanel?.hidden === false) {
         this.closeModelsPanel?.();
         return;
@@ -13349,6 +13740,9 @@ function attachModelsSource(Viewer) {
         this.libraryPanel.hidden = false;
         this.loadLibraryList();
       }
+      // Switching between the sources keeps the panel in the same place.
+      const panel = { examples: this.examplesPanel, remote: this.modelsPanel }[source] || this.libraryPanel;
+      if (this.modelsSourceAnchor?.isConnected) anchorPanelUnder(panel, this.modelsSourceAnchor);
     },
 
     // Placed under a panel's header; `active` is the panel it sits in.
@@ -13977,14 +14371,15 @@ const isBundled = (url) => url.startsWith("./");
 // What each manifest contains and whether its values are right
 // (manifest-inspection.js), with the check of its model file when a worker
 // serves it: fetched once per manifest and session, shown as icons under its
-// name (feature-icons.js).
+// name (feature-icons.js). The manifest as the viewer loads it (main.js
+// getManifestJson): for a bundled one, the worker's copy with the thumbnails
+// rendered since, when there is one - so its thumbnails icon shows them.
 const inspections = new Map();
 
-function inspectExample(url) {
+function inspectExample(url, loadManifest) {
   if (!inspections.has(url)) {
     const absolute = new URL(url, window.location.href).href;
-    inspections.set(url, fetch(absolute)
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+    inspections.set(url, loadManifest(url)
       .then(async (manifest) => ({
         inspection: inspectAIM3DManifest(manifest),
         modelValidation: await fetchModelValidation(manifestModelUrls(manifest, absolute)[0]),
@@ -14004,6 +14399,13 @@ const displayName = (name) => name.replace(/\s*\(localhost\)\s*$/i, "");
 
 function attachExamplesPanel(Viewer) {
   Object.assign(Viewer, {
+    // After thumbnails were saved to a manifest (thumbnail-capture.js): its
+    // icons are checked again on the next render of the list.
+    forgetExampleInspections() {
+      inspections.clear();
+      if (this.examplesPanel?.hidden === false) this.loadExamplesList();
+    },
+
     closeExamplesPanel() {
       if (this.examplesPanel) this.examplesPanel.hidden = true;
     },
@@ -14134,8 +14536,21 @@ function attachExamplesPanel(Viewer) {
       button.append(text, source);
       button.disabled = !online && !bundled;
       if (!button.disabled) {
-        inspectExample(url).then((result) => {
-          if (result && text.isConnected) text.appendChild(featureIconsCaption(result.inspection, result.modelValidation));
+        inspectExample(url, (manifestUrl) => this.getManifestJson(manifestUrl, "url")).then((result) => {
+          if (!result || !text.isConnected) return;
+          text.appendChild(featureIconsCaption(result.inspection, result.modelValidation));
+          // Thumbnails saved in the manifest (AIM3DViewer.thumbnails): a
+          // badge of its own beside the source, not one icon among many.
+          const thumbnails = result.inspection.features.find((feature) => feature.id === "thumbnails");
+          if (thumbnails?.present) {
+            const label = t$1("examplesPanel.thumbnails", { count: thumbnails.count }, "Thumbnails saved in the manifest: {count}");
+            const badge = document.createElement("span");
+            badge.className = "examples-panel-thumbnails";
+            badge.setAttribute("role", "img");
+            badge.setAttribute("aria-label", label);
+            badge.title = label;
+            source.before(badge);
+          }
         });
       }
       this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
@@ -14153,6 +14568,181 @@ function attachExamplesPanel(Viewer) {
         this.reportError?.(error, { context: "Failed to load the example manifest", toast: false });
         toastHelper("exampleManifestError", "error");
       }
+    },
+  });
+}
+
+// The manifest preview (toolbar: File > Preview manifest): the manifest the
+// viewer would export now (build3IFManifest - IIIF Presentation 4 plus the
+// AIM3DViewer block), shown like a loaded IIIF/AIM3D manifest in the
+// manifest form: as a tree of collapsible nodes (manifest-tree-editor.js)
+// or as pretty-printed JSON. Built again on opening and on ↻; edits made in
+// the tree change only what is copied or downloaded from here.
+
+function attachManifestPreview(Viewer) {
+  Object.assign(Viewer, {
+    manifestPreviewMode: "tree",
+
+    isManifestPreviewOpen() {
+      return Boolean(this.manifestPreviewPanel && !this.manifestPreviewPanel.hidden);
+    },
+
+    closeManifestPreview() {
+      if (this.manifestPreviewPanel) this.manifestPreviewPanel.hidden = true;
+      this.updateEditorToolbarState?.();
+    },
+
+    toggleManifestPreview() {
+      if (this.isManifestPreviewOpen()) {
+        this.closeManifestPreview();
+        return;
+      }
+      this.createManifestPreviewPanel();
+      if (!this.manifestPreviewPanel) return;
+      this.manifestPreviewPanel.hidden = false;
+      this.openToolbarMenu?.(null);
+      this.refreshManifestPreview();
+      this.updateEditorToolbarState?.();
+    },
+
+    createManifestPreviewPanel() {
+      if (!core.container || this.manifestPreviewPanel) return;
+      const panel = document.createElement("div");
+      panel.id = "manifestPreviewPanel";
+      panel.hidden = true;
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-labelledby", "manifestPreviewTitle");
+      panel.innerHTML = `
+        <div class="upload-panel-header">
+          <span id="manifestPreviewTitle"></span>
+          <span class="validation-report-actions">
+            <button type="button" data-action="copy"></button>
+            <button type="button" data-action="download"></button>
+            <button type="button" data-action="refresh"></button>
+            <button type="button" data-action="close"></button>
+          </span>
+        </div>
+        <div class="manifesto-view-toolbar">
+          <div class="manifesto-view-toggle" role="group">
+            <button type="button" data-mode="tree"></button>
+            <button type="button" data-mode="json"></button>
+          </div>
+          <button type="button" class="manifesto-tree-tool" data-action="expand"></button>
+          <button type="button" class="manifesto-tree-tool" data-action="collapse"></button>
+        </div>
+        <p class="manifest-preview-empty" hidden></p>
+        <div class="manifesto-manifest-tree"></div>
+        <pre class="manifest-preview-json" hidden></pre>
+      `;
+      core.container.appendChild(panel);
+      this.manifestPreviewPanel = panel;
+      const json = panel.querySelector(".manifest-preview-json");
+      this.manifestPreviewTree = new ManifestTreeEditor(panel.querySelector(".manifesto-manifest-tree"), {
+        onChange: (data) => { json.textContent = JSON.stringify(data, null, 2); },
+      });
+      const on = (selector, handler) => this.bindEventListener(panel.querySelector(selector), "click", handler);
+      on('[data-action="close"]', () => this.closeManifestPreview());
+      on('[data-action="refresh"]', () => this.refreshManifestPreview());
+      on('[data-action="copy"]', () => this.copyManifestPreview());
+      on('[data-action="download"]', () => this.downloadManifestPreview());
+      on('[data-action="expand"]', () => this.manifestPreviewTree.setAllOpen(true));
+      on('[data-action="collapse"]', () => this.manifestPreviewTree.setAllOpen(false));
+      on('[data-mode="tree"]', () => this.setManifestPreviewMode("tree"));
+      on('[data-mode="json"]', () => this.setManifestPreviewMode("json"));
+      makePanelWindow(this, panel, panel.querySelector(".upload-panel-header"), () => this.closeManifestPreview());
+      this.localizeManifestPreview();
+    },
+
+    localizeManifestPreview() {
+      const panel = this.manifestPreviewPanel;
+      if (!panel) return;
+      panel.querySelector("#manifestPreviewTitle").textContent = t$1("manifestPreview.title", "Manifest preview");
+      [
+        ["copy", t$1("manifestPreview.copy", "Copy the JSON"), "⧉"],
+        ["download", t$1("gui.IIIFexport", "Export to IIIF"), "⤓"],
+        ["refresh", t$1("manifestPreview.refresh", "Build again from the current state"), "↻"],
+        ["close", t$1("validationReport.close", "Close"), "X"],
+      ].forEach(([action, label, glyph]) => {
+        const button = panel.querySelector(`[data-action="${action}"]`);
+        button.title = label;
+        button.setAttribute("aria-label", label);
+        button.textContent = glyph;
+      });
+      panel.querySelector('[data-mode="tree"]').textContent = t$1("manifesto.treeView", "Tree");
+      panel.querySelector('[data-mode="json"]').textContent = t$1("manifesto.jsonView", "JSON");
+      panel.querySelector('[data-action="expand"]').textContent = t$1("manifesto.expandAll", "Expand all");
+      panel.querySelector('[data-action="collapse"]').textContent = t$1("manifesto.collapseAll", "Collapse all");
+      panel.querySelector(".manifest-preview-empty").textContent =
+        t$1("manifestPreview.noModel", "Open a model to see its manifest.");
+      this.manifestPreviewTree?.relocalize();
+    },
+
+    setManifestPreviewMode(mode) {
+      this.manifestPreviewMode = mode === "json" ? "json" : "tree";
+      const panel = this.manifestPreviewPanel;
+      if (!panel) return;
+      const empty = this.manifestPreviewTree?.data === undefined;
+      const tree = this.manifestPreviewMode === "tree";
+      panel.querySelector(".manifesto-manifest-tree").hidden = empty || !tree;
+      panel.querySelector(".manifest-preview-json").hidden = empty || tree;
+      panel.querySelector(".manifest-preview-empty").hidden = !empty;
+      panel.querySelectorAll(".manifesto-tree-tool").forEach((button) => { button.hidden = empty || !tree; });
+      panel.querySelectorAll("[data-mode]").forEach((button) => {
+        const active = button.dataset.mode === this.manifestPreviewMode;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+    },
+
+    refreshManifestPreview() {
+      if (!this.manifestPreviewPanel) return;
+      let manifest;
+      try {
+        manifest = core.fileObject?.originalPath ? this.build3IFManifest() : null;
+      } catch (error) {
+        this.reportError?.(error, { context: "Failed to build the manifest for the preview", toast: false });
+        manifest = null;
+      }
+      // The tree edits its own copy.
+      const data = manifest ? JSON.parse(JSON.stringify(manifest)) : undefined;
+      this.manifestPreviewTree.render(data);
+      this.manifestPreviewPanel.querySelector(".manifest-preview-json").textContent =
+        data ? JSON.stringify(data, null, 2) : "";
+      this.setManifestPreviewMode(this.manifestPreviewMode);
+    },
+
+    manifestPreviewText() {
+      const data = this.manifestPreviewTree?.data;
+      return data === undefined ? "" : JSON.stringify(data, null, 2);
+    },
+
+    async copyManifestPreview() {
+      const text = this.manifestPreviewText();
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        toastHelper("manifestCopied", "success");
+      } catch (error) {
+        this.reportError?.(error, { context: "Failed to copy the manifest", toast: false });
+        toastHelper("manifestCopyFailed", "warning");
+      }
+    },
+
+    // The previewed manifest, with any edits made in the tree.
+    downloadManifestPreview() {
+      const text = this.manifestPreviewText();
+      if (!text) return;
+      const baseName = String(core.fileObject?.basename || "manifest").replace(/[^a-zA-Z0-9._-]+/g, "_");
+      const objectUrl = URL.createObjectURL(new Blob([text], { type: "application/json;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${baseName || "manifest"}-iiif-manifest.json`;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      toastHelper("iiifManifestGenerated", "success");
     },
   });
 }
@@ -14616,8 +15206,9 @@ function attachGroundPanel(Viewer) {
 
 // The full log (Settings -> Event log, ui/event-log-store.js): every notice
 // the viewer raised, including the ones it keeps quiet (QUIET_NOTICE_KEYS -
-// states the toolbar already shows, routine loading steps), and the errors
-// and warnings of the console. The toasts are only for what matters: the
+// states the toolbar already shows), the steps of each model load
+// (createLoadingLog(), ui/loading-status.js), and the errors and warnings
+// of the console. The toasts are only for what matters: the
 // model loaded, something missing or failed, a hint for the tool just picked.
 
 function formatTime(date) {
@@ -14626,7 +15217,7 @@ function formatTime(date) {
 
 function entryText(entry) {
   const tone = entry.tone.toUpperCase();
-  const source = entry.source === "console" ? " [console]" : entry.quiet ? " [quiet]" : "";
+  const source = entry.source === "console" || entry.source === "loading" ? ` [${entry.source}]` : entry.quiet ? " [quiet]" : "";
   return `${formatTime(entry.time)} ${tone}${source} ${entry.message}${entry.detail ? ` - ${entry.detail}` : ""}`;
 }
 
@@ -15852,15 +16443,101 @@ async function authRequest(path, body) {
   return data;
 }
 
-// Opens outside the viewer (in the app: the system browser).
+// Opens outside the viewer (in the app: the system browser): what deleting
+// an account removes, and the other ways to ask for it. Deleting itself is
+// done in the viewer (createDeleteAccountButton).
 function createDeleteAccountLink() {
   const link = document.createElement("a");
   link.className = "delete-account-link";
   link.href = deleteAccountUrl();
   link.target = "_blank";
   link.rel = "noopener";
-  link.textContent = t$1("plans.accountDelete", "Delete account and data");
+  link.textContent = t$1("plans.accountDeleteInfo", "What deleting removes, and other ways");
   return link;
+}
+
+// "Delete account": the signed-in account deletes itself, right here
+// (Viewer.openDeleteAccountDialog; POST /api/auth/delete-account) - the App
+// Store asks for deletion that starts in the app (guideline 5.1.1(v)).
+function createDeleteAccountButton(Viewer) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "delete-account-button";
+  button.textContent = t$1("plans.accountDelete", "Delete account and data");
+  button.addEventListener("click", () => Viewer.openDeleteAccountDialog());
+  return button;
+}
+
+// A labelled password field for the dialogs below (new-password fields let a
+// password manager offer one).
+function labelledPasswordField(text, autocomplete) {
+  const { field, input } = createPasswordField({ autocomplete });
+  const label = document.createElement("label");
+  label.textContent = text;
+  label.appendChild(field);
+  return { label, input };
+}
+
+// The new password twice; check() throws the message to show in the dialog.
+function newPasswordFields() {
+  const first = labelledPasswordField(t$1("loginPanel.newPassword", "New password"), "new-password");
+  const second = labelledPasswordField(t$1("loginPanel.repeatPassword", "Repeat the new password"), "new-password");
+  return {
+    labels: [first.label, second.label],
+    value: () => first.input.value,
+    check() {
+      if (!first.input.value) throw new Error(t$1("loginPanel.newPasswordMissing", "Enter a new password."));
+      if (first.input.value !== second.input.value) {
+        throw new Error(t$1("loginPanel.passwordsDiffer", "The two new passwords are not the same."));
+      }
+    },
+  };
+}
+
+// The token of a "forgot password" e-mail (worker/mailer.py
+// send_password_reset): the viewer opened as /?resetPassword=<token>.
+function resetTokenFromUrl() {
+  return new URLSearchParams(window.location.search).get("resetPassword") || "";
+}
+
+function removeResetTokenFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("resetPassword");
+  window.history.replaceState(window.history.state, "", url);
+}
+
+// A link opening outside the viewer, for the dialogs and forms below.
+function externalLink(href, text) {
+  const link = document.createElement("a");
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = text;
+  return link;
+}
+
+// "I agree to the Terms of Use and the Privacy Policy" before registering,
+// when there are terms (remote.js termsUrl): they forbid objectionable
+// content (App Store guideline 1.2). Null without terms.
+function createTermsCheckbox() {
+  const terms = termsUrl();
+  if (!terms) return null;
+  const label = document.createElement("label");
+  label.className = "login-terms";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  label.appendChild(box);
+  const text = document.createElement("span");
+  const [before, middle, after] = t$1(
+    "loginPanel.acceptTerms",
+    "I agree to the {terms} and the {privacy}. Objectionable content and abusive users are not tolerated."
+  ).split(/\{terms\}|\{privacy\}/);
+  text.append(before || "", externalLink(terms, t$1("legal.terms", "Terms of Use")), middle || "");
+  const privacy = privacyUrl();
+  text.append(privacy ? externalLink(privacy, t$1("legal.privacy", "Privacy Policy")) : t$1("legal.privacy", "Privacy Policy"));
+  text.append(after || "");
+  label.appendChild(text);
+  return { element: label, input: box };
 }
 
 // The plan of an account (worker/auth.py effective_app_plan), next to its name.
@@ -15880,7 +16557,9 @@ function attachLoginPanel(Viewer) {
     // allowRegistration:false hides the register button.
     async refreshAuthState() {
       const uiConfig = core.CONFIG?.viewer?.auth || {};
-      const state = { required: false, registration: false, user: null, role: null, plan: null, maxUploadBytes: 0 };
+      const state = {
+        required: false, registration: false, passwordReset: false, user: null, role: null, plan: null, maxUploadBytes: 0,
+      };
       // The upload limit is reported by the same endpoint, so query it even
       // when the manifest hides the login UI. The app build with no
       // repository configured has no worker to ask: accounts off.
@@ -15892,6 +16571,8 @@ function attachLoginPanel(Viewer) {
             state.required = serverConfig.mode === "required";
             state.registration =
               serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
+            // "Forgot password?" needs mail on the worker (WORKER_SMTP_*).
+            state.passwordReset = serverConfig.passwordReset === true;
             if (state.required) {
               const me = await authRequest("me");
               state.user = me.user || null;
@@ -15916,6 +16597,11 @@ function attachLoginPanel(Viewer) {
       this.updateAdminMenuEntryState?.();
       // A manifest's thumbnails are for admins, a model's for its owner.
       this.refreshThumbnailAccess?.();
+      // Opened from a password reset e-mail: once, with accounts known on.
+      if (state.required && !this.resetLinkHandled && resetTokenFromUrl()) {
+        this.resetLinkHandled = true;
+        this.openResetPasswordDialog(resetTokenFromUrl());
+      }
       return state;
     },
 
@@ -16013,7 +16699,11 @@ function attachLoginPanel(Viewer) {
         logout.type = "button";
         logout.textContent = t$1("uploadPanel.logout", "Log out");
         this.bindEventListener(logout, "click", () => this.handleAuthAction("logout"));
-        section.append(label, logout, createDeleteAccountLink());
+        const changePassword = document.createElement("button");
+        changePassword.type = "button";
+        changePassword.textContent = t$1("loginPanel.changePassword", "Change password");
+        this.bindEventListener(changePassword, "click", () => this.openChangePasswordDialog());
+        section.append(label, logout, changePassword, createDeleteAccountButton(this), createDeleteAccountLink());
         return;
       }
 
@@ -16034,6 +16724,14 @@ function attachLoginPanel(Viewer) {
         if (event.key === "Enter") login.click();
       });
       section.append(username, passwordField, login);
+      if (state.passwordReset) {
+        const forgot = document.createElement("button");
+        forgot.type = "button";
+        forgot.className = "login-forgot-link";
+        forgot.textContent = t$1("loginPanel.forgotPassword", "Forgot password?");
+        this.bindEventListener(forgot, "click", () => this.openForgotPasswordDialog(username.value.trim()));
+        section.append(forgot);
+      }
       if (state.registration) {
         // Only needed to register (AUTH.register() rejects a missing/invalid
         // address server-side); login doesn't use it, so it stays out of the
@@ -16046,15 +16744,196 @@ function attachLoginPanel(Viewer) {
         const register = document.createElement("button");
         register.type = "button";
         register.textContent = t$1("uploadPanel.register", "Register");
-        this.bindEventListener(register, "click", () =>
+        const terms = createTermsCheckbox();
+        this.bindEventListener(register, "click", () => {
+          if (terms && !terms.input.checked) {
+            this.setLoginStatusText(
+              t$1("loginPanel.acceptTermsRequired", "To register, agree to the Terms of Use."), "error");
+            terms.input.focus();
+            return;
+          }
           this.handleAuthAction("register", {
             username: username.value.trim(),
             password: password.value,
             email: email.value.trim(),
-          })
-        );
-        section.append(email, register);
+            ...(terms ? { acceptedTerms: true } : {}),
+          });
+        });
+        section.append(email);
+        if (terms) section.append(terms.element);
+        section.append(register);
       }
+    },
+
+    // A new password for the signed-in account, confirmed with the current
+    // one (POST /api/auth/change-password). The worker ends the older
+    // sessions and answers with a new one - in the app, as a token.
+    async openChangePasswordDialog() {
+      if (!this.authState?.user) return false;
+      const body = document.createElement("div");
+      const current = labelledPasswordField(t$1("loginPanel.currentPassword", "Current password"), "current-password");
+      const fresh = newPasswordFields();
+      const note = document.createElement("p");
+      note.className = "viewer-form-dialog-note";
+      note.textContent = t$1("loginPanel.changePasswordNote", "You stay signed in here; other devices are signed out.");
+      body.append(current.label, ...fresh.labels, note);
+      const result = await openFormDialog({
+        title: t$1("loginPanel.changePasswordTitle", "Change password"),
+        body,
+        confirmLabel: t$1("loginPanel.changePasswordConfirm", "Change password"),
+        cancelLabel: t$1("modelsPanel.deleteCancel", "Cancel"),
+        onConfirm: async () => {
+          if (!current.input.value) {
+            throw new Error(t$1("loginPanel.deletePasswordMissing", "Enter your password."));
+          }
+          fresh.check();
+          return authRequest("change-password", {
+            currentPassword: current.input.value,
+            password: fresh.value(),
+            ...(isAppBuild() ? { session: "token" } : {}),
+          });
+        },
+      });
+      if (!result) return false;
+      if (result.token) setSessionToken(result.token);
+      toastHelper("passwordChanged", "success");
+      return true;
+    },
+
+    // "Forgot password?": a reset link is mailed to the account's address
+    // (POST /api/auth/forgot-password). The worker answers the same whether
+    // the account exists or not, and so does this.
+    async openForgotPasswordDialog(prefill = "") {
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t$1(
+        "loginPanel.forgotIntro",
+        "Enter your username or e-mail address. We will send a link for choosing a new password to the address of the account."
+      );
+      const label = document.createElement("label");
+      label.textContent = t$1("loginPanel.forgotIdentifier", "Username or e-mail");
+      const identifier = document.createElement("input");
+      identifier.type = "text";
+      identifier.autocomplete = "username";
+      identifier.autocapitalize = "off";
+      identifier.value = prefill;
+      label.appendChild(identifier);
+      body.append(intro, label);
+      const result = await openFormDialog({
+        title: t$1("loginPanel.forgotTitle", "Reset password"),
+        body,
+        confirmLabel: t$1("loginPanel.forgotConfirm", "Send link"),
+        cancelLabel: t$1("modelsPanel.deleteCancel", "Cancel"),
+        onConfirm: async () => {
+          if (!identifier.value.trim()) {
+            throw new Error(t$1("loginPanel.forgotIdentifierMissing", "Enter your username or e-mail address."));
+          }
+          return authRequest("forgot-password", { identifier: identifier.value.trim() });
+        },
+      });
+      if (!result) return false;
+      this.setLoginStatusText(
+        t$1("loginPanel.forgotSent", "If the account exists, a link has been sent to its e-mail address. It works for an hour."),
+        "success"
+      );
+      return true;
+    },
+
+    // Opened from the reset e-mail's link: the new password, then the login
+    // panel to sign in with it.
+    async openResetPasswordDialog(token) {
+      const body = document.createElement("div");
+      const fresh = newPasswordFields();
+      body.append(...fresh.labels);
+      const result = await openFormDialog({
+        title: t$1("loginPanel.resetTitle", "Choose a new password"),
+        body,
+        confirmLabel: t$1("loginPanel.resetConfirm", "Save password"),
+        cancelLabel: t$1("modelsPanel.deleteCancel", "Cancel"),
+        onConfirm: async () => {
+          fresh.check();
+          return authRequest("reset-password", { token, password: fresh.value() });
+        },
+      });
+      removeResetTokenFromUrl();
+      if (!result) return false;
+      this.createLoginPanel();
+      if (this.loginPanel?.hidden) this.toggleLoginPanel();
+      this.setLoginStatusText(
+        t$1("loginPanel.resetDone", { user: result.username }, "Password changed. Log in as {user} with the new password."),
+        "success"
+      );
+      return true;
+    },
+
+    // Deleting the signed-in account, confirmed with its password. Resolves
+    // true once it is gone (signed out everywhere in the viewer).
+    async openDeleteAccountDialog() {
+      const user = this.authState?.user;
+      if (!user) return false;
+      const body = document.createElement("div");
+      const intro = document.createElement("p");
+      intro.textContent = t$1(
+        "loginPanel.deleteIntro",
+        { user },
+        "This permanently deletes the account {user} on this repository, right away. It cannot be undone. Deleted are:"
+      );
+      const list = document.createElement("ul");
+      [
+        t$1("loginPanel.deleteWhatAccount", "your username, e-mail address and password"),
+        t$1("loginPanel.deleteWhatModels", "every model you uploaded, with its converted files and thumbnails"),
+        t$1("loginPanel.deleteWhatPlan", "the app plan linked to the account"),
+      ].forEach((text) => {
+        const item = document.createElement("li");
+        item.textContent = text;
+        list.appendChild(item);
+      });
+      body.append(intro, list);
+
+      // Only the store cancels a subscription; deleting the account does not.
+      const note = document.createElement("p");
+      note.className = "viewer-form-dialog-note";
+      note.textContent = t$1(
+        "loginPanel.deleteSubscriptionNote",
+        "A subscription is not cancelled by deleting the account: it belongs to your Apple ID or Google account. Cancel it in the store's subscription settings first, if you have one. Purchases can be restored on this device later."
+      );
+      const manage = manageSubscriptionsUrl();
+      if (manage) {
+        note.append(" ", externalLink(manage, t$1("plans.manageSubscription", "Manage subscriptions")));
+      }
+      body.appendChild(note);
+
+      const { field: passwordField, input: password } = createPasswordField();
+      const passwordLabel = document.createElement("label");
+      passwordLabel.textContent = t$1("loginPanel.deletePassword", "Enter your password to confirm");
+      passwordLabel.appendChild(passwordField);
+      body.appendChild(passwordLabel);
+
+      const more = document.createElement("p");
+      more.appendChild(externalLink(deleteAccountUrl(), t$1("plans.accountDeleteInfo", "What deleting removes, and other ways")));
+      body.appendChild(more);
+
+      const result = await openFormDialog({
+        title: t$1("loginPanel.deleteTitle", "Delete account"),
+        body,
+        confirmLabel: t$1("loginPanel.deleteConfirm", "Delete account"),
+        cancelLabel: t$1("modelsPanel.deleteCancel", "Cancel"),
+        danger: true,
+        onConfirm: async () => {
+          if (!password.value) {
+            throw new Error(t$1("loginPanel.deletePasswordMissing", "Enter your password."));
+          }
+          return authRequest("delete-account", { password: password.value });
+        },
+      });
+      if (!result) return false;
+      setSessionToken("");
+      await this.refreshAuthState();
+      this.refreshAIConfig?.();
+      if (this.plansPanel?.hidden === false) this.renderPlansPanel?.();
+      this.loadModelsList?.();
+      toastHelper("accountDeleted", "success");
+      return true;
     },
 
     async handleAuthAction(action, credentials) {
@@ -16121,9 +17000,37 @@ function galleryAnchor(host) {
   return previous?.classList.contains("viewer-window-placeholder") ? previous : host;
 }
 
+// viewer.gallery.position: "right" (default) puts the views in a drawer on
+// the viewer's right edge, over the canvas; "top" keeps the row above the
+// viewer (pages built around it).
+function getGalleryPosition() {
+  return getGalleryConfig().position === "top" ? "top" : "right";
+}
+
+// Phones: no room for a column of views beside the model - the drawer is a
+// single button that opens the lightbox (its filmstrip lists them all).
+const GALLERY_PHONE_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
+const GALLERY_COLLAPSED_KEY = "viewer.gallery.collapsed";
+
+function readDrawerCollapsed() {
+  try {
+    return localStorage.getItem(GALLERY_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeDrawerCollapsed(collapsed) {
+  try {
+    localStorage.setItem(GALLERY_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Storage off (private window): the drawer just forgets.
+  }
+}
+
 function removeExistingGalleryDom() {
   const imageList = document.getElementById("image-list");
-  (imageList?.closest(".image-list-scroller") || imageList)?.remove();
+  (imageList?.closest(".image-list-drawer") || imageList?.closest(".image-list-scroller") || imageList)?.remove();
   document.getElementById("modalGallery")?.remove();
 }
 
@@ -16330,8 +17237,8 @@ const SCROLL_HINT_ICONS = {
 // which nothing on screen gave away. The wrapper fades the edge that has
 // more thumbnails behind it and shows a small chevron there (tapping it
 // scrolls); both only when the row overflows that way, and CSS keeps them
-// to the phone layout.
-function wrapWithScrollHints(Viewer, imageList) {
+// to the phone layout. `vertical`: the drawer's column, which scrolls down.
+function wrapWithScrollHints(Viewer, imageList, vertical = false) {
   const scroller = document.createElement("div");
   scroller.className = "image-list-scroller";
   scroller.setAttribute("role", "region");
@@ -16350,17 +17257,21 @@ function wrapWithScrollHints(Viewer, imageList) {
     button.innerHTML = SCROLL_HINT_ICONS[direction];
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      const step = Math.max(64, imageList.clientWidth * 0.8);
-      imageList.scrollBy({ left: direction === "next" ? step : -step, behavior: "smooth" });
+      const step = Math.max(64, (vertical ? imageList.clientHeight : imageList.clientWidth) * 0.8);
+      const delta = direction === "next" ? step : -step;
+      imageList.scrollBy({ [vertical ? "top" : "left"]: delta, behavior: "smooth" });
     });
     scroller.appendChild(button);
     return button;
   });
 
   const update = () => {
-    const max = imageList.scrollWidth - imageList.clientWidth;
-    const canPrev = imageList.scrollLeft > 2;
-    const canNext = imageList.scrollLeft < max - 2;
+    const max = vertical
+      ? imageList.scrollHeight - imageList.clientHeight
+      : imageList.scrollWidth - imageList.clientWidth;
+    const scrolled = vertical ? imageList.scrollTop : imageList.scrollLeft;
+    const canPrev = scrolled > 2;
+    const canNext = scrolled < max - 2;
     scroller.classList.toggle("can-scroll-prev", canPrev);
     scroller.classList.toggle("can-scroll-next", canNext);
     prevButton.hidden = !canPrev;
@@ -16373,6 +17284,57 @@ function wrapWithScrollHints(Viewer, imageList) {
   imageList.addEventListener("load", update, true);
   requestAnimationFrame(update);
   return scroller;
+}
+
+const DRAWER_ICONS = {
+  views: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v9.59l3.3-3.3a1 1 0 0 1 1.4 0L13 15.6l2.3-2.3a1 1 0 0 1 1.4 0L19 15.6V6H5Zm10.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></svg>',
+};
+
+// The drawer on the viewer's right edge (viewer.gallery.position "right"):
+// the column of views and, on its left, a tab that hides it into the edge
+// and brings it back (remembered per browser). On a phone the tab alone
+// shows, and opens the lightbox.
+function wrapAsDrawer(scroller, count, openAt) {
+  const drawer = document.createElement("div");
+  drawer.className = "image-list-drawer";
+  const phone = window.matchMedia?.(GALLERY_PHONE_QUERY);
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "image-list-drawer-toggle";
+  toggle.innerHTML =
+    DRAWER_ICONS.views +
+    `<span class="image-list-drawer-count">${count}</span>` +
+    SCROLL_HINT_ICONS.next.replace("<svg", '<svg class="image-list-drawer-chevron"');
+  scroller.id = "image-list-drawer-panel";
+  toggle.setAttribute("aria-controls", scroller.id);
+
+  const setCollapsed = (collapsed) => {
+    drawer.classList.toggle("is-collapsed", collapsed);
+    const label = collapsed
+      ? t$1("gallery.show", "Show views")
+      : t$1("gallery.hide", "Hide views");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+    // Hidden views are out of the tab order.
+    scroller.inert = collapsed;
+  };
+  setCollapsed(readDrawerCollapsed());
+
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (phone?.matches) {
+      openAt(0);
+      return;
+    }
+    const collapsed = !drawer.classList.contains("is-collapsed");
+    setCollapsed(collapsed);
+    writeDrawerCollapsed(collapsed);
+  });
+
+  drawer.append(toggle, scroller);
+  return drawer;
 }
 
 // Swaps the thumbnail shimmer placeholder for the real image once it has
@@ -16866,7 +17828,12 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   ) {
     const galleryHost = galleryAnchor(getGalleryHost(Viewer, mainElement));
     galleryHost.insertAdjacentElement("beforebegin", modalGallery);
-    galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
+    if (getGalleryPosition() === "right" && core.container) {
+      const scroller = wrapWithScrollHints(Viewer, imageList, true);
+      core.container.appendChild(wrapAsDrawer(scroller, galleryImages.length, openModalGalleryAtIndex));
+    } else {
+      galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
+    }
   }
 }
 
@@ -17224,7 +18191,6 @@ function attachLocalizationTheme(viewer) {
       this.refreshStatusNoticeLanguage();
       UltraLoader$1.relocalize?.();
       this.circle?.relocalize?.();
-      this.loadingLog?.relocalize?.();
       this.updatePickingHintVisibility?.();
       if (this.clippingHint) this.clippingHint.textContent = t$1("hints.clipping", "Drag active clipping plane helper to adjust cut");
     },
@@ -17282,6 +18248,7 @@ function attachLocalizationTheme(viewer) {
       // The Level of Certainty legend and dialog field name their levels.
       this.applyCertaintyLanguage?.();
       this.localizeValidationReport?.();
+      this.localizeManifestPreview?.();
       this.localizeGroundPanel?.();
       this.localizeEventLog?.();
     },
@@ -17734,8 +18701,8 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "42e7d570" ;
-const BUILD = "test" ;
+const BUILD_ID$2 = "ba32f4ce" ;
+const BUILD = "dev" ;
 
 let initPromise = null;
 
@@ -17785,8 +18752,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "42e7d570" ;
-const BUILD_TIME$1 = "2026-10-30T15:59:14.878Z" ;
+const BUILD_ID$1 = "ba32f4ce" ;
+const BUILD_TIME$1 = "2026-11-02T11:42:56.417Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -18134,7 +19101,7 @@ const CATEGORIES = [
     more: true,
     label: () => t$1("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["publishCheck", "validationReport", "download", "save", "preview", "generateThumbnails", "IIIFimport", "IIIFexport"],
+    tools: ["publishCheck", "validationReport", "download", "save", "preview", "generateThumbnails", "IIIFimport", "IIIFexport", "manifestPreview"],
     breaks: ["download", "preview", "IIIFimport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language
@@ -18144,7 +19111,7 @@ const CATEGORIES = [
     more: true,
     label: () => t$1("menus.settings", "Settings & help"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2 2.2 3-.2.8 2.9 2.6 1.4-1 2.8 1 2.8-2.6 1.4-.8 2.9-3-.2L12 21l-2-2.2-3 .2-.8-2.9-2.6-1.4 1-2.8-1-2.8 2.6-1.4.8-2.9 3 .2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
-    tools: ["resetSettings", "help", "reportBug", "credits", "statistics", "loadingLogs", "eventLog"],
+    tools: ["resetSettings", "help", "reportBug", "credits", "statistics", "eventLog"],
     breaks: ["help", "statistics"],
   },
 ];
@@ -18651,6 +19618,7 @@ function updateMenuToolbarLabels(viewer) {
     annotateExport: t$1("gui.annotateExport", "Export Annotations"),
     IIIFimport: t$1("gui.IIIFimport", "Import 3IF"),
     IIIFexport: t$1("gui.IIIFexport", "Export to IIIF"),
+    manifestPreview: t$1("gui.manifestPreview", "Preview manifest"),
   };
   Object.entries(labels).forEach(([key, label]) => {
     const button = buttons[key];
@@ -18772,10 +19740,10 @@ function getEditorToolbarIcon(icon) {
     annotatePhotos: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m3 16 5-5 4 4 3-3 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="16" cy="9" r="1.6" fill="currentColor"/></svg>',
     annotateTour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 7.2v5.6l4.6-2.8z" fill="currentColor"/></svg>',
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    manifestPreview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 3v18h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h5M9 11h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 18s1.8-3.2 5-3.2 5 3.2 5 3.2-1.8 3.2-5 3.2-5-3.2-5-3.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="17" cy="18" r="1.2" fill="currentColor"/></svg>',
     IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    loadingLogs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h12M3 18h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     ifcQuery: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l6-4 6 4v11z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M18.5 2.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" fill="currentColor"/></svg>',
     publishCheck: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3.5h7v3h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 5H4.5v16h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M17 5h2.5v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 11h6M8 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18.5 15v2.2M18.5 20.8V23M15.2 19h2.2M19.6 19h2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -20133,7 +21101,6 @@ function createEditorToolbar(viewer) {
     tools.splice(tools.findIndex((tool) => tool.group === "help"), 0,
       // What to fix before saving and rendering (editor/publish-check.js).
       { key: "publishCheck", group: "file", icon: "publishCheck", onClick: () => viewer.togglePublishCheckPanel(), pressed: true, primary: false },
-      { key: "loadingLogs", group: "file", icon: "loadingLogs", onClick: () => viewer.toggleLoadingLogs(), pressed: true, primary: false },
       { key: "download", group: "file", icon: "download", onClick: () => downloadFile(core.fileObject.filename), pressed: true, primary: false },
       { key: "preview", group: "file", icon: "preview", onClick: () => viewer.takeScreenshot(), primary: false },
       // All the views of a model uploaded to the worker (thumbnail-capture.js);
@@ -20177,6 +21144,8 @@ function createEditorToolbar(viewer) {
       { key: "annotateExport", group: "file", icon: "annotateExport", onClick: () => viewer.downloadAnnotationsXmlFile(), primary: false },
       { key: "IIIFimport", group: "file", icon: "IIIFimport", onClick: () => viewer.trigger3IFManifestImport(), primary: false },
       { key: "IIIFexport", group: "file", icon: "IIIFexport", onClick: () => viewer.export3IFManifest(), primary: false },
+      // The manifest as it would be exported now (ui/manifest-preview.js).
+      { key: "manifestPreview", group: "file", icon: "manifestPreview", onClick: () => viewer.toggleManifestPreview(), pressed: true, primary: false },
     );
   }
 
@@ -20332,6 +21301,7 @@ function createEditorToolbar(viewer) {
         { key: "annotateExport", icon: "annotateExport", label: t$1("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
         { key: "IIIFimport", icon: "IIIFimport", label: t$1("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
         { key: "IIIFexport", icon: "IIIFexport", label: t$1("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.export3IFManifest() },
+        { key: "manifestPreview", icon: "manifestPreview", label: t$1("gui.manifestPreview", "Preview manifest"), onClick: () => viewer.toggleManifestPreview() },
       ];
       submenuItems.forEach((item) => {
         const subButton = document.createElement("button");
@@ -20720,7 +21690,7 @@ function createEditorToolbar(viewer) {
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
   });
 
-  const actionMenuToolKeys = ["statistics", "publishCheck", "validationReport", "background", "preview", "generateThumbnails", "save", "loadingLogs"];
+  const actionMenuToolKeys = ["statistics", "publishCheck", "validationReport", "background", "preview", "generateThumbnails", "save"];
   if (viewer.actionMenuPanel && !menus) {
     actionMenuToolKeys.forEach((key) => {
       const button = viewer.editorToolbarButtons[key];
@@ -21071,9 +22041,6 @@ function updateEditorToolbarLabels(viewer) {
     wireframe: viewer.wireframeMode
       ? t$1("gui.disableWireframeMode", "Disable wireframe mode")
       : t$1("gui.enableWireframeMode", "Enable wireframe mode"),
-    loadingLogs: viewer.showLoadingLogs
-      ? t$1("gui.hideLoadingLogs", "Hide loading logs")
-      : t$1("gui.showLoadingLogs", "Show loading logs"),
     hierarchy: t$1("gui.hierarchy", "Hierarchy"),
     materials: t$1("gui.materials", "Materials"),
     shading: t$1("gui.shading", "Shading"),
@@ -21155,6 +22122,7 @@ function updateEditorToolbarLabels(viewer) {
       annotateExport: t$1("gui.exportAnnotationsXml", "Export Annotations"),
       IIIFimport: t$1("gui.IIIFimport", "Import 3IF"),
       IIIFexport: t$1("gui.IIIFexport", "Export to IIIF"),
+      manifestPreview: t$1("gui.manifestPreview", "Preview manifest"),
     };
     Object.entries(viewer.annotateSubmenuButtons).forEach(([key, button]) => {
       const label = annotateSubmenuLabels[key] || key;
@@ -21324,9 +22292,9 @@ function updateEditorToolbarState(viewer) {
     clippingPlanes: viewer.clippingMode === true,
     advancedEditor: viewer.isEditorAdvancedPanelVisible(),
     fullScreen: viewer.FULLSCREEN === true,
-    loadingLogs: viewer.showLoadingLogs === true,
     credits: Boolean(viewer.creditsWrapper && !viewer.creditsWrapper.hidden),
     validationReport: viewer.isValidationReportOpen?.() === true,
+    manifestPreview: viewer.isManifestPreviewOpen?.() === true,
     modelDetails: isMetadataWindowOpen(),
     publishCheck: viewer.isPublishCheckPanelOpen?.() === true,
     eventLog: viewer.isEventLogOpen?.() === true,
@@ -21399,15 +22367,6 @@ function updateEditorToolbarState(viewer) {
 
 function attachLoadingStatus(viewer) {
   Object.assign(viewer, {
-    toggleLoadingLogs() {
-      this.showLoadingLogs = !this.showLoadingLogs;
-      if (core.loadingLog.get()) {
-        core.loadingLog.get().classList.toggle("editorToolbar-visible", this.showLoadingLogs);
-      }
-      this.updateEditorToolbarLabels();
-      this.updateEditorToolbarState();
-    },
-
     getLoadingLogMessages() {
       return this.loadingLogMessageKeys.map((key) => t$1(key));
     },
@@ -21585,229 +22544,38 @@ function attachLoadingStatus(viewer) {
       };
     },
 
+    // The loading steps go into the event log (ui/event-log-store.js); the
+    // progress itself is shown by createModelLoadingProgress().
     createLoadingLog() {
-      const shell = document.createElement("div");
-      shell.id = "loading-log";
-      shell.setAttribute("aria-live", "polite");
-      shell.hidden = true;
-
-      const collapsedToggle = document.createElement("button");
-      collapsedToggle.type = "button";
-      collapsedToggle.className = "loading-log__collapsed-toggle";
-      collapsedToggle.setAttribute("aria-label", t$1("loadingLog.title", "Loading process log"));
-      collapsedToggle.setAttribute("aria-expanded", "false");
-      shell.appendChild(collapsedToggle);
-
-      const header = document.createElement("button");
-      header.type = "button";
-      header.className = "loading-log__header";
-      header.setAttribute("aria-expanded", "false");
-
-      const headerTitle = document.createElement("span");
-      headerTitle.className = "loading-log__title";
-      headerTitle.textContent = t$1("loadingLog.title", "Loading process log");
-
-      const headerSummary = document.createElement("span");
-      headerSummary.className = "loading-log__summary";
-
-      header.append(headerTitle, headerSummary);
-      shell.appendChild(header);
-
-      const body = document.createElement("div");
-      body.className = "loading-log__body";
-
-      const list = document.createElement("div");
-      list.className = "loading-log__messages";
-
-      const progress = document.createElement("div");
-      progress.className = "loading-log__progress";
-      progress.setAttribute("role", "progressbar");
-      progress.setAttribute("aria-valuemin", "0");
-      progress.setAttribute("aria-valuemax", "100");
-      progress.setAttribute("aria-valuenow", "0");
-
-      const progressBar = document.createElement("div");
-      progressBar.className = "loading-log__progress-bar";
-      progress.appendChild(progressBar);
-
-      body.append(list, progress);
-      shell.appendChild(body);
-      core.container.appendChild(shell);
-
-      shell.classList.add("editorToolbar-hidden");
-
-      let timer = null;
-      let messageIndex = 0;
-      let visibleCount = 0;
-      let currentProgress = 0;
+      let active = false;
       let startedAt = 0;
-      let hideTimer = null;
-      let progressUpdated = false;
-      const minVisibleMs = 900;
-      let loadingMessages = this.getLoadingLogMessages();
-      let messagesDone = false;
-      const loadingStageKeyToIndex = new Map(
-        this.loadingLogMessageKeys.map((key, index) => [key, index])
-      );
-      const loadingModelMessageIndex = Math.max(
-        0,
-        loadingStageKeyToIndex.get("loadingLog.loadingModel") ?? 0
-      );
-      let isExpanded = false;
-
-      const setExpanded = (expanded) => {
-        isExpanded = expanded;
-        shell.dataset.expanded = expanded ? "true" : "false";
-        header.setAttribute("aria-expanded", expanded ? "true" : "false");
-        collapsedToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
-      };
-
-      const updateSummary = () => {
-        const activeMessage = loadingMessages[messageIndex] || loadingMessages[loadingModelMessageIndex] || "";
-        headerSummary.textContent = `${currentProgress}% • ${activeMessage}`;
-      };
-
-      header.addEventListener("click", () => {
-        if (shell.hidden) return;
-        setExpanded(!isExpanded);
-      });
-
-      collapsedToggle.addEventListener("click", () => {
-        if (shell.hidden) return;
-        setExpanded(!isExpanded);
-      });
-
-      const renderMessages = (allDone = false) => {
-        messagesDone = allDone;
-        const messages = loadingMessages
-          .slice(Math.max(0, messageIndex - visibleCount + 1), messageIndex + 1);
-        list.replaceChildren(...messages.map((message, index) => {
-          const row = document.createElement("div");
-          row.className = "loading-log__message";
-          if (allDone) {
-            row.classList.add("loading-log__message--done");
-          } else if (index === messages.length - 1) {
-            row.classList.add("loading-log__message--active");
-          }
-          row.textContent = message;
-          return row;
-        }));
-      };
-
-      const setProgress = (value) => {
-        const normalizedValue = Number.isFinite(value) ? Math.min(Math.max(value, 0), 100) : 0;
-        currentProgress = Math.max(currentProgress, Math.round(normalizedValue));
-        progressBar.style.width = `${currentProgress}%`;
-        progress.setAttribute("aria-valuenow", String(currentProgress));
-        updateSummary();
-      };
-
-      const tick = () => {
-        visibleCount = Math.min(4, visibleCount + 1);
-        if (!progressUpdated) {
-          messageIndex = loadingModelMessageIndex;
-          setProgress(Math.min(currentProgress + 8, 12));
-        }
-        renderMessages();
-      };
-
-      const stop = () => {
-        if (timer) {
-          window.clearInterval(timer);
-          timer = null;
-        }
-      };
-
-      const clearHideTimer = () => {
-        if (hideTimer) {
-          window.clearTimeout(hideTimer);
-          hideTimer = null;
-        }
-      };
-
-      const collapseLog = () => {
-        shell.classList.remove("loading-log--done");
-        shell.classList.remove("loading-log--error");
-        setExpanded(false);
-        hideTimer = null;
-      };
+      let lastStageKey = "";
+      const record = (message, extra = {}) => recordEvent({ tone: "info", message, source: "loading", quiet: true, ...extra });
 
       return {
         start: () => {
-          stop();
-          clearHideTimer();
-          progressUpdated = false;
+          active = true;
           startedAt = performance.now();
-          shell.hidden = false;
-          setExpanded(false);
-          shell.classList.remove("loading-log--done", "loading-log--error");
-          messageIndex = loadingModelMessageIndex;
-          visibleCount = 1;
-          currentProgress = 0;
-          renderMessages();
-          setProgress(6);
-          timer = window.setInterval(tick, 520);
+          lastStageKey = "loadingLog.loadingModel";
+          record(t$1("loadingLog.loadingModel", "Loading 3D model..."), { detail: core.fileObject?.filename || "" });
         },
-        update: (value) => {
-          if (shell.hidden) return;
-          progressUpdated = true;
-          const normalized = Number.isFinite(value) ? value : 0;
-          messageIndex = loadingModelMessageIndex;
-          visibleCount = Math.min(4, Math.max(visibleCount, 2));
-          renderMessages();
-          setProgress(Math.min(normalized, 99));
-        },
-        setStage: (stageKey, progressValue = null) => {
-          if (shell.hidden) return;
-          const stageIndex = loadingStageKeyToIndex.get(stageKey);
-          if (typeof stageIndex === "number") {
-            messageIndex = stageIndex;
-            visibleCount = Math.min(4, Math.max(visibleCount, 2));
-            renderMessages();
-            updateSummary();
-          }
-          if (Number.isFinite(progressValue)) {
-            setProgress(progressValue);
-          }
+        update: () => {},
+        setStage: (stageKey) => {
+          // "Model has been loaded" is the modelLoaded notice (loaders.js).
+          if (!active || stageKey === lastStageKey || stageKey === "loadingLog.modelLoaded") return;
+          lastStageKey = stageKey;
+          record(t$1(stageKey));
         },
         finish: () => {
-          if (shell.hidden) return;
-          stop();
-          const messageCount = loadingMessages.length;
-          messageIndex = messageCount - 1;
-          visibleCount = messageCount;
-          renderMessages(true);
-          setProgress(100);
-          updateSummary();
-          shell.classList.add("loading-log--done");
-          const visibleFor = performance.now() - startedAt;
-          const hideDelay = Math.max(1200, minVisibleMs - visibleFor + 800);
-          clearHideTimer();
-          hideTimer = window.setTimeout(() => {
-            collapseLog();
-          }, hideDelay);
+          if (!active) return;
+          active = false;
+          const seconds = ((performance.now() - startedAt) / 1000).toFixed(1);
+          record(t$1("loadingLog.loadTime", { seconds }, "Loaded in {seconds} s"), { tone: "success" });
         },
+        // The error itself is logged by reportLoadError() (loaders.js).
         fail: () => {
-          if (shell.hidden) return;
-          stop();
-          clearHideTimer();
-          setExpanded(true);
-          shell.classList.add("loading-log--error");
-          hideTimer = window.setTimeout(() => {
-            shell.classList.remove("loading-log--error");
-            setExpanded(false);
-            hideTimer = null;
-          }, 2000);
+          active = false;
         },
-        // Re-translates the title and messages after a language change.
-        relocalize: () => {
-          loadingMessages = this.getLoadingLogMessages();
-          headerTitle.textContent = t$1("loadingLog.title", "Loading process log");
-          collapsedToggle.setAttribute("aria-label", t$1("loadingLog.title", "Loading process log"));
-          renderMessages(messagesDone);
-          updateSummary();
-        },
-        get: () => shell,
       };
     },
 
@@ -44570,6 +45338,8 @@ async function requireTarget(viewer) {
 async function saveManifestThumbnails(viewer, name, captures) {
   const manifest = await uploadManifestThumbnails(name, await viewer.getManifestJson(viewer.currentManifest.source, "url"), captures);
   viewer.currentManifest.json = manifest;
+  // The thumbnails icon in the list of example manifests.
+  viewer.forgetExampleInspections?.();
   if (showsGallery(viewer)) renderManifestGalleryImages(viewer, manifest.AIM3DViewer?.thumbnails);
 }
 
@@ -44920,6 +45690,7 @@ function clampWindowValue(value, min, max) {
 // the content below it (credits, the manifest form) instead of staying put.
 function placeWindow(container, left, top) {
   container.style.position = 'absolute';
+  container.classList.add('viewer-window-detached');
   const parent = container.offsetParent;
   const isPageRelative = !parent
     || (parent === document.body && getComputedStyle(parent).position === 'static');
@@ -51875,6 +52646,24 @@ function shouldIgnoreLegacyEmbedDefaultModel(viewer) {
   return /^(?:\.{1,2}\/)?examples\/box\.stl(?:\?.*)?$/i.test(currentModelAttr);
 }
 
+// The container's model is the "3d" attribute. setAttribute("3d", ...)
+// throws InvalidCharacterError in WebKit before the DOM spec relaxed
+// attribute names (iOS 26 and older, so the iOS app too): a name can't
+// start with a digit there. The HTML parser takes it, and an Attr node
+// is set without the name check, so the node comes from the parser.
+function setModelAttribute(element, value) {
+  const existing = element.getAttributeNode("3d");
+  if (existing) {
+    existing.value = value;
+    return;
+  }
+  const template = document.createElement("template");
+  template.innerHTML = '<div 3d=""></div>';
+  const attr = template.content.firstElementChild.getAttributeNode("3d").cloneNode();
+  attr.value = value;
+  element.setAttributeNode(attr);
+}
+
 function buildGallery(viewer) {
   return buildThumbnailGallery(viewer);
 }
@@ -52472,8 +53261,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "42e7d570" ;
-const BUILD_TIME = "2026-10-30T15:59:14.878Z" ;
+const BUILD_ID = "ba32f4ce" ;
+const BUILD_TIME = "2026-11-02T11:42:56.417Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -52715,7 +53504,7 @@ https://www.gnu.org/licenses/.
 
 //Supported file formats: OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, glTF, USD/USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO
 
-const SOURCE = "" ;
+const SOURCE = "IIIF" ;
 const isE2E = window.__E2E__ === true ;
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
@@ -52801,6 +53590,32 @@ function rebaseManifestUrls(value, baseUrl) {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, rebaseManifestUrls(item, baseUrl)]));
   }
   return value;
+}
+
+// A bundled manifest with the thumbnails the worker keeps for it. The
+// worker's copy is the whole manifest as it was when they were saved, so
+// only its thumbnails are taken - everything else (rights, lights, ...) comes
+// from the bundled one, edited perhaps since. As the worker merges them
+// (worker/manifests.py save): its views first, then the bundled entries,
+// unless it has all of the views.
+
+function withStoredThumbnails(manifest, storedManifest, name) {
+  const storedThumbnails = storedManifest?.AIM3DViewer?.thumbnails;
+  if (!Array.isArray(storedThumbnails)) return manifest;
+  const marker = `/api/manifests/${name}/`;
+  const ours = storedThumbnails.filter((entry) => {
+    const src = typeof entry === "string" ? entry : entry?.src;
+    return typeof src === "string" && src.includes(marker);
+  });
+  if (!ours.length) return manifest;
+  const bundled = Array.isArray(manifest.AIM3DViewer?.thumbnails) ? manifest.AIM3DViewer.thumbnails : [];
+  return {
+    ...manifest,
+    AIM3DViewer: {
+      ...manifest.AIM3DViewer,
+      thumbnails: ours.length >= ALL_VIEWS.length ? ours : [...ours, ...bundled],
+    },
+  };
 }
 
 const Viewer$1 = {
@@ -54392,9 +55207,9 @@ const Viewer$1 = {
     console.log(`AIM 3D-Viewer ${this.isLightweight ? '🪶 LIGHTWEIGHT' : '💪 FULL'} mode`);
     console.log(`Powered by Three.js (v${THREE.REVISION})`);
     
-    if (!core.CONFIG.entity.metadata.sourceType) {
+    {
       core.CONFIG.entity.metadata.sourceType = SOURCE;
-      console.log(`Metadata source: ${core.CONFIG.entity.metadata.sourceType}`);
+      console.log(`Dev build manifest source: ${core.CONFIG.entity.metadata.sourceType}`);
     }
 
     this.container = document.getElementById(core.CONFIG.viewer.container);
@@ -54423,7 +55238,7 @@ const Viewer$1 = {
     setCore('currentLanguage', this.currentLanguage);
 
     if (this.urlOptions.model) {
-      this.container.setAttribute("3d", this.urlOptions.model);
+      setModelAttribute(this.container, this.urlOptions.model);
     }
     if (this.shouldIgnoreLegacyEmbedDefaultModel()) {
       this.container.removeAttribute("3d");
@@ -54434,7 +55249,7 @@ const Viewer$1 = {
     this.baseContainerRect = { width: this.rect.width, height: this.rect.height };
     const e2eModel = this.getE2EModelOverride();
     if (e2eModel) {
-      core.container.setAttribute("3d", e2eModel);
+      setModelAttribute(core.container, e2eModel);
     }
 
     this.fileObject.originalPath = this.normalizeFileUrl(core.container.getAttribute("3d"));
@@ -55340,9 +56155,6 @@ const Viewer$1 = {
       core.mainObject.length = 0;
     }
 
-    if (core.loadingLog) {
-      core.loadingLog.finish?.();
-    }
     if (core.circle) {
       core.circle.set?.(0, 100);
       core.circle.complete();
@@ -55975,23 +56787,21 @@ const Viewer$1 = {
     }
 
     // The viewer's own manifests with thumbnails rendered since: the
-    // worker's copy (editor/thumbnail-capture.js), else the bundled one.
+    // worker's copy (editor/thumbnail-capture.js) holds them.
     const name = hasRemote() ? bundledManifestName(manifestUrlOrJson) : null;
-    if (name) {
-      try {
-        const stored = await fetch(apiUrl(`/api/manifests/${name}.json`), { cache: "no-cache" });
-        if (stored.ok) return rebaseManifestUrls(await stored.json(), baseUrl);
-      } catch {
-        // No worker: the bundled manifest.
-      }
-    }
+    const stored = name
+      ? fetch(apiUrl(`/api/manifests/${name}.json`), { cache: "no-cache" })
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null) // No worker: the bundled manifest.
+      : null;
 
     const response = await fetch(manifestUrlOrJson);
     if (!response.ok) {
       throw new Error(`Unable to load manifest: ${response.status} ${response.statusText}`);
     }
-
-    return rebaseManifestUrls(await response.json(), baseUrl);
+    const manifest = await response.json();
+    const storedManifest = await stored;
+    return rebaseManifestUrls(storedManifest ? withStoredThumbnails(manifest, storedManifest, name) : manifest, baseUrl);
   },
 
   async setupManifestSource(type, { loadInitialManifest = true } = {}) {
@@ -56693,7 +57503,12 @@ const Viewer$1 = {
         if (loginButton) {
           Viewer$1.loginButton = loginButton;
           Viewer$1.updateLoginMenuEntryState();
-          Viewer$1.bindEventListener(loginButton, "click", Viewer$1.openLoginPanel.bind(Viewer$1));
+          // In the app the account panel drops down under its button too
+          // (otherwise it sits inside the viewer, below the gallery).
+          Viewer$1.bindEventListener(loginButton, "click", (event) => {
+            Viewer$1.openLoginPanel(event);
+            if (isAppBuild()) anchorPanelUnder(Viewer$1.loginPanel, loginButton);
+          });
         }
         if (manageUsersButton) {
           Viewer$1.manageUsersButton = manageUsersButton;
@@ -56787,7 +57602,7 @@ const Viewer$1 = {
           renderExampleModelOptions(selectModel);
           selectExampleModel(selectModel, selectedModel);
           Viewer$1.watchExampleModelList(selectModel);
-          viewerElement.setAttribute('3d', selectedModel);
+          setModelAttribute(viewerElement, selectedModel);
           if (themeToggle) {
             themeToggle.hidden = true;
           }
@@ -57005,6 +57820,7 @@ attachLibraryPanel(Viewer$1);
 attachModelsSource(Viewer$1);
 attachExamplesPanel(Viewer$1);
 attachValidationReport(Viewer$1);
+attachManifestPreview(Viewer$1);
 attachGroundPanel(Viewer$1);
 attachEventLogPanel(Viewer$1);
 // From the start, so the log has the console's errors of the loading too.
@@ -57046,4 +57862,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-Bi3fO1BB.js.map
+//# sourceMappingURL=main-Cp6XDCU1.js.map

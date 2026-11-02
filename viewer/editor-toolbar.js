@@ -118,6 +118,7 @@ export function getEditorToolbarIcon(icon) {
     backgroundInner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>',
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
     ground: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="5" width="8" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="18.5" rx="7" ry="1.8" fill="currentColor" fill-opacity="0.45"/></svg>',
+    volume: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z"/><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10" opacity=".55"/><circle cx="12" cy="11.5" r="2.2" fill="currentColor" stroke="none"/></svg>',
     pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
     reportBug: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5a4 4 0 0 1 8 0V14a4 4 0 0 1-8 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M20 11h-4M8 15.5l-3 2M16 15.5l3 2M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     compare: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 10l-2 2 2 2M16 10l2 2-2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -1398,6 +1399,8 @@ export function createEditorToolbar(viewer) {
     // Shown only while a point cloud is loaded (updateEditorToolbarState):
     // opens its settings window (editor/point-cloud-panel.js).
     { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
+    // Likewise while a volume is loaded (editor/volume-panel.js).
+    { key: "volume", group: "display", icon: "volume", onClick: () => viewer.toggleVolumePanel?.(), pressed: true, primary: true },
     { key: "immersive", group: "display", icon: "immersive", onClick: () => viewer.toggleXRPanel?.(), pressed: true, primary: true },
     { key: "fullScreen", group: "display", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     // Camera and view.
@@ -2412,6 +2415,7 @@ export function updateEditorToolbarLabels(viewer) {
       : t("gui.expand", "Expand toolbar"),
     download: t("gui.download", "Download model"),
     pointCloud: t("pointCloud.toggle", "Point cloud settings"),
+    volume: t("volume.toggle", "Volume settings"),
     immersive: t("xr.toggle", "View in VR or AR"),
     help: t("shortcuts.helpButtonAria", "Show usage hints"),
     reportBug: t("bugReport.button", "Report a bug"),
@@ -2661,6 +2665,7 @@ export function updateEditorToolbarState(viewer) {
     lights: viewer.isLightsPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
+    volume: viewer.isVolumePanelVisible?.() === true,
     immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,
     help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
     ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.isActive?.() === true])),
@@ -2678,6 +2683,8 @@ export function updateEditorToolbarState(viewer) {
 
   const pointCloudButton = viewer.editorToolbarButtons.pointCloud;
   if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
+  const volumeButton = viewer.editorToolbarButtons.volume;
+  if (volumeButton) volumeButton.hidden = !viewer.isVolumeActive?.();
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
   // Point clouds and splats have no materials to edit.

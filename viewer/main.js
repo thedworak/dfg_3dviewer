@@ -104,6 +104,7 @@ import { attachContextMenu } from "./editor/context-menu.js";
 import { attachBackNavigation } from "./ui/back-navigation.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
+import { attachVolumePanel } from "./editor/volume-panel.js";
 import { attachModelUnits } from "./editor/model-units.js";
 import { createWebGLRenderer, shouldTryWebGPU, tryCreateWebGPURenderer } from "./renderer-backend.js";
 import { ALL_VIEWS as THUMBNAIL_VIEWS, bundledManifestName, captureAndUploadThumbnail, generateAllThumbnails, refreshThumbnailAccess } from "./editor/thumbnail-capture.js";
@@ -1509,6 +1510,8 @@ export const Viewer = {
       Viewer.disposeMaterial(node.material);
       // Gaussian splats (splats.js) hold their own GPU textures.
       if (node.userData?.isGaussianSplats) node.dispose?.();
+      // A volume's 3D textures (volume.js), by then loaded.
+      if (node.isMesh && node.userData?.isVolume) import("./volume.js").then(({ disposeVolume }) => disposeVolume(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -4496,6 +4499,7 @@ attachContextMenu(Viewer);
 attachBackNavigation(Viewer);
 attachFaceAreaSelection(Viewer);
 attachPointCloudPanel(Viewer);
+attachVolumePanel(Viewer);
 attachModelUnits(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);

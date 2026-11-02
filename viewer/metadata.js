@@ -882,7 +882,8 @@ export async function handleMetadataResponse(
     '<div id="metadata-card"' + (iiifLink ? ' class="metadata-has-iiif"' : '') + '>' +
       '<div class="metadata-drag-handle" title="' + escapeHtml(t("metadata.move", "Move")) + '"></div>' +
       '<button id="metadata-collapse" class="metadata-collapse metadata-collapsed" type="button" aria-expanded="false" aria-controls="metadata-window"' +
-        ' aria-label="' + escapeHtml(t("metadata.modelDetails", "Model details")) + ': ' + escapeHtml(fileName) + '">' +
+        ' aria-label="' + escapeHtml(t("metadata.modelDetails", "Model details")) + ': ' + escapeHtml(fileName) + '"' +
+        ' title="' + escapeHtml(fileName) + '">' +
         '<span class="metadata-toggle-copy">' +
           '<span class="metadata-toggle-title" title="' + escapeHtml(fileName) + '">' + escapeHtml(fileName) + '</span>' +
           '<span class="metadata-toggle-summary" data-format="' + escapeHtml(fileFormat) + '" data-vertices="' + escapeHtml(metadata["vertices"]) + '">' +

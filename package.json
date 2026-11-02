@@ -79,6 +79,7 @@
     "@sentry/browser": "^11.10.0",
     "@sparkjsdev/spark": "2.2.0",
     "fflate": "^0.8.3",
+    "geotiff": "^3.0.5",
     "jquery": "^4.0.0",
     "lru-cache": "^11.5.3",
     "playwright": "^1.64.1",

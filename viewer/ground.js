@@ -258,7 +258,8 @@ function createContactShadow(size, center, opacity = 0.85, floor = 0) {
       if (!keep.has(child) && !child.isLight) hide(child);
     });
     modelRoots().forEach((root) => root.traverse((object) => {
-      if (object.isPoints || object.isLine || object.isSprite) hide(object);
+      // A volume's box (volume.js) is not its shape.
+      if (object.isPoints || object.isLine || object.isSprite || object.userData?.isVolume) hide(object);
     }));
     const previous = {
       background: scene.background,

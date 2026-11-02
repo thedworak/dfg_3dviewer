@@ -21,6 +21,7 @@ const SUPPORTED_EXTENSIONS = [
   "gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo",
   "las", "laz", "e57",
   "spz", "splat", "ksplat", "sog", "rad",
+  "lif", "tif", "tiff",
   "zip",
 ];
 

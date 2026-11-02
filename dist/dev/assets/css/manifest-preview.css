@@ -1,0 +1,119 @@
+/* The manifest preview (ui/manifest-preview.js): the look of the validation
+   report window; the tree and its colours are the manifest form's
+   (external-sources.css .manifesto-manifest-tree). */
+#manifestPreviewPanel[hidden] {
+  display: none !important;
+}
+
+#manifestPreviewPanel {
+  position: absolute;
+  left: 50%;
+  top: min(8%, 48px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(620px, calc(100vw - 36px));
+  height: min(calc(100% - min(8%, 48px) - 8px), 640px);
+  min-height: 240px;
+  overflow: hidden;
+  resize: both;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--viewer-panel-border);
+  background: var(--viewer-panel-embed-bg);
+  color: var(--viewer-panel-text);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 13px;
+  line-height: 1.4;
+  z-index: 99999;
+  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
+            "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+#manifestPreviewPanel .manifesto-view-toggle {
+  border-color: var(--viewer-panel-border);
+}
+
+#manifestPreviewPanel .manifesto-view-toggle button,
+#manifestPreviewPanel .manifesto-tree-tool {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#manifestPreviewPanel .manifesto-tree-tool {
+  border-radius: 6px;
+}
+
+#manifestPreviewPanel .manifesto-tree-tool[hidden] {
+  display: none;
+}
+
+#manifestPreviewPanel .manifesto-view-toggle button.active {
+  background: var(--viewer-brand-blue-strong, #4a3d2c);
+  color: #fff;
+}
+
+#manifestPreviewPanel .manifesto-view-toggle button:not(.active):hover,
+#manifestPreviewPanel .manifesto-tree-tool:hover {
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+}
+
+/* The tree and the JSON fill the rest of the window and scroll in it. */
+#manifestPreviewPanel .manifesto-manifest-tree,
+.manifest-preview-json {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.manifest-preview-json {
+  margin: 0;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(164, 151, 132, 0.22);
+  background: rgba(255, 252, 247, 0.96);
+  color: #25211c;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.manifest-preview-json[hidden],
+.manifest-preview-empty[hidden] {
+  display: none;
+}
+
+.manifest-preview-empty {
+  margin: 0;
+  opacity: 0.75;
+}
+
+/* Dark like the viewer (the manifest form's dark colours,
+   external-sources.css #form-manifesto[data-viewer-theme="dark"]). */
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree,
+.viewer-wrapper:not([data-viewer-theme="light"]) .manifest-preview-json {
+  background: #1a1714;
+  border-color: #444;
+  color: #eee;
+}
+
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-children { border-left-color: #444; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-key { color: #d19af0; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-string { color: #8bd49c; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-url { color: #7cb7f0; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-number { color: #f5a36c; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-boolean { color: #93b4ff; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-preview { color: #a9adb4; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-value:focus { background: #2a2d33; }
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree details > summary:hover,
+.viewer-wrapper:not([data-viewer-theme="light"]) #manifestPreviewPanel .manifesto-manifest-tree .mt-value:hover { background: rgba(147, 180, 255, .1); }

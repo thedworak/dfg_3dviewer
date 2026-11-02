@@ -114,7 +114,7 @@ export function attachMaterialsEditor(Viewer) {
       const byMaterial = new Map();
       const register = (mesh) => {
         // Not the Level of Certainty colour overlays, the weather or splats.
-        if (!mesh.isMesh || !mesh.material || mesh.userData?.isCertaintyOverlay || mesh.userData?.isWeather || mesh.userData?.isGaussianSplats) return;
+        if (!mesh.isMesh || !mesh.material || mesh.userData?.isCertaintyOverlay || mesh.userData?.isWeather || mesh.userData?.isGaussianSplats || mesh.userData?.isVolume) return;
         const base = mesh.userData.__shadingBaseMaterials || materialsOf(mesh);
         base.forEach((material) => {
           if (!material?.isMaterial) return;

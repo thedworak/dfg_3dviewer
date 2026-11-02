@@ -173,6 +173,7 @@ needing the tag.
   - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
   - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading. Uploads without a tree (from before `build-lod`, or where it failed) get one with `docker compose exec worker python3 /app/worker/server.py admin rebuild-splats`; `--force` rebuilds the existing trees too (new `build-lod` or `WORKER_SPLAT_LOD_ARGS`, cached copies purged from Cloudflare when `WORKER_PUBLIC_HOSTS` is set), job ids limit it to those jobs. No restart needed: the model list reads the jobs from disk
   - Gaussian splats in `.splat`, `.spz` or a 3DGS `.ply` also get a voxel volume of their surface, `<model>.light` next to the model served (e.g. `Angel-lod.rad.light`), built with numpy by `worker/splat_volume.py`: the viewer reads normals, occlusion and shadows from it when the splats are lit by the scene's lights (Lights > Gaussian splats). `admin rebuild-splats` builds the missing ones too, also without `build-lod`
+  - image stacks - Leica `.lif`, TIFF / OME-TIFF (`tif tiff`, also a `.zip` of single-slice TIFFs): every Z stack becomes a volume, `modelUrl` ends in `volume/<name>.dfgvol` - see "Image stacks (volumes)" below. In an archive with a model, a TIFF is a texture: it is taken as a stack only when nothing else is there
   - point clouds converted to a streamed octree (`modelUrl` ends in `tiles/<name>/metadata.json` for Potree 2, `tiles/<name>/tileset.json` for 3D Tiles), no thumbnails: `las laz e57`, and a `ply` without faces - see "Point clouds" below
 
   Returns:
@@ -390,6 +391,42 @@ The viewer's suggested scene (Look > Suggested scene, `docs/ai.md`) puts the sun
 - py3dtiles runs with `--disable-processpool`, since Docker's default 64 MB `/dev/shm` is too small for its shared-memory pool.
 - Standalone: `python3 worker/pointcloud.py scan.e57 out_dir` (needs `PotreeConverter` or `py3dtiles`, `laspy[lazrs]`, `pye57`, `trimesh`); `WORKER_POINTCLOUD_FORMAT=3dtiles` for 3D Tiles.
 - LAS/LAZ files can also be opened in the viewer directly, without conversion (decoded in a Web Worker, thinned above `viewer.pointCloud.maxPoints`) - see [docs/point-clouds.md](../docs/point-clouds.md).
+
+### Image stacks (volumes)
+
+Microscope and CT image stacks become volumes the viewer draws by ray marching. `worker/volumes.py` holds what the converters share (reduction, 8-bit mapping, the manifest and thumbnail below); `worker/lif.py` and `worker/tiff_stack.py` read the formats.
+
+#### Leica LIF
+
+`worker/lif.py` reads Leica `.lif` files (LAS X / LAS AF projects) with numpy alone - no Bio-Formats or Java. A `.lif` holds a tree of series; every Z stack among them (X, Y, Z, one or more channels) becomes a volume the viewer draws by ray marching (`viewer/volume.js`, settings in its volume panel: maximum intensity, translucent or surface rendering, per-channel colour and window):
+
+- `volume/<name>.dfgvol` - JSON manifest (the model): per stack its voxels, voxel size in µm, channels (colour from the LUT, value range, Otsu threshold) and acquisition record (objective, NA, microscope, laser lines, time)
+- `volume/<name>/<stack>.u8.gz` - the voxels, 8 bit (each channel between its 0.1 and 99.95 percentiles), gzip
+- `views/<name>_side45.png` - thumbnail: a maximum intensity projection of the deepest stack in the channels' colours
+
+Details:
+
+- The memory layout is taken from each channel's and dimension's byte stride in the XML, never assumed: within one file, channels can be stored one stack after another or interleaved plane by plane.
+- Axes longer than `WORKER_VOLUME_MAX_SIZE` voxels (default 512) are reduced by an integer factor (block mean), the voxel size scaled with them.
+- Of a time series only the first time point is taken. Single planes and mosaics whose tiles are not merged are listed in the manifest under `skipped` with the reason; LAS X's `<name>_Merged` series of a mosaic is taken like any other image. A file without any Z stack fails the job with that list.
+- The `.lifext` LAS X writes next to a `.lif` (display pyramids and histograms) is not needed; uploaded together in a `.zip` it is ignored.
+- LIF projects are often larger than the default upload limit (100 MB): raise `WORKER_MAX_UPLOAD_BYTES` (and the nginx `client_max_body_size`, see "Upload limits").
+- Not read (yet): LAS X 4's `.xlef`/`.lof` and floating-point channels.
+- Standalone: `python3 worker/lif.py sample.lif [out_dir]`.
+- The viewer also opens a `.lif` without this worker (`viewer/lif-reader.js`, the same steps in a Web Worker): dropped from the disk it reads the file in pieces, from a URL by HTTP range requests (a server without them sends the whole file). Each opening reads and reduces the stack again and there is no thumbnail - the conversion here is for publishing.
+
+#### TIFF stacks and OME-TIFF
+
+`worker/tiff_stack.py` reads, with `tifffile` (+ `imagecodecs` for LZW, JPEG, zstd...; both in `Dockerfile.base`), a page at a time:
+
+- multi-page TIFFs (one page per slice, or per slice and channel), BigTIFF included;
+- ImageJ / Fiji hyperstacks: page order, slice spacing and unit from the ImageJ description, pixel size from the resolution;
+- OME-TIFF: sizes, page order, voxel size, channel names and colours, objective and microscope from the OME-XML; every image in the file is a stack;
+- slices one file each, as CT software exports them, uploaded as a `.zip`: single-page TIFFs of the same size and type in one folder form a stack in natural name order (`rec_2` before `rec_10`).
+
+Any pixel type: 8/16/32-bit integers, signed (CT in Hounsfield units) or not, and float (NaN as the lowest value). The voxel size comes from OME-XML, ImageJ, or a resolution in centimetres; resolutions in inches (usually a meaningless 72 dpi) are ignored. A stack without a slice spacing is taken as isotropic; without any size the unit is `px` (voxels, measurements in scene units). Standalone: `python3 worker/tiff_stack.py stack.tif [out_dir]`.
+
+The viewer opens these TIFFs without the worker too (`viewer/tiff-reader.js`, geotiff.js in a Web Worker; a `.zip` of slices dropped from the disk). It decodes LZW with its own decoder (`viewer/tiff-lzw.js`): geotiff.js's fails on streams that fill the code table, as imagecodecs writes them.
 
 ### Serving converted files
 

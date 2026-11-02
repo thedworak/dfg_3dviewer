@@ -159,6 +159,11 @@ RUN curl -fsSL "https://github.com/KhronosGroup/glTF-Validator/releases/download
 COPY --from=spark-build-lod /usr/local/bin/build-lod /usr/local/bin/build-lod
 RUN { build-lod 2>&1 || true; } | grep -q "Usage: build-lod"
 
+# tifffile (+ imagecodecs for LZW, JPEG, zstd...) reads TIFF image stacks
+# and OME-TIFF for worker/tiff_stack.py. Last, so adding it does not rebuild
+# the Blender and PotreeConverter layers above.
+RUN pip3 install --no-cache-dir --break-system-packages tifffile imagecodecs
+
 # Runtime defaults that do not depend on the code.
 ENV SPATH=/app
 ENV BLENDER_BIN=blender

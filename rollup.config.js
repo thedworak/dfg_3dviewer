@@ -229,6 +229,9 @@ function moduleWorkers() {
   return {
     name: 'module-workers',
     async transform(code, id) {
+      // The viewer's own workers only: a dependency may show the pattern in
+      // a comment (geotiff's pool.js).
+      if (id.includes('node_modules')) return null;
       if (!code.includes('-worker.js') || !code.includes('import.meta.url')) return null;
       let result = code;
       for (const match of code.matchAll(pattern)) {

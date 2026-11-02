@@ -77,6 +77,7 @@ export async function loadDroppedArchive (archiveFile) {
     }
 
     buildArchiveFileMap(extractedFiles);
+    core.archiveFiles = extractedFiles;
 
     await loadDroppedModel(modelFile);
     return true;

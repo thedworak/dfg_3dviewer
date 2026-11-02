@@ -1654,6 +1654,8 @@ test('gallery lightbox: views open from the keyboard, browse, zoom and close bac
   await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
   await expect(page.locator('#image-list img')).toHaveCount(5);
   const lightbox = page.locator('#modalGallery');
+  // The drawer starts hidden.
+  await page.locator('.image-list-drawer-toggle').click();
 
   const thumb = page.locator('#image-list .field__item').nth(1);
   await expect(thumb).toHaveAttribute('data-number', '02');
@@ -1683,7 +1685,54 @@ test('gallery lightbox: views open from the keyboard, browse, zoom and close bac
   await expect(page.locator('#image-list .field__item').nth(3)).toBeFocused();
 });
 
+test('the gallery is a drawer on the viewer\'s right edge, hidden at first: its tab opens it, full height, and it is remembered', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
+  await expect(page.locator('#image-list img')).toHaveCount(5);
+  const drawer = page.locator('#DFG_3DViewer .image-list-drawer');
+  const toggle = drawer.locator('.image-list-drawer-toggle');
+  await expect(drawer).toHaveClass(/is-collapsed/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle.locator('.image-list-drawer-count')).toHaveText('5');
+
+  // Inside the canvas, on its right edge, from top to bottom.
+  const layout = () => page.evaluate(() => {
+    const viewer = document.getElementById('DFG_3DViewer').getBoundingClientRect();
+    const column = document.querySelector('.image-list-drawer .image-list-scroller').getBoundingClientRect();
+    return {
+      right: Math.round(viewer.right - column.right),
+      top: Math.round(column.top - viewer.top),
+      bottom: Math.round(viewer.bottom - column.bottom),
+    };
+  });
+  expect((await layout()).right).toBeLessThan(0);
+
+  await toggle.click();
+  await expect(drawer).not.toHaveClass(/is-collapsed/);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const open = await layout();
+  expect(open.right).toBeGreaterThanOrEqual(0);
+  expect(open.right).toBeLessThanOrEqual(12);
+  expect(open.top).toBeLessThanOrEqual(12);
+  expect(open.bottom).toBeLessThanOrEqual(12);
+
+  // Remembered: the next gallery starts open, then hidden again once closed.
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
+  await expect(page.locator('.image-list-drawer')).not.toHaveClass(/is-collapsed/);
+  await page.locator('.image-list-drawer-toggle').click();
+  await expect(page.locator('.image-list-drawer')).toHaveClass(/is-collapsed/);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
+  await expect(page.locator('.image-list-drawer')).toHaveClass(/is-collapsed/);
+});
+
 test('manifest thumbnails stay above the viewer when the manifest makes it a movable window', async ({ page }) => {
+  // The row above the viewer: viewer.gallery.position "top".
+  await page.route('**/viewer-settings.json', async (route) => {
+    const settings = await (await route.fetch()).json();
+    settings.viewer.gallery = { ...settings.viewer.gallery, position: 'top' };
+    await route.fulfill({ json: settings });
+  });
   await openViewer(page);
   await waitForModel(page);
   await page.evaluate(async () => {
@@ -3587,7 +3636,8 @@ test('credits: a window over the viewer, closed until opened, closed again by it
   await page.evaluate(() => window.Viewer.toggleCredits());
   await expect(credits).toBeVisible();
   const canvas = await page.locator('#MainCanvas').boundingBox();
-  await page.mouse.click(canvas.x + canvas.width - 40, canvas.y + canvas.height / 2);
+  // Left of the gallery's drawer on the right edge.
+  await page.mouse.click(canvas.x + canvas.width * 0.7, canvas.y + canvas.height / 2);
   await expect(credits).toBeHidden();
 });
 

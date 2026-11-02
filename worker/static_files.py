@@ -35,7 +35,7 @@ GZIP_MIN_SAVING = 0.10
 COMPRESSIBLE_SUFFIXES = {
     ".json", ".gltf", ".obj", ".mtl", ".ply", ".stl", ".xyz", ".pcd", ".las",
     ".pnts", ".b3dm", ".i3dm", ".cmpt", ".svg", ".txt", ".csv", ".ifc", ".dae",
-    ".wrl", ".x3d", ".usda", ".hrc",
+    ".wrl", ".x3d", ".usda", ".hrc", ".dfgvol",
 }
 COMPRESSIBLE_NAMES = {"hierarchy.bin"}
 
