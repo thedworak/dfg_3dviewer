@@ -1,7 +1,7 @@
 name: Worker Tests
 
 # The worker's Python unit tests (worker/tests) on pull requests that change
-# the worker - the viewer's Playwright tests skip those (playwright.yml).
+# the worker. (The viewer's Playwright tests run locally: playwright.yml.)
 # A minute on a GitHub runner, without Blender or the other conversion tools:
 # the tests stand in for them.
 on:
