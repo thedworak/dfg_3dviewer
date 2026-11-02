@@ -12,7 +12,7 @@ import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterial
 import { deviceTier, qualityForWeight } from '../viewer/editor/performance-rules.js';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD, LIF, NRRD, NHDR, NII, MHA, MHD, DCM, DICOM, TIF, TIFF';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
 const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
 const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
@@ -4764,7 +4764,7 @@ test('manifest inspection: every example is fine and every attribute known', { t
   // What the list icons show.
   const sun = inspectAIM3DManifest(JSON.parse(fs.readFileSync(`${dir}/tempietto-aim3d-sun.json`, 'utf8')));
   expect(manifestFeatureIcons(sun).map((feature) => feature.id)).toEqual([
-    'model', 'metadata', 'camera', 'lights', 'timeline', 'location', 'sun', 'transform', 'rendering', 'settings',
+    'model', 'metadata', 'rights', 'camera', 'lights', 'timeline', 'location', 'sun', 'transform', 'rendering', 'settings',
   ]);
   expect(manifestFeatureIcons(sun).find((feature) => feature.id === 'timeline')).toMatchObject({ count: 3, status: 'ok' });
 });

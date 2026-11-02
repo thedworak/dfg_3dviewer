@@ -1157,7 +1157,11 @@ export const Viewer = {
   },
 
   getSupportedFormatsText() {
-    return core.SUPPORTED_EXTENSIONS.map((extension) => extension.toUpperCase()).join(", ");
+    // Not .dfgvol: the worker's converted volumes, nothing to drop in.
+    return core.SUPPORTED_EXTENSIONS
+      .filter((extension) => extension !== "dfgvol")
+      .map((extension) => extension.toUpperCase())
+      .join(", ");
   },
 
   getSupportedArchiveFormatsText() {
