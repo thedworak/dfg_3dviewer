@@ -63,6 +63,9 @@ export const VIEWER_I18N = {
       close: "Close",
       changelog: "Changelog",
     },
+    introOverlay: {
+      button: "Intro",
+    },
     bugReport: {
       button: "Report a bug",
       title: "Report a bug",
@@ -2546,6 +2549,9 @@ export const VIEWER_I18N = {
       close: "Zamknij",
       changelog: "Lista zmian",
     },
+    introOverlay: {
+      button: "Intro",
+    },
     bugReport: {
       button: "Zgłoś błąd",
       title: "Zgłoś błąd",
@@ -3960,6 +3966,9 @@ export const VIEWER_I18N = {
       title: "Credits",
       close: "Schließen",
       changelog: "Änderungsprotokoll",
+    },
+    introOverlay: {
+      button: "Intro",
     },
     bugReport: {
       button: "Fehler melden",

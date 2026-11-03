@@ -26,6 +26,11 @@ const SEEN_KEY = 'explora4d-intro-seen';
 const READY_TIMEOUT = 15000;
 
 let shown = false;
+// The overlay on screen now (while it is, no second one).
+let open = false;
+// What showIntroOverlay was given: the menu's Intro button (replayIntro)
+// shows the intro again with it.
+let context = null;
 
 function parseBoolean(value) {
   if (typeof value === 'boolean') return value;
@@ -72,16 +77,36 @@ function remember(settings) {
  * @returns {boolean} whether the intro is shown
  */
 export function showIntroOverlay(settings, { standalone, lang } = {}) {
+  if (standalone && !window.__E2E__) context = { settings, lang };
   if (shown || !standalone || window.__E2E__) return false;
   if (!wanted(settings)) return false;
   shown = true;
   remember(settings);
+  return openOverlay(settings, lang);
+}
 
+/** Whether the intro can be shown again from the menu (the standalone page). */
+export function canReplayIntro() {
+  return Boolean(context);
+}
+
+/**
+ * Shows the intro again, whatever the settings say (the menu's Intro button).
+ * @param {string} [lang]  the viewer's language now
+ * @returns {boolean} whether the intro is shown
+ */
+export function replayIntro(lang) {
+  if (!context || open) return false;
+  return openOverlay(context.settings, lang || context.lang);
+}
+
+function openOverlay(settings, lang) {
   const url = new URL(String(settings?.url || 'intro.html'), window.location.href);
   if (url.origin !== window.location.origin) {
     console.warn('[intro] viewer.intro.url must be a page of this site:', url.href);
     return false;
   }
+  open = true;
   // In the hash: kept through a server's redirect (some drop the query).
   const hash = new URLSearchParams({ embedded: '1' });
   if (lang) hash.set('lang', lang);
@@ -120,6 +145,7 @@ export function showIntroOverlay(settings, { standalone, lang } = {}) {
     overlay.style.pointerEvents = 'none';
     setTimeout(() => {
       overlay.remove();
+      open = false;
       document.documentElement.style.overflow = previousOverflow;
       // The viewer measured itself under the overlay: once more, uncovered.
       window.dispatchEvent(new Event('resize'));

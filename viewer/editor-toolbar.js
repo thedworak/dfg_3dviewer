@@ -9,6 +9,7 @@ import { MODEL_UNITS } from "./editor/model-units.js";
 import { UP_AXES } from "./up-axis.js";
 import { upAxisLabel } from "./editor/up-axis.js";
 import { isBugReportEnabled, reportBug } from "./bug-report.js";
+import { canReplayIntro, replayIntro } from "./intro-overlay.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./ui/tool-panel-chrome.js";
 import { appToolbarTools } from "./app-features.js";
 import { expandMetadata, isMetadataWindowOpen } from "./metadata.js";
@@ -103,6 +104,7 @@ export function getEditorToolbarIcon(icon) {
     eventLog: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     modelDetails: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7.75" r="1.1" fill="currentColor"/></svg>',
     credits: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14.8 9.4a3.6 3.6 0 1 0 0 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    intro: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg>',
     statistics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     performanceDefault: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
     performanceHigh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="#FF4136"/></svg>',
@@ -1455,6 +1457,9 @@ export function createEditorToolbar(viewer) {
     { key: "eventLog", group: "help", icon: "eventLog", onClick: () => viewer.toggleEventLog(), pressed: true, primary: false },
     // The credits window (sandbox.js, main.js toggleCredits).
     { key: "credits", group: "help", icon: "credits", onClick: () => viewer.toggleCredits(), pressed: true, primary: false },
+    // The intro once more, over the viewer (intro-overlay.js); only on the
+    // standalone page, which ships it. The menu closes first.
+    { key: "intro", group: "help", icon: "intro", onClick: () => { viewer.openToolbarMenu?.(null); replayIntro(core.currentLanguage); }, primary: false },
   ];
 
   // Not in the app (remote.js): the WebView ignores download links, and the
@@ -2433,6 +2438,7 @@ export function updateEditorToolbarLabels(viewer) {
     immersive: t("xr.toggle", "View in VR or AR"),
     help: t("shortcuts.helpButtonAria", "Show usage hints"),
     reportBug: t("bugReport.button", "Report a bug"),
+    intro: t("introOverlay.button", "Intro"),
     ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.label?.()])),
   };
 
@@ -2738,6 +2744,8 @@ export function updateEditorToolbarState(viewer) {
   }
   const creditsButton = viewer.editorToolbarButtons.credits;
   if (creditsButton) creditsButton.hidden = !viewer.creditsWrapper;
+  const introButton = viewer.editorToolbarButtons.intro;
+  if (introButton) introButton.hidden = !canReplayIntro();
   // The thumbnails only for who may change them, none until that is known
   // (editor/thumbnail-capture.js refreshThumbnailAccess).
   const thumbnailsAllowed = viewer.thumbnailAccess === true;
