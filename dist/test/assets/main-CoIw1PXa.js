@@ -6382,7 +6382,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-Bd1MMQ5S.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-DJJ3ZT4v.js'),
+    import('./rendering-webgpu-D47iui6S.js'),
     import('./weather-webgpu-CoSNL0lA.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -9954,7 +9954,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-B5g5R8gd.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-C5DqCMCD.js');
+const loadTilesPlugins = () => import('./index.three-plugins-G2fQjWNW.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -10318,11 +10318,11 @@ const loadLWOLoader = async () => (await import('./three-Dhy7exgi.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-CUBN6LJU.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-Dhy7exgi.js').then(function (n) { return n.gY; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-CUjlQ9cu.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-jMXsBZ97.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-DoGjPkRg.js');
+const loadSplats = async () => import('./splats-CifY_xbY.js');
 // Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
-const loadVolume = async () => import('./volume-wcLDh_uT.js');
+const loadVolume = async () => import('./volume-shvcQ7xa.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -19111,7 +19111,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "1f676ab5" ;
+const BUILD_ID$2 = "a4851f13" ;
 const BUILD$1 = "test" ;
 
 let initPromise = null;
@@ -19162,8 +19162,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "1f676ab5" ;
-const BUILD_TIME$1 = "2026-11-03T10:43:28.716Z" ;
+const BUILD_ID$1 = "a4851f13" ;
+const BUILD_TIME$1 = "2026-11-03T11:52:42.606Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -45987,7 +45987,7 @@ function attachVolumePanel(Viewer) {
       };
       Viewer.volumeState = state;
       // volume.js is loaded already (loaders.js); this only fetches the module.
-      import('./volume-wcLDh_uT.js').then((api) => {
+      import('./volume-shvcQ7xa.js').then((api) => {
         if (Viewer.volumeState !== state) return;
         state.api = api;
         Viewer.createVolumePanel();
@@ -54502,8 +54502,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "1f676ab5" ;
-const BUILD_TIME = "2026-11-03T10:43:28.716Z" ;
+const BUILD_ID = "a4851f13" ;
+const BUILD_TIME = "2026-11-03T11:52:42.606Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -56278,7 +56278,7 @@ const Viewer$1 = {
       // Gaussian splats (splats.js) hold their own GPU textures.
       if (node.userData?.isGaussianSplats) node.dispose?.();
       // A volume's 3D textures (volume.js), by then loaded.
-      if (node.isMesh && node.userData?.isVolume) import('./volume-wcLDh_uT.js').then(({ disposeVolume }) => disposeVolume(node));
+      if (node.isMesh && node.userData?.isVolume) import('./volume-shvcQ7xa.js').then(({ disposeVolume }) => disposeVolume(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;

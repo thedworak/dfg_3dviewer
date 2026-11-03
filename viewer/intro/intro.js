@@ -86,7 +86,10 @@ const TEXTS = {
     mesh: (v, f) => `${v} wierzchołków · ${f} ścianek`,
     loading: 'Wczytywanie punktów…',
     error: 'Nie udało się wczytać intro.',
-    hint: 'Przeciągnij, aby obrócić',
+    hint: 'Najedź na synagogę, by zajrzeć do środka · przeciągnij, aby obrócić',
+    hintTouch: 'Dotknij synagogi, by zajrzeć do środka · przeciągnij, aby obrócić',
+    lensTip: 'Najedź kursorem – zajrzyj do środka',
+    lensTipTouch: 'Dotknij – zajrzyj do środka',
     bar: {
       label: 'Etapy intro',
       cloud: 'Chmura punktów',
@@ -123,7 +126,10 @@ const TEXTS = {
     mesh: (v, f) => `${v} vertices · ${f} faces`,
     loading: 'Loading points…',
     error: 'The intro could not be loaded.',
-    hint: 'Drag to rotate',
+    hint: 'Hover over the synagogue to look inside · drag to rotate',
+    hintTouch: 'Touch the synagogue to look inside · drag to rotate',
+    lensTip: 'Move the cursor here – look inside',
+    lensTipTouch: 'Touch here – look inside',
     bar: {
       label: 'Intro chapters',
       cloud: 'Point cloud',
@@ -173,7 +179,10 @@ const TEXTS = {
     mesh: (v, f) => `${v} Eckpunkte · ${f} Flächen`,
     loading: 'Punkte werden geladen…',
     error: 'Das Intro konnte nicht geladen werden.',
-    hint: 'Ziehen zum Drehen',
+    hint: 'Mit der Maus über die Synagoge fahren, um hineinzusehen · ziehen zum Drehen',
+    hintTouch: 'Die Synagoge berühren, um hineinzusehen · ziehen zum Drehen',
+    lensTip: 'Mit der Maus hierher – hineinsehen',
+    lensTipTouch: 'Hier berühren – hineinsehen',
     bar: {
       label: 'Kapitel des Intros',
       cloud: 'Punktwolke',
@@ -273,7 +282,15 @@ ui.enter.textContent = t.enter;
 ui.skip.textContent = t.skip;
 ui.replay.textContent = t.replay;
 ui.replay.title = t.replay;
-ui.hint.textContent = t.hint;
+// A mouse or a finger: what the hints ask for.
+const canHover = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? true;
+ui.hint.textContent = canHover ? t.hint : t.hintTouch;
+// The x-ray lens's tip, next to the lens while it shows itself.
+ui.lensTip = document.createElement('p');
+ui.lensTip.className = 'intro-lens-tip';
+ui.lensTip.setAttribute('aria-hidden', 'true');
+ui.lensTip.append(Object.assign(document.createElement('span'), { textContent: canHover ? t.lensTip : t.lensTipTouch }));
+ui.root.append(ui.lensTip);
 ui.status.textContent = t.loading;
 ui.enter.href = nextUrl;
 ui.skip.href = nextUrl;
@@ -438,6 +455,20 @@ const pointer = new Vector2(10, 10);
 let hover = 0;
 let hoverTarget = 0;
 let userTouched = false;
+// The x-ray lens: where the pointer is (ndc), whether it is on the canvas
+// (a mouse over it, a finger down), when it last moved, and whether the
+// lens has been used (then it stops showing itself).
+const lensPointer = new Vector2();
+let lensPointerOn = false;
+let lensMovedAt = -Infinity;
+let lensUsedFor = 0;
+let lensOn = 0;
+const lensCentre = new Vector3();
+const lensRay = { origin: new Vector3(), dir: new Vector3() };
+const LENS_RADIUS = 0.3;
+function hideHint() {
+  if (userTouched && lensUsedFor > 0.6) ui.hint.classList.add('is-gone');
+}
 
 if (renderer) {
   renderer.setClearColor(new Color(0x05070d), 1);
@@ -457,7 +488,7 @@ if (renderer) {
   controls.target.set(0, 0.12, 0);
   controls.addEventListener('start', () => {
     userTouched = true;
-    ui.hint.classList.add('is-gone');
+    hideHint();
   });
   resize();
   window.addEventListener('resize', resize);
@@ -468,8 +499,28 @@ if (renderer) {
       -((event.clientY - rect.top) / rect.height) * 2 + 1,
     );
     hoverTarget = event.pointerType === 'mouse' ? 1 : 0;
+    lensPointer.copy(pointer);
+    if (event.pointerType === 'mouse' || event.buttons) {
+      lensPointerOn = true;
+      lensMovedAt = now();
+    }
   });
-  ui.canvas.addEventListener('pointerleave', () => { hoverTarget = 0; });
+  ui.canvas.addEventListener('pointerdown', (event) => {
+    const rect = ui.canvas.getBoundingClientRect();
+    lensPointer.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    lensPointerOn = true;
+    lensMovedAt = now();
+  });
+  const lensOff = (event) => { if (event.pointerType !== 'mouse') lensPointerOn = false; };
+  ui.canvas.addEventListener('pointerup', lensOff);
+  ui.canvas.addEventListener('pointercancel', lensOff);
+  ui.canvas.addEventListener('pointerleave', () => {
+    hoverTarget = 0;
+    lensPointerOn = false;
+  });
   load().catch((error) => {
     console.error('[intro]', error);
     ui.status.textContent = t.error;
@@ -1044,6 +1095,58 @@ function timeline(time) {
   return time - started;
 }
 
+const dt0 = (time) => Math.min(0.1, Math.max(0, time - lastTime));
+
+// The x-ray lens over the standing model: it follows the pointer; until it
+// has been used it shows itself, wandering over the front with a tip next
+// to it (not while the tour's chapters play).
+function updateLens(stage, time, dt, exit) {
+  const uniforms = meshReveal?.uniforms;
+  if (!uniforms) return;
+  const standing = meshReveal.faces() >= 1 && exit <= 0 && rewindStart < 0;
+  const tourTime = stage - TOUR_START;
+  const cast = (x, y) => {
+    lensRay.origin.copy(camera.position);
+    lensRay.dir.set(x, y, 0.5).unproject(camera).sub(lensRay.origin).normalize();
+    return meshReveal.raycast(lensRay.origin, lensRay.dir);
+  };
+  // The pointer's own lens, when it is over the model.
+  let distance = standing && lensPointerOn ? cast(lensPointer.x, lensPointer.y) : -1;
+  const user = distance > 0;
+  // Otherwise, until used, the lens shows itself - once the pointer has
+  // been still a moment, outside the chapters.
+  const demo = !user && standing && lensUsedFor <= 0.6 && time - lensMovedAt > 1.2
+    && (tourTime < 0 || tourTime > TOUR_LENGTH);
+  if (demo) {
+    distance = reducedMotion ? cast(0.1, 0.02)
+      : cast(0.2 * Math.sin(time * 0.42), 0.02 + 0.12 * Math.sin(time * 0.29 + 1));
+  }
+  const hit = distance > 0;
+  if (hit) {
+    const target = lensRay.dir.multiplyScalar(distance + LENS_RADIUS * 0.3).add(lensRay.origin);
+    if (lensOn < 0.05) lensCentre.copy(target);
+    else lensCentre.lerp(target, Math.min(1, dt * 18));
+    if (user) {
+      lensUsedFor += dt;
+      hideHint();
+    }
+  }
+  lensOn += ((hit ? 1 : 0) - lensOn) * Math.min(1, dt * 7);
+  if (lensOn < 0.005) lensOn = 0;
+  uniforms.uLens.value.set(lensCentre.x, lensCentre.y, lensCentre.z, LENS_RADIUS);
+  uniforms.uLensOn.value = lensOn;
+  // The tip, beside the lens while it shows itself.
+  const tip = demo && hit && lensUsedFor <= 0.6 ? lensOn : 0;
+  ui.lensTip.style.opacity = tip.toFixed(3);
+  if (tip > 0) {
+    ray.ndc.copy(lensCentre).project(camera);
+    const rect = ui.canvas.getBoundingClientRect();
+    const x = rect.left + (ray.ndc.x * 0.5 + 0.5) * rect.width;
+    const y = rect.top + (-ray.ndc.y * 0.5 + 0.5) * rect.height;
+    ui.lensTip.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  }
+}
+
 function frame() {
   const time = now();
   if (rewindStart >= 0 && time - rewindStart >= REWIND) {
@@ -1074,6 +1177,8 @@ function frame() {
     if (tour) tourCue = tour.update(stage - TOUR_START, time, exit);
     uniforms.uFaces.value = meshReveal.faces();
   }
+
+  updateLens(stage, time, dt0(time), exit);
 
   // The pointer's ray, for pushing points aside.
   hover += (hoverTarget - hover) * 0.08;

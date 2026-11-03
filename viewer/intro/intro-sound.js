@@ -14,7 +14,7 @@
 //   edges are drawn, panels locking (a low thunk under a glass tick) as the
 //   faces form, and a last locking chord;
 // - the feature tour: a quick rising sweep and a ping for each chapter, a
-//   glass tick between its steps;
+//   glass tick between its steps, a soft glass chord when it is over;
 // - "Assemble again": a reversed sweep down; "Enter the viewer": a rising
 //   whoosh into a last blast.
 //
@@ -477,10 +477,16 @@ export function createIntroSound() {
     setEnabled,
     update,
     // The feature tour (feature-tour.js): a rising sweep and a ping for a new
-    // chapter, a glass tick for a step within one.
+    // chapter, a glass tick for a step within one, and at the end a soft,
+    // slowly fading glass chord.
     cue(kind) {
       if (!running()) return;
-      if (kind === 'chapter') {
+      if (kind === 'end') {
+        glass(523.25, 0.03, -0.35, 3.2);
+        glass(659.25, 0.024, 0.35, 3.2, 0.12);
+        glass(783.99, 0.02, -0.1, 3.4, 0.24);
+        glass(1046.5, 0.012, 0.15, 3.6, 0.38);
+      } else if (kind === 'chapter') {
         fwip(0.05);
         glass(2093, 0.04, 0, 0.9, 0.08);
         click(0.15, 1.2, 0.08);

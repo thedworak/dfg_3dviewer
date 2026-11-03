@@ -184,6 +184,45 @@ html, body {
 .intro-hint.is-gone,
 #intro.is-assembled .intro-hint.is-gone { opacity: 0; }
 
+/* Beside the x-ray lens while it shows itself (intro.js updateLens): placed
+   at the lens's centre, then moved up and to the right of it. */
+.intro-lens-tip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  pointer-events: none;
+  opacity: 0;
+  white-space: nowrap;
+}
+.intro-lens-tip::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 46px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(156, 200, 255, 0.8));
+  transform-origin: 0 0;
+  transform: translate(calc(var(--intro-lens-gap) * 0.55), calc(var(--intro-lens-gap) * -0.45)) rotate(-38deg);
+}
+.intro-lens-tip span {
+  display: inline-block;
+  transform: translate(calc(var(--intro-lens-gap) + 22px), calc(var(--intro-lens-gap) * -1 - 26px));
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(156, 200, 255, 0.45);
+  background: rgba(5, 7, 13, 0.6);
+  color: #d6e6ff;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 18px rgba(110, 170, 255, 0.3);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.intro-lens-tip { --intro-lens-gap: 34px; }
+
 .intro-replay,
 .intro-skip {
   pointer-events: auto;

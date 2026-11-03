@@ -2,7 +2,7 @@
 // express tour of what the viewer does with it, each chapter a few seconds
 // with its name under the title:
 //
-//   1. sections      - a plane sweeps through the building, the cut glows
+//   1. sections      - a plane sweeps in from the front, the cut glows
 //   2. annotations   - pins with labels, and a height measurement
 //   3. shading       - wipes through textures, PBR (glossy), raking light
 //   4. sun study     - the sun's real path over Wołpa on midsummer day, the
@@ -42,16 +42,19 @@ export const CHAPTERS = [
   { key: 'annotations', from: 3.0, to: 6.4 },
   { key: 'shading', from: 6.4, to: 10.0 },
   { key: 'sun', from: 10.0, to: 14.8 },
-  { key: 'seasons', from: 14.8, to: 19.8 },
-  { key: 'time', from: 19.8, to: 27.2 },
+  { key: 'seasons', from: 14.8, to: 25.8 },
+  { key: 'time', from: 25.8, to: 38.5 },
 ];
-export const TOUR_LENGTH = 27.8;
+export const TOUR_LENGTH = 39.1;
 const START = Object.fromEntries(CHAPTERS.map((chapter) => [chapter.key, chapter.from]));
 
 // Shading: [from, to] modes, each step a wipe (see mesh-reveal.js introShade).
 const SHADING_STEPS = [[0, 1], [1, 2], [2, 0]];
 const SHADING_KEYS = ['textures', 'pbr', 'raking'];
 const SHADING_LENGTH = 3.6;
+// Seasons: each this long, then back to the textures' own colours.
+const SEASON_LENGTH = 2.65;
+const SEASONS_END = 4 * SEASON_LENGTH;
 
 // The sun study: Wołpa (Voŭpa, Belarus), midsummer day, local time (UTC+3).
 // The model's north is taken to be -Z (the viewer's default, AIM3DViewer
@@ -66,10 +69,16 @@ const SEASON_KEYS = ['spring', 'summer', 'autumn', 'winter'];
 
 // Time travel: the 4D model's stages (viewer/intro/time/time.json).
 const TIME_URL = 'assets/intro/time/';
-// Back from today to the first stage, then each stage in turn.
-const TIME_REWIND = 0.7;
-const TIME_STEP = 0.4;
-const TIME_SWEEP = 0.3;
+// Back from today to the first stage, then each stage in turn: the first
+// steps slow, each next one quicker, as on a shrinking time scale; most of
+// each step is the change itself.
+const TIME_REWIND = 1.4;
+const TIME_FIRST_STEP = 1.6;
+const TIME_STEP_RATIO = 0.86;
+const TIME_SWEEP = 0.75;
+// When step i (stage i - 1 to stage i, i >= 1) starts, seconds after the rewind.
+const timeStepStart = (i) => TIME_FIRST_STEP * (1 - TIME_STEP_RATIO ** (i - 1)) / (1 - TIME_STEP_RATIO);
+const timeStepLength = (i) => TIME_FIRST_STEP * TIME_STEP_RATIO ** (i - 1);
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const smooth = (x) => { const t = clamp01(x); return t * t * (3 - 2 * t); };
@@ -169,8 +178,8 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     side: DoubleSide,
     blending: AdditiveBlending,
   });
-  const plane = new Mesh(new PlaneGeometry(3.0, 1.95), planeMaterial);
-  plane.rotation.y = Math.PI / 2; // facing x
+  // Facing +z, the front: the camera looks at it nearly head-on.
+  const plane = new Mesh(new PlaneGeometry(3.6, 1.95), planeMaterial);
   plane.renderOrder = 5;
   group.add(plane);
 
@@ -505,6 +514,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
      * @param {number} time  the clock, for things that only move
      * @param {number} exit  0..1 while leaving for the viewer
      * @returns {string} a cue for the sound when something new starts
+     *   ('chapter', 'step'), or 'end' once the tour is over
      */
     update(tour, time, exit) {
       const active = tour > 0 && tour < TOUR_LENGTH && exit <= 0;
@@ -513,13 +523,14 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       dotUniforms.uTime.value = time;
       flakeUniforms.uTime.value = time;
 
-      // 1. Section: in from the right, through, and back out.
+      // 1. Section: in from the front (the camera's side, so the cut faces
+      // it and the inside shows), through, and back out.
       const sectionOn = window01(tour, 0, 3.0, 0.35);
       const sweep = smooth(tour / 1.6) - smooth((tour - 1.9) / 1.0);
       const cut = 1.75 - sweep * 1.95;
-      u.uClip.value.set(-1, 0, 0, cut);
+      u.uClip.value.set(0, 0, -1, cut);
       u.uClipActive.value = sectionOn;
-      plane.position.set(cut, 0.3, 0);
+      plane.position.set(0, 0.3, cut);
       planeMaterial.uniforms.uAlpha.value = sectionOn;
       plane.visible = sectionOn > 0.001;
 
@@ -592,16 +603,16 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       disc.visible = discUniforms.uAlpha.value > 0.001;
       for (const cardinal of cardinals) place(cardinal.label, cardinal.at, sunOn, 0, true);
 
-      // 5. Seasons: a little over a second each; snow settles in winter.
+      // 5. Seasons: a few seconds each; snow settles in winter.
       const seasonTime = tour - START.seasons;
       let seasonKey = '';
       const grade = [1, 1, 1];
       let snow = 0;
-      if (seasonTime > 0 && seasonTime < 5.0) {
-        const index = Math.min(3, Math.floor(seasonTime / 1.15));
+      if (seasonTime > 0 && seasonTime < SEASONS_END + 0.4) {
+        const index = Math.min(3, Math.floor(seasonTime / SEASON_LENGTH));
         seasonKey = SEASON_KEYS[index];
         const season = SEASONS[seasonKey];
-        const local = seasonTime - index * 1.15;
+        const local = seasonTime - index * SEASON_LENGTH;
         const blend = smooth(local / 0.3);
         const previous = index > 0 ? SEASONS[SEASON_KEYS[index - 1]] : { grade: [1, 1, 1] };
         for (let k = 0; k < 3; k++) grade[k] = previous.grade[k] + (season.grade[k] - previous.grade[k]) * blend;
@@ -612,11 +623,11 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
         flakeUniforms.uColorB.value.setHex(season.b);
         flakeUniforms.uFlat.value = season.flat;
         // Each season's weather fades in and out with it.
-        const inSeason = smooth(local / 0.25) * (1 - smooth((local - 0.9) / 0.25));
-        flakeUniforms.uAlpha.value = season.alpha * (index === 3 ? smooth(local / 0.25) * (1 - smooth((seasonTime - 4.6) / 0.4)) : inSeason);
-        if (index === 3) snow = smooth(local / 0.8) * (1 - smooth((seasonTime - 4.6) / 0.4));
+        const inSeason = smooth(local / 0.25) * (1 - smooth((local - SEASON_LENGTH + 0.25) / 0.25));
+        flakeUniforms.uAlpha.value = season.alpha * (index === 3 ? smooth(local / 0.25) * (1 - smooth((seasonTime - SEASONS_END) / 0.4)) : inSeason);
+        if (index === 3) snow = smooth(local / 1.2) * (1 - smooth((seasonTime - SEASONS_END) / 0.4));
         // Back to the textures' own colours at the end.
-        const out = smooth((seasonTime - 4.6) / 0.4);
+        const out = smooth((seasonTime - SEASONS_END) / 0.4);
         for (let k = 0; k < 3; k++) grade[k] += (1 - grade[k]) * out;
       } else {
         flakeUniforms.uAlpha.value = 0;
@@ -631,7 +642,6 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       let timeStep = '';
       if (timeTravel && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time && exit <= 0) {
         const { stages } = timeTravel;
-        const sweep = (local) => clamp01(local / TIME_SWEEP);
         const glowOf = (f) => Math.sin(Math.PI * clamp01(f)) * 1.4;
         if (timeTime < TIME_REWIND) {
           const f = smooth(timeTime / TIME_REWIND);
@@ -639,9 +649,10 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           timeSub = `${stages.at(-1).year} → ${stages[0].year}`;
           timeStep = 'rewind';
         } else {
-          const index = Math.min(stages.length - 1, Math.floor((timeTime - TIME_REWIND) / TIME_STEP) + 1);
-          const local = timeTime - TIME_REWIND - (index - 1) * TIME_STEP;
-          const f = index >= stages.length ? 1 : sweep(local);
+          const after = timeTime - TIME_REWIND;
+          let index = 1;
+          while (index < stages.length - 1 && after >= timeStepStart(index + 1)) index++;
+          const f = smooth((after - timeStepStart(index)) / (timeStepLength(index) * TIME_SWEEP));
           setTime(stages[index - 1], stages[index], f * 1.1 - 0.05, glowOf(f));
           const shown = stages[f > 0.5 ? index : index - 1];
           timeSub = timeLabel(shown);
@@ -661,7 +672,13 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           measureLabel.style.opacity = 0;
           for (const cardinal of cardinals) cardinal.label.style.opacity = 0;
         }
-        lastCue = '';
+        // Everything done: once, right after the last chapter.
+        const finished = exit <= 0 && tour >= CHAPTERS.at(-1).to && tour < TOUR_LENGTH + 1;
+        if (finished && lastCue.startsWith('time:')) {
+          lastCue = 'end';
+          return 'end';
+        }
+        if (!finished) lastCue = '';
         return '';
       }
       const number = CHAPTERS.indexOf(current) + 1;
@@ -680,7 +697,8 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       if (cue !== lastCue) {
         const kind = lastCue.split(':')[0] === current.key ? 'step' : 'chapter';
         lastCue = cue;
-        return kind;
+        // Time travel's stages go by quietly.
+        return kind === 'step' && current.key === 'time' ? '' : kind;
       }
       return '';
     },

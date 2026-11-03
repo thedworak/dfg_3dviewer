@@ -125,10 +125,16 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     uTimeFront: { value: 0 },
     uTimeGlow: { value: 0 },
     uHeight: { value: new Vector2(0, 1) },
+    // The x-ray lens (intro.js): a sphere (centre, radius) at the pointer;
+    // what is in it and in front of it is cut away, what is seen through it
+    // is drawn as an x-ray of the mesh.
+    uLens: { value: new Vector4(0, 0, 0, 0.3) },
+    uLensOn: { value: 0 },
   };
 
   faceUniforms.uHeight.value.set(minY, heightRange);
   const meshes = [];
+  const trianglePositions = [];
   // The materials by name, for the time travel's textures.
   const timeTargets = {};
   const vertexPositions = [];
@@ -188,6 +194,7 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
       vertexDelays.push(delayAt(positions[i * 3 + 1], 0.45));
     }
 
+    trianglePositions.push(position);
     const geometry = new BufferGeometry();
     geometry.setAttribute('position', new BufferAttribute(position, 3));
     geometry.setAttribute('normal', new BufferAttribute(normal, 3));
@@ -307,6 +314,8 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
   sun.shadow.normalBias = 0.02;
   group.add(hemisphere, sun);
 
+  const grid = createTriangleGrid(trianglePositions);
+
   return {
     group,
     meshes,
@@ -314,6 +323,9 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     hemisphere,
     uniforms: faceUniforms,
     timeTargets,
+    // The distance along a ray (intro space, dir normalized) to the first
+    // face it meets, or -1.
+    raycast: (origin, dir) => grid.raycast(origin, dir),
     // How far the faces are (0..1): the points give way to them.
     faces: () => faceUniforms.uFaces.value,
     // How far each part is (0..1), for the sound.
@@ -406,6 +418,8 @@ function revealMaterial(source, uniforms) {
         uniform vec2 uHeight;
         uniform sampler2D uMapNext;
         uniform float uTimeChange;
+        uniform vec4 uLens;
+        uniform float uLensOn;
         varying float vReveal;
         varying vec3 vBary;
         varying vec3 vTourPos;
@@ -444,7 +458,17 @@ function revealMaterial(source, uniforms) {
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
         if (vReveal <= 0.001 || uExit >= 0.999) discard;
         float sectionDistance = dot(vTourPos, uClip.xyz) + uClip.w;
-        if (uClipActive > 0.0 && sectionDistance < 0.0) discard;`)
+        if (uClipActive > 0.0 && sectionDistance < 0.0) discard;
+        // The x-ray lens: cut away the sphere and the cone from the camera
+        // to it, so its inside can always be seen.
+        float lensRadius = uLens.w * uLensOn;
+        vec3 lensRay = vTourPos - cameraPosition;
+        float lensFar = length(uLens.xyz - cameraPosition);
+        vec3 lensDir = (uLens.xyz - cameraPosition) / max(lensFar, 1e-4);
+        float lensAlong = dot(lensRay, lensDir);
+        float lensCone = length(lensRay - lensDir * lensAlong) / max(lensAlong, 1e-4) / max(lensRadius / lensFar, 1e-4);
+        float lensDistance = length(vTourPos - uLens.xyz);
+        if (uLensOn > 0.01 && (lensDistance < lensRadius || (lensCone < 1.0 && lensAlong < lensFar))) discard;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         float timeHeight = (vTourPos.y - uHeight.x) / uHeight.y;
         #ifdef USE_MAP
@@ -491,9 +515,127 @@ function revealMaterial(source, uniforms) {
               color = mix(color, vec3(0.42, 0.55, 0.7) * (0.85 + 0.15 * hatch), uClipActive * 0.9);
             }
           }
+          // Seen through the lens: the mesh in x-ray - dimmed, cold, its
+          // triangles' edges glowing; the lens's rim a ring of light.
+          if (uLensOn > 0.01) {
+            float inside = (1.0 - smoothstep(0.92, 1.0, lensCone)) * step(lensFar, lensAlong) * uLensOn;
+            float hatchX = step(0.5, fract((vTourPos.x - vTourPos.y + vTourPos.z) * 36.0));
+            vec3 xray = color * vec3(0.25, 0.35, 0.5) + vec3(0.02, 0.06, 0.14)
+              + vec3(0.35, 0.68, 1.0) * line * 1.3
+              + (gl_FrontFacing ? vec3(0.0) : vec3(0.05, 0.1, 0.18) * hatchX);
+            color = mix(color, xray, inside * 0.9);
+            float rim = exp(-abs(lensDistance - lensRadius) * 55.0)
+              + exp(-abs(lensCone - 1.0) * 18.0) * step(lensAlong, lensFar);
+            color += vec3(0.4, 0.72, 1.0) * min(rim, 1.0) * uLensOn * 1.2;
+          }
           gl_FragColor.rgb = color;
         }`);
   };
   material.customProgramCacheKey = () => 'intro-reveal';
   return material;
+}
+
+// A uniform grid over the model's triangles, for finding what the pointer
+// is over every frame (some 90 000 triangles: too many to test them all).
+function createTriangleGrid(chunks) {
+  let total = 0;
+  for (const chunk of chunks) total += chunk.length;
+  const tris = new Float32Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { tris.set(chunk, offset); offset += chunk.length; }
+  const count = tris.length / 9;
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < tris.length; i += 3) {
+    for (let k = 0; k < 3; k++) {
+      if (tris[i + k] < min[k]) min[k] = tris[i + k];
+      if (tris[i + k] > max[k]) max[k] = tris[i + k];
+    }
+  }
+  const extent = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) || 1;
+  const cell = extent / 48;
+  const n = [0, 1, 2].map((k) => Math.max(1, Math.ceil((max[k] - min[k]) / cell)));
+  const cellOf = (value, k) => Math.min(n[k] - 1, Math.max(0, Math.floor((value - min[k]) / cell)));
+  // Each triangle in every cell its bounding box touches.
+  const counts = new Uint32Array(n[0] * n[1] * n[2] + 1);
+  const each = (t, visit) => {
+    const lo = [0, 1, 2].map((k) => cellOf(Math.min(tris[t * 9 + k], tris[t * 9 + 3 + k], tris[t * 9 + 6 + k]), k));
+    const hi = [0, 1, 2].map((k) => cellOf(Math.max(tris[t * 9 + k], tris[t * 9 + 3 + k], tris[t * 9 + 6 + k]), k));
+    for (let z = lo[2]; z <= hi[2]; z++)
+      for (let y = lo[1]; y <= hi[1]; y++)
+        for (let x = lo[0]; x <= hi[0]; x++) visit(x + n[0] * (y + n[1] * z));
+  };
+  for (let t = 0; t < count; t++) each(t, (c) => counts[c + 1]++);
+  for (let c = 1; c < counts.length; c++) counts[c] += counts[c - 1];
+  const items = new Uint32Array(counts[counts.length - 1]);
+  const fill = counts.slice(0, -1);
+  for (let t = 0; t < count; t++) each(t, (c) => { items[fill[c]++] = t; });
+  const tested = new Uint32Array(count);
+  let stamp = 0;
+
+  // Möller-Trumbore, both sides.
+  function hit(t, o, d) {
+    const i = t * 9;
+    const e1x = tris[i + 3] - tris[i], e1y = tris[i + 4] - tris[i + 1], e1z = tris[i + 5] - tris[i + 2];
+    const e2x = tris[i + 6] - tris[i], e2y = tris[i + 7] - tris[i + 1], e2z = tris[i + 8] - tris[i + 2];
+    const px = d.y * e2z - d.z * e2y, py = d.z * e2x - d.x * e2z, pz = d.x * e2y - d.y * e2x;
+    const det = e1x * px + e1y * py + e1z * pz;
+    if (Math.abs(det) < 1e-12) return -1;
+    const inv = 1 / det;
+    const sx = o.x - tris[i], sy = o.y - tris[i + 1], sz = o.z - tris[i + 2];
+    const u = (sx * px + sy * py + sz * pz) * inv;
+    if (u < 0 || u > 1) return -1;
+    const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x;
+    const v = (d.x * qx + d.y * qy + d.z * qz) * inv;
+    if (v < 0 || u + v > 1) return -1;
+    const dist = (e2x * qx + e2y * qy + e2z * qz) * inv;
+    return dist > 1e-5 ? dist : -1;
+  }
+
+  return {
+    raycast(o, d) {
+      const origin = [o.x, o.y, o.z];
+      const dir = [d.x, d.y, d.z];
+      // Into the grid's box.
+      let t0 = 0;
+      let t1 = Infinity;
+      for (let k = 0; k < 3; k++) {
+        if (Math.abs(dir[k]) < 1e-12) {
+          if (origin[k] < min[k] || origin[k] > max[k]) return -1;
+          continue;
+        }
+        let a = (min[k] - origin[k]) / dir[k];
+        let b = (max[k] - origin[k]) / dir[k];
+        if (a > b) [a, b] = [b, a];
+        t0 = Math.max(t0, a);
+        t1 = Math.min(t1, b);
+      }
+      if (t0 > t1) return -1;
+      // Then cell by cell along the ray (Amanatides & Woo).
+      stamp++;
+      const at = [0, 1, 2].map((k) => origin[k] + dir[k] * (t0 + 1e-6));
+      const c = [0, 1, 2].map((k) => cellOf(at[k], k));
+      const step = dir.map((v) => (v > 0 ? 1 : v < 0 ? -1 : 0));
+      const next = [0, 1, 2].map((k) => (step[k] === 0 ? Infinity
+        : (min[k] + (c[k] + (step[k] > 0 ? 1 : 0)) * cell - origin[k]) / dir[k]));
+      const delta = dir.map((v) => (v === 0 ? Infinity : cell / Math.abs(v)));
+      let best = Infinity;
+      for (;;) {
+        const index = c[0] + n[0] * (c[1] + n[1] * c[2]);
+        for (let j = counts[index]; j < counts[index + 1]; j++) {
+          const t = items[j];
+          if (tested[t] === stamp) continue;
+          tested[t] = stamp;
+          const dist = hit(t, o, d);
+          if (dist > 0 && dist < best) best = dist;
+        }
+        const k = next[0] < next[1] ? (next[0] < next[2] ? 0 : 2) : (next[1] < next[2] ? 1 : 2);
+        if (best <= next[k]) return best;
+        if (next[k] > t1) return best < Infinity ? best : -1;
+        c[k] += step[k];
+        if (c[k] < 0 || c[k] >= n[k]) return best < Infinity ? best : -1;
+        next[k] += delta[k];
+      }
+    },
+  };
 }
