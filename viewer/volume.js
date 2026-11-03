@@ -1,4 +1,5 @@
 import THREE from "./init.js";
+import { isLightBackground } from "./background-luminance.js";
 
 // Volumes: microscope image stacks (Leica .lif, converted by the worker -
 // worker/lif.py) drawn by ray marching through 3D textures. Loaded
@@ -297,6 +298,39 @@ function volumeTexture(data, x, y, z) {
   return texture;
 }
 
+// A channel left at the default white (a CT scan, image slices: files
+// without colours of their own) disappears into a light background - the
+// maximum intensity projection is white on light grey. Such a channel
+// (`auto`) is drawn in CONTRAST_COLOR while the background is light, white
+// while it is dark; a colour picked in the panel is used as it is.
+export const CONTRAST_COLOR = "#1f5fff";
+const isWhite = (color) => /^#?(fff|ffffff)$/i.test(String(color || "").trim());
+
+export function shownChannelColor(channel) {
+  if (!channel?.auto) return channel?.color || "#ffffff";
+  return isLightBackground() ? CONTRAST_COLOR : "#ffffff";
+}
+
+// The background is checked this often while a volume is shown: it changes
+// from settings, manifests and the GUI, through several paths (like the
+// logo, ui/brand-logo.js).
+const BACKGROUND_CHECK_MS = 1000;
+const backgroundWatchers = new Map();
+
+function watchBackground(root, mesh) {
+  if (backgroundWatchers.has(mesh)) return;
+  let light = isLightBackground();
+  backgroundWatchers.set(mesh, setInterval(() => {
+    const now = isLightBackground();
+    if (now === light) return;
+    light = now;
+    if (!mesh.userData.volume?.channels.some((channel) => channel.auto)) return;
+    applyVolumeSettings(root);
+    // The panel's colour fields show the colour drawn.
+    globalThis.window?.Viewer?.syncVolumePanel?.();
+  }, BACKGROUND_CHECK_MS));
+}
+
 // The display settings of a stack's channels, from the manifest: transmitted
 // light (a detector named "Trans ...") starts hidden, since it fills the
 // whole box; the window starts at half the channel's threshold, above the
@@ -307,6 +341,7 @@ function channelSettings(series) {
       name: channel.name,
       on: !/^trans\b/i.test(channel.name),
       color: channel.color || "#ffffff",
+      auto: !channel.color || isWhite(channel.color),
       low: Math.min(0.5, (Number(channel.threshold) || 0) * 0.5),
       high: 1,
       window: "",
@@ -340,7 +375,7 @@ export function applyVolumeSettings(root) {
   const uniforms = mesh.material.uniforms;
   uniforms.uMode.value = Math.max(0, VOLUME_MODES.indexOf(state.mode));
   state.channels.forEach((channel, i) => {
-    uniforms.uColor.value[i].set(channel.color);
+    uniforms.uColor.value[i].set(shownChannelColor(channel));
     uniforms.uWindow.value[i].set(channel.low, Math.max(channel.high, channel.low + 0.004));
     uniforms.uOn.value[i] = channel.on ? 1 : 0;
   });
@@ -423,6 +458,7 @@ export async function loadVolumeSeries(root, index, { onProgress } = {}) {
   // "µm", or "px" when the file does not say (editor/model-units.js).
   root.userData.volumeSeries = { name: series.name, dims: series.dims, voxelSize: series.voxelSize, unit: series.unit || "µm" };
   applyVolumeSettings(root);
+  watchBackground(root, mesh);
   return series;
 }
 
@@ -492,6 +528,8 @@ export async function buildDirectVolumeModel(extension, source, { name = "Volume
 }
 
 export function disposeVolume(mesh) {
+  clearInterval(backgroundWatchers.get(mesh));
+  backgroundWatchers.delete(mesh);
   (textures.get(mesh) || []).forEach((texture) => texture.dispose());
   textures.delete(mesh);
   directReaders.delete(mesh);

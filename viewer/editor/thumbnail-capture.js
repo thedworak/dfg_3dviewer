@@ -4,7 +4,7 @@ import { getModuleAssetBasePath } from "../loaders.js";
 import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
 import { renderFrame } from "../rendering.js";
 import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
-import { exampleGallerySet, forgetStoredExampleThumbnails, isBundledExample, renderManifestGalleryImages } from "../ui/thumbnail-gallery.js";
+import { exampleGallerySet, forgetStoredExampleThumbnails, renderManifestGalleryImages, shownExampleFile } from "../ui/thumbnail-gallery.js";
 import { toastHelper } from "../viewer-utils.js";
 import { workerJobId } from "../worker-model.js";
 
@@ -235,7 +235,8 @@ function thumbnailTarget(viewer) {
   if (name) return { kind: "manifest", name };
   const jobId = workerJobId(core.fileObject.path);
   if (jobId) return { kind: "job", jobId };
-  const set = isBundledExample() ? exampleGallerySet() : null;
+  const example = shownExampleFile(viewer);
+  const set = example ? exampleGallerySet(example) : null;
   return set ? { kind: "example", set } : null;
 }
 
@@ -255,16 +256,27 @@ let accessCheck = 0;
 // by editor-toolbar.js updateEditorToolbarState): a manifest's and a bundled
 // example model's thumbnails by admins, a model's by its owner or an admin (or anyone on a worker
 // without accounts), Drupal's by whom Drupal lets in; never by default.
-// Called when a model is shown and when the account changes.
+// Called when a model is shown and when the account changes. Why they
+// cannot (viewer.thumbnailAccessReason, an i18n key under gui.) is shown
+// with the disabled buttons.
 export async function refreshThumbnailAccess(viewer) {
   const check = ++accessCheck;
   const target = thumbnailTarget(viewer);
   let allowed = false;
+  let reason = null;
   if (target?.kind === "drupal") allowed = true;
-  else if (target?.kind === "manifest" || target?.kind === "example") allowed = viewer.isAdminUser?.() === true;
-  else if (target?.kind === "job") allowed = (await fetchJob(target.jobId))?.canDelete === true;
+  else if (target?.kind === "manifest" || target?.kind === "example") {
+    allowed = viewer.isAdminUser?.() === true;
+    reason = "thumbnailsReasonAdmin";
+  } else if (target?.kind === "job") {
+    allowed = (await fetchJob(target.jobId))?.canDelete === true;
+    reason = "thumbnailsReasonOwner";
+  } else {
+    reason = "thumbnailsReasonUpload";
+  }
   if (check !== accessCheck) return;
   viewer.thumbnailAccess = allowed;
+  viewer.thumbnailAccessReason = allowed ? null : reason;
   viewer.updateEditorToolbarState?.();
   viewer.syncPublishSteps?.();
 }

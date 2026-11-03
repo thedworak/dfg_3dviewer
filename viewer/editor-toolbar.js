@@ -2649,6 +2649,28 @@ export function updateToolbarGroups() {
   });
 }
 
+// A disabled tool's reason (`reason`, "" for none): after its name in the
+// tooltip (title) and the accessible description, and as a line of its own
+// (.viewer-editor-tool_reason, shown where the tools have names).
+function setDisabledReason(button, reason) {
+  const label = button.getAttribute("aria-label") || "";
+  button.setAttribute("title", reason ? `${label} - ${reason}` : label);
+  let line = button.querySelector(".viewer-editor-tool_reason");
+  if (!reason) {
+    line?.remove();
+    button.removeAttribute("aria-description");
+    return;
+  }
+  if (!line) {
+    line = document.createElement("span");
+    line.className = "viewer-editor-tool_reason";
+    line.setAttribute("aria-hidden", "true");
+    button.appendChild(line);
+  }
+  line.textContent = reason;
+  button.setAttribute("aria-description", reason);
+}
+
 export function updateEditorToolbarState(viewer) {
   if (!viewer.editorToolbarButtons) return;
 
@@ -2719,8 +2741,16 @@ export function updateEditorToolbarState(viewer) {
   // The thumbnails only for who may change them, none until that is known
   // (editor/thumbnail-capture.js refreshThumbnailAccess).
   const thumbnailsAllowed = viewer.thumbnailAccess === true;
+  // Why not, with the disabled buttons: in their tooltip, and under their
+  // name where the tools are rows with names (menus, the action menu).
+  const thumbnailsReason = !thumbnailsAllowed && viewer.thumbnailAccessReason
+    ? t(`gui.${viewer.thumbnailAccessReason}`, viewer.thumbnailAccessReason)
+    : "";
   ["preview", "generateThumbnails"].forEach((key) => {
-    if (viewer.editorToolbarButtons[key]) viewer.editorToolbarButtons[key].disabled = !thumbnailsAllowed;
+    const button = viewer.editorToolbarButtons[key];
+    if (!button) return;
+    button.disabled = !thumbnailsAllowed;
+    setDisabledReason(button, thumbnailsReason);
   });
   core.i18nGui?.renderPreviewController?.enable(thumbnailsAllowed);
   core.i18nGui?.generateThumbnailsController?.enable(thumbnailsAllowed);

@@ -203,6 +203,7 @@ export function attachVolumePanel(Viewer) {
       ui.body.replaceChildren();
       // [label element, () => text] pairs, refreshed by syncVolumePanel().
       ui.labels = [];
+      ui.colors = [];
 
       const row = (text, control, parent = ui.body) => {
         const element = document.createElement("label");
@@ -262,8 +263,14 @@ export function attachVolumePanel(Viewer) {
         name.title = channel.name;
         const color = document.createElement("input");
         color.type = "color";
-        color.value = channel.color;
-        color.addEventListener("input", () => Viewer.updateVolumeSettings((s) => { s.channels[index].color = color.value; }));
+        // The colour drawn: a default white one follows the background
+        // (volume.js shownChannelColor) until a colour is picked here.
+        color.value = state.api.shownChannelColor(channel);
+        color.addEventListener("input", () => Viewer.updateVolumeSettings((s) => {
+          s.channels[index].color = color.value;
+          s.channels[index].auto = false;
+        }));
+        ui.colors.push([color, channel]);
         head.append(on, name, color);
         ui.labels.push([on, () => t("volume.channelShown", "Show channel")]);
         ui.labels.push([color, () => t("volume.channelColor", "Channel colour")]);
@@ -418,6 +425,9 @@ export function attachVolumePanel(Viewer) {
       ui.labels.forEach(([element, text]) => {
         if (element instanceof HTMLInputElement) element.setAttribute("aria-label", text());
         else element.textContent = text();
+      });
+      (ui.colors || []).forEach(([input, channel]) => {
+        if (channel.auto && document.activeElement !== input) input.value = state.api.shownChannelColor(channel);
       });
     },
   });

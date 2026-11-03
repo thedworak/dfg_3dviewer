@@ -58,7 +58,6 @@ class ExamplesSection {
     element.innerHTML = `
       <div class="exadmin-section-header">
         <h2></h2>
-        <button type="button" class="exadmin-examples-recheck"></button>
       </div>
       <p class="exadmin-reports-hint"></p>
       <p class="upload-panel-status" role="status" aria-live="polite"></p>
@@ -70,9 +69,6 @@ class ExamplesSection {
       "exadmin.examplesHint",
       "Open an example in the viewer, set the view you like, then use \"Generate thumbnails\" in the editor toolbar. The renders are kept on the server and shown in the gallery before the ones bundled with the viewer."
     );
-    const recheck = element.querySelector(".exadmin-examples-recheck");
-    recheck.textContent = t("exadmin.examplesRecheck", "Check again");
-    recheck.addEventListener("click", () => this.load());
     this.status = element.querySelector(".upload-panel-status");
     this.list = element.querySelector(".exadmin-examples-list");
   }

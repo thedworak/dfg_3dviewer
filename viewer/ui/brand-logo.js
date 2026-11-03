@@ -1,5 +1,6 @@
 import { core } from "../core.js";
 import { getModuleAssetBasePath } from "../loaders.js";
+import { DARK_LUMINANCE, backgroundLuminance } from "../background-luminance.js";
 
 // The ExPlora4D logo at the top centre of the viewer, in every build and
 // mode. The images are in assets/img/logo (viewer/img/logo, copied by
@@ -12,38 +13,9 @@ import { getModuleAssetBasePath } from "../loaders.js";
 // How often the background is checked: it changes from settings, manifests
 // and the GUI, through several paths.
 const BACKGROUND_CHECK_MS = 1000;
-// Relative luminance below which the background counts as dark.
-const DARK_LUMINANCE = 0.4;
 // Touch screens: how long the logo stays faded after the last finger
 // leaves the model (a mouse fades it on hover instead - main.css).
 const TOUCH_FADE_HOLD_MS = 1500;
-
-const luminance = (r, g, b) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-
-// Average luminance of the CSS colours in `value` (a colour or a gradient,
-// as getComputedStyle gives them: rgb()/rgba()), transparent ones skipped.
-function cssLuminance(value) {
-  const values = [];
-  String(value || "").replace(/rgba?\(([^)]+)\)/g, (_, channels) => {
-    const [r, g, b, a = 1] = channels.split(/[\s,/]+/).filter(Boolean).map(Number);
-    if (a > 0) values.push(luminance(r, g, b));
-    return "";
-  });
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-}
-
-// Luminance of what is behind the model: the scene's own background colour,
-// else the canvas's CSS background (the gradient by default).
-function backgroundLuminance() {
-  const background = core.scene?.background;
-  if (background?.isColor) {
-    return luminance(background.r * 255, background.g * 255, background.b * 255);
-  }
-  const canvas = core.mainCanvas || document.getElementById("MainCanvas");
-  if (!canvas) return null;
-  const style = getComputedStyle(canvas);
-  return cssLuminance(style.backgroundImage) ?? cssLuminance(style.backgroundColor);
-}
 
 function createLogoImage(src, variant, alt) {
   const image = document.createElement("img");

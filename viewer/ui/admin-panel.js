@@ -1,11 +1,17 @@
 import { t } from "../i18n-utils.js";
-import { remoteAssetUrl } from "../remote.js";
+import { isAppBuild, remoteAssetUrl } from "../remote.js";
 
 // The administration (users, plans, limits) is a page of its own,
-// /exadmin/ (viewer/exadmin/), served by the repository next to the viewer
-// (in the app: by the repository it is connected to). The account bar only
-// links to it, for admins.
-const ADMIN_PAGE_URL = "/exadmin/";
+// exadmin/ (viewer/exadmin/), which every build puts next to the viewer's
+// page - so on the web it is found from the page, wherever the viewer is
+// served: /exadmin/ at a host's root, /viewer/exadmin/ where the viewer
+// lives in a folder of a site. In the app: on the repository it is
+// connected to.
+// The account bar only links to it, for admins.
+function adminPageUrl() {
+  if (isAppBuild()) return remoteAssetUrl("/exadmin/");
+  return new URL("exadmin/", document.baseURI).href;
+}
 
 export function attachAdminPanel(Viewer) {
   Object.assign(Viewer, {
@@ -28,7 +34,7 @@ export function attachAdminPanel(Viewer) {
     openAdminPage(event) {
       event?.preventDefault?.();
       if (!this.isAdminUser()) return;
-      window.open(remoteAssetUrl(ADMIN_PAGE_URL), "_blank", "noopener");
+      window.open(adminPageUrl(), "_blank", "noopener");
     },
   });
 }

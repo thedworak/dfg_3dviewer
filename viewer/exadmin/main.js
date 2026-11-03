@@ -161,8 +161,28 @@ function renderSection() {
     if (section === active) link.setAttribute("aria-current", "page");
     page.nav.appendChild(link);
   });
+  page.nav.appendChild(reloadButton());
   page.main.textContent = "";
   active.mount(page.main, { me });
+}
+
+// Fetches the open section's values again (its mount() loads them), the
+// page itself stays: no reload, no lost place in the navigation.
+const RELOAD_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function reloadButton() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "exadmin-reload";
+  button.innerHTML = RELOAD_ICON;
+  button.title = t("exadmin.reload", "Refresh");
+  button.setAttribute("aria-label", button.title);
+  button.addEventListener("click", () => {
+    renderSection();
+    // The new button turns once: the values are on their way.
+    page.nav.querySelector(".exadmin-reload")?.classList.add("is-spinning");
+  });
+  return button;
 }
 
 // What the page shows: who is signed in decides between the sections, the

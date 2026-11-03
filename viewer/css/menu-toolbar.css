@@ -1043,3 +1043,17 @@
     animation: none;
   }
 }
+
+/* A disabled tool's reason under its name (editor-toolbar.js
+   setDisabledReason). */
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool > .viewer-editor-tool_reason {
+  display: block;
+  order: 2;
+  flex: 1 0 100%;
+  padding-left: 34px;
+  margin-top: -4px;
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: normal;
+  opacity: 0.75;
+}

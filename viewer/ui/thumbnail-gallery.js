@@ -3,6 +3,7 @@ import { isValidUrl } from "../utils.js";
 import { t } from "../i18n-utils.js";
 import { GALLERY_IMAGE_EXT, GENERIC_GALLERY_IMAGE_COUNT, getGenericGalleryImageUrl } from "./model-thumbnail.js";
 import { apiUrl, appRequestHeaders, hasRemote } from "../remote.js";
+import { modelBasename } from "../model-extension.js";
 
 const BUILD = typeof __BUILD__ !== "undefined" ? __BUILD__ : "";
 
@@ -144,6 +145,25 @@ export function isBundledExample(fileObject = core.fileObject) {
   }
 }
 
+// The bundled example on screen, as { path, filename, basename }, or null.
+// Its .zip examples (a DICOM series, TIFF slices...) are opened like a
+// dropped file (main.js openZipFromUrl), so core.fileObject no longer
+// names the example then - the URL it came from (Viewer.shownModelUrl)
+// still does.
+export function shownExampleFile(viewer = window.Viewer) {
+  if (isBundledExample(core.fileObject)) return core.fileObject;
+  const source = viewer?.shownModelUrl;
+  if (typeof source !== "string" || !source || core.objectsConfig?.index > 0) return null;
+  try {
+    const url = new URL(source, document.baseURI);
+    const filename = decodeURIComponent(url.pathname.split("/").pop() || "");
+    const file = { path: new URL("./", url).href, filename, basename: modelBasename(filename) };
+    return filename && isBundledExample(file) ? file : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 // The examples' thumbnails an admin rendered in the viewer since
 // (editor/thumbnail-capture.js), kept by the worker: GET
 // /api/examples/thumbnails, asked once per page - { "<dir>/<basename>":
@@ -183,8 +203,9 @@ function galleryImage(src, basename, view) {
 // all of them alone, else those first in their place with the bundled renders
 // (when there are any) for the rest. [] when there are none.
 async function getStoredExampleGalleryImages(bundled) {
-  if (!isBundledExample()) return [];
-  const set = exampleGallerySet();
+  const example = shownExampleFile();
+  if (!example) return [];
+  const set = exampleGallerySet(example);
   const stored = set ? (await fetchStoredExampleThumbnails())[`${set.dir}/${set.basename}`] : null;
   const views = Array.isArray(stored?.views) ? stored.views : [];
   if (!views.length) return [];
@@ -197,7 +218,7 @@ async function getStoredExampleGalleryImages(bundled) {
 }
 
 function getPerModelGalleryImages() {
-  const set = exampleGallerySet();
+  const set = exampleGallerySet(shownExampleFile() || core.fileObject);
   if (!set) return [];
   const { dir, basename } = set;
 
