@@ -171,7 +171,9 @@ export function attachPerformance(Viewer) {
       const spinner = Viewer.spinnerElement;
       const loading = window.viewer?.fullModelLoaded !== true
         || Boolean(spinner && !spinner.hidden && !spinner.dataset.complete);
-      if (loading) {
+      // The intro in front (viewer/intro-overlay.js) shares the GPU: its
+      // frame rate is not the viewer's.
+      if (loading || document.getElementById("viewer-intro-overlay")) {
         state.settledAt = null;
         return true;
       }
