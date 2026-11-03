@@ -288,7 +288,9 @@ function copyBuildAssets() {
           'viewer/intro',
           path.join(outDistDir, 'assets/intro'),
           keepFiles('viewer/intro', ['intro.css', 'synagogue-points.bin'])
-        ),
+        // The time travel's textures and stages (scripts/build-intro-time.mjs),
+        // after: both make assets/intro/.
+        ).then(() => copyDirectory('viewer/intro/time', path.join(outDistDir, 'assets/intro/time'))),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples'),
           extension.examplesFilter && ((source) => extension.examplesFilter(source, buildContext)))
           .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),

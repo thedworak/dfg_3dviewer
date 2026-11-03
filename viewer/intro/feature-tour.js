@@ -4,11 +4,15 @@
 //
 //   1. sections      - a plane sweeps through the building, the cut glows
 //   2. annotations   - pins with labels, and a height measurement
-//   3. shading       - wipes through textures, toon, raking light
+//   3. shading       - wipes through textures, PBR (glossy), raking light
 //   4. sun study     - the sun's real path over Wołpa on midsummer day, the
 //                      sun itself and its track in the sky, a compass on the
 //                      ground, shadows; the camera holds still meanwhile
 //   5. seasons       - spring petals, summer, autumn leaves, winter snow
+//   6. time travel   - the 4D model's stages, 1730 to 1936: back to the
+//                      building's raw new timber, then year by year its
+//                      ageing and repairs, a warm front sweeping up the walls
+//                      at each stage (textures from scripts/build-intro-time.mjs)
 //
 // Like the rest of the intro, update(tour) is a function of the tour's time
 // only (it runs backwards for "Assemble again", ?at= holds it).
@@ -24,7 +28,9 @@ import {
   Mesh,
   PlaneGeometry,
   Points,
+  SRGBColorSpace,
   ShaderMaterial,
+  TextureLoader,
   Vector2,
   Vector3,
 } from 'three';
@@ -37,13 +43,14 @@ export const CHAPTERS = [
   { key: 'shading', from: 6.4, to: 10.0 },
   { key: 'sun', from: 10.0, to: 14.8 },
   { key: 'seasons', from: 14.8, to: 19.8 },
+  { key: 'time', from: 19.8, to: 27.2 },
 ];
-export const TOUR_LENGTH = 20.4;
+export const TOUR_LENGTH = 27.8;
 const START = Object.fromEntries(CHAPTERS.map((chapter) => [chapter.key, chapter.from]));
 
 // Shading: [from, to] modes, each step a wipe (see mesh-reveal.js introShade).
 const SHADING_STEPS = [[0, 1], [1, 2], [2, 0]];
-const SHADING_KEYS = ['textures', 'toon', 'raking'];
+const SHADING_KEYS = ['textures', 'pbr', 'raking'];
 const SHADING_LENGTH = 3.6;
 
 // The sun study: Wołpa (Voŭpa, Belarus), midsummer day, local time (UTC+3).
@@ -56,6 +63,13 @@ const SUN_RADIUS = 2.5;
 // The compass ring on the ground.
 const COMPASS_RADIUS = 2.15;
 const SEASON_KEYS = ['spring', 'summer', 'autumn', 'winter'];
+
+// Time travel: the 4D model's stages (viewer/intro/time/time.json).
+const TIME_URL = 'assets/intro/time/';
+// Back from today to the first stage, then each stage in turn.
+const TIME_REWIND = 0.7;
+const TIME_STEP = 0.4;
+const TIME_SWEEP = 0.3;
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const smooth = (x) => { const t = clamp01(x); return t * t * (3 - 2 * t); };
@@ -70,9 +84,66 @@ const window01 = (x, a, b, fade) => smooth((x - a) / fade) * (1 - smooth((x - b 
  *   toIntro     (x, y, z) in the model's units -> Vector3 in the intro's space
  *   heightLabel the measured height, formatted
  */
-export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel }) {
+export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang }) {
   const u = reveal.uniforms;
   const group = new Group();
+
+  // --- Time travel: the stages and their textures, loaded in the background --
+  let timeTravel = null; // { stages, parts: { part: { materials, fresh, mid } } }
+  (async () => {
+    const response = await fetch(`${TIME_URL}time.json`);
+    if (!response.ok) throw new Error(`${TIME_URL}time.json: HTTP ${response.status}`);
+    const data = await response.json();
+    const loader = new TextureLoader();
+    const parts = {};
+    for (const [part, materialName] of Object.entries(data.parts)) {
+      const materials = (reveal.timeTargets[materialName] || []).filter((m) => m.userData.originalMap);
+      if (!materials.length) continue;
+      const original = materials[0].userData.originalMap;
+      const load = async (variant) => {
+        const texture = await loader.loadAsync(`${TIME_URL}${part}_${variant}.webp`);
+        texture.flipY = false; // glTF's convention, as the model's own
+        texture.colorSpace = SRGBColorSpace;
+        texture.wrapS = original.wrapS;
+        texture.wrapT = original.wrapT;
+        texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+        return texture;
+      };
+      const [fresh, mid] = await Promise.all([load('fresh'), load('mid')]);
+      parts[part] = { materials, fresh, mid };
+    }
+    timeTravel = { stages: data.stages, parts };
+  })().catch((error) => console.warn('[intro] time travel:', error));
+
+  // A stage's texture for a part ("old": the model's own).
+  const textureFor = (part, variant) => (variant === 'fresh' ? part.fresh : variant === 'mid' ? part.mid : null);
+  // Today (the model as it is): every part old.
+  const TODAY = { year: null, parts: {} };
+  function setTime(from, to, front, glow) {
+    for (const [name, part] of Object.entries(timeTravel.parts)) {
+      const a = from.parts[name] || 'old';
+      const b = to.parts[name] || 'old';
+      for (const material of part.materials) {
+        material.map = textureFor(part, a) || material.userData.originalMap;
+        material.userData.time.uMapNext.value = textureFor(part, b) || material.userData.originalMap;
+        material.userData.time.uTimeChange.value = a === b ? 0 : 1;
+      }
+    }
+    u.uTimeActive.value = 1;
+    u.uTimeFront.value = front;
+    u.uTimeGlow.value = glow;
+  }
+  function resetTime() {
+    if (u.uTimeActive.value === 0 || !timeTravel) return;
+    for (const part of Object.values(timeTravel.parts)) {
+      for (const material of part.materials) {
+        material.map = material.userData.originalMap;
+        material.userData.time.uTimeChange.value = 0;
+      }
+    }
+    u.uTimeActive.value = 0;
+    u.uTimeGlow.value = 0;
+  }
   const tx = texts.tour;
 
   // --- Section plane ----------------------------------------------------------
@@ -401,6 +472,13 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
   }
 
   let lastCue = '';
+  // A stage's caption: the 4D model's own label (Polish), or the year with
+  // the page's translation of it.
+  function timeLabel(stage) {
+    if (lang === 'pl') return stage.label;
+    const note = tx.timeNotes?.[stage.year];
+    return note ? `${stage.year} – ${note}` : String(stage.year);
+  }
   const size = new Vector2();
 
   function hideAll() {
@@ -547,6 +625,33 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       u.uGrade.value.set(grade[0], grade[1], grade[2]);
       u.uSnow.value = snow;
 
+      // 6. Time travel: back to the first stage, then forward stage by stage.
+      const timeTime = tour - START.time;
+      let timeSub = '';
+      let timeStep = '';
+      if (timeTravel && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time && exit <= 0) {
+        const { stages } = timeTravel;
+        const sweep = (local) => clamp01(local / TIME_SWEEP);
+        const glowOf = (f) => Math.sin(Math.PI * clamp01(f)) * 1.4;
+        if (timeTime < TIME_REWIND) {
+          const f = smooth(timeTime / TIME_REWIND);
+          setTime(TODAY, stages[0], f * 1.1 - 0.05, glowOf(f));
+          timeSub = `${stages.at(-1).year} → ${stages[0].year}`;
+          timeStep = 'rewind';
+        } else {
+          const index = Math.min(stages.length - 1, Math.floor((timeTime - TIME_REWIND) / TIME_STEP) + 1);
+          const local = timeTime - TIME_REWIND - (index - 1) * TIME_STEP;
+          const f = index >= stages.length ? 1 : sweep(local);
+          setTime(stages[index - 1], stages[index], f * 1.1 - 0.05, glowOf(f));
+          const shown = stages[f > 0.5 ? index : index - 1];
+          timeSub = timeLabel(shown);
+          timeStep = String(shown.year);
+        }
+      } else {
+        resetTime();
+        if (!timeTravel && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time) timeSub = '1730 → 1936';
+      }
+
       // The chapter's title.
       const current = active ? CHAPTERS.find((c) => tour >= c.from && tour < c.to) : null;
       if (!current) {
@@ -565,6 +670,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       if (current.key === 'shading') { sub = tx.shading[shadingKey]; step = shadingKey; }
       else if (current.key === 'sun') { sub = sunSub; step = sunKey; }
       else if (current.key === 'seasons' && seasonKey) { sub = tx.seasons[seasonKey]; step = seasonKey; }
+      else if (current.key === 'time') { sub = timeSub; step = timeStep; }
       chapterIndex.textContent = `${number} / ${CHAPTERS.length}`;
       chapterTitle.textContent = tx.chapters[current.key];
       chapterSub.textContent = sub;

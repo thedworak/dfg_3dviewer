@@ -119,9 +119,18 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     uClipActive: { value: 0 },
     uSnow: { value: 0 },
     uGrade: { value: new Vector3(1, 1, 1) },
+    // Time travel (feature-tour.js): a front rising from the ground, behind
+    // which each material shows its next texture (its own uMapNext).
+    uTimeActive: { value: 0 },
+    uTimeFront: { value: 0 },
+    uTimeGlow: { value: 0 },
+    uHeight: { value: new Vector2(0, 1) },
   };
 
+  faceUniforms.uHeight.value.set(minY, heightRange);
   const meshes = [];
+  // The materials by name, for the time travel's textures.
+  const timeTargets = {};
   const vertexPositions = [];
   const vertexDelays = [];
   const edgePositions = [];
@@ -187,7 +196,9 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     geometry.setAttribute('aTri', new BufferAttribute(tri, 2));
     geometry.setAttribute('aBary', new BufferAttribute(bary, 3));
     if (!normals) geometry.computeVertexNormals();
-    const mesh = new Mesh(geometry, revealMaterial(part.material, faceUniforms));
+    const material = revealMaterial(part.material, faceUniforms);
+    (timeTargets[material.name] ||= []).push(material);
+    const mesh = new Mesh(geometry, material);
     mesh.frustumCulled = false;
     mesh.receiveShadow = true;
     meshes.push(mesh);
@@ -302,6 +313,7 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     sun,
     hemisphere,
     uniforms: faceUniforms,
+    timeTargets,
     // How far the faces are (0..1): the points give way to them.
     faces: () => faceUniforms.uFaces.value,
     // How far each part is (0..1), for the sound.
@@ -347,8 +359,11 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
 function revealMaterial(source, uniforms) {
   const material = source.clone();
   material.side = DoubleSide; // the faces are seen from both sides while forming
+  // Its own: the texture time travel turns it into, and whether that differs.
+  material.userData.time = { uMapNext: { value: null }, uTimeChange: { value: 0 } };
+  material.userData.originalMap = material.map;
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, uniforms, material.userData.time);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         attribute vec3 aCentroid;
@@ -385,24 +400,40 @@ function revealMaterial(source, uniforms) {
         uniform float uClipActive;
         uniform float uSnow;
         uniform vec3 uGrade;
+        uniform float uTimeActive;
+        uniform float uTimeFront;
+        uniform float uTimeGlow;
+        uniform vec2 uHeight;
+        uniform sampler2D uMapNext;
+        uniform float uTimeChange;
         varying float vReveal;
         varying vec3 vBary;
         varying vec3 vTourPos;
         varying vec3 vTourNormal;
         // The viewer's shading modes that keep the textures, in brief:
-        // 0 textures, 1 toon, 2 raking light.
+        // 0 textures, 1 PBR (glossy, reflecting), 2 raking light.
         vec3 introShade(float mode, vec3 base, vec3 albedo, vec3 soft, vec3 n, vec3 viewNormal) {
           if (mode < 0.5) return base;
           vec3 tone = pow(albedo, vec3(1.0 / 2.2));
           if (mode < 1.5) {
-            // Toon: flat bands of light on the textures, ink along creases.
-            float l = dot(n, normalize(vec3(0.5, 0.8, 0.3)));
-            float band = l > 0.55 ? 1.0 : (l > 0.15 ? 0.74 : 0.5);
-            // The texture's colour, blurred (a smaller mip level): patches,
-            // not grain.
-            vec3 paint = pow(soft, vec3(1.0 / 2.2));
-            float crease = smoothstep(0.25, 0.6, length(fwidth(n)));
-            return clamp(paint * band * 1.12, 0.0, 1.0) * (1.0 - crease * 0.85);
+            // PBR: the same textures as glossy, physically based materials -
+            // a sky reflected by Fresnel, a sharp highlight from the sun.
+            vec3 V = normalize(cameraPosition - vTourPos);
+            vec3 L = normalize(vec3(0.5, 0.8, 0.3));
+            vec3 H = normalize(L + V);
+            float NdL = max(dot(n, L), 0.0);
+            float NdV = max(dot(n, V), 1e-3);
+            float NdH = max(dot(n, H), 0.0);
+            float a2 = 0.28 * 0.28 * 0.28 * 0.28;
+            float ggx = a2 / (3.14159 * pow(NdH * NdH * (a2 - 1.0) + 1.0, 2.0));
+            float fresnel = 0.04 + 0.96 * pow(1.0 - NdV, 5.0);
+            vec3 R = reflect(-V, n);
+            vec3 sky = mix(vec3(0.95, 0.78, 0.62), vec3(0.42, 0.6, 0.95), smoothstep(-0.05, 0.7, R.y));
+            sky = mix(vec3(0.08, 0.07, 0.07), sky, smoothstep(-0.25, 0.0, R.y));
+            vec3 tone = pow(albedo, vec3(1.0 / 2.2));
+            vec3 diffuseLit = tone * (0.28 + 0.85 * NdL);
+            vec3 specular = vec3(1.0, 0.96, 0.88) * ggx * fresnel * NdL * 0.9;
+            return clamp(mix(diffuseLit, sky, fresnel * 0.85) + specular, 0.0, 1.0);
           }
           // Raking light on the textures: a low light circling.
           float a = uTourTime * 1.8;
@@ -414,6 +445,15 @@ function revealMaterial(source, uniforms) {
         if (vReveal <= 0.001 || uExit >= 0.999) discard;
         float sectionDistance = dot(vTourPos, uClip.xyz) + uClip.w;
         if (uClipActive > 0.0 && sectionDistance < 0.0) discard;`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        float timeHeight = (vTourPos.y - uHeight.x) / uHeight.y;
+        #ifdef USE_MAP
+          if (uTimeActive > 0.5 && uTimeChange > 0.5) {
+            float grain = fract(sin(dot(floor(vTourPos.xz * 40.0), vec2(12.9898, 78.233))) * 43758.5453);
+            float passed = step(timeHeight + grain * 0.04, uTimeFront);
+            diffuseColor.rgb = mix(diffuseColor.rgb, texture2D(uMapNext, vMapUv).rgb * diffuse, passed);
+          }
+        #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         float edge = min(min(vBary.x, vBary.y), vBary.z);
         float line = 1.0 - smoothstep(0.0, fwidth(edge) * 1.2 + 0.002, edge);
@@ -440,6 +480,8 @@ function revealMaterial(source, uniforms) {
           vec3 snow = vec3(0.92, 0.95, 1.0) * (0.72 + 0.28 * max(dot(n, normalize(vec3(0.3, 1.0, 0.2))), 0.0));
           color = mix(color, snow, uSnow * up * (0.78 + 0.22 * grain));
           color *= uGrade;
+          // Time travel's front: a thin warm line rising.
+          color += vec3(1.0, 0.72, 0.35) * exp(-abs(timeHeight - uTimeFront) * 90.0) * uTimeGlow;
           // The section: the cut glows, what is seen inside the walls is
           // filled like a drawing's section.
           if (uClipActive > 0.0) {

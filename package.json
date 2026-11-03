@@ -61,6 +61,7 @@
     "build:all": "pnpm run build:dev && pnpm run build:test && pnpm run build:drupal && pnpm run build:drupal:custom",
     "examples:tempietto": "node scripts/build-tempietto-examples.mjs",
     "intro:points": "node scripts/build-intro-points.mjs",
+    "intro:time": "node scripts/build-intro-time.mjs",
     "serve:dev": "npx serve -n -l 3100 --no-port-switching dist/dev",
     "serve:test": "npx serve -n -l 3101 --no-port-switching dist/test",
     "serve:prod": "npx serve -n -l 3200 --no-port-switching dist/prod",

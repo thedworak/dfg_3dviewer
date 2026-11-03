@@ -32,13 +32,14 @@ import {
   Scene,
   ShaderMaterial,
   Vector2,
+  Spherical,
   Vector3,
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TIMING, createMeshReveal } from './mesh-reveal.js';
 import { createIntroSound } from './intro-sound.js';
-import { TOUR_LENGTH, createFeatureTour } from './feature-tour.js';
+import { CHAPTERS, TOUR_LENGTH, createFeatureTour } from './feature-tour.js';
 
 const POINTS_URL = 'assets/intro/synagogue-points.bin';
 // The model the points become (also the one the viewer opens next, so it is
@@ -49,18 +50,30 @@ const TRANSCODER_PATH = 'assets/basis/';
 // redirect index.html to ./ and lose the query on the way.
 const DEFAULT_NEXT = './?model=./examples/WolpaSynagogue-progressive.glb';
 // Seconds: the cloud fades in, then gathers into the building.
-const FADE_IN = 1.4;
-const ASSEMBLY = 9;
-const ASSEMBLY_START = FADE_IN * 0.6;
+const FADE_IN = 1.0;
+// Only the cloud this long, then the points set off.
+const ASSEMBLY_START = 1.5;
+const ASSEMBLY = 5.2;
 // The last point: sets off late, takes its time, lands on the roof.
-const LAST_START = ASSEMBLY_START + ASSEMBLY * 0.7;
-const LAST_FLIGHT = 5.2;
+const LAST_START = ASSEMBLY_START + ASSEMBLY * 0.72;
+const LAST_FLIGHT = 3.8;
 const LANDING = LAST_START + LAST_FLIGHT;
 const EXIT = 1.3;
 // Assemble again: everything runs back into the cloud first.
 const REWIND = 3.6;
 // The feature tour (feature-tour.js): seconds into the model's act.
 const TOUR_START = 11.0;
+const INTRO_END = LANDING + TOUR_START + TOUR_LENGTH;
+// The progress bar's parts: the cloud gathering, the mesh, the tour's chapters.
+const SEGMENTS = [
+  { key: 'cloud', from: 0, to: LANDING },
+  { key: 'mesh', from: LANDING, to: LANDING + TOUR_START },
+  ...CHAPTERS.map((chapter) => ({
+    key: chapter.key,
+    from: LANDING + TOUR_START + chapter.from,
+    to: LANDING + TOUR_START + chapter.to,
+  })),
+];
 
 const TEXTS = {
   pl: {
@@ -74,6 +87,12 @@ const TEXTS = {
     loading: 'Wczytywanie punktów…',
     error: 'Nie udało się wczytać intro.',
     hint: 'Przeciągnij, aby obrócić',
+    bar: {
+      label: 'Etapy intro',
+      cloud: 'Chmura punktów',
+      mesh: 'Siatka',
+      short: { cloud: 'Chmura', mesh: 'Siatka', section: 'Przekroje', annotations: 'Adnotacje', shading: 'Cieniowanie', sun: 'Słońce', seasons: 'Pory roku', time: '4D' },
+    },
     tour: {
       chapters: {
         section: 'Przekroje',
@@ -81,8 +100,9 @@ const TEXTS = {
         shading: 'Cieniowanie',
         sun: 'Analiza nasłonecznienia',
         seasons: 'Pory roku i pogoda',
+        time: 'Podróż w czasie (4D)',
       },
-      shading: { textures: 'tekstury', toon: 'toon', raking: 'światło boczne' },
+      shading: { textures: 'tekstury', pbr: 'PBR: połysk i odbicia', raking: 'światło boczne' },
       sun: { night: 'noc' },
       sunDate: 'Wołpa, 21 czerwca',
       compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
@@ -104,6 +124,12 @@ const TEXTS = {
     loading: 'Loading points…',
     error: 'The intro could not be loaded.',
     hint: 'Drag to rotate',
+    bar: {
+      label: 'Intro chapters',
+      cloud: 'Point cloud',
+      mesh: 'Mesh',
+      short: { cloud: 'Cloud', mesh: 'Mesh', section: 'Sections', annotations: 'Annotations', shading: 'Shading', sun: 'Sun', seasons: 'Seasons', time: '4D' },
+    },
     tour: {
       chapters: {
         section: 'Sections',
@@ -111,8 +137,22 @@ const TEXTS = {
         shading: 'Shading',
         sun: 'Sun study',
         seasons: 'Seasons and weather',
+        time: 'Time travel (4D)',
       },
-      shading: { textures: 'textures', toon: 'toon', raking: 'raking light' },
+      shading: { textures: 'textures', pbr: 'PBR: gloss and reflections', raking: 'raking light' },
+      timeNotes: {
+        1730: 'built: fresh timber and shingles',
+        1735: 'the first years: the wood darkens',
+        1745: 'the sunny sides turn grey',
+        1760: 'patina, the first algae on the north',
+        1780: 'old, mossy shingles',
+        1781: 'a new shingle roof',
+        1790: 'the shingles turn grey',
+        1840: 'moss on the northern slopes',
+        1902: 'the roof before its repair',
+        1903: 'the roof repaired',
+        1936: 'as surveyed',
+      },
       sun: { night: 'night' },
       sunDate: 'Wołpa, 21 June',
       compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
@@ -134,6 +174,12 @@ const TEXTS = {
     loading: 'Punkte werden geladen…',
     error: 'Das Intro konnte nicht geladen werden.',
     hint: 'Ziehen zum Drehen',
+    bar: {
+      label: 'Kapitel des Intros',
+      cloud: 'Punktwolke',
+      mesh: 'Netz',
+      short: { cloud: 'Wolke', mesh: 'Netz', section: 'Schnitte', annotations: 'Annotationen', shading: 'Schattierung', sun: 'Sonne', seasons: 'Jahreszeiten', time: '4D' },
+    },
     tour: {
       chapters: {
         section: 'Schnitte',
@@ -141,8 +187,22 @@ const TEXTS = {
         shading: 'Schattierung',
         sun: 'Sonnenstudie',
         seasons: 'Jahreszeiten und Wetter',
+        time: 'Zeitreise (4D)',
       },
-      shading: { textures: 'Texturen', toon: 'Toon', raking: 'Streiflicht' },
+      shading: { textures: 'Texturen', pbr: 'PBR: Glanz und Spiegelung', raking: 'Streiflicht' },
+      timeNotes: {
+        1730: 'Bau: frisches Holz und Schindeln',
+        1735: 'die ersten Jahre: das Holz dunkelt nach',
+        1745: 'die Sonnenseiten vergrauen',
+        1760: 'Patina, erste Algen auf der Nordseite',
+        1780: 'alte, bemooste Schindeln',
+        1781: 'neue Schindeldeckung',
+        1790: 'die Schindeln vergrauen',
+        1840: 'Moos auf den Nordflächen',
+        1902: 'das Dach vor der Reparatur',
+        1903: 'Dachreparatur',
+        1936: 'Zustand der Bauaufnahme',
+      },
       sun: { night: 'Nacht' },
       sunDate: 'Wołpa, 21. Juni',
       compass: { N: 'N', E: 'O', S: 'S', W: 'W' },
@@ -203,6 +263,7 @@ const ui = {
   hint: document.getElementById('intro-hint'),
   status: document.getElementById('intro-status'),
   sound: document.getElementById('intro-sound'),
+  bar: document.getElementById('intro-bar'),
 };
 
 document.documentElement.lang = lang;
@@ -216,6 +277,63 @@ ui.hint.textContent = t.hint;
 ui.status.textContent = t.loading;
 ui.enter.href = nextUrl;
 ui.skip.href = nextUrl;
+
+// --- Progress bar ------------------------------------------------------------
+
+// One button per part, equally wide; its fill shows how far the part is.
+ui.bar.setAttribute('aria-label', t.bar.label);
+const barParts = SEGMENTS.map((segment) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'intro-bar-part';
+  const name = segment.key === 'cloud' || segment.key === 'mesh' ? t.bar[segment.key] : t.tour.chapters[segment.key];
+  button.title = name;
+  button.innerHTML = '<span class="intro-bar-track"><span class="intro-bar-fill"></span></span><span class="intro-bar-name"></span>';
+  button.querySelector('.intro-bar-name').textContent = t.bar.short?.[segment.key] || name;
+  // Until the points (and for the later parts, the model) are there.
+  button.disabled = true;
+  button.addEventListener('click', () => seek(segment.from + 0.01));
+  ui.bar.appendChild(button);
+  return { segment, button, fill: button.querySelector('.intro-bar-fill') };
+});
+
+// To that moment of the intro (seconds), at once.
+function seek(T) {
+  if (!cloud || exitStarted >= 0) return;
+  rewindStart = -1;
+  if (meshReveal) meshReadyAt = 0;
+  if (isHeld()) heldAt = T;
+  else started = now() - T;
+  lastT = T; // a jump: no single sounds for what was skipped
+  userTouched = false;
+}
+
+let lastBarState = '';
+function showProgress(T) {
+  // A model that came late starts its act late: the bar shows the act's own time.
+  const late = meshReveal ? Math.max(0, meshReadyAt - LANDING) : 0;
+  const shown = T > LANDING ? T - Math.min(late, T - LANDING) : T;
+  let state = '';
+  for (const part of barParts) {
+    const { from, to } = part.segment;
+    const amount = Math.min(1, Math.max(0, (shown - from) / (to - from)));
+    const active = shown >= from && (shown < to || part === barParts.at(-1));
+    // Parts after the cloud need the model.
+    const ready = part.segment.key === 'cloud' || Boolean(meshReveal && tour);
+    part.fill.style.transform = `scaleX(${amount.toFixed(3)})`;
+    state += `${active ? 1 : 0}${ready ? 1 : 0}`;
+    part.active = active;
+    part.ready = ready;
+  }
+  if (state === lastBarState) return;
+  lastBarState = state;
+  for (const part of barParts) {
+    part.button.classList.toggle('is-active', part.active);
+    part.button.disabled = !part.ready;
+    if (part.active) part.button.setAttribute('aria-current', 'step');
+    else part.button.removeAttribute('aria-current');
+  }
+}
 
 // --- Sound -------------------------------------------------------------------
 
@@ -299,7 +417,10 @@ const scene = new Scene();
 const camera = new PerspectiveCamera(38, 1, 0.01, 100);
 // Seconds since the page opened; ?at=<seconds> holds the intro at that
 // moment (for stills and screen recordings).
-const holdAt = Number.parseFloat(params.get('at'));
+// Held: ?at=, or reduced motion (the end, everything shown). The progress
+// bar moves a held intro to another moment.
+let heldAt = Number.parseFloat(params.get('at'));
+const isHeld = () => Number.isFinite(heldAt);
 const pageStart = performance.now();
 const now = () => (performance.now() - pageStart) / 1000;
 let controls;
@@ -515,9 +636,8 @@ async function load() {
   ui.root.classList.add('is-ready');
   if (embedded) tellViewer('ready');
   started = now();
-  if (reducedMotion) {
-    started -= FADE_IN + ASSEMBLY;
-  }
+  // Reduced motion: held at the end, everything shown (the bar still moves it).
+  if (reducedMotion && !isHeld()) heldAt = INTRO_END;
   renderer.setAnimationLoop(frame);
 
   // The model, while the points gather. Without it the intro ends with the
@@ -527,7 +647,7 @@ async function load() {
       meshReveal = reveal;
       // Late (after the landing): its act starts now. Held (?at=) or shown
       // whole: as if it had been there from the start.
-      meshReadyAt = Number.isFinite(holdAt) || reducedMotion ? 0 : timeline(now());
+      meshReadyAt = isHeld() ? 0 : timeline(now());
       scene.add(reveal.group);
       // The model's height, from its ground (y = 0, in centimetres).
       const height = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 }).format(max[1] / 100);
@@ -539,6 +659,7 @@ async function load() {
         texts: t,
         toIntro: (x, y, z) => new Vector3((x - center[0]) * scale, (y - center[1]) * scale, (z - center[2]) * scale),
         heightLabel: `${t.tour.height} ${height} m`,
+        lang,
       });
       scene.add(tour.group);
       resize();
@@ -892,6 +1013,8 @@ function createLastPoint(target, start) {
 // --- Animation ---------------------------------------------------------------
 
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+// The gathering: under way at once, slowing at the end.
+const easeGather = (x) => 0.5 - 0.5 * Math.cos(Math.PI * Math.pow(x, 0.8));
 const ray = { origin: new Vector3(), dir: new Vector3(), ndc: new Vector3() };
 let lastCounter = '';
 let rewindStart = -1;
@@ -900,12 +1023,20 @@ let lastT = 0;
 let lastTime = 0;
 let lastArrived = 0;
 let cameraTurn = 1;
+// The camera's angle around the building at the landing: the front (the
+// facade with the corner pavilions faces +Z), a little from the side. Before
+// it, turning slower and slower to arrive there; the rate at the landing
+// matches the turn that goes on after it (autoRotateSpeed 0.4).
+const FRONT_THETA = 0.3;
+const LANDING_TURN_RATE = (2 * Math.PI / 60) * 0.4;
+const LANDING_TURN_EASE = 0.014;
+const orbit = new Spherical();
+const orbitOffset = new Vector3();
 
 // The intro's time T at the clock's time: running, held (?at=), shown whole
 // (reduced motion) or running back ("Assemble again").
 function timeline(time) {
-  if (Number.isFinite(holdAt)) return holdAt;
-  if (reducedMotion) return LANDING + TOUR_START + TOUR_LENGTH;
+  if (isHeld()) return heldAt;
   if (rewindStart >= 0) {
     const r = Math.min(1, (time - rewindStart) / REWIND);
     return rewindFrom + (ASSEMBLY_START - rewindFrom) * easeInOut(r);
@@ -923,7 +1054,7 @@ function frame() {
   }
   const T = timeline(time);
   const fade = Math.min(1, T / FADE_IN);
-  const progress = easeInOut(Math.min(1, Math.max(0, (T - ASSEMBLY_START) / ASSEMBLY)));
+  const progress = easeGather(Math.min(1, Math.max(0, (T - ASSEMBLY_START) / ASSEMBLY)));
   const exit = exitStarted < 0 ? 0 : Math.min(1, (time - exitStarted) / EXIT);
   // The model's act: from the landing, or from when the model was ready.
   const stage = meshReveal ? T - Math.max(LANDING, meshReadyAt) : 0;
@@ -976,7 +1107,7 @@ function frame() {
   ray.ndc.copy(lastPoint.position).project(camera);
   sound.update({
     dt,
-    forward: T > lastT && !Number.isFinite(holdAt) && rewindStart < 0,
+    forward: T > lastT && T - lastT < 0.5 && !isHeld() && rewindStart < 0,
     fade,
     progress,
     arrivedRate: dt > 0 ? Math.max(0, arrivedFraction - lastArrived) / dt : 0,
@@ -989,11 +1120,12 @@ function frame() {
     glowOut: levels?.glowOut ?? 0,
     exit,
   });
-  if (tourCue && T > lastT && !Number.isFinite(holdAt) && rewindStart < 0) sound.cue(tourCue);
+  if (tourCue && T > lastT && T - lastT < 0.5 && !isHeld() && rewindStart < 0) sound.cue(tourCue);
   lastT = T;
   lastTime = time;
   lastArrived = arrivedFraction;
 
+  showProgress(T);
   ui.root.classList.toggle('is-assembling', progress > 0.02);
   ui.root.classList.toggle('is-assembled', T >= LANDING - 0.3);
 
@@ -1003,7 +1135,19 @@ function frame() {
   if (exitStarted < 0 && !userTouched) {
     const holding = tour?.holdsCamera(stage - TOUR_START) ?? false;
     cameraTurn += ((holding ? 0 : 1) - cameraTurn) * Math.min(1, dt * 3);
-    controls.autoRotateSpeed = reducedMotion ? 0 : (0.4 + (1 - progress) * 1.4) * cameraTurn;
+    controls.autoRotateSpeed = reducedMotion ? 0 : 0.4 * cameraTurn;
+    // Up to the landing the camera's angle follows the intro's time, not
+    // how far it happened to turn: when the last point lands, the
+    // synagogue faces it (also when held, jumped to or run backwards).
+    const before = LANDING - T;
+    if (before > 0 && !reducedMotion) {
+      orbit.setFromVector3(orbitOffset.copy(camera.position).sub(controls.target));
+      orbit.theta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
+      camera.position.setFromSpherical(orbit).add(controls.target);
+      controls.autoRotate = false;
+    } else {
+      controls.autoRotate = !reducedMotion;
+    }
   }
   if (exitStarted >= 0) {
     camera.position.lerp(exitTarget, 0.04);
@@ -1048,7 +1192,7 @@ ui.skip.addEventListener('click', (event) => {
 });
 
 ui.replay.addEventListener('click', () => {
-  if (!cloud || reducedMotion || exitStarted >= 0 || rewindStart >= 0 || Number.isFinite(holdAt)) return;
+  if (!cloud || reducedMotion || exitStarted >= 0 || rewindStart >= 0 || isHeld()) return;
   rewindFrom = timeline(now());
   rewindStart = now();
   sound.rewind();
