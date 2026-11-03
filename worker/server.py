@@ -41,6 +41,12 @@ could talk to either backend interchangeably:
   POST /api/app/link|sync|unlink  an app's plan on an account (only with an
                                   entitlements module, see below)
   POST /api/admin/users/<u>/plan  a plan granted by an admin (auth.py)
+  GET  /api/examples/thumbnails -> {thumbnails: {"<dir>/<basename>": {views,
+                                version}}} the viewer's renders of its example
+                                models; POST (multipart dir, basename, a PNG
+                                per view) and DELETE ?dir=&basename= - admins
+                                (example_thumbnails.py)
+  GET  /api/examples/thumbnails/<dir>/<basename>_<view>.png
   POST /api/model/settings      the viewer's saved settings of an uploaded model
   GET  /files/<id>/<path>       static access to converted output (HEAD too;
                                 byte ranges, gzip, ETag - static_files.py)
@@ -86,6 +92,7 @@ import ai
 import cloudflare
 import geonames
 import dicom_series
+import example_thumbnails
 import image_slices
 import lif
 import raw_volume
@@ -138,6 +145,8 @@ MAX_THUMBNAIL_BYTES = 20 * 1024 * 1024
 # Thumbnails of the viewer's bundled AIM3D manifests (worker/manifests.py),
 # on the same volume, in a dot-directory the job listing skips.
 MANIFESTS_DIR = JOBS_DIR / ".manifests"
+# The viewer's renders of its bundled example models (example_thumbnails.py).
+EXAMPLE_THUMBNAILS_DIR = JOBS_DIR / ".example-thumbnails"
 # A model's saved viewer settings (POST /api/model/settings): transforms,
 # camera, lights, edited materials and its annotations as IIIF.
 MAX_SETTINGS_BYTES = 5 * 1024 * 1024
@@ -1530,6 +1539,14 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_manifest_image(match.group(1), match.group(2))
             return
 
+        if path == "/api/examples/thumbnails":
+            self._send_json(200, {"thumbnails": example_thumbnails.list_sets(EXAMPLE_THUMBNAILS_DIR)})
+            return
+        match = re.fullmatch(r"/api/examples/thumbnails/([^/]+)/([^/]+\.png)", path)
+        if match:
+            self._serve_example_thumbnail(match.group(1), match.group(2))
+            return
+
         match = re.match(r"/files/([A-Za-z0-9_-]+)/(.+)", path)
         if match:
             self._serve_file(match.group(1), match.group(2))
@@ -1560,6 +1577,9 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/manifests/([^/]+)/thumbnails", path)
         if match:
             self._handle_manifest_thumbnails(match.group(1))
+            return
+        if path == "/api/examples/thumbnails":
+            self._handle_example_thumbnails()
             return
         # The viewer's "Save settings" (metadata-persistence.js); the Drupal
         # module has /api/editor/save-metadata for the same.
@@ -1632,6 +1652,9 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)", path)
         if match:
             self._handle_delete(match.group(1))
+            return
+        if path == "/api/examples/thumbnails":
+            self._handle_example_thumbnails_delete()
             return
         self._send_json(404, {"error": "not found"})
 
@@ -2050,6 +2073,67 @@ class Handler(BaseHTTPRequestHandler):
         cloudflare.purge_paths_async(
             [urlparse(f"{base_url}{name}_{view}.png").path for view in images], self.headers.get("Host", ""))
         self._send_json(200, {"manifest": saved})
+
+    def _handle_example_thumbnails(self) -> None:
+        """The viewer's "Generate thumbnails" / "Change main thumbnail" on
+        one of its bundled example models: admins only. Multipart: `dir` and
+        `basename` (the set's name, example_thumbnails.py) and a PNG per view
+        (side0..side315, top). Answers {key, views, version}."""
+        if self._require_admin() is None:
+            return
+        try:
+            fields, files = parse_multipart_form(self, MAX_THUMBNAIL_BYTES * len(example_thumbnails.VIEWS))
+        except UploadTooLarge as exc:
+            self._send_json(413, {"error": str(exc)})
+            return
+        except ValueError as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+        folder, basename = fields.get("dir", ""), fields.get("basename", "")
+        if not (example_thumbnails.valid_name(folder) and example_thumbnails.valid_name(basename)):
+            self._send_json(400, {"error": "Invalid example name"})
+            return
+        images = {view: data for view, data in files.items() if view in example_thumbnails.VIEWS}
+        if not images or len(images) != len(files):
+            self._send_json(400, {"error": "Expected PNG images named by their view"})
+            return
+        if any(not data.startswith(b"\x89PNG\r\n\x1a\n") or len(data) > MAX_THUMBNAIL_BYTES for data in images.values()):
+            self._send_json(415, {"error": "Expected PNG images"})
+            return
+        saved = example_thumbnails.save(EXAMPLE_THUMBNAILS_DIR, folder, basename, images)
+        cloudflare.purge_paths_async(
+            [f"/api/examples/thumbnails/{folder}/{basename}_{view}.png" for view in images], self.headers.get("Host", ""))
+        self._send_json(200, {"key": f"{folder}/{basename}", **saved})
+
+    def _handle_example_thumbnails_delete(self) -> None:
+        """DELETE /api/examples/thumbnails?dir=&basename=: admins remove a
+        set rendered in the viewer - the bundled renders show again."""
+        if self._require_admin() is None:
+            return
+        query = parse_qs(urlparse(self.path).query)
+        folder, basename = query.get("dir", [""])[0], query.get("basename", [""])[0]
+        if not (example_thumbnails.valid_name(folder) and example_thumbnails.valid_name(basename)):
+            self._send_json(400, {"error": "Invalid example name"})
+            return
+        removed = example_thumbnails.delete(EXAMPLE_THUMBNAILS_DIR, folder, basename)
+        self._send_json(200 if removed else 404, {"removed": removed} if removed else {"error": "not found"})
+
+    def _serve_example_thumbnail(self, folder: str, filename: str) -> None:
+        match = example_thumbnails.IMAGE_RE.fullmatch(filename)
+        target = example_thumbnails.image_path(EXAMPLE_THUMBNAILS_DIR, folder, match.group(1), match.group(2)) \
+            if match else None
+        if target is None or not target.is_file():
+            self._send_json(404, {"error": "not found"})
+            return
+        # The viewer asks for them versioned (?v=, the set's newest image).
+        versioned = "v" in parse_qs(urlparse(self.path).query)
+        headers = {
+            "Cache-Control": "public, max-age=2592000, s-maxage=2592000" if versioned
+            else "public, max-age=300, s-maxage=2592000",
+            "Last-Modified": formatdate(target.stat().st_mtime, usegmt=True),
+            "Access-Control-Allow-Origin": "*",
+        }
+        static_files.send_file(self, target, "image/png", headers)
 
     def _serve_manifest(self, name: str) -> None:
         manifest = manifests.read_manifest(MANIFESTS_DIR, name) if manifests.valid_name(name) else None

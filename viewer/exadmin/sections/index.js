@@ -1,3 +1,4 @@
+import { examplesSection } from "./examples.js";
 import { reportsSection } from "./reports.js";
 import { usersSection } from "./users.js";
 
@@ -5,4 +6,4 @@ import { usersSection } from "./users.js";
 // { id, label(), mount(container, { me }) }: `id` is its address
 // (/exadmin/#<id>), mount() builds it into the emptied main area each time
 // it is opened. A new one is added here and nowhere else.
-export const SECTIONS = [usersSection, reportsSection];
+export const SECTIONS = [usersSection, reportsSection, examplesSection];

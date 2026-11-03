@@ -4,7 +4,7 @@ import { getModuleAssetBasePath } from "../loaders.js";
 import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
 import { renderFrame } from "../rendering.js";
 import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
-import { renderManifestGalleryImages } from "../ui/thumbnail-gallery.js";
+import { exampleGallerySet, forgetStoredExampleThumbnails, isBundledExample, renderManifestGalleryImages } from "../ui/thumbnail-gallery.js";
 import { toastHelper } from "../viewer-utils.js";
 import { workerJobId } from "../worker-model.js";
 
@@ -183,6 +183,34 @@ async function uploadManifestThumbnails(name, manifest, captures) {
   return data.manifest;
 }
 
+// The views of one of the viewer's bundled example models (examples/...,
+// part of its image like the manifests): sent to the worker
+// (worker/example_thumbnails.py), which keeps them under the name of the
+// bundled renders - the gallery shows them from then on
+// (ui/thumbnail-gallery.js). Admins only.
+async function uploadExampleThumbnails(set, captures) {
+  const fileform = new FormData();
+  fileform.append("dir", set.dir);
+  fileform.append("basename", set.basename);
+  captures.forEach(({ view, blob }) => fileform.append(view, blob, `${view}.png`));
+  const res = await fetch(apiUrl("/api/examples/thumbnails"), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: appRequestHeaders(),
+    body: fileform,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.key) throw new Error(data.error || `Upload failed (HTTP ${res.status})`);
+  return data;
+}
+
+async function saveExampleThumbnails(viewer, set, captures) {
+  await uploadExampleThumbnails(set, captures);
+  forgetStoredExampleThumbnails();
+  // The gallery again, now from the worker's copy.
+  if (showsGallery(viewer)) viewer.buildGallery?.();
+}
+
 // The name of the viewer's own manifest at `url` (manifests/<name>.json
 // next to the page), else null.
 export function bundledManifestName(url) {
@@ -199,14 +227,16 @@ export function bundledManifestName(url) {
 
 // Where the thumbnails of what is on screen go: Drupal's entity, the
 // AIM3D manifest shown (one of the viewer's own), the worker's job of the
-// model, or nowhere (null).
+// model, the bundled example model shown, or nowhere (null).
 function thumbnailTarget(viewer) {
   if (BUILD === "drupal") return { kind: "drupal" };
   const manifest = viewer.currentManifest;
   const name = manifest?.type === "url" && isAIM3DManifest(manifest.json) ? bundledManifestName(manifest.source) : null;
   if (name) return { kind: "manifest", name };
   const jobId = workerJobId(core.fileObject.path);
-  return jobId ? { kind: "job", jobId } : null;
+  if (jobId) return { kind: "job", jobId };
+  const set = isBundledExample() ? exampleGallerySet() : null;
+  return set ? { kind: "example", set } : null;
 }
 
 async function fetchJob(jobId) {
@@ -222,8 +252,8 @@ async function fetchJob(jobId) {
 let accessCheck = 0;
 
 // Whether the thumbnail buttons can be used (viewer.thumbnailAccess, read
-// by editor-toolbar.js updateEditorToolbarState): a manifest's thumbnails
-// by admins, a model's by its owner or an admin (or anyone on a worker
+// by editor-toolbar.js updateEditorToolbarState): a manifest's and a bundled
+// example model's thumbnails by admins, a model's by its owner or an admin (or anyone on a worker
 // without accounts), Drupal's by whom Drupal lets in; never by default.
 // Called when a model is shown and when the account changes.
 export async function refreshThumbnailAccess(viewer) {
@@ -231,7 +261,7 @@ export async function refreshThumbnailAccess(viewer) {
   const target = thumbnailTarget(viewer);
   let allowed = false;
   if (target?.kind === "drupal") allowed = true;
-  else if (target?.kind === "manifest") allowed = viewer.isAdminUser?.() === true;
+  else if (target?.kind === "manifest" || target?.kind === "example") allowed = viewer.isAdminUser?.() === true;
   else if (target?.kind === "job") allowed = (await fetchJob(target.jobId))?.canDelete === true;
   if (check !== accessCheck) return;
   viewer.thumbnailAccess = allowed;
@@ -240,9 +270,9 @@ export async function refreshThumbnailAccess(viewer) {
 }
 
 // The target of a click, or null after telling the user why its
-// thumbnails cannot be changed: only uploaded models (not the bundled
-// examples or a file opened from this device) and the viewer's own
-// manifests. The worker checks who may too (403); asking first spares
+// thumbnails cannot be changed: only uploaded models (not a file opened
+// from this device), the viewer's own manifests and its bundled example
+// models (admins). The worker checks who may too (403); asking first spares
 // rendering views it would reject.
 async function requireTarget(viewer) {
   const target = thumbnailTarget(viewer);
@@ -250,7 +280,7 @@ async function requireTarget(viewer) {
     toastHelper("previewNotUploaded", "info");
     return null;
   }
-  if (target.kind === "manifest" && viewer.isAdminUser?.() !== true) {
+  if ((target.kind === "manifest" || target.kind === "example") && viewer.isAdminUser?.() !== true) {
     toastHelper("thumbnailsAdminOnly", "warning");
     return null;
   }
@@ -288,6 +318,8 @@ export async function captureAndUploadThumbnail(viewer) {
     .then(async (blob) => {
       if (target.kind === "manifest") {
         await saveManifestThumbnails(viewer, target.name, [{ view: "side45", blob }]);
+      } else if (target.kind === "example") {
+        await saveExampleThumbnails(viewer, target.set, [{ view: "side45", blob }]);
       } else {
         await uploadThumbnail(blob, "side45");
         if (target.kind === "job") refreshWorkerThumbnails(viewer, target.jobId);
@@ -419,6 +451,8 @@ async function renderAndUploadAllViews(viewer, target) {
     const views = await Promise.all(captures);
     if (target.kind === "manifest") {
       await saveManifestThumbnails(viewer, target.name, views);
+    } else if (target.kind === "example") {
+      await saveExampleThumbnails(viewer, target.set, views);
     } else {
       for (const { view, blob } of views) {
         await uploadThumbnail(blob, view);

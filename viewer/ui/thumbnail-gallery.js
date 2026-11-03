@@ -2,6 +2,9 @@ import { core } from "../core.js";
 import { isValidUrl } from "../utils.js";
 import { t } from "../i18n-utils.js";
 import { GALLERY_IMAGE_EXT, GENERIC_GALLERY_IMAGE_COUNT, getGenericGalleryImageUrl } from "./model-thumbnail.js";
+import { apiUrl, appRequestHeaders, hasRemote } from "../remote.js";
+
+const BUILD = typeof __BUILD__ !== "undefined" ? __BUILD__ : "";
 
 function getGalleryConfig() {
   return core.CONFIG?.viewer?.gallery || {};
@@ -118,12 +121,85 @@ const GALLERY_RENDER_ANGLES = ["0", "45", "90", "135", "180", "225", "270", "315
 // automatically, with no config file to keep in sync per model.
 // An example in a folder of its own (examples/tempietto/: one model in every
 // format) shares one set for all its files, gallery/<folder>/.
+// The name of that set: { dir, basename } (worker/example_thumbnails.py
+// keeps the viewer's own renders under the same name), or null.
+export function exampleGallerySet(fileObject = core.fileObject) {
+  const filename = fileObject?.filename;
+  const basename = fileObject?.basename;
+  if (!filename || !basename) return null;
+  const folder = (fileObject?.path || "").match(/\/examples\/([^/]+)\/$/)?.[1];
+  return { dir: folder && folder !== "gallery" ? folder : filename, basename };
+}
+
+// Whether the model on screen is one of the viewer's bundled examples
+// (examples/... next to the page, not an uploaded model's /files/...).
+export function isBundledExample(fileObject = core.fileObject) {
+  const path = fileObject?.path;
+  if (!path || String(path).startsWith("blob:")) return false;
+  try {
+    const url = new URL(path, document.baseURI);
+    return url.origin === window.location.origin && /\/examples\//.test(url.pathname) && !/\/files\//.test(url.pathname);
+  } catch (_error) {
+    return false;
+  }
+}
+
+// The examples' thumbnails an admin rendered in the viewer since
+// (editor/thumbnail-capture.js), kept by the worker: GET
+// /api/examples/thumbnails, asked once per page - { "<dir>/<basename>":
+// { views, version } }. Empty without a worker (Drupal, a static copy).
+let storedExampleThumbnails = null;
+
+export function fetchStoredExampleThumbnails() {
+  if (BUILD === "drupal" || !hasRemote()) return Promise.resolve({});
+  storedExampleThumbnails ??= fetch(apiUrl("/api/examples/thumbnails"), { cache: "no-cache", headers: appRequestHeaders() })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((data) => (data?.thumbnails && typeof data.thumbnails === "object" ? data.thumbnails : {}))
+    // No worker behind /api/ (or a page instead of JSON): the bundled renders.
+    .catch(() => ({}));
+  return storedExampleThumbnails;
+}
+
+// After saving or removing a set: asked again on the next gallery.
+export function forgetStoredExampleThumbnails() {
+  storedExampleThumbnails = null;
+}
+
+export function storedExampleThumbnailUrl(set, view, version) {
+  const path = `/api/examples/thumbnails/${encodeURIComponent(set.dir)}/${encodeURIComponent(`${set.basename}_${view}.png`)}`;
+  return apiUrl(path) + (version ? `?v=${version}` : "");
+}
+
+function galleryImage(src, basename, view) {
+  const top = view === "top";
+  return {
+    src,
+    alt: `${basename} - ${top ? "top" : `${view.slice(4)}°`}`,
+    label: top ? t("gallery.top", "Top") : `${view.slice(4)}°`,
+  };
+}
+
+// The gallery of a bundled example from the views rendered in the viewer:
+// all of them alone, else those first in their place with the bundled renders
+// (when there are any) for the rest. [] when there are none.
+async function getStoredExampleGalleryImages(bundled) {
+  if (!isBundledExample()) return [];
+  const set = exampleGallerySet();
+  const stored = set ? (await fetchStoredExampleThumbnails())[`${set.dir}/${set.basename}`] : null;
+  const views = Array.isArray(stored?.views) ? stored.views : [];
+  if (!views.length) return [];
+  const order = [...GALLERY_RENDER_ANGLES.map((angle) => `side${angle}`), "top"];
+  const storedImages = new Map(views.map((view) => [view, galleryImage(storedExampleThumbnailUrl(set, view, stored.version), set.basename, view)]));
+  if (views.length >= order.length || !bundled.length || !(await probeImageExists(bundled[0].src))) {
+    return order.filter((view) => storedImages.has(view)).map((view) => storedImages.get(view));
+  }
+  return order.map((view, index) => storedImages.get(view) || bundled[index]).filter(Boolean);
+}
+
 function getPerModelGalleryImages() {
-  const filename = core.fileObject?.filename;
-  const basename = core.fileObject?.basename;
-  if (!filename || !basename) return [];
-  const folder = (core.fileObject?.path || "").match(/\/examples\/([^/]+)\/$/)?.[1];
-  const dir = folder && folder !== "gallery" ? folder : filename;
+  const set = exampleGallerySet();
+  if (!set) return [];
+  const { dir, basename } = set;
 
   const images = GALLERY_RENDER_ANGLES.map((angle) => ({
     src: normalizeGalleryUrl(`examples/gallery/${dir}/${basename}_side${angle}.${GALLERY_IMAGE_EXT}`),
@@ -1080,11 +1156,16 @@ export function buildThumbnailGallery(Viewer) {
     // core.fileObject, refreshed on every model switch) over the static
     // testImages config, so picking a different example model actually
     // swaps the gallery instead of always showing the same fixed set.
+    // The views an admin rendered in the viewer come before the bundled
+    // ones (getStoredExampleGalleryImages).
     const perModelImages = getPerModelGalleryImages();
     if (perModelImages.length > 0) {
-      probeImageExists(perModelImages[0].src).then((exists) => {
+      getStoredExampleGalleryImages(perModelImages).then(async (stored) => {
+        if (stored.length > 0) return stored;
+        return (await probeImageExists(perModelImages[0].src)) ? perModelImages : staticFallback;
+      }).then((images) => {
         if (buildGeneration !== galleryBuildGeneration) return;
-        renderFake(exists ? perModelImages : staticFallback);
+        renderFake(images);
       });
     } else {
       renderFake(staticFallback);

@@ -301,3 +301,65 @@ body {
 .exadmin-reports-toggle {
   font-size: 13px;
 }
+
+/* Example model thumbnails (sections/examples.js) */
+.exadmin-section-header button,
+.exadmin-example .exadmin-report-actions a {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.exadmin-examples-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exadmin-example {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.exadmin-example .exadmin-example-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+}
+
+.exadmin-example-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.exadmin-example[data-status="ok"] {
+  border-left: 4px solid #3caa5b;
+}
+
+.exadmin-example[data-status="broken"] {
+  border-left: 4px solid #d54646;
+}
+
+.exadmin-example[data-status="missing"] {
+  border-left: 4px solid var(--viewer-panel-border);
+}
+
+.exadmin-example[data-status="broken"] .exadmin-example-state {
+  color: #d54646;
+  opacity: 1;
+}
+
+/* Renders with a transparent background: no placeholder cube behind them. */
+.exadmin-example-thumb:has(img)::before {
+  display: none;
+}

@@ -13,11 +13,16 @@ export const GENERIC_GALLERY_IMAGE_COUNT = 9;
 // PNGs straight from viewer/examples.
 export const GALLERY_IMAGE_EXT = typeof __BUILD__ !== "undefined" ? "webp" : "png";
 
-export function getGenericGalleryImageUrl(index) {
+// A file of viewer/examples (`path` inside it), resolved as said above.
+export function exampleAssetUrl(path) {
   const moduleUrl = new URL(import.meta.url);
   const examplesPath = moduleUrl.pathname.includes("/assets/") ? "../examples/" : "./examples/";
+  return new URL(`${examplesPath}${path}`, moduleUrl).href;
+}
+
+export function getGenericGalleryImageUrl(index) {
   const number = String((index % GENERIC_GALLERY_IMAGE_COUNT) + 1).padStart(2, "0");
-  return new URL(`${examplesPath}gallery/generic/explora4d-placeholder-${number}.${GALLERY_IMAGE_EXT}`, moduleUrl).href;
+  return exampleAssetUrl(`gallery/generic/explora4d-placeholder-${number}.${GALLERY_IMAGE_EXT}`);
 }
 
 // One of the generic images for a model without thumbnails (browse and
