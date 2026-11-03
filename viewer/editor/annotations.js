@@ -15,6 +15,7 @@ import {
 } from "../manifesto/aim3dviewer-validation.js";
 import {
   buildCameraAnnotation,
+  buildSceneCameraAnnotation,
   buildCommentTarget,
   buildLightAnnotations,
   buildCanvasAnnotation,
@@ -1427,8 +1428,16 @@ export function attachAnnotations(Viewer) {
                 // current camera and the scene lights (IIIF/presentation4.js).
                 items: [
                   ...modelAnnotations,
-                  // The first camera is the scene's default view.
-                  buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`),
+                  // The first camera is the scene's default view: the
+                  // scene's cameras (editor/scene-cameras.js) when it has
+                  // any, else the current view.
+                  ...(this.getSceneCameras?.().length
+                    ? this.getSceneCameras().map((camera, index) => buildSceneCameraAnnotation(
+                      sceneId,
+                      `${sceneId}/annotation/camera${index ? `/${index + 1}` : ""}`,
+                      camera,
+                    )).filter(Boolean)
+                    : [buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`)]),
                   ...buildLightAnnotations(sceneId, `${sceneId}/annotation/light`),
                   ...viewCameras,
                 ]

@@ -128,6 +128,7 @@ export const VIEWER_DEFAULTS = {
   transformControl: null,
   transformControlLight: null,
   transformControlLightTarget: null,
+  transformControlSceneCamera: null,
   transformControlClippingPlaneX: null,
   transformControlClippingPlaneY: null,
   transformControlClippingPlaneZ: null,

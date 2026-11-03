@@ -158,6 +158,7 @@ export function attachLocalizationTheme(viewer) {
       this.updateMetadataPanelLabels();
       this.updateMaterialsPanelLabels?.();
       this.updateLightsPanelLabels?.();
+      this.updateCamerasPanelLabels?.();
       this.updateShadingPanelLabels?.();
       this.refreshStatusNoticeLanguage();
       UltraLoader.relocalize?.();

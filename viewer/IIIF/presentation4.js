@@ -948,6 +948,30 @@ export function buildCameraAnnotation(sceneId, id) {
   };
 }
 
+// A scene camera (editor/scene-cameras.js: position, target, lens, label)
+// painted into the scene; the first one is the scene's default view.
+export function buildSceneCameraAnnotation(sceneId, id, camera) {
+  if (!camera?.position || !camera?.target) return null;
+  const finite = (value) => value != null && Number.isFinite(Number(value)) && Number(value) > 0;
+  const lens = camera.type === "OrthographicCamera"
+    ? { type: "OrthographicCamera", ...(finite(camera.viewHeight) ? { viewHeight: round(camera.viewHeight) } : {}) }
+    : { type: "PerspectiveCamera", ...(finite(camera.fov) ? { fieldOfView: round(camera.fov) } : {}) };
+  const label = String(camera.label || "").trim();
+  return {
+    id,
+    type: "Annotation",
+    motivation: ["painting"],
+    body: {
+      ...lens,
+      ...(label ? { label: { none: [label] } } : {}),
+      ...(finite(camera.near) ? { near: round(camera.near) } : {}),
+      ...(finite(camera.far) ? { far: round(camera.far) } : {}),
+      lookAt: pointSelector(camera.target),
+    },
+    target: scenePointTarget(sceneId, camera.position),
+  };
+}
+
 export function buildLightAnnotations(sceneId, baseId) {
   const annotations = [];
   const toHex = (color) => `#${color.getHexString()}`;
@@ -1058,13 +1082,15 @@ export function buildCommentTarget(sceneId, worldPoint, worldPolygon = null) {
 }
 
 // A comment's saved view as a camera painted into the scene; the comment
-// refers to it from `scope: [{ id, type: "Annotation" }]`.
+// refers to it from `scope: [{ id, type: "Annotation" }]`. Hidden: it is the
+// comment's view, not one of the scene's cameras to switch between.
 export function buildViewCameraAnnotation(sceneId, id, view) {
   if (!view?.position || !view?.target) return null;
   return {
     id,
     type: "Annotation",
     motivation: ["painting"],
+    behavior: ["hidden"],
     body: {
       type: "PerspectiveCamera",
       ...(Number.isFinite(view.fov) ? { fieldOfView: round(view.fov) } : {}),

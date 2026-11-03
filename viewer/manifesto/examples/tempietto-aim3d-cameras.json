@@ -1,0 +1,377 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/tempietto/Tempietto.glb/manifest-cameras.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Tempietto - six scene cameras to switch between (AIM3D, localhost)"
+    ]
+  },
+  "summary": {
+    "en": [
+      "Several IIIF Presentation 4 cameras painted into the scene - perspective and orthographic, each with its own label. The first is the start view; the others are offered by the camera switch and the Scene cameras window, where each is shown as a camera icon."
+    ]
+  },
+  "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "items": [
+    {
+      "id": "./examples/tempietto/Tempietto.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 1,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Tempietto"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/tempietto/Tempietto.glb/scene",
+                "type": "Scene"
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/camera/three-quarter",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb/scene/camera/three-quarter",
+                "type": "PerspectiveCamera",
+                "label": {
+                  "en": [
+                    "Front, three-quarter view"
+                  ],
+                  "pl": [
+                    "Przód, widok trzy czwarte"
+                  ],
+                  "de": [
+                    "Vorne, Dreiviertelansicht"
+                  ]
+                },
+                "fieldOfView": 45,
+                "lookAt": {
+                  "type": "PointSelector",
+                  "x": 0,
+                  "y": 2.3,
+                  "z": 0
+                }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 6.5,
+                    "y": 4.5,
+                    "z": 9.5
+                  }
+                ]
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/camera/eye-level",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb/scene/camera/eye-level",
+                "type": "PerspectiveCamera",
+                "label": {
+                  "en": [
+                    "Approach at eye level"
+                  ],
+                  "pl": [
+                    "Podejście na wysokości oczu"
+                  ],
+                  "de": [
+                    "Zugang auf Augenhöhe"
+                  ]
+                },
+                "fieldOfView": 40,
+                "lookAt": {
+                  "type": "PointSelector",
+                  "x": 0,
+                  "y": 2.4,
+                  "z": 0
+                }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 1.6,
+                    "z": 10.5
+                  }
+                ]
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/camera/portico",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb/scene/camera/portico",
+                "type": "PerspectiveCamera",
+                "label": {
+                  "en": [
+                    "Portico, detail"
+                  ],
+                  "pl": [
+                    "Portyk, detal"
+                  ],
+                  "de": [
+                    "Portikus, Detail"
+                  ]
+                },
+                "fieldOfView": 35,
+                "lookAt": {
+                  "type": "PointSelector",
+                  "x": 0,
+                  "y": 2.6,
+                  "z": 2.6
+                }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 1.4,
+                    "y": 1.7,
+                    "z": 5.6
+                  }
+                ]
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/camera/side-elevation",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb/scene/camera/side-elevation",
+                "type": "OrthographicCamera",
+                "label": {
+                  "en": [
+                    "Side elevation (orthographic)"
+                  ],
+                  "pl": [
+                    "Elewacja boczna (rzut ortogonalny)"
+                  ],
+                  "de": [
+                    "Seitenansicht (orthografisch)"
+                  ]
+                },
+                "viewHeight": 7,
+                "lookAt": {
+                  "type": "PointSelector",
+                  "x": 0,
+                  "y": 2.5,
+                  "z": 0
+                }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 14,
+                    "y": 2.5,
+                    "z": 0
+                  }
+                ]
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/camera/birds-eye",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb/scene/camera/birds-eye",
+                "type": "PerspectiveCamera",
+                "label": {
+                  "en": [
+                    "Bird's-eye view"
+                  ],
+                  "pl": [
+                    "Widok z lotu ptaka"
+                  ],
+                  "de": [
+                    "Vogelperspektive"
+                  ]
+                },
+                "fieldOfView": 50,
+                "lookAt": {
+                  "type": "PointSelector",
+                  "x": 0,
+                  "y": 2,
+                  "z": 0
+                }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 4.5,
+                    "y": 13,
+                    "z": 6
+                  }
+                ]
+              }
+            },
+            {
+              "id": "./examples/tempietto/Tempietto.glb/scene/annotation/camera/rear-low",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/tempietto/Tempietto.glb/scene/camera/rear-low",
+                "type": "PerspectiveCamera",
+                "label": {
+                  "en": [
+                    "Rear, from below"
+                  ],
+                  "pl": [
+                    "Tył, z dołu"
+                  ],
+                  "de": [
+                    "Rückseite, von unten"
+                  ]
+                },
+                "fieldOfView": 50,
+                "lookAt": {
+                  "type": "PointSelector",
+                  "x": 0,
+                  "y": 3,
+                  "z": 0
+                }
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/tempietto/Tempietto.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": -5,
+                    "y": 0.6,
+                    "z": -9
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/tempietto/Tempietto.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.0",
+    "generatedAt": "2026-11-03T00:00:00.000Z",
+    "camera": {
+      "position": [
+        6.5,
+        4.5,
+        9.5
+      ],
+      "target": [
+        0,
+        2.3,
+        0
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 11.72,
+      "perspectiveMode": "perspective"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en"
+    },
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "phong"
+    }
+  },
+  "modified": "2026-11-03T00:00:00.000Z"
+}

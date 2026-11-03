@@ -187,6 +187,8 @@ export const PANEL_ICONS = {
   material: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13c1 0 1.5-.7 1.2-1.6-.4-1 .3-1.9 1.3-1.9h1.6a2.9 2.9 0 0 0 2.9-2.9C15 4.4 11.9 1.5 8 1.5z"/><circle cx="4.8" cy="7" r=".9" fill="currentColor"/><circle cx="7.5" cy="4.5" r=".9" fill="currentColor"/><circle cx="10.8" cy="5.5" r=".9" fill="currentColor"/>'),
   prepare: svg('<path d="M5.5 2.5h5v2h-5z"/><path d="M4.5 3.5H3v11h10v-11h-1.5"/><path d="m5.5 9.5 1.8 1.8 3.4-3.6"/>'),
   shading: svg('<circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/>'),
+  // Blender's camera: a frame, the lens, the triangle on top.
+  camera: svg('<path d="M1.5 6.5h9v7h-9z"/><path d="m10.5 8.5 4-2v7l-4-2"/><path d="M3.5 4.5h5L6 1.8z" fill="currentColor"/>'),
   light: svg('<path d="M6 12.5h4M6.8 14.5h2.4"/><path d="M8 1.5a4.5 4.5 0 0 0-2.6 8.2v1.3h5.2V9.7A4.5 4.5 0 0 0 8 1.5z"/>'),
   animation: svg('<circle cx="8" cy="8" r="6.5"/><path d="m6.5 5.3 4 2.7-4 2.7z" fill="currentColor"/>'),
   window: WINDOW_ICON,

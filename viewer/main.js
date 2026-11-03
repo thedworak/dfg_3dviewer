@@ -96,6 +96,9 @@ import { attachRakingLight } from "./editor/raking-light.js";
 import { attachSceneLights } from "./editor/scene-lights.js";
 import { attachLightsPanel } from "./editor/lights-panel.js";
 import { attachLightMarkers } from "./editor/light-markers.js";
+import { attachSceneCameras } from "./editor/scene-cameras.js";
+import { attachCamerasPanel } from "./editor/cameras-panel.js";
+import { attachCameraMarkers } from "./editor/camera-markers.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
 import { attachClipping } from "./editor/clipping.js";
@@ -601,7 +604,7 @@ export const Viewer = {
       core.controls.update();
     }
     // The handles pick with the camera they were given: the new one.
-    [core.transformControl, core.transformControlLight, core.transformControlLightTarget].forEach((control) => {
+    [core.transformControl, core.transformControlLight, core.transformControlLightTarget, core.transformControlSceneCamera].forEach((control) => {
       if (control) control.camera = core.camera;
     });
 
@@ -1601,6 +1604,7 @@ export const Viewer = {
     Viewer.resetCameraLens();
     Viewer.currentManifest = null;
     Viewer.manifestCameras = [];
+    Viewer.clearSceneCameras();
     Viewer.manifestCameraPosition = null;
     document.getElementById("manifesto-camera-switch")?.remove();
     document.getElementById("manifesto-scene-switch")?.remove();
@@ -2648,6 +2652,8 @@ export const Viewer = {
     Viewer.updatePhotoOverlay(time);
     Viewer.updateRakingLight(delta);
     Viewer.updateLightMarkers();
+    Viewer.updateSceneCameraFlight(time);
+    Viewer.updateCameraMarkers();
     Viewer.updateSunStudy(delta);
     Viewer.updateWeather(delta);
     Viewer.updateTimeline(delta);
@@ -3420,8 +3426,10 @@ export const Viewer = {
       defaultCamera: content?.defaultCamera || (isAim3ifManifest && manifestJson?.AIM3DViewer?.camera) || null,
     }, Viewer);
     Viewer.manifestCameras = content?.cameraChoices || [];
+    // The scene's cameras (editor/scene-cameras.js): the cameras window, the
+    // switch below and the exported manifest.
+    Viewer.setSceneCameras(Viewer.manifestCameras, content?.defaultCamera || null);
     Viewer.updateManifestSceneSwitch(manifestJson);
-    Viewer.updateManifestCameraSwitch();
     // The gallery follows the manifest: its AIM3DViewer.thumbnails, else the
     // generic images (thumbnail-gallery.js) - not the previous model's
     // renders. The page's own gallery (Drupal fields, gallery.build) is
@@ -3443,43 +3451,49 @@ export const Viewer = {
     }
   },
 
-  // Shows one of the scene's cameras (Viewer.manifestCameras).
+  // Shows one of the scene's cameras (editor/scene-cameras.js).
   showManifestCamera(index) {
-    const camera = Viewer.manifestCameras?.[Number(index)];
+    const camera = Viewer.getSceneCameras()[Number(index)];
     if (!camera) return false;
-    return applyIIIFCamera(camera, Viewer);
+    return Viewer.viewSceneCamera(camera);
   },
 
   // A camera selector in the manifest form, for a scene that offers several
-  // (several cameras, or a Choice of them).
+  // (several cameras, or a Choice of them, or ones added in the cameras
+  // window); it follows the chosen camera.
   updateManifestCameraSwitch() {
-    document.getElementById("manifesto-camera-switch")?.remove();
-    const cameras = Viewer.manifestCameras || [];
+    const cameras = Viewer.getSceneCameras?.() || [];
     const content = document.getElementById("form-manifesto-content");
-    if (cameras.length < 2 || !content) return;
-
-    const group = document.createElement("div");
-    group.className = "form-manifesto-group";
-    group.id = "manifesto-camera-switch";
-    const label = document.createElement("label");
-    label.className = "form-manifesto-label";
-    label.htmlFor = "manifesto-camera-select";
-    label.textContent = t("manifesto.camera", "Camera");
-    const select = document.createElement("select");
-    select.id = "manifesto-camera-select";
-    const shown = cameras.findIndex((camera) => !camera.alternative);
-    cameras.forEach((camera, index) => {
+    let group = document.getElementById("manifesto-camera-switch");
+    if (cameras.length < 2 || !content) {
+      group?.remove();
+      return;
+    }
+    if (!group) {
+      group = document.createElement("div");
+      group.className = "form-manifesto-group";
+      group.id = "manifesto-camera-switch";
+      const label = document.createElement("label");
+      label.className = "form-manifesto-label";
+      label.htmlFor = "manifesto-camera-select";
+      label.textContent = t("manifesto.camera", "Camera");
+      const select = document.createElement("select");
+      select.id = "manifesto-camera-select";
+      select.addEventListener("change", () => Viewer.showManifestCamera(select.value));
+      group.append(label, select);
+      const sceneSwitch = document.getElementById("manifesto-scene-switch");
+      if (sceneSwitch) sceneSwitch.after(group);
+      else content.prepend(group);
+    }
+    const select = group.querySelector("select");
+    const active = Viewer.getActiveSceneCamera();
+    select.replaceChildren(...cameras.map((camera, index) => {
       const option = document.createElement("option");
       option.value = String(index);
-      option.textContent = camera.label || t("manifesto.cameraNumber", { number: index + 1 }, "Camera {number}");
-      option.selected = index === Math.max(shown, 0);
-      select.appendChild(option);
-    });
-    select.addEventListener("change", () => Viewer.showManifestCamera(select.value));
-    group.append(label, select);
-    const sceneSwitch = document.getElementById("manifesto-scene-switch");
-    if (sceneSwitch) sceneSwitch.after(group);
-    else content.prepend(group);
+      option.textContent = Viewer.getSceneCameraLabel(camera);
+      option.selected = camera === active;
+      return option;
+    }));
   },
 
   // The metadata card's counts in the viewer's language.
@@ -4583,6 +4597,9 @@ attachRakingLight(Viewer);
 attachSceneLights(Viewer);
 attachLightsPanel(Viewer);
 attachLightMarkers(Viewer);
+attachSceneCameras(Viewer);
+attachCamerasPanel(Viewer);
+attachCameraMarkers(Viewer);
 attachViewHelper(Viewer);
 attachClipping(Viewer);
 attachEmbedConfigurator(Viewer);

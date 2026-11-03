@@ -199,6 +199,35 @@
   }
 }
 
+/* The cameras window (editor/cameras-panel.js) reuses the lights window's
+   rows; its list shows Blender's camera icon, gold when chosen and
+   filled in while the view looks through it. */
+.viewer-cameras_icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
+}
+
+.viewer-cameras_icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.viewer-cameras_item.is-selected .viewer-cameras_icon {
+  color: var(--viewer-brand-gold, #e9b264);
+  opacity: 1;
+}
+
+.viewer-cameras_item.is-viewing .viewer-lights_item-name {
+  font-weight: 600;
+}
+
+.viewer-cameras .viewer-lights_add-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* The shading window (editor/shading.js), also on .viewer-scene. */
 .viewer-shading {
   width: 340px;

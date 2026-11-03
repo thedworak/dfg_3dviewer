@@ -36,6 +36,8 @@ export function getEditorToolbarIcon(icon) {
     upAxis: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V4M8 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     lightMove: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 13h5l-1 8 7-10h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     lightTarget: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    // Blender's camera: a frame, the lens beside it, a triangle on top.
+    cameras: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h12v9H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m15 12.5 5-3v10l-5-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 7.5h6L9 3.5z" fill="currentColor"/></svg>',
     lights: '<svg viewBox="0 0 24 24" aria-hidden="true"> <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/> <path d="M12 4V7M12 17v3M4 12h3M17 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/> <path d="M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/> </svg>',
     materials: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 4v8l-8 4-8-4V6l8-4z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6l8 4M12 6v8M12 14l-8-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     shading: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
@@ -1416,6 +1418,8 @@ export function createEditorToolbar(viewer) {
     { key: "fullScreen", group: "display", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     // Camera and view.
     { key: "resetCamera", group: "view", icon: "resetCamera", onClick: () => viewer.resetCamera(), primary: false },
+    // The scene's cameras: their window (editor/cameras-panel.js).
+    { key: "cameras", group: "view", icon: "cameras", onClick: () => viewer.toggleCamerasPanel(), pressed: true, primary: false },
     { key: "projection", group: "view", icon: "projection", onClick: () => viewer.toggleCameraProjection(), pressed: true, primary: false },
     { key: "clippingPlanes", group: "view", icon: "clippingPlanes", onClick: () => viewer.toggleClippingPlanesPanel(), pressed: true, primary: false },
     // Appearance.
@@ -2381,6 +2385,7 @@ export function updateEditorToolbarLabels(viewer) {
     scale: t("gui.scale", "Scale"),
     upAxis: t("gui.upAxis", "Up axis of the model"),
     lights: t("gui.lights", "Lights"),
+    cameras: t("gui.sceneCameras", "Scene cameras"),
     environmentMap: t("gui.environmentMap", "Environment map"),
     weather: t("weather.title", "Weather"),
     sceneSuggest: t("scene.title", "Suggested scene"),
@@ -2707,6 +2712,7 @@ export function updateEditorToolbarState(viewer) {
     materials: viewer.isMaterialsPanelOpen?.() === true,
     shading: viewer.isShadingPanelOpen?.() === true,
     lights: viewer.isLightsPanelOpen?.() === true,
+    cameras: viewer.isCamerasPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     volume: viewer.isVolumePanelVisible?.() === true,

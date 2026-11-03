@@ -3360,6 +3360,72 @@ test('IIIF comments: languages, HTML bodies, and one scene of a manifest at a ti
   await expect(page.locator('#manifesto-scene-select')).toHaveValue('1');
 });
 
+test('scene cameras: a manifest\'s cameras listed with Blender-like icons, switched between, added and round-trip', async ({ page }) => {
+  await openViewer(page, defaultModel, 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-cameras.json', 'url', 'aim3if'));
+  await expect.poll(() => page.evaluate(() => window.Viewer.getSceneCameras().length)).toBe(6);
+
+  // The window opens from the Look menu, beside the projection.
+  const toolbar = page.locator('#viewerEditorToolbar');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('.viewer-menus_group[data-category="look"] [data-tool="cameras"]').click();
+  const panel = page.locator('#viewerCameras');
+  await expect(panel).toBeVisible();
+  const items = panel.locator('.viewer-cameras_item');
+  await expect(items).toHaveCount(6);
+  await expect(items.first()).toContainText('Front, three-quarter view');
+  await expect(items.first()).toContainText('Start');
+  await expect(items.nth(3)).toContainText('Orthographic');
+
+  // A click looks through the camera (reduced motion: at once).
+  await items.nth(2).click();
+  const viewing = () => page.evaluate(() => {
+    const camera = window.Viewer.getActiveSceneCamera();
+    return { label: window.Viewer.getSceneCameraLabel(camera), viewing: window.Viewer.isViewingSceneCamera(camera) };
+  });
+  await expect.poll(viewing).toEqual({ label: 'Portico, detail', viewing: true });
+  await panel.getByRole('button', { name: /Next/ }).click();
+  await expect.poll(viewing).toEqual({ label: 'Side elevation (orthographic)', viewing: true });
+  expect(await page.evaluate(() => window.Viewer.getSceneCameras()[3].type)).toBe('OrthographicCamera');
+  await panel.getByRole('button', { name: /Previous/ }).click();
+  await expect.poll(viewing).toEqual({ label: 'Portico, detail', viewing: true });
+
+  // Handles, as a light's: where it stands, or where it looks; one at a time.
+  const handles = () => page.evaluate(() => window.Viewer.getSceneCameraHandles());
+  await panel.getByRole('button', { name: 'Move', exact: true }).click();
+  expect(await handles()).toBe('position');
+  await expect(panel.getByRole('button', { name: 'Move', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await panel.getByRole('button', { name: 'Target', exact: true }).click();
+  expect(await handles()).toBe('target');
+  await panel.getByRole('button', { name: 'Target', exact: true }).click();
+  expect(await handles()).toBe('');
+
+  // One added from the view, named, made the start view: exported first.
+  await panel.getByRole('button', { name: /Camera from the current view/ }).click();
+  await expect(items).toHaveCount(7);
+  await panel.locator('.viewer-lights_name').fill('My view');
+  await panel.getByRole('button', { name: 'Make it the start view' }).click();
+  await expect(items.first()).toContainText('My view');
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest());
+  const cameras = exported.items[0].items[0].items.filter((annotation) => /Camera$/.test(annotation.body?.type || ''));
+  expect(cameras.map((annotation) => annotation.body.label?.none?.[0] ?? annotation.body.label?.en?.[0])).toEqual([
+    'My view', 'Front, three-quarter view', 'Approach at eye level', 'Portico, detail',
+    'Side elevation (orthographic)', "Bird's-eye view", 'Rear, from below',
+  ]);
+  expect(cameras[4].body).toMatchObject({ type: 'OrthographicCamera', viewHeight: 7 });
+
+  // Closing the window puts the handles away.
+  await panel.getByRole('button', { name: 'Move', exact: true }).click();
+  await panel.locator('.viewer-scene_header .viewer-scene_icon').last().click();
+  expect(await handles()).toBe('');
+
+  // Read back: the same cameras, the start view first.
+  await page.evaluate((manifest) => window.Viewer.setupManifesto(JSON.stringify(manifest), 'text', 'aim3if', { baseUrl: `${location.origin}/` }), exported);
+  await expect.poll(() => page.evaluate(() => window.Viewer.getSceneCameras().map((camera) => window.Viewer.getSceneCameraLabel(camera))))
+    .toEqual(['My view', 'Front, three-quarter view', 'Approach at eye level', 'Portico, detail', 'Side elevation (orthographic)', "Bird's-eye view", 'Rear, from below']);
+});
+
 test('IIIF scenes: activating, camera choices, canvases, regions, nesting and descriptive properties', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);
