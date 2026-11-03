@@ -6382,7 +6382,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-Bd1MMQ5S.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-D47iui6S.js'),
+    import('./rendering-webgpu-BsWgv38b.js'),
     import('./weather-webgpu-CoSNL0lA.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -9954,7 +9954,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-B5g5R8gd.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-G2fQjWNW.js');
+const loadTilesPlugins = () => import('./index.three-plugins-lBIyQ51r.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -10318,11 +10318,11 @@ const loadLWOLoader = async () => (await import('./three-Dhy7exgi.js').then(func
 const loadIFCLoader = async () => (await import('./IFCLoader-CUBN6LJU.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./three-Dhy7exgi.js').then(function (n) { return n.gY; })).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-jMXsBZ97.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-CsdyeKzi.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-CifY_xbY.js');
+const loadSplats = async () => import('./splats-BrPRbCML.js');
 // Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
-const loadVolume = async () => import('./volume-shvcQ7xa.js');
+const loadVolume = async () => import('./volume-D_itfGKE.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -19111,7 +19111,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "a4851f13" ;
+const BUILD_ID$2 = "1ecadd4d" ;
 const BUILD$1 = "test" ;
 
 let initPromise = null;
@@ -19162,8 +19162,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "a4851f13" ;
-const BUILD_TIME$1 = "2026-11-03T11:52:42.606Z" ;
+const BUILD_ID$1 = "1ecadd4d" ;
+const BUILD_TIME$1 = "2026-11-03T12:12:20.010Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -45987,7 +45987,7 @@ function attachVolumePanel(Viewer) {
       };
       Viewer.volumeState = state;
       // volume.js is loaded already (loaders.js); this only fetches the module.
-      import('./volume-shvcQ7xa.js').then((api) => {
+      import('./volume-D_itfGKE.js').then((api) => {
         if (Viewer.volumeState !== state) return;
         state.api = api;
         Viewer.createVolumePanel();
@@ -54502,8 +54502,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "a4851f13" ;
-const BUILD_TIME = "2026-11-03T11:52:42.606Z" ;
+const BUILD_ID = "1ecadd4d" ;
+const BUILD_TIME = "2026-11-03T12:12:20.010Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -54780,9 +54780,10 @@ function findMainModelFile (files) {
 //
 //   "viewer": {
 //     "intro": {
-//       "enabled": false,      // show it on the standalone page
-//       "show": "session",     // "session": once per browser session,
-//                              // "once": once per browser, "always"
+//       "enabled": true,       // show it on the standalone page
+//       "show": "once",        // "once": the first visit only (localStorage),
+//                              // "session": once per browser session,
+//                              // "always"
 //       "sound": false,        // sound on by default (the visitor's own
 //                              // choice in the intro wins)
 //       "url": "intro.html"    // the intro page, relative to the viewer page
@@ -54821,8 +54822,8 @@ function storage(kind) {
 function wanted(settings) {
   const fromUrl = parseBoolean(new URLSearchParams(window.location.search).get('intro'));
   if (fromUrl !== undefined) return fromUrl;
-  if (!parseBoolean(settings?.enabled)) return false;
-  const show = String(settings?.show || 'session');
+  if (parseBoolean(settings?.enabled) === false) return false;
+  const show = String(settings?.show || 'once');
   if (show === 'always') return true;
   try {
     return storage(show === 'once' ? 'local' : 'session')?.getItem(SEEN_KEY) !== '1';
@@ -54832,7 +54833,7 @@ function wanted(settings) {
 }
 
 function remember(settings) {
-  const show = String(settings?.show || 'session');
+  const show = String(settings?.show || 'once');
   if (show === 'always') return;
   try {
     storage(show === 'once' ? 'local' : 'session')?.setItem(SEEN_KEY, '1');
@@ -56278,7 +56279,7 @@ const Viewer$1 = {
       // Gaussian splats (splats.js) hold their own GPU textures.
       if (node.userData?.isGaussianSplats) node.dispose?.();
       // A volume's 3D textures (volume.js), by then loaded.
-      if (node.isMesh && node.userData?.isVolume) import('./volume-shvcQ7xa.js').then(({ disposeVolume }) => disposeVolume(node));
+      if (node.isMesh && node.userData?.isVolume) import('./volume-D_itfGKE.js').then(({ disposeVolume }) => disposeVolume(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -59364,4 +59365,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AO_RADIUS as A, Viewer$1 as V, AO_THICKNESS as a, core as c, decompressSync as d, expectWebGL as e };
-//# sourceMappingURL=main-DHSOj8c8.js.map
+//# sourceMappingURL=main-DfX30kg5.js.map

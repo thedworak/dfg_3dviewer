@@ -51,7 +51,7 @@ then. If it cannot be loaded, the intro ends with the points.
 
 ## In the viewer
 
-With `viewer.intro.enabled` in `viewer-settings.json` (see [viewer-settings](viewer-settings.md)) the intro opens in front of the standalone viewer page, in a full-window layer (`viewer/intro-overlay.js`), while the viewer starts and loads its model underneath. "Enter the viewer" lets the points fly apart and fades the layer away; "Skip intro" and Escape close it at once. `?intro=1` / `?intro=0` in the page address show it or not, whatever the settings say.
+By default (`viewer.intro` in `viewer-settings.json`, see [viewer-settings](viewer-settings.md)) the intro opens in front of the standalone viewer page on the first visit only (a `localStorage` flag; later visits go straight to the viewer), in a full-window layer (`viewer/intro-overlay.js`), while the viewer starts and loads its model underneath. "Enter the viewer" lets the points fly apart and fades the layer away; "Skip intro" and Escape close it at once. `?intro=1` / `?intro=0` in the page address show it or not, whatever the settings say.
 
 ## Parameters
 

@@ -71,8 +71,8 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.viewHelper` — axes gizmo in a corner of the canvas; `false` or `{ "enabled": false }` hides it, `{ "position": "top-left" }` moves it (`bottom-right` by default)
 - `viewer.fillViewport` — on the standalone page (`index.html`), the viewer takes the whole browser window below the header and gallery (default `true`); `false` keeps the height set on `#DFG_3DViewer` (`50vh`). Pages that embed the viewer (Drupal, `embed.html`) are not affected
 - `viewer.intro` — the intro ([`docs/intro.md`](intro.md)) in front of the standalone page (`index.html`): a full-window layer over the viewer, which starts and loads its model underneath; "Enter the viewer" fades it away. Not on embedded pages, in Drupal or in the app
-  - `enabled` — show it (default `false`); `?intro=1` / `?intro=0` in the page address overrides it
-  - `show` — `session` (default): once per browser session; `once`: once per browser; `always`
+  - `enabled` — show it (default `true`); `?intro=1` / `?intro=0` in the page address overrides it
+  - `show` — `once` (default): on the first visit only, remembered in the browser's `localStorage` (`explora4d-intro-seen`); `session`: once per browser session; `always`
   - `sound` — the intro's sound on by default (default `false`); browsers start it only with the visitor's first click or key press, and the visitor's own on/off choice is remembered and wins
   - `url` — the intro page, relative to the viewer page, same site only (default `intro.html`)
 - `viewer.scaleContainer` — scale adjustments for the viewer container

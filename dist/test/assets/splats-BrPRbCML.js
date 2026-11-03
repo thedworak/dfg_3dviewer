@@ -1,4 +1,4 @@
-import { c as core } from './main-CoIw1PXa.js';
+import { c as core } from './main-wQ05QVWg.js';
 import { C as Color, Y as Vector4, du as Box3, a1 as Matrix4, V as Vector3, M as Matrix3, h as Mesh, fj as ShaderMaterial, ai as DoubleSide, ed as GLSL3, Q as Vector2, fJ as Timer, f_ as WebGLRenderTarget, bb as SRGBColorSpace, aP as UnsignedByteType, av as RGBAFormat, bs as Quaternion, ak as DataTexture, bj as RGBAIntegerFormat, as as UnsignedIntType, ga as WebGLCubeRenderTarget, aj as LinearSRGBColorSpace, j as LinearFilter, ap as LinearMipMapLinearFilter, k as CubeCamera, dz as Camera, gb as PMREMGenerator, b0 as MeshStandardMaterial, ao as Object3D, au as DataArrayTexture, aA as RGIntegerFormat, fZ as WebGLArrayRenderTarget, a7 as NearestFilter, b as ColorManagement, bn as PerspectiveCamera, a2 as OrthographicCamera, gc as ShaderChunk, el as InstancedBufferGeometry, a9 as BufferAttribute, b6 as Loader, b7 as FileLoader, fe as RawShaderMaterial, ag as Matrix2, aF as REVISION, g6 as FullScreenQuad, g5 as THREE } from './three-Dhy7exgi.js';
 import './model-thumbnail-vzDo5QkC.js';
 import './model-extension-V-bD6FLD.js';

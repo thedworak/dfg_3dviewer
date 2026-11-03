@@ -56,8 +56,8 @@
       "modelUnitInMeters": 1
     },
     "intro": {
-      "enabled": false,
-      "show": "session",
+      "enabled": true,
+      "show": "once",
       "sound": false,
       "url": "intro.html"
     }

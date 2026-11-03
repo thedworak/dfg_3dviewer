@@ -1,4 +1,4 @@
-import './main-CoIw1PXa.js';
+import './main-wQ05QVWg.js';
 import { g5 as THREE } from './three-Dhy7exgi.js';
 import './model-thumbnail-vzDo5QkC.js';
 import './model-extension-V-bD6FLD.js';

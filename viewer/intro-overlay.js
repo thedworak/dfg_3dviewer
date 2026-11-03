@@ -3,9 +3,10 @@
 //
 //   "viewer": {
 //     "intro": {
-//       "enabled": false,      // show it on the standalone page
-//       "show": "session",     // "session": once per browser session,
-//                              // "once": once per browser, "always"
+//       "enabled": true,       // show it on the standalone page
+//       "show": "once",        // "once": the first visit only (localStorage),
+//                              // "session": once per browser session,
+//                              // "always"
 //       "sound": false,        // sound on by default (the visitor's own
 //                              // choice in the intro wins)
 //       "url": "intro.html"    // the intro page, relative to the viewer page
@@ -44,8 +45,8 @@ function storage(kind) {
 function wanted(settings) {
   const fromUrl = parseBoolean(new URLSearchParams(window.location.search).get('intro'));
   if (fromUrl !== undefined) return fromUrl;
-  if (!parseBoolean(settings?.enabled)) return false;
-  const show = String(settings?.show || 'session');
+  if (parseBoolean(settings?.enabled) === false) return false;
+  const show = String(settings?.show || 'once');
   if (show === 'always') return true;
   try {
     return storage(show === 'once' ? 'local' : 'session')?.getItem(SEEN_KEY) !== '1';
@@ -55,7 +56,7 @@ function wanted(settings) {
 }
 
 function remember(settings) {
-  const show = String(settings?.show || 'session');
+  const show = String(settings?.show || 'once');
   if (show === 'always') return;
   try {
     storage(show === 'once' ? 'local' : 'session')?.setItem(SEEN_KEY, '1');

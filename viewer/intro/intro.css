@@ -222,6 +222,12 @@ html, body {
   -webkit-backdrop-filter: blur(4px);
 }
 .intro-lens-tip { --intro-lens-gap: 34px; }
+.intro-lens-tip.is-left::before {
+  transform: translate(calc(var(--intro-lens-gap) * -0.55), calc(var(--intro-lens-gap) * -0.45)) rotate(-142deg);
+}
+.intro-lens-tip.is-left span {
+  transform: translate(calc(-100% - var(--intro-lens-gap) - 22px), calc(var(--intro-lens-gap) * -1 - 26px));
+}
 
 .intro-replay,
 .intro-skip {

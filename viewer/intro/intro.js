@@ -87,9 +87,9 @@ const TEXTS = {
     loading: 'Wczytywanie punktów…',
     error: 'Nie udało się wczytać intro.',
     hint: 'Najedź na synagogę, by zajrzeć do środka · przeciągnij, aby obrócić',
-    hintTouch: 'Dotknij synagogi, by zajrzeć do środka · przeciągnij, aby obrócić',
+    hintTouch: 'Stuknij synagogę, by zajrzeć do środka · przeciągnij, aby obrócić',
     lensTip: 'Najedź kursorem – zajrzyj do środka',
-    lensTipTouch: 'Dotknij – zajrzyj do środka',
+    lensTipTouch: 'Stuknij – zajrzyj do środka',
     bar: {
       label: 'Etapy intro',
       cloud: 'Chmura punktów',
@@ -127,9 +127,9 @@ const TEXTS = {
     loading: 'Loading points…',
     error: 'The intro could not be loaded.',
     hint: 'Hover over the synagogue to look inside · drag to rotate',
-    hintTouch: 'Touch the synagogue to look inside · drag to rotate',
+    hintTouch: 'Tap the synagogue to look inside · drag to rotate',
     lensTip: 'Move the cursor here – look inside',
-    lensTipTouch: 'Touch here – look inside',
+    lensTipTouch: 'Tap here – look inside',
     bar: {
       label: 'Intro chapters',
       cloud: 'Point cloud',
@@ -180,9 +180,9 @@ const TEXTS = {
     loading: 'Punkte werden geladen…',
     error: 'Das Intro konnte nicht geladen werden.',
     hint: 'Mit der Maus über die Synagoge fahren, um hineinzusehen · ziehen zum Drehen',
-    hintTouch: 'Die Synagoge berühren, um hineinzusehen · ziehen zum Drehen',
+    hintTouch: 'Auf die Synagoge tippen, um hineinzusehen · ziehen zum Drehen',
     lensTip: 'Mit der Maus hierher – hineinsehen',
-    lensTipTouch: 'Hier berühren – hineinsehen',
+    lensTipTouch: 'Hier tippen – hineinsehen',
     bar: {
       label: 'Kapitel des Intros',
       cloud: 'Punktwolke',
@@ -455,17 +455,22 @@ const pointer = new Vector2(10, 10);
 let hover = 0;
 let hoverTarget = 0;
 let userTouched = false;
-// The x-ray lens: where the pointer is (ndc), whether it is on the canvas
-// (a mouse over it, a finger down), when it last moved, and whether the
-// lens has been used (then it stops showing itself).
+// The x-ray lens. A mouse: it follows the pointer over the model. A finger
+// (a drag turns the building): a tap pins it to the model where it touched,
+// a tap beside the model takes it away. Until used it shows itself.
 const lensPointer = new Vector2();
-let lensPointerOn = false;
+let lensPointerOn = false; // a mouse over the canvas
 let lensMovedAt = -Infinity;
 let lensUsedFor = 0;
 let lensOn = 0;
 const lensCentre = new Vector3();
 const lensRay = { origin: new Vector3(), dir: new Vector3() };
+let lensPin = null; // a tapped point on the model (intro space)
+let lensTap = null; // a finger down that may be a tap: { x, y, at }
+let lensTapAt = null; // a tap to place the lens with (ndc), next frame
 const LENS_RADIUS = 0.3;
+const TAP_MOVE = 10; // px
+const TAP_TIME = 400; // ms
 function hideHint() {
   if (userTouched && lensUsedFor > 0.6) ui.hint.classList.add('is-gone');
 }
@@ -492,34 +497,46 @@ if (renderer) {
   });
   resize();
   window.addEventListener('resize', resize);
-  ui.canvas.addEventListener('pointermove', (event) => {
+  const toNdc = (event, target) => {
     const rect = ui.canvas.getBoundingClientRect();
-    pointer.set(
+    return target.set(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
       -((event.clientY - rect.top) / rect.height) * 2 + 1,
     );
-    hoverTarget = event.pointerType === 'mouse' ? 1 : 0;
-    lensPointer.copy(pointer);
-    if (event.pointerType === 'mouse' || event.buttons) {
+  };
+  ui.canvas.addEventListener('pointermove', (event) => {
+    toNdc(event, pointer);
+    const mouse = event.pointerType === 'mouse';
+    hoverTarget = mouse ? 1 : 0;
+    lensMovedAt = now();
+    if (mouse) {
+      lensPointer.copy(pointer);
       lensPointerOn = true;
-      lensMovedAt = now();
+    } else if (lensTap && Math.hypot(event.clientX - lensTap.x, event.clientY - lensTap.y) > TAP_MOVE) {
+      lensTap = null; // a drag: it turns the building
     }
   });
+  let fingers = 0;
   ui.canvas.addEventListener('pointerdown', (event) => {
-    const rect = ui.canvas.getBoundingClientRect();
-    lensPointer.set(
-      ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      -((event.clientY - rect.top) / rect.height) * 2 + 1,
-    );
-    lensPointerOn = true;
     lensMovedAt = now();
+    if (event.pointerType === 'mouse') return;
+    fingers++;
+    lensTap = fingers === 1 ? { x: event.clientX, y: event.clientY, at: event.timeStamp } : null;
   });
-  const lensOff = (event) => { if (event.pointerType !== 'mouse') lensPointerOn = false; };
-  ui.canvas.addEventListener('pointerup', lensOff);
-  ui.canvas.addEventListener('pointercancel', lensOff);
-  ui.canvas.addEventListener('pointerleave', () => {
+  ui.canvas.addEventListener('pointerup', (event) => {
+    if (event.pointerType === 'mouse') return;
+    fingers = Math.max(0, fingers - 1);
+    if (lensTap && event.timeStamp - lensTap.at < TAP_TIME) lensTapAt = toNdc(event, new Vector2());
+    lensTap = null;
+  });
+  ui.canvas.addEventListener('pointercancel', (event) => {
+    if (event.pointerType === 'mouse') return;
+    fingers = Math.max(0, fingers - 1);
+    lensTap = null;
+  });
+  ui.canvas.addEventListener('pointerleave', (event) => {
     hoverTarget = 0;
-    lensPointerOn = false;
+    if (event.pointerType === 'mouse') lensPointerOn = false;
   });
   load().catch((error) => {
     console.error('[intro]', error);
@@ -1110,9 +1127,18 @@ function updateLens(stage, time, dt, exit) {
     lensRay.dir.set(x, y, 0.5).unproject(camera).sub(lensRay.origin).normalize();
     return meshReveal.raycast(lensRay.origin, lensRay.dir);
   };
+  if (rewindStart >= 0) lensPin = null;
+  // A tap: the lens pinned where it touched the model, or taken away.
+  if (lensTapAt) {
+    const tapped = standing ? cast(lensTapAt.x, lensTapAt.y) : -1;
+    lensPin = tapped > 0 ? lensRay.dir.clone().multiplyScalar(tapped + LENS_RADIUS * 0.3).add(lensRay.origin) : null;
+    if (lensPin) lensUsedFor = Math.max(lensUsedFor, 1);
+    lensTapAt = null;
+  }
   // The pointer's own lens, when it is over the model.
   let distance = standing && lensPointerOn ? cast(lensPointer.x, lensPointer.y) : -1;
-  const user = distance > 0;
+  const pinned = !(distance > 0) && standing && lensPin !== null;
+  const user = distance > 0 || pinned;
   // Otherwise, until used, the lens shows itself - once the pointer has
   // been still a moment, outside the chapters.
   const demo = !user && standing && lensUsedFor <= 0.6 && time - lensMovedAt > 1.2
@@ -1121,9 +1147,9 @@ function updateLens(stage, time, dt, exit) {
     distance = reducedMotion ? cast(0.1, 0.02)
       : cast(0.2 * Math.sin(time * 0.42), 0.02 + 0.12 * Math.sin(time * 0.29 + 1));
   }
-  const hit = distance > 0;
+  const hit = distance > 0 || pinned;
   if (hit) {
-    const target = lensRay.dir.multiplyScalar(distance + LENS_RADIUS * 0.3).add(lensRay.origin);
+    const target = pinned ? lensPin : lensRay.dir.multiplyScalar(distance + LENS_RADIUS * 0.3).add(lensRay.origin);
     if (lensOn < 0.05) lensCentre.copy(target);
     else lensCentre.lerp(target, Math.min(1, dt * 18));
     if (user) {
@@ -1144,6 +1170,9 @@ function updateLens(stage, time, dt, exit) {
     const x = rect.left + (ray.ndc.x * 0.5 + 0.5) * rect.width;
     const y = rect.top + (-ray.ndc.y * 0.5 + 0.5) * rect.height;
     ui.lensTip.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    // On the left of the lens when it would not fit on its right.
+    const width = ui.lensTip.firstChild.offsetWidth;
+    ui.lensTip.classList.toggle('is-left', x + 56 + width > window.innerWidth - 16 && x - 56 - width > 16);
   }
 }
 
