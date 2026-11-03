@@ -28,8 +28,10 @@ const CATEGORIES = [
     id: "look",
     label: () => t("menus.look", "Look"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["lights", "weather", "sceneSuggest", "environmentMap", "ground", "background", "compareLook", "rendering"],
-    breaks: ["compareLook"],
+    // The camera's projection last, a section of its own: changed now and
+    // then, not worth a place in the navigation.
+    tools: ["lights", "weather", "sceneSuggest", "environmentMap", "ground", "background", "compareLook", "rendering", "projection"],
+    breaks: ["compareLook", "projection"],
   },
   {
     id: "analysis",
@@ -84,9 +86,9 @@ const MORE = {
 
 // Always at hand, outside the menus: navigating (which also ends moving,
 // turning or scaling the model - those are under Model), then the view
-// (the camera's projection among it).
+// (the camera's projection is under Look).
 const NAV_TRANSFORM = ["orbit"];
-const NAV_VIEW = ["projection", "resetCamera", "fullScreen"];
+const NAV_VIEW = ["resetCamera", "fullScreen"];
 const NAV_TOOLS = [...NAV_TRANSFORM, ...NAV_VIEW];
 // What the phone itself adds - AR in the room (the app's, else the
 // browser's WebXR), a historical photo over the place through the camera,

@@ -11,8 +11,9 @@ import DEFAULT_LIST from "./examples/index.json";
 //
 // Format: { "models": [entry] }, entry = { url, name, group?, app? }. "name"
 // may be a string or { en, de, pl }; "./examples/..." URLs are served with
-// the viewer. group: any id ("tempietto", "volumes"...) - a line separates
-// the entries of one group from the next (renderExampleModelOptions()).
+// the viewer. group: any id ("tempietto", "volumes"...) - the entries of a
+// group are listed under its name (renderExampleModelOptions()), from the
+// list's "groups": { id: name } (a string or { en, de, pl }; else the id).
 // app: false - not offered in the app (test files, and models the app has a
 // lighter version of; the app build leaves them out of its bundle).
 //
@@ -29,9 +30,11 @@ const BUNDLED = new Set((DEFAULT_LIST.models || []).filter((entry) => entry.app 
 function normalizeList(data) {
   if (!Array.isArray(data?.models)) return null;
   const site = IS_MOBILE_BUILD ? listSite(listUrl()) : null;
+  const groups = data.groups && typeof data.groups === "object" ? data.groups : {};
   return data.models
     .filter((entry) => entry && typeof entry.url === "string" && entry.url.trim())
     .filter((entry) => !(IS_MOBILE_BUILD && entry.app === false))
+    .map((entry) => (typeof entry.group === "string" && groups[entry.group] ? { ...entry, groupName: groups[entry.group] } : entry))
     .flatMap((entry) => {
       if (!isRelativeUrl(entry.url)) return [{ ...entry, online: true }];
       if (!IS_MOBILE_BUILD || BUNDLED.has(entry.url)) return [{ ...entry, online: false }];
@@ -67,6 +70,21 @@ export function isHiddenInApp(url) {
 // served from the site root (dev.html: "./viewer/"). The same list in the
 // same language leaves the options as they are (an open list stays open);
 // only the online-only ones follow the network.
+// A group's name: the list's, else its id ("volumes" -> "Volumes").
+function groupLabel(entry) {
+  const id = typeof entry.group === "string" ? entry.group : "";
+  if (!id) return "";
+  return localizedName(entry.groupName) || id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+// An example's name where its group is not shown ("Tempietto · GLB"): the
+// names in the list say only what sets each apart within its group.
+export function exampleModelLabel(entry) {
+  const name = localizedName(entry?.name) || entry?.url || "";
+  const group = entry ? groupLabel(entry) : "";
+  return group ? `${group} · ${name}` : name;
+}
+
 export function renderExampleModelOptions(select) {
   if (!select) return;
   const base = select.dataset.exampleBase || "";
@@ -76,6 +94,7 @@ export function renderExampleModelOptions(select) {
     text: localizedName(entry.name) || entry.url,
     online: entry.online,
     group: typeof entry.group === "string" ? entry.group : "",
+    groupLabel: groupLabel(entry),
   }));
   // Shown while the model on screen came from elsewhere (the repository, the
   // device, a manifest): clearExampleModelSelection().
@@ -94,22 +113,38 @@ export function renderExampleModelOptions(select) {
   if (select.dataset.exampleList !== signature) {
     select.dataset.exampleList = signature;
     const value = select.value;
-    select.querySelectorAll("option:not([data-keep]):not([data-placeholder]), hr[data-example-group]").forEach((option) => option.remove());
+    select.querySelectorAll("option:not([data-keep]):not([data-placeholder]), optgroup[data-example-group], hr[data-example-group]").forEach((option) => option.remove());
     const kept = select.querySelector("option[data-keep]");
-    // A line between groups (and before the page's own data-keep options).
-    // Customizable selects draw it; native lists may leave it out.
+    // A line before the page's own data-keep options. Customizable selects
+    // draw it; native lists may leave it out.
     const separate = () => {
       const line = document.createElement("hr");
       line.dataset.exampleGroup = "true";
       select.insertBefore(line, kept);
     };
-    options.forEach(({ value: url, text, online: needsNetwork, group }, index) => {
-      if (index > 0 && group !== options[index - 1].group) separate();
+    // Each group under its name: an optgroup, its legend drawn as a line
+    // with the name in it by customizable selects (external-sources.css),
+    // its label shown as a heading by native lists.
+    let container = null;
+    options.forEach(({ value: url, text, online: needsNetwork, group, groupLabel: label }, index) => {
+      if (index === 0 || group !== options[index - 1].group) {
+        container = null;
+        if (group) {
+          container = document.createElement("optgroup");
+          container.dataset.exampleGroup = group;
+          container.label = label;
+          const legend = document.createElement("legend");
+          legend.textContent = label;
+          container.appendChild(legend);
+          select.insertBefore(container, kept);
+        }
+      }
       const option = document.createElement("option");
       option.value = url;
       option.textContent = text;
       if (needsNetwork) option.dataset.online = "true";
-      select.insertBefore(option, kept);
+      if (container) container.appendChild(option);
+      else select.insertBefore(option, kept);
     });
     if (kept && options.length) separate();
     select.value = value;

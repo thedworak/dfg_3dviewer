@@ -359,6 +359,9 @@ function prepareOutlineClipping(_object) {
   const extras = [];
   core.outlineClipping.traverse((child) => {
     if (child.isLight || child.isCamera) extras.push(child);
+    // A volume's box is not its surface: no fill for it (volume.js, where
+    // the planes cut the rays instead).
+    else if (child.isMesh && child.userData?.isVolume) extras.push(child);
   });
   extras.forEach((child) => child.removeFromParent());
   var gutsMaterial = new THREE.MeshBasicMaterial({

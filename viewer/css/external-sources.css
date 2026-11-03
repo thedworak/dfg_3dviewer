@@ -737,11 +737,47 @@ body[data-viewer-theme="dark"] #example-model-picker {
     display: none;
   }
 
-  /* Between groups of the example list (example-models.js). */
+  /* Before the page's own test files (example-models.js, dev.html). */
   #example-model-picker select hr {
     margin: 4px 6px;
     border: 0;
     border-top: 1px solid var(--example-picker-border);
+  }
+
+  /* The groups of the example list (example-models.js): the name in the
+     line between them, "── Tempietto ──────". */
+  #example-model-picker select optgroup {
+    display: block;
+    padding: 0;
+  }
+
+  #example-model-picker select optgroup > legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 6px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--example-picker-text);
+    opacity: 0.6;
+    white-space: nowrap;
+  }
+
+  #example-model-picker select optgroup:first-of-type > legend {
+    padding-top: 4px;
+  }
+
+  #example-model-picker select optgroup > legend::before,
+  #example-model-picker select optgroup > legend::after {
+    content: "";
+    flex: 1 1 auto;
+    border-top: 1px solid var(--example-picker-border);
+  }
+
+  #example-model-picker select optgroup > legend::before {
+    flex: 0 0 12px;
   }
 
   /* An example from the site, not in the app (example-models.js): a globe,

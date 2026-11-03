@@ -30,11 +30,16 @@ import THREE from "./init.js";
 //
 // Each channel has its window: values below `low` are left out and those
 // above `high` are full. The box is not picked (its faces are not the
-// sample's surface) and casts no shadows; clipping planes do not cut it.
+// sample's surface) and casts no shadows. The section planes
+// (editor/clipping.js) cut the rays, not the box: each active plane, taken
+// into the box's own space before each frame (clipVolumeRays), shortens the
+// stretch of the ray marched through - the inside shows at the cut.
 
 export const MAX_CHANNELS = 4;
 export const VOLUME_MODES = ["mip", "dvr", "iso"];
 const MAX_STEPS = 1536;
+// One per world axis (editor/clipping.js).
+const MAX_CLIP_PLANES = 3;
 const DEFAULT_DENSITY = 0.01;
 
 // Each instance's textures, by mesh (not in userData, which is serialised).
@@ -88,6 +93,8 @@ const fragmentShader = /* glsl */ `
   uniform float uSampling;
   uniform vec3 uDims;
   uniform vec3 uSize;
+  uniform int uClipCount;
+  uniform vec4 uClip[${MAX_CLIP_PLANES}];
 
   in vec3 vOrigin;
   in vec3 vDirection;
@@ -100,6 +107,26 @@ const fragmentShader = /* glsl */ `
     vec3 near = min(t0, t1);
     vec3 far = max(t0, t1);
     return vec2(max(max(near.x, near.y), near.z), min(min(far.x, far.y), far.z));
+  }
+
+  // The stretch of the ray the section planes keep: those points p of the
+  // box (its own space) with dot(normal, p) + constant >= 0, as three's
+  // clipping keeps them.
+  vec2 clipRay(vec3 origin, vec3 direction, vec2 bounds) {
+    for (int i = 0; i < ${MAX_CLIP_PLANES}; i++) {
+      if (i >= uClipCount) break;
+      vec3 normal = uClip[i].xyz;
+      float start = dot(normal, origin) + uClip[i].w;
+      float rate = dot(normal, direction);
+      if (abs(rate) < 1e-6) {
+        if (start < 0.0) return vec2(1.0, 0.0);
+      } else if (rate > 0.0) {
+        bounds.x = max(bounds.x, -start / rate);
+      } else {
+        bounds.y = min(bounds.y, -start / rate);
+      }
+    }
+    return bounds;
   }
 
   float windowed(float value, int channel) {
@@ -136,6 +163,8 @@ const fragmentShader = /* glsl */ `
     vec2 bounds = hitBox(vOrigin, direction);
     if (bounds.x > bounds.y) discard;
     bounds.x = max(bounds.x, 0.0);
+    bounds = clipRay(vOrigin, direction, bounds);
+    if (bounds.x > bounds.y) discard;
     float stepSize = 1.0 / (length(direction * uDims) * uSampling);
     float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
     float t = bounds.x + stepSize * jitter;
@@ -231,8 +260,29 @@ function createMaterial() {
       uSampling: { value: 1 },
       uDims: { value: new THREE.Vector3(1, 1, 1) },
       uSize: { value: new THREE.Vector3(1, 1, 1) },
+      uClipCount: { value: 0 },
+      uClip: { value: Array.from({ length: MAX_CLIP_PLANES }, () => new THREE.Vector4()) },
     },
   });
+}
+
+const toLocal = new THREE.Matrix4();
+const localPlane = new THREE.Plane();
+
+// Before each frame: the section planes the viewer gives the material
+// (viewer-utils.js updateActiveClippingPlanes), in the box's own space.
+function clipVolumeRays(mesh) {
+  const uniforms = mesh.material.uniforms;
+  const planes = mesh.material.clippingPlanes || [];
+  toLocal.copy(mesh.matrixWorld).invert();
+  let count = 0;
+  for (const plane of planes) {
+    if (count >= MAX_CLIP_PLANES) break;
+    localPlane.copy(plane).applyMatrix4(toLocal);
+    uniforms.uClip.value[count].set(localPlane.normal.x, localPlane.normal.y, localPlane.normal.z, localPlane.constant);
+    count += 1;
+  }
+  uniforms.uClipCount.value = count;
 }
 
 function volumeTexture(data, x, y, z) {
@@ -382,6 +432,7 @@ function createVolumeRoot(manifest, url, name) {
   // Image planes flat, the stack's Z up.
   mesh.rotation.x = -Math.PI / 2;
   mesh.raycast = () => {};
+  mesh.onBeforeRender = () => clipVolumeRays(mesh);
   mesh.userData.isVolume = true;
   mesh.userData.volume = {
     url,

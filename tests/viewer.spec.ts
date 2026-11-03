@@ -4028,11 +4028,19 @@ test('example model list: fetched from examples/index.json, so a new example nee
   const select = page.locator('#example-model-select');
   await expect(select.locator('option', { hasText: 'New example' })).toHaveAttribute('value', './examples/box.glb');
   await expect(select.locator('option[value="./examples/tempietto/Tempietto.glb"]')).toHaveText('GLB');
-  // A line between groups: after the last Tempietto, before the first Wolpa
-  // (the added entries, without a group, are one more group).
-  const groups = list.models.map((entry) => entry.group || '').filter((group, index, all) => index === 0 || group !== all[index - 1]);
-  await expect(select.locator('hr')).toHaveCount(groups.length - 1);
-  expect(await select.evaluate((element) => element.querySelector('hr')?.nextElementSibling?.getAttribute('value'))).toBe('./examples/WolpaSynagogue.glb');
+  // Each group under its name (the list's "groups", else the id); the added
+  // entries, without a group, after them on their own.
+  const groups = list.models.map((entry) => entry.group).filter((group, index, all) => group && group !== all[index - 1]);
+  await expect(select.locator('optgroup')).toHaveCount(groups.length);
+  expect(await select.evaluate((element) => [...element.querySelectorAll('optgroup')].map((group) => group.label)))
+    .toEqual(['Tempietto', 'Gaussian splats', 'Wolpa Synagogue', 'Point clouds and animation', 'Amphora, micro-CT (volume)', 'Cells, 2 channels (microscopy volume)', 'Virus capsid, cryo-EM (volume)', 'Test files (broken)']);
+  // Within a group, only what sets an example apart.
+  await expect(select.locator('optgroup[data-example-group="amphora"] > option').first()).toHaveText('NIfTI');
+  await expect(select.locator('option[value="./examples/WolpaSynagogue-progressive.glb"]')).toHaveText('GLB, progressive (Meshopt + KTX2)');
+  await expect(select.locator('optgroup[data-example-group="wolpa"] > legend')).toHaveText('Wolpa Synagogue');
+  expect(await select.evaluate((element) => element.querySelector('optgroup[data-example-group="wolpa"] > option')?.getAttribute('value'))).toBe('./examples/WolpaSynagogue.glb');
+  expect(await select.evaluate((element) => element.querySelector('option[value="./examples/box.glb"]')?.parentElement === element)).toBe(true);
+  await expect(select.locator('hr')).toHaveCount(0);
   // Another site: marked, and disabled without network.
   const elsewhere = select.locator('option', { hasText: 'Elsewhere' });
   await expect(elsewhere).toHaveAttribute('data-online', 'true');
@@ -4045,6 +4053,7 @@ test('example model list: fetched from examples/index.json, so a new example nee
   // does): a kept one could be another deployment's.
   await page.evaluate(() => window.Viewer.selectLanguage('pl'));
   await expect(select.locator('option[value="./examples/box.glb"]')).toHaveText('Nowy przykład');
+  await expect(select.locator('optgroup[data-example-group="wolpa"]')).toHaveAttribute('label', 'Synagoga w Wolpie');
   expect(await page.evaluate(() => localStorage.getItem('dfg3dviewer-example-models'))).toBeNull();
 });
 
@@ -4604,11 +4613,11 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   expect((await lookLabel.boundingBox()).y + 5).toBeLessThan((await lookTab.boundingBox()).y);
   expect(await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').boundingBox()).toEqual(tabBefore);
   await page.mouse.move(700, 300);
-  // At hand, outside the menus: navigating and the view, the projection
-  // among it.
+  // At hand, outside the menus: navigating and the view (the projection is
+  // under Look).
   const nav = toolbar.locator('.viewer-menus_nav > [data-tool]:visible:not(.viewer-menus_grip)');
-  await expect(nav).toHaveCount(4);
-  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'projection', 'resetCamera', 'fullScreen']);
+  await expect(nav).toHaveCount(3);
+  expect(await nav.evaluateAll((buttons) => buttons.map((button) => button.dataset.tool))).toEqual(['orbit', 'resetCamera', 'fullScreen']);
   // The parts and what only some models have (hidden here: no variants, IFC
   // or point cloud), moving, turning and scaling, then the surface (shading,
   // wireframe, materials): under Model, a line between the sections.
@@ -4664,6 +4673,12 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   await expect(settings.locator('[data-tool="help"]')).toBeVisible();
   await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
   await expect(toolbar.locator('.viewer-menus_group[data-category="look"] > [data-tool]').first()).toHaveAttribute('data-tool', 'lights');
+  // The projection last, after a line.
+  const lookTools = toolbar.locator('.viewer-menus_group[data-category="look"] > [data-tool]');
+  await expect(lookTools.last()).toHaveAttribute('data-tool', 'projection');
+  await lookTools.last().click();
+  await expect.poll(() => page.evaluate(() => window.viewer.camera.isOrthographicCamera === true)).toBe(true);
+  await lookTools.last().click();
   await page.keyboard.press('Escape');
 
   // Analysis: the sun and the raking light, out of Lights; section planes and
@@ -6537,4 +6552,52 @@ test('menus: shortcuts to the model\'s own tools in the navigation, the tools st
   await expect.poll(() => page.evaluate(() => window.Viewer.RULER_MODE)).toBe(true);
   await expect(shortcut).toHaveClass(/is-active/);
   await expect(shortcut).toHaveAttribute('title', /· Point cloud$/);
+});
+
+test('section planes cut a volume\'s rays, with no fill drawn for its box', async ({ page }) => {
+  await openViewer(page, '/examples/volumes/amphora-ct.nrrd');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.isVolumeActive?.(), null, { timeout: 60_000 });
+  await waitForCameraIdle(page);
+  const canvas = page.locator('#MainCanvas');
+  const before = await canvas.screenshot();
+
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.setClippingAxisEnabled('x', true, { silent: true });
+    const range = viewer.getClippingAxisRange('x');
+    viewer.setClippingAxisPosition('x', (range.min + range.max) / 2);
+    viewer.setClippingFillVisible(true);
+  });
+  const nextFrames = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await nextFrames();
+  const state = await page.evaluate(() => {
+    let volume = null;
+    window.viewer.scene.traverse((object) => {
+      if (!volume && object.isMesh && object.userData?.isVolume && object.material?.uniforms?.uClipCount) volume = object;
+    });
+    let fillBoxes = 0;
+    window.viewer.scene.traverse((object) => {
+      if (object.isMesh && object.userData?.isVolume && !object.material?.uniforms) fillBoxes += 1;
+    });
+    const plane = volume.material.uniforms.uClip.value[0];
+    return { clips: volume.material.uniforms.uClipCount.value, plane: [plane.x, plane.y, plane.z, plane.w].map((v) => Math.abs(v) < 1e-6 ? 0 : Math.sign(v)), fillBoxes };
+  });
+  // The X plane in the box's own space (its X along the world's X), through
+  // its middle; no crimson copy of the box.
+  expect(state.clips).toBe(1);
+  expect(state.plane.slice(1)).toEqual([0, 0, 0]);
+  expect(state.plane[0]).not.toBe(0);
+  expect(state.fillBoxes).toBe(0);
+  // Half of the amphora gone.
+  await expect.poll(async () => Buffer.compare(await canvas.screenshot(), before) !== 0).toBe(true);
+
+  await page.evaluate(() => window.Viewer.setClippingAxisEnabled('x', false, { silent: true }));
+  await nextFrames();
+  expect(await page.evaluate(() => {
+    let count = -1;
+    window.viewer.scene.traverse((object) => {
+      if (count < 0 && object.isMesh && object.userData?.isVolume && object.material?.uniforms?.uClipCount) count = object.material.uniforms.uClipCount.value;
+    });
+    return count;
+  })).toBe(0);
 });

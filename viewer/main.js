@@ -42,7 +42,7 @@ import { core, setCore } from './core.js';
 import { installDebugOverlay } from './debug-overlay.js';
 import { initConnectivity, isOnline, onConnectivityChange } from './connectivity.js';
 import { retargetManifest } from './manifesto/retarget-manifest.js';
-import { clearExampleModelSelection, getExampleModels, selectExampleModel, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';
+import { clearExampleModelSelection, exampleModelLabel, getExampleModels, selectExampleModel, isHiddenInApp, refreshExampleModels, renderExampleModelOptions } from './example-models.js';
 import { apiUrl, hasRemote, initRemote, isAppBuild } from './remote.js';
 import { initAppEarly, initAppSettings, attachAppUi, hideAppSplash } from './app-hooks.js';
 
@@ -3690,7 +3690,7 @@ export const Viewer = {
       getExampleModels().forEach((entry) => {
         const option = document.createElement("option");
         option.value = entry.url;
-        option.label = typeof entry.name === "string" ? entry.name : (entry.name?.[core.currentLanguage] || entry.name?.en || "");
+        option.label = exampleModelLabel(entry);
         suggestions.appendChild(option);
       });
     }
