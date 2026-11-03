@@ -382,6 +382,24 @@ The toolbar as menus with names (Look, Analysis, Measure, Story, Model, File, De
 - `updateMenuToolbarLabels(viewer)` / `updateMenuToolbarState(viewer)`
   - Called from `updateEditorToolbarLabels()` and `updateEditorToolbarState()`: the menus' names, and the comparison button (shown where `Viewer.canCompare()`).
 
+## `viewer/model-kind.js`
+
+What kind of model is shown, one answer for the toolbar, the checks before publishing and the scene suggestions.
+
+- `getModelKind(viewer)` / `Viewer.getModelKind()` -> `"mesh" | "bim" | "pointcloud" | "splats" | "volume" | null`
+  - A volume (its settings window), splats or points in the scene, a model with IFC properties (`bim`), else surfaces; before the model is in the scene, a guess from the extension (`modelKindFromExtension`). Worked out again only when the model, the extension or those states change.
+- `sceneContentKind(viewer, roots)` -> `"mesh" | "pointcloud" | "splats" | null`
+  - Only what the scene holds (`editor/publish-check.js`, `editor/scene-suggest.js`).
+
+## `viewer/ui/format-tools.js`
+
+The toolbar's tools for the kind of model shown on top, faintly marked in the brand's gold (`.is-format-tool`): in the classic toolbar they leave the folded tray for the bar, after the transform tools, as a group of their own; in the menus they get shortcuts in the navigation, after the view tools, behind a divider (`.viewer-menus_format`), staying in their menus with a tinted icon. A shortcut runs its tool, or opens its menu at it where the tool has only a submenu. Tools the kind has no use for are left out (`.is-format-hidden`). The tooltip names the kind ("Hierarchy · IFC building model").
+
+- `FORMAT_TOOL_PROFILES` - `{ promote, hide }` per kind; `promote` in order of importance.
+- `FORMAT_TOOL_LIMITS` - how many come to the top: 2 on phones, 5 (classic) or 4 (menus) on a desktop. A tool not there for the model (hidden) is skipped, the next taking its place.
+- `resolveFormatProfile(viewer, kind)` - the kind's profile, with `viewer.editorToolbar.profile` from the settings or manifest (`false`, or `{ enabled, promote, hide }`) in place of the lists it gives.
+- `syncFormatTools(viewer)` / `Viewer.syncFormatTools()` - called at the end of `updateEditorToolbarState()` and `updateEditorToolbarLabels()`, and when the layout changes; moves tools only when what is on top changed.
+
 
 ## `viewer/editor/context-menu.js`
 

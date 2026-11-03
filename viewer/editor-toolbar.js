@@ -21,6 +21,7 @@ import {
   updateMenuToolbarLabels,
   updateMenuToolbarState,
 } from "./ui/menu-toolbar.js";
+import { syncFormatTools } from "./ui/format-tools.js";
 
 const BUILD = (typeof __BUILD__ !== "undefined") ? __BUILD__ : "";
 
@@ -613,6 +614,10 @@ export function getCurrentEditorToolbarState(viewer) {
       y: Number(position.y) || 0,
     },
     expanded: viewer?.isToolbarExpanded === true,
+    // The tools for the model's kind, as set (ui/format-tools.js).
+    ...(getEditorToolbarConfig(viewer).profile !== undefined
+      ? { profile: structuredClone(getEditorToolbarConfig(viewer).profile) }
+      : {}),
     visible: Boolean(
       core.editorToolbar
       && !core.editorToolbar.classList.contains("editorToolbar-hidden")
@@ -631,6 +636,9 @@ export function applyEditorToolbarConfig(viewer, toolbarConfig = {}) {
   const parsedEnabled = viewer.parseBooleanParam?.(toolbarConfig.enabled);
   const enabled = parsedEnabled != null ? parsedEnabled : toolbarConfig.enabled !== false;
   core.CONFIG.viewer.editorToolbar.enabled = enabled;
+  // The tools for the model's kind (ui/format-tools.js), applied by the
+  // update at the end.
+  if (toolbarConfig.profile !== undefined) core.CONFIG.viewer.editorToolbar.profile = toolbarConfig.profile;
 
   const position = toolbarConfig.position || {};
   const nextPosition = {
@@ -1397,10 +1405,11 @@ export function createEditorToolbar(viewer) {
     // Which axis of the file is up (Z-up exports, models upside down).
     { key: "upAxis", group: "transform", icon: "upAxis", onClick: () => {}, pressed: false, primary: false },
     // Shown only while a point cloud is loaded (updateEditorToolbarState):
-    // opens its settings window (editor/point-cloud-panel.js).
-    { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: true },
+    // opens its settings window (editor/point-cloud-panel.js). Not primary:
+    // the point cloud's tools come onto the bar then (ui/format-tools.js).
+    { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: false },
     // Likewise while a volume is loaded (editor/volume-panel.js).
-    { key: "volume", group: "display", icon: "volume", onClick: () => viewer.toggleVolumePanel?.(), pressed: true, primary: true },
+    { key: "volume", group: "display", icon: "volume", onClick: () => viewer.toggleVolumePanel?.(), pressed: true, primary: false },
     { key: "immersive", group: "display", icon: "immersive", onClick: () => viewer.toggleXRPanel?.(), pressed: true, primary: true },
     { key: "fullScreen", group: "display", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     // Camera and view.
@@ -1515,6 +1524,9 @@ export function createEditorToolbar(viewer) {
   });
 
   viewer.editorToolbarButtons = {};
+  // The tools by key: their actions for the shortcuts of the menus
+  // (ui/format-tools.js).
+  viewer.editorToolbarTools = Object.fromEntries(tools.map((tool) => [tool.key, tool]));
   // Shared by the Lights, Environment map and Rendering submenus.
   viewer.lightsSubmenuButtons = {};
   viewer.toneMappingPreviewCanvases = {};
@@ -2122,6 +2134,8 @@ export function createEditorToolbar(viewer) {
   viewer.updateEditorToolbarState();
   syncEditorToolbarSecondaryTrayWidth(viewer);
   viewer.bindEventListener(window, "resize", () => {
+    // Phones have room for fewer of the model's own tools on the bar.
+    syncFormatTools(viewer);
     syncEditorToolbarSecondaryTrayWidth(viewer);
     // The phone tray may wrap into different rows.
     updateToolbarGroups();
@@ -2578,6 +2592,8 @@ export function updateEditorToolbarLabels(viewer) {
   core.editorToolbar?.setAttribute("aria-label", t("toolbar.editor", "Editor tools"));
   viewer.editorToolbarButtons.expand?.setAttribute("aria-expanded", viewer.isToolbarExpanded ? "true" : "false");
   updateMenuToolbarLabels(viewer);
+  // The tooltips of the model's own tools, and of their shortcuts.
+  syncFormatTools(viewer);
 }
 
 function updateTourSubmenuState(viewer) {
@@ -2719,6 +2735,10 @@ export function updateEditorToolbarState(viewer) {
   updateShadingSubmenuState(viewer);
   updateUpAxisSubmenuState(viewer);
   updateMenuToolbarState(viewer);
+  // The tools for the kind of model shown on top, those it has no use for
+  // left out (ui/format-tools.js) - after the rules above said which are
+  // there for it.
+  syncFormatTools(viewer);
   updateToolbarGroups();
   // The count of things to fix before publishing (editor/publish-check.js).
   viewer.schedulePublishBadge?.();

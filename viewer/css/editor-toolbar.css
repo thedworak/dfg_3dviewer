@@ -396,6 +396,31 @@
   width: var(--viewer-tool-width, 40px);
 }
 
+/* The tools for the kind of model shown, brought onto the bar
+   (ui/format-tools.js): a small dot in the brand's gold under the icon, the
+   icon and its group's background as any other's - the gold frame and glow
+   are for an active tool only. */
+#viewerEditorToolbar .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon {
+  position: relative;
+}
+
+#viewerEditorToolbar .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 75%, transparent);
+  pointer-events: none;
+}
+
+.viewer-wrapper[data-viewer-theme="light"] #viewerEditorToolbar .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon::after {
+  background: color-mix(in srgb, var(--viewer-brand-gold, #a8701f) 80%, transparent);
+}
+
 /* The hover lift (below) moves the button; its piece stays in line. */
 #viewerEditorToolbar .viewer-editor-tool.in-group:hover > .viewer-editor-tool_icon::before {
   margin-top: 1px;
@@ -1748,17 +1773,20 @@
 }
 
 /* Tools shown only when they apply (e.g. point cloud settings while a point
-   cloud is loaded, see updateEditorToolbarState()). */
-#viewerEditorToolbar .viewer-editor-tool[hidden] {
+   cloud is loaded, see updateEditorToolbarState()), and those the kind of
+   model shown has no use for (.is-format-hidden, ui/format-tools.js - a
+   class, apart from the rules that set `hidden`). */
+#viewerEditorToolbar .viewer-editor-tool[hidden],
+.viewer-editor-tool.is-format-hidden {
   display: none !important;
 }
 
-/* Narrow phones: the point cloud button makes the row one tool longer than
-   fits, so the tools get a little narrower while it is there (still 40px
-   tall). */
+/* Narrow phones: the model's own tools on the bar make the row longer than
+   fits, so the tools get a little narrower while they are there (still
+   40px tall). */
 @media (max-width: 420px) {
-  #viewerEditorToolbar:has(> [data-tool="pointCloud"]:not([hidden])) > .viewer-editor-tool,
-  #viewerEditorToolbar:has(> [data-tool="pointCloud"]:not([hidden])) #viewerActionMenu.viewer-action-menu_in-toolbar .viewer-action-menu_toggle {
+  #viewerEditorToolbar:has(> .is-format-tool:not([hidden])) > .viewer-editor-tool,
+  #viewerEditorToolbar:has(> .is-format-tool:not([hidden])) #viewerActionMenu.viewer-action-menu_in-toolbar .viewer-action-menu_toggle {
     --viewer-tool-width: 34px;
     width: var(--viewer-tool-width);
   }

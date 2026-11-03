@@ -4,6 +4,7 @@ import { TOOL_PANEL_OPEN_EVENT } from "./tool-panel-chrome.js";
 // Called at run time only, so the import cycle is harmless.
 import { setStoredToolbarPosition, syncNoticeAboveToolbar } from "../editor-toolbar.js";
 import { bindHoverOpen } from "./hover-open.js";
+import { syncFormatTools } from "./format-tools.js";
 
 // The toolbar as menus (a test of the layout proposed for the toolbar): the
 // tools of editor-toolbar.js - the same buttons, with their submenus and
@@ -417,6 +418,8 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     // The model's details move into the Model menu (main.css).
     core.container?.classList.toggle("viewer-menus-compact", mode !== "desktop");
     if (state.open === "more" && mode === "desktop") openMenu(null);
+    // Phones have room for fewer shortcuts to the model's own tools.
+    syncFormatTools(viewer);
     placePanel();
     showSheetHeight();
     if (before) turnTabs(before, previous, mode);

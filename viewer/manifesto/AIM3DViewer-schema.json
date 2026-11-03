@@ -157,7 +157,22 @@
                 "enabled": { "type": "boolean" },
                 "position": { "$ref": "#/$defs/vector2orObject" },
                 "expanded": { "type": "boolean" },
-                "visible": { "type": "boolean" }
+                "visible": { "type": "boolean" },
+                "profile": {
+                  "description": "The tools for the kind of model shown (mesh, bim, pointcloud, splats, volume): false keeps the toolbar as it is; promote replaces the tools brought onto the bar, in order of importance; hide replaces those left out.",
+                  "oneOf": [
+                    { "const": false },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "enabled": { "type": "boolean" },
+                        "promote": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                        "hide": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
               },
               "additionalProperties": true
             },

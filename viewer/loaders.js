@@ -1196,6 +1196,8 @@ export async function loadModel() {
     core.circle?.complete?.(2600);
     core.editorToolbar?.classList.remove('editorToolbar-hidden');
     core.editorToolbar?.classList.add('editorToolbar-visible');
+    // The tools for the kind of model now shown (ui/format-tools.js).
+    window.Viewer?.updateEditorToolbarState?.();
     core.loadingLog?.finish?.();
     hideAppSplash();
     onAppModelLoaded();

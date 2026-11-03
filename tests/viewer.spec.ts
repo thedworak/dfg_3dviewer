@@ -4567,10 +4567,12 @@ test('on a desktop, menus open on hover: the header buttons\' windows and the to
   await expect(toolbar.locator('.viewer-menus_group[data-category="look"]')).toHaveClass(/is-shown/);
   await toolbar.locator('.viewer-menus_tab[data-menu="model"]').hover();
   await expect(toolbar.locator('.viewer-menus_group[data-category="model"]')).toHaveClass(/is-shown/);
-  await page.mouse.move(700, 300);
+  // Away to the right: the shortcuts to the model's tools (ui/format-tools.js)
+  // move the tabs, and the menus with them, towards the middle.
+  await page.mouse.move(1050, 300);
   await expect(menu).toBeHidden();
   await toolbar.locator('.viewer-menus_tab[data-menu="model"]').click();
-  await page.mouse.move(700, 300);
+  await page.mouse.move(1050, 300);
   await page.waitForTimeout(500);
   await expect(menu).toBeVisible();
 
@@ -6437,4 +6439,102 @@ test('lights window: the key light round the model, lights added, moved, saved i
   // The helper and the icons go with the window.
   expect(await lightHelperShown()).toBe(false);
   await expect.poll(markers).toBe(0);
+});
+
+// The tools for the kind of model shown (ui/format-tools.js, model-kind.js).
+const formatTools = (page) => page.evaluate(() => {
+  const toolbar = document.getElementById('viewerEditorToolbar');
+  const keys = (list) => [...list].map((el) => el.dataset.tool || el.dataset.formatTool);
+  return {
+    kind: window.Viewer.getModelKind(),
+    onBar: keys(toolbar.querySelectorAll(':scope > .is-format-tool')),
+    inTray: keys(toolbar.querySelectorAll(':scope > .viewer-editor-toolbar_secondary-tray > .is-format-tool')),
+    shortcuts: keys(toolbar.querySelectorAll('.viewer-menus_format > .viewer-menus_format-tool')),
+    hidden: keys(document.querySelectorAll('.viewer-editor-tool.is-format-hidden')),
+  };
+});
+
+test('classic toolbar: the tools for the model\'s kind come onto the bar, and go back with another model', async ({ page }) => {
+  await openViewer(page, '/examples/points.las');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'pointcloud');
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['pointCloud', 'clippingPlanes', 'ruler']);
+  const points = await formatTools(page);
+  expect(points.inTray).toEqual([]);
+  expect(points.hidden.sort()).toEqual(['shading', 'wireframe']);
+  // After the transform tools, as a group of their own, the kind in the tooltip.
+  const order = await page.evaluate(() => [...document.querySelectorAll('#viewerEditorToolbar > .viewer-editor-tool')].map((el) => el.dataset.tool));
+  expect(order.indexOf('pointCloud')).toBe(order.indexOf('scale') + 1);
+  const ruler = page.locator('#viewerEditorToolbar > button[data-tool="ruler"]');
+  await expect(ruler).toHaveAttribute('data-group', 'format');
+  await expect(ruler).toHaveAttribute('title', /· Point cloud$/);
+  await expect(ruler).toBeVisible();
+  await expect(page.locator('button[data-tool="shading"]')).toBeHidden();
+
+  // A mesh: the point cloud's tools back in the tray, the mesh's on the bar.
+  await page.selectOption('#example-model-select', './examples/tempietto/Tempietto.glb');
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'mesh', null, { timeout: 30_000 });
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['materials', 'shading', 'lights', 'ruler']);
+  expect((await formatTools(page)).hidden).toEqual([]);
+  expect(await page.evaluate(() => {
+    const button = window.Viewer.editorToolbarButtons.clippingPlanes;
+    return { inTray: button.parentElement.classList.contains('viewer-editor-toolbar_secondary-tray'), group: button.dataset.group, title: button.title === button.getAttribute('aria-label') };
+  })).toEqual({ inTray: true, group: 'view', title: true });
+  await expect(page.locator('#viewerEditorToolbar > button[data-tool="pointCloud"]')).toHaveCount(0);
+
+  // A volume: its settings first, what a scan of voxels has no use for left out.
+  await page.selectOption('#example-model-select', './examples/volumes/amphora-ct.nrrd');
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'volume' && window.Viewer.isVolumeActive?.(), null, { timeout: 60_000 });
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['volume', 'clippingPlanes', 'ruler']);
+  expect((await formatTools(page)).hidden.sort()).toEqual(['ground', 'sceneSuggest', 'shading', 'weather', 'wireframe']);
+});
+
+test('classic toolbar: an IFC model brings its hierarchy and section tools to the top, two on a phone', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await openViewer(page, '/examples/box.ifc');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'bim');
+  // The IFC questions only with the worker's AI: the next ones take their place.
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['hierarchy', 'picking']);
+  await context.close();
+});
+
+test('the toolbar profile of a manifest or the settings replaces the kind\'s tools, or turns them off', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'mesh');
+  await page.evaluate(() => window.Viewer.applyEditorToolbarConfig(null, { profile: { promote: ['hierarchy', 'projection'], hide: ['weather'] } }));
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['hierarchy', 'projection']);
+  expect((await formatTools(page)).hidden).toEqual(['weather']);
+  // Exported with the manifest, and valid there.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.viewer.editorToolbar.profile).toEqual({ promote: ['hierarchy', 'projection'], hide: ['weather'] });
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+  const broken = structuredClone(manifest);
+  broken.AIM3DViewer.viewer.editorToolbar.profile = { promote: 'ruler' };
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual(['$.AIM3DViewer.viewer.editorToolbar.profile.promote']);
+
+  await page.evaluate(() => window.Viewer.applyEditorToolbarConfig(null, { profile: false }));
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual([]);
+  expect((await formatTools(page)).hidden).toEqual([]);
+});
+
+test('menus: shortcuts to the model\'s own tools in the navigation, the tools staying in their menus', async ({ page }) => {
+  await openViewer(page, '/examples/points.las', 'ui=menus');
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 30_000 });
+  const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
+  await expect(toolbar).toHaveAttribute('data-mode', 'desktop');
+  await expect.poll(async () => (await formatTools(page)).shortcuts).toEqual(['pointCloud', 'clippingPlanes', 'ruler']);
+  const nav = toolbar.locator('.viewer-menus_nav');
+  await expect(nav.locator('.viewer-menus_nav-divider--format')).toBeVisible();
+  // In their menu still, marked as the model's.
+  await expect(toolbar.locator('.viewer-menus_group[data-category="analysis"] > [data-tool="ruler"]')).toHaveClass(/is-format-tool/);
+
+  // A shortcut runs its tool and shows its state.
+  const shortcut = nav.locator('[data-format-tool="ruler"]');
+  await shortcut.click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.RULER_MODE)).toBe(true);
+  await expect(shortcut).toHaveClass(/is-active/);
+  await expect(shortcut).toHaveAttribute('title', /· Point cloud$/);
 });

@@ -126,6 +126,24 @@ function validateString(value, path, errors) {
   }
 }
 
+// The toolbar's tools for the model's kind (ui/format-tools.js): false to
+// keep the toolbar as it is, or { enabled, promote, hide } with tool keys.
+function validateToolbarProfile(profile, path, errors) {
+  if (profile === false) return;
+  if (!isPlainObject(profile)) {
+    pushError(errors, path, "must be false or an object");
+    return;
+  }
+  if (profile.enabled !== undefined) validateBoolean(profile.enabled, `${path}.enabled`, errors);
+  ["promote", "hide"].forEach((key) => {
+    const list = profile[key];
+    if (list === undefined) return;
+    if (!Array.isArray(list) || !list.every((item) => isString(item) && item.trim() !== "")) {
+      pushError(errors, `${path}.${key}`, "must be an array of tool names");
+    }
+  });
+}
+
 function validateEnum(value, allowedValues, path, errors) {
   if (!allowedValues.includes(value)) {
     pushError(errors, path, `must be one of: ${allowedValues.join(", ")}`);
@@ -356,6 +374,7 @@ function validateViewer(viewer, path, errors) {
       if (viewer.editorToolbar.position !== undefined) validateVector(viewer.editorToolbar.position, `${path}.editorToolbar.position`, errors, 2);
       if (viewer.editorToolbar.expanded !== undefined) validateBoolean(viewer.editorToolbar.expanded, `${path}.editorToolbar.expanded`, errors);
       if (viewer.editorToolbar.visible !== undefined) validateBoolean(viewer.editorToolbar.visible, `${path}.editorToolbar.visible`, errors);
+      if (viewer.editorToolbar.profile !== undefined) validateToolbarProfile(viewer.editorToolbar.profile, `${path}.editorToolbar.profile`, errors);
     }
   }
   if (viewer.menuToolbar !== undefined) {

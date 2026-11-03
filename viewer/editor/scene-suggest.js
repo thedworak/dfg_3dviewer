@@ -4,6 +4,7 @@ import { t } from "../i18n-utils.js";
 import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
 import { apiUrl, appRequestHeaders, hasRemote } from "../remote.js";
 import { hasIfcProperties } from "../ifc-properties.js";
+import { sceneContentKind } from "../model-kind.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../ui/tool-panel-chrome.js";
 import { suggestScene } from "./scene-rules.js";
@@ -125,7 +126,8 @@ export function attachSceneSuggest(Viewer) {
     gatherSceneFacts() {
       const roots = Viewer.getSunModelRoots?.() || [];
       const box = new THREE.Box3();
-      let kind = "mesh";
+      // Mesh, point cloud or splats (model-kind.js, shared with the toolbar).
+      const kind = sceneContentKind(Viewer, roots) || "mesh";
       let triangles = 0;
       let textured = false;
       let vertexColors = false;
@@ -140,8 +142,6 @@ export function attachSceneSuggest(Viewer) {
           // Some streamed or splat objects have no plain geometry to measure.
         }
         root.traverse((object) => {
-          if (object.userData?.isGaussianSplats) kind = "splats";
-          if (object.isPoints && kind !== "splats") kind = "pointcloud";
           const geometry = object.geometry;
           if (object.isPoints && geometry?.attributes) {
             normals = (normals ?? true) && Boolean(geometry.attributes.normal);
@@ -161,7 +161,6 @@ export function attachSceneSuggest(Viewer) {
           });
         });
       });
-      if (Viewer.isPointCloudActive?.() && kind === "mesh" && meshes === 0) kind = "pointcloud";
 
       // The shape's measures (scene-shape.js): once per model, meshes only.
       const state = Viewer.sceneSuggestion;

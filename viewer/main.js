@@ -171,6 +171,8 @@ import {
   updateUpAxisSubmenuState,
 } from "./editor-toolbar.js";
 import { VIEWER_DEFAULTS } from "./viewer-defaults.js";
+import { getModelKind } from "./model-kind.js";
+import { syncFormatTools } from "./ui/format-tools.js";
 import {
   parseBooleanParam,
   parseFloatParam,
@@ -444,6 +446,17 @@ export const Viewer = {
 
   applyEditorToolbarConfig(viewer, toolbarConfig) {
     return applyEditorToolbarConfig(viewer || this, toolbarConfig);
+  },
+
+  // The kind of model shown: "mesh", "bim", "pointcloud", "splats",
+  // "volume" or null (model-kind.js).
+  getModelKind() {
+    return getModelKind(this);
+  },
+
+  // The toolbar's tools for that kind on top (ui/format-tools.js).
+  syncFormatTools() {
+    return syncFormatTools(this);
   },
 
   syncEditorToolbarSecondaryTrayWidth() {

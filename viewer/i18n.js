@@ -1090,6 +1090,14 @@ export const VIEWER_I18N = {
       window: "Window (centre / width)",
       windows: { soft: "Soft tissue", bone: "Bone", lung: "Lung", brain: "Brain", full: "Full range" },
     },
+    modelKind: {
+      forModel: "for this model",
+      mesh: "3D model",
+      bim: "IFC building model",
+      pointcloud: "Point cloud",
+      splats: "Gaussian splats",
+      volume: "Volume",
+    },
     pointCloud: {
       title: "Point cloud",
       toggle: "Point cloud settings",
@@ -2866,6 +2874,14 @@ export const VIEWER_I18N = {
       window: "Okno (środek / szerokość)",
       windows: { soft: "Tkanki miękkie", bone: "Kość", lung: "Płuca", brain: "Mózg", full: "Cały zakres" },
     },
+    modelKind: {
+      forModel: "dla tego modelu",
+      mesh: "Model 3D",
+      bim: "Model budynku IFC",
+      pointcloud: "Chmura punktów",
+      splats: "Gaussian splats",
+      volume: "Wolumen",
+    },
     pointCloud: {
       title: "Chmura punktów",
       toggle: "Ustawienia chmury punktów",
@@ -4640,6 +4656,14 @@ export const VIEWER_I18N = {
       bodyPart: "Körperregion",
       window: "Fenster (Zentrum / Breite)",
       windows: { soft: "Weichteile", bone: "Knochen", lung: "Lunge", brain: "Gehirn", full: "Gesamter Bereich" },
+    },
+    modelKind: {
+      forModel: "für dieses Modell",
+      mesh: "3D-Modell",
+      bim: "IFC-Gebäudemodell",
+      pointcloud: "Punktwolke",
+      splats: "Gaussian Splats",
+      volume: "Volumen",
     },
     pointCloud: {
       title: "Punktwolke",

@@ -8,6 +8,7 @@ import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../u
 import { getSmartHint, hideSmartHint, showSmartHint } from "../ui/smart-hint.js";
 import { decideModelBase, evaluatePublishChecks, measureFraming, sortPublishChecks, suggestUpAxis } from "./publish-rules.js";
 import { shadingModeLabel } from "./shading.js";
+import { sceneContentKind } from "../model-kind.js";
 
 // Prepare for publishing (File > Prepare for publishing): before the
 // model's settings are saved to the repository and its renders made, what
@@ -233,19 +234,17 @@ export function attachPublishCheck(Viewer) {
 
     gatherPublishFacts({ light = true } = {}) {
       const roots = Viewer.getSunModelRoots?.() || [];
-      let kind = roots.length ? "mesh" : null;
+      // Mesh, point cloud or splats (model-kind.js, shared with the toolbar).
+      const kind = sceneContentKind(Viewer, roots);
       let triangles = 0;
       let largestTexture = 0;
       const black = [];
       const invisible = [];
       roots.forEach((root) => root.traverse((object) => {
-        if (object.userData?.isGaussianSplats) kind = "splats";
-        if (object.isPoints && kind !== "splats") kind = "pointcloud";
         if (!object.isMesh || !object.geometry?.attributes?.position) return;
         const geometry = object.geometry;
         triangles += (geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3;
       }));
-      if (Viewer.isPointCloudActive?.() && kind === "mesh" && triangles === 0) kind = "pointcloud";
       (Viewer.materialsEditor?.items || []).forEach((item) => {
         const material = item.current;
         [material.map, material.normalMap, material.emissiveMap].forEach((texture) => {
