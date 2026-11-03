@@ -49,7 +49,6 @@ The topics below used to live in this file; they now have their own page in [`do
 - [Server-side conversion and rendering](docs/conversion-pipeline.md) — pipeline, supported conversion inputs, script flags/env vars
 - [`viewer-settings.json` explained](docs/viewer-settings.md)
 - [Using/embedding the viewer](docs/embedding.md) — embed markup, `embed.html` parameters
-- [Intro page](docs/intro.md) — `intro.html`: a point cloud gathering into the Wołpa Synagogue, then into the viewer
 - [Publishing to production](docs/publishing.md) — what must be set before a release
 - [Bug reports and error tracking](docs/error-tracking.md) — the "Report a bug" button, self-hosted GlitchTip
 - [AI assistance](docs/ai.md) — optional Claude API help: validation explained, IFC questions, variants and paradata review, point cloud classification

@@ -210,7 +210,6 @@ import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
 import { anchorPanelUnder, makePanelWindow } from "./ui/panel-window.js";
 import { bindHoverOpen } from "./ui/hover-open.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { showIntroOverlay } from "./intro-overlay.js";
 
 // t() follows the viewer's language (localization-theme.js).
 setLanguageSource(() => core.currentLanguage);
@@ -1957,13 +1956,6 @@ export const Viewer = {
     console.log(`Sandbox mode: ${core.SANDBOX_MODE ? "ON" : "OFF"}`);
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
-    // viewer.intro (viewer/intro-overlay.js): the intro over the standalone
-    // page, while the viewer starts underneath.
-    showIntroOverlay(core.CONFIG.viewer.intro, {
-      standalone: document.body.classList.contains("viewer-standalone-page")
-        && !this.isEmbedMode() && BUILD !== "mobile" && BUILD !== "drupal",
-      lang: this.currentLanguage,
-    });
 
     if (this.urlOptions.model) {
       setModelAttribute(this.container, this.urlOptions.model);

@@ -159,8 +159,8 @@ const versionQuery = `?v=${encodeURIComponent(buildId)}`;
 
 function stampEntryVersion(html) {
   return html
-    .replace(/(src=["'])(dfg_3dviewer-module\.js|intro\.js)(["'])/g, `$1$2${versionQuery}$3`)
-    .replace(/(href=["'])(assets\/(?:css|intro)\/[^"'?]+\.css)(["'])/g, `$1$2${versionQuery}$3`);
+    .replace(/(src=["'])(dfg_3dviewer-module\.js)(["'])/g, `$1$2${versionQuery}$3`)
+    .replace(/(href=["'])(assets\/css\/[^"'?]+\.css)(["'])/g, `$1$2${versionQuery}$3`);
 }
 
 // viewer.css (the stylesheet Drupal loads, with its own cache query) pulls
@@ -282,13 +282,6 @@ function copyBuildAssets() {
           keepFiles('viewer/fonts', ['helvetiker_regular.typeface.json', 'LICENSE', 'README.md'])
         ),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
-        // The intro page's stylesheet and points (intro.html, viewer/intro/;
-        // the points from scripts/build-intro-points.mjs).
-        !appBuild && copyDirectory(
-          'viewer/intro',
-          path.join(outDistDir, 'assets/intro'),
-          keepFiles('viewer/intro', ['intro.css', 'synagogue-points.bin'])
-        ),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples'),
           extension.examplesFilter && ((source) => extension.examplesFilter(source, buildContext)))
           .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),
@@ -314,7 +307,6 @@ function copyBuildAssets() {
         writeDrupalLibrariesFile(),
         copyHtmlWithEntryVersion('index.html', indexTarget),
         copyHtmlWithEntryVersion('embed.html', embedTarget),
-        !appBuild && copyHtmlWithEntryVersion('intro.html', path.join(outDistDir, 'intro.html')),
         writeAdminPage(bundle),
       ];
 
@@ -420,12 +412,11 @@ function copyBuildAssets() {
 }
 
 export default {
-  // The viewer, the admin pages (viewer/exadmin/) and the intro page
-  // (intro.html, viewer/intro/) - not in an app build, which has no server
-  // of its own to administer and opens straight into the viewer.
+  // The viewer, and the admin pages (viewer/exadmin/) - not in an app build,
+  // which has no server of its own to administer.
   input: appBuild
     ? { 'dfg_3dviewer-module': 'viewer/main.js' }
-    : { 'dfg_3dviewer-module': 'viewer/main.js', exadmin: 'viewer/exadmin/main.js', intro: 'viewer/intro/intro.js' },
+    : { 'dfg_3dviewer-module': 'viewer/main.js', exadmin: 'viewer/exadmin/main.js' },
   treeshake: {
     moduleSideEffects: false,
     propertyReadSideEffects: false,
@@ -484,11 +475,7 @@ export default {
     // The viewer's entry keeps its name (Drupal's library file and the
     // pages point at it); the admin pages' is hashed like the chunks
     // (writeAdminPage puts its name into exadmin/index.html).
-    entryFileNames: (chunk) => {
-      if (chunk.name === 'exadmin') return 'assets/exadmin-[hash].js';
-      if (chunk.name === 'intro') return 'intro.js';
-      return 'dfg_3dviewer-module.js';
-    },
+    entryFileNames: (chunk) => (chunk.name === 'exadmin' ? 'assets/exadmin-[hash].js' : 'dfg_3dviewer-module.js'),
     // Content-hashed: a cache (browser, CDN, the 30-day expiry for module
     // JS in docker/host-nginx.example.conf) can never hand out one build's
     // chunk next to another build's - their minified export names differ,

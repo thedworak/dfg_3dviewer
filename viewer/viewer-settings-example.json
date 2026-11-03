@@ -54,12 +54,6 @@
     },
     "measurement": {
       "modelUnitInMeters": 1
-    },
-    "intro": {
-      "enabled": false,
-      "show": "session",
-      "sound": false,
-      "url": "intro.html"
     }
   }
 }
