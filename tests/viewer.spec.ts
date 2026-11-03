@@ -1685,6 +1685,72 @@ test('gallery lightbox: views open from the keyboard, browse, zoom and close bac
   await expect(page.locator('#image-list .field__item').nth(3)).toBeFocused();
 });
 
+test('the drawer tab stands out with the model\'s own views, not with the generic images', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
+  await expect(page.locator('#image-list img')).toHaveCount(5);
+  const drawer = page.locator('.image-list-drawer');
+  await expect(drawer).toHaveClass(/has-model-views/);
+  await expect(drawer.locator('.image-list-drawer-preview img')).toHaveAttribute('src', /\/examples\/gallery\/tempietto\/Tempietto_/);
+
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-aim3d-local.json', 'url', 'aim3if'));
+  await expect(page.locator('#image-list img')).toHaveCount(9);
+  await expect(page.locator('.image-list-drawer')).not.toHaveClass(/has-model-views/);
+  await expect(page.locator('.image-list-drawer-preview')).toHaveCount(0);
+  await expect(page.locator('.image-list-drawer-toggle svg').first()).toBeVisible();
+});
+
+test('on a phone the lightbox is a slider: the view follows the finger and slides on to its neighbour', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 390, height: 780 });
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-thumbnails.json', 'url', 'aim3if'));
+  await expect(page.locator('#image-list img')).toHaveCount(5);
+  await page.locator('.image-list-drawer-toggle').click();
+  await expect(page.locator('#modalGallery')).toHaveClass(/is-open/);
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('01');
+
+  const stage = await page.locator('.galleryStage').boundingBox();
+  const y = stage.y + stage.height / 2;
+  const x = stage.x + stage.width * 0.8;
+  // At a finger's pace (an event a frame), not all at once - a flick is
+  // told by its speed.
+  const drag = (to, from = x) => page.evaluate(async ({ from, to, y }) => {
+    const target = document.querySelector('.galleryStage');
+    const fire = (type, clientX) => target.dispatchEvent(new PointerEvent(type, {
+      pointerId: 7, pointerType: 'touch', isPrimary: true, bubbles: true, clientX, clientY: y,
+    }));
+    fire('pointerdown', from);
+    for (let i = 1; i <= 6; i++) {
+      fire('pointermove', from + ((to - from) * i) / 6);
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    }
+    const track = document.querySelector('.galleryTrack');
+    const moved = new DOMMatrix(getComputedStyle(track).transform).m41;
+    const ghostShown = getComputedStyle(document.querySelector('.galleryGhost--next')).visibility;
+    fire('pointerup', to);
+    return { moved, ghostShown };
+  }, { from, to, y });
+
+  // A short drag: follows the finger 1:1, then springs back.
+  const short = await drag(x - 40);
+  expect(Math.round(short.moved)).toBe(-40);
+  expect(short.ghostShown).toBe('visible');
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('01');
+  await expect.poll(() => page.locator('.galleryStage').getAttribute('class')).not.toContain('is-sliding');
+
+  // Past a quarter of the width: on to the next view.
+  await drag(x - stage.width * 0.5);
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('02');
+  await expect.poll(() => page.locator('.galleryTrack').evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  // And back, the other way.
+  const left = stage.x + stage.width * 0.2;
+  await drag(left + stage.width * 0.5, left);
+  await expect(page.locator('.galleryCaptionNumber')).toHaveText('01');
+});
+
 test('the gallery is a drawer on the viewer\'s right edge, hidden at first: its tab opens it, full height, and it is remembered', async ({ page }) => {
   await openViewer(page);
   await waitForModel(page);

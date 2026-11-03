@@ -1,7 +1,7 @@
 import { core } from "../core.js";
 import { isValidUrl } from "../utils.js";
 import { t } from "../i18n-utils.js";
-import { GALLERY_IMAGE_EXT, GENERIC_GALLERY_IMAGE_COUNT, getGenericGalleryImageUrl } from "./model-thumbnail.js";
+import { GALLERY_IMAGE_EXT, GENERIC_GALLERY_IMAGE_COUNT, getGenericGalleryImageUrl, isGenericGalleryImageUrl } from "./model-thumbnail.js";
 import { apiUrl, appRequestHeaders, hasRemote } from "../remote.js";
 import { modelBasename } from "../model-extension.js";
 
@@ -426,7 +426,10 @@ let drawerPeeked = false;
 // the column of views and, on its left, a tab that hides it into the edge
 // and brings it back (remembered per browser; hidden at first). On a phone
 // the tab alone shows, and opens the lightbox.
-function wrapAsDrawer(scroller, count, openAt) {
+// `previewSrc`: the first view of the model itself, when the views are its
+// own renders and not the generic images - the tab then shows it, in the
+// accent colour, so real content stands out from the placeholders.
+function wrapAsDrawer(scroller, count, openAt, previewSrc = "") {
   const drawer = document.createElement("div");
   drawer.className = "image-list-drawer";
   const phone = window.matchMedia?.(GALLERY_PHONE_QUERY);
@@ -435,11 +438,25 @@ function wrapAsDrawer(scroller, count, openAt) {
   toggle.type = "button";
   toggle.className = "image-list-drawer-toggle";
   toggle.innerHTML =
-    DRAWER_ICONS.views +
+    (previewSrc ? '<span class="image-list-drawer-preview"></span>' : DRAWER_ICONS.views) +
     `<span class="image-list-drawer-count">${count}</span>` +
     SCROLL_HINT_ICONS.next.replace("<svg", '<svg class="image-list-drawer-chevron"');
   scroller.id = "image-list-drawer-panel";
   toggle.setAttribute("aria-controls", scroller.id);
+  if (previewSrc) {
+    drawer.classList.add("has-model-views");
+    const preview = document.createElement("img");
+    preview.alt = "";
+    preview.draggable = false;
+    preview.decoding = "async";
+    // A view that fails to load: back to the plain icon.
+    preview.addEventListener("error", () => {
+      drawer.classList.remove("has-model-views");
+      preview.parentElement?.replaceWith(document.createRange().createContextualFragment(DRAWER_ICONS.views));
+    }, { once: true });
+    preview.src = previewSrc;
+    toggle.querySelector(".image-list-drawer-preview").appendChild(preview);
+  }
 
   const setCollapsed = (collapsed) => {
     drawer.classList.toggle("is-collapsed", collapsed);
@@ -566,7 +583,15 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     "aria-label": t("gallery.dialog", "Image viewer"),
   });
   const modalStage = el("div", "galleryStage");
+  // The slider: the view on its plate between the previous and next ones
+  // (shown only while it moves), all following the finger.
+  const modalTrack = el("div", "galleryTrack");
   const modalImageWrap = el("div", "modalImageWrap");
+  const [ghostPrev, ghostNext] = ["prev", "next"].map((side) => {
+    const ghost = el("div", `modalImageWrap galleryGhost galleryGhost--${side}`, { "aria-hidden": "true" });
+    ghost.appendChild(el("img", "modalImage", { alt: "", draggable: "false" }));
+    return ghost;
+  });
   const modalImage = el("img", "modalImage", { alt: "", draggable: "false" });
   const modalPrev = iconButton("galleryNav galleryNavPrev", t("gallery.previous", "Previous view"), SCROLL_HINT_ICONS.prev);
   const modalNext = iconButton("galleryNav galleryNavNext", t("gallery.next", "Next view"), SCROLL_HINT_ICONS.next);
@@ -585,7 +610,8 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
   modalCaption.append(modalCaptionNumber, modalCounter, modalCaptionText, modalZoomReset);
   modalFooter.append(modalCaption, modalFilmstrip, modalHint);
   modalImageWrap.appendChild(modalImage);
-  modalStage.appendChild(modalImageWrap);
+  modalTrack.append(ghostPrev, modalImageWrap, ghostNext);
+  modalStage.appendChild(modalTrack);
   modalGallery.append(modalStage, modalPrev, modalNext, modalClose, modalFooter);
 
   // Zoom (Viewer.zoomImage, kept across images and across open/close, as
@@ -652,8 +678,9 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
 
     const { src, caption } = galleryImages[normalizedIndex];
     if (modalImage.getAttribute("src") !== src) {
-      modalImageWrap.classList.add("is-loading");
       modalImage.src = src;
+      // Already in the cache (the slider's neighbour, a preload): no sheen.
+      modalImageWrap.classList.toggle("is-loading", !(modalImage.complete && modalImage.naturalWidth > 0));
     }
     modalImage.alt = caption;
     pan.x = 0;
@@ -692,6 +719,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
 
   const closeModalGallery = function () {
     if (!modalGallery.classList.contains("is-open")) return;
+    finishSlide();
     modalGallery.classList.remove("is-open");
     const thumb = galleryThumbEls[currentGalleryIndex];
     thumb?.classList.remove("is-active-thumb");
@@ -710,13 +738,73 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     event.stopPropagation();
     closeModalGallery();
   });
+  // The slider's moves: the track follows the finger, then slides on to the
+  // neighbouring view (or back) and settles on it.
+  const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const SLIDE_GAP = 16;
+  let slideEnd = null;
+  const setTrack = (x, animate) => {
+    modalTrack.style.transition = animate ? "transform 300ms cubic-bezier(.22, 1, .36, 1)" : "none";
+    modalTrack.style.transform = x ? `translate3d(${x}px, 0, 0)` : "";
+  };
+  const fillGhosts = () => {
+    const count = galleryImages.length;
+    [[ghostPrev, -1], [ghostNext, 1]].forEach(([ghost, step]) => {
+      const entry = galleryImages[(currentGalleryIndex + step + count) % count];
+      const img = ghost.firstChild;
+      if (entry && img.getAttribute("src") !== entry.src) img.src = entry.src;
+    });
+  };
+  const finishSlide = () => {
+    if (!slideEnd) return;
+    const done = slideEnd;
+    slideEnd = null;
+    done();
+  };
+  const settleTrack = (x, after) => {
+    finishSlide();
+    if (reducedMotion()) {
+      setTrack(0, false);
+      modalStage.classList.remove("is-sliding");
+      after?.();
+      return;
+    }
+    let timer = 0;
+    const onEnd = (event) => {
+      if (event && (event.target !== modalTrack || event.propertyName !== "transform")) return;
+      finishSlide();
+    };
+    slideEnd = () => {
+      clearTimeout(timer);
+      modalTrack.removeEventListener("transitionend", onEnd);
+      after?.();
+      setTrack(0, false);
+      modalStage.classList.remove("is-sliding");
+    };
+    modalTrack.addEventListener("transitionend", onEnd);
+    timer = setTimeout(onEnd, 400);
+    setTrack(x, true);
+  };
+  // To the next (step 1) or previous (-1) view, sliding unless zoomed.
+  const slideBy = (step) => {
+    finishSlide();
+    if (galleryImages.length < 2 || Viewer.zoomImage > 1.001 || reducedMotion()) {
+      showGalleryImageAtIndex(currentGalleryIndex + step);
+      return;
+    }
+    fillGhosts();
+    modalStage.classList.add("is-sliding");
+    const target = currentGalleryIndex + step;
+    settleTrack(-step * (modalTrack.clientWidth + SLIDE_GAP), () => showGalleryImageAtIndex(target));
+  };
+
   modalPrev.addEventListener("click", (event) => {
     event.stopPropagation();
-    showGalleryImageAtIndex(currentGalleryIndex - 1);
+    slideBy(-1);
   });
   modalNext.addEventListener("click", (event) => {
     event.stopPropagation();
-    showGalleryImageAtIndex(currentGalleryIndex + 1);
+    slideBy(1);
   });
   modalZoomReset.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -757,6 +845,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         cy: (a.y + b.y) / 2,
       };
     } else if (pointers.size === 1) {
+      finishSlide();
       gesture = {
         type: Viewer.zoomImage > 1.001 ? "pan" : "swipe",
         startX: event.clientX,
@@ -764,6 +853,9 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
         panX: pan.x,
         panY: pan.y,
         moved: false,
+        lastX: event.clientX,
+        lastTime: event.timeStamp,
+        velocity: 0,
       };
     }
   });
@@ -792,7 +884,24 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       modalImage.classList.add("is-dragging");
       applyTransform();
     } else if (gesture.type === "swipe" && gesture.moved) {
-      modalImageWrap.style.transform = `translateX(${dx * 0.35}px)`;
+      // 1:1 with the finger, the neighbours coming in from the sides; one
+      // view only gives a little.
+      // Events closer than a frame (coalesced) say nothing of the speed.
+      const dt = event.timeStamp - gesture.lastTime;
+      if (dt >= 4) {
+        gesture.velocity = 0.8 * ((event.clientX - gesture.lastX) / dt) + 0.2 * gesture.velocity;
+        gesture.lastX = event.clientX;
+        gesture.lastTime = event.timeStamp;
+      }
+      if (galleryImages.length > 1) {
+        if (!modalStage.classList.contains("is-sliding")) {
+          fillGhosts();
+          modalStage.classList.add("is-sliding");
+        }
+        setTrack(dx, false);
+      } else {
+        setTrack(dx * 0.25, false);
+      }
     }
   });
 
@@ -800,8 +909,8 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     if (!pointers.has(event.pointerId)) return;
     pointers.delete(event.pointerId);
     modalImage.classList.remove("is-dragging");
-    modalImageWrap.style.transform = "";
     if (!gesture) return;
+    const swiping = gesture.type === "swipe" && gesture.moved;
     if (gesture.type === "pinch") {
       // The finger left on the glass carries on as a pan.
       const rest = [...pointers.values()][0];
@@ -811,13 +920,24 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       return;
     }
     if (pointers.size > 0 || event.type === "pointercancel") {
+      if (swiping) settleTrack(0);
       gesture = null;
       return;
     }
     const dx = event.clientX - gesture.startX;
     const dy = event.clientY - gesture.startY;
-    if (gesture.type === "swipe" && gesture.moved && Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-      showGalleryImageAtIndex(currentGalleryIndex + (dx < 0 ? 1 : -1));
+    if (swiping) {
+      // On to the neighbour past a quarter of the width, or on a flick.
+      const width = modalTrack.clientWidth || 1;
+      const flick = Math.abs(gesture.velocity) > 0.45 && Math.abs(dx) > 24 && Math.sign(gesture.velocity) === Math.sign(dx);
+      const far = Math.abs(dx) > width * 0.25;
+      if (galleryImages.length > 1 && (far || flick) && Math.abs(dx) > Math.abs(dy)) {
+        const step = dx < 0 ? 1 : -1;
+        const target = currentGalleryIndex + step;
+        settleTrack(-step * (width + SLIDE_GAP), () => showGalleryImageAtIndex(target));
+      } else {
+        settleTrack(0);
+      }
     } else if (!gesture.moved && event.target === modalImage) {
       const now = performance.now();
       if (lastTap && now - lastTap.time < 320 && Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) < 30) {
@@ -839,7 +959,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       suppressClick = false;
       return;
     }
-    if (event.target === modalGallery || event.target === modalStage || event.target === modalImageWrap) {
+    if (event.target === modalGallery || event.target === modalStage || event.target === modalTrack || event.target === modalImageWrap) {
       closeModalGallery();
     }
   });
@@ -858,8 +978,8 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
       return;
     }
     const keys = {
-      ArrowLeft: () => showGalleryImageAtIndex(currentGalleryIndex - 1),
-      ArrowRight: () => showGalleryImageAtIndex(currentGalleryIndex + 1),
+      ArrowLeft: () => slideBy(-1),
+      ArrowRight: () => slideBy(1),
       Home: () => showGalleryImageAtIndex(0),
       End: () => showGalleryImageAtIndex(galleryImages.length - 1),
       Escape: () => closeModalGallery(),
@@ -938,6 +1058,7 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     filmItem.appendChild(filmImg);
     filmItem.addEventListener("click", (event) => {
       event.stopPropagation();
+      finishSlide();
       showGalleryImageAtIndex(index);
     });
     filmstripItems[index] = filmItem;
@@ -987,7 +1108,10 @@ function handleImages(Viewer, mainElement, imageElements, imageElementsChildren)
     galleryHost.insertAdjacentElement("beforebegin", modalGallery);
     if (getGalleryPosition() === "right" && core.container) {
       const scroller = wrapWithScrollHints(Viewer, imageList, true);
-      core.container.appendChild(wrapAsDrawer(scroller, galleryImages.length, openModalGalleryAtIndex));
+      const firstModelView = galleryImages.find((entry) => !isGenericGalleryImageUrl(entry.src));
+      core.container.appendChild(
+        wrapAsDrawer(scroller, galleryImages.length, openModalGalleryAtIndex, firstModelView?.src || "")
+      );
     } else {
       galleryHost.insertAdjacentElement("beforebegin", wrapWithScrollHints(Viewer, imageList));
     }

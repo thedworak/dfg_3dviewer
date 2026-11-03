@@ -372,6 +372,35 @@ html[data-viewer-theme="light"] {
   color: var(--gallery-text-muted);
 }
 
+/* The model's own views (not the generic images): the tab shows the first
+   one, framed and marked in the accent colour. */
+.image-list-drawer-preview {
+  display: block;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  border: 1px solid var(--gallery-accent);
+  border-radius: 5px;
+  background: var(--gallery-plate);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gallery-accent) 22%, transparent);
+}
+
+.image-list-drawer-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-list-drawer.has-model-views .image-list-drawer-toggle {
+  border-color: color-mix(in srgb, var(--gallery-accent) 55%, var(--gallery-border));
+  box-shadow: var(--gallery-shadow), inset 3px 0 0 var(--gallery-accent);
+}
+
+.image-list-drawer.has-model-views .image-list-drawer-count {
+  color: var(--gallery-accent);
+}
+
 /* The first look (thumbnail-gallery.js): the hidden column leans out by
    the edge of its views and slowly back. */
 .image-list-drawer.is-peek-motion {
@@ -529,12 +558,49 @@ html[data-viewer-theme="light"] {
   touch-action: none;
 }
 
+/* The slider (thumbnail-gallery.js): the plate between the previous and
+   next views, which show only while it moves with the finger. */
+.galleryStage {
+  overflow-x: clip;
+}
+
+.galleryTrack {
+  position: relative;
+  width: 100%;
+  max-width: 1400px;
+  height: 100%;
+  will-change: transform;
+}
+
+.modalImageWrap.galleryGhost {
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.galleryGhost--prev {
+  right: calc(100% + 16px);
+}
+
+.galleryGhost--next {
+  left: calc(100% + 16px);
+}
+
+.galleryStage.is-sliding .modalImageWrap.galleryGhost {
+  visibility: visible;
+}
+
+.galleryGhost .modalImage {
+  transform: none !important;
+  transition: none;
+}
+
 /* The plate the view stands on, like the viewer's canvas; the zoomed image
    stays inside it. */
 .modalImageWrap {
   position: relative;
   width: 100%;
-  max-width: 1400px;
   height: 100%;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -956,6 +1022,11 @@ html[data-viewer-theme="light"] {
   .image-list-drawer-toggle svg {
     width: 18px;
     height: 18px;
+  }
+
+  .image-list-drawer-preview {
+    width: 26px;
+    height: 26px;
   }
 }
 

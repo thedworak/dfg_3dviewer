@@ -25,6 +25,11 @@ export function getGenericGalleryImageUrl(index) {
   return exampleAssetUrl(`gallery/generic/explora4d-placeholder-${number}.${GALLERY_IMAGE_EXT}`);
 }
 
+// True for one of the generic images above (not a view of the model itself).
+export function isGenericGalleryImageUrl(src) {
+  return /\/gallery\/generic\/explora4d-placeholder-\d+\.[a-z0-9]+(?:$|[?#])/i.test(String(src || ""));
+}
+
 // One of the generic images for a model without thumbnails (browse and
 // admin panels), the same one for the same model every time.
 export function genericThumbnailUrl(seed = "") {
