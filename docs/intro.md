@@ -1,7 +1,7 @@
 # Intro page
 
 `intro.html` (built to `<build>/intro.html`) is a promo/landing page for the
-viewer, about 25 seconds long:
+viewer, about 45 seconds long:
 
 1. A chaotic cloud of 200 000 points drifts in the dark and, like atoms,
    gathers into the Wołpa Synagogue - foundations first, the roofs last.
@@ -12,6 +12,19 @@ viewer, about 25 seconds long:
    its vertices light up, its edges are drawn, its faces grow out of their
    centres glowing at the edges, and the textured building remains. The
    counter shows vertices and faces.
+
+4. An express tour of the viewer's features (`viewer/intro/feature-tour.js`,
+   about 20 seconds), each chapter named under the title:
+   **sections** (a plane sweeps through the building; the cut glows, the
+   walls' insides are filled like a drawing's section), **annotations and
+   POIs** (pins with labels, the model's height measured), **shading**
+   (wipes across the screen between the modes that keep the textures:
+   textures, toon, raking light), **sun study** (the sun's real path over
+   Wołpa on 21 June, local time from sunrise to sunset: the sun itself, its
+   day's track in the sky, a compass on the ground and the shadows; the
+   camera holds still meanwhile) and
+   **seasons and weather** (spring petals, summer, autumn leaves, winter snow
+   settling on the roofs).
 
 From the landing on, the "Enter the viewer" button leads into the viewer with
 the synagogue loaded; everything flies apart on the way. The model is
@@ -38,13 +51,14 @@ With `viewer.intro.enabled` in `viewer-settings.json` (see [viewer-settings](vie
 | `lang` | `pl`, `en` or `de` (default: the browser's language, else English) |
 | `sound` | `1`: sound on by default |
 | `embedded` | `1`: inside the viewer page; the buttons tell it instead of leaving (set by `intro-overlay.js`, in the hash) |
-| `at` | Holds the intro at that second, e.g. `?at=6.5` (points gathering), `?at=11` (the last point), `?at=17` (edges and faces) - for stills and screen recordings |
+| `at` | Holds the intro at that second, e.g. `?at=6.5` (points gathering), `?at=11` (the last point), `?at=17` (edges and faces), `?at=24.6` (section), `?at=28` (annotations), `?at=31` (toon), `?at=35.6` (noon), `?at=42.4` (winter) - for stills and screen recordings |
 
 ## Files
 
 - `intro.html` - the page (copied into the build, not in an app build)
 - `viewer/intro/intro.js` - the animation (three.js; a rollup entry, built to `intro.js`)
 - `viewer/intro/mesh-reveal.js` - the model's act: vertices, edges, faces
+- `viewer/intro/feature-tour.js` - the feature tour
 - `viewer/intro/intro-sound.js` - the sound
 - `viewer/intro-overlay.js` - the intro over the viewer page (`viewer.intro`)
 - `viewer/intro/intro.css` - its styles (built to `assets/intro/`)
@@ -61,6 +75,9 @@ node scripts/build-intro-points.mjs [count] [model.glb]   # or: pnpm run intro:p
 ```
 
 The model must use plain (not KTX2/Meshopt-compressed) textures and geometry.
-The caption on the page (`TEXTS` in `viewer/intro/intro.js`), `MODEL_URL` (the
+The sun study's place and day (`SITE` in `feature-tour.js`: Wołpa, 53.37° N
+24.37° E, UTC+3; the model's north taken as -Z, since its files do not say)
+comes from the same astronomy as the viewer's sun study (`viewer/sun-position.js`).
+The caption on the page (`TEXTS` in `viewer/intro/intro.js`), the tour's pins (`feature-tour.js`, in the model's units), `MODEL_URL` (the
 mesh shown at the end; same coordinates as the sampled model) and the default
 `next` name the synagogue.

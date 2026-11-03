@@ -22,15 +22,17 @@ ARG VIEWER_PROFILE=test
 FROM node:alpine AS build
 ARG BUILD_TARGET
 WORKDIR /app
-# The pnpm version pinned in package.json ("packageManager"), the same as CI
-# (.github/workflows) and local installs - keep the two in step. Installed
-# directly rather than through Corepack. Requires Node >= 22.13, hence the
-# unpinned "node:alpine" base below.
-RUN npm install -g pnpm@12.8.1
 # pnpm-workspace.yaml records this repo's build-script approval decisions
 # (allowBuilds) - without it pnpm can't tell those are already decided and
-# refuses to install non-interactively.
+# refuses to install non-interactively. patches/ holds the dependency
+# patches it lists (patchedDependencies), applied by the install.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
+# The pnpm version pinned in package.json ("packageManager", read here as
+# pnpm/action-setup reads it in CI), without a "+sha..." suffix if it has
+# one. Installed directly rather than through Corepack. Requires
+# Node >= 22.13, hence the unpinned "node:alpine" base.
+RUN npm install -g "$(node -p "require('./package.json').packageManager.split('+')[0]")"
 RUN pnpm install --frozen-lockfile
 COPY . .
 # Optional build extension (VIEWER_BUILD_EXTENSION in rollup.config.js),

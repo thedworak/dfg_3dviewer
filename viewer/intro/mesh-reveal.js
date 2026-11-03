@@ -20,7 +20,9 @@ import {
   Mesh,
   Points,
   ShaderMaterial,
+  Vector2,
   Vector3,
+  Vector4,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
@@ -105,8 +107,21 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     uFaces: { value: 0 },
     uEdgeGlow: { value: 1 },
     uExit: { value: 0 },
+    // The feature tour (feature-tour.js): shading modes A and B with a
+    // wipe between them across the screen, a section plane, snow cover and
+    // a colour grade for the seasons.
+    uModeA: { value: 0 },
+    uModeB: { value: 0 },
+    uWipe: { value: 0 },
+    uResolution: { value: new Vector2(1, 1) },
+    uTourTime: { value: 0 },
+    uClip: { value: new Vector4(-1, 0, 0, 100) },
+    uClipActive: { value: 0 },
+    uSnow: { value: 0 },
+    uGrade: { value: new Vector3(1, 1, 1) },
   };
 
+  const meshes = [];
   const vertexPositions = [];
   const vertexDelays = [];
   const edgePositions = [];
@@ -174,6 +189,8 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     if (!normals) geometry.computeVertexNormals();
     const mesh = new Mesh(geometry, revealMaterial(part.material, faceUniforms));
     mesh.frustumCulled = false;
+    mesh.receiveShadow = true;
+    meshes.push(mesh);
     group.add(mesh);
   }
 
@@ -265,10 +282,26 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
   const hemisphere = new HemisphereLight(0xdfe8ff, 0x3a2c20, 1.9);
   const sun = new DirectionalLight(0xffe2bf, 2.8);
   sun.position.set(4, 6, 3);
+  // Shadows for the sun study (feature-tour.js); the model casts them only
+  // once it stands (the depth pass knows nothing of the faces growing).
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -2.6;
+  sun.shadow.camera.right = 2.6;
+  sun.shadow.camera.top = 2.6;
+  sun.shadow.camera.bottom = -2.6;
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far = 20;
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
   group.add(hemisphere, sun);
 
   return {
     group,
+    meshes,
+    sun,
+    hemisphere,
+    uniforms: faceUniforms,
     // How far the faces are (0..1): the points give way to them.
     faces: () => faceUniforms.uFaces.value,
     // How far each part is (0..1), for the sound.
@@ -301,6 +334,8 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
       faceUniforms.uFaces.value = ramp(stage, TIMING.faces);
       faceUniforms.uEdgeGlow.value = 1 - ramp(stage, TIMING.glowOut);
       faceUniforms.uExit.value = exit;
+      const standing = faceUniforms.uFaces.value >= 1 && exit <= 0;
+      for (const mesh of meshes) mesh.castShadow = standing;
       vertices.visible = vertexUniforms.uFade.value > 0.001;
       edges.visible = edgeUniforms.uFade.value > 0.001;
     },
@@ -322,7 +357,9 @@ function revealMaterial(source, uniforms) {
         uniform float uFaces;
         uniform float uExit;
         varying float vReveal;
-        varying vec3 vBary;`)
+        varying vec3 vBary;
+        varying vec3 vTourPos;
+        varying vec3 vTourNormal;`)
       .replace('#include <begin_vertex>', `
         vec3 transformed = vec3(position);
         float span = 0.16;
@@ -332,21 +369,88 @@ function revealMaterial(source, uniforms) {
           + normal * (1.0 - grow) * (0.06 + aTri.y * 0.14);
         transformed += (normalize(aCentroid + vec3(0.0, 0.4, 0.0)) * (1.5 + aTri.y * 3.0)) * uExit * uExit;
         vReveal = reveal;
-        vBary = aBary;`);
+        vBary = aBary;
+        vTourPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vTourNormal = normalize(mat3(modelMatrix) * normal);`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uEdgeGlow;
         uniform float uExit;
+        uniform float uModeA;
+        uniform float uModeB;
+        uniform float uWipe;
+        uniform vec2 uResolution;
+        uniform float uTourTime;
+        uniform vec4 uClip;
+        uniform float uClipActive;
+        uniform float uSnow;
+        uniform vec3 uGrade;
         varying float vReveal;
-        varying vec3 vBary;`)
+        varying vec3 vBary;
+        varying vec3 vTourPos;
+        varying vec3 vTourNormal;
+        // The viewer's shading modes that keep the textures, in brief:
+        // 0 textures, 1 toon, 2 raking light.
+        vec3 introShade(float mode, vec3 base, vec3 albedo, vec3 soft, vec3 n, vec3 viewNormal) {
+          if (mode < 0.5) return base;
+          vec3 tone = pow(albedo, vec3(1.0 / 2.2));
+          if (mode < 1.5) {
+            // Toon: flat bands of light on the textures, ink along creases.
+            float l = dot(n, normalize(vec3(0.5, 0.8, 0.3)));
+            float band = l > 0.55 ? 1.0 : (l > 0.15 ? 0.74 : 0.5);
+            // The texture's colour, blurred (a smaller mip level): patches,
+            // not grain.
+            vec3 paint = pow(soft, vec3(1.0 / 2.2));
+            float crease = smoothstep(0.25, 0.6, length(fwidth(n)));
+            return clamp(paint * band * 1.12, 0.0, 1.0) * (1.0 - crease * 0.85);
+          }
+          // Raking light on the textures: a low light circling.
+          float a = uTourTime * 1.8;
+          vec3 graze = normalize(vec3(cos(a), 0.38, sin(a)));
+          float l = max(dot(n, graze), 0.0);
+          return clamp(tone * (0.12 + pow(l, 1.15) * 1.45), 0.0, 1.0);
+        }`)
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-        if (vReveal <= 0.001 || uExit >= 0.999) discard;`)
+        if (vReveal <= 0.001 || uExit >= 0.999) discard;
+        float sectionDistance = dot(vTourPos, uClip.xyz) + uClip.w;
+        if (uClipActive > 0.0 && sectionDistance < 0.0) discard;`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         float edge = min(min(vBary.x, vBary.y), vBary.z);
         float line = 1.0 - smoothstep(0.0, fwidth(edge) * 1.2 + 0.002, edge);
         float forming = 1.0 - smoothstep(0.35, 1.0, vReveal);
         totalEmissiveRadiance += vec3(0.3, 0.58, 1.0) * (forming * 0.75 + line * 0.55 * uEdgeGlow);
-        diffuseColor.rgb *= mix(0.25, 1.0, smoothstep(0.4, 1.0, vReveal));`);
+        diffuseColor.rgb *= mix(0.25, 1.0, smoothstep(0.4, 1.0, vReveal));`)
+      .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+        {
+          vec3 n = normalize(vTourNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+          vec3 viewNormal = normalize(normal);
+          vec3 base = gl_FragColor.rgb;
+          vec3 soft = diffuseColor.rgb;
+          #ifdef USE_MAP
+            soft = texture2D(map, vMapUv, 4.0).rgb * diffuse;
+          #endif
+          float sx = gl_FragCoord.x / uResolution.x;
+          vec3 color = mix(introShade(uModeA, base, diffuseColor.rgb, soft, n, viewNormal), introShade(uModeB, base, diffuseColor.rgb, soft, n, viewNormal), step(sx, uWipe));
+          // The wipe's edge: a thin line of light.
+          float wiping = step(0.001, uWipe) * step(uWipe, 0.999);
+          color += vec3(0.45, 0.72, 1.0) * exp(-abs(sx - uWipe) * uResolution.x * 0.12) * wiping;
+          // Snow on what faces up.
+          float up = smoothstep(0.3, 0.75, n.y);
+          float grain = fract(sin(dot(floor(vTourPos.xz * 90.0), vec2(12.9898, 78.233))) * 43758.5453);
+          vec3 snow = vec3(0.92, 0.95, 1.0) * (0.72 + 0.28 * max(dot(n, normalize(vec3(0.3, 1.0, 0.2))), 0.0));
+          color = mix(color, snow, uSnow * up * (0.78 + 0.22 * grain));
+          color *= uGrade;
+          // The section: the cut glows, what is seen inside the walls is
+          // filled like a drawing's section.
+          if (uClipActive > 0.0) {
+            color += vec3(0.3, 0.62, 1.0) * exp(-abs(sectionDistance) * 70.0) * uClipActive * 1.4;
+            if (!gl_FrontFacing) {
+              float hatch = step(0.5, fract((vTourPos.x + vTourPos.y + vTourPos.z) * 40.0));
+              color = mix(color, vec3(0.42, 0.55, 0.7) * (0.85 + 0.15 * hatch), uClipActive * 0.9);
+            }
+          }
+          gl_FragColor.rgb = color;
+        }`);
   };
   material.customProgramCacheKey = () => 'intro-reveal';
   return material;

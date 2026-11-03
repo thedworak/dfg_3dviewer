@@ -32,10 +32,24 @@ function poweredByHtml() {
   return `<span class="credits-item"><a href="https://threejs.org" target="_blank" rel="noopener noreferrer" class="credits-link"${title}>${text}</a></span>`;
 }
 
+// The project's changelog (the website's changelog.html, generated from the
+// git history at each deploy). credits.changelog in the viewer settings
+// points elsewhere, or hides the button with "" / false.
+const DEFAULT_CHANGELOG_URL = "https://explora4d.eu/changelog.html";
+
+function changelogHtml(credits) {
+  const url = credits.changelog === undefined || credits.changelog === null || credits.changelog === true
+    ? DEFAULT_CHANGELOG_URL
+    : credits.changelog;
+  if (!url || typeof url !== "string") return "";
+  const safe = url.replace(/"/g, "&quot;");
+  return `<a href="${safe}" target="_blank" rel="noopener noreferrer" class="credits-changelog">${t("credits.changelog", "Changelog")}</a>`;
+}
+
 // The credits window (opened from Help → Credits, main.js toggleCredits):
 // the logo, then one line per credit - its own logo, its label ("Created
 // by") and text, linked when the settings give a URL - then IIIF and the
-// three.js build.
+// three.js build, and a button to the changelog.
 export async function createCreditsElement() {
   const credits = core.CONFIG?.viewer?.credits;
 
@@ -81,6 +95,7 @@ export async function createCreditsElement() {
     .join("");
 
   html += `<div class="credits-items">${itemsHtml}</div>`;
+  html += changelogHtml(credits);
 
   creditsDiv.innerHTML = html;
 

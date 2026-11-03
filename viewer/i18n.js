@@ -61,6 +61,7 @@ export const VIEWER_I18N = {
     credits: {
       title: "Credits",
       close: "Close",
+      changelog: "Changelog",
     },
     bugReport: {
       button: "Report a bug",
@@ -2523,6 +2524,7 @@ export const VIEWER_I18N = {
     credits: {
       title: "Autorzy i źródła",
       close: "Zamknij",
+      changelog: "Lista zmian",
     },
     bugReport: {
       button: "Zgłoś błąd",
@@ -3920,6 +3922,7 @@ export const VIEWER_I18N = {
     credits: {
       title: "Credits",
       close: "Schließen",
+      changelog: "Änderungsprotokoll",
     },
     bugReport: {
       button: "Fehler melden",

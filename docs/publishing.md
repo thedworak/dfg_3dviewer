@@ -35,6 +35,7 @@ Each viewer service copies its `viewer-settings.json` and profile manifest into 
 |---|---|---|
 | `mainUrl`, `entity.exportViewerUrl` | `https://your.domain.com` | The public address of the site |
 | `viewer.credits.logo.url` | `https://your-domain.com` | Your site, or remove the link |
+| `viewer.credits.changelog` | not set: the credits window's "Changelog" button opens `https://explora4d.eu/changelog.html` | Another changelog's URL, or `""` to hide the button |
 | `viewer.gallery.buildFake` | `true`: placeholder "Preview 1-9" images for models without renders | `false`, with `viewer.gallery.build: true` - converted models keep their gallery (the worker's renders) |
 | `viewer.errorTracking.dsn` | not set: bug reports and crashes go nowhere | The GlitchTip project DSN ([`error-tracking.md`](error-tracking.md)) |
 

@@ -157,6 +157,52 @@
   display: none;
 }
 
+/* Shortcuts to the tools for the kind of model shown (ui/format-tools.js):
+   after the view tools, behind a divider of their own, marked by a small
+   dot in the accent under the icon (the dot of the classic toolbar,
+   editor-toolbar.css) - the accent's frame and fill are for an active tool
+   only. The tools in their menus get the dot too, at the icon's corner. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_format {
+  display: contents;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_format[hidden] {
+  display: none;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_format-tool {
+  width: 40px;
+  height: 40px;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_format-tool > .viewer-editor-tool_icon,
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon {
+  position: relative;
+}
+
+#viewerEditorToolbar.viewer-menus .viewer-menus_format-tool > .viewer-editor-tool_icon::after,
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--viewer-menus-accent) 75%, transparent);
+  pointer-events: none;
+}
+
+/* In a menu's row: beside the icon, top right, as a badge. */
+#viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon::after {
+  left: auto;
+  right: -3px;
+  top: -2px;
+  bottom: auto;
+  transform: none;
+}
+
 #viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_device > .viewer-editor-tool {
   width: 40px;
   height: 40px;

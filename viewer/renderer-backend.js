@@ -106,7 +106,8 @@ function registerViewerMaterials(renderer, webgpu, weather) {
     setupLightingModel() {
       return new DampedSpecularLightingModel(
         this.useClearcoat, this.useSheen, this.useIridescence, this.useAnisotropy,
-        this.useTransmission, this.useDispersion, this.useRetroreflection
+        this.useTransmission, this.useDispersion, this.useRetroreflection,
+        this.useDiffuseRoughness
       );
     }
     setupVariants(builder) {

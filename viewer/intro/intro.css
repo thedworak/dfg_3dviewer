@@ -235,6 +235,72 @@ html, body {
 .intro-sound.is-on .intro-sound-off { display: none; }
 #intro.is-fallback .intro-sound { display: none; }
 
+/* The feature tour (feature-tour.js): the chapter under the title, and the
+   annotations' labels, placed by the script. */
+.intro-chapter {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: calc(max(24px, env(safe-area-inset-top)) + min(320px, 62vw) * 0.378 + 48px);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 170, 255, 0.28);
+  background: rgba(5, 7, 13, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--intro-text);
+  opacity: 0;
+  transform: translate(-50%, -4px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  pointer-events: none;
+}
+.intro-chapter.is-on { opacity: 1; transform: translate(-50%, 0); }
+.intro-chapter-index { color: rgba(140, 185, 255, 0.85); font-variant-numeric: tabular-nums; font-size: 11px; }
+.intro-chapter-title { font-weight: 500; }
+.intro-chapter-sub { color: var(--intro-accent-strong); display: none; }
+.intro-chapter.has-sub .intro-chapter-sub { display: inline; }
+.intro-chapter.has-sub .intro-chapter-sub::before { content: "· "; color: var(--intro-muted); }
+
+.intro-label {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(240, 194, 122, 0.5);
+  background: rgba(5, 7, 13, 0.7);
+  color: #fff3dc;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.intro-label.is-compass {
+  padding: 1px 6px;
+  border-color: rgba(184, 212, 255, 0.4);
+  background: rgba(5, 7, 13, 0.5);
+  color: #dceaff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.intro-label.is-poi { border-color: rgba(110, 170, 255, 0.55); color: #dceaff; }
+.intro-label.is-measure {
+  border-color: rgba(156, 200, 255, 0.55);
+  color: #dceaff;
+  font-variant-numeric: tabular-nums;
+}
+#intro.is-leaving .intro-label,
+#intro.is-leaving .intro-chapter { opacity: 0 !important; transition: opacity 0.3s ease; }
+
 /* Replay only once the building stands; skip only until then. */
 .intro-replay { display: none; }
 #intro.is-assembled .intro-replay { display: inline-block; }

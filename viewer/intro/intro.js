@@ -36,8 +36,9 @@ import {
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { ACT_LENGTH, TIMING, createMeshReveal } from './mesh-reveal.js';
+import { TIMING, createMeshReveal } from './mesh-reveal.js';
 import { createIntroSound } from './intro-sound.js';
+import { TOUR_LENGTH, createFeatureTour } from './feature-tour.js';
 
 const POINTS_URL = 'assets/intro/synagogue-points.bin';
 // The model the points become (also the one the viewer opens next, so it is
@@ -58,6 +59,8 @@ const LANDING = LAST_START + LAST_FLIGHT;
 const EXIT = 1.3;
 // Assemble again: everything runs back into the cloud first.
 const REWIND = 3.6;
+// The feature tour (feature-tour.js): seconds into the model's act.
+const TOUR_START = 11.0;
 
 const TEXTS = {
   pl: {
@@ -71,6 +74,22 @@ const TEXTS = {
     loading: 'Wczytywanie punktów…',
     error: 'Nie udało się wczytać intro.',
     hint: 'Przeciągnij, aby obrócić',
+    tour: {
+      chapters: {
+        section: 'Przekroje',
+        annotations: 'Adnotacje i punkty POI',
+        shading: 'Cieniowanie',
+        sun: 'Analiza nasłonecznienia',
+        seasons: 'Pory roku i pogoda',
+      },
+      shading: { textures: 'tekstury', toon: 'toon', raking: 'światło boczne' },
+      sun: { night: 'noc' },
+      sunDate: 'Wołpa, 21 czerwca',
+      compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
+      seasons: { spring: 'wiosna', summer: 'lato', autumn: 'jesień', winter: 'zima' },
+      labels: { roof: 'Dach', pavilion: 'Narożny pawilon' },
+      height: 'wysokość',
+    },
     soundOn: 'Wyłącz dźwięk',
     soundOff: 'Włącz dźwięk',
   },
@@ -85,6 +104,22 @@ const TEXTS = {
     loading: 'Loading points…',
     error: 'The intro could not be loaded.',
     hint: 'Drag to rotate',
+    tour: {
+      chapters: {
+        section: 'Sections',
+        annotations: 'Annotations and POIs',
+        shading: 'Shading',
+        sun: 'Sun study',
+        seasons: 'Seasons and weather',
+      },
+      shading: { textures: 'textures', toon: 'toon', raking: 'raking light' },
+      sun: { night: 'night' },
+      sunDate: 'Wołpa, 21 June',
+      compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
+      seasons: { spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' },
+      labels: { roof: 'Roof', pavilion: 'Corner pavilion' },
+      height: 'height',
+    },
     soundOn: 'Sound off',
     soundOff: 'Sound on',
   },
@@ -99,6 +134,22 @@ const TEXTS = {
     loading: 'Punkte werden geladen…',
     error: 'Das Intro konnte nicht geladen werden.',
     hint: 'Ziehen zum Drehen',
+    tour: {
+      chapters: {
+        section: 'Schnitte',
+        annotations: 'Annotationen und POIs',
+        shading: 'Schattierung',
+        sun: 'Sonnenstudie',
+        seasons: 'Jahreszeiten und Wetter',
+      },
+      shading: { textures: 'Texturen', toon: 'Toon', raking: 'Streiflicht' },
+      sun: { night: 'Nacht' },
+      sunDate: 'Wołpa, 21. Juni',
+      compass: { N: 'N', E: 'O', S: 'S', W: 'W' },
+      seasons: { spring: 'Frühling', summer: 'Sommer', autumn: 'Herbst', winter: 'Winter' },
+      labels: { roof: 'Dach', pavilion: 'Eckpavillon' },
+      height: 'Höhe',
+    },
     soundOn: 'Ton aus',
     soundOff: 'Ton an',
   },
@@ -257,6 +308,7 @@ let dust;
 let total = 0;
 let started = -1;
 let meshReveal = null;
+let tour = null;
 let meshReadyAt = -1; // the intro time T when the model was ready
 let lastPoint = null;
 let exitStarted = -1;
@@ -269,6 +321,7 @@ let userTouched = false;
 if (renderer) {
   renderer.setClearColor(new Color(0x05070d), 1);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true; // the tour's sun study
   camera.position.set(3.75, 1.25, 4.7);
   controls = new OrbitControls(camera, ui.canvas);
   controls.enableDamping = true;
@@ -321,6 +374,7 @@ function resize() {
   cloudUniforms.uViewport.value = viewport;
   if (dust) dust.material.uniforms.uViewport.value = viewport;
   meshReveal?.setViewport(viewport);
+  tour?.setViewport(viewport);
 }
 
 // --- Data --------------------------------------------------------------------
@@ -475,6 +529,18 @@ async function load() {
       // whole: as if it had been there from the start.
       meshReadyAt = Number.isFinite(holdAt) || reducedMotion ? 0 : timeline(now());
       scene.add(reveal.group);
+      // The model's height, from its ground (y = 0, in centimetres).
+      const height = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 }).format(max[1] / 100);
+      tour = createFeatureTour({
+        reveal,
+        camera,
+        renderer,
+        root: ui.root,
+        texts: t,
+        toIntro: (x, y, z) => new Vector3((x - center[0]) * scale, (y - center[1]) * scale, (z - center[2]) * scale),
+        heightLabel: `${t.tour.height} ${height} m`,
+      });
+      scene.add(tour.group);
       resize();
     })
     .catch((error) => console.warn('[intro] the model could not be loaded:', error));
@@ -833,12 +899,13 @@ let rewindFrom = 0;
 let lastT = 0;
 let lastTime = 0;
 let lastArrived = 0;
+let cameraTurn = 1;
 
 // The intro's time T at the clock's time: running, held (?at=), shown whole
 // (reduced motion) or running back ("Assemble again").
 function timeline(time) {
   if (Number.isFinite(holdAt)) return holdAt;
-  if (reducedMotion) return LANDING + ACT_LENGTH;
+  if (reducedMotion) return LANDING + TOUR_START + TOUR_LENGTH;
   if (rewindStart >= 0) {
     const r = Math.min(1, (time - rewindStart) / REWIND);
     return rewindFrom + (ASSEMBLY_START - rewindFrom) * easeInOut(r);
@@ -860,6 +927,7 @@ function frame() {
   const exit = exitStarted < 0 ? 0 : Math.min(1, (time - exitStarted) / EXIT);
   // The model's act: from the landing, or from when the model was ready.
   const stage = meshReveal ? T - Math.max(LANDING, meshReadyAt) : 0;
+  let tourCue = '';
 
   const uniforms = cloudUniforms;
   uniforms.uTime.value = time;
@@ -872,6 +940,7 @@ function frame() {
   lastPoint.update(T, time, exit);
   if (meshReveal) {
     meshReveal.update(stage, exit);
+    if (tour) tourCue = tour.update(stage - TOUR_START, time, exit);
     uniforms.uFaces.value = meshReveal.faces();
   }
 
@@ -920,6 +989,7 @@ function frame() {
     glowOut: levels?.glowOut ?? 0,
     exit,
   });
+  if (tourCue && T > lastT && !Number.isFinite(holdAt) && rewindStart < 0) sound.cue(tourCue);
   lastT = T;
   lastTime = time;
   lastArrived = arrivedFraction;
@@ -927,9 +997,13 @@ function frame() {
   ui.root.classList.toggle('is-assembling', progress > 0.02);
   ui.root.classList.toggle('is-assembled', T >= LANDING - 0.3);
 
-  // While gathering the camera circles faster, slowing as the building forms.
+  // While gathering the camera circles faster, slowing as the building
+  // forms; it holds still for the sun study (the shadows turn with the sun
+  // only), easing out of and back into its turn.
   if (exitStarted < 0 && !userTouched) {
-    controls.autoRotateSpeed = reducedMotion ? 0 : 0.4 + (1 - progress) * 1.4;
+    const holding = tour?.holdsCamera(stage - TOUR_START) ?? false;
+    cameraTurn += ((holding ? 0 : 1) - cameraTurn) * Math.min(1, dt * 3);
+    controls.autoRotateSpeed = reducedMotion ? 0 : (0.4 + (1 - progress) * 1.4) * cameraTurn;
   }
   if (exitStarted >= 0) {
     camera.position.lerp(exitTarget, 0.04);

@@ -9,6 +9,7 @@
 // - the model: tiny sparks for the vertices, a brushed noise sweep while the
 //   edges are drawn, a warm chord opening up as the faces form, and a last
 //   bell when it stands;
+// - the feature tour: a soft two-note cue for each chapter, ticks between;
 // - "Assemble again" and "Enter the viewer": a whoosh.
 //
 // Browsers let sound start only after a click or key press, so the page
@@ -311,6 +312,17 @@ export function createIntroSound() {
     get enabled() { return enabled; },
     setEnabled,
     update,
+    // The feature tour (feature-tour.js): a soft two-note cue for a new
+    // chapter, a small tick for a step within one.
+    cue(kind) {
+      if (!enabled || !voices || ctx.state !== 'running') return;
+      if (kind === 'chapter') {
+        pluck(note(7), 0.045, -0.3, 1.1);
+        setTimeout(() => { if (enabled) pluck(note(12), 0.04, 0.3, 1.3); }, 110);
+      } else {
+        pluck(note(19 + Math.floor(Math.random() * 3) * 2), 0.022, Math.random() * 1.2 - 0.6, 0.45);
+      }
+    },
     rewind() {
       if (enabled && voices && ctx.state === 'running') whoosh(3200, 300, 2.2, 0.08);
     },

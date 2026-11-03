@@ -3630,6 +3630,11 @@ test('credits: a window over the viewer, closed until opened, closed again by it
   await expect(credits).toBeVisible();
   await expect(credits.locator('.credits-header')).toHaveText(/Credits/);
   await expect(credits.locator('.credits-iiif')).toBeVisible();
+  // The project's changelog (the website's page), in a new tab.
+  const changelog = credits.locator('a.credits-changelog');
+  await expect(changelog).toHaveText('Changelog');
+  await expect(changelog).toHaveAttribute('href', 'https://explora4d.eu/changelog.html');
+  await expect(changelog).toHaveAttribute('target', '_blank');
   await credits.locator('.credits-close').click();
   await expect(credits).toBeHidden();
 

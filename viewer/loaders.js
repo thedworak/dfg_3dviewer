@@ -1,4 +1,5 @@
 import THREE from "./init.js";
+import { DIRECT_SPECULAR_SCALE } from "./renderer-backend.js";
 export const loadDDSLoader = async () => (await import("three/examples/jsm/loaders/DDSLoader.js")).DDSLoader;
 export const loadMTLLoader = async () => (await import("three/examples/jsm/loaders/MTLLoader.js")).MTLLoader;
 export const loadOBJLoader = async () => (await import("three/examples/jsm/loaders/OBJLoader.js")).OBJLoader;
@@ -394,12 +395,15 @@ function setupSingleMaterial(materials, material) {
   material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
   material.clippingPlanes = core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []);
   //material.clipIntersection = false;
+  // The direct specular light scaled down (the WebGPU renderer's lighting
+  // model does the same, renderer-backend.js): every direct light has been
+  // added once lights_fragment_begin is through, the environment's comes
+  // after. The shader still has its #includes here.
   material.onBeforeCompile = (shader) => {
+    if (!material.isMeshStandardMaterial) return;
     shader.fragmentShader = shader.fragmentShader.replace(
-      'reflectedLight.directSpecular += directSpecular;',
-      `
-        reflectedLight.directSpecular += directSpecular * 0.15;
-      `
+      "#include <lights_fragment_begin>",
+      `#include <lights_fragment_begin>\n\treflectedLight.directSpecular *= ${DIRECT_SPECULAR_SCALE.toFixed(4)};`
     );
   };
 
@@ -474,7 +478,12 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
         if (preset === "studio") {
           // Studio uses RoomEnvironment
           const TempRoomEnvironment = await loadRoomEnvironment();
-          return pmrem.fromScene(new TempRoomEnvironment()).texture;
+          const room = new TempRoomEnvironment();
+          try {
+            return pmrem.fromScene(room).texture;
+          } finally {
+            room.dispose();
+          }
         } else if (preset === "neutral" || preset === "sunny" || preset === "goldenHour") {
           // Load HDR map for other presets
           const HDRLoader = await loadHDRLoader();
@@ -487,7 +496,12 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
             loader.load(mapUrl, resolve, undefined, reject);
           });
           texture.mapping = THREE.EquirectangularReflectionMapping;
-          return pmrem.fromEquirectangular(texture).texture;
+          try {
+            return pmrem.fromEquirectangular(texture).texture;
+          } finally {
+            // The PMREM is a render target of its own; the source is not kept.
+            texture.dispose();
+          }
         }
         return null;
       } finally {

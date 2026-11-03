@@ -1331,6 +1331,38 @@
   box-sizing: border-box;
 }
 
+/* A modal panel restored (attachToolPanelChrome's `modal`, phones): a
+   window centred in the viewer over a dimmed backdrop, whatever its place
+   docked or as an icon; a tap on the backdrop minimizes it again. */
+.tool-panel-chrome_backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10002;
+  background: rgba(10, 8, 6, 0.45);
+  touch-action: none;
+}
+
+.has-tool-chrome.is-modal-open {
+  position: absolute;
+  z-index: 10003;
+  left: 50% !important;
+  top: 50% !important;
+  width: min(380px, calc(100% - 24px)) !important;
+  max-width: none;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  overscroll-behavior: contain;
+}
+
+/* Docked again only by minimizing: no grip while it is a window, nor a
+   panel's own folding of its body (minimizing does that). */
+.has-tool-chrome.is-modal-open .tool-panel-chrome_grip,
+.has-tool-chrome.is-modal-open .viewer-pointcloud-panel_collapse {
+  display: none;
+}
+
 /* Minimized: a small round icon (.tool-panel-chrome_pip) alone; a tap
    restores the panel, a drag moves it. */
 .has-tool-chrome.is-minimized {

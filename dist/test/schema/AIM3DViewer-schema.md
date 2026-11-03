@@ -102,7 +102,8 @@ Stores runtime viewer options.
     "enabled": true,
     "position": { "x": 0, "y": 0 },
     "expanded": false,
-    "visible": true
+    "visible": true,
+    "profile": { "promote": ["hierarchy", "clippingPlanes"], "hide": ["weather"] }
   },
   "menuToolbar": {
     "enabled": true,
@@ -180,6 +181,7 @@ These optional `viewer` fields carry values that used to live only in `viewer-se
 - `position`: current dragged toolbar offset relative to the host container
 - `expanded`: whether the secondary tray is expanded
 - `visible`: whether the toolbar is currently visible in the UI
+- `profile` (optional): the tools for the kind of model shown. The viewer tells the kind (`mesh`, `bim`, `pointcloud`, `splats`, `volume`) from the file and the scene and brings that kind's tools to the top - onto the bar of the classic toolbar, as shortcuts into the navigation of the menus - and leaves out those the kind has no use for. `false` (or `{ "enabled": false }`) keeps the toolbar as it is; `promote` replaces the tools brought to the top (tool names, in order of importance: phones show the first two); `hide` replaces the tools left out. Either list may be given alone; the other keeps the kind's default.
 
 ## `AIM3DViewer.integration`
 
