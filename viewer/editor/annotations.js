@@ -3,6 +3,7 @@ import { toastHelper, showToast } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makeDraggable } from "../ui/panel-window.js";
 import THREE from "../init.js";
+import { canvasFont, paintCanvasText } from "../ui/canvas-font.js";
 import { unitNameToMeters } from "./model-units.js";
 import { DEFAULT_UP_AXIS, getUpAxis, normalizeUpAxis } from "../up-axis.js";
 import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
@@ -171,44 +172,40 @@ export function attachAnnotations(Viewer) {
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
-
-      const ctx = canvas.getContext("2d");
-
-      ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
-      ctx.shadowBlur = size * 0.08;
-      ctx.shadowOffsetY = size * 0.015;
-      ctx.fillStyle = "rgba(22, 19, 16, 0.88)";
-      ctx.beginPath();
-      ctx.arc(center, center, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      ctx.lineWidth = ringWidth;
-      ctx.strokeStyle = "#c9963f";
-      ctx.beginPath();
-      ctx.arc(center, center, radius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Shrink longer numbers to stay inside the ring.
-      let fontSize = size * 0.46;
-      ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
-      const maxTextWidth = radius * 1.35;
-      const textWidth = ctx.measureText(text).width;
-      if (textWidth > maxTextWidth) {
-        fontSize *= maxTextWidth / textWidth;
-        ctx.font = `600 ${fontSize}px system-ui, Arial, sans-serif`;
-      }
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, center, center + fontSize * 0.04);
-
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      texture.needsUpdate = true;
 
-      return texture;
+      return paintCanvasText(texture, (ctx) => {
+        ctx.save();
+        ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+        ctx.shadowBlur = size * 0.08;
+        ctx.shadowOffsetY = size * 0.015;
+        ctx.fillStyle = "rgba(22, 19, 16, 0.88)";
+        ctx.beginPath();
+        ctx.arc(center, center, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.lineWidth = ringWidth;
+        ctx.strokeStyle = "#c9963f";
+        ctx.beginPath();
+        ctx.arc(center, center, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Shrink longer numbers to stay inside the ring.
+        let fontSize = size * 0.46;
+        ctx.font = canvasFont(600, fontSize);
+        const maxTextWidth = radius * 1.35;
+        const textWidth = ctx.measureText(text).width;
+        if (textWidth > maxTextWidth) {
+          fontSize *= maxTextWidth / textWidth;
+          ctx.font = canvasFont(600, fontSize);
+        }
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, center, center + fontSize * 0.04);
+      });
     },
 
     createAnnotationPOIMarker(entry, position, index = 1) {

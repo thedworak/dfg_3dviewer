@@ -1,5 +1,8 @@
 /* The intro page (intro.html, viewer/intro/intro.js). Always dark: the
-   points glow against the night. */
+   points glow against the night. Inter comes from the viewer's
+   css/fonts.css (assets/css next to assets/intro). */
+@import "../css/fonts.css";
+
 :root {
   --intro-bg: #05070d;
   --intro-text: #e8edf7;
@@ -7,7 +10,7 @@
   --intro-accent: #f0c27a;
   --intro-accent-strong: #ffd796;
   --intro-glow: rgba(110, 170, 255, 0.35);
-  --intro-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --intro-font: var(--font-ui);
   color-scheme: dark;
 }
 

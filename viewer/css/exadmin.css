@@ -2,6 +2,7 @@
    confirmation dialog come from the viewer's panel stylesheets; their colours
    (--viewer-panel-*) are set here for the whole page, dark by default like
    the viewer (main.css .viewer-wrapper). */
+@import "./fonts.css";
 @import "./upload-panel.css";
 @import "./models-panel.css";
 @import "./admin-users.css";
@@ -40,8 +41,7 @@ body {
   min-height: 100vh;
   background: var(--viewer-page-bg);
   color: var(--viewer-panel-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.45;
 }

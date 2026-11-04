@@ -1,5 +1,6 @@
 import { core } from "../core.js";
 import THREE from "../init.js";
+import { canvasFont, paintCanvasText } from "../ui/canvas-font.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
@@ -409,46 +410,44 @@ export function attachCertainty(Viewer) {
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
-      const ctx = canvas.getContext("2d");
-
-      ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
-      ctx.shadowBlur = size * 0.08;
-      ctx.shadowOffsetY = size * 0.015;
-      ctx.fillStyle = level.color;
-      ctx.beginPath();
-      ctx.arc(center, center, radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      ctx.lineWidth = size * 0.04;
-      ctx.strokeStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(center, center, radius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      const ink = contrastColor(level.color);
-      ctx.fillStyle = ink;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      let fontSize = size * (level.symbol ? 0.36 : 0.46);
-      ctx.font = `700 ${fontSize}px system-ui, Arial, sans-serif`;
-      const maxTextWidth = radius * 1.35;
-      const textWidth = ctx.measureText(level.code).width;
-      if (textWidth > maxTextWidth) {
-        fontSize *= maxTextWidth / textWidth;
-        ctx.font = `700 ${fontSize}px system-ui, Arial, sans-serif`;
-      }
-      ctx.fillText(level.code, center, level.symbol ? center - size * 0.06 : center + fontSize * 0.04);
-      if (level.symbol) {
-        ctx.font = `600 ${size * 0.2}px system-ui, Arial, sans-serif`;
-        ctx.fillText(level.symbol, center, center + size * 0.2);
-      }
-
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      texture.needsUpdate = true;
-      return texture;
+
+      return paintCanvasText(texture, (ctx) => {
+        ctx.save();
+        ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+        ctx.shadowBlur = size * 0.08;
+        ctx.shadowOffsetY = size * 0.015;
+        ctx.fillStyle = level.color;
+        ctx.beginPath();
+        ctx.arc(center, center, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.lineWidth = size * 0.04;
+        ctx.strokeStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(center, center, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const ink = contrastColor(level.color);
+        ctx.fillStyle = ink;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        let fontSize = size * (level.symbol ? 0.36 : 0.46);
+        ctx.font = canvasFont(700, fontSize);
+        const maxTextWidth = radius * 1.35;
+        const textWidth = ctx.measureText(level.code).width;
+        if (textWidth > maxTextWidth) {
+          fontSize *= maxTextWidth / textWidth;
+          ctx.font = canvasFont(700, fontSize);
+        }
+        ctx.fillText(level.code, center, level.symbol ? center - size * 0.06 : center + fontSize * 0.04);
+        if (level.symbol) {
+          ctx.font = canvasFont(600, size * 0.2);
+          ctx.fillText(level.symbol, center, center + size * 0.2);
+        }
+      });
     },
   });
 }

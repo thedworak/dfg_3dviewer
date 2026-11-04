@@ -1,3 +1,4 @@
+@import "./fonts.css";
 @import "./editor-toolbar.css";
 @import "./embed-configurator.css";
 @import "./upload-panel.css";
@@ -250,7 +251,7 @@ canvas {
   background: var(--viewer-notice-container-bg);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: var(--viewer-notice-container-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 13px;
   line-height: 1.2;
   letter-spacing: 0.01em;
@@ -585,7 +586,7 @@ canvas {
   position: relative;
   display: block;
   color: var(--viewer-panel-text, rgba(255, 255, 255, 0.92));
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   opacity: 1;
   transition: opacity 600ms ease;
 }
@@ -717,9 +718,8 @@ canvas {
   position: absolute;
   z-index: 8;
   pointer-events: none;
-  --font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  --font-family-mono: Menlo, Monaco, Consolas, "Droid Sans Mono", monospace;
+  --font-family: var(--font-ui);
+  --font-family-mono: var(--font-code);
   color: #000000;
   font-family: var(--font-family);
   font-size: 14px;
@@ -854,8 +854,7 @@ html[data-viewer-theme="light"],
   pointer-events: none;
   z-index: 999;
 
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-             "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 #metadata-container::before {
@@ -1174,8 +1173,7 @@ html[data-viewer-theme="light"],
   line-clamp: 3;
   color: var(--metadata-value-color);
   font-weight: 500;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-             "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   min-width: 0;
   overflow: hidden;
   white-space: normal;
@@ -1390,8 +1388,7 @@ html[data-viewer-theme="light"],
   color: var(--viewer-panel-text);
   box-shadow: var(--viewer-panel-shadow);
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .annotation-dialog__header {
@@ -1754,7 +1751,7 @@ body[data-viewer-theme="light"] #annotationPOITooltip {
   background: var(--annotation-poi-tooltip-bg);
   color: var(--annotation-poi-tooltip-text);
   box-shadow: var(--annotation-poi-tooltip-shadow);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
   padding: 7px 10px;
   box-sizing: border-box;
   overflow-wrap: break-word;
@@ -1840,7 +1837,7 @@ body[data-viewer-theme="light"] #annotationPOITooltip {
 .lv-spinner,
 .lv-determinate_circle,
 .lv-dashed {
-  font-family: sans-serif;
+  font-family: var(--font-ui);
   font-size: small;
 }
 

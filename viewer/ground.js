@@ -1,5 +1,6 @@
 import THREE from "./init.js";
 import { core, setCore } from "./core.js";
+import { canvasFont, paintCanvasText } from "./ui/canvas-font.js";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { HorizontalBlurShader } from "three/examples/jsm/shaders/HorizontalBlurShader.js";
 import { VerticalBlurShader } from "three/examples/jsm/shaders/VerticalBlurShader.js";
@@ -87,6 +88,18 @@ function canvasTexture(width, height, draw) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
   return texture;
+}
+
+// canvasTexture for one with text on it, painted again once the
+// interface's font has loaded (ui/canvas-font.js).
+function textCanvasTexture(width, height, draw) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return paintCanvasText(texture, draw);
 }
 
 // White in the middle to black at `outer` (share of the radius), for alpha maps.
@@ -460,7 +473,7 @@ function formatLength(meters) {
 function buildTurntable(group, size, center) {
   const radius = Math.max(Math.hypot(size.x, size.z) * 0.58, 1e-6);
   const thickness = core.gridSize * 0.025;
-  const top = canvasTexture(2048, 2048, (g, w) => {
+  const top = textCanvasTexture(2048, 2048, (g, w) => {
     const c = w / 2;
     g.fillStyle = "#c9c2b6";
     g.fillRect(0, 0, w, w);
@@ -480,10 +493,10 @@ function buildTurntable(group, size, center) {
     g.stroke();
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.font = "bold 84px sans-serif";
+    g.font = canvasFont(700, 84);
     g.fillStyle = "#a83f2a";
     g.fillText("N", c, 190);
-    g.font = "56px sans-serif";
+    g.font = canvasFont(400, 56);
     g.fillStyle = "#3d372d";
     g.fillText("E", w - 190, c);
     g.fillText("S", c, w - 190);
@@ -518,9 +531,9 @@ function buildTurntable(group, size, center) {
     piece.position.set(-length / 2 + (index + 0.5) * (length / 5), thickness * 0.2, 0);
     bar.add(piece);
   }
-  const label = canvasTexture(512, 128, (g, w, h) => {
+  const label = textCanvasTexture(512, 128, (g, w, h) => {
     g.fillStyle = "#2d2a25";
-    g.font = "bold 64px sans-serif";
+    g.font = canvasFont(700, 64);
     g.textAlign = "left";
     g.textBaseline = "middle";
     g.fillText("0", 8, h / 2);

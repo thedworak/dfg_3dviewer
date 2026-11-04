@@ -280,7 +280,9 @@ function copyBuildAssets() {
           'viewer/fonts',
           path.join(outDistDir, 'assets/fonts'),
           keepFiles('viewer/fonts', ['helvetiker_regular.typeface.json', 'LICENSE', 'README.md'])
-        ),
+        // The interface's Inter and JetBrains Mono (css/fonts.css), after:
+        // the copy above clears assets/fonts.
+        ).then(() => copyDirectory('viewer/fonts/ui', path.join(outDistDir, 'assets/fonts/ui'))),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
         // The intro page's stylesheet and points (intro.html, viewer/intro/;
         // the points from scripts/build-intro-points.mjs).
@@ -306,6 +308,7 @@ function copyBuildAssets() {
       ]);
       await stampCssImports(path.join(outDistDir, 'assets/css/viewer.css'));
       await stampCssImports(path.join(outDistDir, 'assets/css/exadmin.css'));
+      await stampCssImports(path.join(outDistDir, 'assets/intro/intro.css'));
 
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
       const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');

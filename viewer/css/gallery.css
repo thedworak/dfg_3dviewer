@@ -531,7 +531,7 @@ html[data-viewer-theme="light"] {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   color: var(--gallery-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   opacity: 0;
   visibility: hidden;
   transition: opacity 280ms ease, visibility 280ms ease;

@@ -19,8 +19,7 @@
   box-shadow: var(--viewer-panel-shadow);
   font-size: 12px;
   line-height: 1.4;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   z-index: 20;
   overflow: hidden;
 }

@@ -19,8 +19,7 @@
   color: var(--viewer-panel-text);
   box-shadow: var(--viewer-panel-shadow);
   backdrop-filter: blur(12px);
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 13px;
   user-select: none;
   -webkit-user-select: none;

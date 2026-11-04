@@ -228,7 +228,7 @@
   box-shadow:
     0 4px 14px rgba(0, 0, 0, 0.26),
     0 0 8px color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 30%, transparent);
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
@@ -1392,7 +1392,7 @@
   color: var(--viewer-panel-text);
   box-shadow: var(--viewer-panel-shadow), 0 10px 22px rgba(0, 0, 0, 0.18);
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .materials-dialog__header {
@@ -1575,7 +1575,7 @@
   #viewerActionMenu {
     right: 12px;
     bottom: 12px;
-    font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande", "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: var(--font-ui);
   }
 
 

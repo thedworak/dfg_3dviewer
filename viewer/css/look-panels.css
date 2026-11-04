@@ -310,7 +310,8 @@
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.18);
   color: inherit;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
   font-size: 11px;
   line-height: 1.4;
   resize: vertical;

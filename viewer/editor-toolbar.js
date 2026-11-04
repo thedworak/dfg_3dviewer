@@ -2234,7 +2234,7 @@ export function updateMeasurementSubmenuState(viewer) {
 
 // An arrow up with the file's axis written under it.
 function upAxisIcon(axis) {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13V3M8.5 6.5 12 3l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="22" text-anchor="middle" font-size="8.5" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor">${axis}</text></svg>`;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13V3M8.5 6.5 12 3l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="22" text-anchor="middle" font-size="8.5" font-weight="700" font-family="Inter, system-ui, sans-serif" fill="currentColor">${axis}</text></svg>`;
 }
 
 export function updateUpAxisSubmenuState(viewer) {
