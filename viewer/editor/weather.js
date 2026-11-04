@@ -6,6 +6,7 @@ import { sunDirection } from "./sun-study.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../ui/tool-panel-chrome.js";
+import { WEATHER_DEFAULTS, WEATHER_TYPES } from "./weather-config.js";
 
 // Weather (Look > Weather): clear sky, fog, rain, snow and a thunderstorm
 // around the model. The shaders below are GLSL; under the WebGPU renderer
@@ -49,21 +50,7 @@ import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../u
 // itself, rendering.js, stays as it was), so the viewer's own lights keep
 // the intensities the other tools set.
 
-export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
-export const WEATHER_DEFAULTS = Object.freeze({
-  type: "rain",
-  intensity: 0.6,
-  wind: 0.2,
-  windDirection: 230,
-  sky: true,
-  surfaces: true,
-  sound: false,
-  // The mist's height (0..1: 0.15 to 1.15 model sizes) and density.
-  mistHeight: 0.4,
-  mistDensity: 0.5,
-  // 0: clumps with gaps (low clouds); 1: an even blanket thinning upwards.
-  mistSpread: 0.6,
-});
+export { WEATHER_TYPES, WEATHER_DEFAULTS };
 
 // What each weather is at full intensity. fog: the density of the fog in
 // model sizes; clouds: the sky's cover; light: the exposure kept; sky: the

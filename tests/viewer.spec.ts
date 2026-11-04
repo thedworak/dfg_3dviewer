@@ -5744,6 +5744,33 @@ test('weather: rain, snow and a storm around the model; off gives the scene back
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
+// The weather (editor/weather.js) is a chunk of its own, downloaded on first
+// use (editor/weather-lazy.js): not with the viewer, but as the pointer
+// reaches its button; calls made meanwhile run in order once it is there.
+test('weather: downloaded on first use, calls made meanwhile kept in order', async ({ page }) => {
+  const weatherChunks = [];
+  page.on('request', (request) => {
+    if (/\/weather-(?!webgpu)[^/]*\.js$/.test(new URL(request.url()).pathname)) weatherChunks.push(request.url());
+  });
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  expect(weatherChunks).toEqual([]);
+  expect(await page.evaluate(() => [window.Viewer.weather.enabled, window.Viewer.getWeatherForExport()])).toEqual([false, undefined]);
+
+  // A manifest's weather, then none: off in the end, as when loaded.
+  expect(await page.evaluate(() => [
+    window.Viewer.apply3IFManifestWeather({ type: 'fog' }),
+    window.Viewer.apply3IFManifestWeather({ type: 'nope' }),
+  ])).toEqual([true, false]);
+  await expect.poll(() => weatherChunks.length).toBe(1);
+  await expect.poll(() => page.evaluate(() => typeof window.Viewer.enableWeather)).toBe('function');
+  expect(await page.evaluate(() => window.Viewer.weather.enabled)).toBe(false);
+
+  await page.evaluate(() => window.Viewer.setWeatherOptions({ type: 'snow' }));
+  expect(await page.evaluate(() => window.Viewer.getWeatherForExport()?.type)).toBe('snow');
+  expect(weatherChunks).toHaveLength(1);
+});
+
 test('weather with the WebGPU renderer: the same weathers in TSL', async ({ page }) => {
   await openViewer(page, '/examples/box.glb', 'renderer=webgpu&webgpuBackend=webgl2&weather=rain');
   await waitForModel(page);
