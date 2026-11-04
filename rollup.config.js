@@ -515,7 +515,14 @@ export default {
       if (/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?three\/(build\/three\.(webgpu|tsl)|examples\/jsm\/tsl\/|examples\/jsm\/objects\/\w+Mesh\.js)/.test(id)) {
         return "three-webgpu";
       }
-      if (id.includes("node_modules/three")) {
+      // Only three itself (build/) in "three". Its examples (format loaders,
+      // their parsers and decoders, controls, passes) are left to Rollup: the
+      // ones the viewer imports statically go with it, and the format loaders
+      // that loaders.js imports on demand (FBX, USD, Collada, VRML with
+      // chevrotain, 3MF, LWO, KTX2, ...) get chunks of their own, downloaded
+      // only for a model of that format. In "three" they were all downloaded
+      // at start, dynamic import() or not.
+      if (/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?three\/build\//.test(id)) {
         return "three";
       }
     },
