@@ -85,7 +85,8 @@ import { attachCompare } from "./editor/compare.js";
 import { attachPhotoOverlay } from "./editor/photo-overlay.js";
 import { attachPhotoOnSite } from "./editor/photo-onsite.js";
 import { attachSunStudy } from "./editor/sun-study.js";
-import { attachWeather } from "./editor/weather.js";
+// Weather: a stub; the weather itself is downloaded on first use.
+import { attachWeatherLazy } from "./editor/weather-lazy.js";
 import { attachSceneSuggest } from "./editor/scene-suggest.js";
 import { attachWebXR } from "./editor/webxr.js";
 import { attachTour } from "./editor/tour.js";
@@ -4586,7 +4587,7 @@ attachCompare(Viewer);
 attachPhotoOverlay(Viewer);
 attachPhotoOnSite(Viewer);
 attachSunStudy(Viewer);
-attachWeather(Viewer);
+attachWeatherLazy(Viewer);
 attachSceneSuggest(Viewer);
 attachWebXR(Viewer);
 attachTour(Viewer);

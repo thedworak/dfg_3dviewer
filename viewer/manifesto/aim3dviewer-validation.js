@@ -8,7 +8,7 @@ import {
 // (not imported: this module also runs in Node without three.js).
 export const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", "aces", "agx", "neutral"];
 export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
-// Keep in sync with WEATHER_TYPES in viewer/editor/weather.js (same reason).
+// Keep in sync with WEATHER_TYPES in viewer/editor/weather-config.js (same reason).
 export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
 export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];

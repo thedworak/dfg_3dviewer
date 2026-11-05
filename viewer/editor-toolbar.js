@@ -1427,8 +1427,9 @@ export function createEditorToolbar(viewer) {
     // light in its submenu.
     { key: "lights", group: "appearance", icon: "lights", onClick: () => viewer.toggleLightsPanel(), pressed: true, primary: false },
     { key: "environmentMap", group: "appearance", icon: "environmentMap", onClick: () => {}, pressed: true, primary: false },
-    // Rain, snow, fog and storms: their window (editor/weather.js).
-    { key: "weather", group: "appearance", icon: "weather", onClick: () => viewer.toggleWeatherPanel(), pressed: true, primary: false },
+    // Rain, snow, fog and storms: their window (editor/weather.js, loaded on
+    // first use by editor/weather-lazy.js).
+    { key: "weather", group: "appearance", icon: "weather", onClick: () => viewer.toggleWeatherPanel(), prefetch: () => viewer.preloadWeather?.(), pressed: true, primary: false },
     // A lighting, weather and rendering picked for the model by rules
     // (editor/scene-suggest.js).
     { key: "sceneSuggest", group: "appearance", icon: "sceneSuggest", onClick: () => viewer.toggleSceneSuggestPanel(), pressed: true, primary: false },
@@ -2056,6 +2057,11 @@ export function createEditorToolbar(viewer) {
         tool.onClick();
       }
     });
+    // A tool downloaded on first use (e.g. the weather): fetched as the
+    // pointer or focus reaches its button, so the click finds it there.
+    if (tool.prefetch) {
+      ["pointerenter", "focusin"].forEach((type) => viewer.bindEventListener(button, type, tool.prefetch));
+    }
     if (menus) menuButtons[tool.key] = button;
     else if (tool.primary) toolbar.appendChild(button);
     else secondaryTray.appendChild(button);
