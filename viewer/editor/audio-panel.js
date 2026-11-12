@@ -412,10 +412,13 @@ export function attachAudioPanel(Viewer) {
       ui.view = document.createElement("canvas");
       ui.view.className = "viewer-audio-panel_view";
       body.appendChild(ui.view);
+      // A click moves the playhead in every view, playing or not: the live
+      // views (spectrum, oscilloscope) show it as a line along the bottom.
       ui.view.addEventListener("click", (event) => {
-        if (state.view !== "spectrogram" || !player.duration) return;
+        if (!player.duration) return;
         const box = ui.view.getBoundingClientRect();
-        player.currentTime = ((event.clientX - box.left) / box.width) * player.duration;
+        player.currentTime = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)) * player.duration;
+        Viewer.syncAudioPanel();
       });
       ui.viewNote = document.createElement("p");
       ui.viewNote.className = "viewer-pointcloud-panel_note";
@@ -710,6 +713,15 @@ export function attachAudioPanel(Viewer) {
         context.fillStyle = "#ffffff";
         context.fillRect(Math.round(fraction * width) - 1, 0, Math.max(2, ratio), height);
         return;
+      }
+      // Where the time is (and where a click jumps to): a thin line along
+      // the bottom, under the live drawing.
+      const ratio = window.devicePixelRatio || 1;
+      if (player.duration) {
+        context.fillStyle = "rgba(255, 255, 255, 0.18)";
+        context.fillRect(0, height - 2 * ratio, width, 2 * ratio);
+        context.fillStyle = "#f5a03c";
+        context.fillRect(0, height - 2 * ratio, Math.round(fraction * width), 2 * ratio);
       }
       const analyser = player.analyser;
       if (!analyser) return;

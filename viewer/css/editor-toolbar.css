@@ -397,7 +397,7 @@
 }
 
 /* The tools for the kind of model shown, brought onto the bar
-   (ui/format-tools.js): a small dot in the brand's gold under the icon, the
+   (ui/format-tools.js): a thin horizontal line in the brand's gold under the icon, the
    icon and its group's background as any other's - the gold frame and glow
    are for an active tool only. */
 #viewerEditorToolbar .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon {
@@ -408,10 +408,10 @@
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -6px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
+  bottom: -5px;
+  width: 14px;
+  height: 1.5px;
+  border-radius: 1px;
   transform: translateX(-50%);
   background: color-mix(in srgb, var(--viewer-brand-accent, #f5a524) 75%, transparent);
   pointer-events: none;
