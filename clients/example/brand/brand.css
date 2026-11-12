@@ -1,0 +1,5 @@
+/* Loaded last (branding.stylesheet), so it wins over the viewer's own
+   rules. <html data-brand="example"> scopes rules to this client. */
+html[data-brand="example"] .viewer-brand-logo {
+  width: clamp(160px, 24%, 260px);
+}

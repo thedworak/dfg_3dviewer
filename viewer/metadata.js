@@ -1,6 +1,6 @@
 import { truncateString } from "./utils.js";
 import { setupObject, setupCamera, toastHelper } from './viewer-utils.js';
-import { core } from './core.js';
+import { core, isStaleModelLoad } from './core.js';
 import { t } from "./i18n-utils.js";
 import { parseFloatParam } from "./viewer-param-utils.js";
 import { clearIfcProperties } from "./ifc-properties.js";
@@ -806,6 +806,9 @@ export async function handleMetadataResponse(
   metadata,
   object,
 ) {
+  // Settings that arrived after another model was opened: the camera and
+  // the hierarchy are the newer model's (loaders.js drops this one).
+  if (isStaleModelLoad((Array.isArray(object) ? object[0] : object)?.userData?.modelLoadGeneration)) return;
   Viewer.clearHierarchySubmenu();
   var tempArray = [];
   if (Array.isArray(object)) {

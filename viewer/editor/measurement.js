@@ -138,6 +138,14 @@ function getModelRoots() {
   return (core.mainObject || []).flatMap((entry) => (Array.isArray(entry) ? entry : [entry])).filter(Boolean);
 }
 
+// The model root whose coordinates saved measurements are written in: the
+// one given, else the model being edited, else the first one loaded.
+function measurementFrame(root) {
+  const candidate = root || core.helperObjects?.[0] || getModelRoots()[0];
+  const object = Array.isArray(candidate) ? candidate[0] : candidate;
+  return object?.isObject3D ? object : null;
+}
+
 // Surface area and enclosed volume of all meshes, in world units. The volume
 // is only meaningful for closed (watertight) meshes.
 function computeMeshTotals(roots) {
@@ -398,6 +406,61 @@ export function attachMeasurement(Viewer) {
       entry.labels.forEach((label) => Viewer.removeMeasurementLabel(label));
       Viewer.removeAndDisposeFromScene(entry.group);
       Viewer.ruler = Viewer.ruler.filter((item) => item !== entry.group);
+    },
+
+    // ---- Saved with the scene ----------------------------------------------
+
+    // The finished measurements as plain data, for the saved settings
+    // (metadata-persistence.js) and the exported manifest
+    // (AIM3DViewer.measurements). Points are in the model's own coordinates,
+    // so they stay on the model when its position, rotation or scale is
+    // saved too. Undefined while there are none.
+    getMeasurementsForExport(root) {
+      const frame = measurementFrame(root);
+      const toLocal = frame ? frame.matrixWorld.clone().invert() : null;
+      const round = (value) => Math.round(value * 1e6) / 1e6;
+      const entries = Viewer.measurementResults
+        .filter((entry) => MEASUREMENT_MODES.includes(entry.mode) && entry.points.length)
+        .map((entry) => ({
+          mode: entry.mode,
+          points: entry.points.map((point) => {
+            const local = toLocal ? point.clone().applyMatrix4(toLocal) : point;
+            return [round(local.x), round(local.y), round(local.z)];
+          }),
+        }));
+      return entries.length ? entries : undefined;
+    },
+
+    // Saved measurements (getMeasurementsForExport) back in the scene, in
+    // place of the ones shown. Returns how many were drawn.
+    applySavedMeasurements(entries, root) {
+      if (!Array.isArray(entries) || !core.scene) return 0;
+      const frame = measurementFrame(root);
+      const minPoints = { distance: 2, angle: 3, area: 3 };
+      const valid = entries.filter((entry) => MEASUREMENT_MODES.includes(entry?.mode)
+        && Array.isArray(entry.points)
+        && entry.points.length >= minPoints[entry.mode]
+        && entry.points.every((point) => Array.isArray(point) && point.length === 3 && point.every(Number.isFinite)));
+      if (!valid.length) return 0;
+
+      Viewer.cancelMeasurementDraft();
+      Viewer.measurementResults.forEach((entry) => Viewer.discardMeasurement(entry));
+      Viewer.measurementResults = [];
+      frame?.updateMatrixWorld(true);
+      valid.forEach((saved) => {
+        const draft = Viewer.startMeasurementDraft(saved.mode);
+        const points = saved.mode === "angle" ? saved.points.slice(0, 3) : saved.points;
+        draft.points = points.map(([x, y, z]) => {
+          const point = new THREE.Vector3(x, y, z);
+          return frame ? point.applyMatrix4(frame.matrixWorld) : point;
+        });
+        Viewer.redrawMeasurementDraft({ closed: true });
+        Viewer.measurementDraft = null;
+        Viewer.measurementResults.push(draft);
+      });
+      Viewer.updateMeasurementReadout();
+      Viewer.updateEditorToolbarState?.();
+      return valid.length;
     },
 
     clearMeasurements() {

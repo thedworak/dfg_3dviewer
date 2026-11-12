@@ -2,9 +2,10 @@
    confirmation dialog come from the viewer's panel stylesheets; their colours
    (--viewer-panel-*) are set here for the whole page, dark by default like
    the viewer (main.css .viewer-wrapper). */
-@import "./upload-panel.css?v=ba32f4ce";
-@import "./models-panel.css?v=ba32f4ce";
-@import "./admin-users.css?v=ba32f4ce";
+@import "./fonts.css?v=4ab61384";
+@import "./upload-panel.css?v=4ab61384";
+@import "./models-panel.css?v=4ab61384";
+@import "./admin-users.css?v=4ab61384";
 
 :root {
   color-scheme: dark;
@@ -40,8 +41,7 @@ body {
   min-height: 100vh;
   background: var(--viewer-page-bg);
   color: var(--viewer-panel-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -90,6 +90,46 @@ body {
 .exadmin-nav a[aria-current="page"] {
   background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
   opacity: 1;
+}
+
+/* Refresh the open section's values (main.js reloadButton). */
+.exadmin-reload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.exadmin-reload:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--viewer-panel-text) 12%, transparent);
+}
+
+.exadmin-reload svg {
+  width: 16px;
+  height: 16px;
+}
+
+.exadmin-reload.is-spinning svg {
+  animation: exadmin-reload-spin 0.6s ease-out;
+}
+
+@keyframes exadmin-reload-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exadmin-reload.is-spinning svg {
+    animation: none;
+  }
 }
 
 .exadmin-account {
@@ -300,4 +340,66 @@ body {
 
 .exadmin-reports-toggle {
   font-size: 13px;
+}
+
+/* Example model thumbnails (sections/examples.js) */
+.exadmin-section-header button,
+.exadmin-example .exadmin-report-actions a {
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.exadmin-examples-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exadmin-example {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.exadmin-example .exadmin-example-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+}
+
+.exadmin-example-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.exadmin-example[data-status="ok"] {
+  border-left: 4px solid #3caa5b;
+}
+
+.exadmin-example[data-status="broken"] {
+  border-left: 4px solid #d54646;
+}
+
+.exadmin-example[data-status="missing"] {
+  border-left: 4px solid var(--viewer-panel-border);
+}
+
+.exadmin-example[data-status="broken"] .exadmin-example-state {
+  color: #d54646;
+  opacity: 1;
+}
+
+/* Renders with a transparent background: no placeholder cube behind them. */
+.exadmin-example-thumb:has(img)::before {
+  display: none;
 }

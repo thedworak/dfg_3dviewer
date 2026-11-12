@@ -1,5 +1,7 @@
 import { core } from "./core.js";
 import { hasIfcProperties } from "./ifc-properties.js";
+import { AUDIO_EXTENSIONS } from "./audio-metadata.js";
+import { IMAGE_EXTENSIONS } from "./image-metadata.js";
 
 // What kind of model is shown - one answer for the whole viewer: the
 // toolbar's tools for the format (editor-toolbar.js FORMAT_TOOL_PROFILES),
@@ -12,8 +14,10 @@ import { hasIfcProperties } from "./ifc-properties.js";
 // - "pointcloud": points (las, laz, xyz, pcd, a ply without faces).
 // - "splats": Gaussian splats (spz, splat, ksplat, sog, rad).
 // - "volume": voxels (CT, microscopy and medical image stacks).
+// - "audio": a sound file, drawn as its spectrogram (audio.js).
+// - "image": a 2D image, or a set of them (image2d.js).
 // - null: nothing loaded yet.
-export const MODEL_KINDS = ["mesh", "bim", "pointcloud", "splats", "volume"];
+export const MODEL_KINDS = ["mesh", "bim", "pointcloud", "splats", "volume", "audio", "image"];
 
 // A guess from the file's extension, for the moments before the model is in
 // the scene (the toolbar shows while it loads).
@@ -45,6 +49,8 @@ const EXTENSION_KINDS = {
   lsm: "volume",
   dcm: "volume",
   dicom: "volume",
+  ...Object.fromEntries(AUDIO_EXTENSIONS.map((extension) => [extension, "audio"])),
+  ...Object.fromEntries(IMAGE_EXTENSIONS.map((extension) => [extension, "image"])),
 };
 
 export function modelKindFromExtension(extension) {
@@ -60,12 +66,15 @@ function modelRoots(viewer) {
   return slots.flat().filter((item) => item?.isObject3D);
 }
 
-// What the scene holds: "mesh", "pointcloud", "splats", or null without a
+// What the scene holds: "mesh", "pointcloud", "splats", "audio" (a sound's
+// landscape, audio.js - its surfaces are no object's), or null without a
 // model. Splats win over points, points over surfaces; a point cloud with
 // its settings window (editor/point-cloud-panel.js) and no surfaces is a
 // point cloud even where its points are drawn by a mesh.
 export function sceneContentKind(viewer, roots = modelRoots(viewer)) {
   if (!roots.length) return null;
+  if (roots.some((root) => root.userData?.isAudio)) return "audio";
+  if (roots.some((root) => root.userData?.isImage2D)) return "image";
   let kind = "mesh";
   let meshes = 0;
   roots.forEach((root) => root.traverse((object) => {
@@ -90,6 +99,8 @@ export function getModelKind(viewer) {
   const roots = modelRoots(viewer);
   const extension = currentExtension();
   const volume = viewer?.isVolumeActive?.() === true;
+  const audio = viewer?.isAudioActive?.() === true;
+  const image = viewer?.isImageActive?.() === true;
   const pointCloud = viewer?.isPointCloudActive?.() === true;
   const ifc = hasIfcProperties();
   const key = [
@@ -97,6 +108,8 @@ export function getModelKind(viewer) {
     roots.map((root) => root.uuid).join(","),
     window.viewer?.fullModelLoaded === true,
     volume,
+    audio,
+    image,
     pointCloud,
     ifc,
   ].join("|");
@@ -105,12 +118,16 @@ export function getModelKind(viewer) {
   let kind;
   if (volume) {
     kind = "volume";
+  } else if (audio) {
+    kind = "audio";
+  } else if (image) {
+    kind = "image";
   } else {
     const content = sceneContentKind(viewer, roots);
     const guess = modelKindFromExtension(extension);
     if (content === "splats" || content === "pointcloud") kind = content;
     // A volume's box or a scan still being set up: the file says what it is.
-    else if (content === "mesh" && ["volume", "pointcloud", "splats"].includes(guess)) kind = guess;
+    else if (content === "mesh" && ["volume", "audio", "image", "pointcloud", "splats"].includes(guess)) kind = guess;
     else if (ifc || guess === "bim") kind = content || guess ? "bim" : null;
     else kind = content || guess;
   }

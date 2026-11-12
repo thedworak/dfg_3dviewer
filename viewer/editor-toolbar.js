@@ -60,6 +60,7 @@ export function getEditorToolbarIcon(icon) {
     ambientLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     weather: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15.5a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.2 8.1 3.75 3.75 0 0 1 17 15.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 18.5l-1 2.5M12 18.5l-1 2.5M16 18.5l-1 2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    seasons: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19C5 10 10 5 19 5c0 9-5 14-14 14z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M5 19l8-8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
     sceneSuggest: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 10-10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m14 10 2-2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M17 3v3M15.5 4.5h3M20 9v2M19 10h2M10 3v2M9 4h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     rendering: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5 15.5 12M20.5 12l-8.5 3.5M12 20.5 8.5 12M3.5 12l8.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
@@ -124,6 +125,9 @@ export function getEditorToolbarIcon(icon) {
     backgroundOuter: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h18v18H3zM12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 0 0 0-9z"/><circle cx="12" cy="12" r="5.25" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.6"/></svg>',
     ground: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="5" width="8" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="18.5" rx="7" ry="1.8" fill="currentColor" fill-opacity="0.45"/></svg>',
     volume: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z"/><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10" opacity=".55"/><circle cx="12" cy="11.5" r="2.2" fill="currentColor" stroke="none"/></svg>',
+    image: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="m3.5 16.5 5-5 4 4 2.5-2.5 5.5 5.5"/><circle cx="15.5" cy="9" r="1.6"/></svg>',
+    sounds: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+    audio: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 11v2M6.5 8v8M10 4.5v15M13.5 7.5v9M17 10v4M20.5 11.25v1.5"/></svg>',
     pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
     reportBug: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8.5a4 4 0 0 1 8 0V14a4 4 0 0 1-8 0z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 5.5 8 4M14.5 5.5 16 4M8 11H4M20 11h-4M8 15.5l-3 2M16 15.5l3 2M12 10v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     compare: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 10l-2 2 2 2M16 10l2 2-2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -1414,6 +1418,10 @@ export function createEditorToolbar(viewer) {
     { key: "pointCloud", group: "display", icon: "pointCloud", onClick: () => viewer.togglePointCloudPanel?.(), pressed: true, primary: false },
     // Likewise while a volume is loaded (editor/volume-panel.js).
     { key: "volume", group: "display", icon: "volume", onClick: () => viewer.toggleVolumePanel?.(), pressed: true, primary: false },
+    // Likewise while a 2D image is shown (editor/image-panel.js).
+    { key: "image", group: "display", icon: "image", onClick: () => viewer.toggleImagePanel?.(), pressed: true, primary: false },
+    // Likewise while an audio file is loaded (editor/audio-panel.js).
+    { key: "audio", group: "display", icon: "audio", onClick: () => viewer.toggleAudioPanel?.(), pressed: true, primary: false },
     { key: "immersive", group: "display", icon: "immersive", onClick: () => viewer.toggleXRPanel?.(), pressed: true, primary: true },
     { key: "fullScreen", group: "display", icon: "fullScreen", onClick: () => viewer.toggleFullscreen(), pressed: true, primary: true },
     // Camera and view.
@@ -1430,6 +1438,10 @@ export function createEditorToolbar(viewer) {
     // Rain, snow, fog and storms: their window (editor/weather.js, loaded on
     // first use by editor/weather-lazy.js).
     { key: "weather", group: "appearance", icon: "weather", onClick: () => viewer.toggleWeatherPanel(), prefetch: () => viewer.preloadWeather?.(), pressed: true, primary: false },
+    // Spring, summer, autumn, winter: their window (editor/weather.js too).
+    { key: "seasons", group: "appearance", icon: "seasons", onClick: () => viewer.toggleSeasonsPanel(), prefetch: () => viewer.preloadWeather?.(), pressed: true, primary: false },
+    // Sound in the scene: ambient, point and spot sources (editor/scene-sounds.js).
+    { key: "sounds", group: "appearance", icon: "sounds", onClick: () => viewer.toggleSoundsPanel?.(), pressed: true, primary: false },
     // A lighting, weather and rendering picked for the model by rules
     // (editor/scene-suggest.js).
     { key: "sceneSuggest", group: "appearance", icon: "sceneSuggest", onClick: () => viewer.toggleSceneSuggestPanel(), pressed: true, primary: false },
@@ -1463,8 +1475,9 @@ export function createEditorToolbar(viewer) {
     // The credits window (sandbox.js, main.js toggleCredits).
     { key: "credits", group: "help", icon: "credits", onClick: () => viewer.toggleCredits(), pressed: true, primary: false },
     // The intro once more, over the viewer (intro-overlay.js); only on the
-    // standalone page, which ships it. The menu closes first.
-    { key: "intro", group: "help", icon: "intro", onClick: () => { viewer.openToolbarMenu?.(null); replayIntro(core.currentLanguage); }, primary: false },
+    // standalone page and in the app, which ship it. The menu closes first;
+    // the intro's model loads underneath while it plays.
+    { key: "intro", group: "help", icon: "intro", onClick: () => { viewer.openToolbarMenu?.(null); if (replayIntro(core.currentLanguage)) viewer.openIntroModel?.(); }, primary: false },
   ];
 
   // Not in the app (remote.js): the WebView ignores download links, and the
@@ -1735,6 +1748,8 @@ export function createEditorToolbar(viewer) {
         /*{ key: "CameraLight", label: t("gui.cameraLight", "Camera Light") },*/
         { key: "BackgroundColor", label: t("gui.backgroundColor", "Background Color") },
         { key: "Materials", label: t("gui.materials", "Materials") },
+        { key: "ClippingPlanes", label: t("gui.saveClippingPlanes", "Section cuts") },
+        { key: "Measurements", label: t("gui.saveMeasurements", "Measurements") },
       ];
       viewer.saveSubmenuCheckboxes = {};
       submenuItems.forEach((item) => {
@@ -2391,9 +2406,11 @@ export function updateEditorToolbarLabels(viewer) {
     scale: t("gui.scale", "Scale"),
     upAxis: t("gui.upAxis", "Up axis of the model"),
     lights: t("gui.lights", "Lights"),
+    sounds: t("sounds.toggle", "Sounds in the scene"),
     cameras: t("gui.sceneCameras", "Scene cameras"),
     environmentMap: t("gui.environmentMap", "Environment map"),
     weather: t("weather.title", "Weather"),
+    seasons: t("seasons.title", "Seasons"),
     sceneSuggest: t("scene.title", "Suggested scene"),
     rendering: t("gui.rendering", "Rendering"),
     picking: viewer.pickingMode
@@ -2446,6 +2463,8 @@ export function updateEditorToolbarLabels(viewer) {
     download: t("gui.download", "Download model"),
     pointCloud: t("pointCloud.toggle", "Point cloud settings"),
     volume: t("volume.toggle", "Volume settings"),
+    audio: t("audio.toggle", "Audio player"),
+    image: t("image.toggle", "Image tools"),
     immersive: t("xr.toggle", "View in VR or AR"),
     help: t("shortcuts.helpButtonAria", "Show usage hints"),
     reportBug: t("bugReport.button", "Report a bug"),
@@ -2592,6 +2611,8 @@ export function updateEditorToolbarLabels(viewer) {
       /*CameraLight: t("gui.cameraLight", "Camera Light"),*/
       BackgroundColor: t("gui.backgroundColor", "Background Color"),
       Materials: t("gui.materials", "Materials"),
+      ClippingPlanes: t("gui.saveClippingPlanes", "Section cuts"),
+      Measurements: t("gui.saveMeasurements", "Measurements"),
     };
     Object.entries(viewer.saveSubmenuCheckboxes).forEach(([key, elements]) => {
       const label = saveSubmenuLabels[key] || key;
@@ -2714,14 +2735,18 @@ export function updateEditorToolbarState(viewer) {
     wireframe: viewer.wireframeMode === true,
     environmentMap: (core.scene?.environmentIntensity ?? 0) > 0,
     weather: viewer.weather?.enabled === true || viewer.isWeatherPanelOpen?.() === true,
+    seasons: (viewer.weather?.enabled === true && Boolean(viewer.weather?.season)) || viewer.isSeasonsPanelOpen?.() === true,
     sceneSuggest: viewer.isSceneSuggestPanelOpen?.() === true,
     materials: viewer.isMaterialsPanelOpen?.() === true,
     shading: viewer.isShadingPanelOpen?.() === true,
     lights: viewer.isLightsPanelOpen?.() === true,
+    sounds: viewer.isSoundsPanelOpen?.() === true || viewer.isSceneSoundPlaying?.() === true,
     cameras: viewer.isCamerasPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,
     volume: viewer.isVolumePanelVisible?.() === true,
+    audio: viewer.isAudioPanelVisible?.() === true,
+    image: viewer.isImagePanelVisible?.() === true,
     immersive: viewer.isXRPanelOpen?.() === true || viewer.isXRPresenting?.() === true,
     help: viewer.statusNoticeActive === true && viewer.statusNoticeCurrent?.key === "keyboard-shortcuts-hint",
     ...Object.fromEntries((viewer.appToolbarTools || []).map((tool) => [tool.key, tool.isActive?.() === true])),
@@ -2741,6 +2766,10 @@ export function updateEditorToolbarState(viewer) {
   if (pointCloudButton) pointCloudButton.hidden = !viewer.isPointCloudActive?.();
   const volumeButton = viewer.editorToolbarButtons.volume;
   if (volumeButton) volumeButton.hidden = !viewer.isVolumeActive?.();
+  const audioButton = viewer.editorToolbarButtons.audio;
+  if (audioButton) audioButton.hidden = !viewer.isAudioActive?.();
+  const imageButton = viewer.editorToolbarButtons.image;
+  if (imageButton) imageButton.hidden = !viewer.isImageActive?.();
   const immersiveButton = viewer.editorToolbarButtons.immersive;
   if (immersiveButton) immersiveButton.hidden = !viewer.isXRAvailable?.();
   // Point clouds and splats have no materials to edit.
@@ -2748,6 +2777,8 @@ export function updateEditorToolbarState(viewer) {
   if (materialsButton) materialsButton.hidden = viewer.hasEditableMaterials?.() !== true;
   const weatherButton = viewer.editorToolbarButtons.weather;
   if (weatherButton) weatherButton.hidden = viewer.isWeatherAvailable?.() !== true;
+  const seasonsButton = viewer.editorToolbarButtons.seasons;
+  if (seasonsButton) seasonsButton.hidden = viewer.isWeatherAvailable?.() !== true;
   const ifcQueryButton = viewer.editorToolbarButtons.ifcQuery;
   if (ifcQueryButton) {
     const state = viewer.ifcQueryAIState?.() || "off";

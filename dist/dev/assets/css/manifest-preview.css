@@ -28,8 +28,7 @@
   font-size: 13px;
   line-height: 1.4;
   z-index: 99999;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 #manifestPreviewPanel .manifesto-view-toggle {
@@ -81,7 +80,8 @@
   border: 1px solid rgba(164, 151, 132, 0.22);
   background: rgba(255, 252, 247, 0.96);
   color: #25211c;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
   font-size: 12.5px;
   line-height: 1.55;
   white-space: pre;

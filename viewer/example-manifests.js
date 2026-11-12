@@ -26,15 +26,26 @@ const DEFAULT_URL = IS_MOBILE_BUILD ? "https://explora4d.eu/viewer/manifests/ind
 
 const listUrl = () => configuredUrl("exampleManifestsUrl", DEFAULT_URL);
 
+// The manifests the app was built with (its bundled copy of the list). Any
+// other "./" entry of the list fetched from the site is a manifest added
+// since: it is not in the app, so it is loaded from the site, like one
+// marked excludeFromMobile (apps released before this check need that flag
+// on the entries added after their release).
+const BUNDLED = new Set(
+  [...(DEFAULT_LIST.iiif || []), ...(DEFAULT_LIST.aim3d || [])]
+    .filter((entry) => entry && !entry.excludeFromMobile)
+    .map((entry) => entry.url),
+);
+
 function normalizeEntries(entries) {
   if (!Array.isArray(entries)) return null;
   const site = IS_MOBILE_BUILD ? listSite(listUrl()) : null;
   return entries
     .filter((entry) => entry && typeof entry.url === "string" && entry.url.trim())
     .flatMap((entry) => {
-      if (!IS_MOBILE_BUILD || !entry.excludeFromMobile) return [entry];
+      if (!IS_MOBILE_BUILD || !isRelativeUrl(entry.url)) return [entry];
+      if (!entry.excludeFromMobile && BUNDLED.has(entry.url)) return [entry];
       // Not in the app: loaded from the list's site, its "./" URLs too.
-      if (!isRelativeUrl(entry.url)) return [entry];
       return site ? [{ ...entry, url: new URL(entry.url, site).href, baseUrl: site }] : [];
     });
 }

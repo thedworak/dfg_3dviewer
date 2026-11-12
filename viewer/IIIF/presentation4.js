@@ -1,6 +1,7 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { unitNameToMeters } from "../editor/model-units.js";
+import { isShownMediaBody } from "./model-formats.js";
 
 // IIIF Presentation 4 (3D) scene content beyond the models themselves, read
 // from and written to plain manifest JSON (draft spec, IIIF 3D TSG; the
@@ -12,6 +13,10 @@ import { unitNameToMeters } from "../editor/model-units.js";
 //   lights    painting annotations with AmbientLight / DirectionalLight /
 //             PointLight / SpotLight bodies: color, intensity {type: "Value",
 //             unit: "relative"}, lookAt, angle (spot half-angle, degrees)
+//   sounds    painting annotations with AmbientAudio (targets the Scene),
+//             PointAudio or SpotAudio (a PointSelector) bodies: source (the
+//             Audio resource), volume {type: "Quantity", unit: "relative"},
+//             SpotAudio's lookAt and angle (the cone, degrees)
 //   comments  commenting annotations (on the Scene or the Manifest) targeting
 //             a point in the scene (SpecificResource + PointSelector); the
 //             camera annotation referenced by its `scope` is the view to show
@@ -22,6 +27,9 @@ import { unitNameToMeters } from "../editor/model-units.js";
 
 const CAMERA_TYPES = new Set(["PerspectiveCamera", "OrthographicCamera"]);
 const LIGHT_TYPES = new Set(["AmbientLight", "DirectionalLight", "PointLight", "SpotLight"]);
+// IIIF audio emitters and the viewer's source types (editor/scene-sounds.js).
+const SOUND_TYPES = { AmbientAudio: "ambient", PointAudio: "point", SpotAudio: "spot" };
+const SOUND_BODY_TYPES = { ambient: "AmbientAudio", point: "PointAudio", spot: "SpotAudio" };
 const COMMENT_MOTIVATIONS = new Set(["commenting", "describing", "tagging", "identifying", "linking"]);
 // three.js intensity for a relative intensity of 1.
 const LIGHT_INTENSITY_SCALE = { AmbientLight: 1, DirectionalLight: 3, PointLight: 3, SpotLight: 3 };
@@ -414,22 +422,55 @@ function targetsScene(annotation, scene, scenes) {
   return sourceId === scene.id;
 }
 
-// Cameras, lights and point comments of one Scene of the manifest.
+// An AmbientAudio / PointAudio / SpotAudio body -> a sound source as
+// editor/scene-sounds.js keeps it (world coordinates), or null without a
+// file to play.
+function readSoundBody(annotation, resource, sceneAnnotations, index) {
+  const media = asArray(resource.source)[0] ?? asArray(resource.items)[0];
+  const src = typeof media === "string" ? media : idOf(media);
+  if (!src) return null;
+  const type = SOUND_TYPES[typeOf(resource)];
+  const position = targetPoint(annotation);
+  const volume = resource.volume == null ? 1 : relativeIntensity(resource.volume);
+  const angle = Number(resource.angle);
+  const sound = {
+    id: String(annotation.id || `sound-${index + 1}`),
+    type: type !== "ambient" && !position ? "ambient" : type,
+    src,
+    label: labelText(resource.label) || labelText(annotation.label) || "",
+    volume,
+    loop: String(resource.timeMode || "").toLowerCase() !== "trim",
+  };
+  if (sound.type !== "ambient") sound.position = position.toArray();
+  if (sound.type === "spot") {
+    sound.lookAt = (resource.lookAt ? resolveLookAt(resource.lookAt, sceneAnnotations) : new THREE.Vector3()).toArray();
+    if (Number.isFinite(angle) && angle > 0) sound.angle = angle;
+  }
+  return sound;
+}
+
+// Cameras, lights, sounds and point comments of one Scene of the manifest.
 export function readSceneContent(manifest, sceneIndex = 0) {
   const scenes = scenesOf(manifest);
   const scene = scenes[sceneIndexOf(manifest, sceneIndex)];
-  if (!scene) return { cameras: [], cameraChoices: [], defaultCamera: null, lights: [], comments: [] };
+  if (!scene) return { cameras: [], cameraChoices: [], defaultCamera: null, lights: [], sounds: [], comments: [] };
   const painting = annotationsOfPages(scene.items);
   const all = painting.concat(annotationsOfPages(scene.annotations));
 
   const cameras = [];
   const lights = [];
+  const sounds = [];
   const camerasById = new Map();
   painting.forEach((annotation) => {
     if (!motivationsOf(annotation).includes("painting")) return;
     const hidden = isHidden(annotation);
     bodyResources(annotation.body).forEach(({ resource, wrapper, choice }, choiceIndex) => {
       const type = typeOf(resource);
+      if (SOUND_TYPES[type]) {
+        const sound = readSoundBody(annotation, resource, all, sounds.length);
+        if (sound && !hidden) sounds.push(sound);
+        return;
+      }
       const isCamera = CAMERA_TYPES.has(type);
       if (!isCamera && !LIGHT_TYPES.has(type)) return;
       const oriented = applyBodyTransforms(
@@ -505,6 +546,8 @@ export function readSceneContent(manifest, sceneIndex = 0) {
         || cameraView(activatedCameras.get(annotation.id))
         || readScopeCamera(target?.scope, all);
       const polygon = polygonFromSelector(target?.selector);
+      // Its narration: a Sound (or Audio) body next to the text.
+      const sound = asArray(annotation.body).find((body) => ["Sound", "Audio"].includes(typeOf(body)) && idOf(body));
       return {
         id: String(annotation.id || ""),
         title: pickLanguage(titles),
@@ -516,6 +559,7 @@ export function readSceneContent(manifest, sceneIndex = 0) {
         created: annotation.created || "",
         modified: annotation.modified || "",
         custom: annotation.AIM3DViewer || null,
+        ...(sound ? { audio: { src: idOf(sound) } } : {}),
       };
     })
     .filter(Boolean);
@@ -524,7 +568,7 @@ export function readSceneContent(manifest, sceneIndex = 0) {
   // first is the scene's default view. `choices` are all the shown ones.
   const choices = cameras.filter((camera) => !camera.hidden);
   const defaultCamera = choices.find((camera) => !camera.alternative) || null;
-  return { cameras, cameraChoices: choices, defaultCamera, lights, comments };
+  return { cameras, cameraChoices: choices, defaultCamera, lights, sounds, comments };
 }
 
 // A scene camera as a stored annotation view.
@@ -898,6 +942,7 @@ export function commentsToAnnotationEntries(comments, root) {
     description: comment.description,
     ...(comment.localized ? { localized: comment.localized } : {}),
     ...(comment.view ? { view: comment.view } : {}),
+    ...(comment.audio ? { audio: comment.audio } : {}),
     createdAt: comment.created ? String(comment.created) : "",
     updatedAt: comment.modified ? String(comment.modified) : "",
   }));
@@ -1008,6 +1053,38 @@ export function buildLightAnnotations(sceneId, baseId) {
   return annotations;
 }
 
+// The scene's sound sources (editor/scene-sounds.js, AIM3DViewer.sounds'
+// form) as AmbientAudio / PointAudio / SpotAudio painted into the scene, for
+// viewers other than this one. Sources from a file (no URL) are left out.
+export function buildSoundAnnotations(sceneId, baseId, sources = []) {
+  return sources
+    .filter((source) => source?.src && !source.file && SOUND_BODY_TYPES[source.type])
+    .map((source, index) => {
+      const type = SOUND_BODY_TYPES[source.type];
+      const body = {
+        type,
+        ...(source.label ? { label: { none: [source.label] } } : {}),
+        source: { id: source.src, type: "Audio" },
+        volume: { type: "Quantity", quantityValue: round(source.volume ?? 1), unit: "relative" },
+        // The file plays in a loop, or once.
+        timeMode: source.loop === false ? "trim" : "loop",
+      };
+      if (type === "SpotAudio") {
+        if (source.lookAt) body.lookAt = pointSelector(new THREE.Vector3().fromArray(source.lookAt));
+        if (Number.isFinite(source.angle)) body.angle = round(source.angle);
+      }
+      return {
+        id: `${baseId}/${index + 1}`,
+        type: "Annotation",
+        motivation: ["painting"],
+        body,
+        target: type === "AmbientAudio" || !source.position
+          ? { id: sceneId, type: "Scene" }
+          : scenePointTarget(sceneId, new THREE.Vector3().fromArray(source.position)),
+      };
+    });
+}
+
 // A model painted into the scene: SpecificResource with the root transform
 // (scale, then rotation in degrees, then translation).
 export function buildModelAnnotation(sceneId, id, modelBody, root) {
@@ -1107,13 +1184,15 @@ const NON_MODEL_TYPES = new Set(["Scene", "Canvas", "Image", "Video", "Sound", "
 export function isModelBody(body) {
   const { resource } = resolveBody(body);
   const type = String(typeOf(resource) || "").toLowerCase();
+  // An audio file or a 2D image as the scene's content (audio.js, image2d.js).
+  if (isShownMediaBody(type, resource?.id)) return true;
   return type === "model" || (!CAMERA_TYPES.has(typeOf(resource)) && !LIGHT_TYPES.has(typeOf(resource))
     && !NON_MODEL_TYPES.has(typeOf(resource))
     && typeOf(asArray(body)[0]) === "SpecificResource" && Boolean(resource?.id));
 }
 
 // Media type of a model file, from its extension (null when unknown).
-export { modelFormatOf } from "./model-formats.js";
+export { modelFormatOf, contentTypeOf } from "./model-formats.js";
 
 export function modelUrlOf(body) {
   return resolveBody(body).resource?.id || null;

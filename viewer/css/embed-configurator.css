@@ -161,7 +161,7 @@
 #embedConfiguratorPanel input:focus-visible,
 #embedConfiguratorPanel select:focus-visible,
 #embedConfiguratorPanel textarea:focus-visible {
-  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
   outline-offset: -1px;
 }
 
@@ -232,7 +232,7 @@
 
 .embed-config-check input[type="checkbox"] {
   margin: 0;
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .embed-config-check--with-value {
@@ -276,12 +276,12 @@
 
 #embedConfiguratorPanel .embed-config-code button.is-primary {
   border-color: transparent;
-  background: var(--viewer-brand-gold, #e9b264);
-  color: #1d1914;
+  background: var(--viewer-brand-accent, #f5a524);
+  color: var(--viewer-on-accent, #1a1714);
 }
 
 #embedConfiguratorPanel .embed-config-code button.is-primary:hover {
-  background: color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 85%, #fff);
+  background: color-mix(in srgb, var(--viewer-brand-accent, #f5a524) 85%, #fff);
 }
 
 /* The preview: most of the window. */

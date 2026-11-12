@@ -87,10 +87,14 @@ class GeoNamesTest(unittest.TestCase):
                 again = geonames.GeoIndex()
                 again.start()
                 self.assertEqual(again.state, "ready")
+                # Ready at once: no build started.
+                self.assertIsNone(again.thread)
                 os.utime(dump, (1, 1))
                 changed = geonames.GeoIndex()
                 changed.start()
-                self.assertEqual(changed.state, "building")
+                # A build started - not its "building" state, which a fast
+                # machine may be done with before it is looked at.
+                self.assertIsNotNone(changed.thread)
                 changed.thread.join(10)
                 self.assertEqual(changed.state, "ready")
             finally:

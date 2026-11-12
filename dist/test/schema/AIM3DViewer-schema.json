@@ -285,6 +285,7 @@
             "mistHeight": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's height: 0 to 1 is 0.15 to 1.15 model sizes (default 0.4)." },
             "mistDensity": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's density (default 0.5)." },
             "mistSpread": { "type": "number", "minimum": 0, "maximum": 1, "description": "0: clumps with gaps; 1: an even blanket thinning upwards (default 0.6)." },
+            "season": { "enum": ["spring", "summer", "autumn", "winter", null], "description": "A season (Look > Seasons): a colour grade of the model and petals, pollen, leaves or snow in the air." },
             "sky": { "type": "boolean", "description": "Show the sky with clouds around the model (default true)." },
             "surfaces": { "type": "boolean", "description": "Wet surfaces and snow cover on the model (default true)." }
           },

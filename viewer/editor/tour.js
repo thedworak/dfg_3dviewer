@@ -20,8 +20,15 @@ import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome, setToolPane
 //     (editor/annotation-spread.js) once they load
 // URL overrides: ?tour=1, ?tourAutoplay=0|1, ?tourStep=<1-based index>,
 // ?tourInterval=<seconds>, ?tourSpread=0|1.
+//
+// An annotation with a narration (entry.audio, editor/narration.js) is told
+// when the camera has arrived, with its captions; while playing, the tour
+// goes on NARRATION_PAUSE_MS after it has been told instead of after the
+// step duration. The panel's speaker button leaves the narrations out.
 
 const HIGHLIGHT_SCALE = 1.6;
+// The pause after a narration before the next step.
+const NARRATION_PAUSE_MS = 1500;
 
 function easeInOutCubic(value) {
   return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
@@ -114,6 +121,7 @@ export function attachTour(Viewer) {
       if (!state) return false;
       clearTimeout(state.timer);
       state.flight = null;
+      Viewer.stopNarration?.();
       Viewer.setTourHighlight(null);
       Viewer.unbindTourInterruptListeners();
       state.ui?.panel.remove();
@@ -135,6 +143,10 @@ export function attachTour(Viewer) {
       const nextIndex = ((index % count) + count) % count;
       clearTimeout(state.timer);
       Viewer.syncTourProgress(0);
+      Viewer.stopNarration?.();
+      state.narrating = false;
+      // A flight to the step shown before: not finished, nor told.
+      state.flight = null;
       state.index = nextIndex;
 
       const step = state.steps[nextIndex];
@@ -143,11 +155,61 @@ export function attachTour(Viewer) {
 
       const view = Viewer.resolveTourStepView(step.entry);
       if (fly && view) {
-        Viewer.flyTourCamera(view, state.options.transitionDurationMs, () => Viewer.scheduleNextTourStep());
+        Viewer.flyTourCamera(view, state.options.transitionDurationMs, () => Viewer.beginTourStep(step));
       } else {
-        Viewer.scheduleNextTourStep();
+        Viewer.beginTourStep(step);
       }
       return true;
+    },
+
+    // The camera has arrived: its narration told (the tour waits for it),
+    // else the step's time counted.
+    beginTourStep(step) {
+      const state = Viewer.tourState;
+      if (!state?.active || state.steps[state.index] !== step) return;
+      if (!step.entry.audio || Viewer.tourNarrationOff === true || !Viewer.playNarration) {
+        Viewer.scheduleNextTourStep();
+        return;
+      }
+      state.narrating = true;
+      Viewer.playNarration(step.entry, {
+        onEnd: () => {
+          if (Viewer.tourState !== state || state.steps[state.index] !== step) return;
+          state.narrating = false;
+          state.toldIndex = state.index;
+          Viewer.scheduleNextTourStep({ delayMs: NARRATION_PAUSE_MS });
+        },
+      }).then((started) => {
+        if (started || Viewer.tourState !== state || state.steps[state.index] !== step) return;
+        // Not playable (no click yet, no file): the step's time instead.
+        state.narrating = false;
+        Viewer.scheduleNextTourStep();
+      });
+    },
+
+    // The panel's speaker: narrations told or left out.
+    toggleTourNarration() {
+      Viewer.tourNarrationOff = Viewer.tourNarrationOff !== true;
+      const state = Viewer.tourState;
+      if (Viewer.tourNarrationOff && state?.narrating) {
+        Viewer.stopNarration?.();
+        state.narrating = false;
+        Viewer.scheduleNextTourStep();
+      }
+      Viewer.syncTourNarration();
+    },
+
+    syncTourNarration() {
+      const ui = Viewer.tourState?.ui;
+      if (!ui?.narrationButton) return;
+      const any = Viewer.tourState.steps.some(({ entry }) => entry.audio);
+      ui.narrationButton.hidden = !any;
+      const on = Viewer.tourNarrationOff !== true;
+      const label = on ? t("narration.tourOff", "Leave out the narrations") : t("narration.tourOn", "Tell the narrations");
+      ui.narrationButton.textContent = on ? "🔊" : "🔇";
+      ui.narrationButton.title = label;
+      ui.narrationButton.setAttribute("aria-label", label);
+      ui.narrationButton.setAttribute("aria-pressed", on ? "true" : "false");
     },
 
     nextTourStep() {
@@ -179,6 +241,15 @@ export function attachTour(Viewer) {
       if (!state?.active) return false;
       state.playing = true;
       Viewer.syncTourPanel();
+      // A narration paused: told on from where it was.
+      if (state.narrating && Viewer.resumeNarration?.()) return true;
+      // The step's narration not told yet (the tour started before a click,
+      // when browsers allow no sound): told now.
+      const current = state.steps[state.index];
+      if (current?.entry.audio && !state.flight && !state.narrating && state.toldIndex !== state.index && Viewer.tourNarrationOff !== true) {
+        Viewer.beginTourStep(current);
+        return true;
+      }
       // Resuming on the last step of a non-looping tour starts over.
       if (!state.options.loop && state.index >= state.steps.length - 1) {
         return Viewer.goToTourStep(0);
@@ -192,6 +263,7 @@ export function attachTour(Viewer) {
       if (!state?.active || !state.playing) return false;
       state.playing = false;
       clearTimeout(state.timer);
+      if (state.narrating) Viewer.pauseNarration?.();
       Viewer.syncTourProgress(0);
       Viewer.syncTourPanel();
       return true;
@@ -203,9 +275,9 @@ export function attachTour(Viewer) {
       return state.playing ? Viewer.pauseTour() : Viewer.playTour();
     },
 
-    scheduleNextTourStep() {
+    scheduleNextTourStep({ delayMs = null } = {}) {
       const state = Viewer.tourState;
-      if (!state?.active || !state.playing) return;
+      if (!state?.active || !state.playing || state.narrating) return;
       clearTimeout(state.timer);
       const isLast = state.index >= state.steps.length - 1;
       if (isLast && !state.options.loop) {
@@ -214,8 +286,9 @@ export function attachTour(Viewer) {
         Viewer.syncTourPanel();
         return;
       }
-      state.timer = setTimeout(() => Viewer.nextTourStep(), state.options.stepDurationMs);
-      Viewer.syncTourProgress(state.options.stepDurationMs);
+      const wait = delayMs ?? state.options.stepDurationMs;
+      state.timer = setTimeout(() => Viewer.nextTourStep(), wait);
+      Viewer.syncTourProgress(wait);
     },
 
     // The ring around the pause button: fills over `durationMs` while the
@@ -465,7 +538,13 @@ export function attachTour(Viewer) {
       nextButton.type = "button";
       nextButton.className = "viewer-tour-panel_next";
       nextButton.textContent = "›";
-      controls.append(prevButton, playButton, nextButton);
+      // Narrations told or left out (shown when a step has one).
+      const narrationButton = document.createElement("button");
+      narrationButton.type = "button";
+      narrationButton.className = "viewer-tour-panel_narration";
+      narrationButton.hidden = true;
+      narrationButton.addEventListener("click", () => Viewer.toggleTourNarration());
+      controls.append(prevButton, playButton, nextButton, narrationButton);
 
       panel.append(header, body, controls);
 
@@ -510,7 +589,7 @@ export function attachTour(Viewer) {
       });
 
       stack.prepend(panel);
-      const ui = { panel, counter, spreadButton, stackButton, leadersButton, closeButton, title, description, prevButton, playButton, playIcon, nextButton };
+      const ui = { panel, counter, spreadButton, stackButton, leadersButton, closeButton, title, description, prevButton, playButton, playIcon, nextButton, narrationButton };
       Viewer.syncTourLeaderToggle(ui);
       Viewer.syncTourSpreadToggle(ui);
       Viewer.syncTourStackToggle(ui);
@@ -699,6 +778,7 @@ export function attachTour(Viewer) {
       ui.prevButton.disabled = single;
       ui.nextButton.disabled = single;
       ui.playButton.disabled = single;
+      Viewer.syncTourNarration();
     },
 
     // Annotations were added, removed or re-imported: keep a running tour in

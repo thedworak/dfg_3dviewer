@@ -47,6 +47,7 @@ export function attachWeatherLazy(Viewer) {
     weather: { enabled: false, ...WEATHER_DEFAULTS, pending },
     weatherObjects: null,
     weatherPanel: null,
+    seasonsPanel: null,
 
     // Starts the download ahead of a click (hovering the toolbar button).
     preloadWeather() {
@@ -66,6 +67,8 @@ export function attachWeatherLazy(Viewer) {
     },
     setWeatherOptions: deferred("setWeatherOptions"),
     toggleWeatherPanel: deferred("toggleWeatherPanel"),
+    setWeatherSeason: deferred("setWeatherSeason"),
+    toggleSeasonsPanel: deferred("toggleSeasonsPanel"),
 
     apply3IFManifestWeather(weather) {
       const valid = weather && typeof weather === "object" && !Array.isArray(weather) && WEATHER_TYPES.includes(weather.type);
@@ -79,10 +82,13 @@ export function attachWeatherLazy(Viewer) {
 
     // Nothing to do while the weather has never been on.
     isWeatherPanelOpen: () => false,
+    isSeasonsPanelOpen: () => false,
     getWeatherForExport: () => undefined,
     updateWeather() {},
     updateWeatherLabels() {},
     syncWeatherPanel() {},
+    updateSeasonsLabels() {},
+    syncSeasonsPanel() {},
     disposeWeather() {
       Viewer.setWeather(false);
     },

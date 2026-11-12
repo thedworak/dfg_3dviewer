@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { getModuleAssetBasePath } from "../loaders.js";
 import { DARK_LUMINANCE, backgroundLuminance } from "../background-luminance.js";
+import { getBrandLogo } from "../branding.js";
 
 // The ExPlora4D logo at the top centre of the viewer, in every build and
 // mode. The images are in assets/img/logo (viewer/img/logo, copied by
@@ -9,6 +10,8 @@ import { DARK_LUMINANCE, backgroundLuminance } from "../background-luminance.js"
 // ExPlora4D-on-dark.webp is the same image; a variant made for dark
 // backgrounds can replace it. Both are stacked, and it fades in while the
 // background behind the model is dark.
+// A deployment replaces it, or turns it off, with branding.logo in
+// viewer-settings.json (../branding.js, docs/branding.md).
 
 // How often the background is checked: it changes from settings, manifests
 // and the GUI, through several paths.
@@ -17,13 +20,13 @@ const BACKGROUND_CHECK_MS = 1000;
 // leaves the model (a mouse fades it on hover instead - main.css).
 const TOUCH_FADE_HOLD_MS = 1500;
 
-function createLogoImage(src, variant, alt) {
+function createLogoImage(src, variant, alt, { width, height } = {}) {
   const image = document.createElement("img");
   image.className = `viewer-brand-logo__${variant}`;
   image.src = src;
   image.alt = alt;
-  image.width = 640;
-  image.height = 154;
+  if (width) image.width = width;
+  if (height) image.height = height;
   image.decoding = "async";
   image.draggable = false;
   return image;
@@ -31,14 +34,15 @@ function createLogoImage(src, variant, alt) {
 
 export function attachBrandLogo(container) {
   if (!container || container.querySelector(".viewer-brand-logo")) return null;
-  const base = `${getModuleAssetBasePath()}/img/logo`;
+  const brand = getBrandLogo(`${getModuleAssetBasePath()}/img/logo`);
+  if (!brand) return null;
   const logo = document.createElement("div");
   logo.className = "viewer-brand-logo";
   logo.setAttribute("role", "img");
-  logo.setAttribute("aria-label", "ExPlora4D");
+  logo.setAttribute("aria-label", brand.alt);
   logo.append(
-    createLogoImage(`${base}/ExPlora4D.webp`, "light", ""),
-    createLogoImage(`${base}/ExPlora4D-on-dark.webp`, "dark", "")
+    createLogoImage(brand.src, "light", "", brand),
+    createLogoImage(brand.srcOnDark, "dark", "", brand)
   );
   container.appendChild(logo);
 

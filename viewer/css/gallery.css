@@ -11,7 +11,7 @@
    ========================================================================== */
 
 :root {
-  --gallery-accent: var(--viewer-brand-gold, #e9b264);
+  --gallery-accent: var(--viewer-brand-accent, #f5a524);
   --gallery-plate: radial-gradient(ellipse at 50% 40%, #f7f5f1 0%, #e4dfd6 60%, #cfc8bc 100%);
   --gallery-surface: rgba(26, 23, 20, 0.95);
   --gallery-border: rgba(255, 255, 255, 0.1);
@@ -401,24 +401,21 @@ html[data-viewer-theme="light"] {
   color: var(--gallery-accent);
 }
 
-/* The first look (thumbnail-gallery.js): the hidden column leans out by
-   the edge of its views and slowly back. */
-.image-list-drawer.is-peek-motion {
-  transition: transform 1.8s cubic-bezier(.45, 0, .2, 1);
+/* The first look (thumbnail-gallery.js), only with the model's own views:
+   the tab brightens twice, slowly, where it stands. */
+.image-list-drawer-toggle.is-glowing {
+  animation: imageListDrawerGlow 1.6s ease-in-out 2;
 }
 
-.image-list-drawer.is-collapsed.is-peeking {
-  transform: translateX(calc(var(--drawer-panel-width) + var(--drawer-gap) - 40px));
-}
-
-/* On a phone: one slow, faint glow round the tab. */
-.image-list-drawer-toggle.is-pulsing {
-  animation: imageListDrawerPulse 2.4s ease-in-out 1;
-}
-
-@keyframes imageListDrawerPulse {
-  0%, 100% { box-shadow: var(--gallery-shadow), 0 0 0 0 transparent; }
-  50% { box-shadow: var(--gallery-shadow), 0 0 0 4px color-mix(in srgb, var(--gallery-accent) 22%, transparent); }
+@keyframes imageListDrawerGlow {
+  0%, 100% {
+    filter: none;
+    background: var(--gallery-control-bg);
+  }
+  50% {
+    filter: brightness(1.35);
+    background: color-mix(in srgb, var(--gallery-accent) 18%, var(--gallery-control-bg-hover));
+  }
 }
 
 /* Open: points to the edge it hides into; hidden: back out. */

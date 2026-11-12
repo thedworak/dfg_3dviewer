@@ -119,8 +119,7 @@
   font-size: 13px;
   line-height: 1.4;
   z-index: 99998;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   scrollbar-width: thin;
 }
 

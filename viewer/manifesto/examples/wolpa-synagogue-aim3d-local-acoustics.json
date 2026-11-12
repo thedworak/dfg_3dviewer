@@ -1,0 +1,214 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/WolpaSynagogue.glb/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Wolpa Synagogue - the prayer hall heard: room acoustics from the model (AIM3D, localhost)"
+    ],
+    "pl": [
+      "Synagoga w Wołpie - jak brzmi sala modlitw: akustyka wnętrza z modelu (AIM3D, localhost)"
+    ],
+    "de": [
+      "Synagoge Wolpa - der Gebetssaal gehört: Raumakustik aus dem Modell (AIM3D, localhost)"
+    ]
+  },
+  "summary": {
+    "en": [
+      "A horn call in the middle of the prayer hall, heard a few meters away with the hall's reverberation, worked out from the model's geometry: wooden walls, benches on the floor. Press the sounds' play button, or click the scene."
+    ],
+    "pl": [
+      "Głos rogu pośrodku sali modlitw, słyszany kilka metrów dalej z pogłosem sali obliczonym z geometrii modelu: drewniane ściany, ławki na posadzce. Naciśnij przycisk odtwarzania dźwięków albo kliknij scenę."
+    ],
+    "de": [
+      "Ein Hornruf in der Mitte des Gebetssaals, einige Meter entfernt gehört, mit dem Nachhall des Saals, aus der Geometrie des Modells berechnet: Holzwände, Bänke auf dem Boden. Die Wiedergabe der Klänge starten oder in die Szene klicken."
+    ]
+  },
+  "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "items": [
+    {
+      "id": "./examples/WolpaSynagogue.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 0.01,
+        "unit": "m"
+      },
+      "label": {
+        "en": [
+          "Wolpa Synagogue"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/WolpaSynagogue.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.2",
+    "generatedAt": "2026-11-09T00:00:00.000Z",
+    "camera": {
+      "position": [
+        2700,
+        800,
+        -150
+      ],
+      "target": [
+        0,
+        750,
+        -200
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ],
+      "fov": 50,
+      "zoom": 1,
+      "distance": 2700,
+      "perspectiveMode": "perspective",
+      "aspect": 1.7778,
+      "orientation": "landscape"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "performance": "high-performance",
+      "clipping": {
+        "mode": {
+          "x": true,
+          "y": false,
+          "z": false
+        },
+        "negated": {
+          "x": false,
+          "y": false,
+          "z": false
+        },
+        "constants": [
+          0,
+          0,
+          0
+        ],
+        "outlineVisible": true
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "color": "#404040",
+        "intensity": 1
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [
+          0,
+          3000,
+          1500
+        ],
+        "target": [
+          0,
+          750,
+          -200
+        ],
+        "color": "#ffffff",
+        "intensity": 1
+      }
+    ],
+    "modelTransform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "wireframe": false,
+      "shadingMode": "standard"
+    },
+    "sounds": {
+      "autoplay": true,
+      "sources": [
+        {
+          "id": "call",
+          "type": "point",
+          "src": "./examples/audio/shofar.ogg",
+          "label": "A horn call in the middle of the hall",
+          "position": [
+            0,
+            280,
+            -200
+          ],
+          "distance": 150,
+          "volume": 0.9
+        }
+      ],
+      "acoustics": {
+        "on": true,
+        "position": [
+          0,
+          270,
+          250
+        ],
+        "material": "wood",
+        "floor": "pews"
+      }
+    }
+  },
+  "modified": "2026-11-09T00:00:00.000Z"
+}

@@ -50,7 +50,7 @@ const COPIED_PROPERTIES = [
 const FLASH_MS = 520;
 // Longer lists get a field to find a material by name.
 const FILTER_FROM = 8;
-const FLASH_COLOR = new THREE.Color(0xe9b264);
+const FLASH_COLOR = new THREE.Color(0xf5a524);
 
 function sameColorHex(color) {
   return color?.isColor ? `#${color.getHexString()}` : null;

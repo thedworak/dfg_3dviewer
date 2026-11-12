@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://viewer.thedworak.com/schema/AIM3DViewer-schema.json",
+  "$id": "https://explora4d.eu/viewer/schema/AIM3DViewer-schema.json",
   "title": "AIM3DViewer Manifest",
   "type": "object",
   "required": ["@context", "id", "type", "items"],
@@ -157,7 +157,22 @@
                 "enabled": { "type": "boolean" },
                 "position": { "$ref": "#/$defs/vector2orObject" },
                 "expanded": { "type": "boolean" },
-                "visible": { "type": "boolean" }
+                "visible": { "type": "boolean" },
+                "profile": {
+                  "description": "The tools for the kind of model shown (mesh, bim, pointcloud, splats, volume): false keeps the toolbar as it is; promote replaces the tools brought onto the bar, in order of importance; hide replaces those left out.",
+                  "oneOf": [
+                    { "const": false },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "enabled": { "type": "boolean" },
+                        "promote": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                        "hide": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
               },
               "additionalProperties": true
             },
@@ -213,7 +228,9 @@
               "position": { "$ref": "#/$defs/vector3" },
               "target": { "$ref": "#/$defs/vector3" },
               "color": { "type": "string" },
-              "intensity": { "type": "number" }
+              "intensity": { "type": "number" },
+              "name": { "type": "string" },
+              "castShadow": { "type": "boolean" }
             },
             "additionalProperties": true
           }
@@ -256,6 +273,67 @@
           },
           "additionalProperties": true
         },
+        "weather": {
+          "description": "The weather around the model (Look > Weather); exported while on.",
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "enum": ["clear", "fog", "rain", "snow", "storm"] },
+            "intensity": { "type": "number", "minimum": 0, "maximum": 1, "description": "Default 0.6." },
+            "wind": { "type": "number", "minimum": 0, "maximum": 1, "description": "Default 0.2; a storm brings at least some." },
+            "windDirection": { "type": "number", "description": "Where the wind blows to: degrees clockwise from -Z, seen from above (default 230)." },
+            "mistHeight": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's height: 0 to 1 is 0.15 to 1.15 model sizes (default 0.4)." },
+            "mistDensity": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's density (default 0.5)." },
+            "mistSpread": { "type": "number", "minimum": 0, "maximum": 1, "description": "0: clumps with gaps; 1: an even blanket thinning upwards (default 0.6)." },
+            "season": { "enum": ["spring", "summer", "autumn", "winter", null], "description": "A season (Look > Seasons): a colour grade of the model and petals, pollen, leaves or snow in the air." },
+            "sky": { "type": "boolean", "description": "Show the sky with clouds around the model (default true)." },
+            "surfaces": { "type": "boolean", "description": "Wet surfaces and snow cover on the model (default true)." }
+          },
+          "additionalProperties": true
+        },
+        "materials": {
+          "description": "The model's materials as edited in the viewer (Look > Materials); exported while any is edited. The model's own materials stay as they are in its file.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "integer", "minimum": 0, "description": "The material's place in the model (the order the viewer meets them in)." },
+              "name": { "type": "string", "description": "The material's name in the file; with the index it finds the material." },
+              "preset": { "enum": ["glass", "frostedGlass", "tintedGlass", "water", "lightWood", "darkWood", "varnishedWood", "plaster", "paintedWall", "concrete", "brick", "sandstone", "marble", "terracotta", "ceramic", "steel", "aluminium", "iron", "brass", "gold", "copper", "bronze", "mirror", "plastic", "rubber", "fabric", "clay", "light", null], "description": "The built-in material type applied first." },
+              "keepTexture": { "type": "boolean", "description": "The type keeps the colour texture (default true)." },
+              "params": {
+                "type": "object",
+                "description": "The properties over the type: colours as \"#rrggbb\", the rest as numbers.",
+                "properties": {
+                  "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                  "emissive": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+                  "roughness": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "metalness": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "transmission": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "thickness": { "type": "number", "minimum": 0 },
+                  "ior": { "type": "number", "minimum": 0 },
+                  "clearcoat": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "clearcoatRoughness": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "sheen": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "emissiveIntensity": { "type": "number", "minimum": 0 },
+                  "doubleSided": { "type": "boolean" }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "sceneSuggest": {
+          "description": "The Suggested scene window (Look > Suggested scene) open when the manifest loads; nothing is applied until the user does.",
+          "type": "object",
+          "properties": {
+            "open": { "type": "boolean", "description": "Open the window on load (default false)." },
+            "purpose": { "enum": ["documentation", "presentation"], "description": "The purpose shown first (default: the one the rules pick)." }
+          },
+          "additionalProperties": true
+        },
         "photos": {
           "description": "Historical photos laid over the model from the camera they were taken from.",
           "type": "array",
@@ -294,6 +372,11 @@
               "additionalProperties": true
             },
             "scale": { "$ref": "#/$defs/vector3" },
+            "upAxis": {
+              "type": "string",
+              "enum": ["Y+", "Y-", "Z+", "Z-", "X+", "X-"],
+              "description": "The axis of the model file that points up; the viewer turns it to +Y before applying position, rotation and scale. Y+ (default) for three.js / glTF models, Z+ for Z-up exports, Y- for a model upside down."
+            },
             "wireframe": { "type": "boolean" },
             "shadingMode": {
               "type": "string",

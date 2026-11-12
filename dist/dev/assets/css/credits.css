@@ -21,8 +21,7 @@
     background: var(--viewer-panel-embed-bg, var(--viewer-panel-bg));
     color: var(--viewer-panel-text);
     box-shadow: var(--viewer-panel-shadow);
-    font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-              "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: var(--font-ui);
     font-size: 13px;
     line-height: 1.4;
     scrollbar-width: thin;
@@ -122,4 +121,22 @@
 
 .credits-iiif .credits-logo {
     height: 14px;
+}
+
+/* The button to the project's changelog, under the credits. */
+.credits-changelog {
+    display: block;
+    padding: 7px 12px;
+    border: 1px solid var(--viewer-panel-border);
+    border-radius: 8px;
+    color: inherit;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.credits-changelog:hover,
+.credits-changelog:focus-visible {
+    border-color: var(--viewer-brand-gold, #e9b264);
+    color: var(--viewer-brand-gold, #e9b264);
 }

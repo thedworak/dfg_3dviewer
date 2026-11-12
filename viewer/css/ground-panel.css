@@ -51,13 +51,13 @@
 }
 
 .ground-panel-tile:focus-visible {
-  outline: 2px solid #d9a35a;
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
   outline-offset: 2px;
 }
 
 .ground-panel-tile.is-active {
-  border-color: #d9a35a;
-  background: color-mix(in srgb, #d9a35a 18%, var(--viewer-panel-bg));
+  border-color: var(--viewer-brand-accent, #f5a524);
+  background: color-mix(in srgb, var(--viewer-brand-accent, #f5a524) 18%, var(--viewer-panel-bg));
 }
 
 .ground-panel-icon {

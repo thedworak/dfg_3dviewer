@@ -4,6 +4,7 @@
   "type": "Manifest",
   "label": { "en": ["Box with a camera, lights and comments (IIIF Presentation 4)"] },
   "summary": { "en": ["Local example of the IIIF 3D scene features the viewer reads and writes: a positioned camera, three kinds of lights, and comments on points of the scene - one with its own view (scope)."] },
+  "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "items": [
     {
       "id": "./manifests/box-iiif-p4.json/scene",

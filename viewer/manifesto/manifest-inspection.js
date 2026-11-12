@@ -10,6 +10,7 @@
 //     summary: { errors, warnings, infos, attributes, unknown },
 //     features: [{ id, icon, label, present, count, status, errors, warnings }],
 //     attributes: [{ path, value, level, feature, known, issues: [{ level, message }] }],
+//     version: manifestVersionStatus(manifest) (manifest-version.js),
 //   }
 //
 // Levels: "error" - the viewer cannot use the value (validateAIM3DManifest
@@ -31,10 +32,12 @@ import {
   TIMELINE_STAGE_TYPES,
   TIMELINE_TRANSITIONS,
   WEATHER_TYPES,
+  WEATHER_SEASONS,
   normalizeAIM3DManifest,
   validateAIM3DManifest,
 } from "./aim3dviewer-validation.js";
 import { CERTAINTY_SCOPES } from "./certainty-scale.js";
+import { manifestVersionStatus } from "./manifest-version.js";
 
 export const INSPECTION_SCHEMA = "explora4d-manifest-inspection/1";
 
@@ -45,6 +48,7 @@ const MAX_TEXT = 200;
 // and the light types annotations.js exports.
 const LIGHT_TYPES = ["AmbientLight", "DirectionalLight", "PointLight", "SpotLight", "HemisphereLight"];
 const CAMERA_TYPES = ["PerspectiveCamera", "OrthographicCamera"];
+const SOUND_TYPES = ["AmbientAudio", "PointAudio", "SpotAudio"];
 const TRANSFORM_TYPES = ["RotateTransform", "ScaleTransform", "TranslateTransform"];
 const MOTIVATIONS = [
   "painting", "supplementing", "commenting", "describing", "tagging", "linking", "highlighting",
@@ -80,6 +84,7 @@ function bodyFeature(body) {
   const type = typeOf(resource);
   if (CAMERA_TYPES.includes(type)) return "camera";
   if (LIGHT_TYPES.includes(type)) return "lights";
+  if (SOUND_TYPES.includes(type)) return "sounds";
   return "model";
 }
 
@@ -110,11 +115,22 @@ export const MANIFEST_FEATURES = [
   { id: "variants", label: "Reconstruction variants", count: (m) => length(block(m).variants?.items) || has(block(m).variants) },
   { id: "compare", label: "Comparison view", count: (m) => has(block(m).compare) },
   { id: "photos", label: "Historical photos", count: (m) => length(block(m).photos) },
+  { id: "image", label: "Image tools", count: (m) => has(block(m).image) },
+  { id: "audio", label: "Audio view and playback", count: (m) => has(block(m).audio) },
+  {
+    id: "sounds",
+    label: "Sounds",
+    // The block's sources, else those painted into the scene (the same ones
+    // when both are there), and the annotations' narrations.
+    count: (m) => (length(block(m).sounds?.sources) || paintedBodies(m).filter((body) => bodyFeature(body) === "sounds").length)
+      + annotationsOf(m, "annotations").filter((annotation) => annotation.AIM3DViewer?.audio !== undefined).length,
+  },
   { id: "location", label: "Geographic location", count: (m) => has(block(m).location) },
   { id: "sun", label: "Sun study", count: (m) => has(block(m).sun) },
   { id: "weather", label: "Weather", count: (m) => has(block(m).weather) },
   { id: "scene-suggest", label: "Suggested scene", count: (m) => has(block(m).sceneSuggest) },
   { id: "materials", label: "Materials", count: (m) => length(block(m).materials) },
+  { id: "measurements", label: "Measurements", count: (m) => length(block(m).measurements) },
   {
     id: "certainty",
     label: "Level of certainty",
@@ -352,6 +368,8 @@ const AIM3D_BLOCK = obj({
     zoom: leaf(number({ above: 0, level: "warning" })),
     distance: leaf(number({ min: 0, level: "warning" })),
     perspectiveMode: leaf(oneOf(["perspective", "orthographic"])),
+    aspect: leaf(number({ above: 0, level: "warning" })),
+    orientation: leaf(oneOf(["landscape", "portrait"])),
   })),
   viewer: tag("settings", VIEWER),
   integration: tag("settings", obj({
@@ -456,6 +474,69 @@ const AIM3D_BLOCK = obj({
       roll: NUM,
     }, { expect: [["position", "error"], ["target", "error"]] }),
   }, { expect: [["label", "info"], ["source", "info"]] }))),
+  image: tag("image", obj({
+    brightness: leaf(number({ min: -0.5, max: 0.5 })),
+    contrast: leaf(number({ min: 0, max: 3 })),
+    gamma: leaf(number({ min: 0.2, max: 3 })),
+    saturation: leaf(number({ min: 0, max: 3 })),
+    invert: BOOL,
+    channel: leaf(oneOf(["rgb", "red", "green", "blue", "luminance"])),
+    autoLevels: BOOL,
+    equalize: BOOL,
+    sharpen: leaf(number({ min: 0, max: 2 })),
+    relief: leaf(number({ min: 0, max: 1 })),
+    reliefAngle: leaf(number({ min: 0, max: 360 })),
+    edges: leaf(number({ min: 0, max: 1 })),
+    dstretch: BOOL,
+    falseColor: leaf(oneOf(["none", "inferno", "viridis", "turbo"])),
+    compare: BOOL,
+    split: leaf(number({ min: 0, max: 1 })),
+  })),
+  audio: tag("audio", obj({
+    frequencyScale: leaf(oneOf(["log", "linear"])),
+    range: leaf(number({ min: 30, max: 120 })),
+    heightScale: leaf(number({ above: 0 })),
+    showTerrain: BOOL,
+    showWaveform: BOOL,
+    playback: obj({
+      volume: leaf(number({ min: 0, max: 1 })),
+      rate: leaf(number({ above: 0 })),
+      preservePitch: BOOL,
+      loop: BOOL,
+      region: obj({ start: leaf(number({ min: 0 })), end: leaf(number({ min: 0 })) }),
+      channelMode: leaf(oneOf(["stereo", "mono", "left", "right"])),
+      filter: obj({ type: leaf(oneOf(["off", "lowpass", "highpass", "bandpass", "notch"])), frequency: leaf(number({ above: 0 })), q: leaf(number({ above: 0 })) }),
+      compressor: BOOL,
+      reverb: leaf(oneOf(["off", "room", "hall", "church"])),
+      reverbMix: leaf(number({ min: 0, max: 1 })),
+    }),
+  })),
+  sounds: tag("sounds", obj({
+    autoplay: BOOL,
+    volume: leaf(number({ min: 0, max: 1 })),
+    sources: arr(obj({
+      id: TEXT,
+      type: leaf(oneOf(["ambient", "point", "spot"])),
+      src: FILE_URL,
+      label: TEXT,
+      position: TRIPLE,
+      lookAt: TRIPLE,
+      angle: leaf(number({ above: 0, max: 360 })),
+      distance: leaf(number({ above: 0 })),
+      volume: leaf(number({ min: 0, max: 1 })),
+      loop: BOOL,
+      years: ANY,
+      on: BOOL,
+      acoustics: BOOL,
+    }, { expect: [["src", "error"], ["label", "info"]] })),
+    acoustics: obj({
+      on: BOOL,
+      position: TRIPLE,
+      material: leaf(oneOf(["stone", "plaster", "brick", "wood", "glass", "fabric", "ground"])),
+      floor: leaf(oneOf(["material", "pews", "people"])),
+      amount: leaf(number({ min: 0, max: 2 })),
+    }),
+  })),
   location: tag("location", obj({
     latitude: leaf(number({ min: -90, max: 90 })),
     longitude: leaf(number({ min: -180, max: 180 })),
@@ -471,6 +552,7 @@ const AIM3D_BLOCK = obj({
     mistHeight: leaf(number({ min: 0, max: 1 })),
     mistDensity: leaf(number({ min: 0, max: 1 })),
     mistSpread: leaf(number({ min: 0, max: 1 })),
+    season: leaf(oneOf(WEATHER_SEASONS)),
     sky: BOOL,
     surfaces: BOOL,
   }, { expect: [["type", "error"]] })),
@@ -496,6 +578,12 @@ const AIM3D_BLOCK = obj({
       doubleSided: BOOL,
     }),
   }))),
+  // The measurements placed (editor/measurement.js), points in the model's
+  // own coordinates; distance from 2 points, angle and area from 3.
+  measurements: tag("measurements", arr(obj({
+    mode: leaf(oneOf(["distance", "angle", "area"])),
+    points: arr(TRIPLE, { minLength: 2 }),
+  }, { expect: [["mode", "error"], ["points", "error"]] }))),
   thumbnails: tag("thumbnails", arr(alt({ string: FILE_URL, object: obj({ src: FILE_URL, label: LANG }, { expect: [["src", "error"]] }) }))),
   modelTransform: tag("transform", obj({
     position: VEC3,
@@ -557,9 +645,15 @@ const BODY = () => obj({
   intensity: alt({ number: leaf(number({ min: 0, level: "warning" })), object: QUANTITY }),
   angle: leaf(number({ above: 0, max: 90, level: "warning" })),
   fieldOfView: leaf(number({ above: 0, below: 180, level: "warning" })),
+  // An OrthographicCamera's view height (IIIF Presentation 4).
+  viewHeight: leaf(number({ above: 0, level: "warning" })),
   near: leaf(number({ min: 0, level: "warning" })),
   far: leaf(number({ above: 0, level: "warning" })),
   lookAt: alt({ string: URL_, object: POINT }),
+  // Audio emitters (AmbientAudio, PointAudio, SpotAudio): how loud, and how
+  // the file fits the scene's time (loop, trim, scale).
+  volume: alt({ number: leaf(number({ min: 0, level: "warning" })), object: QUANTITY }),
+  timeMode: leaf(oneOf(["trim", "scale", "loop"])),
   purpose: TEXT,
   ...DESCRIPTIVE,
 });
@@ -582,6 +676,8 @@ const ANNOTATION_AIM3D = obj({
   point: TRIPLE,
   targetId: STRING,
   view: obj({ position: TRIPLE, target: TRIPLE, fov: leaf(number({ above: 0, below: 180 })) }),
+  // Its narration and the narration's captions (editor/narration.js).
+  audio: tag("sounds", alt({ string: FILE_URL, object: obj({ src: FILE_URL, captions: FILE_URL }, { expect: [["src", "error"]] }) })),
 });
 
 const MOTIVATION = leaf((value) => anyString(value) || oneOf(MOTIVATIONS, "info")(value));
@@ -914,6 +1010,8 @@ export function inspectAIM3DManifest(manifest) {
     summary,
     features,
     attributes,
+    // Made for a newer viewer: the up arrow in the lists (ui/manifest-update.js).
+    version: manifestVersionStatus(manifest),
   };
 }
 

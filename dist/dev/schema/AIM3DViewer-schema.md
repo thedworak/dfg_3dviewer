@@ -102,7 +102,8 @@ Stores runtime viewer options.
     "enabled": true,
     "position": { "x": 0, "y": 0 },
     "expanded": false,
-    "visible": true
+    "visible": true,
+    "profile": { "promote": ["hierarchy", "clippingPlanes"], "hide": ["weather"] }
   },
   "menuToolbar": {
     "enabled": true,
@@ -180,6 +181,7 @@ These optional `viewer` fields carry values that used to live only in `viewer-se
 - `position`: current dragged toolbar offset relative to the host container
 - `expanded`: whether the secondary tray is expanded
 - `visible`: whether the toolbar is currently visible in the UI
+- `profile` (optional): the tools for the kind of model shown. The viewer tells the kind (`mesh`, `bim`, `pointcloud`, `splats`, `volume`) from the file and the scene and brings that kind's tools to the top - onto the bar of the classic toolbar, as shortcuts into the navigation of the menus - and leaves out those the kind has no use for. `false` (or `{ "enabled": false }`) keeps the toolbar as it is; `promote` replaces the tools brought to the top (tool names, in order of importance: phones show the first two); `hide` replaces the tools left out. Either list may be given alone; the other keeps the kind's default.
 
 ## `AIM3DViewer.integration`
 
@@ -478,6 +480,7 @@ mist. At full intensity rain is a downpour. Exported while it is on.
 - `windDirection`: where the wind blows to - degrees clockwise from -Z, seen from above, as `location.north` (default `230`)
 - `mistHeight`, `mistDensity`: the mist's height (0 to 1: 0.15 to 1.15 model sizes, default `0.4`) and density (default `0.5`)
 - `mistSpread`: 0 lays the mist in clumps with gaps (low clouds), 1 as an even blanket thinning upwards (default `0.6`)
+- `season`: a season (*Look > Seasons*) - `spring` (petals), `summer` (pollen), `autumn` (leaves) or `winter` (snow, with `type` `snow`): a colour grade of the model and what falls through the air, as in the intro
 - `sky`: show the sky (three's `Sky`, with clouds) around the model (default `true`); the sun stands where the sun study puts it, else where the key light comes from
 - `surfaces`: wet surfaces and snow cover on the model (default `true`)
 

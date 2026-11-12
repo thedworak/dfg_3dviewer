@@ -1,0 +1,176 @@
+{
+  "parts": {
+    "trim": "wood_cabinet_worn_long_diff_2k",
+    "roof": "roof_slates_02_diff_2k",
+    "walls": "walls",
+    "frames": "window frames",
+    "door": "wooden door"
+  },
+  "stages": [
+    {
+      "year": 1730,
+      "label": "ok. 1730 – budowa: świeże drewno i gont",
+      "parts": {
+        "trim": "fresh",
+        "roof": "fresh",
+        "walls": "fresh",
+        "frames": "fresh",
+        "door": "fresh"
+      }
+    },
+    {
+      "year": 1735,
+      "label": "1735 – pierwsze lata: drewno ciemnieje",
+      "parts": {
+        "trim": "fresh",
+        "roof": "mid",
+        "walls": "fresh",
+        "frames": "fresh",
+        "door": "fresh"
+      }
+    },
+    {
+      "year": 1745,
+      "label": "1745 – szarzenie stron nasłonecznionych",
+      "parts": {
+        "trim": "mid",
+        "roof": "mid",
+        "walls": "mid",
+        "frames": "mid",
+        "door": "mid"
+      }
+    },
+    {
+      "year": 1760,
+      "label": "1760 – patyna, pierwsze glony od północy",
+      "parts": {
+        "trim": "mid",
+        "roof": "old",
+        "walls": "mid",
+        "frames": "mid",
+        "door": "mid"
+      }
+    },
+    {
+      "year": 1780,
+      "label": "1780 – stary, omszały gont",
+      "parts": {
+        "trim": "mid",
+        "roof": "old",
+        "walls": "mid",
+        "frames": "mid",
+        "door": "mid"
+      }
+    },
+    {
+      "year": 1781,
+      "label": "1781 – nowe pokrycie gontem",
+      "parts": {
+        "trim": "mid",
+        "roof": "fresh",
+        "walls": "mid",
+        "frames": "mid",
+        "door": "mid"
+      }
+    },
+    {
+      "year": 1790,
+      "label": "1790 – gont szarzeje",
+      "parts": {
+        "trim": "mid",
+        "roof": "mid",
+        "walls": "mid",
+        "frames": "mid",
+        "door": "mid"
+      }
+    },
+    {
+      "year": 1810,
+      "label": "1810",
+      "parts": {
+        "trim": "old",
+        "roof": "mid",
+        "walls": "mid",
+        "frames": "old",
+        "door": "old"
+      }
+    },
+    {
+      "year": 1840,
+      "label": "1840 – mech na połaciach północnych",
+      "parts": {
+        "trim": "old",
+        "roof": "old",
+        "walls": "old",
+        "frames": "old",
+        "door": "old"
+      }
+    },
+    {
+      "year": 1870,
+      "label": "1870",
+      "parts": {
+        "trim": "old",
+        "roof": "old",
+        "walls": "old",
+        "frames": "old",
+        "door": "old"
+      }
+    },
+    {
+      "year": 1902,
+      "label": "1902 – dach przed remontem",
+      "parts": {
+        "trim": "old",
+        "roof": "old",
+        "walls": "old",
+        "frames": "old",
+        "door": "old"
+      }
+    },
+    {
+      "year": 1903,
+      "label": "1903 – remont dachu",
+      "parts": {
+        "trim": "old",
+        "roof": "fresh",
+        "walls": "old",
+        "frames": "old",
+        "door": "old"
+      }
+    },
+    {
+      "year": 1912,
+      "label": "1912",
+      "parts": {
+        "trim": "old",
+        "roof": "mid",
+        "walls": "old",
+        "frames": "old",
+        "door": "old"
+      }
+    },
+    {
+      "year": 1924,
+      "label": "1924",
+      "parts": {
+        "trim": "old",
+        "roof": "mid",
+        "walls": "old",
+        "frames": "old",
+        "door": "old"
+      }
+    },
+    {
+      "year": 1936,
+      "label": "1936 – stan z inwentaryzacji",
+      "parts": {
+        "trim": "old",
+        "roof": "old",
+        "walls": "old",
+        "frames": "old",
+        "door": "old"
+      }
+    }
+  ]
+}

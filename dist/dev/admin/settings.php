@@ -57,7 +57,7 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
     const res = await fetch('api/settings_schema.php', {credentials:'same-origin'});
     if (res.status === 200) {
       schema = await res.json();
-      const el = document.createElement('div'); el.style.fontSize='90%'; el.style.margin='0.5rem 0'; el.textContent = 'Schema loaded — validation enabled.'; document.body.insertBefore(el, container);
+      const el = document.createElement('div'); el.style.fontSize='90%'; el.style.margin='0.5rem 0'; el.textContent = 'Schema loaded - validation enabled.'; document.body.insertBefore(el, container);
     }
   }
 

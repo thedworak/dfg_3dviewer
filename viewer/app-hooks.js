@@ -26,3 +26,11 @@ export function onAccountChange() {}
 
 // Signed in from the app (a session token, not a cookie).
 export async function onAppLogin() {}
+
+// A manifest asks for a newer viewer (ui/manifest-update.js): the page
+// loaded again, from the server rather than the browser's cache.
+export function updateViewer() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("_reload", Date.now().toString(36));
+  window.location.replace(url.href);
+}

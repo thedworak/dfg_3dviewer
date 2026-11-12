@@ -198,6 +198,35 @@ export function snowMaterial(u, height) {
   return precipitationMaterial(u, position, u.uOpacity.mul(alpha).mul(smoothstep(1, 0.25, length(corner))), u.uColor, height);
 }
 
+// The seasons' petals, pollen and leaves (weather.js LEAF_FRAGMENT): as the
+// snow, each turning as it falls - a flat ellipse (uFlat 1) or a soft round
+// grain (0), in a colour between uColor and uColorB.
+export function leafMaterial(u, height) {
+  const seed = attribute("aSeed", "vec4");
+  const fall = u.uFall.mul(seed.w.mul(0.6).add(0.7));
+  const t = u.uTime.mul(seed.w.add(0.6)).add(seed.x.mul(40));
+  const sway = vec2(sin(t), cos(t.mul(0.8).add(seed.z.mul(9)))).mul(u.uSway);
+  const center = fallen(u, seed, fall, sway);
+  const range = length(cameraPosition.sub(center));
+  const pixel = pixelAt(u, range);
+  const radius = max(u.uPointSize.mul(seed.w.mul(0.8).add(0.6)).mul(0.5), pixel);
+  const position = center.add(u.uRight.mul(positionGeometry.x).add(u.uUp.mul(positionGeometry.y)).mul(radius));
+  const settled = step(center.y, surfaceAt(u, height, center.xz));
+  const near = smoothstep(u.uBoxSize.mul(0.01), u.uBoxSize.mul(0.04), range);
+  const alpha = varying(boxFade(u, center, 0.12).mul(near).mul(settled.oneMinus()));
+  const corner = varying(positionGeometry.xy);
+  const turn = varying(seed);
+  const a = u.uTime.mul(turn.x.mul(2).add(1)).add(turn.y.mul(6.28));
+  const c = cos(a);
+  const s = sin(a);
+  const rx = c.mul(corner.x).add(s.mul(corner.y));
+  const ry = s.negate().mul(corner.x).add(c.mul(corner.y)).mul(mix(float(1), float(2.2), u.uFlat));
+  const d = rx.mul(rx).add(ry.mul(ry));
+  const shape = mix(exp(d.mul(-2.5)), smoothstep(0.7, 1, d).oneMinus(), u.uFlat).mul(step(d, 1));
+  const color = mix(u.uColor, u.uColorB, turn.z);
+  return precipitationMaterial(u, position, u.uOpacity.mul(alpha).mul(shape), color, height);
+}
+
 // The height map (weather.js HEIGHT_FRAGMENT): the model's height in the
 // precipitation's box, 0..1.
 export function heightMaterial(u) {
@@ -326,7 +355,9 @@ export function createSky() {
 
 // How wet the surfaces are and how much snow lies on them (weather.js); in
 // every standard and physical material drawn, at no cost while both are 0.
-export const surfaceUniforms = { weatherWet: uniform(0), weatherSnow: uniform(0) };
+// weatherGrade, weatherSaturation: a season's colour grade (1, 1, 1 and 1
+// without one).
+export const surfaceUniforms = { weatherWet: uniform(0), weatherSnow: uniform(0), weatherGrade: uniform(new Color(1, 1, 1)), weatherSaturation: uniform(1) };
 
 // For the viewer's node materials (renderer-backend.js), before their own
 // setupVariants: darker and glossier when wet, white where they face up
@@ -336,7 +367,9 @@ export function setupWeatherSurface(material) {
   const up = normalWorldGeometry.y;
   const cover = surfaceUniforms.weatherSnow.mul(smoothstep(0.3, 0.75, up));
   const wetness = surfaceUniforms.weatherWet.mul(up.clamp(0, 1).mul(0.45).add(0.55)).mul(cover.oneMinus());
-  const color = mix(diffuseColor.rgb.mul(wetness.mul(0.45).oneMinus()), vec3(0.93, 0.95, 1.0), cover);
+  const luma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+  const graded = max(mix(vec3(luma), diffuseColor.rgb, surfaceUniforms.weatherSaturation), vec3(0)).mul(surfaceUniforms.weatherGrade);
+  const color = mix(graded.mul(wetness.mul(0.45).oneMinus()), vec3(0.93, 0.95, 1.0), cover);
   diffuseColor.assign(vec4(color, diffuseColor.a));
   const roughness = material.roughnessNode ? float(material.roughnessNode) : materialRoughness;
   const metalness = material.metalnessNode ? float(material.metalnessNode) : materialMetalness;

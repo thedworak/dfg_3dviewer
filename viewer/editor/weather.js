@@ -6,7 +6,7 @@ import { sunDirection } from "./sun-study.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, PANEL_ICONS, refreshToolPanelChrome } from "../ui/tool-panel-chrome.js";
-import { WEATHER_DEFAULTS, WEATHER_TYPES } from "./weather-config.js";
+import { WEATHER_DEFAULTS, WEATHER_SEASONS, WEATHER_TYPES } from "./weather-config.js";
 
 // Weather (Look > Weather): clear sky, fog, rain, snow and a thunderstorm
 // around the model. The shaders below are GLSL; under the WebGPU renderer
@@ -40,6 +40,12 @@ import { WEATHER_DEFAULTS, WEATHER_TYPES } from "./weather-config.js";
 //   with WebGPU the viewer's standard and physical node materials have it
 //   built in, renderer-backend.js); a disc on the ground does the same for
 //   the ground.
+// - Seasons (Look > Seasons, their own window): the intro's seasons
+//   (viewer/intro/feature-tour.js) around the model - a colour grade of its
+//   surfaces and what falls through the air: petals in spring, pollen in
+//   summer, leaves in autumn, snow (the weather's, settling) in winter. A
+//   season picks its weather (clear, or snow in winter); another weather
+//   can be chosen with it afterwards.
 // - Sound (off by default): rain, wind and thunder, synthesised with
 //   WebAudio from noise - no files to load.
 // - The window (Look > Weather): the weathers, and the settings the one
@@ -50,7 +56,22 @@ import { WEATHER_DEFAULTS, WEATHER_TYPES } from "./weather-config.js";
 // itself, rendering.js, stays as it was), so the viewer's own lights keep
 // the intensities the other tools set.
 
-export { WEATHER_TYPES, WEATHER_DEFAULTS };
+export { WEATHER_TYPES, WEATHER_SEASONS, WEATHER_DEFAULTS };
+
+// The seasons, as the intro has them (viewer/intro/feature-tour.js SEASONS):
+// grade multiplies the surfaces' colours (linear, so about twice the
+// intro's, which grades its own sRGB textures) and saturation scales their
+// colourfulness (below 1 greyer); what falls - its share of
+// LEAF_MAX, its fall, sway and size against the snow's, its two colours,
+// flat (petals, leaves: turning ellipses) or round (pollen), its opacity.
+// weather: the weather the season brings.
+const SEASONS = {
+  spring: { weather: "clear", grade: [0.97, 1.13, 0.93], saturation: 1.18, amount: 0.5, fall: 0.75, sway: 2, size: 1.3, colors: [0xffc6d9, 0xfff0f4], flat: 1, opacity: 0.85 },
+  summer: { weather: "clear", grade: [1.28, 1.1, 0.74], saturation: 1.15, amount: 0.55, fall: 0.2, sway: 1.2, size: 0.7, colors: [0xffe9a8, 0xfff6d6], flat: 0, opacity: 0.5 },
+  autumn: { weather: "clear", grade: [1.24, 0.9, 0.62], saturation: 1.25, amount: 0.6, fall: 1.35, sway: 2.5, size: 1.6, colors: [0xd9662b, 0xf0b13c], flat: 1, opacity: 0.95 },
+  winter: { weather: "snow", grade: [0.82, 0.93, 1.2], saturation: 0.62, amount: 0, fall: 1, sway: 1, size: 1, colors: [0xffffff, 0xe6f0ff], flat: 0, opacity: 0.9 },
+};
+const NO_GRADE = [1, 1, 1];
 
 // What each weather is at full intensity. fog: the density of the fog in
 // model sizes; clouds: the sky's cover; light: the exposure kept; sky: the
@@ -82,6 +103,8 @@ const HEIGHT_LAYER = 31;
 // fill in).
 const HEIGHT_REFRESH = 3;
 const SNOW_MAX = PHONE ? 6000 : 18000;
+// The seasons' petals, pollen and leaves.
+const LEAF_MAX = PHONE ? 2000 : 6000;
 // Steps of the mist's raymarch.
 const MIST_STEPS = PHONE ? 14 : 28;
 
@@ -394,6 +417,42 @@ const SNOW_FRAGMENT = /* glsl */`
   }
 `;
 
+// The seasons' petals, pollen and leaves: falling as the snow does, each
+// turning as it goes - a flat ellipse (uFlat 1) or a soft round grain (0),
+// in a colour between uColor and uColorB (the intro's flakes).
+const LEAF_VERTEX = SNOW_VERTEX
+  .replace("varying float vAlpha;", "varying float vAlpha;\n  varying vec4 vSeed;")
+  .replace("vAlpha = boxFade(", "vSeed = aSeed;\n    vAlpha = boxFade(");
+
+const LEAF_FRAGMENT = /* glsl */`
+  uniform vec3 uColor;
+  uniform vec3 uColorB;
+  uniform float uOpacity;
+  uniform float uFlat;
+  uniform float uTime;
+  varying float vAlpha;
+  varying vec4 vSeed;
+  #include <fog_pars_fragment>
+  #include <logdepthbuf_pars_fragment>
+
+  void main() {
+    #include <logdepthbuf_fragment>
+    vec2 uv = gl_PointCoord * 2.0 - 1.0;
+    float a = uTime * ( 1.0 + vSeed.x * 2.0 ) + vSeed.y * 6.28;
+    vec2 r = mat2( cos( a ), -sin( a ), sin( a ), cos( a ) ) * uv;
+    r.y *= mix( 1.0, 2.2, uFlat );
+    float d = dot( r, r );
+    if ( d > 1.0 ) discard;
+    float shape = mix( exp( -d * 2.5 ), 1.0 - smoothstep( 0.7, 1.0, d ), uFlat );
+    float alpha = uOpacity * vAlpha * shape;
+    if ( alpha < 0.004 ) discard;
+    gl_FragColor = vec4( mix( uColor, uColorB, vSeed.z ), alpha );
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+  }
+`;
+
 // Mist: raymarched through the box it fills (drawn by its back faces, so
 // from inside it too), up to the scene's depth. Density: a 3D noise (two
 // octaves, drifting) less the coverage and less again the higher up - so
@@ -504,9 +563,11 @@ const MIST_FRAGMENT = /* glsl */`
 
 // Added to the model's materials while the weather is on; `normal` is in
 // view space, so up is the view matrix's.
-const SURFACE_UNIFORMS = "uniform float weatherWet;\nuniform float weatherSnow;\n";
+const SURFACE_UNIFORMS = "uniform float weatherWet;\nuniform float weatherSnow;\nuniform vec3 weatherGrade;\nuniform float weatherSaturation;\n";
 function surfaceChunk(physical) {
   return /* glsl */`
+    float weatherLuma = dot( diffuseColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+    diffuseColor.rgb = max( mix( vec3( weatherLuma ), diffuseColor.rgb, weatherSaturation ), 0.0 ) * weatherGrade;
     float weatherUp = dot( normal, normalize( ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz ) );
     float weatherCover = weatherSnow * smoothstep( 0.3, 0.75, weatherUp );
     float weatherWetness = weatherWet * ( 0.55 + 0.45 * clamp( weatherUp, 0.0, 1.0 ) ) * ( 1.0 - weatherCover );
@@ -518,6 +579,16 @@ function surfaceChunk(physical) {
     metalnessFactor = mix( metalnessFactor, 0.0, weatherCover );` : ""}
   `;
 }
+
+// Line icons of the seasons' window (24 units, drawn in the text colour).
+const SEASON_ICONS = {
+  off: '<path d="M12 4v7"/><path d="M7.5 7a6.5 6.5 0 1 0 9 0"/>',
+  spring: '<path d="M12 21v-8"/><path d="M12 16c-3.5 0-5.5-2-5.5-5 3 0 5.5 2 5.5 5z"/><path d="M12 13c0-3.5 2-6 5.5-6 0 3.5-2 6-5.5 6z"/>',
+  summer: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
+  autumn: '<path d="M5 19C5 10 10 5 19 5c0 9-5 14-14 14z"/><path d="M5 19l8-8"/>',
+  winter: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/><path d="M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/>',
+};
+const seasonIcon = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SEASON_ICONS[key]}</svg>`;
 
 // ---- building blocks ---------------------------------------------------------
 
@@ -1034,9 +1105,30 @@ export function attachWeather(Viewer) {
       ["sky", "surfaces", "sound"].forEach((key) => {
         if (typeof options[key] === "boolean") state[key] = options[key];
       });
+      if (WEATHER_SEASONS.includes(options.season) || options.season === null) state.season = options.season;
       if (WEATHER_TYPES.includes(options.type) && !state.enabled) Viewer.setWeather(true);
       Viewer.applyWeatherToggles();
       Viewer.syncWeatherPanel();
+      Viewer.syncSeasonsPanel();
+    },
+
+    // A season (WEATHER_SEASONS) with the weather it brings, or none (null):
+    // then its weather goes too, unless another was chosen since.
+    setWeatherSeason(season) {
+      const state = Viewer.weather;
+      if (!WEATHER_SEASONS.includes(season)) {
+        const own = state.enabled && state.seasonType === state.type;
+        state.season = null;
+        state.seasonType = null;
+        if (own) Viewer.setWeather(false);
+        else Viewer.setWeatherOptions({ season: null });
+        Viewer.updateEditorToolbarState?.();
+        return;
+      }
+      const type = SEASONS[season].weather;
+      state.seasonType = type;
+      Viewer.setWeatherOptions({ type, season });
+      Viewer.updateEditorToolbarState?.();
     },
 
     enableWeather() {
@@ -1052,6 +1144,7 @@ export function attachWeather(Viewer) {
         splashes: createPoints(rainSeeds.slice(0, SPLASH_MAX * 4), SPLASH_VERTEX, SPLASH_FRAGMENT, "splashMaterial", { uDuration: 0.22 }, "weather-splashes", heightTexture),
         spray: createPoints(rainSeeds.slice(0, SPLASH_MAX * 4), SPRAY_VERTEX, SPRAY_FRAGMENT, "sprayMaterial", { uDuration: 0.32, uSpeed: 0.1 }, "weather-spray", heightTexture),
         snow: createPoints(random4(SNOW_MAX), SNOW_VERTEX, SNOW_FRAGMENT, "snowMaterial", { uSway: 0.01 }, "weather-snow", heightTexture),
+        leaves: createPoints(random4(LEAF_MAX), LEAF_VERTEX, LEAF_FRAGMENT, "leafMaterial", { uSway: 0.01, uColorB: new THREE.Color(), uFlat: 0 }, "weather-leaves", heightTexture),
         mist: null,
         // The scene's depth for the mist (WebGL).
         mistDepth: null,
@@ -1068,9 +1161,12 @@ export function attachWeather(Viewer) {
         fogColor: FOG_COLORS.clear.clone(),
         wet: 0,
         snowCover: 0,
+        // The season now, blending towards the chosen one: its grade, how
+        // much falls, and what (SEASONS).
+        season: { grade: [...NO_GRADE], saturation: 1, leaves: 0, flat: 0, fall: 1, sway: 1, size: 1, opacity: 0, colorA: new THREE.Color(0xffffff), colorB: new THREE.Color(0xffffff) },
         time: 0,
         // With WebGPU the node materials' own (weather-webgpu.js).
-        surfaceUniforms: webgpu()?.surfaceUniforms || { weatherWet: { value: 0 }, weatherSnow: { value: 0 } },
+        surfaceUniforms: webgpu()?.surfaceUniforms || { weatherWet: { value: 0 }, weatherSnow: { value: 0 }, weatherGrade: { value: new THREE.Color(1, 1, 1) }, weatherSaturation: { value: 1 } },
         patched: new Map(),
         patchScan: 0,
         bounds: null,
@@ -1084,7 +1180,7 @@ export function attachWeather(Viewer) {
       objects.snow.userData.uniforms.uColor.value.set(0xffffff);
       objects.rain.userData.uniforms.uColor.value.set(0xb4c0cc);
       objects.mist = createMist(getMistNoise());
-      objects.group.add(objects.sky, objects.ground, objects.mist, objects.rain, objects.splashes, objects.spray, objects.snow, objects.flashLight, objects.flashTarget);
+      objects.group.add(objects.sky, objects.ground, objects.mist, objects.rain, objects.splashes, objects.spray, objects.snow, objects.leaves, objects.flashLight, objects.flashTarget);
       core.scene.add(objects.group);
       core.scene.fog = objects.fog;
       Viewer.weatherObjects = objects;
@@ -1097,10 +1193,16 @@ export function attachWeather(Viewer) {
       const objects = Viewer.weatherObjects;
       Viewer.weather.enabled = false;
       Viewer.weatherObjects = null;
+      // The season goes with its weather.
+      Viewer.weather.season = null;
+      Viewer.weather.seasonType = null;
+      Viewer.syncSeasonsPanel?.();
       if (!objects) return;
       Viewer.unpatchWeatherSurfaces(objects);
       objects.surfaceUniforms.weatherWet.value = 0;
       objects.surfaceUniforms.weatherSnow.value = 0;
+      objects.surfaceUniforms.weatherGrade.value.setRGB(1, 1, 1);
+      objects.surfaceUniforms.weatherSaturation.value = 1;
       objects.bolt?.removeFromParent();
       objects.group.removeFromParent();
       objects.group.traverse((object) => {
@@ -1133,7 +1235,8 @@ export function attachWeather(Viewer) {
         if (state.sound) objects.sound.context.resume();
         else objects.sound.context.suspend();
       }
-      if (!state.surfaces) Viewer.unpatchWeatherSurfaces(objects);
+      // The grade of a season needs the patch still (updateWeatherSurfaces).
+      if (!state.surfaces && !state.season) Viewer.unpatchWeatherSurfaces(objects);
     },
 
     getWeatherModelRoots() {
@@ -1161,7 +1264,7 @@ export function attachWeather(Viewer) {
       const volume = new THREE.Vector3(half * 2, height, half * 2);
       objects.bounds = { box, center, size, origin, volume, ground };
       // The height map covers the model's surroundings (`origin`, `volume`).
-      [objects.rain, objects.splashes, objects.spray, objects.snow].forEach((mesh) => {
+      [objects.rain, objects.splashes, objects.spray, objects.snow, objects.leaves].forEach((mesh) => {
         mesh.userData.uniforms.uMapOrigin.value.copy(origin);
         mesh.userData.uniforms.uMapSize.value.copy(volume);
       });
@@ -1261,7 +1364,7 @@ export function attachWeather(Viewer) {
       // Which way the camera's right and up point: the WebGPU flakes face it.
       const right = new THREE.Vector3().setFromMatrixColumn(core.camera.matrixWorld, 0);
       const up = new THREE.Vector3().setFromMatrixColumn(core.camera.matrixWorld, 1);
-      [objects.rain, objects.splashes, objects.spray, objects.snow].forEach((mesh) => {
+      [objects.rain, objects.splashes, objects.spray, objects.snow, objects.leaves].forEach((mesh) => {
         const uniforms = mesh.userData.uniforms;
         uniforms.uTime.value = objects.time;
         uniforms.uViewportHeight.value = viewportHeight;
@@ -1287,7 +1390,7 @@ export function attachWeather(Viewer) {
       const reach = cube / 1.5;
       const ahead = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(cube * 0.3);
       const boxMin = camera.position.clone().add(ahead).subScalar(cube / 2);
-      [objects.rain, objects.splashes, objects.spray, objects.snow].forEach((mesh) => {
+      [objects.rain, objects.splashes, objects.spray, objects.snow, objects.leaves].forEach((mesh) => {
         mesh.userData.uniforms.uBoxMin.value.copy(boxMin);
         mesh.userData.uniforms.uBoxSize.value = cube;
       });
@@ -1317,7 +1420,7 @@ export function attachWeather(Viewer) {
       // The model's height map: when it moved, and now and then while
       // something falls on it.
       objects.heightMap.age += dt;
-      if ((objects.rain.visible || objects.snow.visible) && objects.heightMap.age > HEIGHT_REFRESH) {
+      if ((objects.rain.visible || objects.snow.visible || objects.leaves.visible) && objects.heightMap.age > HEIGHT_REFRESH) {
         objects.heightMap.age = 0;
         Viewer.renderWeatherHeight(objects, bounds);
       }
@@ -1331,6 +1434,33 @@ export function attachWeather(Viewer) {
       snow.uPointSize.value = reach * 0.0048 * (0.8 + 0.5 * snowAmount);
       snow.uSway.value = reach * 0.015;
       snow.uOpacity.value = 0.9;
+
+      // The season: its grade and what falls, blending over as the weather
+      // does; the colours of what falls turn while it thins out.
+      const season = SEASONS[state.season] || null;
+      const seasonNow = objects.season;
+      const blend = Math.min(step * 3, 1);
+      const grade = season ? season.grade : NO_GRADE;
+      for (let k = 0; k < 3; k += 1) seasonNow.grade[k] += (grade[k] - seasonNow.grade[k]) * blend;
+      seasonNow.saturation += ((season ? season.saturation : 1) - seasonNow.saturation) * blend;
+      seasonNow.leaves += ((season ? season.amount : 0) - seasonNow.leaves) * blend;
+      if (season && season.amount > 0) {
+        seasonNow.colorA.lerp(new THREE.Color(season.colors[0]), blend);
+        seasonNow.colorB.lerp(new THREE.Color(season.colors[1]), blend);
+        ["flat", "fall", "sway", "size", "opacity"].forEach((key) => {
+          seasonNow[key] += (season[key] - seasonNow[key]) * blend;
+        });
+      }
+      const leaves = objects.leaves.userData.uniforms;
+      setCount(objects.leaves, Math.round(LEAF_MAX * clamp01(seasonNow.leaves)));
+      leaves.uFall.value = reach * 0.11 * seasonNow.fall;
+      leaves.uWind.value.set(windX, windZ).multiplyScalar(current.wind * reach * 0.4);
+      leaves.uPointSize.value = reach * 0.0048 * seasonNow.size;
+      leaves.uSway.value = reach * 0.015 * seasonNow.sway;
+      leaves.uOpacity.value = seasonNow.opacity;
+      leaves.uFlat.value = seasonNow.flat;
+      leaves.uColor.value.copy(seasonNow.colorA);
+      leaves.uColorB.value.copy(seasonNow.colorB);
 
       // Mist: drifting with the wind (in noise tiles), lit by the sun - warm
       // when it is low, little of it through thick clouds.
@@ -1687,7 +1817,108 @@ export function attachWeather(Viewer) {
       Viewer.weatherPanel = null;
     },
 
+    // ---- the seasons' window (Look > Seasons) ---------------------------------
+
+    isSeasonsPanelOpen() {
+      return Boolean(Viewer.seasonsPanel);
+    },
+
+    toggleSeasonsPanel(open = !Viewer.seasonsPanel) {
+      if (open) Viewer.createSeasonsPanel();
+      else Viewer.removeSeasonsPanel();
+      Viewer.updateEditorToolbarState?.();
+    },
+
+    createSeasonsPanel() {
+      if (Viewer.seasonsPanel || !core.container || Viewer.urlOptions?.hideUi === true) return;
+      const el = (tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text != null) node.textContent = text;
+        return node;
+      };
+      const panel = el("section", "viewer-weather viewer-seasons");
+      panel.id = "viewerSeasons";
+      panel.setAttribute("role", "group");
+      const header = el("div", "viewer-weather_header");
+      const title = el("span", "viewer-weather_title");
+      const closeButton = el("button", "viewer-weather_icon", "×");
+      closeButton.type = "button";
+      header.append(title, closeButton);
+
+      // The seasons, and none.
+      const chips = el("div", "viewer-weather_types viewer-weather_types--seasons");
+      const buttons = {};
+      ["off", ...WEATHER_SEASONS].forEach((key) => {
+        const button = el("button", "viewer-weather_type");
+        button.type = "button";
+        button.dataset.season = key;
+        const glyph = el("span", "viewer-weather_type-icon");
+        glyph.innerHTML = seasonIcon(key);
+        const label = el("span", "viewer-weather_type-label");
+        button.append(glyph, label);
+        button.addEventListener("click", () => Viewer.setWeatherSeason(key === "off" ? null : key));
+        chips.append(button);
+        buttons[key] = { button, label };
+      });
+
+      panel.append(header, chips);
+      ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
+        panel.addEventListener(type, (event) => event.stopPropagation());
+      });
+      closeButton.addEventListener("click", () => Viewer.toggleSeasonsPanel(false));
+      attachToolPanelChrome(panel, header, {
+        before: closeButton,
+        icon: PANEL_ICONS.seasons,
+        label: () => t("seasons.title", "Seasons"),
+      });
+      getViewerSideStack()?.append(panel);
+      Viewer.seasonsPanel = { panel, title, closeButton, buttons };
+      Viewer.updateSeasonsLabels();
+    },
+
+    removeSeasonsPanel() {
+      Viewer.seasonsPanel?.panel.remove();
+      Viewer.seasonsPanel = null;
+    },
+
+    updateSeasonsLabels() {
+      const ui = Viewer.seasonsPanel;
+      if (!ui) return;
+      const name = t("seasons.title", "Seasons");
+      ui.panel.setAttribute("aria-label", name);
+      ui.title.textContent = name;
+      refreshToolPanelChrome(ui.panel);
+      ui.closeButton.title = t("weather.close", "Close");
+      ui.closeButton.setAttribute("aria-label", ui.closeButton.title);
+      const names = {
+        off: t("seasons.off", "None"),
+        spring: t("seasons.spring", "Spring"),
+        summer: t("seasons.summer", "Summer"),
+        autumn: t("seasons.autumn", "Autumn"),
+        winter: t("seasons.winter", "Winter"),
+      };
+      Object.entries(ui.buttons).forEach(([key, { button, label }]) => {
+        label.textContent = names[key];
+        button.title = names[key];
+      });
+      Viewer.syncSeasonsPanel();
+    },
+
+    syncSeasonsPanel() {
+      const ui = Viewer.seasonsPanel;
+      if (!ui) return;
+      const state = Viewer.weather;
+      const current = state.enabled && state.season ? state.season : "off";
+      Object.entries(ui.buttons).forEach(([key, { button }]) => {
+        const active = key === current;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    },
+
     updateWeatherLabels() {
+      Viewer.updateSeasonsLabels();
       const ui = Viewer.weatherPanel;
       if (!ui) return;
       const name = t("weather.title", "Weather");
@@ -1775,9 +2006,13 @@ export function attachWeather(Viewer) {
       const uniforms = objects.surfaceUniforms;
       uniforms.weatherWet.value = objects.wet;
       uniforms.weatherSnow.value = objects.snowCover;
+      const [r, g, b] = objects.season.grade;
+      uniforms.weatherGrade.value.setRGB(r, g, b);
+      uniforms.weatherSaturation.value = objects.season.saturation;
       // The node materials have it built in (renderer-backend.js).
       if (webgpu()) return;
-      const needed = Viewer.weather.surfaces && (objects.wet > 0.001 || objects.snowCover > 0.001);
+      const graded = Math.abs(r - 1) + Math.abs(g - 1) + Math.abs(b - 1) + Math.abs(objects.season.saturation - 1) > 0.002;
+      const needed = graded || (Viewer.weather.surfaces && (objects.wet > 0.001 || objects.snowCover > 0.001));
       if (!needed) {
         if (objects.patched.size) Viewer.unpatchWeatherSurfaces(objects);
         return;
@@ -1815,6 +2050,8 @@ export function attachWeather(Viewer) {
         if (!shader.fragmentShader.includes(include)) return;
         shader.uniforms.weatherWet = uniforms.weatherWet;
         shader.uniforms.weatherSnow = uniforms.weatherSnow;
+        shader.uniforms.weatherGrade = uniforms.weatherGrade;
+        shader.uniforms.weatherSaturation = uniforms.weatherSaturation;
         shader.fragmentShader = SURFACE_UNIFORMS + shader.fragmentShader.replace(include, `${chunk}\n${include}`);
       };
       material.customProgramCacheKey = function () {
@@ -1852,6 +2089,7 @@ export function attachWeather(Viewer) {
         mistHeight: Math.round(state.mistHeight * 100) / 100,
         mistDensity: Math.round(state.mistDensity * 100) / 100,
         mistSpread: Math.round(state.mistSpread * 100) / 100,
+        ...(state.season ? { season: state.season } : {}),
       };
     },
 
@@ -1861,7 +2099,9 @@ export function attachWeather(Viewer) {
         Viewer.setWeather(false);
         return false;
       }
-      Viewer.setWeatherOptions({ ...weather, sound: false });
+      const season = WEATHER_SEASONS.includes(weather.season) ? weather.season : null;
+      Viewer.setWeatherOptions({ ...weather, season, sound: false });
+      if (season) Viewer.weather.seasonType = weather.type;
       return true;
     },
 

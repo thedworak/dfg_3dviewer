@@ -3,9 +3,13 @@
 // together: points spread over the surface by triangle area, each with the
 // colour of its texture (times the material's base colour).
 //
-//   node scripts/build-intro-points.mjs [count] [model.glb]
+//   node scripts/build-intro-points.mjs [count] [model.glb] [out.bin]
 //
-// Writes viewer/intro/synagogue-points.bin (little-endian):
+// Another model for a deployment's intro (viewer.intro.scene, docs/intro.md):
+// its points into the client's folder, e.g.
+//   node scripts/build-intro-points.mjs 120000 model.glb clients/acme/brand/intro/points.bin
+//
+// Writes viewer/intro/synagogue-points.bin by default (little-endian):
 //   char[4]   "E4DP"
 //   uint32    point count
 //   float32×3 bounding box min, float32×3 bounding box max
@@ -13,13 +17,15 @@
 //   uint8×3   per point: sRGB colour
 //   int8×3    per point: surface normal (×127)
 import { NodeIO } from '@gltf-transform/core';
+import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+import { MeshoptDecoder } from 'meshoptimizer';
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
 
 const count = Number(process.argv[2]) || 200000;
 const modelPath = process.argv[3] || 'viewer/examples/WolpaSynagogue.glb';
-const outPath = 'viewer/intro/synagogue-points.bin';
+const outPath = process.argv[4] || 'viewer/intro/synagogue-points.bin';
 
 // A small seeded generator: the same file on every run.
 let seed = 0x4d3a2f1;
@@ -42,11 +48,16 @@ const textureCache = new Map();
 async function decodeTexture(texture) {
   if (!texture) return null;
   if (textureCache.has(texture)) return textureCache.get(texture);
-  const { data, info } = await sharp(Buffer.from(texture.getImage()))
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const decoded = { data, width: info.width, height: info.height };
+  let decoded = null;
+  try {
+    const { data, info } = await sharp(Buffer.from(texture.getImage()))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    decoded = { data, width: info.width, height: info.height };
+  } catch (error) {
+    console.warn(`texture "${texture.getName() || texture.getURI()}" (${texture.getMimeType()}) not decoded, base colour only: ${error.message}`);
+  }
   textureCache.set(texture, decoded);
   return decoded;
 }
@@ -58,7 +69,12 @@ function sampleTexture(tex, u, v) {
   return [tex.data[i], tex.data[i + 1], tex.data[i + 2]];
 }
 
-const io = new NodeIO();
+// Meshopt-compressed geometry is read too; KTX2 textures are not (sharp
+// cannot decode them) - their points take the material's base colour.
+await MeshoptDecoder.ready;
+const io = new NodeIO()
+  .registerExtensions(ALL_EXTENSIONS)
+  .registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
 const document = await io.read(modelPath);
 const root = document.getRoot();
 

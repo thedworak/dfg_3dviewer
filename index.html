@@ -2,6 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // ?ultralight=1 (or ultra=1): the ultralight viewer, ultra.html - the
+      // model and nothing else - with the same parameters. Checked first, so
+      // that neither the stylesheets nor the viewer's module are fetched.
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var value = params.has("ultralight") ? params.get("ultralight") : params.get("ultra");
+        if (["", "1", "true", "yes", "on"].indexOf(String(value).toLowerCase()) < 0) return;
+        params.delete("ultralight");
+        params.delete("ultra");
+        window.location.replace("ultra.html?" + params.toString() + window.location.hash);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>ExPlora4D Viewer (production environment)</title>
     <link rel="shortcut icon" href="assets/img/icon.png" type="image/png">

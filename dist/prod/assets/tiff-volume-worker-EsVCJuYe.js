@@ -1,0 +1,2 @@
+import{r as s}from"./tiff-reader-WdMoqkxo.js";import"./_node-resolve_empty-DDCmjgak.js";import"./volume-voxels-D0AaW4wJ.js";import"./slice-stack-jFVQ4rDS.js";self.onmessage=async e=>{const{source:t,layout:o}=e.data||{};try{const e=await s(t,o,{onProgress:s=>self.postMessage({type:"progress",progress:s})});self.postMessage({type:"done",result:e},[e.bytes.buffer])}catch(s){self.postMessage({type:"error",message:s?.message||String(s)})}},self.postMessage({type:"ready"});
+//# sourceMappingURL=tiff-volume-worker-Dtnnq5iA.js.map

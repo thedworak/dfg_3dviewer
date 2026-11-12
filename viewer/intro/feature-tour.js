@@ -37,7 +37,7 @@ import {
 import { HORIZON, RAD, formatSunTime, solarPosition, sunTimestamp, sunriseSunset } from '../sun-position.js';
 
 // Seconds into the tour.
-export const CHAPTERS = [
+const ALL_CHAPTERS = [
   { key: 'section', from: 0, to: 3.0 },
   { key: 'annotations', from: 3.0, to: 6.4 },
   { key: 'shading', from: 6.4, to: 10.0 },
@@ -45,8 +45,89 @@ export const CHAPTERS = [
   { key: 'seasons', from: 14.8, to: 25.8 },
   { key: 'time', from: 25.8, to: 38.5 },
 ];
-export const TOUR_LENGTH = 39.1;
-const START = Object.fromEntries(CHAPTERS.map((chapter) => [chapter.key, chapter.from]));
+const TAIL = 0.6; // after the last chapter, before 'end'
+
+// The chapters for a scene (intro-scene.js): the time travel only with a
+// 4D model's stages. { chapters, length } - the length in seconds.
+export function tourPlan({ time = true } = {}) {
+  const chapters = time ? ALL_CHAPTERS : ALL_CHAPTERS.filter((chapter) => chapter.key !== 'time');
+  return { chapters, length: chapters.at(-1).to + TAIL };
+}
+export const { chapters: CHAPTERS, length: TOUR_LENGTH } = tourPlan();
+
+// The camera through the model's act (intro.js), a function of its time
+// only - not of how many frames were drawn - so every run looks the same:
+//   - it turns on from the landing and comes to the front for the sections
+//     (the plane sweeps in from +Z), holding still while it cuts;
+//   - it turns slowly on through the annotations and the shading, and holds
+//     still again for the sun study (its shadows turn with the sun only);
+//   - for the time travel it starts at the front's right (seen from the
+//     front, +X) and goes round in an arc towards the entrance in the middle
+//     of the front, a little closer; then it turns on as before.
+// Angles are Spherical.theta around the model (0: from +Z, +X at pi / 2).
+const SECTION_THETA = 0;
+const TIME_FROM_THETA = 0.95;
+const TIME_TO_THETA = 0.08;
+// The time travel's distance, of the camera's own.
+const TIME_DOLLY = 0.84;
+
+/**
+ * @param {object} options
+ *   plan       tourPlan()
+ *   front      the angle at the landing (the scene's front)
+ *   rate       radians a second it turns at the landing (and between holds)
+ *   tourStart  seconds from the model's act to the tour's first chapter
+ * @returns {(s: number) => { theta: number, dolly: number }} at s seconds
+ *   into the model's act: the angle, and the distance as a share of the
+ *   camera's own.
+ */
+export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }) {
+  const chapter = (key) => plan.chapters.find((c) => c.key === key);
+  const nearest = (angle, to) => angle + Math.round((to - angle) / (2 * Math.PI)) * 2 * Math.PI;
+  // [s, theta, slope]: a smooth (Hermite) curve through them.
+  const keys = [[0, front, -rate]];
+  const section = chapter('section');
+  const sun = chapter('sun');
+  const time = chapter('time');
+  const last = plan.chapters.at(-1);
+  const base = nearest(SECTION_THETA, front - rate * tourStart);
+  if (section) {
+    keys.push([tourStart + section.from - 0.3, base, 0], [tourStart + section.to - 0.2, base, 0]);
+  }
+  const moving = keys.at(-1)[0];
+  // The sun study's angle: part of the way to the time travel's start.
+  if (sun) {
+    const sunFrom = tourStart + sun.from - 0.3;
+    const sunTo = tourStart + sun.from + SUN_LENGTH;
+    const end = time ? tourStart + time.from : tourStart + last.to;
+    const share = (sunFrom - moving) / Math.max(1e-3, sunFrom - moving + end - sunTo);
+    const sunTheta = base + (time ? TIME_FROM_THETA : 0.6) * share;
+    keys.push([sunFrom, sunTheta, 0], [sunTo, sunTheta, 0]);
+  }
+  if (time) {
+    keys.push([tourStart + time.from, base + TIME_FROM_THETA, 0], [tourStart + time.to, base + TIME_TO_THETA, -rate]);
+  } else {
+    keys.push([tourStart + last.to, base + 0.6, rate]);
+  }
+  const dollyAt = (s) => (time ? 1 - (1 - TIME_DOLLY) * window01(s - tourStart, time.from, time.to + 1.5, 1.5) : 1);
+  return (s) => {
+    let theta;
+    if (s <= keys[0][0]) theta = keys[0][1] + keys[0][2] * (s - keys[0][0]);
+    else if (s >= keys.at(-1)[0]) theta = keys.at(-1)[1] + keys.at(-1)[2] * (s - keys.at(-1)[0]);
+    else {
+      let i = 0;
+      while (s > keys[i + 1][0]) i++;
+      const [s0, p0, m0] = keys[i];
+      const [s1, p1, m1] = keys[i + 1];
+      const h = s1 - s0;
+      const u = (s - s0) / h;
+      const u2 = u * u;
+      const u3 = u2 * u;
+      theta = (2 * u3 - 3 * u2 + 1) * p0 + (u3 - 2 * u2 + u) * h * m0 + (-2 * u3 + 3 * u2) * p1 + (u3 - u2) * h * m1;
+    }
+    return { theta, dolly: dollyAt(s) };
+  };
+}
 
 // Shading: [from, to] modes, each step a wipe (see mesh-reveal.js introShade).
 const SHADING_STEPS = [[0, 1], [1, 2], [2, 0]];
@@ -59,7 +140,7 @@ const SEASONS_END = 4 * SEASON_LENGTH;
 // The sun study: Wołpa (Voŭpa, Belarus), midsummer day, local time (UTC+3).
 // The model's north is taken to be -Z (the viewer's default, AIM3DViewer
 // location.north = 0): the model's files do not say where north is.
-const SITE = { latitude: 53.37, longitude: 24.37, utcOffset: 3, north: 0, year: 2026, month: 6, day: 21 };
+const DEFAULT_SITE = { latitude: 53.37, longitude: 24.37, utcOffset: 3, north: 0, month: 6, day: 21 };
 const SUN_LENGTH = 4.8;
 // The sun's track around the building's middle, this far out (intro units).
 const SUN_RADIUS = 2.5;
@@ -68,7 +149,7 @@ const COMPASS_RADIUS = 2.15;
 const SEASON_KEYS = ['spring', 'summer', 'autumn', 'winter'];
 
 // Time travel: the 4D model's stages (viewer/intro/time/time.json).
-const TIME_URL = 'assets/intro/time/';
+const DEFAULT_TIME_URL = 'assets/intro/time/';
 // Back from today to the first stage, then each stage in turn: the first
 // steps slow, each next one quicker, as on a shrinking time scale; most of
 // each step is the change itself.
@@ -93,13 +174,21 @@ const window01 = (x, a, b, fade) => smooth((x - a) / fade) * (1 - smooth((x - b 
  *   toIntro     (x, y, z) in the model's units -> Vector3 in the intro's space
  *   heightLabel the measured height, formatted
  */
-export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang }) {
+export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang, scene = {}, plan = tourPlan() }) {
   const u = reveal.uniforms;
   const group = new Group();
+  const CHAPTERS = plan.chapters;
+  const TOUR_LENGTH = plan.length;
+  const START = Object.fromEntries(CHAPTERS.map((chapter) => [chapter.key, chapter.from]));
+  // A fixed year: the same sun on every run (stills, recordings).
+  const SITE = { ...(scene.site || DEFAULT_SITE), year: 2026 };
+  const TIME_URL = scene.time === undefined ? DEFAULT_TIME_URL : scene.time;
+  const ground = scene.ground ?? 0;
 
   // --- Time travel: the stages and their textures, loaded in the background --
   let timeTravel = null; // { stages, parts: { part: { materials, fresh, mid } } }
   (async () => {
+    if (!TIME_URL) return;
     const response = await fetch(`${TIME_URL}time.json`);
     if (!response.ok) throw new Error(`${TIME_URL}time.json: HTTP ${response.status}`);
     const data = await response.json();
@@ -184,12 +273,17 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
   group.add(plane);
 
   // --- Annotations ------------------------------------------------------------
-  const pins = [
-    { key: 'roof', at: toIntro(300, 1361, -733), lift: 0.22, delay: 0 },
-    { key: 'pavilion', at: toIntro(-943, 817, 645), lift: 0.42, delay: 0.45 },
-  ];
-  const measureBottom = toIntro(1340, 0, 1111);
-  const measureTop = toIntro(1340, 1675, 1111);
+  // The scene's pins (model units), one after another.
+  const pins = (scene.pins || []).map((pin, index) => ({
+    key: pin.key,
+    kind: pin.kind,
+    at: toIntro(...pin.at),
+    lift: pin.lift,
+    delay: index * 0.45,
+  }));
+  const measure = scene.measure;
+  const measureBottom = toIntro(measure.x, measure.from, measure.z);
+  const measureTop = toIntro(measure.x, measure.to, measure.z);
   const lineMaterial = new LineBasicMaterial({ color: 0x9cc8ff, transparent: true, opacity: 0, depthTest: false });
   const linePositions = [];
   for (const pin of pins) {
@@ -248,7 +342,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     root.appendChild(el);
     return el;
   };
-  for (const pin of pins) pin.label = makeLabel(tx.labels[pin.key], pin.key === 'roof' ? 'is-annotation' : 'is-poi');
+  for (const pin of pins) pin.label = makeLabel(tx.labels?.[pin.key] ?? '', pin.kind === 'poi' ? 'is-poi' : 'is-annotation');
   const measureLabel = makeLabel(heightLabel, 'is-measure');
 
   // --- Chapter title ----------------------------------------------------------
@@ -283,7 +377,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     uColorA: { value: new Color() },
     uColorB: { value: new Color() },
     uFlat: { value: 0 },
-    uBottom: { value: toIntro(0, 0, 0).y },
+    uBottom: { value: toIntro(0, ground, 0).y },
   };
   const flakes = new Points(flakeGeometry, new ShaderMaterial({
     uniforms: flakeUniforms,
@@ -349,7 +443,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
   const defaultHemisphere = hemisphere.intensity;
   const horizonColor = new Color(0xffa25e);
   const noonColor = new Color(0xfff4e2);
-  const groundY = toIntro(0, 0, 0).y;
+  const groundY = toIntro(0, ground, 0).y;
   const sunCentre = new Vector3(0, groundY, 0);
   const { sunrise, sunset } = sunriseSunset({ ...SITE });
   const dayStart = (sunrise ?? 240) - 25;
@@ -498,10 +592,6 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
 
   return {
     group,
-    // The sun study wants the camera still: its shadows turn with the sun only.
-    holdsCamera(tour) {
-      return tour > START.sun - 0.3 && tour < START.sun + SUN_LENGTH;
-    },
     setViewport(viewport) {
       dotUniforms.uViewport.value = viewport;
       flakeUniforms.uViewport.value = viewport;
@@ -660,7 +750,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
         }
       } else {
         resetTime();
-        if (!timeTravel && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time) timeSub = '1730 → 1936';
+        if (!timeTravel && !scene.custom && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time) timeSub = '1730 → 1936';
       }
 
       // The chapter's title.
@@ -674,7 +764,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
         }
         // Everything done: once, right after the last chapter.
         const finished = exit <= 0 && tour >= CHAPTERS.at(-1).to && tour < TOUR_LENGTH + 1;
-        if (finished && lastCue.startsWith('time:')) {
+        if (finished && lastCue.startsWith(`${CHAPTERS.at(-1).key}:`)) {
           lastCue = 'end';
           return 'end';
         }

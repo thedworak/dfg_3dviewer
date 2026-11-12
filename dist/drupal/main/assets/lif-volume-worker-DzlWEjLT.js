@@ -1,0 +1,2 @@
+import{readSeriesVolume as s,createByteSource as e}from"./lif-reader-DQCO3kuK.js";import"./volume-voxels-BTms9hMZ.js";self.onmessage=async o=>{const{source:r,layout:t}=o.data||{};try{const o=await s(e(r),t,{onProgress:s=>self.postMessage({type:"progress",progress:s})});self.postMessage({type:"done",result:o},[o.bytes.buffer])}catch(s){self.postMessage({type:"error",message:s?.message||String(s)})}},self.postMessage({type:"ready"});
+//# sourceMappingURL=lif-volume-worker-CzDPYkSa.js.map

@@ -21,8 +21,7 @@
     background: var(--viewer-panel-embed-bg, var(--viewer-panel-bg));
     color: var(--viewer-panel-text);
     box-shadow: var(--viewer-panel-shadow);
-    font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-              "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: var(--font-ui);
     font-size: 13px;
     line-height: 1.4;
     scrollbar-width: thin;

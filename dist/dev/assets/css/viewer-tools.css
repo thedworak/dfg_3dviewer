@@ -1331,6 +1331,38 @@
   box-sizing: border-box;
 }
 
+/* A modal panel restored (attachToolPanelChrome's `modal`, phones): a
+   window centred in the viewer over a dimmed backdrop, whatever its place
+   docked or as an icon; a tap on the backdrop minimizes it again. */
+.tool-panel-chrome_backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10002;
+  background: rgba(10, 8, 6, 0.45);
+  touch-action: none;
+}
+
+.has-tool-chrome.is-modal-open {
+  position: absolute;
+  z-index: 10003;
+  left: 50% !important;
+  top: 50% !important;
+  width: min(380px, calc(100% - 24px)) !important;
+  max-width: none;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  overscroll-behavior: contain;
+}
+
+/* Docked again only by minimizing: no grip while it is a window, nor a
+   panel's own folding of its body (minimizing does that). */
+.has-tool-chrome.is-modal-open .tool-panel-chrome_grip,
+.has-tool-chrome.is-modal-open .viewer-pointcloud-panel_collapse {
+  display: none;
+}
+
 /* Minimized: a small round icon (.tool-panel-chrome_pip) alone; a tap
    restores the panel, a drag moves it. */
 .has-tool-chrome.is-minimized {
@@ -1508,6 +1540,62 @@
   margin: 0;
   font-size: 11px;
   opacity: 0.7;
+}
+
+/* Volume controls (editor/volume-panel.js), on the point cloud panel's. */
+.viewer-volume-panel {
+  max-height: min(80vh, 720px);
+  overflow-y: auto;
+}
+
+.viewer-volume-panel_channel {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+}
+
+.viewer-volume-panel_channel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewer-volume-panel_channel-head > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-volume-panel_channel-head input[type="color"] {
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.viewer-volume-panel_summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.viewer-volume-panel_summary dt {
+  opacity: 0.8;
+}
+
+.viewer-volume-panel_summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Profile and classes (editor/point-cloud-tools.js). */
@@ -2609,6 +2697,17 @@
   line-height: 1;
 }
 
+/* The seasons' window: off and the four seasons in one row, line icons. */
+.viewer-weather_types--seasons {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.viewer-weather_type-icon svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 .viewer-weather_type-label {
   max-width: 100%;
   overflow: hidden;
@@ -2619,7 +2718,7 @@
 
 .viewer-weather_type.is-active {
   border-color: var(--viewer-brand-gold, #e9b264);
-  background: rgba(233, 178, 100, 0.18);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent);
 }
 
 .viewer-weather_settings {
@@ -2684,6 +2783,10 @@
   .viewer-weather_types {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 4px;
+  }
+
+  .viewer-weather_types--seasons {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .viewer-weather_type {
@@ -2949,7 +3052,7 @@
 
 .viewer-scene_purpose.is-active {
   border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: rgba(233, 178, 100, 0.18) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent) !important;
 }
 
 .viewer-scene_items {
@@ -2998,7 +3101,7 @@
 }
 
 .viewer-scene_confidence[data-level="low"] {
-  background: rgba(233, 178, 100, 0.22);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 22%, transparent);
 }
 
 .viewer-scene_item.is-unchanged {

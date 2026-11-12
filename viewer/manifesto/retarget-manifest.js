@@ -1,4 +1,4 @@
-import { modelFormatOf } from "../IIIF/model-formats.js";
+import { contentTypeOf, modelFormatOf } from "../IIIF/model-formats.js";
 
 // The settings of a manifest for another model (the manifest form's "Use
 // these settings with another model", metadata.js): the look - lights,
@@ -9,6 +9,8 @@ import { modelFormatOf } from "../IIIF/model-formats.js";
 // - the thumbnails (renders of the old model), the 4D timeline (its nodes)
 //   and the section planes (its coordinates)
 // - the model's own transform (position, rotation, scale)
+// - the sounds placed on it (point and spot sources: its coordinates); the
+//   ambient ones stay, as part of the look
 // - the viewer window's place on the page (viewer.window)
 // - the camera, unless keepCamera: a pose that fits one model rarely fits
 //   another, and without one the viewer frames the new model itself
@@ -24,8 +26,9 @@ const typeOf = (annotation) => {
   const body = bodyOf(annotation);
   return (Array.isArray(body) ? body[0]?.type : body?.type) || "";
 };
-const isModel = (annotation) => typeOf(annotation) === "Model";
+const isModel = (annotation) => ["Model", "Sound", "Audio", "Image"].includes(typeOf(annotation));
 const isCamera = (annotation) => /Camera$/.test(typeOf(annotation));
+const isPlacedSound = (annotation) => ["PointAudio", "SpotAudio"].includes(typeOf(annotation));
 
 export function modelUrlOfManifest(manifest) {
   for (const scene of manifest?.items || []) {
@@ -71,12 +74,13 @@ export function retargetManifest(manifest, modelUrl, { keepCamera = false } = {}
           if (modelPlaced) return false;
           modelPlaced = true;
           const format = modelFormatOf(newUrl);
-          annotation.body = { id: newUrl, type: "Model", ...(format ? { format } : {}) };
+          annotation.body = { id: newUrl, type: contentTypeOf(newUrl), ...(format ? { format } : {}) };
           return true;
         }
         // The default camera (the page's first) stays with keepCamera; the
         // cameras of saved views go with their annotations.
         if (isCamera(annotation)) return keepCamera && !/\/view$/.test(String(annotation.id || ""));
+        if (isPlacedSound(annotation)) return false;
         return true;
       }),
     }));
@@ -94,6 +98,13 @@ export function retargetManifest(manifest, modelUrl, { keepCamera = false } = {}
       delete block.viewer.clipping;
       // Where the viewer window stood on the page the settings came from.
       delete block.viewer.window;
+    }
+    if (Array.isArray(block.sounds?.sources)) {
+      block.sounds.sources = block.sounds.sources.filter((source) => (source?.type || (source?.position ? "point" : "ambient")) === "ambient");
+      // The listening point belongs to the old model too; the rest of
+      // the room's settings is kept.
+      if (block.sounds.acoustics) delete block.sounds.acoustics.position;
+      if (!block.sounds.sources.length) delete block.sounds;
     }
     if (block.modelTransform) {
       delete block.modelTransform.position;

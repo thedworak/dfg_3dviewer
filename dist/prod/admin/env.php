@@ -35,7 +35,7 @@ if (!isset($_SESSION['admin'])) { header('Location: login.php'); exit; }
   async function loadSchema(){
     try{
       const res = await fetch('api/env_schema.php', {credentials:'same-origin'});
-      if (res.status === 200) { envSchema = await res.json(); const el=document.createElement('div'); el.style.fontSize='90%'; el.style.margin='0.5rem 0'; el.textContent='Env schema loaded — validation enabled.'; document.body.insertBefore(el, document.getElementById('tbl')) }
+      if (res.status === 200) { envSchema = await res.json(); const el=document.createElement('div'); el.style.fontSize='90%'; el.style.margin='0.5rem 0'; el.textContent='Env schema loaded - validation enabled.'; document.body.insertBefore(el, document.getElementById('tbl')) }
     }catch(e){/* ignore */}
   }
 

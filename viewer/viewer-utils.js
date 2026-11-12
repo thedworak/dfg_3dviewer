@@ -384,6 +384,10 @@ export const setupObject = (_object, _metadata) => {
     setupCameraHandler(_object, _metadata);
     // The materials edited and saved (editor/materials-editor.js).
     if (Array.isArray(_metadata.materials)) window.Viewer?.applySavedMaterials?.(_metadata.materials);
+    // The section cuts and measurements saved with the settings
+    // (editor/clipping.js, editor/measurement.js).
+    if (_metadata.clipping) window.Viewer?.applySavedClipping?.(_metadata.clipping);
+    if (Array.isArray(_metadata.measurements)) window.Viewer?.applySavedMeasurements?.(_metadata.measurements, _object);
   }
   else if (typeof core.objectsConfig !== "undefined" && model) { //Setup from config
     if ((!Array.isArray(core.objectsConfig.models) || core.objectsConfig.models.length === 0) && _metadata == null) {
@@ -854,6 +858,135 @@ async function animateCameraToPose ({
   });
 }
 
+// How much of the view (from its middle to its edge) the model may take
+// when it is framed: the rest is room round it, and for the toolbars over
+// the canvas.
+const FIT_VIEW_FILL = 0.7;
+
+// The distance from the box's centre, along `toCamera`, at which all of the
+// box is in view: each corner of it inside FIT_VIEW_FILL of the frustum, at
+// its own depth. Not only the box's height and width at its centre - corners
+// nearer the camera than the centre, and a box seen across its diagonal,
+// stuck out of the view.
+export function fitDistanceForBox(boundingBox, toCamera, camera = core.camera, fill = FIT_VIEW_FILL) {
+  if (!boundingBox || boundingBox.isEmpty()) return 1;
+  const fov = Number.isFinite(camera?.fov) ? camera.fov : 45;
+  const aspect = Number.isFinite(camera?.aspect) && camera.aspect > 0 ? camera.aspect : 1;
+  const tanY = Math.tan(THREE.MathUtils.degToRad(fov / 2)) * fill;
+  const tanX = tanY * aspect;
+  const back = toCamera.clone().normalize();
+  const worldUp = Math.abs(back.y) > 0.999 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(worldUp, back).normalize();
+  const up = new THREE.Vector3().crossVectors(back, right);
+  const center = boundingBox.getCenter(new THREE.Vector3());
+  const corner = new THREE.Vector3();
+  let distance = 0;
+  for (const x of [boundingBox.min.x, boundingBox.max.x]) {
+    for (const y of [boundingBox.min.y, boundingBox.max.y]) {
+      for (const z of [boundingBox.min.z, boundingBox.max.z]) {
+        corner.set(x, y, z).sub(center);
+        // In front of the camera by (distance - toward), sideways by
+        // |across|: inside the view once that depth is |across| / tan.
+        const toward = corner.dot(back);
+        distance = Math.max(
+          distance,
+          toward + Math.abs(corner.dot(right)) / tanX,
+          toward + Math.abs(corner.dot(up)) / tanY
+        );
+      }
+    }
+  }
+  return Math.max(distance, boundingBox.getSize(new THREE.Vector3()).length() * 0.01, 1e-3);
+}
+
+// The models shown, as one box (non-precise: their geometries' boxes).
+export function loadedModelsBox() {
+  const box = new THREE.Box3();
+  (core.mainObject || []).flat().forEach((object) => {
+    if (object?.isObject3D) box.expandByObject(object);
+  });
+  return box;
+}
+
+// The view a manifest's camera was set on (AIM3DViewer.camera.aspect, or
+// only its orientation): its width to height, or null when the manifest
+// says neither - then nobody knows what the camera showed.
+export function authoredViewAspect(cameraConfig) {
+  const aspect = Number(cameraConfig?.aspect);
+  if (Number.isFinite(aspect) && aspect > 0) return aspect;
+  if (cameraConfig?.orientation === "portrait") return 9 / 16;
+  if (cameraConfig?.orientation === "landscape") return 16 / 9;
+  return null;
+}
+
+// The orientation of a view of that width to height.
+export function viewOrientation(aspect) {
+  return aspect < 1 ? "portrait" : "landscape";
+}
+
+// Where a manifest's camera goes back to along its line of sight, still
+// looking at `target`, for the view it is shown in now:
+// - set on a known view (authoredAspect): what it showed there was meant -
+//   a model cut off there stays so. Only a narrower view than that (a phone
+//   held upright seeing a desktop's camera) takes it back, until the model
+//   is no wider in view than it was there (or than a fitted one,
+//   FIT_VIEW_FILL, whichever is more);
+// - set on an unknown one (null): the whole model is brought into view, as
+//   a fitted one is (FIT_VIEW_FILL across and up) - never closer than set.
+// A camera in the model (an interior) stays where it is.
+export function positionForView(position, target, {
+  camera = core.camera,
+  boundingBox = loadedModelsBox(),
+  authoredAspect = null,
+} = {}) {
+  const unchanged = position.clone();
+  if (!camera?.isPerspectiveCamera || !boundingBox || boundingBox.isEmpty()) return unchanged;
+  const aspect = camera.aspect;
+  if (!(Number.isFinite(aspect) && aspect > 0)) return unchanged;
+  const known = Number.isFinite(authoredAspect) && authoredAspect > 0;
+  if (known && aspect >= authoredAspect) return unchanged;
+  if (boundingBox.containsPoint(position)) return unchanged;
+  const back = position.clone().sub(target);
+  const authoredDistance = back.length();
+  if (!(authoredDistance > 0)) return unchanged;
+  back.divideScalar(authoredDistance);
+  const worldUp = Math.abs(back.y) > 0.999 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(worldUp, back).normalize();
+  const up = new THREE.Vector3().crossVectors(back, right);
+  const tanY = Math.tan(THREE.MathUtils.degToRad((Number.isFinite(camera.fov) ? camera.fov : 45) / 2));
+
+  const corners = [];
+  const corner = new THREE.Vector3();
+  for (const x of [boundingBox.min.x, boundingBox.max.x]) {
+    for (const y of [boundingBox.min.y, boundingBox.max.y]) {
+      for (const z of [boundingBox.min.z, boundingBox.max.z]) {
+        corner.set(x, y, z).sub(target);
+        const toward = corner.dot(back);
+        // A corner behind the camera: it stands among the model's parts.
+        if (authoredDistance - toward <= authoredDistance * 1e-3) return unchanged;
+        corners.push({ toward, across: Math.abs(corner.dot(right)), upward: Math.abs(corner.dot(up)) });
+      }
+    }
+  }
+  let distance;
+  if (known) {
+    // How much of the width the model took where the camera was set.
+    const authoredFill = Math.max(...corners.map(({ toward, across }) => (
+      across / ((authoredDistance - toward) * tanY * authoredAspect)
+    )));
+    const tanX = tanY * aspect * Math.max(authoredFill, FIT_VIEW_FILL);
+    distance = Math.max(...corners.map(({ toward, across }) => toward + across / tanX));
+  } else {
+    const tanX = tanY * aspect * FIT_VIEW_FILL;
+    const tanUp = tanY * FIT_VIEW_FILL;
+    distance = Math.max(...corners.map(({ toward, across, upward }) => (
+      toward + Math.max(across / tanX, upward / tanUp)
+    )));
+  }
+  if (!(distance > authoredDistance)) return unchanged;
+  return target.clone().addScaledVector(back, distance);
+}
+
 async function fitCameraToCenteredObject(object, _fit, cfg) {
   const boundingBox = new THREE.Box3();
   if (Array.isArray(object)) {
@@ -886,26 +1019,14 @@ async function fitCameraToCenteredObject(object, _fit, cfg) {
   buildGround(boundingBox);
  
   // === fit camera distance ===
-  const halfHeight = size.y / 2;
-  const halfWidth  = size.x / 2;
-
-  // core.camera.fov/aspect are undefined on an OrthographicCamera; fall back
-  // to sane defaults so fitting never produces a NaN camera pose.
-  const fitFov = Number.isFinite(core.camera.fov) ? core.camera.fov : 45;
-  const fitAspect = Number.isFinite(core.camera.aspect) ? core.camera.aspect : 1;
-
-  const fitHeightDistance =
-    halfHeight / Math.tan(THREE.MathUtils.degToRad(fitFov / 2));
-
-  const fitWidthDistance =
-    halfWidth /
-    Math.tan(THREE.MathUtils.degToRad(fitFov / 2)) /
-    fitAspect;
-
-  const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.95;
-
-  // === target position ===
-  const dir = new THREE.Vector3(0.5, -0.25, -1).normalize(); // 45-degree angle perspective
+  // The view direction: from the front-left, a little above - or the
+  // model's own (userData.viewDirection, [x, y, z]: an audio file's
+  // landscape, audio.js, is seen from higher up).
+  const own = (Array.isArray(object) ? object[0] : object)?.userData?.viewDirection;
+  const dir = Array.isArray(own) && own.length === 3 && own.every(Number.isFinite) && own.some((value) => value !== 0)
+    ? new THREE.Vector3(...own).normalize()
+    : new THREE.Vector3(0.5, -0.25, -1).normalize();
+  const distance = fitDistanceForBox(boundingBox, dir.clone().negate());
   dir.multiplyScalar(-distance);
 
   const finalCameraPos = center.clone().add(dir);

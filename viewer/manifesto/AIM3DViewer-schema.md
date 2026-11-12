@@ -7,7 +7,7 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
 ```json
 {
   "AIM3DViewer": {
-    "version": "1.0",
+    "version": "1.2",
     "generatedAt": "2026-08-11T12:00:00.000Z",
     "camera": {},
     "viewer": {},
@@ -23,6 +23,34 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
 
 The runtime currently reads and writes the following fields.
 
+## `AIM3DViewer.version`
+
+The version of the manifest format, `"MAJOR.MINOR"` (now `"1.2"`:
+`AIM3D_MANIFEST_VERSION` in [manifest-version.js](./manifest-version.js)).
+A manifest is written with the version of the viewer that writes it (the
+viewer's export, the Blender add-on, `scripts/build-showcase-examples.mjs`).
+
+- **MINOR** grows with additions an older viewer can do without (a new block,
+  a new key, a new value of a key). An older viewer still opens such a
+  manifest, without what it does not know, and says that a newer viewer shows
+  all of it. If it finds values it cannot read, it does not open the manifest
+  and asks for an update, rather than calling the manifest invalid.
+- **MAJOR** grows when an older viewer would read the manifest wrongly. An
+  older viewer does not open it and asks for an update.
+- No version (or one that is not `MAJOR.MINOR`): read as one of the viewer's
+  own version.
+
+A manifest made for a newer viewer gets an up arrow (⬆) in the list of example
+manifests: amber when the viewer opens it without some of it, red when it does
+not open it. Opening such a manifest shows a dialog that offers the update:
+reloading the page, or, in an app build, the app's store page.
+
+| Version | Added |
+| --- | --- |
+| 1.0 | The format as first published |
+| 1.1 | `camera.aspect`, `camera.orientation`, `measurements` |
+| 1.2 | `sounds` (with `sounds.acoustics`), `image`, `audio`; an annotation's `AIM3DViewer.audio` (narration); a scene showing a `Sound` or an `Image` |
+
 ## `AIM3DViewer.camera`
 
 Stores the camera pose and projection state.
@@ -35,7 +63,9 @@ Stores the camera pose and projection state.
   "fov": 45,
   "zoom": 1,
   "distance": 5.385,
-  "perspectiveMode": "perspective"
+  "perspectiveMode": "perspective",
+  "aspect": 1.78,
+  "orientation": "landscape"
 }
 ```
 
@@ -46,6 +76,19 @@ Stores the camera pose and projection state.
 - `zoom`: used for orthographic camera
 - `distance`: informational only
 - `perspectiveMode`: `perspective` or `orthographic`
+- `aspect`: width / height of the view (the viewer's canvas) the camera was
+  set on; `orientation`: `landscape` or `portrait`, the same view's (enough
+  without `aspect`: 16/9 or 9/16). Both are written on export.
+- With either of them, what the camera showed there is meant, a model cut
+  off at the edge included. Only on a narrower view (a phone held upright
+  showing a desktop's camera) does a perspective camera outside the model
+  go back along its line of sight, until the model takes no more of the
+  width than it did there (or 70% of it, whichever is more).
+- With neither, nobody knows what the camera showed: a perspective camera
+  outside the model goes back until all of the model is in view (70% of
+  the view from its middle, across and up), never closer than it was set.
+- Either way it keeps looking at `target`, and a camera inside the model
+  (an interior) stays where it is.
 
 ## `AIM3DViewer.viewer`
 
@@ -115,6 +158,7 @@ Stores runtime viewer options.
       "y": false,
       "z": false
     },
+    "negated": { "x": false, "y": false, "z": false },
     "constants": [1, 1, 1],
     "outlineVisible": false
   }
@@ -147,6 +191,7 @@ Notes:
 - `window` stores the movable viewer host geometry in viewport pixels
 - `editorToolbar` is the canonical editor toolbar runtime state used by the current viewer
 - `viewer.clipping` is the canonical location for clipping state
+  - `mode`: which axes cut; `constants`: each plane's constant in world units (for a flipped plane, minus the cut's position); `negated`: the planes flipped to keep the side above the cut instead of below; `outlineVisible`: the cut faces filled
 
 ### Deployment settings (formerly only in `viewer-settings.json`)
 
@@ -480,6 +525,7 @@ mist. At full intensity rain is a downpour. Exported while it is on.
 - `windDirection`: where the wind blows to - degrees clockwise from -Z, seen from above, as `location.north` (default `230`)
 - `mistHeight`, `mistDensity`: the mist's height (0 to 1: 0.15 to 1.15 model sizes, default `0.4`) and density (default `0.5`)
 - `mistSpread`: 0 lays the mist in clumps with gaps (low clouds), 1 as an even blanket thinning upwards (default `0.6`)
+- `season`: a season (*Look > Seasons*) - `spring` (petals), `summer` (pollen), `autumn` (leaves) or `winter` (snow, with `type` `snow`): a colour grade of the model and what falls through the air, as in the intro
 - `sky`: show the sky (three's `Sky`, with clouds) around the model (default `true`); the sun stands where the sun study puts it, else where the key light comes from
 - `surfaces`: wet surfaces and snow cover on the model (default `true`)
 
@@ -504,6 +550,27 @@ the same list is saved with the model's settings (`_viewer.json`).
 - `preset`: the built-in type applied first - `glass`, `frostedGlass`, `tintedGlass`, `water`, `lightWood`, `darkWood`, `varnishedWood`, `plaster`, `paintedWall`, `concrete`, `brick`, `sandstone`, `marble`, `terracotta`, `ceramic`, `steel`, `aluminium`, `iron`, `brass`, `gold`, `copper`, `bronze`, `mirror`, `plastic`, `rubber`, `fabric`, `clay`, `light` (or `null`)
 - `keepTexture`: the type keeps the colour texture and vertex colours (default `true`)
 - `params`: the properties over the type - `color`, `emissive` (`"#rrggbb"`), `roughness`, `metalness`, `opacity`, `transmission`, `clearcoat`, `clearcoatRoughness`, `sheen` (0 to 1), `thickness`, `ior`, `emissiveIntensity` (from 0), `doubleSided`
+
+## `AIM3DViewer.measurements`
+
+The measurements placed in the viewer (*Measure*): distances, angles and
+areas, drawn again with their labels and listed in the measurements panel
+when the manifest loads, after `modelTransform`. Exported while any
+measurement is finished; the same list is saved with the model's settings
+(`_viewer.json`, the *Measurements* tick of *Save settings*), and the section
+planes with it (`clipping`, the *Section cuts* tick).
+
+```json
+"measurements": [
+  { "mode": "distance", "points": [[-500, 0, 0], [500, 0, 0]] },
+  { "mode": "angle", "points": [[-500, 800, 0], [0, 1200, 0], [500, 800, 0]] },
+  { "mode": "area", "points": [[-400, 0, -600], [400, 0, -600], [400, 0, 600], [-400, 0, 600]] }
+]
+```
+
+- `mode`: `distance` (a path through the points: each segment and the total length), `angle` (start, vertex, end: the angle at the vertex) or `area` (the corners of a polygon, closed back to the first point: its area and perimeter)
+- `points`: `[x, y, z]` in the model's own coordinates - those of its file, before `modelTransform` - so the measurements stay on the model wherever it is placed. At least 2 for a distance and 3 for an angle or an area; an angle uses the first 3
+- Lengths and areas are shown in the model's unit (`spatialScale` of the Scene, else `viewer.measurement.modelUnitInMeters`), metric or imperial as the viewer is set
 
 ## `AIM3DViewer.sceneSuggest`
 
@@ -557,6 +624,105 @@ A photo is added in the panel from a URL or a file and taken from the
 current view; *Align* keeps it on screen while the camera, the lens and the
 tilt are matched to it, *Save view* keeps that pose. Photos from a file are
 shown for the session only and are left out of an export (they have no URL).
+
+## `AIM3DViewer.sounds`
+
+Sound in the scene, heard from where the camera is (*Look > Sounds*). Each
+source plays a sound file in a loop (or once) at its volume:
+
+- `ambient`: everywhere at the same level (wind, a room's hum);
+- `point`: from `position`, at full volume up to `distance` (scene units),
+  halving with each doubling of the distance beyond it;
+- `spot`: from `position` towards `lookAt`: full volume inside half of its
+  cone `angle` (degrees), 15% outside it.
+
+```json
+{
+  "autoplay": true,
+  "volume": 0.8,
+  "sources": [
+    { "id": "wind", "type": "ambient", "src": "./examples/audio/wind.ogg", "label": "Wind", "volume": 0.4 },
+    { "id": "bell", "type": "point", "src": "./examples/audio/bell.ogg", "label": "Bell", "position": [0, 4.2, 0], "distance": 3 },
+    { "id": "voice", "type": "spot", "src": "https://example.org/voice.mp3", "position": [0, 1.6, 2], "lookAt": [0, 1.6, 8], "angle": 70, "loop": false },
+    { "id": "rebuilt", "type": "ambient", "src": "./examples/audio/works.ogg", "years": [1880, 1910] }
+  ]
+}
+```
+
+- `autoplay`: play from the first click or key press in the page (browsers
+  allow sound only after one); without it, from the window's play button
+- `volume`: of all of them; each source has its own `volume` too (`0` to `1`,
+  default `1`)
+- `loop` (default `true`), `on` (default `true`: `false` lists it unheard)
+- `years`: `[from, to]` (either `null`): heard only while the 4D timeline
+  shows a year between them, faded in and out
+- Relative URLs (`./...`) resolve like the manifest's model URLs; a sound on
+  another site must allow it (CORS)
+
+The same sources are written as IIIF Presentation 4 audio emitters painted
+into the scene - `AmbientAudio` targeting the scene, `PointAudio` and
+`SpotAudio` at a `PointSelector`, with `source` (the `Audio` file), `volume`
+(`Quantity`, `relative`), `SpotAudio`'s `lookAt` and `angle`, and
+`timeMode` (`loop` or `trim`) - so other viewers hear them too. A manifest
+with only those (no `AIM3DViewer.sounds`) is read from them.
+
+### `AIM3DViewer.sounds.acoustics`
+
+The room's acoustics: the sounds heard with the reverberation of the
+reconstructed room, worked out from the model's geometry at a listening
+point (see [docs/audio.md](../../docs/audio.md#room-acoustics)). The result
+is not kept: it is worked out again when the sounds play.
+
+```json
+"acoustics": { "on": true, "position": [0, 270, 250], "material": "wood", "floor": "pews", "amount": 1 }
+```
+
+- `on`: hear the sounds in the room (default `false`)
+- `position`: the listening point, in scene coordinates (default: where the
+  camera is when it is worked out)
+- `material`: the surfaces whose material's name does not say what they are:
+  `stone`, `plaster` (default), `brick`, `wood`, `glass`, `fabric`, `ground`
+- `floor`: what covers the floors (surfaces facing up): `material` (their
+  own, default), `pews` (empty benches), `people` (benches with people)
+- `amount`: the reverberation louder or quieter than worked out, `0` to `2`
+  (default `1`)
+
+A source's `acoustics` (boolean) says whether it is heard in the room:
+by default point and spot sources are, ambient ones are not (wind is
+outside).
+
+## `AIM3DViewer.image` and `AIM3DViewer.audio`
+
+A manifest's scene may show an audio file or a 2D image instead of a model:
+its painting annotation's body is a `Sound` (or `Audio`) or an `Image` with
+the file's URL, e.g. `{ "id": "./examples/images/rock-art.jpg", "type":
+"Image", "format": "image/jpeg" }`. Then these blocks keep how it is shown -
+only the settings that are not the defaults:
+
+```json
+{
+  "image": { "dstretch": true, "compare": true, "split": 0.35 },
+  "audio": {
+    "frequencyScale": "linear",
+    "range": 70,
+    "playback": { "loop": true, "region": { "start": 3, "end": 5.4 }, "reverb": "church", "reverbMix": 0.4 }
+  }
+}
+```
+
+- `image` ([docs/images.md](../../docs/images.md)): `brightness` (-0.5..0.5),
+  `contrast`, `gamma`, `saturation`, `invert`, `channel` (`rgb`, `red`,
+  `green`, `blue`, `luminance`), `autoLevels`, `equalize`, `sharpen` (0..2),
+  `relief` (0..1) and `reliefAngle` (degrees), `edges`, `dstretch`,
+  `falseColor` (`none`, `inferno`, `viridis`, `turbo`), `compare` and
+  `split` (0..1)
+- `audio` ([docs/audio.md](../../docs/audio.md)): the 3D view -
+  `frequencyScale` (`log`, `linear`), `range` (dB), `heightScale`,
+  `showTerrain`, `showWaveform` - and `playback`: `volume`, `rate`,
+  `preservePitch`, `loop`, `region` (`{ start, end }`, seconds),
+  `channelMode`, `filter` (`{ type, frequency, q }`), `compressor`,
+  `reverb` (`room`, `hall`, `church`) and `reverbMix`. The sound starts
+  with a click (browsers allow sound only after one).
 
 ## `AIM3DViewer.thumbnails`
 
@@ -664,7 +830,7 @@ lists (`manifestFeatureIcons(inspection)`):
 
 `model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
 `raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
-`location`, `sun`, `weather`, `materials`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`location`, `sun`, `weather`, `materials`, `measurements`, `certainty`, `thumbnails`, `transform`, `rendering`,
 `tour`, `settings`, `manifest` (the IIIF structure itself).
 
 Each attribute gets a level:

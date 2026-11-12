@@ -8,6 +8,8 @@ The example template is located at `viewer/viewer-settings-example.json`.
 
 ## Main settings
 
+- `branding` — the deployment's name, logo, colours, favicon, page title and stylesheet; see [branding.md](branding.md)
+
 - `mainUrl` — base backend URL used by viewer metadata and resource requests
 - `metadataUrl` — metadata service URL
 - `baseNamespace` — namespace used for entity routing and metadata
@@ -15,14 +17,14 @@ The example template is located at `viewer/viewer-settings-example.json`.
 
 ## Entity integration
 
-- `entity.bundle` — Drupal/WissKI entity bundle identifier
-- `entity.fieldDf` — field name used for 3D file references
-- `entity.exportViewer` — export field name for viewer settings
-- `entity.exportViewerUrl` — metadata URL used by export/viewer integration
-- `entity.idUri` — pattern to extract entity IDs from path
-- `entity.viewEntityPath` — base path for entity views
-- `entity.attributeId` — identifier used for viewer container attribute
-- `entity.metadata.source` — metadata source label, e.g. `Drupal` or `IIIF`
+- `entity.bundle` - Drupal/WissKI entity bundle identifier
+- `entity.fieldDf` - field name used for 3D file references
+- `entity.exportViewer` - export field name for viewer settings
+- `entity.exportViewerUrl` - metadata URL used by export/viewer integration
+- `entity.idUri` - pattern to extract entity IDs from path
+- `entity.viewEntityPath` - base path for entity views
+- `entity.attributeId` - identifier used for viewer container attribute
+- `entity.metadata.source` - metadata source label, e.g. `Drupal` or `IIIF`
 
 ## Viewer settings
 
@@ -30,7 +32,7 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.fileUpload` — Drupal upload field ID
 - `viewer.fileName` — Drupal file name field ID
 - `viewer.imageGeneration` — Drupal field ID for image generation
-- `viewer.lightweight` — enable lightweight viewer mode when `true`
+- `viewer.lightweight` — enable lightweight viewer mode when `true`; it also loads the environment maps' 256x128 copies (`assets/maps/lite/`, made by `scripts/downscale-hdr.py`: about 100 KB each instead of 1.4 MB). For a page with the model and nothing else, see `ultra.html` in [embedding.md](embedding.md)
 - `viewer.editor` — show editor controls
 - `viewer.gallery.build` — enable gallery generation from metadata/gallery sources
 - `viewer.gallery.container` — DOM container for generated gallery thumbnails
@@ -70,11 +72,12 @@ The example template is located at `viewer/viewer-settings-example.json`.
 - `viewer.tour.loop` — go back to the first step after the last one while autoplaying (default `true`)
 - `viewer.viewHelper` — axes gizmo in a corner of the canvas; `false` or `{ "enabled": false }` hides it, `{ "position": "top-left" }` moves it (`bottom-right` by default)
 - `viewer.fillViewport` — on the standalone page (`index.html`), the viewer takes the whole browser window below the header and gallery (default `true`); `false` keeps the height set on `#DFG_3DViewer` (`50vh`). Pages that embed the viewer (Drupal, `embed.html`) are not affected
-- `viewer.intro` — the intro ([`docs/intro.md`](intro.md)) in front of the standalone page (`index.html`): a full-window layer over the viewer, which starts and loads its model underneath; "Enter the viewer" fades it away. Not on embedded pages, in Drupal or in the app
+- `viewer.intro` — the intro ([`docs/intro.md`](intro.md)) in front of the standalone page (`index.html`): a full-window layer over the viewer, which starts and loads its model underneath; "Enter the viewer" fades it away; through it the viewer opens the intro's model, whatever was opened last. Also in the app build (on its first start); not on embedded pages or in Drupal
   - `enabled` — show it (default `true`); `?intro=1` / `?intro=0` in the page address overrides it
   - `show` — `once` (default): on the first visit only, remembered in the browser's `localStorage` (`explora4d-intro-seen`); `session`: once per browser session; `always`
   - `sound` — the intro's sound on by default (default `false`); browsers start it only with the visitor's first click or key press, and the visitor's own on/off choice is remembered and wins
   - `url` — the intro page, relative to the viewer page, same site only (default `intro.html`)
+  - `scene` — the intro's model: a scene file (e.g. `assets/intro/scenes/tempietto/scene.json`, the second built-in one) or the scene itself; default the Wołpa Synagogue. See [intro.md](intro.md#another-model)
 - `viewer.scaleContainer` — scale adjustments for the viewer container
 - `viewer.exampleModelsUrl` — the list of the "Load example model" select (default: `./examples/index.json`, served with the viewer; the app fetches `https://explora4d.eu/viewer/examples/index.json`). Fetched at start, when the select opens (at most once a minute), when the page comes back to the foreground and when the network returns. The app keeps the last list on the device (for offline use); a web viewer falls back to its bundled copy. Format: `{ "models": [{ "url", "name", "app"? }] }`, `name` a string or `{ en, de, pl }`, `"app": false` not offered in the app. The app loads models added after its release from the list's site (online only); see `viewer/example-models.js`
 - `viewer.exampleManifestsUrl` — the same for the example manifests (default `./manifests/index.json`; the app fetches `https://explora4d.eu/viewer/manifests/index.json`); entries may carry `group` and `variant` to be listed under their model's name (`groups`); see `viewer/example-manifests.js`

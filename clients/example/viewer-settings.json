@@ -1,0 +1,69 @@
+{
+  "mainUrl": "https://3d.example.org",
+  "branding": {
+    "id": "example",
+    "name": "Example Museum 3D",
+    "title": "Example Museum - 3D collection",
+    "favicon": "brand/favicon.svg",
+    "themeColor": "#0b3d91",
+    "logo": {
+      "src": "brand/logo.svg",
+      "srcOnDark": "brand/logo-on-dark.svg",
+      "alt": "Example Museum"
+    },
+    "watermark": "brand/logo.svg",
+    "colors": {
+      "accent": {
+        "dark": "#ffb347",
+        "light": "#b35900"
+      },
+      "secondary": {
+        "dark": "#9ec5ff",
+        "light": "#0b3d91"
+      },
+      "strong": "#0b3d91",
+      "glow": "#ffb347"
+    },
+    "cssVariables": {
+      "dark": {
+        "--viewer-shell-bg": "linear-gradient(180deg, #050b17 0%, #0b1730 100%)",
+        "--viewer-panel-bg": "rgba(8, 18, 38, 0.84)"
+      },
+      "light": {
+        "--viewer-shell-bg": "linear-gradient(180deg, #f5f8ff 0%, #e3ebfa 100%)"
+      }
+    },
+    "stylesheet": "brand/brand.css"
+  },
+  "viewer": {
+    "background": "radial-gradient(circle, #ffffff 0%, #9aa8c2 100%)",
+    "bugReport": {
+      "url": "https://support.example.org/issues/new"
+    },
+    "intro": {
+      "enabled": true,
+      "show": "once",
+      "scene": "assets/intro/scenes/tempietto/scene.json"
+    },
+    "credits": {
+      "visible": true,
+      "changelog": false,
+      "logo": {
+        "src": "brand/logo.svg",
+        "url": "https://www.example.org"
+      },
+      "items": [
+        {
+          "label": "Collection",
+          "text": "Example Museum",
+          "url": "https://www.example.org"
+        },
+        {
+          "label": "Contact",
+          "text": "info@example.org",
+          "url": "mailto:info@example.org"
+        }
+      ]
+    }
+  }
+}

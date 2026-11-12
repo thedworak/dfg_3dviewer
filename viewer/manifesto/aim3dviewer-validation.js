@@ -10,6 +10,7 @@ export const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", 
 export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
 // Keep in sync with WEATHER_TYPES in viewer/editor/weather-config.js (same reason).
 export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
+export const WEATHER_SEASONS = ["spring", "summer", "autumn", "winter"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
 export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
 // Keep in sync with MATERIAL_PRESETS in viewer/editor/material-presets.js.
@@ -215,6 +216,8 @@ function validateCamera(camera, path, errors) {
   if (camera.fov !== undefined) validateNumber(camera.fov, `${path}.fov`, errors);
   if (camera.zoom !== undefined) validateNumber(camera.zoom, `${path}.zoom`, errors);
   if (camera.distance !== undefined) validateNumber(camera.distance, `${path}.distance`, errors);
+  if (camera.aspect !== undefined) validateNumber(camera.aspect, `${path}.aspect`, errors);
+  if (camera.orientation !== undefined) validateEnum(camera.orientation, ["landscape", "portrait"], `${path}.orientation`, errors);
   if (camera.perspectiveMode !== undefined) validateEnum(camera.perspectiveMode, ["perspective", "orthographic"], `${path}.perspectiveMode`, errors);
 }
 
@@ -710,6 +713,9 @@ function validateWeather(weather, path, errors) {
     }
   });
   if (weather.windDirection !== undefined) validateNumber(weather.windDirection, `${path}.windDirection`, errors);
+  if (weather.season !== undefined && weather.season !== null && !WEATHER_SEASONS.includes(weather.season)) {
+    pushError(errors, `${path}.season`, `must be one of ${WEATHER_SEASONS.join(", ")}`);
+  }
   ["sky", "surfaces"].forEach((key) => {
     if (weather[key] !== undefined) validateBoolean(weather[key], `${path}.${key}`, errors);
   });
@@ -761,6 +767,37 @@ function validateMaterials(materials, path, errors) {
   });
 }
 
+// AIM3DViewer.measurements (editor/measurement.js): the measurements placed,
+// their points in the model's own coordinates.
+const MEASUREMENT_MIN_POINTS = { distance: 2, angle: 3, area: 3 };
+function validateMeasurements(measurements, path, errors) {
+  if (!Array.isArray(measurements)) {
+    pushError(errors, path, "must be an array");
+    return;
+  }
+  measurements.forEach((entry, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isPlainObject(entry)) {
+      pushError(errors, itemPath, "must be an object");
+      return;
+    }
+    const modes = Object.keys(MEASUREMENT_MIN_POINTS);
+    if (!modes.includes(entry.mode)) {
+      pushError(errors, `${itemPath}.mode`, `must be one of: ${modes.join(", ")}`);
+      return;
+    }
+    if (!Array.isArray(entry.points) || entry.points.length < MEASUREMENT_MIN_POINTS[entry.mode]) {
+      pushError(errors, `${itemPath}.points`, `must be an array of at least ${MEASUREMENT_MIN_POINTS[entry.mode]} points`);
+      return;
+    }
+    entry.points.forEach((point, pointIndex) => {
+      if (!Array.isArray(point) || point.length !== 3 || !point.every(isFiniteNumber)) {
+        pushError(errors, `${itemPath}.points[${pointIndex}]`, "must be [x, y, z]");
+      }
+    });
+  });
+}
+
 // AIM3DViewer.sceneSuggest (editor/scene-suggest.js): the Suggested scene
 // window open on load, for a purpose.
 function validateSceneSuggest(sceneSuggest, path, errors) {
@@ -801,6 +838,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.weather !== undefined) validateWeather(block.weather, `${path}.weather`, errors);
   if (block.sceneSuggest !== undefined) validateSceneSuggest(block.sceneSuggest, `${path}.sceneSuggest`, errors);
   if (block.materials !== undefined) validateMaterials(block.materials, `${path}.materials`, errors);
+  if (block.measurements !== undefined) validateMeasurements(block.measurements, `${path}.measurements`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));

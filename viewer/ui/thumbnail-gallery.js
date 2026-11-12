@@ -417,10 +417,8 @@ const DRAWER_ICONS = {
 // The hidden drawer, once, on the first gallery of the page: after a pause
 // it leans out a little - the edge of its views - and slowly back, so it is
 // seen that there are any (gallery.css times the motion).
-const DRAWER_PEEK_DELAY = 1500;
-const DRAWER_PEEK_HOLD = 4200;
-const DRAWER_PEEK_RETURN = 2000;
-let drawerPeeked = false;
+const DRAWER_GLOW_DELAY = 1500;
+let drawerGlowed = false;
 
 // The drawer on the viewer's right edge (viewer.gallery.position "right"):
 // the column of views and, on its left, a tab that hides it into the edge
@@ -471,27 +469,24 @@ function wrapAsDrawer(scroller, count, openAt, previewSrc = "") {
   };
   setCollapsed(readDrawerCollapsed());
 
-  // Hidden on the page's first gallery: it leans out and back; on a phone
-  // the tab glows once. Not with reduced motion, nor once the tab was used.
-  let peekTimer = 0;
-  const endPeek = () => {
-    clearTimeout(peekTimer);
-    drawer.classList.remove("is-peeking");
-    peekTimer = setTimeout(() => drawer.classList.remove("is-peek-motion"), DRAWER_PEEK_RETURN);
+  // Hidden on the page's first gallery with the model's own views (not the
+  // generic images): the tab brightens once, in place. Not with reduced
+  // motion, nor once the tab was used.
+  let glowTimer = 0;
+  const stopGlow = () => {
+    clearTimeout(glowTimer);
+    toggle.classList.remove("is-glowing");
   };
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  if (!drawerPeeked && !reducedMotion && drawer.classList.contains("is-collapsed")) {
-    drawerPeeked = true;
-    peekTimer = setTimeout(() => {
+  if (previewSrc && !drawerGlowed && !reducedMotion && drawer.classList.contains("is-collapsed")) {
+    drawerGlowed = true;
+    glowTimer = setTimeout(() => {
       if (!drawer.isConnected || !drawer.classList.contains("is-collapsed")) return;
-      if (phone?.matches) {
-        toggle.classList.add("is-pulsing");
-        toggle.addEventListener("animationend", () => toggle.classList.remove("is-pulsing"), { once: true });
-        return;
-      }
-      drawer.classList.add("is-peek-motion", "is-peeking");
-      peekTimer = setTimeout(endPeek, DRAWER_PEEK_HOLD);
-    }, DRAWER_PEEK_DELAY);
+      // The preview failed to load: back to the generic look, no glow.
+      if (!drawer.classList.contains("has-model-views")) return;
+      toggle.classList.add("is-glowing");
+      toggle.addEventListener("animationend", stopGlow, { once: true });
+    }, DRAWER_GLOW_DELAY);
   }
 
   toggle.addEventListener("click", (event) => {
@@ -500,8 +495,7 @@ function wrapAsDrawer(scroller, count, openAt, previewSrc = "") {
       openAt(0);
       return;
     }
-    clearTimeout(peekTimer);
-    drawer.classList.remove("is-peeking", "is-peek-motion");
+    stopGlow();
     const collapsed = !drawer.classList.contains("is-collapsed");
     setCollapsed(collapsed);
     writeDrawerCollapsed(collapsed);

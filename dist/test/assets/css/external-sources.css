@@ -26,7 +26,7 @@
   box-shadow: 0 14px 30px rgba(129, 116, 96, 0.14);
 
   padding: 14px;
-  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  font-family: var(--font-ui);
 
   /* Native resize handle (bottom-right corner) - resize requires overflow
      other than visible; a ResizeObserver in metadata.js persists the
@@ -201,7 +201,8 @@
   flex: 1 1 auto;
   min-height: 140px;
   resize: none;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
 }
 
 /* focus */
@@ -899,7 +900,8 @@ body[data-viewer-theme="dark"] #example-model-picker {
   border-radius: 6px;
   border: 1px solid rgba(164, 151, 132, 0.22);
   background: rgba(255, 252, 247, 0.96);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-code);
+  font-variant-ligatures: none;
   font-size: 12.5px;
   line-height: 1.55;
   color: #25211c;

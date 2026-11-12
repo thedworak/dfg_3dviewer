@@ -1,6 +1,7 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { getModuleAssetBasePath } from "../loaders.js";
+import { getWatermarkUrl } from "../branding.js";
 import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
 import { renderFrame } from "../rendering.js";
 import { apiUrl, appRequestHeaders, remoteAssetUrl } from "../remote.js";
@@ -69,7 +70,9 @@ function withCaptureCanvas(capture) {
   }
 }
 
-// Every render carries a small ExPlora4D logo in its bottom right corner:
+// Every render carries a small logo in its bottom right corner (the
+// deployment's own with branding.watermark / branding.logo, none with
+// branding.watermark: false - ../branding.js):
 // WATERMARK_WIDTH of the image's width, WATERMARK_MARGIN from its edges (as
 // scripts/render.py does for the Blender renders).
 const WATERMARK_WIDTH = 0.1;
@@ -80,11 +83,18 @@ let watermarkImage = null;
 // Loaded before the views are rendered: they are drawn synchronously.
 function loadWatermark() {
   watermarkImage ??= new Promise((resolve) => {
+    const src = getWatermarkUrl(`${getModuleAssetBasePath()}/img/logo`);
+    if (!src) {
+      resolve(null);
+      return;
+    }
     const image = new Image();
+    // A logo from another host would taint the canvas (no toBlob).
+    image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     // Without the logo the renders still go out.
     image.onerror = () => resolve(null);
-    image.src = `${getModuleAssetBasePath()}/img/logo/ExPlora4D.webp`;
+    image.src = src;
   });
   return watermarkImage;
 }

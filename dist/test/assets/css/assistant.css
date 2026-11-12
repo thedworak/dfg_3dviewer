@@ -26,7 +26,7 @@
 }
 
 .viewer-hint[data-tone="warning"] {
-  border-color: rgba(233, 178, 100, 0.55);
+  border-color: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 55%, transparent);
 }
 
 .viewer-hint_text {
@@ -64,7 +64,7 @@
 
 .viewer-hint_action.is-primary {
   border-color: var(--viewer-brand-gold, #e9b264);
-  background: rgba(233, 178, 100, 0.22);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 22%, transparent);
 }
 
 .viewer-hint button:hover {
@@ -116,7 +116,7 @@
 }
 
 .viewer-prepare_summary[data-state="fix"] {
-  background: rgba(233, 178, 100, 0.2);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 20%, transparent);
 }
 
 .viewer-prepare_summary[data-state="ready"] {

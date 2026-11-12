@@ -13,7 +13,7 @@ import { modelExtension } from "../model-extension.js";
 // Mirrors worker/server.py's SUPPORTED_FORMATS: Blender importers, STEP/IGES/3MF
 // converted without Blender, and formats the viewer reads directly (kept as
 // uploaded, no thumbnails), point clouds turned into 3D Tiles
-// (worker/pointcloud.py), plus the .zip archive support the standalone
+// (worker/pointcloud.py), audio files (kept as uploaded, audio.js), plus the .zip archive support the standalone
 // worker adds on top - see worker/README.md.
 const SUPPORTED_EXTENSIONS = [
   "abc", "dae", "fbx", "obj", "ply", "stl", "wrl", "x3d", "ifc", "blend", "gml", "glb",
@@ -23,6 +23,8 @@ const SUPPORTED_EXTENSIONS = [
   "las", "laz", "e57",
   "spz", "splat", "ksplat", "sog", "rad",
   "lif", "tif", "tiff", "lsm", "nrrd", "nhdr", "nii", "mha", "mhd", "mrc", "rec", "ccp4", "vgi", "xtekct", "dcm", "dicom",
+  "wav", "wave", "bwf", "mp3", "ogg", "oga", "opus", "flac", "m4a", "aac", "weba",
+  "jpg", "jpeg", "png", "webp", "avif", "gif", "bmp",
   "zip",
 ];
 

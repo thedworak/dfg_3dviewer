@@ -17,8 +17,15 @@
 // in a full-window iframe over the page while the viewer starts and loads its
 // model underneath; "Enter the viewer" fades it away (it tells this page via
 // postMessage, same origin only), "Skip intro" and Escape close it at once.
-// Only on the standalone page (index.html) - not embedded, not in Drupal or
-// the app, which do not ship the intro.
+// Only on the standalone page (index.html) and in the app build - not
+// embedded, not in Drupal, which does not ship the intro.
+//
+// Entering through the intro always opens its model (introModelUrl(): the
+// synagogue, or the scene's own), whatever was opened last; without the
+// intro the viewer opens what it would have.
+
+import { getBrandName } from './branding.js';
+import { DEFAULT_SCENE } from './intro/intro-scene.js';
 
 const SEEN_KEY = 'explora4d-intro-seen';
 // No word from the intro page this long after it was asked for (it did not
@@ -31,6 +38,8 @@ let open = false;
 // What showIntroOverlay was given: the menu's Intro button (replayIntro)
 // shows the intro again with it.
 let context = null;
+// Closes the overlay on screen now (null: none).
+let closeOpen = null;
 
 function parseBoolean(value) {
   if (typeof value === 'boolean') return value;
@@ -85,6 +94,40 @@ export function showIntroOverlay(settings, { standalone, lang } = {}) {
   return openOverlay(settings, lang);
 }
 
+/**
+ * The model the intro shows and leads into, as the viewer's example list has
+ * it ("./examples/..."): the scene's `next` page's ?model=, else its model;
+ * null for a scene in a file of its own (not known before it is read).
+ * @param {object} settings  viewer-settings.json's viewer.intro
+ * @returns {string|null}
+ */
+export function introModelUrl(settings) {
+  const scene = settings?.scene;
+  if (typeof scene === 'string') return null;
+  const own = scene && typeof scene === 'object' ? scene : DEFAULT_SCENE;
+  try {
+    if (typeof own.next === 'string' && own.next.trim()) {
+      const model = new URL(own.next.trim(), window.location.href).searchParams.get('model');
+      if (model) return model;
+    }
+  } catch {
+    // an unusable `next`: the model then
+  }
+  if (typeof own.model !== 'string' || !own.model.trim()) return null;
+  const model = own.model.trim();
+  return /^(\.{0,2}\/|[a-z]+:)/i.test(model) ? model : `./${model}`;
+}
+
+/** Whether the intro is over the page now (until it has faded away). */
+export function isIntroOverlayOpen() {
+  return open;
+}
+
+/** Closes the intro over the page (the back gesture, Back). */
+export function closeIntroOverlay() {
+  closeOpen?.(0.4);
+}
+
 /** Whether the intro can be shown again from the menu (the standalone page). */
 export function canReplayIntro() {
   return Boolean(context);
@@ -125,13 +168,14 @@ function openOverlay(settings, lang) {
   });
   const frame = document.createElement('iframe');
   frame.src = url.href;
-  frame.title = 'ExPlora4D';
+  frame.title = getBrandName();
   frame.allow = 'autoplay; fullscreen';
   Object.assign(frame.style, { width: '100%', height: '100%', border: '0', display: 'block' });
   overlay.appendChild(frame);
   document.body.appendChild(overlay);
   const previousOverflow = document.documentElement.style.overflow;
   document.documentElement.style.overflow = 'hidden';
+  window.dispatchEvent(new CustomEvent('explora4d-intro-opened'));
 
   let closed = false;
   function close(fade = 0.6, delay = 0) {
@@ -146,6 +190,7 @@ function openOverlay(settings, lang) {
     setTimeout(() => {
       overlay.remove();
       open = false;
+      closeOpen = null;
       document.documentElement.style.overflow = previousOverflow;
       // The viewer measured itself under the overlay: once more, uncovered.
       window.dispatchEvent(new Event('resize'));
@@ -167,6 +212,7 @@ function openOverlay(settings, lang) {
     if (event.key === 'Escape') close(0.4);
   }
 
+  closeOpen = close;
   const readyTimer = setTimeout(() => close(0.4), READY_TIMEOUT);
   window.addEventListener('message', onMessage);
   window.addEventListener('keydown', onKey);

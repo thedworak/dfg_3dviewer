@@ -20,6 +20,7 @@
 // excludeFromMobile, so the app opens them from the site (example-manifests.js).
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { AIM3D_MANIFEST_VERSION } from '../viewer/manifesto/manifest-version.js';
 
 const OUT = 'viewer/manifesto/examples';
 const LIST = path.join(OUT, 'index.json');
@@ -263,9 +264,15 @@ const THUMBNAILS = [
 
 const languageMap = (name) => Object.fromEntries(Object.entries(name).map(([lang, text]) => [lang, [text]]));
 
+// Each view was set on a landscape desktop view (aspect, orientation): what
+// it shows there is meant, close-ups included - only a narrower view (a
+// phone held upright) takes it back.
 function camera({ position, target }) {
   const distance = Math.hypot(...position.map((v, i) => v - target[i]));
-  return { position, target, up: [0, 1, 0], fov: 45, zoom: 1, distance: Math.round(distance * 100) / 100, perspectiveMode: 'perspective' };
+  return {
+    position, target, up: [0, 1, 0], fov: 45, zoom: 1, distance: Math.round(distance * 100) / 100, perspectiveMode: 'perspective',
+    aspect: 1.7778, orientation: 'landscape',
+  };
 }
 
 function manifest(look) {
@@ -281,6 +288,7 @@ function manifest(look) {
       pl: ['Scena testowa oświetlenia, materiałów i cieniowania: sfery PBR, rozszerzenia materiałów, wzorniki kolorów, relief, przezroczystość, emitery i podziałki 1 m.'],
       de: ['Eine Testszene für Licht, Materialien und Schattierung: PBR-Kugeln, Materialerweiterungen, Farbtafeln, Relief, Transparenz, Leuchtkörper und 1-m-Maßstäbe.'],
     },
+    rights: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
     items: [
       {
         id: scene,
@@ -306,7 +314,7 @@ function manifest(look) {
       },
     ],
     AIM3DViewer: {
-      version: '1.0',
+      version: AIM3D_MANIFEST_VERSION,
       generatedAt: DATE,
       camera: camera(look.camera),
       viewer: {

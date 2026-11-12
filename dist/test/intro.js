@@ -1,5 +1,5 @@
-import { gd as KTX2Loader, g7 as GLTFLoader, ge as MeshoptDecoder, a1 as Matrix4, M as Matrix3, V as Vector3, aM as Group, Q as Vector2, am as BufferGeometry, a9 as BufferAttribute, h as Mesh, f1 as Points, fj as ShaderMaterial, c8 as AdditiveBlending, eJ as LineSegments, d5 as HemisphereLight, d2 as DirectionalLight, Y as Vector4, ai as DoubleSide, fG as TextureLoader, bp as PlaneGeometry, aV as LineBasicMaterial, C as Color, bb as SRGBColorSpace, g8 as WebGLRenderer, i as Scene, bn as PerspectiveCamera, gf as OrbitControls, N as NormalBlending, fs as Spherical } from './assets/three-Dhy7exgi.js';
-import { s as sunriseSunset, f as formatSunTime, a as solarPosition, b as sunTimestamp, H as HORIZON, R as RAD } from './assets/sun-position-C35jyMtL.js';
+import { gd as KTX2Loader, g7 as GLTFLoader, ge as MeshoptDecoder, a1 as Matrix4, M as Matrix3, V as Vector3, aM as Group, Q as Vector2, am as BufferGeometry, a9 as BufferAttribute, h as Mesh, f1 as Points, fj as ShaderMaterial, c8 as AdditiveBlending, eJ as LineSegments, d5 as HemisphereLight, d2 as DirectionalLight, Y as Vector4, ai as DoubleSide, fG as TextureLoader, bp as PlaneGeometry, aV as LineBasicMaterial, C as Color, bb as SRGBColorSpace, g8 as WebGLRenderer, i as Scene, bn as PerspectiveCamera, gf as OrbitControls, N as NormalBlending, fs as Spherical } from './assets/three-cXLO51tH.js';
+import { s as sunriseSunset, f as formatSunTime, a as solarPosition, b as sunTimestamp, H as HORIZON, R as RAD, l as loadIntroScene, c as sceneTexts, p as pickText } from './assets/intro-scene-DYWpSsos.js';
 
 // The intro's second act (viewer/intro/intro.js): once the points stand,
 // the real model takes their place - first its vertices light up, then its
@@ -1201,7 +1201,7 @@ function pulseCurve() {
 // only (it runs backwards for "Assemble again", ?at= holds it).
 
 // Seconds into the tour.
-const CHAPTERS = [
+const ALL_CHAPTERS = [
   { key: 'section', from: 0, to: 3.0 },
   { key: 'annotations', from: 3.0, to: 6.4 },
   { key: 'shading', from: 6.4, to: 10.0 },
@@ -1209,8 +1209,89 @@ const CHAPTERS = [
   { key: 'seasons', from: 14.8, to: 25.8 },
   { key: 'time', from: 25.8, to: 38.5 },
 ];
-const TOUR_LENGTH = 39.1;
-const START = Object.fromEntries(CHAPTERS.map((chapter) => [chapter.key, chapter.from]));
+const TAIL = 0.6; // after the last chapter, before 'end'
+
+// The chapters for a scene (intro-scene.js): the time travel only with a
+// 4D model's stages. { chapters, length } - the length in seconds.
+function tourPlan({ time = true } = {}) {
+  const chapters = time ? ALL_CHAPTERS : ALL_CHAPTERS.filter((chapter) => chapter.key !== 'time');
+  return { chapters, length: chapters.at(-1).to + TAIL };
+}
+tourPlan();
+
+// The camera through the model's act (intro.js), a function of its time
+// only - not of how many frames were drawn - so every run looks the same:
+//   - it turns on from the landing and comes to the front for the sections
+//     (the plane sweeps in from +Z), holding still while it cuts;
+//   - it turns slowly on through the annotations and the shading, and holds
+//     still again for the sun study (its shadows turn with the sun only);
+//   - for the time travel it starts at the front's right (seen from the
+//     front, +X) and goes round in an arc towards the entrance in the middle
+//     of the front, a little closer; then it turns on as before.
+// Angles are Spherical.theta around the model (0: from +Z, +X at pi / 2).
+const SECTION_THETA = 0;
+const TIME_FROM_THETA = 0.95;
+const TIME_TO_THETA = 0.08;
+// The time travel's distance, of the camera's own.
+const TIME_DOLLY = 0.84;
+
+/**
+ * @param {object} options
+ *   plan       tourPlan()
+ *   front      the angle at the landing (the scene's front)
+ *   rate       radians a second it turns at the landing (and between holds)
+ *   tourStart  seconds from the model's act to the tour's first chapter
+ * @returns {(s: number) => { theta: number, dolly: number }} at s seconds
+ *   into the model's act: the angle, and the distance as a share of the
+ *   camera's own.
+ */
+function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }) {
+  const chapter = (key) => plan.chapters.find((c) => c.key === key);
+  const nearest = (angle, to) => angle + Math.round((to - angle) / (2 * Math.PI)) * 2 * Math.PI;
+  // [s, theta, slope]: a smooth (Hermite) curve through them.
+  const keys = [[0, front, -rate]];
+  const section = chapter('section');
+  const sun = chapter('sun');
+  const time = chapter('time');
+  const last = plan.chapters.at(-1);
+  const base = nearest(SECTION_THETA, front - rate * tourStart);
+  if (section) {
+    keys.push([tourStart + section.from - 0.3, base, 0], [tourStart + section.to - 0.2, base, 0]);
+  }
+  const moving = keys.at(-1)[0];
+  // The sun study's angle: part of the way to the time travel's start.
+  if (sun) {
+    const sunFrom = tourStart + sun.from - 0.3;
+    const sunTo = tourStart + sun.from + SUN_LENGTH;
+    const end = time ? tourStart + time.from : tourStart + last.to;
+    const share = (sunFrom - moving) / Math.max(1e-3, sunFrom - moving + end - sunTo);
+    const sunTheta = base + (time ? TIME_FROM_THETA : 0.6) * share;
+    keys.push([sunFrom, sunTheta, 0], [sunTo, sunTheta, 0]);
+  }
+  if (time) {
+    keys.push([tourStart + time.from, base + TIME_FROM_THETA, 0], [tourStart + time.to, base + TIME_TO_THETA, -rate]);
+  } else {
+    keys.push([tourStart + last.to, base + 0.6, rate]);
+  }
+  const dollyAt = (s) => (time ? 1 - (1 - TIME_DOLLY) * window01(s - tourStart, time.from, time.to + 1.5, 1.5) : 1);
+  return (s) => {
+    let theta;
+    if (s <= keys[0][0]) theta = keys[0][1] + keys[0][2] * (s - keys[0][0]);
+    else if (s >= keys.at(-1)[0]) theta = keys.at(-1)[1] + keys.at(-1)[2] * (s - keys.at(-1)[0]);
+    else {
+      let i = 0;
+      while (s > keys[i + 1][0]) i++;
+      const [s0, p0, m0] = keys[i];
+      const [s1, p1, m1] = keys[i + 1];
+      const h = s1 - s0;
+      const u = (s - s0) / h;
+      const u2 = u * u;
+      const u3 = u2 * u;
+      theta = (2 * u3 - 3 * u2 + 1) * p0 + (u3 - 2 * u2 + u) * h * m0 + (-2 * u3 + 3 * u2) * p1 + (u3 - u2) * h * m1;
+    }
+    return { theta, dolly: dollyAt(s) };
+  };
+}
 
 // Shading: [from, to] modes, each step a wipe (see mesh-reveal.js introShade).
 const SHADING_STEPS = [[0, 1], [1, 2], [2, 0]];
@@ -1223,7 +1304,7 @@ const SEASONS_END = 4 * SEASON_LENGTH;
 // The sun study: Wołpa (Voŭpa, Belarus), midsummer day, local time (UTC+3).
 // The model's north is taken to be -Z (the viewer's default, AIM3DViewer
 // location.north = 0): the model's files do not say where north is.
-const SITE = { latitude: 53.37, longitude: 24.37, utcOffset: 3, north: 0, year: 2026, month: 6, day: 21 };
+const DEFAULT_SITE = { latitude: 53.37, longitude: 24.37, utcOffset: 3, north: 0, month: 6, day: 21 };
 const SUN_LENGTH = 4.8;
 // The sun's track around the building's middle, this far out (intro units).
 const SUN_RADIUS = 2.5;
@@ -1232,7 +1313,7 @@ const COMPASS_RADIUS = 2.15;
 const SEASON_KEYS = ['spring', 'summer', 'autumn', 'winter'];
 
 // Time travel: the 4D model's stages (viewer/intro/time/time.json).
-const TIME_URL = 'assets/intro/time/';
+const DEFAULT_TIME_URL = 'assets/intro/time/';
 // Back from today to the first stage, then each stage in turn: the first
 // steps slow, each next one quicker, as on a shrinking time scale; most of
 // each step is the change itself.
@@ -1257,13 +1338,21 @@ const window01 = (x, a, b, fade) => smooth((x - a) / fade) * (1 - smooth((x - b 
  *   toIntro     (x, y, z) in the model's units -> Vector3 in the intro's space
  *   heightLabel the measured height, formatted
  */
-function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang }) {
+function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang, scene = {}, plan = tourPlan() }) {
   const u = reveal.uniforms;
   const group = new Group();
+  const CHAPTERS = plan.chapters;
+  const TOUR_LENGTH = plan.length;
+  const START = Object.fromEntries(CHAPTERS.map((chapter) => [chapter.key, chapter.from]));
+  // A fixed year: the same sun on every run (stills, recordings).
+  const SITE = { ...(scene.site || DEFAULT_SITE), year: 2026 };
+  const TIME_URL = scene.time === undefined ? DEFAULT_TIME_URL : scene.time;
+  const ground = scene.ground ?? 0;
 
   // --- Time travel: the stages and their textures, loaded in the background --
   let timeTravel = null; // { stages, parts: { part: { materials, fresh, mid } } }
   (async () => {
+    if (!TIME_URL) return;
     const response = await fetch(`${TIME_URL}time.json`);
     if (!response.ok) throw new Error(`${TIME_URL}time.json: HTTP ${response.status}`);
     const data = await response.json();
@@ -1348,12 +1437,17 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
   group.add(plane);
 
   // --- Annotations ------------------------------------------------------------
-  const pins = [
-    { key: 'roof', at: toIntro(300, 1361, -733), lift: 0.22, delay: 0 },
-    { key: 'pavilion', at: toIntro(-943, 817, 645), lift: 0.42, delay: 0.45 },
-  ];
-  const measureBottom = toIntro(1340, 0, 1111);
-  const measureTop = toIntro(1340, 1675, 1111);
+  // The scene's pins (model units), one after another.
+  const pins = (scene.pins || []).map((pin, index) => ({
+    key: pin.key,
+    kind: pin.kind,
+    at: toIntro(...pin.at),
+    lift: pin.lift,
+    delay: index * 0.45,
+  }));
+  const measure = scene.measure;
+  const measureBottom = toIntro(measure.x, measure.from, measure.z);
+  const measureTop = toIntro(measure.x, measure.to, measure.z);
   const lineMaterial = new LineBasicMaterial({ color: 0x9cc8ff, transparent: true, opacity: 0, depthTest: false });
   const linePositions = [];
   for (const pin of pins) {
@@ -1412,7 +1506,7 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
     root.appendChild(el);
     return el;
   };
-  for (const pin of pins) pin.label = makeLabel(tx.labels[pin.key], pin.key === 'roof' ? 'is-annotation' : 'is-poi');
+  for (const pin of pins) pin.label = makeLabel(tx.labels?.[pin.key] ?? '', pin.kind === 'poi' ? 'is-poi' : 'is-annotation');
   const measureLabel = makeLabel(heightLabel, 'is-measure');
 
   // --- Chapter title ----------------------------------------------------------
@@ -1447,7 +1541,7 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
     uColorA: { value: new Color() },
     uColorB: { value: new Color() },
     uFlat: { value: 0 },
-    uBottom: { value: toIntro(0, 0, 0).y },
+    uBottom: { value: toIntro(0, ground, 0).y },
   };
   const flakes = new Points(flakeGeometry, new ShaderMaterial({
     uniforms: flakeUniforms,
@@ -1513,7 +1607,7 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
   const defaultHemisphere = hemisphere.intensity;
   const horizonColor = new Color(0xffa25e);
   const noonColor = new Color(0xfff4e2);
-  const groundY = toIntro(0, 0, 0).y;
+  const groundY = toIntro(0, ground, 0).y;
   const sunCentre = new Vector3(0, groundY, 0);
   const { sunrise, sunset } = sunriseSunset({ ...SITE });
   const dayStart = (sunrise ?? 240) - 25;
@@ -1662,10 +1756,6 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
 
   return {
     group,
-    // The sun study wants the camera still: its shadows turn with the sun only.
-    holdsCamera(tour) {
-      return tour > START.sun - 0.3 && tour < START.sun + SUN_LENGTH;
-    },
     setViewport(viewport) {
       dotUniforms.uViewport.value = viewport;
       flakeUniforms.uViewport.value = viewport;
@@ -1824,7 +1914,7 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
         }
       } else {
         resetTime();
-        if (!timeTravel && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time) timeSub = '1730 → 1936';
+        if (!timeTravel && !scene.custom && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time) timeSub = '1730 → 1936';
       }
 
       // The chapter's title.
@@ -1838,7 +1928,7 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
         }
         // Everything done: once, right after the last chapter.
         const finished = exit <= 0 && tour >= CHAPTERS.at(-1).to && tour < TOUR_LENGTH + 1;
-        if (finished && lastCue.startsWith('time:')) {
+        if (finished && lastCue.startsWith(`${CHAPTERS.at(-1).key}:`)) {
           lastCue = 'end';
           return 'end';
         }
@@ -1875,6 +1965,8 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
 // the real model takes the points' place - vertices, edges, faces
 // (mesh-reveal.js) - and a button leads into the viewer.
 //
+// The model and what depends on it is the scene (intro-scene.js): the
+// synagogue, or a deployment's own (viewer.intro.scene, docs/intro.md).
 // The points come from viewer/intro/synagogue-points.bin, sampled from the
 // textured model by scripts/build-intro-points.mjs. Everything moves in the
 // vertex shader: per point a start in the cloud, a delay (lower parts of the
@@ -1890,14 +1982,21 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
 // Everything follows one clock, the intro's time T (timeline() below):
 // "Assemble again" runs it backwards, ?at= stops it.
 
-const POINTS_URL = 'assets/intro/synagogue-points.bin';
+// The model and what depends on it (intro-scene.js): the Wołpa Synagogue,
+// or the deployment's own (viewer.intro.scene in viewer-settings.json).
+const { scene: SCENE, branding: BRANDING } = await loadIntroScene();
+const POINTS_URL = SCENE.points;
 // The model the points become (also the one the viewer opens next, so it is
 // in the browser's cache by then), and the KTX2 transcoder its textures need.
-const MODEL_URL = 'examples/WolpaSynagogue-progressive.glb';
+const MODEL_URL = SCENE.model;
 const TRANSCODER_PATH = 'assets/basis/';
-// The directory's index page (index.html): `serve` and other static servers
-// redirect index.html to ./ and lose the query on the way.
-const DEFAULT_NEXT = './?model=./examples/WolpaSynagogue-progressive.glb';
+// Where the button leads. The directory's index page (index.html): `serve`
+// and other static servers redirect index.html to ./ and lose the query on
+// the way.
+const DEFAULT_NEXT = SCENE.next;
+const PLAN = tourPlan({ time: Boolean(SCENE.time) });
+const CHAPTERS = PLAN.chapters;
+const TOUR_LENGTH = PLAN.length;
 // Seconds: the cloud fades in, then gathers into the building.
 const FADE_IN = 1.0;
 // Only the cloud this long, then the points set off.
@@ -1926,7 +2025,7 @@ const SEGMENTS = [
 
 const TEXTS = {
   pl: {
-    tagline: 'Dziedzictwo w trzech wymiarach — i w czasie',
+    tagline: 'Dziedzictwo w trzech wymiarach - i w czasie',
     caption: 'Synagoga w Wołpie · rekonstrukcja cyfrowa',
     enter: 'Wejdź do viewera',
     skip: 'Pomiń intro',
@@ -1966,7 +2065,7 @@ const TEXTS = {
     soundOff: 'Włącz dźwięk',
   },
   en: {
-    tagline: 'Heritage in three dimensions — and in time',
+    tagline: 'Heritage in three dimensions - and in time',
     caption: 'Wołpa Synagogue · digital reconstruction',
     enter: 'Enter the viewer',
     skip: 'Skip intro',
@@ -2073,6 +2172,26 @@ const TEXTS = {
   },
 };
 
+// A deployment's own model (intro-scene.js): the texts above that name the
+// synagogue, in neutral words; the scene's own texts come on top.
+const GENERIC_TEXTS = {
+  pl: {
+    caption: '',
+    hint: 'Najedź na model, by zajrzeć do środka · przeciągnij, aby obrócić',
+    hintTouch: 'Stuknij model, by zajrzeć do środka · przeciągnij, aby obrócić',
+  },
+  en: {
+    caption: '',
+    hint: 'Hover over the model to look inside · drag to rotate',
+    hintTouch: 'Tap the model to look inside · drag to rotate',
+  },
+  de: {
+    caption: '',
+    hint: 'Mit der Maus über das Modell fahren, um hineinzusehen · ziehen zum Drehen',
+    hintTouch: 'Auf das Modell tippen, um hineinzusehen · ziehen zum Drehen',
+  },
+};
+
 // From the query or the hash: the viewer page (intro-overlay.js) passes its
 // in the hash, which survives a server's index.html -> ./ style redirect.
 const params = new URLSearchParams(window.location.search);
@@ -2080,7 +2199,7 @@ for (const [key, value] of new URLSearchParams(window.location.hash.slice(1))) {
   if (!params.has(key)) params.set(key, value);
 }
 const lang = pickLanguage(params.get('lang'));
-const t = TEXTS[lang];
+const t = sceneTexts(TEXTS[lang], GENERIC_TEXTS[lang], SCENE, lang);
 const nextUrl = safeNextUrl(params.get('next'));
 const embedded = params.get('embedded') === '1' && window.parent !== window;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -2125,6 +2244,7 @@ const ui = {
 };
 
 document.documentElement.lang = lang;
+applyBranding();
 ui.tagline.textContent = t.tagline;
 ui.caption.textContent = t.caption;
 ui.enter.textContent = t.enter;
@@ -2133,6 +2253,10 @@ ui.replay.textContent = t.replay;
 ui.replay.title = t.replay;
 // A mouse or a finger: what the hints ask for.
 const canHover = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? true;
+// A phone or tablet (a touch screen, also the app): every second point is
+// drawn - the counter still counts them all - each a little larger, so the
+// building stays as dense to the eye.
+const POINT_STRIDE = window.matchMedia?.('(pointer: coarse)').matches ? 2 : 1;
 ui.hint.textContent = canHover ? t.hint : t.hintTouch;
 // The x-ray lens's tip, next to the lens while it shows itself.
 ui.lensTip = document.createElement('p');
@@ -2143,6 +2267,32 @@ ui.root.append(ui.lensTip);
 ui.status.textContent = t.loading;
 ui.enter.href = nextUrl;
 ui.skip.href = nextUrl;
+
+// The deployment's name and logo (branding in viewer-settings.json,
+// ../branding.js): the logo's version for dark backgrounds, the intro's.
+function applyBranding() {
+  const name = pickText(BRANDING.name, lang);
+  if (name) document.title = name;
+  const logo = BRANDING.logo;
+  const image = document.querySelector('.intro-logo img');
+  if (!image) return;
+  if (logo === false || logo?.visible === false) {
+    image.closest('.intro-logo').hidden = true;
+    return;
+  }
+  const src = logo?.srcOnDark || logo?.src;
+  if (typeof src !== 'string' || !src) return;
+  try {
+    const url = new URL(src, document.baseURI);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+    image.src = url.href;
+  } catch {
+    return;
+  }
+  image.removeAttribute('width');
+  image.removeAttribute('height');
+  image.alt = (typeof logo.alt === 'string' && logo.alt) || name || '';
+}
 
 // --- Progress bar ------------------------------------------------------------
 
@@ -2290,9 +2440,17 @@ const isHeld = () => Number.isFinite(heldAt);
 const pageStart = performance.now();
 const now = () => (performance.now() - pageStart) / 1000;
 let controls;
+// The camera's own distance (the path moves closer only for the time travel).
+let cameraRadius = 0;
+// Where the path put the camera last frame (null: not following it). A jump
+// in the path (the progress bar, a late model, "Assemble again" after a
+// drag) is eased out from there instead of cut.
+let pathLast = null;
+let pathStarted = false;
 let cloud;
 let dust;
-let total = 0;
+let total = 0; // the points in the file: what the counter counts
+let count = 0; // the points drawn (every second one on a phone)
 let started = -1;
 let meshReveal = null;
 let tour = null;
@@ -2337,9 +2495,10 @@ if (renderer) {
   controls.maxDistance = 11;
   controls.minPolarAngle = 0.35;
   controls.maxPolarAngle = 1.62;
-  controls.autoRotate = !reducedMotion;
-  controls.autoRotateSpeed = 0.55;
+  // The camera's path turns it (frame()), not the controls.
+  controls.autoRotate = false;
   controls.target.set(0, 0.12, 0);
+  cameraRadius = camera.position.distanceTo(controls.target);
   controls.addEventListener('start', () => {
     userTouched = true;
     hideHint();
@@ -2430,6 +2589,8 @@ async function load() {
   const quantized = new Uint16Array(buffer, 32, total * 3);
   const srgb = new Uint8Array(buffer, 32 + total * 6, total * 3);
   const normals = new Int8Array(buffer, 32 + total * 9, total * 3);
+  count = Math.ceil(total / POINT_STRIDE);
+  if (POINT_STRIDE > 1) cloudUniforms.uSize.value *= Math.sqrt(POINT_STRIDE) * 0.95;
 
   // Centred on the ground's middle, about 3 units across.
   const extent = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
@@ -2437,12 +2598,12 @@ async function load() {
   const center = [(min[0] + max[0]) / 2, min[1] + (max[1] - min[1]) * 0.42, (min[2] + max[2]) / 2];
   const heightRange = max[1] - min[1];
 
-  const target = new Float32Array(total * 3);
-  const start = new Float32Array(total * 3);
-  const seed = new Float32Array(total * 4);
-  const delay = new Float32Array(total);
-  const color = new Float32Array(total * 3);
-  const normal = new Float32Array(total * 3);
+  const target = new Float32Array(count * 3);
+  const start = new Float32Array(count * 3);
+  const seed = new Float32Array(count * 4);
+  const delay = new Float32Array(count);
+  const color = new Float32Array(count * 3);
+  const normal = new Float32Array(count * 3);
 
   let rand = 0x9e3779b9;
   const random = () => {
@@ -2463,14 +2624,15 @@ async function load() {
     };
   });
 
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < count; i++) {
+    const j = i * POINT_STRIDE; // in the file
     let height = 0;
     for (let k = 0; k < 3; k++) {
-      const value = min[k] + (quantized[i * 3 + k] / 65535) * (max[k] - min[k]);
+      const value = min[k] + (quantized[j * 3 + k] / 65535) * (max[k] - min[k]);
       target[i * 3 + k] = (value - center[k]) * scale;
       if (k === 1) height = (value - min[1]) / heightRange;
-      color[i * 3 + k] = srgb[i * 3 + k] / 255;
-      normal[i * 3 + k] = normals[i * 3 + k] / 127;
+      color[i * 3 + k] = srgb[j * 3 + k] / 255;
+      normal[i * 3 + k] = normals[j * 3 + k] / 127;
     }
     const pick = random();
     if (pick < 0.62) {
@@ -2503,8 +2665,8 @@ async function load() {
   // The last point: the highest one, the top of the roof. Moved to the end
   // of the arrays and left out of the cloud; it flies on its own.
   let top = 0;
-  for (let i = 1; i < total; i++) if (target[i * 3 + 1] > target[top * 3 + 1]) top = i;
-  const last = total - 1;
+  for (let i = 1; i < count; i++) if (target[i * 3 + 1] > target[top * 3 + 1]) top = i;
+  const last = count - 1;
   for (const [array, size] of [[target, 3], [start, 3], [seed, 4], [delay, 1], [color, 3], [normal, 3]]) {
     for (let k = 0; k < size; k++) {
       const tmp = array[top * size + k];
@@ -2520,7 +2682,7 @@ async function load() {
   cloudUniforms.uFlashPos.value.copy(lastPoint.target);
   let yMin = Infinity;
   let yMax = -Infinity;
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < count; i++) {
     yMin = Math.min(yMin, target[i * 3 + 1]);
     yMax = Math.max(yMax, target[i * 3 + 1]);
   }
@@ -2533,7 +2695,7 @@ async function load() {
   geometry.setAttribute('aDelay', new BufferAttribute(delay, 1));
   geometry.setAttribute('aColor', new BufferAttribute(color, 3));
   geometry.setAttribute('aNormal', new BufferAttribute(normal, 3));
-  geometry.setDrawRange(0, total - 1);
+  geometry.setDrawRange(0, count - 1);
 
   // Drawn twice: the points in flight as additive light, the points in
   // place as solid, lit discs.
@@ -2559,15 +2721,18 @@ async function load() {
 
   // The model, while the points gather. Without it the intro ends with the
   // points.
-  createMeshReveal({ url: MODEL_URL, renderer, center, scale, transcoderPath: TRANSCODER_PATH })
+  if (MODEL_URL) createMeshReveal({ url: MODEL_URL, renderer, center, scale, transcoderPath: TRANSCODER_PATH })
     .then((reveal) => {
       meshReveal = reveal;
       // Late (after the landing): its act starts now. Held (?at=) or shown
       // whole: as if it had been there from the start.
       meshReadyAt = isHeld() ? 0 : timeline(now());
       scene.add(reveal.group);
-      // The model's height, from its ground (y = 0, in centimetres).
-      const height = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 }).format(max[1] / 100);
+      // The scene's measurement, or the bounding box's height at its corner.
+      const ground = SCENE.ground ?? min[1];
+      const measure = SCENE.measure ?? { x: max[0], z: max[2], from: ground, to: max[1] };
+      const height = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 })
+        .format((measure.to - measure.from) * SCENE.unitInMeters);
       tour = createFeatureTour({
         reveal,
         camera,
@@ -2577,6 +2742,8 @@ async function load() {
         toIntro: (x, y, z) => new Vector3((x - center[0]) * scale, (y - center[1]) * scale, (z - center[2]) * scale),
         heightLabel: `${t.tour.height} ${height} m`,
         lang,
+        scene: { ...SCENE, ground, measure },
+        plan: PLAN,
       });
       scene.add(tour.group);
       resize();
@@ -2939,14 +3106,15 @@ let rewindFrom = 0;
 let lastT = 0;
 let lastTime = 0;
 let lastArrived = 0;
-let cameraTurn = 1;
 // The camera's angle around the building at the landing: the front (the
 // facade with the corner pavilions faces +Z), a little from the side. Before
-// it, turning slower and slower to arrive there; the rate at the landing
-// matches the turn that goes on after it (autoRotateSpeed 0.4).
-const FRONT_THETA = 0.3;
+// it, turning slower and slower to arrive there; after it, the tour's path
+// (feature-tour.js tourCameraPath) - both functions of the intro's time, not
+// of the frames drawn, so the sections always face the front.
+const FRONT_THETA = SCENE.front;
 const LANDING_TURN_RATE = (2 * Math.PI / 60) * 0.4;
 const LANDING_TURN_EASE = 0.014;
+const cameraPath = tourCameraPath({ plan: PLAN, front: FRONT_THETA, rate: LANDING_TURN_RATE, tourStart: TOUR_START });
 const orbit = new Spherical();
 const orbitOffset = new Vector3();
 
@@ -3113,24 +3281,35 @@ function frame() {
   ui.root.classList.toggle('is-assembled', T >= LANDING - 0.3);
 
   // While gathering the camera circles faster, slowing as the building
-  // forms; it holds still for the sun study (the shadows turn with the sun
-  // only), easing out of and back into its turn.
-  if (exitStarted < 0 && !userTouched) {
-    const holding = tour?.holdsCamera(stage - TOUR_START) ?? false;
-    cameraTurn += ((holding ? 0 : 1) - cameraTurn) * Math.min(1, dt * 3);
-    controls.autoRotateSpeed = reducedMotion ? 0 : 0.4 * cameraTurn;
-    // Up to the landing the camera's angle follows the intro's time, not
-    // how far it happened to turn: when the last point lands, the
-    // synagogue faces it (also when held, jumped to or run backwards).
+  // forms, to face its front at the landing; then the tour's path. The
+  // angle follows the intro's time, not how far it happened to turn (also
+  // when held, jumped to or run backwards).
+  if (exitStarted < 0 && !userTouched && !reducedMotion) {
     const before = LANDING - T;
-    if (before > 0 && !reducedMotion) {
-      orbit.setFromVector3(orbitOffset.copy(camera.position).sub(controls.target));
-      orbit.theta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
-      camera.position.setFromSpherical(orbit).add(controls.target);
-      controls.autoRotate = false;
+    let theta;
+    let dolly = 1;
+    if (before > 0) {
+      theta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
     } else {
-      controls.autoRotate = !reducedMotion;
+      // The model's act; without the model (yet), from the landing.
+      ({ theta, dolly } = cameraPath(meshReveal ? stage : T - LANDING));
     }
+    const radius = cameraRadius * dolly;
+    orbit.setFromVector3(orbitOffset.copy(camera.position).sub(controls.target));
+    const wrap = (angle) => angle - Math.round(angle / (2 * Math.PI)) * 2 * Math.PI;
+    // Off the path by as much as last frame, less a little.
+    const from = pathLast ?? { theta, radius };
+    // Held, or the intro's first frame: right on it.
+    const ease = isHeld() || !pathStarted ? 0 : Math.exp(-dt * 3);
+    pathStarted = true;
+    const offTheta = wrap(orbit.theta - from.theta) * ease;
+    const offRadius = (orbit.radius - from.radius) * ease;
+    orbit.theta = theta + offTheta;
+    orbit.radius = radius + offRadius;
+    camera.position.setFromSpherical(orbit).add(controls.target);
+    pathLast = pathLast ? Object.assign(pathLast, { theta, radius }) : { theta, radius };
+  } else {
+    pathLast = null;
   }
   if (exitStarted >= 0) {
     camera.position.lerp(exitTarget, 0.04);
@@ -3182,12 +3361,47 @@ ui.replay.addEventListener('click', () => {
   userTouched = false;
 });
 
-// Prefetch the viewer while the intro plays (inside it, it is there already).
+// The viewer, fetched while the intro plays, so it opens ready: its page,
+// then what the page loads first - its scripts, stylesheets and settings -
+// into the browser's cache. The model is the intro's own (already there).
+// Inside the viewer (embedded) the viewer loads underneath anyway.
+function prefetchViewer() {
+  const add = (href, as) => {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    if (as) link.as = as;
+    link.href = href;
+    document.head.appendChild(link);
+  };
+  fetch(nextUrl, { credentials: 'same-origin' })
+    .then((response) => (response.ok ? response.text() : ''))
+    .then((html) => {
+      if (!html) return;
+      const page = new DOMParser().parseFromString(html, 'text/html');
+      const base = new URL(nextUrl, window.location.href);
+      const sameSite = (value) => {
+        try {
+          const url = new URL(value, base);
+          return url.origin === window.location.origin ? url.href : null;
+        } catch {
+          return null;
+        }
+      };
+      page.querySelectorAll('script[src]').forEach((script) => {
+        const href = sameSite(script.getAttribute('src'));
+        if (href) add(href, 'script');
+      });
+      page.querySelectorAll('link[rel~="stylesheet"][href], link[rel~="modulepreload"][href]').forEach((link) => {
+        const href = sameSite(link.getAttribute('href'));
+        if (href) add(href, link.rel.includes('stylesheet') ? 'style' : 'script');
+      });
+      add(new URL('viewer-settings.json', base).href, 'fetch');
+    })
+    .catch(() => {});
+}
 if (!embedded) {
-  const prefetch = document.createElement('link');
-  prefetch.rel = 'prefetch';
-  prefetch.href = nextUrl;
-  document.head.appendChild(prefetch);
+  // After the intro's own files: a few seconds in, when the points gather.
+  setTimeout(prefetchViewer, 2500);
 }
 // Inside the viewer, Escape skips the intro.
 if (embedded) {
@@ -3196,4 +3410,4 @@ if (embedded) {
   });
   document.documentElement.classList.add('is-embedded');
 }
-//# sourceMappingURL=intro-KXp_9LVE.js.map
+//# sourceMappingURL=intro-B0A5-T0W.js.map

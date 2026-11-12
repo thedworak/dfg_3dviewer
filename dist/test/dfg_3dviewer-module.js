@@ -1,8 +1,8 @@
-export { V as Viewer, e as expectWebGL } from './assets/main-wQ05QVWg.js';
-import './assets/model-extension-V-bD6FLD.js';
-import './assets/three-Dhy7exgi.js';
-import './assets/model-thumbnail-vzDo5QkC.js';
-import './assets/sun-position-C35jyMtL.js';
+export { V as Viewer, e as expectWebGL } from './assets/main-DaoVSzGk.js';
+import './assets/model-extension-BDXGpmfH.js';
+import './assets/three-cXLO51tH.js';
+import './assets/feature-icons-BAb03v7Y.js';
+import './assets/intro-scene-DYWpSsos.js';
 import './assets/_commonjsHelpers-1n8l_yFW.js';
 import './assets/slice-stack-HPsHxT3J.js';
 import './assets/image-slices-reader-BDYkC6Bg.js';

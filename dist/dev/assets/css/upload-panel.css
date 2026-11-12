@@ -19,8 +19,7 @@
   font-size: 13px;
   line-height: 1.4;
   z-index: 99999;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--viewer-panel-text) 45%, transparent) transparent;
 }
@@ -227,8 +226,7 @@
   box-shadow: var(--viewer-panel-shadow);
   font-size: 13px;
   line-height: 1.45;
-  font-family: -apple-system, BlinkMacSystemFont, "Lucida Grande",
-            "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .viewer-confirm-message {

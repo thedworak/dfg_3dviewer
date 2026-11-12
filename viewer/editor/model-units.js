@@ -101,6 +101,9 @@ export async function detectFileUnit(object, extension, url) {
       const factor = Number(root.userData?.unitScaleFactor);
       return Number.isFinite(factor) && factor > 0 ? factor / 100 : null;
     }
+    // A 2D image (image2d.js): built in metres when its file gives its
+    // resolution, else in pixels.
+    if (root.userData?.isImage2D) return root.userData.imageMetersPerUnit ?? null;
     if (["dfgvol", "lif", "tif", "tiff", "nrrd", "nhdr", "nii", "mha", "mhd", "mrc", "rec", "ccp4", "vgi", "xtekct", "lsm", "dcm", "dicom", "png", "jpg", "jpeg", "bmp"].includes(ext)) {
       // Volumes are built in micrometres (volume.js) - or in voxels when the
       // file gives no size.

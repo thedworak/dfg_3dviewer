@@ -45,6 +45,11 @@ ENV VIEWER_BUILD_EXTENSION=${VIEWER_BUILD_EXTENSION}
 # the pnpm install above run again each time.
 ARG BUILD_ID=
 ENV BUILD_ID=${BUILD_ID}
+# A client profile: clients/<BRAND>/ - its settings merged into the build's
+# viewer-settings.json, its brand/ folder copied next to index.html
+# (docs/branding.md). Empty: the viewer's own look.
+ARG BRAND=
+ENV BRAND=${BRAND}
 RUN pnpm run build:${BUILD_TARGET}
 # The profile only after the build: an ARG changes the cache key of every
 # RUN below it, so images with the same BUILD_TARGET (viewer-test and

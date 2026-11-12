@@ -37,6 +37,8 @@ package-lock.json
 /dist/drupal/viewer-settings.json
 /dist/test/viewer-settings.json
 viewer-settings.json
+# Client profiles keep theirs in the repository (docs/branding.md).
+!/clients/*/viewer-settings.json
 
 # Playwright
 /test-results/

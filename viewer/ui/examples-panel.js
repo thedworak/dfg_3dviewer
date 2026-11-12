@@ -8,6 +8,7 @@ import { inspectAIM3DManifest, manifestModelUrls } from "../manifesto/manifest-i
 import { featureIconsCaption } from "./feature-icons.js";
 import { fetchModelValidation } from "./validation-report.js";
 import { clearExampleModelSelection } from "../example-models.js";
+import { UPDATE_ARROW, manifestUpdateHint } from "./manifest-update.js";
 
 // The example AIM3D/IIIF manifests the dev build offers in its manifest
 // form (metadata.js): in the app the third tab of the "Models" panels
@@ -192,6 +193,20 @@ export function attachExamplesPanel(Viewer) {
         inspectExample(url, (manifestUrl) => this.getManifestJson(manifestUrl, "url")).then((result) => {
           if (!result || !text.isConnected) return;
           text.appendChild(featureIconsCaption(result.inspection, result.modelValidation));
+          // Made for a newer viewer: an up arrow - update to open it, or
+          // to see all of it.
+          const version = result.inspection.version;
+          if (version?.newer) {
+            const hint = manifestUpdateHint(version);
+            const arrow = document.createElement("span");
+            arrow.className = "examples-panel-update";
+            arrow.dataset.state = version.state;
+            arrow.setAttribute("role", "img");
+            arrow.setAttribute("aria-label", hint);
+            arrow.title = hint;
+            arrow.textContent = UPDATE_ARROW;
+            source.before(arrow);
+          }
           // Thumbnails saved in the manifest (AIM3DViewer.thumbnails): a
           // badge of its own beside the source, not one icon among many.
           const thumbnails = result.inspection.features.find((feature) => feature.id === "thumbnails");

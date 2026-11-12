@@ -1,0 +1,2 @@
+import{readImageSlices as s}from"./image-slices-reader-BxwQDnNR.js";import"./volume-voxels-BTms9hMZ.js";import"./slice-stack-H-Cl9ZF8.js";self.onmessage=async e=>{const{slices:t,layout:o}=e.data||{};try{const e=await s(t,o,{onProgress:s=>self.postMessage({type:"progress",progress:s})});self.postMessage({type:"done",result:e},[e.bytes.buffer])}catch(s){self.postMessage({type:"error",message:s?.message||String(s)})}},self.postMessage({type:"ready"});
+//# sourceMappingURL=image-slices-worker-DRN6cCTK.js.map

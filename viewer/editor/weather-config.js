@@ -3,6 +3,7 @@
 // is only downloaded when the weather is first used.
 
 export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
+export const WEATHER_SEASONS = ["spring", "summer", "autumn", "winter"];
 export const WEATHER_DEFAULTS = Object.freeze({
   type: "rain",
   intensity: 0.6,
@@ -16,4 +17,6 @@ export const WEATHER_DEFAULTS = Object.freeze({
   mistDensity: 0.5,
   // 0: clumps with gaps (low clouds); 1: an even blanket thinning upwards.
   mistSpread: 0.6,
+  // One of WEATHER_SEASONS, or null.
+  season: null,
 });

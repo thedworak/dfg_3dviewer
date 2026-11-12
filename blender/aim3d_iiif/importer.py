@@ -364,6 +364,9 @@ def import_manifest(context, source, import_models=True, model_base=""):
         raise ValueError("The manifest has no Scene (IIIF Presentation 4)")
     if iiif.scene_count(data) > 1:
         reports.append(("WARNING", "Only the first Scene is imported"))
+    newer = iiif.version_warning(data)
+    if newer:
+        reports.append(("WARNING", newer))
     aim3d = data.get("AIM3DViewer") if isinstance(data.get("AIM3DViewer"), dict) else {}
     scene = context.scene
 

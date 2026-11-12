@@ -11,7 +11,7 @@
   margin-top: 8px;
   padding: 6px 8px;
   border-radius: 8px;
-  background: rgba(233, 178, 100, 0.16);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 16%, transparent);
   font-size: 12px;
 }
 
@@ -62,7 +62,7 @@
 
 .viewer-materials_pick.is-active {
   border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: rgba(233, 178, 100, 0.18) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent) !important;
 }
 
 .viewer-materials_list {
@@ -91,7 +91,7 @@
 
 .viewer-materials_item.is-selected {
   border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: rgba(233, 178, 100, 0.14) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent) !important;
 }
 
 .viewer-materials_item-name {
@@ -195,7 +195,7 @@
 
 .viewer-materials_group.is-active {
   border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: rgba(233, 178, 100, 0.18) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent) !important;
 }
 
 .viewer-materials_presets {
@@ -218,7 +218,7 @@
 
 .viewer-materials_preset.is-active {
   border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: rgba(233, 178, 100, 0.14) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent) !important;
 }
 
 /* Two lines at most ("Glazed ceramic", "Ściana malowana"). */
@@ -319,7 +319,7 @@
   margin-top: 8px;
   padding: 5px 8px;
   border-radius: 8px;
-  background: rgba(233, 178, 100, 0.14);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent);
   font-size: 12px;
 }
 

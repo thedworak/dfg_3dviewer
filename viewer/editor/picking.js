@@ -694,6 +694,13 @@ export function attachPicking(Viewer) {
         return;
       }
 
+      // Placing or aiming a sound source (editor/scene-sounds.js).
+      if (Viewer.isSoundPlacing?.()) {
+        const hit = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);
+        if (hit) Viewer.placeSoundAt(hit);
+        return;
+      }
+
       // Drawing a point cloud profile: its two ends (point-cloud-panel.js).
       if (Viewer.isPointCloudProfilePicking?.()) {
         const hit = getPrimaryModelIntersection(Viewer, Viewer.onUpPosition);

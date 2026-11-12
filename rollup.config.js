@@ -8,6 +8,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { execSync } from 'child_process';
 import { pathToFileURL } from 'url';
+import { transform as transformCss } from 'lightningcss';
 
 // Shown in the credits footer. Docker builds have no .git (see .dockerignore),
 // so deploy passes BUILD_ID (the commit's short hash) in explicitly.
@@ -43,6 +44,67 @@ const extension = extensionPath
   : {};
 const appBuild = Boolean(extension.isAppBuild?.(envBuild));
 
+// BRAND: a client profile, clients/<BRAND>/ (docs/branding.md). Its
+// viewer-settings.json is merged over the build's settings (objects key by
+// key, everything else replaced), its brand/ folder is copied to
+// <build>/brand/, and branding.title / branding.favicon go into the HTML
+// pages' <title> and icon link, so they are right before the script runs.
+const brandId = process.env.BRAND?.trim() || '';
+if (brandId && !/^[a-z0-9_-]+$/i.test(brandId)) {
+  throw new Error(`[rollup] BRAND must be a folder name in clients/ (letters, digits, - and _), not "${brandId}"`);
+}
+const brandDir = brandId ? path.join('clients', brandId) : '';
+async function readBrandSettings() {
+  if (!brandDir) return null;
+  try {
+    await fs.access(brandDir);
+  } catch {
+    throw new Error(`[rollup] BRAND=${brandId}: ${brandDir}/ does not exist`);
+  }
+  try {
+    return JSON.parse(await fs.readFile(path.join(brandDir, 'viewer-settings.json'), 'utf8'));
+  } catch (err) {
+    if (err.code === 'ENOENT') return {};
+    throw new Error(`[rollup] BRAND=${brandId}: ${brandDir}/viewer-settings.json: ${err.message}`);
+  }
+}
+const brandSettings = await readBrandSettings();
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function mergeSettings(target, source) {
+  if (!isPlainObject(source)) return target;
+  for (const [key, value] of Object.entries(source)) {
+    target[key] = isPlainObject(value) && isPlainObject(target[key])
+      ? mergeSettings(target[key], value)
+      : structuredClone(value);
+  }
+  return target;
+}
+
+const withBrand = (settings) => (brandSettings ? mergeSettings(settings, brandSettings) : settings);
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+function brandHtml(html) {
+  const branding = brandSettings?.branding;
+  if (!branding) return html;
+  let out = html;
+  if (typeof branding.title === 'string' && branding.title.trim()) {
+    out = out.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(branding.title.trim())}</title>`);
+  }
+  if (typeof branding.favicon === 'string' && branding.favicon.trim()) {
+    // The whole tag: its type (image/png) may not fit the client's icon.
+    out = out.replace(/<link\b[^>]*\brel=["'](?:shortcut )?icon["'][^>]*>/i,
+      `<link rel="icon" href="${escapeHtml(branding.favicon.trim())}">`);
+  }
+  return out;
+}
+
 if (customModules && !customModules.startsWith('/')) {
   customModules = `/${customModules}`;
 }
@@ -58,6 +120,7 @@ console.log('[rollup] build:', envBuild);
 console.log('[rollup] source:', source);
 console.log('[rollup] outDir:', outDistDir);
 if (extensionPath) console.log('[rollup] extension:', extensionPath, appBuild ? '(app build)' : '');
+if (brandId) console.log('[rollup] brand:', brandDir);
 
 function normalizePathSegment(seg = '') {
   return seg.replace(/^\/+|\/+$/g, '');
@@ -159,7 +222,7 @@ const versionQuery = `?v=${encodeURIComponent(buildId)}`;
 
 function stampEntryVersion(html) {
   return html
-    .replace(/(src=["'])(dfg_3dviewer-module\.js|intro\.js)(["'])/g, `$1$2${versionQuery}$3`)
+    .replace(/(src=["'])(dfg_3dviewer-module\.js|intro\.js|ultra\.js)(["'])/g, `$1$2${versionQuery}$3`)
     .replace(/(href=["'])(assets\/(?:css|intro)\/[^"'?]+\.css)(["'])/g, `$1$2${versionQuery}$3`);
 }
 
@@ -178,8 +241,32 @@ async function stampCssImports(file) {
   );
 }
 
+// Production builds (IS_PROD=true) minify the stylesheets they copy, file by
+// file: the @import chain stays (Drupal loads viewer.css, which imports the
+// rest), so do this after stampCssImports. Already minified files (*.min.css)
+// are left alone; one lightningcss cannot parse is copied as it is.
+async function minifyCssTree(dir) {
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  await Promise.all(entries.map(async (entry) => {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) return minifyCssTree(file);
+    if (!entry.name.endsWith('.css') || entry.name.endsWith('.min.css')) return;
+    try {
+      const { code } = transformCss({ filename: file, code: await fs.readFile(file), minify: true });
+      await fs.writeFile(file, code);
+    } catch (err) {
+      console.warn(`[rollup] CSS not minified, ${file}: ${err.message}`);
+    }
+  }));
+}
+
 async function copyHtmlWithEntryVersion(source, target) {
-  const html = stampEntryVersion(await fs.readFile(source, 'utf8'));
+  const html = brandHtml(stampEntryVersion(await fs.readFile(source, 'utf8')));
   await fs.writeFile(target, extension.transformHtml ? extension.transformHtml(html) : html);
 }
 
@@ -285,14 +372,20 @@ function copyBuildAssets() {
         ).then(() => copyDirectory('viewer/fonts/ui', path.join(outDistDir, 'assets/fonts/ui'))),
         copyDirectory('viewer/js/maps', path.join(outDistDir, 'assets/maps')),
         // The intro page's stylesheet and points (intro.html, viewer/intro/;
-        // the points from scripts/build-intro-points.mjs).
-        !appBuild && copyDirectory(
+        // the points from scripts/build-intro-points.mjs) - in an app build
+        // too, which opens with it the first time.
+        copyDirectory(
           'viewer/intro',
           path.join(outDistDir, 'assets/intro'),
           keepFiles('viewer/intro', ['intro.css', 'synagogue-points.bin'])
         // The time travel's textures and stages (scripts/build-intro-time.mjs),
         // after: both make assets/intro/.
-        ).then(() => copyDirectory('viewer/intro/time', path.join(outDistDir, 'assets/intro/time'))),
+        ).then(() => Promise.all([
+          copyDirectory('viewer/intro/time', path.join(outDistDir, 'assets/intro/time')),
+          // Other models for the intro (viewer.intro.scene, docs/intro.md);
+          // an app build shows the synagogue only.
+          !appBuild && copyDirectory('viewer/intro/scenes', path.join(outDistDir, 'assets/intro/scenes')),
+        ])),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples'),
           extension.examplesFilter && ((source) => extension.examplesFilter(source, buildContext)))
           .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),
@@ -303,12 +396,19 @@ function copyBuildAssets() {
         fs.mkdir(path.join(outDistDir, 'schema'), { recursive: true }).then(() => Promise.all(
           ['AIM3DViewer-schema.json', 'AIM3DViewer-schema.md'].map((file) =>
             fs.copyFile(path.join('viewer/manifesto', file), path.join(outDistDir, 'schema', file))))),
+        // The client profile's files (BRAND): logos, favicon, brand.css.
+        brandDir && fs.access(path.join(brandDir, 'brand')).then(
+          () => copyDirectory(path.join(brandDir, 'brand'), path.join(outDistDir, 'brand')),
+          () => {}),
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
         !appBuild && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
       await stampCssImports(path.join(outDistDir, 'assets/css/viewer.css'));
       await stampCssImports(path.join(outDistDir, 'assets/css/exadmin.css'));
       await stampCssImports(path.join(outDistDir, 'assets/intro/intro.css'));
+      if (production) {
+        await Promise.all(['assets/css', 'assets/intro', 'brand'].map((dir) => minifyCssTree(path.join(outDistDir, dir))));
+      }
 
       const viewerSettingsTarget = path.join(outDistDir, 'viewer-settings.json');
       const settingsPhpTarget = path.join(outDistDir, 'settings.local.php');
@@ -319,7 +419,8 @@ function copyBuildAssets() {
         writeDrupalLibrariesFile(),
         copyHtmlWithEntryVersion('index.html', indexTarget),
         copyHtmlWithEntryVersion('embed.html', embedTarget),
-        !appBuild && copyHtmlWithEntryVersion('intro.html', path.join(outDistDir, 'intro.html')),
+        copyHtmlWithEntryVersion('intro.html', path.join(outDistDir, 'intro.html')),
+        copyHtmlWithEntryVersion('ultra.html', path.join(outDistDir, 'ultra.html')),
         writeAdminPage(bundle),
       ];
 
@@ -335,16 +436,19 @@ function copyBuildAssets() {
       );
       viewerSettings.viewer.lightweight = 1;
       viewerSettingsSource = 'viewer-settings.json';
+      // A client profile is the source of its settings: rewritten on every
+      // build, where without one an existing file is kept.
+      const settingsFlag = brandSettings ? 'w' : 'wx';
       if (envBuild === 'drupal') {
-        const viewerSettingsMain = JSON.parse(
+        const viewerSettingsMain = withBrand(JSON.parse(
           await fs.readFile(viewerSettingsSource, 'utf8')
-        );
+        ));
         viewerSettingsMain.baseModulePath = `${drupalModulePrefix}/dist/${envBuild}/${envSubdir}/assets`;
         viewerSettingsMain.entity.metadata.source = "Drupal";
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,
-            JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' }
+            JSON.stringify(viewerSettingsMain, null, 2), { flag: settingsFlag }
           ).catch(err => {
           if (err.code !== 'EEXIST') {
             throw err;
@@ -360,9 +464,9 @@ function copyBuildAssets() {
           fs.writeFile(viewerSettingsTarget, JSON.stringify(settings, null, 2))
         );
       } else if (envBuild === 'test' || envBuild === 'dev') {
-        const viewerSettingsMain = JSON.parse(
+        const viewerSettingsMain = withBrand(JSON.parse(
           await fs.readFile(viewerSettingsSource, 'utf8')
-        );
+        ));
         viewerSettingsMain.viewer.gallery.build = false;
         viewerSettingsMain.viewer.editor = true;
         viewerSettingsMain.viewer.lightweight = true;
@@ -391,7 +495,7 @@ function copyBuildAssets() {
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,
-            JSON.stringify(viewerSettingsMain, null, 2), { flag: 'wx' }
+            JSON.stringify(viewerSettingsMain, null, 2), { flag: settingsFlag }
           ).catch(err => {
           if (err.code !== 'EEXIST') {
             throw err;
@@ -402,7 +506,7 @@ function copyBuildAssets() {
         copyPromises.push(
           fs.writeFile(
             viewerSettingsTarget,
-            JSON.stringify(viewerSettings, null, 2), { flag: 'wx' }
+            JSON.stringify(withBrand(viewerSettings), null, 2), { flag: settingsFlag }
           ).catch(err => {
           if (err.code !== 'EEXIST') {
             throw err;
@@ -424,12 +528,12 @@ function copyBuildAssets() {
   };
 }
 
-export default {
+const viewerConfig = {
   // The viewer, the admin pages (viewer/exadmin/) and the intro page
-  // (intro.html, viewer/intro/) - not in an app build, which has no server
-  // of its own to administer and opens straight into the viewer.
+  // (intro.html, viewer/intro/) - an app build without the admin pages: it
+  // has no server of its own to administer.
   input: appBuild
-    ? { 'dfg_3dviewer-module': 'viewer/main.js' }
+    ? { 'dfg_3dviewer-module': 'viewer/main.js', intro: 'viewer/intro/intro.js' }
     : { 'dfg_3dviewer-module': 'viewer/main.js', exadmin: 'viewer/exadmin/main.js', intro: 'viewer/intro/intro.js' },
   treeshake: {
     moduleSideEffects: false,
@@ -529,3 +633,27 @@ export default {
     sourcemap: !appBuild,
   },
 };
+
+// The ultralight viewer (ultra.html, viewer/ultra.js): a glTF / GLB model and
+// nothing else. A build of its own, so that it shares no chunk with the full
+// viewer: one file, ultra.js, next to the pages. It uses the Draco and Basis
+// decoders and the environment map the viewer's build copies into assets/,
+// so it is built after it (rollup runs the configs in order).
+const ultraConfig = {
+  input: 'viewer/ultra.js',
+  treeshake: viewerConfig.treeshake,
+  plugins: [
+    resolve({ browser: true, preferBuiltins: false, dedupe: ['three'] }),
+    production && terser(),
+  ].filter(Boolean),
+  output: {
+    dir: outDistDir,
+    entryFileNames: 'ultra.js',
+    sourcemapFileNames: 'assets/ultra-[hash].js.map',
+    format: 'es',
+    inlineDynamicImports: true,
+    sourcemap: !appBuild,
+  },
+};
+
+export default [viewerConfig, ultraConfig];

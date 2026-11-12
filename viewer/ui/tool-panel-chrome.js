@@ -176,6 +176,7 @@ const svg = (body) => `<svg viewBox="0 0 16 16" width="18" height="18" fill="non
 export const PANEL_ICONS = {
   tour: svg('<path d="M3 14V2.5h8.5l-1.8 2.75 1.8 2.75H3"/>'),
   weather: svg('<path d="M4.5 10.5a2.8 2.8 0 0 1-.3-5.6 3.9 3.9 0 0 1 7.5.4 2.6 2.6 0 0 1-.2 5.2z"/><path d="M5.5 12.8l-.6 1.4M8.5 12.8l-.6 1.4M11.5 12.8l-.6 1.4"/>'),
+  seasons: svg('<path d="M3 13C3 6.5 6.5 3 13 3c0 6.5-3.5 10-10 10z"/><path d="M3 13l5.5-5.5"/>'),
   scene: svg('<path d="m2.5 13.5 7-7"/><path d="M12 2v2M11 3h2M14 6.5v1.5M13.25 7.25h1.5"/>'),
   sun: svg('<circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/>'),
   timeline: svg('<path d="M1.5 8h13"/><circle cx="4" cy="8" r="1.4" fill="currentColor"/><circle cx="9.5" cy="8" r="1.4" fill="currentColor"/><path d="M4 4v1.5M9.5 4v1.5M12.5 10.5V12"/>'),
@@ -183,6 +184,9 @@ export const PANEL_ICONS = {
   clipping: svg('<path d="M2 11 8 14l6-3V5L8 2 2 5z"/><path d="M1 8.5h14" stroke-dasharray="2 1.5"/>'),
   pointCloud: svg('<circle cx="4" cy="5" r="1" fill="currentColor"/><circle cx="8" cy="3.5" r="1" fill="currentColor"/><circle cx="12" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="9" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/><circle cx="4" cy="12.5" r="1" fill="currentColor"/><circle cx="8.5" cy="13" r="1" fill="currentColor"/>'),
   volume: svg('<path d="M8 1.5 14 4.75v6.5L8 14.5 2 11.25v-6.5z"/><path d="M2 4.75 8 8l6-3.25M8 8v6.5" opacity=".55"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/>'),
+  image: svg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="m2 11 3.5-3.5 3 3 1.8-1.8L14 12.5"/><circle cx="10.5" cy="5.8" r="1.1"/>'),
+  sounds: svg('<path d="M2 6.5h2.5L8 3.5v9l-3.5-3H2z"/><path d="M10.5 6a2.8 2.8 0 0 1 0 4M12.5 4.2a5.4 5.4 0 0 1 0 7.6"/>'),
+  audio: svg('<path d="M2 7v2M4.75 5v6M7.5 2.5v11M10.25 4.5v7M13 6.5v3"/>'),
   certainty: svg('<path d="M8 2 14.5 5.5 8 9 1.5 5.5z"/><path d="m1.5 8.5 6.5 3.5 6.5-3.5M1.5 11.5 8 15l6.5-3.5"/>'),
   material: svg('<path d="M8 1.5a6.5 6.5 0 1 0 0 13c1 0 1.5-.7 1.2-1.6-.4-1 .3-1.9 1.3-1.9h1.6a2.9 2.9 0 0 0 2.9-2.9C15 4.4 11.9 1.5 8 1.5z"/><circle cx="4.8" cy="7" r=".9" fill="currentColor"/><circle cx="7.5" cy="4.5" r=".9" fill="currentColor"/><circle cx="10.8" cy="5.5" r=".9" fill="currentColor"/>'),
   prepare: svg('<path d="M5.5 2.5h5v2h-5z"/><path d="M4.5 3.5H3v11h10v-11h-1.5"/><path d="m5.5 9.5 1.8 1.8 3.4-3.6"/>'),

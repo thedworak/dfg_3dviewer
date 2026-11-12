@@ -462,7 +462,7 @@ def export_manifest(context, filepath, write_aim3d=True, export_model=True):
     # A manifest made here gets the block; an imported one keeps its form
     # (a plain IIIF manifest gets IIIF cameras and lights).
     if fresh and write_aim3d:
-        data["AIM3DViewer"] = {"version": "1.0", "generatedAt": now()}
+        data["AIM3DViewer"] = {"version": iiif.AIM3D_MANIFEST_VERSION, "generatedAt": now()}
     aim3d = data.get("AIM3DViewer") if isinstance(data.get("AIM3DViewer"), dict) else None
 
     views = by_role(scene, "view")

@@ -14,7 +14,7 @@ import { core } from "../core.js";
 // The icon's size on screen, in CSS pixels.
 const MARKER_PX = 44;
 const TEXTURE_PX = 128;
-const GOLD = "#e9b264";
+const GOLD = "#f5a524";
 const ORDER = 999;
 
 const textures = new Map();

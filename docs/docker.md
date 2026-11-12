@@ -6,13 +6,13 @@ The conversion pipeline (Blender + Python + `scripts/convert.py`/`scripts/render
 docker compose up --build
 ```
 
-This starts one shared conversion API on `:8080`, plus three viewer endpoints — each a static build fronted by nginx, reverse-proxying to that same worker (same-origin, no CORS/config needed):
+This starts one shared conversion API on `:8080`, plus three viewer endpoints - each a static build fronted by nginx, reverse-proxying to that same worker (same-origin, no CORS/config needed):
 
 | Service          | Port   | Build          | Notes |
 |------------------|--------|----------------|-------|
 | `viewer-test`    | `:3000`| `dist/test`    | `npm run build:test` |
 | `viewer-dev`     | `:3001`| `dist/dev`     | `npm run build:dev` |
-| `viewer-sandbox` | `:3002`| `dist/test`    | same build as `viewer-test`, but opens straight into drag-and-drop upload mode (`viewer/sandbox.js`) — normally reached via `?sandbox=1` on any build, baked on here by default |
+| `viewer-sandbox` | `:3002`| `dist/test`    | same build as `viewer-test`, but opens straight into drag-and-drop upload mode (`viewer/sandbox.js`) - normally reached via `?sandbox=1` on any build, baked on here by default |
 
 ## Docker profiles (settings from an AIM3D manifest)
 
@@ -95,6 +95,6 @@ Uploads are capped at 100 MB by default (`WORKER_MAX_UPLOAD_BYTES` in `docker-co
 
 Both `viewer-settings.json` and the profile manifest are persisted in the service's settings volume and seeded only on first start, so edits survive rebuilds. **Existing volumes** keep their old `viewer-settings.json` (without the manifest pointer) and will not pick up the profile until you delete the volume (`docker compose down -v` for that service) or add the two `entity.metadata` values yourself. The `dev` build still loads IIIF models (that build forces the IIIF source); it only takes its settings from the profile.
 
-See [`worker/README.md`](../worker/README.md) for the worker's API contract/configuration, and how to add a fourth `dist/prod` service the same way. Each viewer's main menu gets an "Upload & convert" button in this mode, driving the same pipeline through the browser. This is additive — the existing Drupal-integrated pipeline (`ConvertWorker` queue plugin, `scripts/worker.py`, `drush`) is untouched and keeps working as-is for the current instance.
+See [`worker/README.md`](../worker/README.md) for the worker's API contract/configuration, and how to add a fourth `dist/prod` service the same way. Each viewer's main menu gets an "Upload & convert" button in this mode, driving the same pipeline through the browser. This is additive - the existing Drupal-integrated pipeline (`ConvertWorker` queue plugin, `scripts/worker.py`, `drush`) is untouched and keeps working as-is for the current instance.
 
-The Drupal module can also optionally be pointed at the `worker` container instead of running Blender locally — set the module's "Conversion backend" to Docker and give it the worker's URL — without changing anything else about the module's own upload/queue/field workflow. See "Using this worker from the Drupal module" in [`worker/README.md`](../worker/README.md).
+The Drupal module can also optionally be pointed at the `worker` container instead of running Blender locally - set the module's "Conversion backend" to Docker and give it the worker's URL - without changing anything else about the module's own upload/queue/field workflow. See "Using this worker from the Drupal module" in [`worker/README.md`](../worker/README.md).

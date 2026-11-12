@@ -3,6 +3,7 @@ import { closeIfcPanel, isIfcPanelOpen } from "../ifc-properties.js";
 import { closeMetadataWindow, isMetadataWindowOpen } from "../metadata.js";
 import { isAppBuild } from "../remote.js";
 import { closeOpenPanelWindow, hasOpenPanelWindow } from "./panel-window.js";
+import { closeIntroOverlay, isIntroOverlayOpen } from "../intro-overlay.js";
 
 // Back: one step out of what is open - the context menu, a dialog, a
 // window, the element's properties, elements isolated or highlighted, a
@@ -20,6 +21,8 @@ import { closeOpenPanelWindow, hasOpenPanelWindow } from "./panel-window.js";
 function backSteps(Viewer) {
   const dialogOpen = (dialog) => Boolean(dialog && !dialog.hidden);
   return [
+    // The intro over the page (intro-overlay.js): Back skips it.
+    [isIntroOverlayOpen, closeIntroOverlay],
     // The camera with a historical photo over it, full screen (editor/photo-onsite.js).
     [() => Viewer.isPhotoOnSiteOpen?.(), () => Viewer.closePhotoOnSite()],
     [() => Viewer.isContextMenuOpen?.(), () => Viewer.closeContextMenu()],

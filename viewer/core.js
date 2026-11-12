@@ -46,8 +46,25 @@ export const core = {
     // The files of the last archive opened from the disk (extract-helper.js):
     // a TIFF among them may be one slice of a stack of all of them.
     archiveFiles: null,
+    // Counts the resets of the scene shown (resetLoadedModelState): a model
+    // still loading from before the last one belongs to a scene no longer
+    // shown (isStaleModelLoad).
+    modelLoadGeneration: 0,
     // Add other shared state here
 };
+
+// A model load superseded by a newer scene: it neither joins the scene nor
+// moves the camera (loaders.js).
+export class StaleModelLoad extends Error {
+    constructor() {
+        super("Superseded by a newer model load");
+        this.name = "StaleModelLoad";
+    }
+}
+
+// Whether a load started in `generation` was superseded since.
+export const isStaleModelLoad = (generation) =>
+    Number.isFinite(generation) && generation !== core.modelLoadGeneration;
 
 export const setCore = (key, value) => {
     core[key] = value;

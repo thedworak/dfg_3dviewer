@@ -157,7 +157,22 @@
                 "enabled": { "type": "boolean" },
                 "position": { "$ref": "#/$defs/vector2orObject" },
                 "expanded": { "type": "boolean" },
-                "visible": { "type": "boolean" }
+                "visible": { "type": "boolean" },
+                "profile": {
+                  "description": "The tools for the kind of model shown (mesh, bim, pointcloud, splats, volume): false keeps the toolbar as it is; promote replaces the tools brought onto the bar, in order of importance; hide replaces those left out.",
+                  "oneOf": [
+                    { "const": false },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "enabled": { "type": "boolean" },
+                        "promote": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                        "hide": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
               },
               "additionalProperties": true
             },
@@ -270,6 +285,7 @@
             "mistHeight": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's height: 0 to 1 is 0.15 to 1.15 model sizes (default 0.4)." },
             "mistDensity": { "type": "number", "minimum": 0, "maximum": 1, "description": "The mist's density (default 0.5)." },
             "mistSpread": { "type": "number", "minimum": 0, "maximum": 1, "description": "0: clumps with gaps; 1: an even blanket thinning upwards (default 0.6)." },
+            "season": { "enum": ["spring", "summer", "autumn", "winter", null], "description": "A season (Look > Seasons): a colour grade of the model and petals, pollen, leaves or snow in the air." },
             "sky": { "type": "boolean", "description": "Show the sky with clouds around the model (default true)." },
             "surfaces": { "type": "boolean", "description": "Wet surfaces and snow cover on the model (default true)." }
           },

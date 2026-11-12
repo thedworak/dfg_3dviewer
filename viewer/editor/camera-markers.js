@@ -14,7 +14,7 @@ import { isLightBackground } from "../background-luminance.js";
 
 // The pyramid's depth on screen, in CSS pixels.
 const MARKER_PX = 60;
-const GOLD = 0xe9b264;
+const GOLD = 0xf5a524;
 const ORANGE = 0xd9780f;
 const WHITE = 0xffffff;
 const BLACK = 0x161616;

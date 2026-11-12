@@ -6,7 +6,7 @@
    carry #viewerEditorToolbar.viewer-menus. */
 
 #viewerEditorToolbar.viewer-menus {
-  --viewer-menus-accent: var(--viewer-brand-gold, #e9b264);
+  --viewer-menus-accent: var(--viewer-brand-accent, #f5a524);
   --viewer-menus-surface: color-mix(in srgb, var(--viewer-panel-bg) 96%, transparent);
   --viewer-menus-rail: 76px;
   display: block;
@@ -52,10 +52,10 @@
   padding: 2.5px;
   border-radius: 16px;
   background: conic-gradient(
-    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
+    var(--viewer-loader-accent, #f5a524) calc(var(--toolbar-load-progress) * 1%),
     color-mix(in srgb, var(--viewer-panel-text) 18%, transparent) 0
   );
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 55%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #f5a524) 55%, transparent));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -77,7 +77,7 @@
   height: 3px;
   background: linear-gradient(
     to right,
-    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
+    var(--viewer-loader-accent, #f5a524) calc(var(--toolbar-load-progress) * 1%),
     color-mix(in srgb, var(--viewer-panel-text) 14%, transparent) 0
   );
 }
@@ -87,7 +87,7 @@
   width: 3px;
   background: linear-gradient(
     to bottom,
-    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
+    var(--viewer-loader-accent, #f5a524) calc(var(--toolbar-load-progress) * 1%),
     color-mix(in srgb, var(--viewer-panel-text) 14%, transparent) 0
   );
 }
@@ -373,7 +373,7 @@
   min-height: 0;
   border: 1px solid var(--viewer-panel-border);
   background: var(--viewer-menus-surface);
-  box-shadow: var(--viewer-panel-shadow), 0 18px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--viewer-panel-shadow-raised, var(--viewer-panel-shadow));
   backdrop-filter: blur(16px);
   color: var(--viewer-panel-text);
   overflow: hidden;
@@ -615,8 +615,10 @@
   display: none;
 }
 
+/* The panels open as if hinged on the bar: a short turn towards the
+   viewer in perspective, the shadow settling with it. */
 @keyframes viewer-menus-unfold {
-  from { opacity: 0; transform: translateY(-4px); }
+  from { opacity: 0; transform: perspective(700px) rotateX(-10deg) translateY(-4px); transform-origin: 50% 0; }
   to { opacity: 1; transform: none; }
 }
 
@@ -655,7 +657,7 @@
 }
 
 @keyframes viewer-menus-drop {
-  from { opacity: 0; transform: translateY(-8px); }
+  from { opacity: 0; transform: perspective(900px) rotateX(12deg) translateY(-6px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
 
@@ -741,12 +743,33 @@
   width: 320px;
   max-height: min(600px, calc(var(--viewer-menus-host-h, 700px) - 110px));
   border-radius: 14px;
-  animation: viewer-menus-rise 0.2s ease;
+  transform-origin: 30% 100%;
+  animation: viewer-menus-rise 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"].viewer-menus--below .viewer-menus_panel {
+  transform-origin: 30% 0;
 }
 
 @keyframes viewer-menus-rise {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: perspective(900px) rotateX(-12deg) translateY(8px) scale(0.98); }
   to { opacity: 1; transform: none; }
+}
+
+/* The bar floats a little higher under the pointer. */
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_dock {
+  transition: box-shadow 0.25s ease;
+}
+
+#viewerEditorToolbar.viewer-menus[data-mode="desktop"] .viewer-menus_dock:hover {
+  box-shadow: var(--viewer-panel-shadow-raised, var(--viewer-panel-shadow));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #viewerEditorToolbar.viewer-menus .viewer-menus_panel,
+  #viewerEditorToolbar.viewer-menus .viewer-menus_panel .has-submenu.is-open > .viewer-editor-tool_submenu {
+    animation-duration: 0.01s;
+  }
 }
 
 /* ---- Phones: the tabs ---- */

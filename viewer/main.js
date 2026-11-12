@@ -38,7 +38,7 @@ window.viewer = {
   controls: null
 };
 
-import { core, setCore } from './core.js';
+import { core, setCore, isStaleModelLoad } from './core.js';
 import { installDebugOverlay } from './debug-overlay.js';
 import { initConnectivity, isOnline, onConnectivityChange } from './connectivity.js';
 import { retargetManifest } from './manifesto/retarget-manifest.js';
@@ -109,6 +109,11 @@ import { attachBackNavigation } from "./ui/back-navigation.js";
 import { attachFaceAreaSelection } from "./editor/face-area-selection.js";
 import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachVolumePanel } from "./editor/volume-panel.js";
+import { attachAudioPanel } from "./editor/audio-panel.js";
+import { attachSceneSounds } from "./editor/scene-sounds.js";
+import { attachSceneAcoustics } from "./editor/scene-acoustics.js";
+import { attachNarration } from "./editor/narration.js";
+import { attachImagePanel } from "./editor/image-panel.js";
 import { isDicomFile, modelBasename, modelExtension } from "./model-extension.js";
 import { attachModelUnits } from "./editor/model-units.js";
 import { createWebGLRenderer, shouldTryWebGPU, tryCreateWebGPURenderer } from "./renderer-backend.js";
@@ -118,6 +123,7 @@ import { attachWindowControls } from "./ui/window-controls.js";
 import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironment } from "./loaders.js";
 import { getGroundPreset, normalizeGroundPreset, setGroundPreset, updateGround } from "./ground.js";
 import { attachBrandLogo } from "./ui/brand-logo.js";
+import { applyBranding } from "./branding.js";
 import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, displayManifestInForm, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
 import { initRendering, applyRenderingSettings, getRenderingSettings, isAmbientOcclusionActive, isPostProcessingActive, renderFrame } from "./rendering.js";
 import { UltraLoader } from "./ultra-loader.js";
@@ -153,6 +159,8 @@ import {
 } from "./IIIF/presentation4.js";
 import { loadAIM3IFManifest, applyManifestConfig, applyManifestSettings, applyManifestBootstrapSettings, getManifestWindowState } from "./manifesto/manifesto-api.js";
 import { isAIM3DManifest } from "./manifesto/aim3dviewer-validation.js";
+import { ManifestVersionError } from "./manifesto/manifest-version.js";
+import { showManifestUpdateDialog } from "./ui/manifest-update.js";
 import {
   applyEditorToolbarConfig,
   attachEditorToolbar,
@@ -207,14 +215,14 @@ import {
   getWrapperSize,
 } from "./viewer-helpers.js";
 import { t, setLanguageSource } from "./i18n-utils.js";
-import { loadDroppedArchive } from "./extract-helper.js";
+import { imageSet, loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
 import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
 import { anchorPanelUnder, makePanelWindow } from "./ui/panel-window.js";
 import { bindHoverOpen } from "./ui/hover-open.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { showIntroOverlay } from "./intro-overlay.js";
+import { introModelUrl, showIntroOverlay } from "./intro-overlay.js";
 
 // t() follows the viewer's language (localization-theme.js).
 setLanguageSource(() => core.currentLanguage);
@@ -454,7 +462,7 @@ export const Viewer = {
   },
 
   // The kind of model shown: "mesh", "bim", "pointcloud", "splats",
-  // "volume" or null (model-kind.js).
+  // "volume", "audio", "image" or null (model-kind.js).
   getModelKind() {
     return getModelKind(this);
   },
@@ -1535,6 +1543,10 @@ export const Viewer = {
       if (node.userData?.isGaussianSplats) node.dispose?.();
       // A volume's 3D textures (volume.js), by then loaded.
       if (node.isMesh && node.userData?.isVolume) import("./volume.js").then(({ disposeVolume }) => disposeVolume(node));
+      // An audio file's player and its blob: URL (audio.js).
+      if (node.userData?.isAudio) import("./audio.js").then(({ disposeAudio }) => disposeAudio(node));
+      // A 2D image's texture and shader (image2d.js).
+      if (node.userData?.isImage2D) import("./image2d.js").then(({ disposeImage }) => disposeImage(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -1575,6 +1587,8 @@ export const Viewer = {
   },
 
   resetLoadedModelState() {
+    // Models still loading belong to the scene being cleared (core.js).
+    core.modelLoadGeneration += 1;
     Viewer.disposeAnimations();
     Viewer.disposeVariants();
     Viewer.disposePhotos();
@@ -1598,6 +1612,11 @@ export const Viewer = {
     Viewer.shadingMode = "original";
     Viewer.updateShadingSubmenuState?.();
     Viewer.disposePointCloudControls();
+    Viewer.disposeAudioControls();
+    Viewer.disposeImageControls();
+    // The scene's sounds come with its manifest (editor/scene-sounds.js).
+    Viewer.disposeSceneSounds();
+    Viewer.stopNarration();
     disposeTiles();
     removeImportedLights();
     removeImportedCanvases();
@@ -1900,6 +1919,9 @@ export const Viewer = {
     }
 
     await this.applyBootstrapSettingsFromManifest();
+    // The deployment's look (title, favicon, colours, stylesheet) before the
+    // UI is built; the logo and thumbnails read it later (branding.js).
+    applyBranding(core.CONFIG);
     // The app build's own settings first: remote.js reads hasFeature() for
     // the repository address.
     initAppSettings();
@@ -1963,10 +1985,11 @@ export const Viewer = {
     this.currentLanguage = this.getStoredLanguage();
     setCore('currentLanguage', this.currentLanguage);
     // viewer.intro (viewer/intro-overlay.js): the intro over the standalone
-    // page, while the viewer starts underneath.
-    showIntroOverlay(core.CONFIG.viewer.intro, {
+    // page (and in the app build), while the viewer starts and loads the
+    // intro's model underneath (introShown: below, the model picked).
+    this.introShown = showIntroOverlay(core.CONFIG.viewer.intro, {
       standalone: document.body.classList.contains("viewer-standalone-page")
-        && !this.isEmbedMode() && BUILD !== "mobile" && BUILD !== "drupal",
+        && !this.isEmbedMode() && BUILD !== "drupal",
       lang: this.currentLanguage,
     });
 
@@ -2165,6 +2188,21 @@ export const Viewer = {
 
   normalizeFileUrl(rawUrl) {
     return normalizeFileUrl(this, rawUrl);
+  },
+
+  // The intro shown again (Help > Intro): its model, loading while it plays,
+  // unless it is open already. Through the example picker, which loads it
+  // and remembers it as the last one.
+  openIntroModel() {
+    const url = introModelUrl(core.CONFIG.viewer?.intro);
+    const select = document.getElementById("example-model-select");
+    if (!url || !select) return false;
+    const key = (value) => String(value || "").replace(/^\.?\//, "");
+    if (key(core.autoPath) === key(url) && key(select.value) === key(url)) return false;
+    selectExampleModel(select, url);
+    if (!select.value) return false;
+    select.dispatchEvent(new Event("change"));
+    return true;
   },
 
   shouldIgnoreLegacyEmbedDefaultModel() {
@@ -2658,6 +2696,9 @@ export const Viewer = {
     Viewer.updateSunStudy(delta);
     Viewer.updateWeather(delta);
     Viewer.updateTimeline(delta);
+    Viewer.updateAudio();
+    Viewer.updateSceneSounds(delta);
+    Viewer.updateImageView();
     Viewer.updateAnnotationSpread();
     Viewer.updateAnnotationStack();
     updateTiles();
@@ -2701,7 +2742,31 @@ export const Viewer = {
       return;
     }
 
+    // Several images at once: a set to browse (image2d.js).
+    const images = imageSet([...files]);
+    if (files.length > 1 && images.length === files.length) {
+      await Viewer.openImageSet(images);
+      return;
+    }
+
     await Viewer.openLocalFile(files[0]);
+  },
+
+  // Images from the device as one set, in natural name order (dropped
+  // together, or picked together in a file dialog).
+  async openImageSet(files) {
+    const images = imageSet([...files]);
+    if (!images.length) return false;
+    clearExampleModelSelection();
+    Viewer.shownModelUrl = null;
+    core.archiveFiles = images;
+    core.archiveImageMode = "set";
+    try {
+      await loadDroppedModel(images[0]);
+      return true;
+    } catch (_error) {
+      return false;
+    }
   },
 
   // A model (or .zip with a model and its textures) from the user's device -
@@ -2867,6 +2932,7 @@ export const Viewer = {
   },
 
   async mainLoadModel() {
+    const generation = core.modelLoadGeneration;
     console.log("Loading model:", core.fileObject.basename, ", with extension:", core.fileObject.extension);
     if (Viewer._ext === "glb" || Viewer._ext === "gltf") {
       await loadModel();
@@ -2887,6 +2953,8 @@ export const Viewer = {
       else await loadModel();
     }
 
+    // Another model was opened meanwhile: the camera is its own.
+    if (isStaleModelLoad(generation)) return;
     this.applyCameraOverridesFromUrl();
   },
 
@@ -3308,7 +3376,16 @@ export const Viewer = {
   // `baseUrl`: what "./" and "../" URLs in the manifest are relative to
   // (by default the viewer page) - see rebaseManifestUrls().
   async setupManifesto(newUrlOrJson, type="url", manifestType = "iiif", { sceneIndex, baseUrl } = {}) {
+    // A manifest chosen while an earlier one still loads takes over: the
+    // earlier one stops at its next step, so its late model, camera and
+    // settings don't land on the newer scene (another model opened
+    // meanwhile resets the scene - core.modelLoadGeneration).
+    const request = (Viewer.manifestRequest ?? 0) + 1;
+    Viewer.manifestRequest = request;
+    let generation = null;
+    const superseded = () => request !== Viewer.manifestRequest || isStaleModelLoad(generation);
     const manifestJson = await Viewer.getManifestJson(newUrlOrJson, type, baseUrl);
+    if (superseded()) return;
     // Parsed copy in the form's tree/JSON views, for inspecting and editing
     // (applied with "Load from Text").
     displayManifestInForm(manifestJson);
@@ -3337,9 +3414,22 @@ export const Viewer = {
     } else {
       Viewer.iiifConfigURL.url = newUrlOrJson;
     }
-    const loadedManifest = isAim3ifManifest
-      ? await loadAIM3IFManifest(manifestJson, { sceneIndex: shownScene })
-      : await loadIIIFManifest(manifestJson, { sceneIndex: shownScene });
+    let loadedManifest;
+    try {
+      loadedManifest = isAim3ifManifest
+        ? await loadAIM3IFManifest(manifestJson, { sceneIndex: shownScene })
+        : await loadIIIFManifest(manifestJson, { sceneIndex: shownScene });
+    } catch (error) {
+      // A manifest of a newer format than this viewer reads: not an error
+      // of the manifest - the viewer is to be updated (ui/manifest-update.js).
+      // The model shown stays.
+      if (!(error instanceof ManifestVersionError)) throw error;
+      if (superseded()) return;
+      hideAppSplash();
+      showManifestUpdateDialog(error.status, error.detail);
+      return;
+    }
+    if (superseded()) return;
     if (isAim3ifManifest) {
       // Manifest settings take precedence over viewer-settings.json, which
       // remains the fallback for anything the manifest doesn't define.
@@ -3356,6 +3446,7 @@ export const Viewer = {
     }
     // reset scene and release GPU resources from the previous model batch
     Viewer.resetLoadedModelState();
+    generation = core.modelLoadGeneration;
     // The manifest shown (after the reset, which forgets it): its scenes,
     // cameras and descriptive properties, for switching and exporting.
     Viewer.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson, baseUrl };
@@ -3406,11 +3497,13 @@ export const Viewer = {
       isAim3ifManifest
         ? await applyManifestConfig(loadedManifest, core.objectsConfig)
         : await getAnnotations(loadedManifest, core.objectsConfig);
+      if (superseded()) return;
       if (loadedManifest.scenes && loadedManifest.scenes.length > 0) {
         core.objectsConfig.scenes = loadedManifest.scenes;
       }
       Viewer._ext = core.fileObject.extension.toLowerCase();
       await Viewer.mainLoadModel();
+      if (superseded()) return;
 
       if (isAim3ifManifest && i === loadedManifest.modelUrls.length - 1) {
         Viewer.import3IFManifest?.(loadedManifest.manifest);
@@ -3431,6 +3524,12 @@ export const Viewer = {
     // switch below and the exported manifest.
     Viewer.setSceneCameras(Viewer.manifestCameras, content?.defaultCamera || null);
     Viewer.updateManifestSceneSwitch(manifestJson);
+    // The scene's sounds painted into it (AmbientAudio, PointAudio,
+    // SpotAudio), unless the manifest's AIM3DViewer.sounds - the same, with
+    // what only this viewer keeps - gave them (import3IFManifest).
+    if (!manifestJson?.AIM3DViewer?.sounds && content?.sounds?.length) {
+      Viewer.apply3IFManifestSounds?.({ sources: content.sounds });
+    }
     // The gallery follows the manifest: its AIM3DViewer.thumbnails, else the
     // generic images (thumbnail-gallery.js) - not the previous model's
     // renders. The page's own gallery (Drupal fields, gallery.build) is
@@ -4358,6 +4457,17 @@ export const Viewer = {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
           let selectedModel = localurl.searchParams.get('model');
+          // Through the intro: its model (the synagogue), loaded while the
+          // intro plays, over the one opened last - and remembered as such.
+          const introModel = !selectedModel && this.introShown ? introModelUrl(core.CONFIG.viewer.intro) : null;
+          if (introModel) {
+            selectedModel = introModel;
+            try {
+              localStorage.setItem('dfg3dviewer-example-model', introModel);
+            } catch {
+              // no storage: only this time
+            }
+          }
           if (!selectedModel) {
             selectedModel = localStorage.getItem('dfg3dviewer-example-model');
           }
@@ -4579,6 +4689,11 @@ attachBackNavigation(Viewer);
 attachFaceAreaSelection(Viewer);
 attachPointCloudPanel(Viewer);
 attachVolumePanel(Viewer);
+attachAudioPanel(Viewer);
+attachSceneSounds(Viewer);
+attachSceneAcoustics(Viewer);
+attachNarration(Viewer);
+attachImagePanel(Viewer);
 attachModelUnits(Viewer);
 attachMeasurement(Viewer);
 attachAnimations(Viewer);

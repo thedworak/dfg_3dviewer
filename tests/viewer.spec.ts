@@ -4,15 +4,17 @@ import fs from 'fs';
 import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validation.js';
 import { inspectAIM3DManifest, manifestFeatureIcons } from '../viewer/manifesto/manifest-inspection.js';
 import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
+import { AIM3D_MANIFEST_VERSION, manifestVersionStatus } from '../viewer/manifesto/manifest-version.js';
 import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 import { findSceneCoordinates, findSceneYear, sceneProportions, suggestScene } from '../viewer/editor/scene-rules.js';
 import { getSemanticSettings, scoreSemantic, splitSemanticText } from '../viewer/editor/scene-semantic.js';
 import { decideExposure, decideModelBase, evaluatePublishChecks, measureFraming, suggestUpAxis } from '../viewer/editor/publish-rules.js';
 import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterialPreset } from '../viewer/editor/material-presets.js';
 import { deviceTier, qualityForWeight } from '../viewer/editor/performance-rules.js';
+import { materialFromName, schroederRT, sendGain, synthesizeImpulseResponse, traceRoom } from '../viewer/room-acoustics.js';
 
 const defaultModel = '/examples/box.stl';
-const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD, LIF, NRRD, NHDR, NII, MHA, MHD, MRC, REC, CCP4, VGI, XTEKCT, DCM, DICOM, LSM, TIF, TIFF';
+const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD, LIF, NRRD, NHDR, NII, MHA, MHD, MRC, REC, CCP4, VGI, XTEKCT, DCM, DICOM, LSM, TIF, TIFF, WAV, WAVE, BWF, MP3, OGG, OGA, OPUS, FLAC, M4A, AAC, WEBA, JPG, JPEG, PNG, WEBP, AVIF, GIF, BMP';
 const sandboxDropMessage = 'Drag and drop a 3D model into the viewer.';
 const sandboxSupportedFormatsNotice = `<strong>Supported formats</strong>: ${supportedFormatsText}\n`;
 const sandboxSupportedArchiveFormatsNotice = 'and <strong>archive formats</strong>: ZIP, RAR, TAR, XZ, GZ.';
@@ -1646,6 +1648,69 @@ test('manifest thumbnails: the gallery shows the manifest\'s own renders, generi
   await page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-aim3d-local.json', 'url', 'aim3if'));
   await expect.poll(async () => (await gallery()).every(({ src }) => src.includes('explora4d-placeholder-'))).toBe(true);
   expect((await gallery()).length).toBe(9);
+});
+
+test('manifest versions: a newer MINOR opens with a notice, a newer MAJOR or an unreadable one asks for an update', async ({ page }) => {
+  const [major, minor] = AIM3D_MANIFEST_VERSION.split('.').map(Number);
+  expect(manifestVersionStatus({ AIM3DViewer: { version: AIM3D_MANIFEST_VERSION } }).state).toBe('current');
+  expect(manifestVersionStatus({ AIM3DViewer: {} }).state).toBe('unversioned');
+  expect(manifestVersionStatus('1.0', '1.1')).toMatchObject({ state: 'older', newer: false });
+  expect(manifestVersionStatus('1.2', '1.1')).toMatchObject({ state: 'newer', newer: true, blocking: false });
+  expect(manifestVersionStatus('2.0', '1.1')).toMatchObject({ state: 'incompatible', newer: true, blocking: true });
+  expect(manifestVersionStatus('one', '1.1').state).toBe('unversioned');
+
+  // The examples are written with this viewer's version.
+  const dir = 'viewer/manifesto/examples';
+  fs.readdirSync(dir).filter((name) => name.endsWith('.json') && name !== 'index.json').forEach((name) => {
+    const json = JSON.parse(fs.readFileSync(`${dir}/${name}`, 'utf8'));
+    if (json.AIM3DViewer) expect(`${name} ${json.AIM3DViewer.version}`).toBe(`${name} ${AIM3D_MANIFEST_VERSION}`);
+  });
+
+  const base = JSON.parse(fs.readFileSync(`${dir}/box-aim3d-local.json`, 'utf8'));
+  const withVersion = (version, change = () => {}) => {
+    const manifest = structuredClone(base);
+    manifest.AIM3DViewer.version = version;
+    change(manifest);
+    return manifest;
+  };
+  const newer = withVersion(`${major}.${minor + 1}`, (manifest) => { manifest.AIM3DViewer.futureBlock = { on: true }; });
+  const unreadable = withVersion(`${major}.${minor + 1}`, (manifest) => { manifest.AIM3DViewer.camera.perspectiveMode = 'fisheye'; });
+  const incompatible = withVersion(`${major + 1}.0`);
+  expect(inspectAIM3DManifest(newer).version).toMatchObject({ state: 'newer', newer: true });
+  expect(inspectAIM3DManifest(incompatible).version.blocking).toBe(true);
+
+  await openViewer(page);
+  await waitForModel(page);
+  const dialog = page.locator('.viewer-form-dialog');
+  const load = (manifest) => page.evaluate((text) => {
+    window.viewer.toasts = [];
+    window.viewer.errors = [];
+    return window.Viewer.setupManifesto(text, 'text', 'aim3if');
+  }, JSON.stringify(manifest));
+
+  // A newer MINOR version: opened, with a notice.
+  await load(newer);
+  await expect.poll(() => page.evaluate(() => window.viewer.toasts.join(' '))).toContain('made for a newer viewer');
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.Viewer.currentManifest?.json?.AIM3DViewer?.futureBlock)).toEqual({ on: true });
+
+  // Values this viewer cannot read in a newer one, and a newer MAJOR one:
+  // not opened, a dialog with the way to a newer viewer - not "invalid".
+  for (const manifest of [unreadable, incompatible]) {
+    await load(manifest);
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('A newer viewer is needed');
+    await expect(dialog).toContainText(manifest.AIM3DViewer.version);
+    await expect(dialog.locator('.viewer-confirm-ok')).toHaveText('Reload the page');
+    expect(await page.evaluate(() => [...window.viewer.toasts, ...window.viewer.errors].join(' '))).not.toContain('Invalid');
+    await dialog.locator('.viewer-confirm-cancel').click();
+    await expect(dialog).toHaveCount(0);
+    expect(await page.evaluate(() => window.Viewer.currentManifest?.json?.AIM3DViewer?.version)).toBe(newer.AIM3DViewer.version);
+  }
+
+  // Imported over the model (the editor's import): the same.
+  expect(await page.evaluate((json) => window.Viewer.import3IFManifest(json), incompatible)).toBe(false);
+  await expect(dialog).toBeVisible();
 });
 
 test('gallery lightbox: views open from the keyboard, browse, zoom and close back to their thumbnail', async ({ page }) => {
@@ -3360,6 +3425,144 @@ test('IIIF comments: languages, HTML bodies, and one scene of a manifest at a ti
   await expect(page.locator('#manifesto-scene-select')).toHaveValue('1');
 });
 
+test('an AIM3D manifest\'s camera: as set when it says which view it was set on, the whole model in view when it doesn\'t', async ({ page }) => {
+  await openViewer(page);
+  await waitForCameraIdle(page);
+  const manifest = await page.evaluate(async () => (await fetch('./manifests/box-aim3d-local.json')).json());
+  // Set this close, the box is cut off at the bottom of a desktop view.
+  const authored = { position: [-1.67, 1.83, 3.34], target: [0, 1, 0], up: [0, 1, 0], fov: 45, perspectiveMode: 'perspective' };
+  const load = async (camera) => {
+    await page.evaluate((json) => window.Viewer.setupManifesto(json, 'text', 'aim3if'), JSON.stringify({
+      ...manifest,
+      AIM3DViewer: { ...manifest.AIM3DViewer, camera },
+    }));
+    return page.evaluate(() => ({
+      position: window.Viewer.camera.position.toArray(),
+      target: window.Viewer.controls.target.toArray(),
+    }));
+  };
+  const near = (a, b) => a.every((value, i) => Math.abs(value - b[i]) < 1e-3);
+
+  // Set on a view as wide as this one (or only said to be landscape): meant.
+  for (const view of [{ aspect: 1.5, orientation: 'landscape' }, { orientation: 'landscape' }]) {
+    const pose = await load({ ...authored, ...view });
+    expect(near(pose.position, authored.position)).toBe(true);
+  }
+
+  // Not said: back along its line of sight, the whole box in view.
+  const pose = await load(authored);
+  expect(near(pose.target, authored.target)).toBe(true);
+  const offset = (position) => position.map((value, i) => value - authored.target[i]);
+  const length = (vector) => Math.hypot(...vector);
+  const moved = offset(pose.position);
+  const set = offset(authored.position);
+  expect(length(moved)).toBeGreaterThan(length(set) * 1.2);
+  expect(near(moved.map((value) => value / length(moved)), set.map((value) => value / length(set)))).toBe(true);
+
+  // Exported with the view it was set on.
+  const exported = await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.camera);
+  expect(exported.orientation).toBe('landscape');
+  expect(exported.aspect).toBeGreaterThan(1);
+});
+
+test('an AIM3D manifest\'s camera on a phone held upright: back along its line of sight until the model fits across, not inside the model', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openViewer(page);
+  await waitForCameraIdle(page);
+  const view = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    return {
+      position: viewer.camera.position.toArray(),
+      target: viewer.controls.target.toArray(),
+    };
+  });
+  const across = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    const camera = viewer.camera;
+    const Vector3 = camera.position.constructor;
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
+    const point = new Vector3();
+    viewer.mainObject.flat().forEach((root) => root.traverse((child) => {
+      const positions = child.isMesh && child.geometry?.attributes?.position;
+      if (!positions) return;
+      child.updateWorldMatrix(true, false);
+      const step = Math.max(1, Math.floor(positions.count / 20000));
+      for (let i = 0; i < positions.count; i += step) {
+        point.fromBufferAttribute(positions, i).applyMatrix4(child.matrixWorld);
+        for (let k = 0; k < 3; k++) {
+          min[k] = Math.min(min[k], point.getComponent(k));
+          max[k] = Math.max(max[k], point.getComponent(k));
+        }
+      }
+    }));
+    let widest = 0;
+    for (const x of [min[0], max[0]]) for (const y of [min[1], max[1]]) for (const z of [min[2], max[2]]) {
+      widest = Math.max(widest, Math.abs(point.set(x, y, z).project(camera).x));
+    }
+    return widest;
+  });
+
+  // Set on a desktop (its aspect says so): the synagogue would be about
+  // twice as wide as the phone.
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/wolpa-synagogue-aim3d-local.json', 'url', 'aim3if'));
+  const outside = await view();
+  const authored = await page.evaluate(async () => (await (await fetch('./manifests/wolpa-synagogue-aim3d-local.json')).json()).AIM3DViewer.camera);
+  expect(outside.target.map((value, i) => Math.abs(value - authored.target[i]) < 0.01)).toEqual([true, true, true]);
+  const direction = (pose) => {
+    const d = pose.position.map((value, i) => value - pose.target[i]);
+    const length = Math.hypot(...d);
+    return { unit: d.map((value) => value / length), length };
+  };
+  const moved = direction(outside);
+  const set = direction(authored);
+  // Looking the same way, from farther back.
+  expect(moved.unit.every((value, i) => Math.abs(value - set.unit[i]) < 1e-3)).toBe(true);
+  expect(moved.length).toBeGreaterThan(set.length * 1.5);
+  expect(await across()).toBeLessThanOrEqual(0.75);
+
+  // A camera inside the building stays where it was set.
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/wolpa-synagogue-aim3d-local-scene-interior.json', 'url', 'aim3if'));
+  const inside = await view();
+  const interior = await page.evaluate(async () => (await (await fetch('./manifests/wolpa-synagogue-aim3d-local-scene-interior.json')).json()).AIM3DViewer.camera);
+  expect(inside.position.map((value, i) => Math.abs(value - interior.position[i]) < 0.01)).toEqual([true, true, true]);
+});
+
+test('an AIM3D manifest chosen while an earlier one still loads keeps its own camera and only its model', async ({ page }) => {
+  await openViewer(page);
+  await waitForCameraIdle(page);
+  const pose = () => page.evaluate(() => {
+    const viewer = window.Viewer;
+    const round = (values) => values.map((value) => Math.round(value * 100) / 100);
+    return {
+      camera: round(viewer.camera.position.toArray()),
+      target: round(viewer.controls.target.toArray()),
+      models: viewer.mainObject.length,
+    };
+  });
+  // The AIM3D manifest's camera, loaded on its own.
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-night.json', 'url', 'aim3if'));
+  const alone = await pose();
+  // The earlier manifest's model arrives after the AIM3D manifest is shown.
+  await page.route(/\/examples\/box\.glb/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await route.continue().catch(() => {});
+  });
+  const earlier = page.evaluate(() => window.Viewer.setupManifesto('./manifests/box-iiif-p4.json', 'url', 'iiif'));
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.Viewer.setupManifesto('./manifests/tempietto-aim3d-night.json', 'url', 'aim3if'));
+  await earlier;
+  // After the box would have been fitted and flown to.
+  await page.waitForTimeout(1500);
+  await waitForCameraIdle(page);
+
+  // AIM3DViewer.camera of tempietto-aim3d-night.json, not the box's.
+  const state = await pose();
+  expect(state.target).toEqual([0, 2.4, 0]);
+  expect(state.camera).toEqual(alone.camera);
+  expect(state.models).toBe(1);
+});
+
 test('scene cameras: a manifest\'s cameras listed with Blender-like icons, switched between, added and round-trip', async ({ page }) => {
   await openViewer(page, defaultModel, 'ui=menus');
   await waitForModel(page);
@@ -4061,6 +4264,69 @@ test('saved settings of an uploaded model: posted to the worker and applied when
   expect(saved).toBeNull();
 });
 
+// Section cuts and measurements in the saved settings: placed again when the
+// model opens (setupObject), after its saved position.
+test('saved settings of an uploaded model: section cuts and measurements come back when it opens again', async ({ page }) => {
+  const job = 'c'.repeat(32);
+  const box = fs.readFileSync('viewer/examples/box.glb');
+  let saved = null;
+  await page.route(`**/files/${job}/box.glb`, (route) => route.fulfill({ body: box, contentType: 'model/gltf-binary' }));
+  await page.route(`**/files/${job}/metadata/box.glb_viewer.json`, (route) =>
+    saved ? route.fulfill({ json: saved }) : route.fulfill({ status: 404, json: { error: 'not found' } }));
+  await page.route('**/api/model/settings', async (route) => {
+    saved = route.request().postDataJSON().content;
+    await route.fulfill({ json: { message: 'Settings saved' } });
+  });
+
+  await openViewer(page, `/files/${job}/box.glb`, 'ui=menus');
+  await waitForModel(page);
+  await waitForCameraIdle(page);
+  const placed = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const root = viewer.helperObjects[0];
+    root.position.set(1.5, 0, 0);
+    root.updateMatrixWorld(true);
+    viewer.refreshClippingForModel(root);
+    viewer.setClippingAxisEnabled('y', true, { silent: true });
+    const range = viewer.getClippingAxisRange('y');
+    viewer.setClippingAxisPosition('y', range.min + range.size * 0.6);
+    viewer.measurementMode = 'distance';
+    const a = root.position.clone().add({ x: -0.25, y: 0.1, z: 0 });
+    const b = root.position.clone().add({ x: 0.25, y: 0.1, z: 0 });
+    viewer.addMeasurementPoint(a);
+    viewer.addMeasurementPoint(b);
+    viewer.finishMeasurementDraft();
+    return a.toArray();
+  });
+  await page.locator('.viewer-menus_tabs button', { hasText: 'File' }).click();
+  await page.locator('[data-tool="save"]').click();
+  await expect(page.locator('.viewer-editor-save-option', { hasText: 'Section cuts' }).locator('input')).toBeChecked();
+  await expect(page.locator('.viewer-editor-save-option', { hasText: 'Measurements' }).locator('input')).toBeChecked();
+  await page.locator('.viewer-editor-save-apply').click();
+  await expect.poll(() => saved?.measurements?.length ?? 0).toBe(1);
+  expect(saved.clipping).toMatchObject({ mode: { x: false, y: true, z: false } });
+
+  // Opened again: the cut and the measurement where they were.
+  await openViewer(page, `/files/${job}/box.glb`, 'ui=menus');
+  await waitForModel(page);
+  await expect.poll(() => page.evaluate(() => window.Viewer.measurementResults.length)).toBe(1);
+  const state = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const range = viewer.getClippingAxisRange('y');
+    return {
+      root: viewer.helperObjects[0].position.toArray(),
+      enabled: viewer.isClippingAxisEnabled('y'),
+      cut: (viewer.getClippingAxisPosition('y') - range.min) / range.size,
+      first: viewer.measurementResults[0].points[0].toArray(),
+      readout: document.querySelector('#viewerMeasurementReadout')?.hidden === false,
+    };
+  });
+  expect(state.root).toEqual([1.5, 0, 0]);
+  expect(state).toMatchObject({ enabled: true, readout: true });
+  expect(state.cut).toBeCloseTo(0.6, 3);
+  state.first.forEach((value, index) => expect(value).toBeCloseTo(placed[index], 4));
+});
+
 // The app downloads a repository model before opening it (models-panel.js),
 // so it loads from a blob: URL, with no folder for its saved settings.
 test('app: repository models open with their saved settings, a .rad paged from the server', async ({ page }) => {
@@ -4170,7 +4436,7 @@ test('example model list: fetched from examples/index.json, so a new example nee
   const groups = list.models.map((entry) => entry.group).filter((group, index, all) => group && group !== all[index - 1]);
   await expect(select.locator('optgroup')).toHaveCount(groups.length);
   expect(await select.evaluate((element) => [...element.querySelectorAll('optgroup')].map((group) => group.label)))
-    .toEqual(['Tempietto', 'Gaussian splats', 'Wolpa Synagogue', 'Point clouds and animation', 'Amphora, micro-CT (volume)', 'Cells, 2 channels (microscopy volume)', 'Virus capsid, cryo-EM (volume)', 'Test files (broken)']);
+    .toEqual(['Tempietto', 'Gaussian splats', 'Wolpa Synagogue', 'Point clouds and animation', 'Amphora, micro-CT (volume)', 'Cells, 2 channels (microscopy volume)', 'Virus capsid, cryo-EM (volume)', 'Soundscape (audio)', 'Images (2D)', 'Test files (broken)']);
   // Within a group, only what sets an example apart.
   await expect(select.locator('optgroup[data-example-group="amphora"] > option').first()).toHaveText('NIfTI');
   await expect(select.locator('option[value="./examples/WolpaSynagogue-progressive.glb"]')).toHaveText('GLB, progressive (Meshopt + KTX2)');
@@ -4320,6 +4586,560 @@ test('volume settings on a desktop: open in the side stack, not modal', async ({
   await panel.locator('.tool-panel-chrome_pip').click();
   await expect(panel).not.toHaveClass(/is-modal-open/);
   await expect(page.locator('.tool-panel-chrome_backdrop')).toHaveCount(0);
+});
+
+// The audio file on screen (audio.js): what its panel and its scene say.
+async function shownAudio(page) {
+  return page.evaluate(() => {
+    const state = window.Viewer.audioState;
+    if (!state?.player) return null;
+    let terrain = null;
+    state.root.traverse((object) => { if (object.userData?.isAudioTerrain) terrain = object; });
+    let top = 0;
+    const positions = terrain?.geometry.attributes.position.array || [];
+    for (let i = 1; i < positions.length; i += 3) top = Math.max(top, positions[i]);
+    const panel = document.getElementById('viewerAudioPanel');
+    return {
+      kind: window.Viewer.getModelKind(),
+      info: state.root.userData.audioInfo,
+      terrainTop: top,
+      markers: [...(panel?.querySelectorAll('.viewer-audio-panel_marker') || [])].map((el) => el.textContent),
+      facts: [...(panel?.querySelectorAll('.viewer-volume-panel_summary dd') || [])].map((el) => el.textContent),
+      duration: state.player.duration,
+    };
+  });
+}
+
+test('audio files: played, drawn as a spectrogram landscape, with their tags and markers', async ({ page }) => {
+  await openViewer(page, '/examples/audio/soundscape.wav');
+  await waitForModel(page, 30_000);
+  await page.waitForFunction(() => window.Viewer.isAudioActive?.() && document.getElementById('viewerAudioPanel'));
+  const audio = await shownAudio(page);
+  expect(audio.kind).toBe('audio');
+  expect(audio.info).toMatchObject({ format: 'Broadcast Wave', sampleRate: 22050, channels: 2, bitsPerSample: 16, analysed: true });
+  expect(audio.info.tags).toMatchObject({ title: 'Soundscape (synthetic)', artist: 'ExPlora4D examples' });
+  expect(audio.duration).toBeCloseTo(12, 1);
+  // The bell is the loudest: about 10 dB below full scale at its partials.
+  expect(audio.terrainTop).toBeGreaterThan(1);
+  expect(audio.markers).toEqual(['0:00 · Bell', '0:03 · Bird call', '0:05 · Chord', '0:09 · Bell again']);
+  expect(audio.facts).toEqual(expect.arrayContaining(['Soundscape (synthetic)', 'Broadcast Wave, PCM', '22.05 kHz', '16 bit']));
+  await expect(page.locator('#viewerAudioPanel .viewer-audio-panel_title')).toHaveText('Soundscape (synthetic)');
+
+  // Its tools on the bar, those for surfaces left out.
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['audio', 'cameras', 'projection']);
+  expect((await formatTools(page)).hidden).toEqual(expect.arrayContaining(['shading', 'materials', 'clippingPlanes']));
+
+  // A marker and the waveform move the time; a drag selects a part.
+  await page.locator('.viewer-audio-panel_marker', { hasText: 'Chord' }).click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.audioState.player.currentTime)).toBeCloseTo(5.5, 1);
+  const wave = page.locator('.viewer-audio-panel_wave');
+  const box = await wave.boundingBox();
+  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height / 2);
+  await expect.poll(() => page.evaluate(() => window.Viewer.audioState.player.currentTime)).toBeCloseTo(9, 0);
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2, { steps: 4 });
+  await page.mouse.up();
+  const region = await page.evaluate(() => window.Viewer.audioState.player.settings.region);
+  expect(region.start).toBeCloseTo(3, 0);
+  expect(region.end).toBeCloseTo(6, 0);
+  await expect(page.locator('.viewer-audio-panel_region')).toBeVisible();
+
+  // Played through Web Audio: the playhead moves along the landscape; the
+  // effects change the graph without stopping it.
+  await page.locator('.viewer-audio-panel_play').click();
+  await page.waitForFunction(() => window.Viewer.audioState.player.playing && window.Viewer.audioState.player.analyser);
+  await page.locator('#viewerAudioPanel select').filter({ has: page.locator('option[value="church"]') }).selectOption('church');
+  await page.locator('#viewerAudioPanel select').filter({ has: page.locator('option[value="lowpass"]') }).selectOption('lowpass');
+  await expect.poll(() => page.evaluate((start) => {
+    const state = window.Viewer.audioState;
+    let x = null;
+    state.root.traverse((object) => { if (object.userData?.isAudioPlayhead) x = object.position.x; });
+    return state.player.currentTime > start + 0.2 && x > -6;
+  }, region.start)).toBe(true);
+  expect(await page.evaluate(() => window.Viewer.audioState.player.playing)).toBe(true);
+  await page.locator('.viewer-audio-panel_play').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.audioState.player.playing)).toBe(false);
+
+  // The 3D settings rebuild the landscape: flatter, on a linear axis.
+  await page.locator('#viewerAudioPanel select').filter({ has: page.locator('option[value="linear"]') }).selectOption('linear');
+  expect(await page.evaluate(() => window.Viewer.audioState.root.userData.audio.frequencyScale)).toBe('linear');
+
+  // Another model: the player stops and its panel goes. (Its option's
+  // value: ./examples/... built, ./viewer/examples/... on dev.html.)
+  const glb = await page.locator('#example-model-select option[value$="examples/tempietto/Tempietto.glb"]').first().getAttribute('value');
+  await page.selectOption('#example-model-select', glb);
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'mesh', null, { timeout: 30_000 });
+  await expect(page.locator('#viewerAudioPanel')).toHaveCount(0);
+  expect(await page.evaluate(() => window.Viewer.isAudioActive())).toBe(false);
+});
+
+test('audio files: Ogg Vorbis with its comments and chapters', async ({ page }) => {
+  await openViewer(page, '/examples/audio/soundscape.ogg');
+  await waitForModel(page, 30_000);
+  await page.waitForFunction(() => window.Viewer.isAudioActive?.() && document.getElementById('viewerAudioPanel'));
+  const audio = await shownAudio(page);
+  expect(audio.info).toMatchObject({ format: 'Ogg', codec: 'Vorbis', sampleRate: 22050, channels: 2, analysed: true });
+  expect(audio.info.tags.title).toBe('Soundscape (synthetic)');
+  expect(audio.markers).toEqual(['0:00 · Bell', '0:03 · Bird call', '0:05 · Chord', '0:09 · Bell again']);
+  expect(audio.duration).toBeCloseTo(12, 0);
+
+  // A file from the device (dropped, or picked in the library): read from
+  // the File, its own name as the title's fallback.
+  const opened = await page.evaluate(async () => {
+    // The example's URL as the page has it (./viewer/examples/... on dev.html).
+    const url = document.querySelector('#example-model-select option[value$="examples/audio/soundscape.wav"]').value;
+    const bytes = await (await fetch(url)).arrayBuffer();
+    return window.Viewer.openLocalFile(new File([bytes], 'field-recording.wav', { type: 'audio/wav' }));
+  });
+  expect(opened).toBe(true);
+  await page.waitForFunction(() => window.Viewer.audioState?.root?.userData.audioInfo?.fileName === 'field-recording.wav' && document.getElementById('viewerAudioPanel'));
+  expect((await shownAudio(page)).info).toMatchObject({ format: 'Broadcast Wave', analysed: true });
+});
+
+// An example manifest, as the page has it (/manifests/... built,
+// viewer/manifesto/examples/... on dev.html).
+async function loadExampleManifest(page, name, change = '') {
+  await page.evaluate(async ({ name, change }) => {
+    let response = await fetch(`/manifests/${name}`);
+    if (!response.ok || !/json/.test(response.headers.get('content-type') || '')) response = await fetch(`./viewer/manifesto/examples/${name}`);
+    const manifest = await response.json();
+    if (change) new Function('manifest', change)(manifest);
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  }, { name, change });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+}
+
+// The scene's sound sources as Web Audio hears them (editor/scene-sounds.js).
+const shownSounds = (page) => page.evaluate(() => window.Viewer.getSceneSounds().map((source) => {
+  const node = window.Viewer.soundsState.nodes.get(source.id);
+  const audio = node?.audio;
+  return {
+    id: source.id,
+    type: source.type,
+    positional: audio ? Boolean(audio.panner) : null,
+    refDistance: audio?.panner ? Math.round(audio.getRefDistance() * 100) / 100 : null,
+    cone: audio?.panner ? [audio.panner.coneInnerAngle, audio.panner.coneOuterAngle] : null,
+    position: audio?.panner ? audio.position.toArray().map((v) => Math.round(v * 100) / 100) : null,
+  };
+}));
+
+test('sounds in the scene: a manifest\'s sources heard from the camera, a narrated tour with captions, saved again', async ({ page }) => {
+  // Two manifest loads and a narration: slow with software WebGL.
+  test.setTimeout(90_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await loadExampleManifest(page, 'tempietto-aim3d-sound.json');
+  await page.waitForFunction(() => window.Viewer.getSceneSounds().length === 3);
+  await expect(page.locator('#viewerSoundsPanel')).toBeVisible();
+  await expect(page.locator('#viewerSoundsPanel .viewer-sounds-panel_item')).toHaveCount(3);
+  expect(await page.evaluate(() => window.Viewer.isSceneSoundPlaying())).toBe(false);
+
+  // Autoplay: the first click starts them (browsers allow sound only then).
+  await page.mouse.click(200, 400);
+  await page.waitForFunction(() => window.Viewer.isSceneSoundPlaying() && window.Viewer.soundsState.nodes.size === 3);
+  expect(await shownSounds(page)).toEqual([
+    { id: 'wind', type: 'ambient', positional: false, refDistance: null, cone: null, position: null },
+    { id: 'bell', type: 'point', positional: true, refDistance: 2.5, cone: [360, 360], position: [0, 4.6, 0.6] },
+    { id: 'hum', type: 'spot', positional: true, refDistance: 1.5, cone: [35, 70], position: [0, 1.6, -0.9] },
+  ]);
+  // Faded in to their volumes.
+  await expect.poll(() => page.evaluate(() => [...window.Viewer.soundsState.nodes.values()].map((node) => Math.round(node.audio.getVolume() * 100))), { timeout: 20_000 })
+    .toEqual([45, 80, 70]);
+
+  // The tour tells the narration of the annotation, with its captions; the
+  // sounds go quieter under it. The tour waits for it to end.
+  await page.evaluate(() => {
+    if (!window.Viewer.isTourActive()) window.Viewer.startTour({ autoplay: false });
+    window.Viewer.goToTourStep(0, { fly: false });
+  });
+  await page.waitForFunction(() => window.Viewer.isNarrationPlaying() && /podium/.test(window.Viewer.getNarrationEntryId()), null, { timeout: 20_000 });
+  await expect(page.locator('.viewer-narration-caption')).toHaveText(/podium|steps/, { timeout: 10_000 });
+  await expect.poll(() => page.evaluate(() => window.Viewer.soundsState.ducked)).toBe(true);
+  await expect(page.locator('.viewer-tour-panel_narration')).toBeVisible();
+  // Left out with the speaker button: stopped, the sounds as loud again.
+  await page.locator('.viewer-tour-panel_narration').click();
+  expect(await page.evaluate(() => [window.Viewer.isNarrationPlaying(), window.Viewer.soundsState.ducked])).toEqual([false, false]);
+  await page.locator('.viewer-tour-panel_narration').click();
+  await page.evaluate(() => window.Viewer.stopTour());
+
+  // Saved: AIM3DViewer.sounds, the IIIF audio emitters, the narrations.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.version).toBe(AIM3D_MANIFEST_VERSION);
+  expect(manifest.AIM3DViewer.sounds.autoplay).toBe(true);
+  expect(manifest.AIM3DViewer.sounds.sources.map((source) => [source.id, source.type])).toEqual([['wind', 'ambient'], ['bell', 'point'], ['hum', 'spot']]);
+  const painted = manifest.items[0].items.flatMap((page) => page.items).map((annotation) => annotation.body).filter((body) => /Audio$/.test(body?.type));
+  expect(painted.map((body) => body.type)).toEqual(['AmbientAudio', 'PointAudio', 'SpotAudio']);
+  expect(painted[2]).toMatchObject({ angle: 70, lookAt: { type: 'PointSelector', x: 0, y: 1.4, z: 8 }, volume: { quantityValue: 0.7 } });
+  const narrated = manifest.items[0].annotations[0].items.filter((annotation) => annotation.AIM3DViewer?.audio);
+  expect(narrated).toHaveLength(3);
+  expect(narrated[0].AIM3DViewer.audio.captions).toMatch(/narration-01\.vtt$/);
+  expect(narrated[0].body[1]).toMatchObject({ type: 'Sound' });
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+
+  // Another viewer's manifest: only the IIIF emitters - read from them.
+  await loadExampleManifest(page, 'tempietto-aim3d-sound.json', 'delete manifest.AIM3DViewer.sounds;');
+  await page.waitForFunction(() => window.Viewer.getSceneSounds().length === 3);
+  expect(await page.evaluate(() => window.Viewer.getSceneSounds().map((source) => [source.type, source.volume, source.angle]))).toEqual([
+    ['ambient', 0.45, 90], ['point', 0.8, 90], ['spot', 0.7, 70],
+  ]);
+});
+
+test('sounds in the scene: added in the window, placed and aimed with a click, removed', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await waitForCameraIdle(page);
+  await page.evaluate(() => window.Viewer.toggleSoundsPanel(true));
+  const panel = page.locator('#viewerSoundsPanel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-pointcloud-panel_note').first()).toContainText('No sounds');
+  const url = await page.locator('#example-model-select option[value$="examples/audio/soundscape.ogg"]').first().getAttribute('value');
+  await panel.locator('.viewer-sounds-panel_add select').selectOption('spot');
+  await panel.locator('.viewer-sounds-panel_add input[type="url"]').fill(url);
+  await panel.locator('.viewer-sounds-panel_add-url').click();
+  await expect(panel.locator('.viewer-sounds-panel_item')).toHaveCount(1);
+  expect(await page.evaluate(() => window.Viewer.getSceneSounds()[0])).toMatchObject({ type: 'spot', label: 'soundscape.ogg', angle: 90 });
+
+  // Placed on the model where it is clicked, a little off its surface.
+  const added = await page.evaluate(() => window.Viewer.getSceneSounds()[0].position);
+  await panel.locator('.viewer-sounds-panel_place').click();
+  await expect(panel.locator('.viewer-sounds-panel_place')).toHaveAttribute('aria-pressed', 'true');
+  const canvas = await page.locator('#MainCanvas').boundingBox();
+  await page.mouse.click(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  await expect(panel.locator('.viewer-sounds-panel_place')).toHaveAttribute('aria-pressed', 'false');
+  // On the box's face in front of the camera, not where it was added (the
+  // middle of the view, inside the box).
+  const placed = await page.evaluate(() => window.Viewer.getSceneSounds()[0].position);
+  expect(placed).not.toEqual(added);
+  const distance = await page.evaluate((point) => window.Viewer.camera.position.distanceTo({ x: point[0], y: point[1], z: point[2] }), placed);
+  const before = await page.evaluate((point) => window.Viewer.camera.position.distanceTo({ x: point[0], y: point[1], z: point[2] }), added);
+  expect(distance).toBeLessThan(before);
+  // Aimed the same way; its icon and its full-volume sphere while the window is open.
+  await panel.locator('.viewer-sounds-panel_aim').click();
+  await page.mouse.click(canvas.x + canvas.width / 2 + 20, canvas.y + canvas.height / 2 + 20);
+  expect(await page.evaluate(() => window.Viewer.getSceneSounds()[0].lookAt)).not.toBeNull();
+  await expect.poll(() => page.evaluate(() => window.Viewer.soundsState.markers?.children.filter((child) => child.isSprite).length)).toBe(1);
+  // No 4D timeline: no years to choose.
+  await expect(panel.locator('.viewer-sounds-panel_years')).toHaveCount(0);
+
+  await panel.locator('.viewer-sounds-panel_remove').click();
+  await expect(panel.locator('.viewer-sounds-panel_item')).toHaveCount(0);
+  expect(await page.evaluate(() => window.Viewer.getSoundsForExport())).toBeUndefined();
+});
+
+test('sounds in a manifest for another model: the ambient ones stay, the placed ones go', () => {
+  const source = JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-sound.json', 'utf8'));
+  const result = retargetManifest(source, 'https://example.org/models/Other.glb');
+  expect(result.AIM3DViewer.sounds.sources.map((item) => item.id)).toEqual(['wind']);
+  const painted = result.items[0].items.flatMap((page) => page.items).map((annotation) => annotation.body?.type).filter((type) => /Audio$/.test(type));
+  expect(painted).toEqual(['AmbientAudio']);
+  expect(validateAIM3DManifest(source).errors).toEqual([]);
+  expect(inspectAIM3DManifest(source).features.find((feature) => feature.id === 'sounds')).toMatchObject({ present: true, count: 6, status: 'ok' });
+});
+
+// A closed box of w × h × d (scene units), its faces cut into n × n squares.
+function roomBox(w, h, d, { roof = true, n = 3 } = {}) {
+  const triangles = [];
+  const face = (origin, u, v) => {
+    for (let i = 0; i < n; i += 1) {
+      for (let j = 0; j < n; j += 1) {
+        const at = (a, b) => [0, 1, 2].map((k) => origin[k] + (u[k] * a) / n + (v[k] * b) / n);
+        const [p, q, r, s] = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
+        triangles.push(...p, ...q, ...r, ...p, ...r, ...s);
+      }
+    }
+  };
+  face([0, 0, 0], [w, 0, 0], [0, 0, d]);
+  if (roof) face([0, h, 0], [w, 0, 0], [0, 0, d]);
+  face([0, 0, 0], [w, 0, 0], [0, h, 0]);
+  face([0, 0, d], [w, 0, 0], [0, h, 0]);
+  face([0, 0, 0], [0, 0, d], [0, h, 0]);
+  face([w, 0, 0], [0, 0, d], [0, h, 0]);
+  return { positions: new Float32Array(triangles), materials: null, size: Math.hypot(w, h, d) };
+}
+
+test('room acoustics: a box room traced as the formulas say, and a ruin without a roof drier', () => {
+  // 20 × 10 × 30 m of plaster with benches on the floor: 6000 m³, mean free
+  // path 4V/S = 10.9 m.
+  const options = { position: [10, 1.6, 12], material: 'plaster', floor: 'people', rays: 1500, seed: 3 };
+  const room = traceRoom(roomBox(20, 10, 30), options);
+  expect(room.volume).toBeGreaterThan(5400);
+  expect(room.volume).toBeLessThan(6600);
+  expect(room.meanFreePath).toBeGreaterThan(10.3);
+  expect(room.meanFreePath).toBeLessThan(11.5);
+  expect(room.openness).toBe(0);
+  // The decay of the histogram agrees with Eyring's formula (within 15%),
+  // band by band; the high bands shorter (people and the air absorb more).
+  room.rtFromDecay.forEach((rt, band) => {
+    expect(rt, `band ${room.bands[band]}`).not.toBeNull();
+    expect(Math.abs(rt / room.rtEyring[band] - 1), `band ${room.bands[band]}`).toBeLessThan(0.15);
+  });
+  expect(room.rt[0]).toBeGreaterThan(room.rt[3]);
+  expect(room.rt[5]).toBeLessThan(room.rt[3]);
+  // The critical distance is the diffuse field's, 0.057 √(V / T).
+  const classic = 0.057 * Math.sqrt(room.volume / room.rtMid);
+  expect(Math.abs(room.criticalDistance / classic - 1)).toBeLessThan(0.05);
+  expect(sendGain(room, room.criticalDistance)).toBeCloseTo(1, 5);
+  expect(sendGain(room, room.criticalDistance / 2)).toBeCloseTo(0.5, 5);
+  expect(sendGain(null, 1)).toBe(0);
+
+  // Without the roof: a fifth of the directions see the sky, the sound
+  // leaves through it - a shorter reverberation, a clearer room (bare
+  // floors in both: benches would take the sound coming down either way).
+  const bare = { ...options, floor: 'material' };
+  const roofed = traceRoom(roomBox(20, 10, 30), bare);
+  const ruin = traceRoom(roomBox(20, 10, 30, { roof: false }), bare);
+  expect(ruin.openness).toBeGreaterThan(0.15);
+  expect(ruin.openness).toBeLessThan(0.3);
+  expect(ruin.rtMid).toBeLessThan(roofed.rtMid * 0.9);
+  expect(ruin.c80).toBeGreaterThan(roofed.c80 + 1);
+  // Benches with people: shorter than bare floors.
+  expect(room.rtMid).toBeLessThan(roofed.rtMid);
+  expect(ruin.surfaces.open).toBeGreaterThan(0);
+  // The same room in centimeters: the same seconds.
+  const inCentimeters = traceRoom(roomBox(2000, 1000, 3000), { ...options, position: [1000, 160, 1200], metersPerUnit: 0.01 });
+  expect(Math.abs(inCentimeters.rtMid / room.rtMid - 1)).toBeLessThan(0.1);
+  expect(Math.abs(inCentimeters.criticalDistance / (room.criticalDistance * 100) - 1)).toBeLessThan(0.1);
+
+  // The impulse response: stereo, as long as the longest band needs, each
+  // channel of energy 1, the two ears different.
+  const response = synthesizeImpulseResponse(room, 8000);
+  expect(response.channels).toHaveLength(2);
+  expect(response.seconds).toBeGreaterThan(Math.max(...room.rt));
+  const energy = (channel) => channel.reduce((sum, value) => sum + value * value, 0);
+  expect(energy(response.channels[0])).toBeCloseTo(1, 3);
+  expect(energy(response.channels[1])).toBeCloseTo(1, 3);
+  expect(response.channels[0][1000]).not.toBe(response.channels[1][1000]);
+  // Its decay, read back, is the room's: between its shortest band and its
+  // longest (the low one, which also carries the most energy).
+  const squared = Array.from(response.channels[0].filter((_, index) => index % 16 === 0), (value) => value * value);
+  const readBack = schroederRT(squared, 16 / 8000);
+  expect(readBack).toBeGreaterThan(Math.min(...room.rt));
+  expect(readBack).toBeLessThan(Math.max(...room.rt) * 1.1);
+
+  // Materials by name, in English, Polish and German; walls say nothing.
+  expect(['Oak_planks', 'Okno szklo', 'Kalkstein', 'Tynk_wapienny', 'Vorhang rot', 'Wall_01', ''].map(materialFromName))
+    .toEqual(['wood', 'glass', 'stone', 'plaster', 'fabric', null, null]);
+});
+
+test('room acoustics in the Sounds window: the Wolpa prayer hall worked out, heard, saved', async ({ page }) => {
+  // The worker traces 90 000 triangles: slow with a busy CPU.
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await loadExampleManifest(page, 'wolpa-synagogue-aim3d-local-acoustics.json');
+  await page.waitForFunction(() => window.Viewer.getSceneSounds().length === 1);
+  const panel = page.locator('#viewerSoundsPanel');
+  await expect(panel.locator('.viewer-sounds-panel_acoustics')).toBeVisible();
+  await expect(panel.locator('.viewer-sounds-panel_acoustics-status')).toContainText('Not worked out yet');
+  expect(await page.evaluate(() => window.Viewer.getSceneAcoustics())).toMatchObject({ on: true, position: [0, 270, 250], material: 'wood', floor: 'pews', amount: 1 });
+
+  // Played (the first click): the room is worked out, then heard through the
+  // convolver - the source sends to it.
+  await page.mouse.click(200, 400);
+  await page.waitForFunction(() => window.Viewer.soundsState.acoustics.result, null, { timeout: 90_000 });
+  const room = await page.evaluate(() => {
+    const { acoustics, nodes } = window.Viewer.soundsState;
+    const node = nodes.get('call');
+    return {
+      rt: acoustics.result.rtMid,
+      volume: acoustics.result.volume,
+      wood: acoustics.result.surfaces.wood,
+      assumed: acoustics.assumedUnit,
+      buffer: [acoustics.nodes.convolver.buffer.numberOfChannels, acoustics.nodes.convolver.normalize],
+      send: Boolean(node?.send),
+    };
+  });
+  // A wooden hall of some 1000 m³ with benches: about two seconds.
+  expect(room.rt).toBeGreaterThan(1);
+  expect(room.rt).toBeLessThan(4);
+  expect(room.volume).toBeGreaterThan(500);
+  expect(room.volume).toBeLessThan(3000);
+  expect(room.wood).toBeGreaterThan(0.8);
+  expect(room.assumed).toBeNull();
+  expect(room.buffer).toEqual([2, false]);
+  expect(room.send).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.Viewer.soundsState.nodes.get('call').sendLevel), { timeout: 20_000 }).toBeGreaterThan(0.1);
+  await expect(panel.locator('.viewer-sounds-panel_acoustics-status')).toContainText('Reverberation');
+  await expect(panel.locator('.viewer-sounds-panel_band')).toHaveCount(6);
+  // The listening point shows while the window is open.
+  expect(await page.evaluate(() => window.Viewer.soundsState.markers.children.some((child) => child.userData.listeningPoint))).toBe(true);
+
+  // Out of the room: no send. Less reverberation: a smaller one.
+  await panel.locator('.viewer-sounds-panel_details .viewer-audio-panel_check', { hasText: "In the room's acoustics" }).locator('input').uncheck();
+  await expect.poll(() => page.evaluate(() => window.Viewer.soundsState.nodes.get('call').sendLevel)).toBe(0);
+  await panel.locator('.viewer-sounds-panel_details .viewer-audio-panel_check', { hasText: "In the room's acoustics" }).locator('input').check();
+  await page.evaluate(() => window.Viewer.updateSceneAcoustics({ amount: 0.5 }));
+  const half = await page.evaluate(() => window.Viewer.soundsState.nodes.get('call').sendLevel);
+  await page.evaluate(() => window.Viewer.updateSceneAcoustics({ amount: 1 }));
+  await expect.poll(() => page.evaluate(() => window.Viewer.soundsState.nodes.get('call').sendLevel)).toBeCloseTo(half * 2, 4);
+
+  // Saved with the sounds, valid; the result itself is not kept.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.sounds.acoustics).toEqual({ on: true, position: [0, 270, 250], material: 'wood', floor: 'pews' });
+  expect(manifest.AIM3DViewer.sounds.sources[0].acoustics).toBe(true);
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+  // For another model, the listening point goes with the placed sources.
+  const retargeted = retargetManifest(manifest, 'https://example.org/models/Other.glb');
+  expect(retargeted.AIM3DViewer.sounds).toBeUndefined();
+});
+
+// The 2D image shown (image2d.js): its file, the shader's settings, the set.
+const shownImage = (page) => page.evaluate(() => {
+  const state = window.Viewer.imageState;
+  if (!state?.api) return null;
+  const image = state.api.getImageState(state.root);
+  const uniforms = image.material.uniforms;
+  return {
+    kind: window.Viewer.getModelKind(),
+    info: state.root.userData.imageInfo,
+    settings: state.root.userData.image,
+    index: image.index,
+    count: image.items.length,
+    uniforms: { relief: uniforms.relief.value, levels: uniforms.levels.value, split: uniforms.split.value, channel: uniforms.channel.value },
+    plane: image.plane.scale.toArray().map((value) => Math.round(value * 10000) / 10000),
+  };
+});
+
+test('2D images: one image with its resolution and tags, enhanced on the GPU, saved as PNG', async ({ page }) => {
+  await openViewer(page, '/examples/images/inscription.png');
+  await waitForModel(page, 30_000);
+  await page.waitForFunction(() => window.Viewer.isImageActive?.() && document.getElementById('viewerImagePanel'));
+  const image = await shownImage(page);
+  expect(image.kind).toBe('image');
+  expect(image.info).toMatchObject({ format: 'PNG', width: 1200, height: 750, dpi: 300, count: 1 });
+  expect(image.info.tags.title).toBe('Worn inscription (synthetic)');
+  // 300 dpi: the plane in metres (10.16 × 6.35 cm), measured as such.
+  expect(image.plane).toEqual([0.1016, 0.0635, 1]);
+  expect(await page.evaluate(() => window.Viewer.detectedModelUnitMeters)).toBe(1);
+  const facts = await page.locator('#viewerImagePanel .viewer-volume-panel_summary dd').allTextContents();
+  expect(facts).toEqual(expect.arrayContaining(['1200 × 750', '300 dpi', '10.2 cm × 6.4 cm']));
+  // A picture is moved and zoomed, not turned; no ground under it.
+  expect(await page.evaluate(() => [window.Viewer.controls.enableRotate, window.Viewer.controls.mouseButtons.LEFT, window.Viewer.core?.basicGrid?.visible ?? false]))
+    .toEqual([false, 2, false]);
+  // Its tools on the bar.
+  await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['image', 'ruler', 'picking']);
+
+  // The panel's controls into the shader.
+  const panel = page.locator('#viewerImagePanel');
+  await panel.locator('label', { hasText: 'Auto levels' }).locator('input').check();
+  await panel.locator('label', { hasText: /^Relief/ }).locator('input').fill('80');
+  await panel.locator('select').filter({ has: page.locator('option[value="luminance"]') }).selectOption('luminance');
+  await expect(panel.locator('label', { hasText: 'Light from' })).toBeVisible();
+  await panel.locator('label', { hasText: 'With the original' }).locator('input').check();
+  expect((await shownImage(page)).uniforms).toEqual({ relief: 0.8, levels: true, split: 0.5, channel: 4 });
+
+  // Saved as it is shown, at its pixels, without the comparison line.
+  const download = page.waitForEvent('download');
+  await panel.locator('.viewer-image-panel_save').click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('inscription-enhanced.png');
+  const png = fs.readFileSync(await file.path());
+  expect(png.subarray(1, 4).toString()).toBe('PNG');
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 750]);
+  expect((await shownImage(page)).uniforms.split).toBe(0.5);
+
+  await panel.locator('.viewer-image-panel_reset').click();
+  expect((await shownImage(page)).uniforms).toEqual({ relief: 0, levels: false, split: -1, channel: 0 });
+
+  // Another model: the camera turns again.
+  const glb = await page.locator('#example-model-select option[value$="examples/tempietto/Tempietto.glb"]').first().getAttribute('value');
+  await page.selectOption('#example-model-select', glb);
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'mesh', null, { timeout: 30_000 });
+  expect(await page.evaluate(() => [window.Viewer.isImageActive(), window.Viewer.controls.enableRotate, window.Viewer.controls.mouseButtons.LEFT])).toEqual([false, true, 0]);
+  await expect(page.locator('#viewerImagePanel')).toHaveCount(0);
+});
+
+test('2D images: a .zip of photos browsed as a set - filmstrip, keys, grid; the settings kept', async ({ page }) => {
+  await openViewer(page, '/examples/images/images-set.zip');
+  await waitForModel(page, 30_000);
+  await page.waitForFunction(() => window.Viewer.isImageActive?.() && document.querySelector('.viewer-image-strip'));
+  expect(await shownImage(page)).toMatchObject({ kind: 'image', index: 0, count: 3, info: { name: '01-inscription.png' } });
+  const strip = page.locator('.viewer-image-strip');
+  await expect(strip.locator('.viewer-image-strip_thumb')).toHaveCount(3);
+  await expect(strip.locator('.viewer-image-strip_thumb img')).toHaveCount(3, { timeout: 20_000 });
+  await expect(strip.locator('.viewer-image-strip_counter')).toHaveText('1 / 3');
+  await page.evaluate(() => window.Viewer.updateImageSettings((s) => { s.dstretch = true; }));
+
+  // The next one: its own size (no resolution: a unit per pixel), its EXIF.
+  await strip.locator('.viewer-image-strip_step').last().click();
+  await page.waitForFunction(() => window.Viewer.getImageIndex() === 1);
+  const rock = await shownImage(page);
+  expect(rock.info).toMatchObject({ name: '02-rock-art.jpg', format: 'JPEG', metersPerPixel: null, gps: { latitude: 50.05 } });
+  expect(rock.info.tags).toMatchObject({ camera: 'ExPlora4D Synthetic camera', exposure: '1/125 s', aperture: 'f/5.6' });
+  expect(rock.plane).toEqual([1200, 750, 1]);
+  expect(rock.settings.dstretch).toBe(true);
+  await expect(strip.locator('.viewer-image-strip_thumb.is-current')).toHaveAttribute('data-index', '1');
+  // In view, the camera framed on it.
+  expect(await page.evaluate(() => window.Viewer.camera.position.z)).toBeGreaterThan(500);
+
+  // Keys: → and Home.
+  await page.locator('#MainCanvas').hover();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(() => window.Viewer.getImageIndex() === 2);
+  await page.keyboard.press('Home');
+  await page.waitForFunction(() => window.Viewer.getImageIndex() === 0);
+
+  // The grid: all of them; a click opens one and closes it.
+  await strip.locator('.viewer-image-strip_grid').click();
+  const grid = page.locator('.viewer-image-grid');
+  await expect(grid).toBeVisible();
+  await expect(grid.locator('.viewer-image-grid_item')).toHaveCount(3);
+  await grid.locator('.viewer-image-grid_item').nth(2).click();
+  await expect(grid).toBeHidden();
+  await page.waitForFunction(() => window.Viewer.getImageIndex() === 2);
+  expect((await shownImage(page)).info.name).toBe('03-manuscript.jpg');
+});
+
+test('2D images: several dropped together are a set; a .zip of grey slices is a volume', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const opened = await page.evaluate(async () => {
+    const fetchFile = async (name) => {
+      const url = document.querySelector(`#example-model-select option[value$="examples/images/${name}"]`)?.value
+        || document.querySelector('#example-model-select option[value$="examples/images/inscription.png"]').value.replace('inscription.png', name);
+      return new File([await (await fetch(url)).blob()], name);
+    };
+    return window.Viewer.openImageSet([await fetchFile('rock-art.jpg'), await fetchFile('inscription.png')]);
+  });
+  expect(opened).toBe(true);
+  await page.waitForFunction(() => window.Viewer.isImageActive?.() && window.Viewer.getImageSet().length === 2);
+  // In natural name order.
+  expect(await page.evaluate(() => window.Viewer.getImageSet().map((item) => item.name))).toEqual(['inscription.png', 'rock-art.jpg']);
+
+  // CT slices: grey, one size, a SkyScan log - a volume, not a set.
+  await openViewer(page, '/examples/volumes/amphora-ct-png-slices.zip');
+  await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'volume' && window.Viewer.isVolumeActive?.(), null, { timeout: 60_000 });
+  expect(await page.evaluate(() => window.Viewer.isImageActive?.() ?? false)).toBe(false);
+});
+
+test('manifests of a 2D image and of a sound: their settings applied, and saved again', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+
+  // An Image body: the image, with the manifest's tools.
+  await loadExampleManifest(page, 'images-aim3d-rock-art-dstretch.json');
+  await page.waitForFunction(() => window.Viewer.isImageActive?.() && window.Viewer.getModelKind() === 'image');
+  expect((await shownImage(page)).uniforms).toMatchObject({ split: 0.35 });
+  expect(await page.evaluate(() => window.Viewer.getImageForExport())).toEqual({ dstretch: true, compare: true, split: 0.35 });
+  let saved = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(saved.items[0].items[0].items[0].body).toMatchObject({ type: 'Image', format: 'image/jpeg' });
+  expect(saved.AIM3DViewer.image).toEqual({ dstretch: true, compare: true, split: 0.35 });
+  expect(validateAIM3DManifest(saved).errors).toEqual([]);
+
+  // A Sound body: the spectrogram, its view and its playback.
+  await loadExampleManifest(page, 'sounds-aim3d-bird-call.json');
+  await page.waitForFunction(() => window.Viewer.isAudioActive?.() && window.Viewer.getModelKind() === 'audio');
+  await expect.poll(() => page.evaluate(() => window.Viewer.audioState.player.settings.reverb)).toBe('church');
+  expect(await page.evaluate(() => window.Viewer.getAudioForExport())).toEqual({
+    range: 70,
+    playback: { loop: true, region: { start: 2.9, end: 4.6 }, reverb: 'church', reverbMix: 0.45 },
+  });
+  await expect(page.locator('#viewerAudioPanel .viewer-audio-panel_region')).toBeVisible();
+  saved = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(saved.items[0].items[0].items[0].body).toMatchObject({ type: 'Sound', format: 'audio/wav' });
+  expect(saved.AIM3DViewer.audio.range).toBe(70);
 });
 
 test('a .zip the repository converted: loaded from its conversion, not downloaded', async ({ page }) => {
@@ -5744,6 +6564,42 @@ test('weather: rain, snow and a storm around the model; off gives the scene back
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
+test('seasons: the intro\'s seasons around the model, from their own window', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const toolbar = page.locator('#viewerEditorToolbar');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('.viewer-menus_panel button[data-tool="seasons"]').click();
+  const panel = page.locator('#viewerSeasons');
+  await expect(panel).toBeVisible();
+  // Off and the four seasons, each a line icon and its name.
+  await expect(panel.locator('.viewer-weather_type')).toHaveCount(5);
+  await expect(panel.locator('.viewer-weather_type svg')).toHaveCount(5);
+  await expect(panel.locator('button[data-season="off"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('button[data-season="autumn"]')).toHaveText('Autumn');
+
+  // Autumn: a clear sky, leaves in the air, the model's colours warmer.
+  await panel.locator('button[data-season="autumn"]').click();
+  await expect(panel.locator('button[data-season="autumn"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => ({ enabled: window.Viewer.weather.enabled, type: window.Viewer.weather.type, season: window.Viewer.weather.season }))).toEqual({ enabled: true, type: 'clear', season: 'autumn' });
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.leaves.geometry.drawRange.count)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.patched.size)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.surfaceUniforms.weatherGrade.value.b)).toBeLessThan(0.9);
+  expect(await page.evaluate(() => window.Viewer.getWeatherForExport())).toMatchObject({ type: 'clear', season: 'autumn' });
+
+  // Winter brings snow; the leaves go.
+  await panel.locator('button[data-season="winter"]').click();
+  expect(await page.evaluate(() => window.Viewer.weather.type)).toBe('snow');
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.snow.geometry.drawRange.count)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.leaves.geometry.drawRange.count)).toBe(0);
+
+  // Off: the season's weather goes with it.
+  await panel.locator('button[data-season="off"]').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.weather.enabled)).toBe(false);
+  expect(await page.evaluate(() => window.Viewer.weather.season)).toBeNull();
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
 // The weather (editor/weather.js) is a chunk of its own, downloaded on first
 // use (editor/weather-lazy.js): not with the viewer, but as the pointer
 // reaches its button; calls made meanwhile run in order once it is there.
@@ -5787,6 +6643,10 @@ test('weather with the WebGPU renderer: the same weathers in TSL', async ({ page
   });
   await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.snow.isMesh)).toBe(true);
   await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.surfaceUniforms.weatherSnow.isNode && window.Viewer.weatherObjects.surfaceUniforms.weatherSnow.value > 0.5)).toBe(true);
+  // A season: its petals as quads, its grade in the node materials.
+  await page.evaluate(() => window.Viewer.setWeatherSeason('spring'));
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.leaves.isMesh && window.Viewer.weatherObjects.leaves.geometry.drawRange.count > 0)).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.Viewer.weatherObjects.surfaceUniforms.weatherGrade.value.g)).toBeGreaterThan(1.02);
   await page.evaluate(() => window.Viewer.setWeather(false));
   expect(await page.evaluate(() => window.viewer.scene.fog)).toBeNull();
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
@@ -6237,6 +7097,134 @@ test('materials window: lists the materials, applies a type, edits, resets, pick
   expect(await meshState()).toMatchObject({ original: true });
 });
 
+test('section cuts and measurements are saved with the settings and the manifest, and come back on the model', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForCameraIdle(page);
+
+  // A cut a third of the way along X, the other side kept, with its fill;
+  // a distance and an area across the model.
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.setClippingAxisEnabled('x', true, { silent: true });
+    viewer.setClippingAxisNegated('x', true);
+    const range = viewer.getClippingAxisRange('x');
+    viewer.setClippingAxisPosition('x', range.min + range.size / 3);
+    viewer.setClippingFillVisible(true);
+  });
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const center = root.position;
+    viewer.measurementMode = 'distance';
+    viewer.addMeasurementPoint(center.clone().set(center.x - 0.5, center.y, center.z));
+    viewer.addMeasurementPoint(center.clone().set(center.x + 0.5, center.y, center.z));
+    viewer.finishMeasurementDraft();
+    viewer.measurementMode = 'area';
+    [[0, 0], [1, 0], [1, 1]].forEach(([dx, dz]) => viewer.addMeasurementPoint(center.clone().set(center.x + dx, center.y, center.z + dz)));
+    viewer.finishMeasurementDraft();
+  });
+
+  const metadata = await page.evaluate(() => window.Viewer.buildMetadata({ x: 0, y: 0, z: 0 }));
+  expect(metadata.clipping).toMatchObject({ mode: { x: true, y: false, z: false }, negated: { x: true }, outlineVisible: true });
+  expect(metadata.clipping.fraction.x).toBeCloseTo(1 / 3, 4);
+  expect(metadata.measurements.map((entry) => [entry.mode, entry.points.length])).toEqual([['distance', 2], ['area', 3]]);
+
+  // Unticked in Save settings: what was saved before stays.
+  const unticked = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.saveProperties.ClippingPlanes = false;
+    viewer.saveProperties.Measurements = false;
+    const previous = viewer.originalMetadata;
+    viewer.originalMetadata = { ...previous, clipping: 'before', measurements: 'before' };
+    const result = viewer.buildMetadata({ x: 0, y: 0, z: 0 });
+    viewer.originalMetadata = previous;
+    viewer.saveProperties.ClippingPlanes = true;
+    viewer.saveProperties.Measurements = true;
+    return [result.clipping, result.measurements];
+  });
+  expect(unticked).toEqual(['before', 'before']);
+
+  // Gone, then the model moved and the saved state applied: the cut at the
+  // same place in the model's box, the measurements moved with the model.
+  const restored = await page.evaluate((saved) => {
+    const viewer = window.Viewer;
+    const root = window.Viewer.resolveObjectByTargetId('m0:root');
+    const before = viewer.measurementResults[0].points[0].clone();
+    viewer.clearMeasurements();
+    viewer.removeAllClipping();
+    root.position.x += 2;
+    root.updateMatrixWorld(true);
+    viewer.refreshClippingForModel(root);
+    viewer.applySavedClipping(saved.clipping);
+    const drawn = viewer.applySavedMeasurements(saved.measurements, root);
+    const range = viewer.getClippingAxisRange('x');
+    return {
+      drawn,
+      shift: viewer.measurementResults[0].points[0].x - before.x,
+      enabled: viewer.isClippingAxisEnabled('x'),
+      negated: viewer.isClippingAxisNegated('x'),
+      cut: (viewer.getClippingAxisPosition('x') - range.min) / range.size,
+      readout: document.querySelectorAll('#viewerMeasurementReadout li').length,
+    };
+  }, metadata);
+  expect(restored).toMatchObject({ drawn: 2, enabled: true, negated: true });
+  expect(restored.shift).toBeCloseTo(2, 4);
+  expect(restored.cut).toBeCloseTo(1 / 3, 4);
+  expect(restored.readout).toBeGreaterThanOrEqual(2);
+
+  // The manifest carries the measurements too, and brings them back.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.measurements).toHaveLength(2);
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+  await page.evaluate(() => window.Viewer.clearMeasurements());
+  await page.evaluate((json) => window.Viewer.import3IFManifest(json), manifest);
+  expect(await page.evaluate(() => window.Viewer.measurementResults.map((entry) => entry.mode))).toEqual(['distance', 'area']);
+
+  const broken = structuredClone(manifest);
+  broken.AIM3DViewer.measurements[1].points = [[0, 0, 0], [1, 1]];
+  expect(validateAIM3DManifest(broken).errors.map((error) => error.path)).toEqual([
+    '$.AIM3DViewer.measurements[1].points',
+  ]);
+});
+
+test('example manifests with measurements: the synagogue measured outside, and a section measured inside', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const shown = async (url, count) => {
+    await page.evaluate((manifest) => window.Viewer.setupManifesto(manifest, 'url', 'aim3if'), url);
+    await expect.poll(() => page.evaluate(() => window.Viewer.measurementResults.map((entry) => entry.mode).join()), { timeout: 60_000 }).toBe(count);
+    return page.evaluate(() => ({
+      measured: window.Viewer.measurementResults.map((entry) => [entry.mode, window.Viewer.describeMeasurement(entry).value]),
+      clipping: window.Viewer.hasActiveClipping(),
+      x: window.Viewer.isClippingAxisEnabled('x'),
+      unit: window.Viewer.resolveModelUnit().meters,
+    }));
+  };
+
+  // The model in centimetres (the Scene's spatialScale): lengths in metres.
+  const outside = await shown('./manifests/wolpa-synagogue-aim3d-local-measured.json', 'distance,distance,distance,angle,area');
+  expect(outside).toMatchObject({ clipping: false, unit: 0.01 });
+  expect(outside.measured).toEqual([
+    ['distance', '16.67 m'],
+    ['distance', '15.98 m'],
+    ['distance', '13.81 m'],
+    ['angle', '91.5°'],
+    ['area', '220.68 m²'],
+  ]);
+
+  // The next manifest's measurements replace them; its cut is on.
+  const inside = await shown('./manifests/wolpa-synagogue-aim3d-local-section-measured.json', 'distance,distance,area');
+  expect(inside).toMatchObject({ clipping: true, x: true });
+  expect(inside.measured).toEqual([['distance', '13.45 m'], ['distance', '15.68 m'], ['area', '111.33 m²']]);
+
+  for (const file of ['wolpa-synagogue-aim3d-local-measured.json', 'wolpa-synagogue-aim3d-local-section-measured.json']) {
+    const manifest = JSON.parse(fs.readFileSync(`viewer/manifesto/examples/${file}`, 'utf8'));
+    expect(validateAIM3DManifest(manifest).errors, file).toEqual([]);
+    expect(manifestFeatureIcons(inspectAIM3DManifest(manifest)).map((icon) => icon.id), file).toContain('measurements');
+  }
+});
+
 test('prepare for publishing, rules: the base a model stands on, the exposure, the framing', () => {
   // Flat at the bottom only: upright.
   expect(decideModelBase({ 'Y-': 30, 'Y+': 2, 'X+': 1, 'X-': 1, 'Z+': 1, 'Z-': 1 }, 100)).toMatchObject({ base: 'Y-' });
@@ -6665,7 +7653,7 @@ test('classic toolbar: the tools for the model\'s kind come onto the bar, and go
   await page.selectOption('#example-model-select', './examples/volumes/amphora-ct.nrrd');
   await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'volume' && window.Viewer.isVolumeActive?.(), null, { timeout: 60_000 });
   await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['volume', 'clippingPlanes', 'ruler']);
-  expect((await formatTools(page)).hidden.sort()).toEqual(['ground', 'sceneSuggest', 'shading', 'weather', 'wireframe']);
+  expect((await formatTools(page)).hidden.sort()).toEqual(['ground', 'sceneSuggest', 'seasons', 'shading', 'weather', 'wireframe']);
 });
 
 test('classic toolbar: an IFC model brings its hierarchy and section tools to the top, two on a phone', async ({ browser }) => {
@@ -6764,4 +7752,67 @@ test('section planes cut a volume\'s rays, with no fill drawn for its box', asyn
     });
     return count;
   })).toBe(0);
+});
+
+// ultra.html (viewer/ultra.js): its own bundle, served from the build only.
+test('ultra.html shows a compressed GLB and loads nothing of the full viewer', async ({ page }) => {
+  test.skip(!process.env.CI, 'ultra.html is served from the build (CI), not the dev server');
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(new URL(request.url()).pathname));
+
+  // Meshopt geometry and KTX2 textures: the Basis decoder comes from assets/.
+  await page.goto('/ultra.html?model=./examples/compressed.glb');
+  await expect(page.locator('body')).toHaveAttribute('data-state', 'loaded', { timeout: 30_000 });
+  await expect(page.locator('#viewer canvas')).toBeVisible();
+  await expect(page.locator('.error')).toHaveCount(0);
+
+  expect(requests).toContain('/assets/maps/lite/neutral.hdr');
+  expect(requests.some((path) => path.includes('/basis/'))).toBe(true);
+  // No stylesheet, font or chunk of the full viewer.
+  expect(requests.filter((path) => /\.(css|woff2?)$|dfg_3dviewer-module|\/assets\/[\w.-]+\.js$/.test(path))).toEqual([]);
+});
+
+test('ultra.html says when there is no model or it cannot be loaded', async ({ page }) => {
+  test.skip(!process.env.CI, 'ultra.html is served from the build (CI), not the dev server');
+  await page.goto('/ultra.html');
+  await expect(page.locator('body')).toHaveAttribute('data-state', 'error');
+  await expect(page.locator('.error')).toContainText('?model=');
+
+  await page.goto('/ultra.html?model=./examples/broken.glb');
+  await expect(page.locator('body')).toHaveAttribute('data-state', 'error', { timeout: 15_000 });
+  await expect(page.locator('.error')).toContainText('could not be loaded');
+});
+
+test('?ultralight=1 on the viewer pages opens ultra.html with the same parameters', async ({ page }) => {
+  test.skip(!process.env.CI, 'ultra.html is served from the build (CI), not the dev server');
+  const scripts: string[] = [];
+  page.on('request', (request) => {
+    if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname);
+  });
+  await page.goto('/embed.html?model=./examples/box.glb&ultralight=1&autorotate=1');
+  await expect(page).toHaveURL(/\/ultra\.html\?model=\.%2Fexamples%2Fbox\.glb&autorotate=1$/);
+  await expect(page.locator('body')).toHaveAttribute('data-state', 'loaded', { timeout: 30_000 });
+  // Not one chunk of the full viewer.
+  expect(scripts.filter((path) => path.startsWith('/assets/'))).toEqual([]);
+
+  await page.goto('/?model=./examples/box.glb&ultra=true');
+  await expect(page).toHaveURL(/\/ultra\.html\?model=/);
+
+  // Off: the full viewer.
+  await page.goto('/embed.html?model=./examples/box.glb&ultralight=0');
+  await expect(page).toHaveURL(/\/embed\.html\?/);
+  await page.waitForSelector('#MainCanvas', { state: 'attached' });
+});
+
+test('the lightweight viewer lights the model with the small environment map', async ({ page }) => {
+  test.skip(!process.env.CI, 'the build (CI) runs in lightweight mode');
+  const maps: string[] = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith('.hdr')) maps.push(path);
+  });
+  await openViewer(page, './examples/box.glb');
+  await waitForModel(page);
+  await expect.poll(() => maps).toContain('/assets/maps/lite/neutral.hdr');
+  expect(maps.filter((path) => !path.includes('/maps/lite/'))).toEqual([]);
 });

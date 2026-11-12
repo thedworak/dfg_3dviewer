@@ -1,0 +1,2 @@
+import{readDicomVolume as e}from"./dicom-reader-BO3mtl7f.js";import"./model-extension-DzRz9T9A.js";import"./volume-voxels-BTms9hMZ.js";self.onmessage=async s=>{const{source:o,layout:t}=s.data||{};try{const s=await e(o,t,{onProgress:e=>self.postMessage({type:"progress",progress:e})});self.postMessage({type:"done",result:s},[s.bytes.buffer])}catch(e){self.postMessage({type:"error",message:e?.message||String(e)})}},self.postMessage({type:"ready"});
+//# sourceMappingURL=dicom-volume-worker-CiOD5SwE.js.map

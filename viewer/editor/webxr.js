@@ -279,7 +279,7 @@ export function attachWebXR(Viewer) {
       for (let index = 0; index < 2; index += 1) {
         const controller = renderer.xr.getController(index);
         if (!controller) continue;
-        const ray = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0xe9b264 }));
+        const ray = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0xf5a524 }));
         ray.name = "xr-ray";
         ray.scale.z = RAY_LENGTH;
         ray.visible = state.mode === "vr";

@@ -1,5 +1,2 @@
-export { V as Viewer, e as expectWebGL } from './assets/main-BNKO74UM.js';
-import './assets/three-DtpVwUD_.js';
-import './assets/model-thumbnail-Dvh-PYS7.js';
-import './assets/_commonjsHelpers-ChNyZfSg.js';
-//# sourceMappingURL=dfg_3dviewer-module-DS1XAG9f.js.map
+export{V as Viewer,e as expectWebGL}from"./assets/main-Dm4_zsns.js";import"./assets/model-extension-Cr1HZAY0.js";import"./assets/three-CgalyOEU.js";import"./assets/feature-icons-CjpkRe_r.js";import"./assets/intro-scene-CnXIDtmr.js";import"./assets/_commonjsHelpers-CcewmdYa.js";import"./assets/slice-stack-jFVQ4rDS.js";import"./assets/image-slices-reader-C5mqNbHw.js";import"./assets/volume-voxels-D0AaW4wJ.js";
+//# sourceMappingURL=dfg_3dviewer-module-BABE-e9M.js.map

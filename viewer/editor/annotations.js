@@ -1,7 +1,16 @@
 import { core, SPLAT_LIGHTING_DEFAULTS } from "../core.js";
-import { toastHelper, showToast } from "../viewer-utils.js";
+import { toastHelper, showToast, positionForView, authoredViewAspect, viewOrientation } from "../viewer-utils.js";
 import { t } from "../i18n-utils.js";
 import { makeDraggable } from "../ui/panel-window.js";
+import { normalizeAnnotationAudio } from "./narration.js";
+
+// A comment's text body, and its narration as a Sound body after it.
+function withSoundBody(audio, textBody) {
+  const narration = normalizeAnnotationAudio(audio);
+  return narration ? [textBody, { id: narration.src, type: "Sound" }] : textBody;
+}
+import { manifestVersionStatus, AIM3D_MANIFEST_VERSION } from "../manifesto/manifest-version.js";
+import { showManifestNewerNotice, showManifestUpdateDialog } from "../ui/manifest-update.js";
 import THREE from "../init.js";
 import { canvasFont, paintCanvasText } from "../ui/canvas-font.js";
 import { unitNameToMeters } from "./model-units.js";
@@ -19,10 +28,12 @@ import {
   buildSceneCameraAnnotation,
   buildCommentTarget,
   buildLightAnnotations,
+  buildSoundAnnotations,
   buildCanvasAnnotation,
   buildModelAnnotation,
   buildSpatialScale,
   modelFormatOf,
+  contentTypeOf,
   buildViewCameraAnnotation,
   commentsToAnnotationEntries,
   addImportedLight,
@@ -393,6 +404,7 @@ export function attachAnnotations(Viewer) {
         uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
       this.syncAnnotationDialogSaveView(entries);
       this.syncAnnotationDialogCertainty(entries, { point: Boolean(this.annotationEditingPointId) });
+      this.syncAnnotationDialogAudio(entries);
 
       this.updateAnnotationDialogBounds();
       this.annotationDialog.hidden = false;
@@ -610,6 +622,17 @@ export function attachAnnotations(Viewer) {
               <span>Description</span>
               <textarea id="annotationDescriptionInput" name="description" rows="5" maxlength="4000"></textarea>
             </label>
+            <div class="annotation-dialog__narration" id="annotationNarrationFields">
+              <label>
+                <span id="annotationAudioLabel">Narration: sound file URL</span>
+                <input id="annotationAudioInput" name="audio" type="url" placeholder="https://…/narration.mp3" />
+              </label>
+              <label>
+                <span id="annotationCaptionsLabel">Captions: WebVTT file URL</span>
+                <input id="annotationCaptionsInput" name="captions" type="url" placeholder="https://…/narration.vtt" />
+              </label>
+              <button type="button" id="annotationNarrationPreview" class="annotation-dialog__narration-preview">▶ Listen</button>
+            </div>
             <div class="annotation-dialog__certainty" id="annotationCertaintyFields">
               <label>
                 <span id="annotationCertaintyLabel">Level of Certainty (LoC)</span>
@@ -647,6 +670,22 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogCertaintyInput = dialog.querySelector("#annotationCertaintyInput");
       this.annotationDialogCertaintyScopeInput = dialog.querySelector("#annotationCertaintyScopeInput");
       this.populateCertaintyDialogOptions();
+      // An annotation's narration and its captions (editor/narration.js).
+      this.annotationDialogAudioInput = dialog.querySelector("#annotationAudioInput");
+      this.annotationDialogCaptionsInput = dialog.querySelector("#annotationCaptionsInput");
+      this.annotationDialogNarrationButton = dialog.querySelector("#annotationNarrationPreview");
+      this.bindEventListener(this.annotationDialogNarrationButton, "click", () => {
+        if (this.getNarrationEntryId?.() === "dialog" && this.isNarrationPlaying?.()) {
+          this.stopNarration?.();
+          return;
+        }
+        const audio = this.readAnnotationDialogAudio();
+        if (!audio) {
+          this.annotationDialogAudioInput?.focus();
+          return;
+        }
+        this.playNarration?.({ id: "dialog", audio });
+      });
       const form = dialog.querySelector("#annotationDialogForm");
 
       this.bindEventListener(dialog, "click", (event) => {
@@ -683,7 +722,7 @@ export function attachAnnotations(Viewer) {
       if (!select) return;
       const current = select.value;
       select.replaceChildren(
-        new Option(t("certainty.none", "— not assessed —"), ""),
+        new Option(t("certainty.none", "- not assessed -"), ""),
         ...(this.certaintyScale?.levels || []).map((level) => (
           new Option(`${this.formatCertaintyLevel(level)} (${level.value})`, String(level.value))
         ))
@@ -702,6 +741,31 @@ export function attachAnnotations(Viewer) {
         scopeOptions[0].textContent = t("certainty.scopeObject", "Object");
         scopeOptions[1].textContent = t("certainty.scopeGroup", "Group (parent object)");
       }
+    },
+
+    // The narration of the entries being edited, when they share one.
+    syncAnnotationDialogAudio(entries) {
+      if (!this.annotationDialogAudioInput) return;
+      const audios = Array.from(new Set((entries || []).map((entry) => JSON.stringify(normalizeAnnotationAudio(entry?.audio)))));
+      const audio = audios.length === 1 ? JSON.parse(audios[0]) : null;
+      this.annotationDialogAudioInput.value = audio?.src || "";
+      this.annotationDialogCaptionsInput.value = audio?.captions || "";
+      const labels = {
+        annotationAudioLabel: t("narration.field", "Narration: sound file URL"),
+        annotationCaptionsLabel: t("narration.captions", "Captions: WebVTT file URL"),
+      };
+      Object.entries(labels).forEach(([id, text]) => {
+        const node = this.annotationDialog?.querySelector(`#${id}`);
+        if (node) node.textContent = text;
+      });
+      this.syncNarrationControls?.();
+    },
+
+    readAnnotationDialogAudio() {
+      return normalizeAnnotationAudio({
+        src: this.annotationDialogAudioInput?.value,
+        captions: this.annotationDialogCaptionsInput?.value,
+      });
     },
 
     // Shows the LoC of the entries being edited when they share one; point
@@ -819,6 +883,7 @@ export function attachAnnotations(Viewer) {
         uniqueDescriptions.length === 1 ? uniqueDescriptions[0] : "";
       this.syncAnnotationDialogSaveView(existingEntries);
       this.syncAnnotationDialogCertainty(existingEntries);
+      this.syncAnnotationDialogAudio(existingEntries);
       this.updateAnnotationDialogBounds();
       this.annotationDialog.hidden = false;
       this.closeAnnotationPOITooltip();
@@ -891,6 +956,7 @@ export function attachAnnotations(Viewer) {
       this.annotationDialogDescriptionInput.value = "";
       this.syncAnnotationDialogSaveView([]);
       this.syncAnnotationDialogCertainty([], { point: true });
+      this.syncAnnotationDialogAudio([]);
       this.updateAnnotationDialogBounds();
       this.annotationDialog.hidden = false;
       this.closeAnnotationPOITooltip();
@@ -901,6 +967,7 @@ export function attachAnnotations(Viewer) {
 
     closeAnnotationDialog() {
       if (!this.annotationDialog) return;
+      if (this.getNarrationEntryId?.() === "dialog") this.stopNarration?.();
       this.annotationDialog.hidden = true;
       this.pendingPointAnnotation = null;
       this.annotationEditingPointId = "";
@@ -965,6 +1032,7 @@ export function attachAnnotations(Viewer) {
         ? this.captureCurrentAnnotationView()
         : this.normalizeAnnotationView(previousEntry?.view);
       const certainty = this.readAnnotationDialogCertainty(targetId, previousEntry?.certainty);
+      const audio = this.readAnnotationDialogAudio();
 
       const annotationPayload = {
         id: annotationId,
@@ -982,6 +1050,7 @@ export function attachAnnotations(Viewer) {
         ...this.setAnnotationEntryText({ localized: previousEntry?.localized }, title, description),
         ...(certainty ? { certainty } : {}),
         ...(view ? { view } : {}),
+        ...(audio ? { audio } : {}),
         updatedAt: nowIso,
         createdAt: previousEntry?.createdAt || nowIso
       };
@@ -1032,6 +1101,9 @@ export function attachAnnotations(Viewer) {
       if (entry) {
         this.setAnnotationEntryText(entry, title, String(this.annotationDialogDescriptionInput?.value || "").trim());
         if (this.annotationDialogSaveViewInput?.checked) entry.view = this.captureCurrentAnnotationView();
+        const audio = this.readAnnotationDialogAudio();
+        if (audio) entry.audio = audio;
+        else delete entry.audio;
         entry.updatedAt = new Date().toISOString();
         toastHelper("annotationsSaved", "success", { count: 1, plural: "" });
       }
@@ -1119,6 +1191,7 @@ export function attachAnnotations(Viewer) {
               description: String(entry.description || "").trim(),
               ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
               ...(view ? { view } : {}),
+              ...(normalizeAnnotationAudio(entry.audio) ? { audio: normalizeAnnotationAudio(entry.audio) } : {}),
               createdAt: entry.createdAt ? String(entry.createdAt) : "",
               updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
             };
@@ -1155,6 +1228,7 @@ export function attachAnnotations(Viewer) {
             ...(entry.localized ? { localized: structuredClone(entry.localized) } : {}),
             ...(this.normalizeCertainty?.(entry.certainty) ? { certainty: this.normalizeCertainty(entry.certainty) } : {}),
             ...(view ? { view } : {}),
+            ...(normalizeAnnotationAudio(entry.audio) ? { audio: normalizeAnnotationAudio(entry.audio) } : {}),
             createdAt: entry.createdAt ? String(entry.createdAt) : "",
             updatedAt: entry.updatedAt ? String(entry.updatedAt) : "",
           };
@@ -1317,7 +1391,8 @@ export function attachAnnotations(Viewer) {
             slot === 0 ? `${sceneId}/annotation/model` : `${sceneId}/annotation/model/${slot + 1}`,
             {
               id: url,
-              type: "Model",
+              // A Model - or the Sound or Image the scene shows.
+              type: contentTypeOf(url),
               format: modelFormatOf(url) || (slot === 0 ? core.fileObject.mimeType : undefined) || undefined,
             },
             root
@@ -1353,7 +1428,8 @@ export function attachAnnotations(Viewer) {
           created: entry.createdAt || undefined,
           modified: entry.updatedAt || undefined,
 
-          body: entry.localized?.description
+          // With its narration, a Sound body next to the text.
+          body: withSoundBody(entry.audio, entry.localized?.description
             ? {
               type: "Choice",
               items: Object.entries(entry.localized.description).map(([language, text]) => ({
@@ -1367,7 +1443,7 @@ export function attachAnnotations(Viewer) {
               type: "TextualBody",
               value: String(entry.description || "").trim(),
               format: "text/plain"
-            },
+            }),
 
           ...(viewCamera ? { scope: [{ id: viewCamera.id, type: "Annotation" }] } : {}),
 
@@ -1387,7 +1463,9 @@ export function attachAnnotations(Viewer) {
               ? { point: entry.point }
               : { faceIndex: entry.faceIndex, faceNumbers: entry.faceNumbers || [] }),
             view: entry.view || undefined,
-            certainty: entry.certainty || undefined
+            certainty: entry.certainty || undefined,
+            // Its narration and captions (editor/narration.js).
+            audio: entry.audio || undefined
           }
         };
       });
@@ -1436,6 +1514,8 @@ export function attachAnnotations(Viewer) {
                     )).filter(Boolean)
                     : [buildCameraAnnotation(sceneId, `${sceneId}/annotation/camera`)]),
                   ...buildLightAnnotations(sceneId, `${sceneId}/annotation/light`),
+                  // The scene's sounds (editor/scene-sounds.js).
+                  ...buildSoundAnnotations(sceneId, `${sceneId}/annotation/sound`, this.getSoundsForExport?.()?.sources),
                   ...viewCameras,
                 ]
               }
@@ -1453,7 +1533,7 @@ export function attachAnnotations(Viewer) {
         ],
 
         AIM3DViewer: {
-          version: "1.0",
+          version: AIM3D_MANIFEST_VERSION,
 
           generatedAt: new Date().toISOString(),
 
@@ -1477,6 +1557,10 @@ export function attachAnnotations(Viewer) {
                 core.controls.target
               ),
             perspectiveMode: core.camera.isPerspectiveCamera ? "perspective" : "orthographic",
+            // The view it was set on: what it shows there is meant, cut-off
+            // model included; a narrower view moves it back.
+            aspect: Number.isFinite(core.camera.aspect) ? core.camera.aspect : undefined,
+            orientation: Number.isFinite(core.camera.aspect) ? viewOrientation(core.camera.aspect) : undefined,
           },
 
           viewer: {
@@ -1647,6 +1731,9 @@ export function attachAnnotations(Viewer) {
           weather: this.getWeatherForExport?.(),
           // The materials edited (editor/materials-editor.js).
           materials: this.getMaterialsForExport?.(),
+          // The measurements placed, in the model's own coordinates
+          // (editor/measurement.js).
+          measurements: this.getMeasurementsForExport?.(),
 
           // The 4D timeline: its stages and the year shown.
           timeline: this.getTimelineForExport?.(),
@@ -1657,6 +1744,14 @@ export function attachAnnotations(Viewer) {
 
           // Historical photos with the views they were taken from.
           photos: this.getPhotosForExport?.(),
+
+          // A 2D image's tools (editor/image-panel.js), an audio file's view
+          // and playback (editor/audio-panel.js).
+          image: this.getImageForExport?.(),
+          audio: this.getAudioForExport?.(),
+
+          // Sound sources in the scene (editor/scene-sounds.js).
+          sounds: this.getSoundsForExport?.(),
 
           modelTransform: {
             position:
@@ -1823,13 +1918,6 @@ export function attachAnnotations(Viewer) {
         core.camera.up.set(up[0], up[1], up[2]);
       }
 
-      // The camera may sit farther out than the model's fitted limit -
-      // OrbitControls.update() would pull it in.
-      if (core.controls) {
-        const distance = core.camera.position.distanceTo(core.controls.target);
-        if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
-      }
-
       const projectionMode = String(cameraConfig.perspectiveMode || "").toLowerCase();
       if (projectionMode === "perspective" || projectionMode === "orthographic") {
         this.setCameraProjection?.(projectionMode);
@@ -1843,6 +1931,24 @@ export function attachAnnotations(Viewer) {
       const zoom = Number(cameraConfig.zoom);
       if (Number.isFinite(zoom) && typeof core.camera.zoom === "number") {
         core.camera.zoom = zoom;
+      }
+
+      // Shown on another view than it was set on: a narrower one (a phone
+      // held upright) or, when the manifest doesn't say which, any - back
+      // along its line of sight until the model is in view (viewer-utils.js).
+      if (position && core.controls) {
+        const fitted = positionForView(core.camera.position, core.controls.target, {
+          authoredAspect: authoredViewAspect(cameraConfig),
+        });
+        core.camera.position.copy(fitted);
+        core.cameraLight?.position?.copy?.(fitted);
+      }
+
+      // The camera may sit farther out than the model's fitted limit -
+      // OrbitControls.update() would pull it in.
+      if (core.controls) {
+        const distance = core.camera.position.distanceTo(core.controls.target);
+        if (core.controls.maxDistance < distance * 2) core.controls.maxDistance = distance * 2;
       }
 
       core.camera.updateProjectionMatrix();
@@ -2259,13 +2365,26 @@ export function attachAnnotations(Viewer) {
       }
 
       normalizeAIM3DManifest(manifestJson);
+      // A manifest of a newer format (manifesto/manifest-version.js): not
+      // opened when this viewer cannot read it, else opened with a notice
+      // that a newer viewer shows all of it.
+      const version = manifestVersionStatus(manifestJson);
+      if (version.blocking) {
+        showManifestUpdateDialog(version);
+        return false;
+      }
       const importValidation = validateAIM3DManifest(manifestJson);
       if (!importValidation.valid) {
         const detail = formatAIM3DManifestValidationErrors(importValidation.errors);
+        if (version.newer) {
+          showManifestUpdateDialog(version, detail);
+          return false;
+        }
         console.error("AIM3D manifest import validation failed", importValidation.errors);
         toastHelper("invalidManifest", "error", { detail, duration: 9000 });
         return false;
       }
+      if (version.newer) showManifestNewerNotice(version);
 
       const aim3dConfig = manifestJson.AIM3DViewer;
       let appliedAIM3DConfig = false;
@@ -2295,8 +2414,14 @@ export function attachAnnotations(Viewer) {
         const appliedTimeline = this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
         const appliedVariants = this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
         const appliedPhotos = this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
+        const appliedSounds = this.apply3IFManifestSounds?.(aim3dConfig.sounds) === true;
+        const appliedImage = this.apply3IFManifestImage?.(aim3dConfig.image) === true;
+        const appliedAudio = this.apply3IFManifestAudio?.(aim3dConfig.audio) === true;
         const appliedSceneSuggest = this.apply3IFManifestSceneSuggest?.(aim3dConfig.sceneSuggest) === true;
         const appliedMaterials = this.apply3IFManifestMaterials?.(aim3dConfig.materials) === true;
+        // After the model transform: the points are in the model's frame.
+        const appliedMeasurements = Array.isArray(aim3dConfig.measurements)
+          && (this.applySavedMeasurements?.(aim3dConfig.measurements) || 0) > 0;
 
         appliedAIM3DConfig = [
           appliedCamera,
@@ -2311,8 +2436,12 @@ export function attachAnnotations(Viewer) {
           appliedTimeline,
           appliedVariants,
           appliedPhotos,
+          appliedSounds,
+          appliedImage,
+          appliedAudio,
           appliedSceneSuggest,
           appliedMaterials,
+          appliedMeasurements,
         ].some(Boolean);
       }
 
@@ -2383,6 +2512,7 @@ export function attachAnnotations(Viewer) {
             ...(polygon ? { polygon } : {}),
             ...commentText,
             ...(pointView ? { view: pointView } : {}),
+            ...(normalizeAnnotationAudio(custom.audio || comment?.audio) ? { audio: normalizeAnnotationAudio(custom.audio || comment?.audio) } : {}),
             createdAt: annotation?.created ? String(annotation.created) : "",
             updatedAt: annotation?.modified ? String(annotation.modified) : "",
           };
@@ -2421,6 +2551,7 @@ export function attachAnnotations(Viewer) {
           ...commentText,
           ...(certainty ? { certainty } : {}),
           ...(view ? { view } : {}),
+          ...(normalizeAnnotationAudio(custom.audio || comment?.audio) ? { audio: normalizeAnnotationAudio(custom.audio || comment?.audio) } : {}),
           createdAt: annotation?.created ? String(annotation.created) : "",
           updatedAt: annotation?.modified ? String(annotation.modified) : "",
         };
@@ -2665,6 +2796,7 @@ export function attachAnnotations(Viewer) {
                 title: String(entry?.title || "").trim(),
                 description: String(entry?.description || "").trim(),
                 ...(pointView ? { view: pointView } : {}),
+                ...(normalizeAnnotationAudio(entry?.audio) ? { audio: normalizeAnnotationAudio(entry.audio) } : {}),
                 createdAt: entry?.createdAt ? String(entry.createdAt) : "",
                 updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
               };
@@ -2697,6 +2829,7 @@ export function attachAnnotations(Viewer) {
               description: String(entry?.description || "").trim(),
               ...(this.normalizeCertainty?.(entry?.certainty) ? { certainty: this.normalizeCertainty(entry.certainty) } : {}),
               ...(view ? { view } : {}),
+              ...(normalizeAnnotationAudio(entry?.audio) ? { audio: normalizeAnnotationAudio(entry.audio) } : {}),
               createdAt: entry?.createdAt ? String(entry.createdAt) : "",
               updatedAt: entry?.updatedAt ? String(entry.updatedAt) : "",
             };

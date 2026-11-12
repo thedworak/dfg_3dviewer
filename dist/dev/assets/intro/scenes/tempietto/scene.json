@@ -1,0 +1,60 @@
+{
+  "points": "points.bin",
+  "model": "../../../../examples/tempietto/Tempietto.glb",
+  "next": "./?model=./examples/tempietto/Tempietto.glb",
+  "unitInMeters": 1,
+  "front": 0.4,
+  "ground": 0,
+  "pins": [
+    {
+      "key": "roof",
+      "at": [
+        0,
+        4.6,
+        0
+      ],
+      "lift": 0.3,
+      "kind": "annotation",
+      "label": {
+        "pl": "Dach",
+        "en": "Roof",
+        "de": "Dach"
+      }
+    },
+    {
+      "key": "entrance",
+      "at": [
+        0,
+        1.2,
+        2.2
+      ],
+      "lift": 0.5,
+      "kind": "poi",
+      "label": {
+        "pl": "Wejście",
+        "en": "Entrance",
+        "de": "Eingang"
+      }
+    }
+  ],
+  "site": {
+    "latitude": 41.89,
+    "longitude": 12.47,
+    "utcOffset": 2,
+    "north": 0,
+    "month": 6,
+    "day": 21
+  },
+  "time": false,
+  "texts": {
+    "pl": {
+      "caption": "Tempietto · model przykładowy"
+    },
+    "en": {
+      "caption": "Tempietto · example model"
+    },
+    "de": {
+      "caption": "Tempietto · Beispielmodell"
+    }
+  }
+}

@@ -695,6 +695,51 @@ export function attachClipping(Viewer) {
       Viewer.applyClippingState();
     },
 
+    // The cuts as saved with the settings (metadata-persistence.js): which
+    // axes cut, which side each keeps, where each stands as a fraction of
+    // the model's box (so it stays in place when the model's position or
+    // scale is saved too) and whether the cut faces are filled. Undefined
+    // while nothing is cut.
+    getClippingForPersistence() {
+      if (!core.planeParams?.clippingMode || !Viewer.hasActiveClipping()) return undefined;
+      const round = (value) => Math.round(value * 1e6) / 1e6;
+      return {
+        mode: Object.fromEntries(CLIPPING_AXES.map((axis) => [axis, Viewer.isClippingAxisEnabled(axis)])),
+        negated: Viewer.getClippingNegatedState(),
+        fraction: Object.fromEntries(CLIPPING_AXES.map((axis) => [axis, round(Viewer.clippingState.fraction[axis])])),
+        outlineVisible: core.planeParams?.outline?.visible === true,
+      };
+    },
+
+    // Saved cuts (getClippingForPersistence) back on the model. Before the
+    // model's box is known they wait in the fractions, which
+    // refreshClippingForModel() places. True when applied.
+    applySavedClipping(saved) {
+      if (!saved || typeof saved !== "object" || !saved.mode || typeof saved.mode !== "object") return false;
+      if (!Viewer.isClippingAvailable() || !core.planeParams?.clippingMode) return false;
+      const state = Viewer.clippingState;
+      CLIPPING_AXES.forEach((axis) => {
+        const keys = PARAM_KEYS[axis];
+        if (core.planeParams[keys.group]) core.planeParams[keys.group].negated = saved.negated?.[axis] === true;
+        const fraction = Number(saved.fraction?.[axis]);
+        state.fraction[axis] = Number.isFinite(fraction)
+          ? THREE.MathUtils.clamp(fraction, -OVERSHOOT, 1 + OVERSHOOT)
+          : DEFAULT_FRACTION;
+        core.planeParams.clippingMode[axis] = saved.mode[axis] === true;
+      });
+      if (typeof saved.outlineVisible === "boolean" && core.planeParams.outline) {
+        core.planeParams.outline.visible = saved.outlineVisible;
+      }
+      Viewer.clippingMode = Viewer.hasActiveClipping();
+      state.remembered = null;
+      if (state.bounds) {
+        Viewer.positionClippingPlanesFromFractions();
+      } else {
+        Viewer.applyClippingState();
+      }
+      return true;
+    },
+
     getClippingNegatedState() {
       return Object.fromEntries(CLIPPING_AXES.map((axis) => [axis, Viewer.isClippingAxisNegated(axis)]));
     },

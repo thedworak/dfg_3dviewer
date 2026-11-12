@@ -142,6 +142,16 @@ export function buildEditorMetadata(viewer, rotateMetadata) {
     ? viewer.getMaterialOverridesForPersistence?.() ?? []
     : originalMetadata.materials;
 
+  // The section cuts (editor/clipping.js) and the measurements placed
+  // (editor/measurement.js), in the model's own frame.
+  metadata.clipping = saveProperties.ClippingPlanes !== false
+    ? viewer.getClippingForPersistence?.() ?? null
+    : originalMetadata.clipping;
+
+  metadata.measurements = saveProperties.Measurements !== false
+    ? viewer.getMeasurementsForExport?.(core.helperObjects[0]) ?? []
+    : originalMetadata.measurements;
+
   metadata.annotationEntries = viewer.getAnnotationEntriesForPersistence();
   metadata.iiifAnnotationsXml = viewer.exportAnnotationsToIIIFXml();
 

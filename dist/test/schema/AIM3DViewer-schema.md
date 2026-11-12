@@ -480,6 +480,7 @@ mist. At full intensity rain is a downpour. Exported while it is on.
 - `windDirection`: where the wind blows to - degrees clockwise from -Z, seen from above, as `location.north` (default `230`)
 - `mistHeight`, `mistDensity`: the mist's height (0 to 1: 0.15 to 1.15 model sizes, default `0.4`) and density (default `0.5`)
 - `mistSpread`: 0 lays the mist in clumps with gaps (low clouds), 1 as an even blanket thinning upwards (default `0.6`)
+- `season`: a season (*Look > Seasons*) - `spring` (petals), `summer` (pollen), `autumn` (leaves) or `winter` (snow, with `type` `snow`): a colour grade of the model and what falls through the air, as in the intro
 - `sky`: show the sky (three's `Sky`, with clouds) around the model (default `true`); the sun stands where the sun study puts it, else where the key light comes from
 - `surfaces`: wet surfaces and snow cover on the model (default `true`)
 

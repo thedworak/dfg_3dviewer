@@ -301,17 +301,16 @@ html[data-viewer-theme="light"] {
    The drawer on the viewer's right edge (viewer.gallery.position "right")
    -------------------------------------------------------------------------- */
 
-/* Over the canvas, clear of the tool panels' corner above it and the
-   toolbar below; the tab on its left hides the column into the edge (a
-   transform: the canvas keeps its size). Under the tool panels
-   (side-stack, z-index 10000) and the model details (999). */
+/* Over the canvas, its full height; the tab on its left hides the column
+   into the edge (a transform: the canvas keeps its size). Under the tool
+   panels (side-stack, z-index 10000) and the model details (999). */
 .image-list-drawer {
   --drawer-panel-width: 112px;
   --drawer-gap: 8px;
   position: absolute;
-  top: 64px;
+  top: var(--drawer-gap);
   right: 0;
-  bottom: 96px;
+  bottom: var(--drawer-gap);
   z-index: 998;
   display: flex;
   align-items: center;
@@ -373,6 +372,55 @@ html[data-viewer-theme="light"] {
   color: var(--gallery-text-muted);
 }
 
+/* The model's own views (not the generic images): the tab shows the first
+   one, framed and marked in the accent colour. */
+.image-list-drawer-preview {
+  display: block;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  border: 1px solid var(--gallery-accent);
+  border-radius: 5px;
+  background: var(--gallery-plate);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gallery-accent) 22%, transparent);
+}
+
+.image-list-drawer-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-list-drawer.has-model-views .image-list-drawer-toggle {
+  border-color: color-mix(in srgb, var(--gallery-accent) 55%, var(--gallery-border));
+  box-shadow: var(--gallery-shadow), inset 3px 0 0 var(--gallery-accent);
+}
+
+.image-list-drawer.has-model-views .image-list-drawer-count {
+  color: var(--gallery-accent);
+}
+
+/* The first look (thumbnail-gallery.js): the hidden column leans out by
+   the edge of its views and slowly back. */
+.image-list-drawer.is-peek-motion {
+  transition: transform 1.8s cubic-bezier(.45, 0, .2, 1);
+}
+
+.image-list-drawer.is-collapsed.is-peeking {
+  transform: translateX(calc(var(--drawer-panel-width) + var(--drawer-gap) - 40px));
+}
+
+/* On a phone: one slow, faint glow round the tab. */
+.image-list-drawer-toggle.is-pulsing {
+  animation: imageListDrawerPulse 2.4s ease-in-out 1;
+}
+
+@keyframes imageListDrawerPulse {
+  0%, 100% { box-shadow: var(--gallery-shadow), 0 0 0 0 transparent; }
+  50% { box-shadow: var(--gallery-shadow), 0 0 0 4px color-mix(in srgb, var(--gallery-accent) 22%, transparent); }
+}
+
 /* Open: points to the edge it hides into; hidden: back out. */
 .image-list-drawer-chevron {
   transition: transform 0.3s ease;
@@ -388,8 +436,8 @@ html[data-viewer-theme="light"] {
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
+  align-self: stretch;
   width: var(--drawer-panel-width);
-  max-height: 100%;
   margin: 0 var(--drawer-gap) 0 0;
   padding: 6px;
   border-radius: 12px;
@@ -483,7 +531,7 @@ html[data-viewer-theme="light"] {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   color: var(--gallery-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--font-ui);
   opacity: 0;
   visibility: hidden;
   transition: opacity 280ms ease, visibility 280ms ease;
@@ -510,12 +558,49 @@ html[data-viewer-theme="light"] {
   touch-action: none;
 }
 
+/* The slider (thumbnail-gallery.js): the plate between the previous and
+   next views, which show only while it moves with the finger. */
+.galleryStage {
+  overflow-x: clip;
+}
+
+.galleryTrack {
+  position: relative;
+  width: 100%;
+  max-width: 1400px;
+  height: 100%;
+  will-change: transform;
+}
+
+.modalImageWrap.galleryGhost {
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.galleryGhost--prev {
+  right: calc(100% + 16px);
+}
+
+.galleryGhost--next {
+  left: calc(100% + 16px);
+}
+
+.galleryStage.is-sliding .modalImageWrap.galleryGhost {
+  visibility: visible;
+}
+
+.galleryGhost .modalImage {
+  transform: none !important;
+  transition: none;
+}
+
 /* The plate the view stands on, like the viewer's canvas; the zoomed image
    stays inside it. */
 .modalImageWrap {
   position: relative;
   width: 100%;
-  max-width: 1400px;
   height: 100%;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -937,6 +1022,11 @@ html[data-viewer-theme="light"] {
   .image-list-drawer-toggle svg {
     width: 18px;
     height: 18px;
+  }
+
+  .image-list-drawer-preview {
+    width: 26px;
+    height: 26px;
   }
 }
 

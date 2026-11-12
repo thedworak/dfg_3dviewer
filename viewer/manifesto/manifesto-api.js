@@ -5,6 +5,7 @@ import {
   normalizeAIM3DManifest,
   validateAIM3DManifest,
 } from "./aim3dviewer-validation.js";
+import { ManifestVersionError, manifestVersionStatus } from "./manifest-version.js";
 
 // The models of one Scene of the manifest (`sceneIndex`, else the first).
 export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex } = {}) {
@@ -14,9 +15,16 @@ export async function loadAIM3IFManifest(manifestUrlOrJson, { sceneIndex } = {})
 
   normalizeAIM3DManifest(aim3dManifest.manifest);
 
+  // A manifest of a newer format (manifest-version.js): one of a newer MAJOR
+  // version is not opened at all; one of a newer MINOR version is, unless
+  // this viewer finds values it does not know - then the viewer, not the
+  // manifest, is out of date.
+  const version = manifestVersionStatus(aim3dManifest.manifest);
+  if (version.blocking) throw new ManifestVersionError(version);
   const validation = validateAIM3DManifest(aim3dManifest.manifest);
   if (!validation.valid) {
     const detail = formatAIM3DManifestValidationErrors(validation.errors);
+    if (version.newer) throw new ManifestVersionError(version, detail);
     throw new Error(`Invalid AIM3D manifest.\n${detail}`);
   }
 

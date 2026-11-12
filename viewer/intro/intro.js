@@ -4,6 +4,8 @@
 // the real model takes the points' place - vertices, edges, faces
 // (mesh-reveal.js) - and a button leads into the viewer.
 //
+// The model and what depends on it is the scene (intro-scene.js): the
+// synagogue, or a deployment's own (viewer.intro.scene, docs/intro.md).
 // The points come from viewer/intro/synagogue-points.bin, sampled from the
 // textured model by scripts/build-intro-points.mjs. Everything moves in the
 // vertex shader: per point a start in the cloud, a delay (lower parts of the
@@ -39,16 +41,24 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TIMING, createMeshReveal } from './mesh-reveal.js';
 import { createIntroSound } from './intro-sound.js';
-import { CHAPTERS, TOUR_LENGTH, createFeatureTour } from './feature-tour.js';
+import { createFeatureTour, tourCameraPath, tourPlan } from './feature-tour.js';
+import { loadIntroScene, pickText, sceneTexts } from './intro-scene.js';
 
-const POINTS_URL = 'assets/intro/synagogue-points.bin';
+// The model and what depends on it (intro-scene.js): the Wołpa Synagogue,
+// or the deployment's own (viewer.intro.scene in viewer-settings.json).
+const { scene: SCENE, branding: BRANDING } = await loadIntroScene();
+const POINTS_URL = SCENE.points;
 // The model the points become (also the one the viewer opens next, so it is
 // in the browser's cache by then), and the KTX2 transcoder its textures need.
-const MODEL_URL = 'examples/WolpaSynagogue-progressive.glb';
+const MODEL_URL = SCENE.model;
 const TRANSCODER_PATH = 'assets/basis/';
-// The directory's index page (index.html): `serve` and other static servers
-// redirect index.html to ./ and lose the query on the way.
-const DEFAULT_NEXT = './?model=./examples/WolpaSynagogue-progressive.glb';
+// Where the button leads. The directory's index page (index.html): `serve`
+// and other static servers redirect index.html to ./ and lose the query on
+// the way.
+const DEFAULT_NEXT = SCENE.next;
+const PLAN = tourPlan({ time: Boolean(SCENE.time) });
+const CHAPTERS = PLAN.chapters;
+const TOUR_LENGTH = PLAN.length;
 // Seconds: the cloud fades in, then gathers into the building.
 const FADE_IN = 1.0;
 // Only the cloud this long, then the points set off.
@@ -77,7 +87,7 @@ const SEGMENTS = [
 
 const TEXTS = {
   pl: {
-    tagline: 'Dziedzictwo w trzech wymiarach — i w czasie',
+    tagline: 'Dziedzictwo w trzech wymiarach - i w czasie',
     caption: 'Synagoga w Wołpie · rekonstrukcja cyfrowa',
     enter: 'Wejdź do viewera',
     skip: 'Pomiń intro',
@@ -117,7 +127,7 @@ const TEXTS = {
     soundOff: 'Włącz dźwięk',
   },
   en: {
-    tagline: 'Heritage in three dimensions — and in time',
+    tagline: 'Heritage in three dimensions - and in time',
     caption: 'Wołpa Synagogue · digital reconstruction',
     enter: 'Enter the viewer',
     skip: 'Skip intro',
@@ -224,6 +234,26 @@ const TEXTS = {
   },
 };
 
+// A deployment's own model (intro-scene.js): the texts above that name the
+// synagogue, in neutral words; the scene's own texts come on top.
+const GENERIC_TEXTS = {
+  pl: {
+    caption: '',
+    hint: 'Najedź na model, by zajrzeć do środka · przeciągnij, aby obrócić',
+    hintTouch: 'Stuknij model, by zajrzeć do środka · przeciągnij, aby obrócić',
+  },
+  en: {
+    caption: '',
+    hint: 'Hover over the model to look inside · drag to rotate',
+    hintTouch: 'Tap the model to look inside · drag to rotate',
+  },
+  de: {
+    caption: '',
+    hint: 'Mit der Maus über das Modell fahren, um hineinzusehen · ziehen zum Drehen',
+    hintTouch: 'Auf das Modell tippen, um hineinzusehen · ziehen zum Drehen',
+  },
+};
+
 // From the query or the hash: the viewer page (intro-overlay.js) passes its
 // in the hash, which survives a server's index.html -> ./ style redirect.
 const params = new URLSearchParams(window.location.search);
@@ -231,7 +261,7 @@ for (const [key, value] of new URLSearchParams(window.location.hash.slice(1))) {
   if (!params.has(key)) params.set(key, value);
 }
 const lang = pickLanguage(params.get('lang'));
-const t = TEXTS[lang];
+const t = sceneTexts(TEXTS[lang], GENERIC_TEXTS[lang], SCENE, lang);
 const nextUrl = safeNextUrl(params.get('next'));
 const embedded = params.get('embedded') === '1' && window.parent !== window;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -276,6 +306,7 @@ const ui = {
 };
 
 document.documentElement.lang = lang;
+applyBranding();
 ui.tagline.textContent = t.tagline;
 ui.caption.textContent = t.caption;
 ui.enter.textContent = t.enter;
@@ -284,6 +315,10 @@ ui.replay.textContent = t.replay;
 ui.replay.title = t.replay;
 // A mouse or a finger: what the hints ask for.
 const canHover = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? true;
+// A phone or tablet (a touch screen, also the app): every second point is
+// drawn - the counter still counts them all - each a little larger, so the
+// building stays as dense to the eye.
+const POINT_STRIDE = window.matchMedia?.('(pointer: coarse)').matches ? 2 : 1;
 ui.hint.textContent = canHover ? t.hint : t.hintTouch;
 // The x-ray lens's tip, next to the lens while it shows itself.
 ui.lensTip = document.createElement('p');
@@ -294,6 +329,32 @@ ui.root.append(ui.lensTip);
 ui.status.textContent = t.loading;
 ui.enter.href = nextUrl;
 ui.skip.href = nextUrl;
+
+// The deployment's name and logo (branding in viewer-settings.json,
+// ../branding.js): the logo's version for dark backgrounds, the intro's.
+function applyBranding() {
+  const name = pickText(BRANDING.name, lang);
+  if (name) document.title = name;
+  const logo = BRANDING.logo;
+  const image = document.querySelector('.intro-logo img');
+  if (!image) return;
+  if (logo === false || logo?.visible === false) {
+    image.closest('.intro-logo').hidden = true;
+    return;
+  }
+  const src = logo?.srcOnDark || logo?.src;
+  if (typeof src !== 'string' || !src) return;
+  try {
+    const url = new URL(src, document.baseURI);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+    image.src = url.href;
+  } catch {
+    return;
+  }
+  image.removeAttribute('width');
+  image.removeAttribute('height');
+  image.alt = (typeof logo.alt === 'string' && logo.alt) || name || '';
+}
 
 // --- Progress bar ------------------------------------------------------------
 
@@ -441,9 +502,17 @@ const isHeld = () => Number.isFinite(heldAt);
 const pageStart = performance.now();
 const now = () => (performance.now() - pageStart) / 1000;
 let controls;
+// The camera's own distance (the path moves closer only for the time travel).
+let cameraRadius = 0;
+// Where the path put the camera last frame (null: not following it). A jump
+// in the path (the progress bar, a late model, "Assemble again" after a
+// drag) is eased out from there instead of cut.
+let pathLast = null;
+let pathStarted = false;
 let cloud;
 let dust;
-let total = 0;
+let total = 0; // the points in the file: what the counter counts
+let count = 0; // the points drawn (every second one on a phone)
 let started = -1;
 let meshReveal = null;
 let tour = null;
@@ -488,9 +557,10 @@ if (renderer) {
   controls.maxDistance = 11;
   controls.minPolarAngle = 0.35;
   controls.maxPolarAngle = 1.62;
-  controls.autoRotate = !reducedMotion;
-  controls.autoRotateSpeed = 0.55;
+  // The camera's path turns it (frame()), not the controls.
+  controls.autoRotate = false;
   controls.target.set(0, 0.12, 0);
+  cameraRadius = camera.position.distanceTo(controls.target);
   controls.addEventListener('start', () => {
     userTouched = true;
     hideHint();
@@ -581,6 +651,8 @@ async function load() {
   const quantized = new Uint16Array(buffer, 32, total * 3);
   const srgb = new Uint8Array(buffer, 32 + total * 6, total * 3);
   const normals = new Int8Array(buffer, 32 + total * 9, total * 3);
+  count = Math.ceil(total / POINT_STRIDE);
+  if (POINT_STRIDE > 1) cloudUniforms.uSize.value *= Math.sqrt(POINT_STRIDE) * 0.95;
 
   // Centred on the ground's middle, about 3 units across.
   const extent = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
@@ -588,12 +660,12 @@ async function load() {
   const center = [(min[0] + max[0]) / 2, min[1] + (max[1] - min[1]) * 0.42, (min[2] + max[2]) / 2];
   const heightRange = max[1] - min[1];
 
-  const target = new Float32Array(total * 3);
-  const start = new Float32Array(total * 3);
-  const seed = new Float32Array(total * 4);
-  const delay = new Float32Array(total);
-  const color = new Float32Array(total * 3);
-  const normal = new Float32Array(total * 3);
+  const target = new Float32Array(count * 3);
+  const start = new Float32Array(count * 3);
+  const seed = new Float32Array(count * 4);
+  const delay = new Float32Array(count);
+  const color = new Float32Array(count * 3);
+  const normal = new Float32Array(count * 3);
 
   let rand = 0x9e3779b9;
   const random = () => {
@@ -614,14 +686,15 @@ async function load() {
     };
   });
 
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < count; i++) {
+    const j = i * POINT_STRIDE; // in the file
     let height = 0;
     for (let k = 0; k < 3; k++) {
-      const value = min[k] + (quantized[i * 3 + k] / 65535) * (max[k] - min[k]);
+      const value = min[k] + (quantized[j * 3 + k] / 65535) * (max[k] - min[k]);
       target[i * 3 + k] = (value - center[k]) * scale;
       if (k === 1) height = (value - min[1]) / heightRange;
-      color[i * 3 + k] = srgb[i * 3 + k] / 255;
-      normal[i * 3 + k] = normals[i * 3 + k] / 127;
+      color[i * 3 + k] = srgb[j * 3 + k] / 255;
+      normal[i * 3 + k] = normals[j * 3 + k] / 127;
     }
     const pick = random();
     if (pick < 0.62) {
@@ -654,8 +727,8 @@ async function load() {
   // The last point: the highest one, the top of the roof. Moved to the end
   // of the arrays and left out of the cloud; it flies on its own.
   let top = 0;
-  for (let i = 1; i < total; i++) if (target[i * 3 + 1] > target[top * 3 + 1]) top = i;
-  const last = total - 1;
+  for (let i = 1; i < count; i++) if (target[i * 3 + 1] > target[top * 3 + 1]) top = i;
+  const last = count - 1;
   for (const [array, size] of [[target, 3], [start, 3], [seed, 4], [delay, 1], [color, 3], [normal, 3]]) {
     for (let k = 0; k < size; k++) {
       const tmp = array[top * size + k];
@@ -671,7 +744,7 @@ async function load() {
   cloudUniforms.uFlashPos.value.copy(lastPoint.target);
   let yMin = Infinity;
   let yMax = -Infinity;
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < count; i++) {
     yMin = Math.min(yMin, target[i * 3 + 1]);
     yMax = Math.max(yMax, target[i * 3 + 1]);
   }
@@ -684,7 +757,7 @@ async function load() {
   geometry.setAttribute('aDelay', new BufferAttribute(delay, 1));
   geometry.setAttribute('aColor', new BufferAttribute(color, 3));
   geometry.setAttribute('aNormal', new BufferAttribute(normal, 3));
-  geometry.setDrawRange(0, total - 1);
+  geometry.setDrawRange(0, count - 1);
 
   // Drawn twice: the points in flight as additive light, the points in
   // place as solid, lit discs.
@@ -710,15 +783,18 @@ async function load() {
 
   // The model, while the points gather. Without it the intro ends with the
   // points.
-  createMeshReveal({ url: MODEL_URL, renderer, center, scale, transcoderPath: TRANSCODER_PATH })
+  if (MODEL_URL) createMeshReveal({ url: MODEL_URL, renderer, center, scale, transcoderPath: TRANSCODER_PATH })
     .then((reveal) => {
       meshReveal = reveal;
       // Late (after the landing): its act starts now. Held (?at=) or shown
       // whole: as if it had been there from the start.
       meshReadyAt = isHeld() ? 0 : timeline(now());
       scene.add(reveal.group);
-      // The model's height, from its ground (y = 0, in centimetres).
-      const height = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 }).format(max[1] / 100);
+      // The scene's measurement, or the bounding box's height at its corner.
+      const ground = SCENE.ground ?? min[1];
+      const measure = SCENE.measure ?? { x: max[0], z: max[2], from: ground, to: max[1] };
+      const height = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 })
+        .format((measure.to - measure.from) * SCENE.unitInMeters);
       tour = createFeatureTour({
         reveal,
         camera,
@@ -728,6 +804,8 @@ async function load() {
         toIntro: (x, y, z) => new Vector3((x - center[0]) * scale, (y - center[1]) * scale, (z - center[2]) * scale),
         heightLabel: `${t.tour.height} ${height} m`,
         lang,
+        scene: { ...SCENE, ground, measure },
+        plan: PLAN,
       });
       scene.add(tour.group);
       resize();
@@ -1090,14 +1168,15 @@ let rewindFrom = 0;
 let lastT = 0;
 let lastTime = 0;
 let lastArrived = 0;
-let cameraTurn = 1;
 // The camera's angle around the building at the landing: the front (the
 // facade with the corner pavilions faces +Z), a little from the side. Before
-// it, turning slower and slower to arrive there; the rate at the landing
-// matches the turn that goes on after it (autoRotateSpeed 0.4).
-const FRONT_THETA = 0.3;
+// it, turning slower and slower to arrive there; after it, the tour's path
+// (feature-tour.js tourCameraPath) - both functions of the intro's time, not
+// of the frames drawn, so the sections always face the front.
+const FRONT_THETA = SCENE.front;
 const LANDING_TURN_RATE = (2 * Math.PI / 60) * 0.4;
 const LANDING_TURN_EASE = 0.014;
+const cameraPath = tourCameraPath({ plan: PLAN, front: FRONT_THETA, rate: LANDING_TURN_RATE, tourStart: TOUR_START });
 const orbit = new Spherical();
 const orbitOffset = new Vector3();
 
@@ -1264,24 +1343,35 @@ function frame() {
   ui.root.classList.toggle('is-assembled', T >= LANDING - 0.3);
 
   // While gathering the camera circles faster, slowing as the building
-  // forms; it holds still for the sun study (the shadows turn with the sun
-  // only), easing out of and back into its turn.
-  if (exitStarted < 0 && !userTouched) {
-    const holding = tour?.holdsCamera(stage - TOUR_START) ?? false;
-    cameraTurn += ((holding ? 0 : 1) - cameraTurn) * Math.min(1, dt * 3);
-    controls.autoRotateSpeed = reducedMotion ? 0 : 0.4 * cameraTurn;
-    // Up to the landing the camera's angle follows the intro's time, not
-    // how far it happened to turn: when the last point lands, the
-    // synagogue faces it (also when held, jumped to or run backwards).
+  // forms, to face its front at the landing; then the tour's path. The
+  // angle follows the intro's time, not how far it happened to turn (also
+  // when held, jumped to or run backwards).
+  if (exitStarted < 0 && !userTouched && !reducedMotion) {
     const before = LANDING - T;
-    if (before > 0 && !reducedMotion) {
-      orbit.setFromVector3(orbitOffset.copy(camera.position).sub(controls.target));
-      orbit.theta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
-      camera.position.setFromSpherical(orbit).add(controls.target);
-      controls.autoRotate = false;
+    let theta;
+    let dolly = 1;
+    if (before > 0) {
+      theta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
     } else {
-      controls.autoRotate = !reducedMotion;
+      // The model's act; without the model (yet), from the landing.
+      ({ theta, dolly } = cameraPath(meshReveal ? stage : T - LANDING));
     }
+    const radius = cameraRadius * dolly;
+    orbit.setFromVector3(orbitOffset.copy(camera.position).sub(controls.target));
+    const wrap = (angle) => angle - Math.round(angle / (2 * Math.PI)) * 2 * Math.PI;
+    // Off the path by as much as last frame, less a little.
+    const from = pathLast ?? { theta, radius };
+    // Held, or the intro's first frame: right on it.
+    const ease = isHeld() || !pathStarted ? 0 : Math.exp(-dt * 3);
+    pathStarted = true;
+    const offTheta = wrap(orbit.theta - from.theta) * ease;
+    const offRadius = (orbit.radius - from.radius) * ease;
+    orbit.theta = theta + offTheta;
+    orbit.radius = radius + offRadius;
+    camera.position.setFromSpherical(orbit).add(controls.target);
+    pathLast = pathLast ? Object.assign(pathLast, { theta, radius }) : { theta, radius };
+  } else {
+    pathLast = null;
   }
   if (exitStarted >= 0) {
     camera.position.lerp(exitTarget, 0.04);
@@ -1333,12 +1423,47 @@ ui.replay.addEventListener('click', () => {
   userTouched = false;
 });
 
-// Prefetch the viewer while the intro plays (inside it, it is there already).
+// The viewer, fetched while the intro plays, so it opens ready: its page,
+// then what the page loads first - its scripts, stylesheets and settings -
+// into the browser's cache. The model is the intro's own (already there).
+// Inside the viewer (embedded) the viewer loads underneath anyway.
+function prefetchViewer() {
+  const add = (href, as) => {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    if (as) link.as = as;
+    link.href = href;
+    document.head.appendChild(link);
+  };
+  fetch(nextUrl, { credentials: 'same-origin' })
+    .then((response) => (response.ok ? response.text() : ''))
+    .then((html) => {
+      if (!html) return;
+      const page = new DOMParser().parseFromString(html, 'text/html');
+      const base = new URL(nextUrl, window.location.href);
+      const sameSite = (value) => {
+        try {
+          const url = new URL(value, base);
+          return url.origin === window.location.origin ? url.href : null;
+        } catch {
+          return null;
+        }
+      };
+      page.querySelectorAll('script[src]').forEach((script) => {
+        const href = sameSite(script.getAttribute('src'));
+        if (href) add(href, 'script');
+      });
+      page.querySelectorAll('link[rel~="stylesheet"][href], link[rel~="modulepreload"][href]').forEach((link) => {
+        const href = sameSite(link.getAttribute('href'));
+        if (href) add(href, link.rel.includes('stylesheet') ? 'style' : 'script');
+      });
+      add(new URL('viewer-settings.json', base).href, 'fetch');
+    })
+    .catch(() => {});
+}
 if (!embedded) {
-  const prefetch = document.createElement('link');
-  prefetch.rel = 'prefetch';
-  prefetch.href = nextUrl;
-  document.head.appendChild(prefetch);
+  // After the intro's own files: a few seconds in, when the points gather.
+  setTimeout(prefetchViewer, 2500);
 }
 // Inside the viewer, Escape skips the intro.
 if (embedded) {

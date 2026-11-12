@@ -13,11 +13,11 @@ front door onto the same conversion scripts.
 
 `ConvertProcessService` (used by the `ConvertWorker` queue plugin) can
 optionally delegate conversion/rendering to this worker container instead of
-running `scripts/convert.py`/`render_thumbnails.py` directly on the Drupal host — useful
+running `scripts/convert.py`/`render_thumbnails.py` directly on the Drupal host - useful
 when you don't want Blender installed next to Drupal. This is opt-in and
 fully backward compatible:
 
-- Default (`conversion_backend` unset or `local`): behaviour is unchanged —
+- Default (`conversion_backend` unset or `local`): behaviour is unchanged -
   `ConvertProcessService` runs the local scripts exactly as before.
 - Set `dfg_3dviewer_conversion_backend` to `docker` and
   `dfg_3dviewer_worker_url` to this worker's base URL (e.g. `http://worker:8080`
@@ -27,10 +27,10 @@ fully backward compatible:
   `GET /api/model/status/<id>`, and download the resulting model/thumbnails
   back onto the Drupal filesystem at the same paths the local scripts would
   have produced. `ConvertWorker.php` and the entity field logic are
-  unmodified either way — only where the actual Blender/Python work happens
+  unmodified either way - only where the actual Blender/Python work happens
   changes.
 - With the `docker` backend, archive extraction (`zip`/`rar`/`tar`/`gz`/`xz`)
-  also happens inside the worker container — Drupal uploads the raw archive
+  also happens inside the worker container - Drupal uploads the raw archive
   as-is and never runs `ZipArchive` or `scripts/uncompress.py` locally, so no
   archive-tool dependencies (`unzip`, `unrar`, `7z`, `tar`) need to be
   installed next to Drupal. With the `local` backend, extraction still runs
@@ -170,7 +170,7 @@ needing the tag.
   first file part wins). Accepts, plus `.zip` archives containing one of them:
   - Blender importers via `scripts/convert.py`: `abc dae fbx obj ply stl wrl x3d usd usda usdc usdz ifc blend gml glb`
   - converted without Blender by `scripts/convert_mesh.py` (needs `cascadio`, `trimesh`, `networkx`, installed in the image): `step stp iges igs 3mf`
-  - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties)
+  - kept as uploaded and served as-is, no GLB and no thumbnails (the viewer loads them itself): `gltf 3ds pcd xyz amf kmz vox lwo`, Gaussian splats `spz splat ksplat sog rad` and a `.ply` of splats (`f_dc_0`/`scale_0`/`rot_0` vertex properties), audio files `wav wave bwf mp3 ogg oga opus flac m4a aac weba` (played and drawn as a spectrogram by the viewer, `docs/audio.md`), a single 2D image `jpg jpeg png webp avif gif bmp` (`docs/images.md`; a `.zip` of images is converted as a volume's slices)
   - Gaussian splats (other than `.rad`) also get a level-of-detail tree, `<name>-lod.rad` next to the upload, built by Spark's `build-lod` (`worker/splats.py`, in the image); `modelUrl` points to it. Without `build-lod`, or when it fails, the upload is served as it is and the viewer builds the tree on loading. Uploads without a tree (from before `build-lod`, or where it failed) get one with `docker compose exec worker python3 /app/worker/server.py admin rebuild-splats`; `--force` rebuilds the existing trees too (new `build-lod` or `WORKER_SPLAT_LOD_ARGS`, cached copies purged from Cloudflare when `WORKER_PUBLIC_HOSTS` is set), job ids limit it to those jobs. No restart needed: the model list reads the jobs from disk
   - Gaussian splats in `.splat`, `.spz` or a 3DGS `.ply` also get a voxel volume of their surface, `<model>.light` next to the model served (e.g. `Angel-lod.rad.light`), built with numpy by `worker/splat_volume.py`: the viewer reads normals, occlusion and shadows from it when the splats are lit by the scene's lights (Lights > Gaussian splats). `admin rebuild-splats` builds the missing ones too, also without `build-lod`
   - image stacks - Leica `.lif`, TIFF / OME-TIFF / Zeiss LSM (`tif tiff lsm`, also a `.zip` of single-slice TIFFs), NRRD (`nrrd`, `nhdr` + its data file in a `.zip`), NIfTI (`nii`, `nii.gz` - a NIfTI, not an archive), MetaImage (`mha`, `mhd` + its data file in a `.zip`), MRC (`mrc`, `rec`, `ccp4`), Volume Graphics `vgi` and Nikon `xtekct` (each with its `.vol`, in a `.zip`), PNG / JPEG / BMP slices (a `.zip` of them) and DICOM (a `.zip` of a series - files `.dcm` or without extension -, or one multi-frame `.dcm`): every Z stack becomes a volume, `modelUrl` ends in `volume/<name>.dfgvol` - see "Image stacks (volumes)" below. In an archive with a model, a TIFF is a texture: it is taken as a stack only when nothing else is there

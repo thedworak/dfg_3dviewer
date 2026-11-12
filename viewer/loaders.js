@@ -30,6 +30,10 @@ export const loadLasPointCloud = async () => (await import("./pointcloud-las.js"
 export const loadSplats = async () => import("./splats.js");
 // Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
 export const loadVolume = async () => import("./volume.js");
+// Audio files: the player and the spectrogram landscape, with the first one.
+export const loadAudio = async () => import("./audio.js");
+// 2D images, one or a set (image2d.js).
+export const loadImage2D = async () => import("./image2d.js");
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -47,7 +51,7 @@ export function isSplatPly(buffer) {
 }
 export const loadHDRLoader = async () => (await import("three/examples/jsm/loaders/HDRLoader.js")).HDRLoader;
 
-import { core } from './core.js';
+import { core, StaleModelLoad, isStaleModelLoad } from './core.js';
 import {
   fetchSettings,
   presentationMode,
@@ -490,7 +494,12 @@ function getEnvironmentTextureForPreset(renderer, preset = "neutral") {
           const loader = new HDRLoader();
           const baseModulePath = getModuleAssetBasePath() || '/assets';
           const mapFilename = preset === "goldenHour" ? "golden_hour.hdr" : `${preset}.hdr`;
-          const mapUrl = `${baseModulePath.replace(/\/$/, '')}/maps/${mapFilename}`;
+          // The lightweight viewer loads the 256x128 copies in maps/lite/
+          // (scripts/downscale-hdr.py): ~100 KB instead of ~1.4 MB each.
+          // They light the model the same; only mirror-like surfaces show
+          // a softer reflection.
+          const mapDir = core.isLightweight ? "maps/lite" : "maps";
+          const mapUrl = `${baseModulePath.replace(/\/$/, '')}/${mapDir}/${mapFilename}`;
           
           const texture = await new Promise((resolve, reject) => {
             loader.load(mapUrl, resolve, undefined, reject);
@@ -599,6 +608,9 @@ function finishPointCloudLoading(root, done) {
 }
 
 export async function loadModel() {
+  // The scene this model is for: when it has been reset meanwhile (another
+  // manifest or model opened), the model is dropped on arrival.
+  const generation = core.modelLoadGeneration;
   core.loadingLog?.start?.();
   // Shown from the start, not only from the first download progress: loaders
   // that report none (3D Tiles, Potree, ...) move it by their stages.
@@ -622,10 +634,23 @@ export async function loadModel() {
     core.loadingLog?.setStage?.(stageKey, progressValue);
   }
 
+  // A model that arrived for a scene no longer shown: released, and the load
+  // ends quietly - the newer one owns the scene, the camera and the progress.
+  function dropIfStale(object) {
+    if (!isStaleModelLoad(generation)) return;
+    (Array.isArray(object) ? object : [object]).forEach((root) => window.Viewer?.disposeObjectResources?.(root));
+    throw new StaleModelLoad();
+  }
+
   async function afterLoad({ object }) {
     if (object === null || typeof object === "undefined") {
       throw new Error("Loaded object is null or undefined.");
     }
+    dropIfStale(object);
+    // For the settings' camera (metadata.js, handleMetadataResponse).
+    (Array.isArray(object) ? object : [object]).forEach((root) => {
+      if (root?.userData) root.userData.modelLoadGeneration = generation;
+    });
     updateLoadingStage("loadingLog.loadingTextures", 99);
 
     // The file's own unit (for measurements) - read before the reset below,
@@ -637,6 +662,7 @@ export async function loadModel() {
         core.fileObject.extension,
         modelPath
       );
+      dropIfStale(object);
     }
 
     // Keep authoring transforms in presentation mode to avoid collapsing model parts.
@@ -678,6 +704,7 @@ export async function loadModel() {
       }
       updateLoadingStage("loadingLog.fetchingMetadata", 99);
       await fetchSettings(object);
+      dropIfStale(object);
       loadIfcProperties(ifcPropertiesUrlForModel(modelPath));
 
       updateLoadingStage("loadingLog.settingUpMaterials", 99);
@@ -710,6 +737,8 @@ export async function loadModel() {
     window.Viewer?.setupModelAnimations?.(object);
     window.Viewer?.setupPointCloudControls?.(object);
     window.Viewer?.setupVolumeControls?.(object);
+    window.Viewer?.setupAudioControls?.(object);
+    window.Viewer?.setupImageControls?.(object);
     window.Viewer?.refreshClippingForModel?.(object);
 
     updateLoadingStage("loadingLog.compilingShaders", 99);
@@ -1000,6 +1029,36 @@ export async function loadModel() {
         break;
       }
 
+      case "png":
+      case "jpg":
+      case "jpeg":
+      case "bmp":
+      case "webp":
+      case "avif":
+      case "gif": {
+        // A 2D image, or the images of a set (a .zip of photos, several
+        // files dropped together: image2d.js) - unless they are the slices
+        // of a scan (extract-helper.js), a volume: on to the case below.
+        const file = core.localFiles.get(modelPath);
+        const fromArchive = Boolean(file && core.archiveFiles?.includes(file));
+        if (!(fromArchive && core.archiveImageMode === "slices")) {
+          const { buildImageModel } = await loadImage2D();
+          const set = fromArchive && core.archiveImageMode === "set" ? core.archiveFiles : null;
+          const items = set
+            ? set.map((item) => ({ name: item.name.split("/").pop(), file: item }))
+            : [file
+              ? { name: file.name, file }
+              : { name: core.fileObject.filename.split("/").pop(), url: new URL(modelPath, window.location.href).href }];
+          updateLoadingStage("loadingLog.preparingGeometry", 99);
+          const object = await buildImageModel(items, {
+            index: set ? Math.max(0, set.indexOf(file)) : 0,
+            name: core.fileObject.basename || "Image",
+          });
+          await afterLoad({ object });
+          break;
+        }
+      }
+      // falls through
       case "lif":
       case "tif":
       case "tiff":
@@ -1013,10 +1072,6 @@ export async function loadModel() {
       case "ccp4":
       case "vgi":
       case "xtekct":
-      case "png":
-      case "jpg":
-      case "jpeg":
-      case "bmp":
       case "lsm":
       case "dcm":
       case "dicom": {
@@ -1040,6 +1095,35 @@ export async function loadModel() {
           },
         );
         updateLoadingStage("loadingLog.preparingGeometry", 99);
+        await afterLoad({ object });
+        break;
+      }
+
+      case "wav":
+      case "wave":
+      case "bwf":
+      case "mp3":
+      case "ogg":
+      case "oga":
+      case "opus":
+      case "flac":
+      case "m4a":
+      case "aac":
+      case "weba": {
+        // Sound (audio.js): played, and drawn as its spectrogram - from the
+        // File when dropped, else downloaded whole (its tags and cue points
+        // may be at its end).
+        const file = core.localFiles.get(modelPath);
+        const buffer = file
+          ? await file.arrayBuffer()
+          : await loadAsync(new THREE.FileLoader().setResponseType("arraybuffer"), modelPath, onProgress);
+        updateLoadingStage("loadingLog.preparingGeometry", 99);
+        const { buildAudioModel } = await loadAudio();
+        const object = await buildAudioModel(buffer, {
+          name: core.fileObject.basename || "Audio",
+          fileName: file?.name || core.fileObject.filename,
+          extension: core.fileObject.extension,
+        });
         await afterLoad({ object });
         break;
       }
@@ -1240,6 +1324,10 @@ export async function loadModel() {
     core.UltraLoader?.finish();
     core.poller?.updateSteps(2);
   } catch (error) {
+    if (error instanceof StaleModelLoad) {
+      console.info("A model arrived after another one was opened; dropped.");
+      return;
+    }
     core.loadingLog?.fail?.();
     hideAppSplash();
     reportLoadError(error, `Failed to load ${core.fileObject.filename}`);

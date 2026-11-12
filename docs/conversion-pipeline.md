@@ -78,21 +78,21 @@ Run lightweight conversion without xvfb checks:
 
 ## Script flags
 
-- `-c` — compression true/false
-- `-l` — compression level 0-6
-- `-i` — input file path
-- `-o` — output folder (optional)
-- `-b` — binary output true/false (GLB vs glTF)
-- `-t` — lightweight true/false
-- `-f` — force overwrite
+- `-c` - compression true/false
+- `-l` - compression level 0-6
+- `-i` - input file path
+- `-o` - output folder (optional)
+- `-b` - binary output true/false (GLB vs glTF)
+- `-t` - lightweight true/false
+- `-f` - force overwrite
 
 ## Environment variables in `scripts/.env`
 
-- `BLENDER_PATH` — path to the Blender binary
-- `SPATH` — repository or module base path used by scripts
-- `COMPRESSION` — whether glTF compression is enabled
-- `COMPRESSION_LEVEL` — compression level
-- `GLTF` — target `gltf` or `glb`
-- `FORCE` — overwrite existing outputs
-- `IS_ARCHIVE` — if input is an archive
-- `LIGHTWEIGHT` — skip heavyweight checks and rendering steps
+- `BLENDER_PATH` - path to the Blender binary
+- `SPATH` - repository or module base path used by scripts
+- `COMPRESSION` - whether glTF compression is enabled
+- `COMPRESSION_LEVEL` - compression level
+- `GLTF` - target `gltf` or `glb`
+- `FORCE` - overwrite existing outputs
+- `IS_ARCHIVE` - if input is an archive
+- `LIGHTWEIGHT` - skip heavyweight checks and rendering steps

@@ -102,7 +102,8 @@ Stores runtime viewer options.
     "enabled": true,
     "position": { "x": 0, "y": 0 },
     "expanded": false,
-    "visible": true
+    "visible": true,
+    "profile": { "promote": ["hierarchy", "clippingPlanes"], "hide": ["weather"] }
   },
   "menuToolbar": {
     "enabled": true,
@@ -180,6 +181,7 @@ These optional `viewer` fields carry values that used to live only in `viewer-se
 - `position`: current dragged toolbar offset relative to the host container
 - `expanded`: whether the secondary tray is expanded
 - `visible`: whether the toolbar is currently visible in the UI
+- `profile` (optional): the tools for the kind of model shown. The viewer tells the kind (`mesh`, `bim`, `pointcloud`, `splats`, `volume`) from the file and the scene and brings that kind's tools to the top - onto the bar of the classic toolbar, as shortcuts into the navigation of the menus - and leaves out those the kind has no use for. `false` (or `{ "enabled": false }`) keeps the toolbar as it is; `promote` replaces the tools brought to the top (tool names, in order of importance: phones show the first two); `hide` replaces the tools left out. Either list may be given alone; the other keeps the kind's default.
 
 ## `AIM3DViewer.integration`
 
@@ -206,9 +208,11 @@ Each light may contain:
 }
 ```
 
-`type` is `AmbientLight`, `DirectionalLight`, `HemisphereLight`, `PointLight` or `SpotLight`. The first directional light is the viewer's key light, the second its camera light, the first ambient and hemisphere lights the viewer's own; further lights are added to the scene. Optional fields:
+`type` is `AmbientLight`, `DirectionalLight`, `HemisphereLight`, `PointLight` or `SpotLight`. The first directional light is the viewer's key light, the second its camera light, the first ambient and hemisphere lights the viewer's own; further lights are added to the scene. Lights added in the editor (Lights > Scene lights, or the Lights folder) are exported as further lights. Optional fields:
 
+- `name`: the light's name in the editor's list of lights
 - `visible`: `false` for a light that is switched off (default `true`)
+- `castShadow`: whether a directional, point or spot light casts shadows (left out: the viewer's default, on for the key light)
 - `groundColor`: ground colour of a `HemisphereLight`
 - `distance`, `decay`: range and falloff of a `PointLight` or `SpotLight`
 - `angle`, `penumbra`: cone half-angle (radians) and edge softness (0-1) of a `SpotLight`
@@ -227,10 +231,34 @@ Stores model transform and rendering flags.
     "order": "XYZ"
   },
   "scale": [1, 1, 1],
+  "upAxis": "Z+",
   "wireframe": false,
   "shadingMode": "clay"
 }
 ```
+
+`upAxis` (optional) names the axis of the model file that points up, for
+models that do not come in Y-up (three.js and glTF are Y-up). The viewer
+turns that axis to +Y when the model is loaded, before placing it on the grid
+and before `position`, `rotation` and `scale`, which are those of the upright
+model. Left out, the model is used as loaded (`Y+`).
+
+| Value | Model |
+|---|---|
+| `Y+` | Y-up (the default; not written on export) |
+| `Y-` | upside down |
+| `Z+` | Z-up: CAD, scans and photogrammetry exports (STL, PLY, OBJ, ...) |
+| `Z-` | Z-up, flipped |
+| `X+`, `X-` | X-up |
+
+The fix is applied under the model root (an inner pivot node, or the geometry
+of a single mesh), so `rotation` stays the rotation set in the editor.
+Streamed models (3D Tiles, Potree) are oriented by their loader and do not
+take `upAxis`; LAS/LAZ point clouds and Gaussian splats are already turned to
+Y-up when loaded, so `upAxis` turns them further. The same setting comes from
+the `upAxis` URL parameter (`?upAxis=Z` or `?upAxis=-Y`; a `+` in a URL reads as a space, which is fine, as a bare axis means its + side; the URL wins over the manifest), the
+`upAxis` of a model's entry in `viewer-settings.json` / `objectsConfig.models`,
+and the model's saved `_viewer.json` metadata.
 
 `shadingMode` (optional) sets how the model's surfaces are drawn; left out,
 the model keeps the materials it was loaded with:
@@ -434,6 +462,68 @@ taken as proleptic Gregorian. While the sun is on, the other lights and the
 environment are dimmed to a sky light (the raking light is switched off).
 `location` is exported once a place is set; `sun` while it is on.
 
+## `AIM3DViewer.weather`
+
+The weather around the model (*Look > Weather*): a clear sky, fog, rain,
+snow or a thunderstorm, with wind; the rain and the snow stop on the
+model's roofs (no rain under them), the rain splashes and bounces there, the
+model gets wet and snow settles on what faces up; fog lies in clumps of
+mist. At full intensity rain is a downpour. Exported while it is on.
+
+```json
+"weather": { "type": "snow", "intensity": 0.6, "wind": 0.2, "windDirection": 230 }
+```
+
+- `type` (required): `"clear"`, `"fog"`, `"rain"`, `"snow"` or `"storm"`
+- `intensity`: 0 to 1 (default `0.6`)
+- `wind`: 0 to 1 (default `0.2`); a storm brings at least some
+- `windDirection`: where the wind blows to - degrees clockwise from -Z, seen from above, as `location.north` (default `230`)
+- `mistHeight`, `mistDensity`: the mist's height (0 to 1: 0.15 to 1.15 model sizes, default `0.4`) and density (default `0.5`)
+- `mistSpread`: 0 lays the mist in clumps with gaps (low clouds), 1 as an even blanket thinning upwards (default `0.6`)
+- `season`: a season (*Look > Seasons*) - `spring` (petals), `summer` (pollen), `autumn` (leaves) or `winter` (snow, with `type` `snow`): a colour grade of the model and what falls through the air, as in the intro
+- `sky`: show the sky (three's `Sky`, with clouds) around the model (default `true`); the sun stands where the sun study puts it, else where the key light comes from
+- `surfaces`: wet surfaces and snow cover on the model (default `true`)
+
+The sound (rain, wind, thunder) is the viewer's own choice and is not
+stored. The URL parameter `?weather=<type>` switches it on as well.
+
+## `AIM3DViewer.materials`
+
+The model's materials as edited in the viewer (*Look > Materials*): a
+built-in material type and the properties set by hand, per material. The
+model's file is not changed; the viewer puts edited copies in place of its
+materials when the manifest loads. Exported while any material is edited;
+the same list is saved with the model's settings (`_viewer.json`).
+
+```json
+"materials": [
+  { "index": 2, "name": "glass", "preset": "glass", "keepTexture": true, "params": { "roughness": 0.05 } }
+]
+```
+
+- `index`: the material's place in the model (the order the viewer meets them in); `name`: its name in the file. A material is found by both, else by a name only one material has
+- `preset`: the built-in type applied first - `glass`, `frostedGlass`, `tintedGlass`, `water`, `lightWood`, `darkWood`, `varnishedWood`, `plaster`, `paintedWall`, `concrete`, `brick`, `sandstone`, `marble`, `terracotta`, `ceramic`, `steel`, `aluminium`, `iron`, `brass`, `gold`, `copper`, `bronze`, `mirror`, `plastic`, `rubber`, `fabric`, `clay`, `light` (or `null`)
+- `keepTexture`: the type keeps the colour texture and vertex colours (default `true`)
+- `params`: the properties over the type - `color`, `emissive` (`"#rrggbb"`), `roughness`, `metalness`, `opacity`, `transmission`, `clearcoat`, `clearcoatRoughness`, `sheen` (0 to 1), `thickness`, `ior`, `emissiveIntensity` (from 0), `doubleSided`
+
+## `AIM3DViewer.sceneSuggest`
+
+The Suggested scene window (*Look > Suggested scene*) open when the manifest
+loads: what the rules make of the model's texts, place, year, size and shape
+(see [docs/ai.md](../../docs/ai.md), section 5). Nothing changes until the
+user applies the suggestions.
+
+```json
+"sceneSuggest": { "open": true, "purpose": "documentation" }
+```
+
+- `open`: open the window on load (default `false`)
+- `purpose`: `"documentation"` or `"presentation"`, the purpose shown first (default: the one the rules pick)
+
+It is not exported. The examples `*-scene-*.json` use it: each sets the
+texts, the place or the camera the rules read, and leaves the lighting to
+the suggestions.
+
 ## `AIM3DViewer.photos`
 
 Historical photographs (or drawings, paintings) laid over the model from the
@@ -575,7 +665,7 @@ lists (`manifestFeatureIcons(inspection)`):
 
 `model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
 `raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
-`location`, `sun`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`location`, `sun`, `weather`, `materials`, `certainty`, `thumbnails`, `transform`, `rendering`,
 `tour`, `settings`, `manifest` (the IIIF structure itself).
 
 Each attribute gets a level:

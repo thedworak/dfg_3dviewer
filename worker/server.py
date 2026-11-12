@@ -186,6 +186,14 @@ MESH_CONVERT_FORMATS = {"step", "stp", "iges", "igs", "3mf"}
 # GLB by Blender, no thumbnails either. ("gltf" is only useful inside a .zip
 # together with its .bin/textures, which stay next to it in the job folder.)
 VIEWER_NATIVE_FORMATS = {"gltf", "3ds", "pcd", "xyz", "amf", "kmz", "vox", "lwo", "spz", "splat", "ksplat", "sog", "rad"}
+# Audio files: played and drawn as their spectrogram by the viewer
+# (viewer/audio.js), kept as uploaded like the formats above.
+AUDIO_FORMATS = {"wav", "wave", "bwf", "mp3", "ogg", "oga", "opus", "flac", "m4a", "aac", "weba"}
+VIEWER_NATIVE_FORMATS |= AUDIO_FORMATS
+# 2D images, shown and enhanced by the viewer (viewer/image2d.js). A .zip of
+# images stays a volume's slices (worker/image_slices.py).
+IMAGE_FORMATS = {"jpg", "jpeg", "png", "webp", "avif", "gif", "bmp"}
+VIEWER_NATIVE_FORMATS |= IMAGE_FORMATS
 # Point clouds become a streamed 3D Tiles tileset (worker/pointcloud.py);
 # a .ply without faces joins them at run time (is_point_cloud()).
 POINTCLOUD_FORMATS = pointcloud.POINTCLOUD_FORMATS
@@ -713,7 +721,10 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
             )
             return
 
-        if ext in VOLUME_FORMATS:
+        # A single image (not the slices of a .zip) is a 2D image the viewer
+        # shows as it is (VIEWER_NATIVE_FORMATS, below).
+        image_alone = ext in IMAGE_FORMATS and not is_archive
+        if ext in VOLUME_FORMATS and not image_alone:
             with LIMITS.conversion_slot(
                 on_wait=lambda: set_job(job_id, status="queued", message="Waiting for a free conversion slot..."),
             ):

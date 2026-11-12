@@ -14,9 +14,9 @@ git clone <repo-url> && cd dfg_3dviewer
 docker compose up --build
 ```
 
-Open `http://localhost:3000` (test build) — `:3001` for dev, `:3002` for sandbox/drag-and-drop upload mode.
+Open `http://localhost:3000` (test build) - `:3001` for dev, `:3002` for sandbox/drag-and-drop upload mode.
 
-This is a fully working setup, including the full conversion pipeline (conversion to glTF/GLB, compression, and Blender-based thumbnail rendering) — no Drupal, Node, PHP or extra setup needed.
+This is a fully working setup, including the full conversion pipeline (conversion to glTF/GLB, compression, and Blender-based thumbnail rendering) - no Drupal, Node, PHP or extra setup needed.
 
 ### Or, without Docker
 
@@ -27,31 +27,35 @@ cp viewer/viewer-settings-example.json viewer/viewer-settings.json
 npm run dev:test
 ```
 
-Open `http://localhost:1234` — viewer only, no conversion pipeline.
+Open `http://localhost:1234` - viewer only, no conversion pipeline.
 
 ## What this repo contains
 
-- `viewer/` — viewer runtime source, loaders, utilities, metadata handling, and UI
-- `index.html` / `embed.html` — local demo and embed pages
-- `rollup.config.js` — build configuration for production and Drupal output
-- `package.json` — npm scripts and dependencies
-- `viewer/viewer-settings-example.json` — runtime viewer settings template
-- `scripts/` and `php/` — helpers for model conversion, Blender rendering, and Drupal workflow
-- `dist/` — generated build output (not committed in source)
+- `viewer/` - viewer runtime source, loaders, utilities, metadata handling, and UI
+- `index.html` / `embed.html` - local demo and embed pages
+- `ultra.html` - the ultralight viewer: a glTF / GLB model and nothing else (see [embedding](docs/embedding.md))
+- `rollup.config.js` - build configuration for production and Drupal output
+- `package.json` - npm scripts and dependencies
+- `viewer/viewer-settings-example.json` - runtime viewer settings template
+- `scripts/` and `php/` - helpers for model conversion, Blender rendering, and Drupal workflow
+- `dist/` - generated build output (not committed in source)
 
 ## Documentation
 
 The topics below used to live in this file; they now have their own page in [`docs/`](docs/):
 
 - [Minimal local setup, npm scripts, build/packaging, Tauri app](docs/development.md)
-- [Standalone Docker setup](docs/docker.md) — profiles, `scripts/docker.py`, static export, uploads/accounts
+- [Standalone Docker setup](docs/docker.md) - profiles, `scripts/docker.py`, static export, uploads/accounts
 - [Admin panel setup](docs/admin-panel.md)
-- [Server-side conversion and rendering](docs/conversion-pipeline.md) — pipeline, supported conversion inputs, script flags/env vars
+- [Server-side conversion and rendering](docs/conversion-pipeline.md) - pipeline, supported conversion inputs, script flags/env vars
 - [`viewer-settings.json` explained](docs/viewer-settings.md)
-- [Using/embedding the viewer](docs/embedding.md) — embed markup, `embed.html` parameters
+- [Branding](docs/branding.md) — a client's name, logo, colours, favicon and addresses from settings; client profiles (`clients/<id>/`, `BRAND=<id>`)
+- [Using/embedding the viewer](docs/embedding.md) — embed markup, `embed.html` parameters, the ultralight `ultra.html`
 - [Intro page](docs/intro.md) — `intro.html`: a point cloud gathering into the Wołpa Synagogue, then into the viewer
 - [Publishing to production](docs/publishing.md) — what must be set before a release
 - [Bug reports and error tracking](docs/error-tracking.md) — the "Report a bug" button, self-hosted GlitchTip
+- [Audio files and sound](docs/audio.md) — WAV / Broadcast Wave, MP3, FLAC, Ogg, M4A: played with effects, drawn as a spectrogram landscape, with their tags and markers; sound sources in a model's scene (ambient, point, spot; IIIF `AmbientAudio` / `PointAudio` / `SpotAudio`); narrated annotations with captions in the guided tour; the room's acoustics - the sounds heard with the reverberation worked out from the model's geometry (auralization)
+- [2D images](docs/images.md) — JPEG, PNG, WebP, AVIF, GIF, BMP, one or a set (.zip, several dropped): levels, equalisation, relief, decorrelation stretch, false colour, before/after, saved as PNG; filmstrip and grid; measured in centimetres when the file gives its DPI
 - [AI assistance](docs/ai.md) — optional Claude API help: validation explained, IFC questions, variants and paradata review, point cloud classification
 - [`viewer/FUNCTIONS.md`](viewer/FUNCTIONS.md) — runtime function reference
 - [`worker/README.md`](worker/README.md) — standalone conversion worker's API contract/configuration
@@ -96,6 +100,8 @@ The topics below used to live in this file; they now have their own page in [`do
 | MRC / CCP4 maps (.mrc, .rec, .ccp4) - cryo-EM, electron tomography | ✅ ¹⁴ | volume ¹⁴ |
 | Industrial CT: Volume Graphics .vgi, Nikon .xtekct, each with its .vol (in a .zip) | ✅ ¹⁴ | volume ¹⁴ |
 | DICOM series (.zip of a study, .dcm) - CT, MRI, micro-CT | ✅ ¹⁴ ¹⁵ | volume ¹⁴ |
+| Audio: WAV / Broadcast Wave, MP3, FLAC, Ogg Vorbis / Opus, M4A / AAC, WebM audio | ✅ ¹⁶ | – |
+| 2D images: JPEG, PNG, WebP, AVIF, GIF, BMP - one, or a set (.zip, several dropped) | ✅ ¹⁷ | – |
 
 > - ¹ via Blender (`scripts/convert.py`)
 > - ² via `IfcConvert` (+ metadata export, see below)
@@ -111,6 +117,8 @@ The topics below used to live in this file; they now have their own page in [`do
 > - ¹² loaded directly in a Web Worker (LAS 1.0-1.4 all point formats, decoded while downloading; LAZ point formats 0-3 with loaders.gl + laz-perf), shown progressively and thinned above `viewer.pointCloud.maxPoints`; convert large scans to 3D Tiles for full-resolution streaming - see [docs/point-clouds.md](docs/point-clouds.md)
 > - ¹³ drawn with Spark (sparkjs.dev), downloaded with the first splat file; a PLY is read as splats when its vertices carry Gaussians (`f_dc_0`, `scale_0`, `rot_0`), and the worker keeps such a PLY as uploaded
 > - ¹⁴ every Z stack becomes an 8-bit volume, drawn by ray marching - maximum intensity, translucent or surface - with per-channel colours and windows. Opened directly, the viewer reads only the stack shown, in a Web Worker (`viewer/lif-reader.js`, `viewer/tiff-reader.js`, `viewer/raw-volume-reader.js`, `viewer/dicom-reader.js`, `viewer/image-slices-reader.js`; from the disk, or by HTTP range requests; a `.zip` by URL that the repository has not converted is downloaded and opened as if dropped); the standalone worker (`worker/lif.py`, `worker/tiff_stack.py`, `worker/raw_volume.py`, `worker/dicom_series.py`, `worker/image_slices.py`) converts the file once, with a thumbnail - see "Image stacks (volumes)" in [`worker/README.md`](worker/README.md). Synthetic samples of every format: `viewer/examples/volumes/` (`scripts/generate-volume-samples.py`)
+> - ¹⁶ not a model: the sound is played (with a filter, compressor and reverberation) and drawn as a spectrogram landscape with its waveform; tags and markers (WAV cue points, ID3 chapters, Vorbis chapters) are read from the file - see [docs/audio.md](docs/audio.md). Sample: `viewer/examples/audio/` (`scripts/generate-audio-samples.py`)
+> - ¹⁷ not a model: a plane seen straight on, enhanced on the GPU (levels, equalisation, relief, edges, decorrelation stretch, false colour), at its real size when the file gives its DPI; a set browsed with a filmstrip and a grid - see [docs/images.md](docs/images.md). A `.zip` of grey CT slices stays a volume. Samples: `viewer/examples/images/` (`scripts/generate-image-samples.py`)
 > - ¹⁵ uncompressed series in the viewer itself (`viewer/dicom-reader.js`); compressed (JPEG, JPEG 2000, RLE) and multi-frame files by the worker (`worker/dicom_series.py`). CT is shown in Hounsfield units with the usual windows. Anonymise studies before uploading them
 >
 > Not added on purpose: VTK (its three.js loader is deprecated and scheduled for removal), LDraw (needs a separate parts library), 3DM (needs the extra `rhino3dm` runtime) and PDB/MD2/GCode/BVH (not general model formats). NRRD is read as a volume (above), not by the three.js loader.

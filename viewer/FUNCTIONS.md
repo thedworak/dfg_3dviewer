@@ -275,7 +275,7 @@ The rules (`publish-rules.js`, pure) take the facts `publish-check.js` gathers: 
 The viewer speaks up by itself (`ui/smart-hint.js`): after loading, a model on its side ("Stand it up"), and before *Save settings*, *Change main thumbnail* or *Generate thumbnails* while something is left to fix ("Review" / "Continue anyway", not asked again for that model). Off in tests unless switched on (`Viewer.setPublishGuard(true)`).
 
 - `Viewer.togglePublishCheckPanel(open)` / `Viewer.computePublishChecks()` / `Viewer.fixPublishCheck(check)` / `Viewer.fixAllPublishChecks()`
-- `Viewer.frameModelInView()` — the whole model in the view from the current side; also the view *Reset camera* returns to.
+- `Viewer.frameModelInView()` - the whole model in the view from the current side; also the view *Reset camera* returns to.
 - `Viewer.checkBeforePublishing(kind, proceed)` / `Viewer.offerOrientationHint()` / `Viewer.getPublishSaveState()`
 - `Viewer.updatePublishBadge()` / `Viewer.schedulePublishBadge()`
   - While the guard is on: the number of things to fix on the toolbar's button, a dot on its menu's tab (File, or More on a phone); counted after the toolbar's state changes, the camera stops or the model is moved (without the brightness; the base measured once per pose).
@@ -343,7 +343,7 @@ Face selection in picking mode (used to create annotations): click selects one f
 - `Viewer.pickVisibleFacesInRect(left, top, right, bottom)`
   - Faces (`{ object, faceIndex }`) visible inside a rectangle in client pixels. Renders the rectangle into an off-screen ID buffer (mesh index, then triangle index), so occluded and back faces are skipped and section planes are respected.
 
-- `Viewer.pickModelAt(clientX, clientY)` (`editor/picking.js`) — the model point under a page position (point clouds picked on the GPU, meshes by raycast), or `null`
+- `Viewer.pickModelAt(clientX, clientY)` (`editor/picking.js`) - the model point under a page position (point clouds picked on the GPU, meshes by raycast), or `null`
 - `Viewer.applyFaceSelection(hits, { subtract })` (`editor/picking.js`)
   - Adds faces to the selection, or removes them with `subtract`.
 
@@ -386,8 +386,8 @@ The toolbar as menus with names (Look, Analysis, Measure, Story, Model, File, De
 
 What kind of model is shown, one answer for the toolbar, the checks before publishing and the scene suggestions.
 
-- `getModelKind(viewer)` / `Viewer.getModelKind()` -> `"mesh" | "bim" | "pointcloud" | "splats" | "volume" | null`
-  - A volume (its settings window), splats or points in the scene, a model with IFC properties (`bim`), else surfaces; before the model is in the scene, a guess from the extension (`modelKindFromExtension`). Worked out again only when the model, the extension or those states change.
+- `getModelKind(viewer)` / `Viewer.getModelKind()` -> `"mesh" | "bim" | "pointcloud" | "splats" | "volume" | "audio" | "image" | null`
+  - A volume (its settings window), an audio file (its player), a 2D image (its tools), splats or points in the scene, a model with IFC properties (`bim`), else surfaces; before the model is in the scene, a guess from the extension (`modelKindFromExtension`). Worked out again only when the model, the extension or those states change.
 - `sceneContentKind(viewer, roots)` -> `"mesh" | "pointcloud" | "splats" | null`
   - Only what the scene holds (`editor/publish-check.js`, `editor/scene-suggest.js`).
 
@@ -441,6 +441,8 @@ Measurement tools in the ruler button's submenu. Lengths use `viewer.measurement
 
 - `Viewer.clearMeasurements()`
   - Remove all measurements, their labels and the dimensions box.
+- `Viewer.getMeasurementsForExport(root)` / `Viewer.applySavedMeasurements(entries, root)`
+  - The finished measurements as `[{ mode, points: [[x, y, z], ...] }]`, the points in the model root's own coordinates (so they stay on the model when its transform is saved too). Saved with the settings (`measurements` in `_viewer.json` / the worker's settings, the *Measurements* tick of *Save settings*) and drawn again when they load (`setupObject`); also `AIM3DViewer.measurements` of the AIM3D manifest, applied after its model transform. Applying replaces the measurements shown.
 
 
 ## `viewer/editor/clipping.js`
@@ -461,6 +463,8 @@ Section planes, one per world axis. State stays in `core.clippingPlanes` and `co
 
 - `Viewer.applyClippingOverridesFromUrl()`
   - Apply `clip`, `clipConst`, `clipFlip` and `clipOutline` (also used for manifest `clipping` settings).
+- `Viewer.getClippingForPersistence()` / `Viewer.applySavedClipping(saved)`
+  - The cuts as `{ mode, negated, fraction, outlineVisible }` (`fraction`: where each plane stands in the model's box, 0 to 1), saved with the settings (`clipping` in `_viewer.json` / the worker's settings, the *Section cuts* tick of *Save settings*; nothing while no axis cuts) and put back when they load (`setupObject`). Before the model's box is known they wait in the fractions for `refreshClippingForModel()`. URL and manifest clipping still apply over them.
 
 Planes are dragged directly in the scene (the coloured quads) or with the sliders in the section-planes panel.
 
@@ -469,7 +473,7 @@ Planes are dragged directly in the scene (the coloured quads) or with the slider
 
 `viewer/loaders.js` contains model loaders, environment sync logic, and loading progress/error handlers.
 
-- `showPreviewBadge(text)` / `hidePreviewBadge()` — the "Preview · ..." badge over the viewer: the progressive GLB preview while the full model downloads, and a point cloud upload's quick preview (`ui/upload-panel.js`, job status `previewUrl`) while the worker builds its tiles.
+- `showPreviewBadge(text)` / `hidePreviewBadge()` - the "Preview · ..." badge over the viewer: the progressive GLB preview while the full model downloads, and a point cloud upload's quick preview (`ui/upload-panel.js`, job status `previewUrl`) while the worker builds its tiles.
 
 - `loadDDSLoader()` / `loadMTLLoader()` / `loadOBJLoader()` / `loadFBXLoader()`
 - `loadPLYLoader()` / `loadColladaLoader()` / `loadSTLLoader()` / `loadXYZLoader()`
@@ -515,7 +519,7 @@ Models whose up is not three.js' +Y: Z-up exports (CAD, scans, photogrammetry) a
 - `applyUpAxis(root, upAxis)` turns that axis to +Y without touching the root's own transform, so it composes with what `afterLoad` resets and what metadata, config, manifests and the editor set: a group root gets an inner pivot (`userData.isUpAxisPivot`) holding its children; a mesh or point root (STL, PLY, XYZ, ...) has its geometry turned. Repeated calls replace the fix; tiled models are skipped (oriented by `tiles.js`). `getUpAxis(root)` reads it back (`userData.appliedUpAxis`).
 - Applied at the start of `setupObject()` (`viewer-utils.js`), before the metadata/config transform and the grid placement. Sources, first wins: URL `?upAxis=`, the model's `_viewer.json` (`upAxis`, saved with the rotation), its `objectsConfig.models` entry (`upAxis`; for an AIM3D manifest, `AIM3DViewer.modelTransform.upAxis` of the first model).
 - `swapInFullModel()` gives the full model the preview's fix; annotation target paths (`editor/picking.js`) skip the pivot, so they do not change with the up axis.
-- Editor: *Up axis* in the toolbar's transform group (*Model* menu) — `Viewer.setUpAxis(axis)` turns the model, puts it back on the grid and refreshes the section outline, clipping, face picking and annotation markers; `Viewer.getModelUpAxis()`. Exported to and imported from `AIM3DViewer.modelTransform.upAxis`.
+- Editor: *Up axis* in the toolbar's transform group (*Model* menu) - `Viewer.setUpAxis(axis)` turns the model, puts it back on the grid and refreshes the section outline, clipping, face picking and annotation markers; `Viewer.getModelUpAxis()`. Exported to and imported from `AIM3DViewer.modelTransform.upAxis`.
 
 ## `viewer/tiles.js`
 
@@ -524,9 +528,9 @@ Streamed level-of-detail models through [3d-tiles-renderer](https://github.com/N
 - `loadTiledModel({ url, format, configureGLTFLoader, onModel })`
   - Creates the `TilesRenderer` with the viewer's glTF decoders (Draco, Meshopt, KTX2), `ReorientationPlugin` (georeferenced tilesets moved to the origin; local ones turned from Z-up to Y-up), `PotreePlugin` or `PointCloudEffectsPlugin` (Eye-Dome Lighting, point shape). Resolves with the tiles group once the first tiles are in; `loaders.js` then runs the normal `afterLoad` on it.
   - Adds an invisible `Object3D` carrying a box geometry of the whole tileset, so centring, camera framing and dimensions use the full extent rather than the coarse root tiles.
-- `updateTiles()` — called from the render loop; `disposeTiles()` — on model reset.
+- `updateTiles()` - called from the render loop; `disposeTiles()` - on model reset.
 - Orientation: `isGeocentric()` decides between 3d-tiles-renderer's `ReorientationPlugin` (Earth-centred tilesets, laid flat at their place on the globe) and `orientLocalTileset()` (Z up turned to Y up, centred). The plugin alone took any centre farther than half the Earth's radius for ECEF, which tilted scans in UTM / Gauss-Krüger coordinates; now the centre must also be more than 10 km off the equatorial plane (`viewer.tiles.georeferenced` overrides).
-- Potree: `decodePotreeClassification(loader)` adds the `classification` attribute PotreeLoader does not decode; `getPotreeAttributes()` — the cloud's attributes with their min/max from `metadata.json` (the point cloud panel offers intensity / classification colours by them); `getTiledModelBox()` — the whole tileset's world box (height colours).
+- Potree: `decodePotreeClassification(loader)` adds the `classification` attribute PotreeLoader does not decode; `getPotreeAttributes()` - the cloud's attributes with their min/max from `metadata.json` (the point cloud panel offers intensity / classification colours by them); `getTiledModelBox()` - the whole tileset's world box (height colours).
 - Annotations are not offered for tiled models (their meshes change with the level of detail); measurements work on the tiles currently loaded.
 
 
@@ -547,20 +551,20 @@ Direct LAS/LAZ loading (drag and drop, `?model=scan.laz`), without server conver
 
 Display of directly loaded point clouds (LAS, LAZ, XYZ, PCD), used by the point cloud panel. The cloud's `PointsMaterial` is replaced by 3d-tiles-renderer's `PointCloudMaterial` (the material streamed clouds get from `PointCloudEffectsPlugin`, imported through the package's `./src/*` export - not public API, check it on package updates), so both kinds draw alike.
 
-- `preparePointCloudMaterial(points)` — swaps the material once (keeps vertex colours, opacity, clipping planes) and injects the colour modes into its vertex shader; attaches the Eye-Dome Lighting pre-pass.
-- `setPointColorMode(points, mode)` — `rgb`, `intensity`, `height` (world Y) or `classification` (ASPRS colours, `CLASSIFICATION_COLORS`): a uniform (`uColorMode`) and the range uniforms; the buffers are never rewritten.
-- `setPointSize(points, { sizeMode, scale, pixels })` — `adaptive`: `material.size` in world units = spacing × 1.4 × scale, at least 1 px; `fixed`: `pixels × scale` px.
-- `estimatePointSpacing(geometry)` — average neighbour distance, assuming the points sample surfaces: the occupied cells of a 64-step grid over the cloud (from at most 300 000 sampled points) give the surface area, shared out among the points. Cached in `points.userData.pointSpacing`.
-- `addColorModes(material, colorUniforms)` / `createColorUniforms()` — the same colour modes on another `PointCloudMaterial`: the point cloud panel adds them to every tile of a streamed cloud, all sharing one set of uniforms, so a mode switch is a single uniform change.
-- `setPointEdl(points, strength)` — Eye-Dome Lighting: in the cloud's `onBeforeRender` it is drawn into a float log-depth target with a separate material (three would otherwise keep the uniforms of the material it drew last), then the main material shades each point by its neighbours' depth. Skipped while `0`, in WebXR and outside WebGL.
+- `preparePointCloudMaterial(points)` - swaps the material once (keeps vertex colours, opacity, clipping planes) and injects the colour modes into its vertex shader; attaches the Eye-Dome Lighting pre-pass.
+- `setPointColorMode(points, mode)` - `rgb`, `intensity`, `height` (world Y) or `classification` (ASPRS colours, `CLASSIFICATION_COLORS`): a uniform (`uColorMode`) and the range uniforms; the buffers are never rewritten.
+- `setPointSize(points, { sizeMode, scale, pixels })` - `adaptive`: `material.size` in world units = spacing × 1.4 × scale, at least 1 px; `fixed`: `pixels × scale` px.
+- `estimatePointSpacing(geometry)` - average neighbour distance, assuming the points sample surfaces: the occupied cells of a 64-step grid over the cloud (from at most 300 000 sampled points) give the surface area, shared out among the points. Cached in `points.userData.pointSpacing`.
+- `addColorModes(material, colorUniforms)` / `createColorUniforms()` - the same colour modes on another `PointCloudMaterial`: the point cloud panel adds them to every tile of a streamed cloud, all sharing one set of uniforms, so a mode switch is a single uniform change.
+- `setPointEdl(points, strength)` - Eye-Dome Lighting: in the cloud's `onBeforeRender` it is drawn into a float log-depth target with a separate material (three would otherwise keep the uniforms of the material it drew last), then the main material shades each point by its neighbours' depth. Skipped while `0`, in WebXR and outside WebGL.
 
 ## `viewer/pointcloud-las-decode.js`
 
 The LAS/LAZ decoder shared by the worker and the main-thread fallback (no three.js, no DOM). Emits `progress`, `header`, `batch` (Float32 positions relative to the cloud's centre, Uint8 RGB, Uint16 intensity, Uint8 classification - transferred, not copied) and `done` messages.
 
-- `decodeLasUrl(url, { maxPoints, compressed, emit })` — downloads with `fetch`. Uncompressed LAS is decoded record by record while it downloads, without keeping the file in memory (so a multi-GB scan only costs the memory of the points kept), for all point formats 0-10 (LAS 1.0-1.4); the download stops once the header's point count is reached. LAZ is downloaded in full and decompressed in batches by laz-perf (point formats 0-3). `compressed: null` tells LAS from LAZ by the header (blob: URLs have no file name).
-- `decodeBuffer(buffer, { maxPoints, emit })` — the same for a file already in memory.
-- `readLasHeader(buffer)` — version, point format and record length, point count (1.4 64-bit count included), scale, offset, bounds (`null` when the header has none); `readLasPointCount(buffer)`.
+- `decodeLasUrl(url, { maxPoints, compressed, emit })` - downloads with `fetch`. Uncompressed LAS is decoded record by record while it downloads, without keeping the file in memory (so a multi-GB scan only costs the memory of the points kept), for all point formats 0-10 (LAS 1.0-1.4); the download stops once the header's point count is reached. LAZ is downloaded in full and decompressed in batches by laz-perf (point formats 0-3). `compressed: null` tells LAS from LAZ by the header (blob: URLs have no file name).
+- `decodeBuffer(buffer, { maxPoints, emit })` - the same for a file already in memory.
+- `readLasHeader(buffer)` - version, point format and record length, point count (1.4 64-bit count included), scale, offset, bounds (`null` when the header has none); `readLasPointCount(buffer)`.
 
 ## `viewer/pointcloud-las-worker.js`
 
@@ -577,8 +581,65 @@ Gaussian splats (3D Gaussian Splatting captures: `.spz`, `.splat`, `.ksplat`, `.
   - Adds Spark's renderer (`core.sparkRenderer`, `spark-renderer` in the scene) once; `resetLoadedModelState()` removes it.
 - `buildPagedSplatModel(url, { fileName, name, upright })`
   - A `.rad` on a server, paged: Spark reads its header by an HTTP range request and then fetches the tree in chunks of 64K splats, the coarse root first and finer chunks where the camera looks, so the capture shows after a few hundred kB and sharpens while it is viewed; only what is seen takes GPU memory. The bounds come from the root chunk, the count from the header (`userData.gaussianSplats.paged` is `true`). Resolves to `null` when the server answers the probe range with the whole file (`200`); `loaders.js` then loads it with `buildSplatModel()`, as it does a `.rad` opened from a File. Example: `examples/tempietto/Tempietto-lod.rad` (`Tempietto.splat` through `build-lod --rad`).
-- `isSplatPly(buffer)` (in `loaders.js`) — tells a PLY of Gaussians (`f_dc_0`, `scale_0`, `rot_0`, or a compressed `packed_position`) from a mesh or point PLY.
+- `isSplatPly(buffer)` (in `loaders.js`) - tells a PLY of Gaussians (`f_dc_0`, `scale_0`, `rot_0`, or a compressed `packed_position`) from a mesh or point PLY.
 
+
+## `viewer/audio.js`, `viewer/audio-metadata.js`, `viewer/audio-analysis.js`
+
+Audio files (WAV / Broadcast Wave, MP3, FLAC, Ogg Vorbis / Opus, M4A / AAC, WebM audio), loaded on demand by `loaders.js` like volumes. See [docs/audio.md](../docs/audio.md).
+
+- `buildAudioModel(bytes, { name, fileName, extension, onProgress })` (`audio.js`)
+  - Reads the header, decodes the file (up to `MAX_DECODE_BYTES`) and analyses it in a Web Worker, then returns a group with the spectrogram landscape (`userData.isAudioTerrain`), the flat waveform, the playhead (`userData.isAudioPlayhead`) and labels. `root.userData`: `isAudio`, `audio` (the scene's settings), `audioInfo` (format, rate, channels, bit depth, bit rate, duration, tags, markers, levels), `viewDirection` (the camera's start, `viewer-utils.js`).
+- `getAudioState(root)` -> `{ player, analysis, meshes, url }`; `applyAudioSettings(root)` after changing `root.userData.audio`; `updateAudioScene(root)` each frame (playhead, played waveform, end of a selected part); `disposeAudio(root)` (from `disposeObjectResources`).
+- `AudioPlayer` - an `<audio>` element through Web Audio: `play()`, `pause()`, `toggle()`, `stop()`, `currentTime`, `duration`, `playing`, `analyser`; `update(change)` changes `settings` (`volume`, `rate`, `preservePitch`, `loop`, `region` `{ start, end }`, `channelMode`, `filter` `{ type, frequency, q }`, `compressor`, `reverb`, `reverbMix`) - the nodes are reconnected only when the chain changes; `on(listener)` for its events.
+- `spectrogramGrid(spectrogram, columns, rows, scale)` - the spectrogram resampled (loudest bin per cell, dB), on a `"log"` or `"linear"` frequency axis; `frequencyAt()`, `frequencyFraction()`, `frequencyTicks()`, `infernoColor()`, `formatTime()`, `formatFrequency()`.
+- `readAudioMetadata(bytes, extension)` (`audio-metadata.js`) -> `{ format, codec, sampleRate, channels, bitsPerSample, duration, bitrate, tags, markers: [{ time, label }] }`.
+- `analyzeAudio({ channels, sampleRate }, { columns, buckets, onProgress })` (`audio-analysis.js`) -> `{ peaks: { buckets, min[], max[] }, spectrogram: { columns, bins, fftSize, sampleRate, data, maxDb }, stats: { peakDb, rmsDb, clipped } }`; spectrogram bytes are dB in half-dB steps (`toDb(byte)`).
+
+## `viewer/editor/audio-panel.js`
+
+The player's window, while an audio file is loaded (toolbar button `audio`): `setupAudioControls(root)` (after a model is added), `disposeAudioControls()` (`resetLoadedModelState()`), `isAudioActive()`, `isAudioPanelVisible()`, `toggleAudioPanel()`, `toggleAudioPlayback()`, `updateAudioPlayback(change)`, `updateAudioSceneSettings(change)`, `updateAudio()` (each frame, from `animate`: the scene and the panel's canvases).
+
+
+
+## `viewer/image2d.js`, `viewer/image-metadata.js`
+
+2D images, one or a set, as a plane with an enhancing shader (see [docs/images.md](../docs/images.md)).
+
+- `buildImageModel(items, { index, name })` - `items`: `[{ name, file } | { name, url }]`; a group with the plane (`userData.isImagePlane`). `root.userData`: `isImage2D`, `image` (the settings, `IMAGE_FILTER_DEFAULTS`: `brightness, contrast, gamma, saturation, invert, channel, autoLevels, equalize, sharpen, relief, reliefAngle, edges, dstretch, falseColor, compare, split`), `imageInfo` (name, index, count, size, width, height, shown, metersPerPixel, format, dpi, tags, gps), `imageMetersPerUnit`, `viewDirection`.
+- `showImage(root, index)` - another image of the set (its texture, size and statistics; the settings stay); `applyImageSettings(root)`; `onImageChange(root, listener)`; `getImageState(root)` -> `{ items, index, stats, material, plane, texture }`.
+- `imageStatistics(rgbaPixels)` -> `{ histogram: [r, g, b, luminance], low, high, lut, dstretch: { mean, matrix } }`; `imageThumbnail(item)` (a data: URL); `renderEnhancedImage(root)` (a PNG Blob of the image as shown); `disposeImage(root)`.
+- `readImageMetadata(bytes, extension)` (`image-metadata.js`) -> `{ format, width, height, bitDepth, channels, dpi, orientation, tags, gps }`; `isImageFileName(name)`, `IMAGE_EXTENSIONS`.
+- `imageSet(files)` (`extract-helper.js`) - the images of an archive or a drop in natural order; a `.zip` of images is a volume's slices (`core.archiveImageMode = "slices"`) or a set (`"set"`).
+
+## `viewer/editor/image-panel.js`
+
+While a 2D image is shown (toolbar button `image`): `setupImageControls(root)` (pan instead of orbit, no ground), `disposeImageControls()`, `isImageActive()`, `toggleImagePanel()`, `updateImageSettings(change)`, `resetImageSettings()`, `saveEnhancedImage()`; a set: `getImageSet()`, `getImageIndex()`, `showImageAt(index)`, `stepImage(direction)`, `toggleImageGrid(open)`, `frameImage()`; `Viewer.openImageSet(files)` (main.js) opens several files as a set.
+
+## `viewer/editor/scene-sounds.js`
+
+Sound sources in the scene, heard from the camera (see [docs/audio.md](../docs/audio.md#sound-in-the-scene)). A source: `{ id, type: "ambient" | "point" | "spot", src, label, position, lookAt, angle, distance, volume, loop, years, on, acoustics, file }` (`normalizeSound(raw)`).
+
+- `setSceneSounds(config)` - replaces them: an array or `{ autoplay, volume, sources, acoustics }`; `getSceneSounds()`, `hasSceneSounds()`.
+- `startSceneSounds()` / `stopSceneSounds()` / `toggleSceneSounds()`, `isSceneSoundPlaying()`, `setSceneSoundsVolume(volume)`, `duckSceneSounds(on)` (under a narration); `armSceneSoundAutoplay()` starts them at the first click or key press.
+- `addSceneSound({ type, src, file, label })` (at the middle of the view; a spot aims at the camera), `updateSceneSound(id, change)`, `removeSceneSound(id)`, `selectSceneSound(id)`.
+- `startSoundPlacing(id, "position" | "aim")`, `isSoundPlacing()`, `placeSoundAt(hit)` (from picking.js's click).
+- `updateSceneSounds(delta)` - each frame: the listener at the camera, the 4D timeline's fades (`isSoundAudible(source)`), the icons.
+- `toggleSoundsPanel(open)`, `isSoundsPanelOpen()`; `getSoundsForExport()` (AIM3DViewer.sounds), `apply3IFManifestSounds(config)`, `disposeSceneSounds()`.
+- `buildSoundAnnotations(sceneId, baseId, sources)` (`IIIF/presentation4.js`) - the IIIF `AmbientAudio` / `PointAudio` / `SpotAudio` painting annotations; `readSceneContent()` returns them back as `sounds`.
+
+## `viewer/editor/scene-acoustics.js`, `viewer/room-acoustics.js`
+
+The room's acoustics (auralization; see [docs/audio.md](../docs/audio.md#room-acoustics)): the scene's sounds heard with the reverberation worked out from the model's geometry. Settings `{ on, position, material, floor, amount }` (`normalizeAcoustics(raw)`), kept as `AIM3DViewer.sounds.acoustics`; a source's own `acoustics` (boolean, `soundInRoom(source)`).
+
+- `getSceneAcoustics()` - the settings and the state (`result`, `buffer`, `computing`, `progress`, `error`, `assumedUnit`); `setSceneAcoustics(config)` (from `setSceneSounds`), `updateSceneAcoustics(change)` (a new material or floor works it out again).
+- `computeSceneAcoustics({ position })` - traces the visible meshes (`collectRoomGeometry()`: world triangles, a material each by its name) in a Web Worker (`room-acoustics-worker.js`), resolves to the result; the impulse response goes into one `ConvolverNode` (`ensureAcousticsChain()`).
+- `connectAcousticsSend(node)` / `disconnectAcousticsSend(node)` - a source's send to the room, before its panner; `acousticsSendLevel(source, node)`, `updateAcousticsSends()` (each frame); `getAcousticsForExport()`.
+- `room-acoustics.js` (no three.js): `buildBVH(positions)`, `intersectBVH(bvh, ...)`, `traceRoom(geometry, { position, material, floor, metersPerUnit, rays, scattering, seed, budget, onProgress })` -> `{ bands, rt[], rtFromDecay[], rtEyring[], rtMid, reverberantEnergy, bandEnergy[], absorptionArea, criticalDistance, c80, d50, openness, volume, meanFreePath, meanAbsorption[], surfaces, rays, triangles, histogram[], binSeconds, milliseconds }`; `schroederRT(histogram, binSeconds)`; `synthesizeImpulseResponse(result, sampleRate)` -> `{ channels: [left, right], sampleRate, seconds }`; `sendGain(result, distance)`; `materialFromName(name)`; `ROOM_MATERIALS`, `FLOOR_COVERS`, `BANDS`.
+
+## `viewer/editor/narration.js`
+
+An annotation's narration (`entry.audio`: `{ src, captions }`, `normalizeAnnotationAudio(raw)`): `playNarration(entry, { onEnd })` (resolves to whether it started), `pauseNarration()`, `resumeNarration()`, `stopNarration()`, `isNarrationPlaying()`, `getNarrationEntryId()`; its WebVTT captions shown over the scene (`.viewer-narration-caption`). The guided tour (tour.js `beginTourStep`) tells it when the camera has arrived and waits for it; `toggleTourNarration()` leaves the narrations out.
 
 ## `viewer/renderer-backend.js` and `viewer/rendering-webgpu.js`
 
@@ -598,24 +659,24 @@ Closed lines are `Line`s back to their first point: the WebGPU renderer draws no
 
 Point cloud panel, shown in the side stack when the model is a point cloud (hidden in presentation mode and with `hideUi`).
 
-- `Viewer.setupPointCloudControls(root)` — called after a model is added (and after a progressive swap, and once a LAS/LAZ cloud has all its points); builds the panel when `root` contains `THREE.Points` or is a streamed cloud.
-- Direct clouds (LAS/LAZ/XYZ/PCD): `setPointCloudSize(factor)` (×0.25-×4), `setPointCloudSizeMode('adaptive'|'fixed')`, `setPointCloudShape('square'|'round'|'sphere')`, `setPointCloudEdl(0..1)`, `setPointCloudColorMode('rgb'|'intensity'|'height'|'classification')` — all shader uniforms of `pointcloud-material.js`, one set per `THREE.Points`.
-- Streamed clouds (3D Tiles, Potree): size (material size, Potree `pointScale`, minimum pixel size), shape, `setPointCloudEdl(0..1)`, colour `rgb`, `intensity` / `classification` (Potree clouds that carry them), `height` or `tile` (level-of-detail colours; 3D Tiles tiles get their tree depth as the id) — one set of colour/filter uniforms shared by all tiles (`state.colorUniforms`). `applyPointCloudSettingsToTile(scene)` applies the settings (and GPU picking) to tiles loaded now and later.
+- `Viewer.setupPointCloudControls(root)` - called after a model is added (and after a progressive swap, and once a LAS/LAZ cloud has all its points); builds the panel when `root` contains `THREE.Points` or is a streamed cloud.
+- Direct clouds (LAS/LAZ/XYZ/PCD): `setPointCloudSize(factor)` (×0.25-×4), `setPointCloudSizeMode('adaptive'|'fixed')`, `setPointCloudShape('square'|'round'|'sphere')`, `setPointCloudEdl(0..1)`, `setPointCloudColorMode('rgb'|'intensity'|'height'|'classification')` - all shader uniforms of `pointcloud-material.js`, one set per `THREE.Points`.
+- Streamed clouds (3D Tiles, Potree): size (material size, Potree `pointScale`, minimum pixel size), shape, `setPointCloudEdl(0..1)`, colour `rgb`, `intensity` / `classification` (Potree clouds that carry them), `height` or `tile` (level-of-detail colours; 3D Tiles tiles get their tree depth as the id) - one set of colour/filter uniforms shared by all tiles (`state.colorUniforms`). `applyPointCloudSettingsToTile(scene)` applies the settings (and GPU picking) to tiles loaded now and later.
 - The profile and classes rows come from `point-cloud-tools.js`.
 
 ## `viewer/editor/point-cloud-tools.js`
 
 Point cloud tools in the panel, working through the cloud's shader uniforms (`Viewer.getPointCloudUniformSets()`), so the view, the Eye-Dome Lighting pre-pass and GPU picking all see the same points.
 
-- Classes: a check box per class present (`state.classes`: id -> count for a direct cloud, counted from the `classification` attribute; for a streamed cloud collected as tiles load, `notePointClassesOfTile(scene)`), with the ASPRS name and colour. `setPointCloudClassVisible(classId, visible)` — `uClassHiddenMask` bits 0-31 (`uOtherClassVisible` for 32-255); hidden points are moved out of the clip volume in the vertex shader. Shown when there are at least two classes.
-- Profile (cross-section): `startPointCloudProfile()` — the next two clicks on the cloud (`picking.js` -> `addPointCloudProfilePoint`) are the ends of a line; `setPointCloudProfile(a, b, { width, view })` — only a vertical slab along the line stays (`uProfilePlane`, `uProfileHalfWidth`, `uProfileAxis`, `uProfileRange`), the line is drawn on the cloud, and `viewPointCloudProfile()` turns to an orthographic view square to the slab, fitting the line's length and the cloud's height. `setPointCloudProfileWidth(width)` (panel: log scale from 1/2000 to 1/5 of the cloud's diagonal; default 4 point spacings, at least 0.4 % of the diagonal); `clearPointCloudProfile()` removes it and goes back to the perspective view if that was on before. Measurements on the slab use the same GPU picking.
+- Classes: a check box per class present (`state.classes`: id -> count for a direct cloud, counted from the `classification` attribute; for a streamed cloud collected as tiles load, `notePointClassesOfTile(scene)`), with the ASPRS name and colour. `setPointCloudClassVisible(classId, visible)` - `uClassHiddenMask` bits 0-31 (`uOtherClassVisible` for 32-255); hidden points are moved out of the clip volume in the vertex shader. Shown when there are at least two classes.
+- Profile (cross-section): `startPointCloudProfile()` - the next two clicks on the cloud (`picking.js` -> `addPointCloudProfilePoint`) are the ends of a line; `setPointCloudProfile(a, b, { width, view })` - only a vertical slab along the line stays (`uProfilePlane`, `uProfileHalfWidth`, `uProfileAxis`, `uProfileRange`), the line is drawn on the cloud, and `viewPointCloudProfile()` turns to an orthographic view square to the slab, fitting the line's length and the cloud's height. `setPointCloudProfileWidth(width)` (panel: log scale from 1/2000 to 1/5 of the cloud's diagonal; default 4 point spacings, at least 0.4 % of the diagonal); `clearPointCloudProfile()` removes it and goes back to the perspective view if that was on before. Measurements on the slab use the same GPU picking.
 
 ## `viewer/pointcloud-picking.js`
 
 GPU picking of point clouds: the point under the cursor, exactly as drawn. Used by `editor/picking.js` (`getPrimaryModelIntersection`: ruler, annotations, double-tap focus, profile clicks) whenever a point cloud is loaded.
 
-- `pickPointCloud({ renderer, camera, roots, ndc })` — draws the clouds once more into a float target (`RGBA32F`, the drawing buffer's size), scissored to a square of ±6 CSS px around the cursor, every point writing its object id and its index (`gl_VertexID`) instead of its colour (`PICKING_PASS` in `pointcloud-material.js`); reads those pixels and returns the point nearest the cursor as a Raycaster-like hit `{ point, object, index, distance, isPointCloudHit }`, `null` over empty space, `undefined` without float render targets (then the raycast picks points as before). Point size and shape, hidden classes, the profile slab and clipping planes all count. Clouds take part once their material has the colour modes.
-- `setPointRaycastSkipped(points)` / `withoutPointRaycast(callback)` — the CPU raycast leaves such clouds out while meshes are raycast next to them; the nearer of the two hits wins. The raycast tests every point against a distance in world units (`Raycaster.params.Points.threshold`, 1 by default) - on a 100 000-point scan it returned a point 1.8 m from the one under the cursor.
+- `pickPointCloud({ renderer, camera, roots, ndc })` - draws the clouds once more into a float target (`RGBA32F`, the drawing buffer's size), scissored to a square of ±6 CSS px around the cursor, every point writing its object id and its index (`gl_VertexID`) instead of its colour (`PICKING_PASS` in `pointcloud-material.js`); reads those pixels and returns the point nearest the cursor as a Raycaster-like hit `{ point, object, index, distance, isPointCloudHit }`, `null` over empty space, `undefined` without float render targets (then the raycast picks points as before). Point size and shape, hidden classes, the profile slab and clipping planes all count. Clouds take part once their material has the colour modes.
+- `setPointRaycastSkipped(points)` / `withoutPointRaycast(callback)` - the CPU raycast leaves such clouds out while meshes are raycast next to them; the nearer of the two hits wins. The raycast tests every point against a distance in world units (`Raycaster.params.Points.threshold`, 1 by default) - on a 100 000-point scan it returned a point 1.8 m from the one under the cursor.
 
 ## `viewer/metadata.js`
 

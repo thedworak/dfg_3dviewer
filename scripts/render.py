@@ -57,7 +57,14 @@ if '--' in sys.argv:
 # Every render carries a small ExPlora4D logo in its bottom right corner:
 # WATERMARK_WIDTH of the image's width, WATERMARK_MARGIN from its edges (the
 # viewer's own renders the same - viewer/editor/thumbnail-capture.js).
-WATERMARK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "watermark.png")
+# RENDER_WATERMARK names another PNG (a deployment's own logo,
+# docs/branding.md); set to "" or "none" it turns the watermark off.
+WATERMARK_PATH = os.environ.get(
+    "RENDER_WATERMARK",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "watermark.png"),
+)
+if WATERMARK_PATH.strip().lower() in ("", "none", "off", "false", "0"):
+    WATERMARK_PATH = ""
 WATERMARK_WIDTH = 0.1
 WATERMARK_MARGIN = 0.02
 WATERMARK_OPACITY = 0.8
@@ -361,7 +368,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 		distance = max(dist_x, dist_z) * margin
 
-		# `cam` is parented to `cam_empty`, which already sits at `center` —
+		# `cam` is parented to `cam_empty`, which already sits at `center` -
 		# so this is a *local* offset. Adding `center` again here used to
 		# double-count it (rotated into the orbit by cam_empty's rotation),
 		# pushing the whole turntable ~40% of the model's height too high
@@ -602,7 +609,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 
 	# Flat, non-rotating ambient floor added on top of the directional HDRI
 	# below. Without it, whichever side currently faces away from the (single,
-	# camera-relative) HDRI key light goes almost black — measured ~0.025 vs
+	# camera-relative) HDRI key light goes almost black - measured ~0.025 vs
 	# ~0.20 mean luminance between adjacent turntable angles on a building
 	# model, an 8x swing purely from self-shadowing. This fill is a World
 	# shader, so unlike point/area lights its contribution doesn't fall off
@@ -644,7 +651,7 @@ if current_extension == ".abc" or current_extension == ".blend" or current_exten
 		print(f"HDRI nie znaleziony pod '{hdri_path}', fallback on white background.")
 		w_bg.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
 		# already uniform in every direction, so it doesn't need w_bg_fill's
-		# help — keep the combined total in line with the HDRI branch above
+		# help - keep the combined total in line with the HDRI branch above
 		w_bg.inputs["Strength"].default_value = 0.5
 
 	# NOTE: 'Standard' has no highlight rolloff, so any positive exposure

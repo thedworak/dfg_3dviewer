@@ -11,6 +11,35 @@ CAMERA_TYPES = {"PerspectiveCamera", "OrthographicCamera"}
 LIGHT_TYPES = {"AmbientLight", "DirectionalLight", "PointLight", "SpotLight"}
 MODEL_EXTENSIONS = {".glb", ".gltf", ".obj", ".stl", ".ply", ".fbx"}
 
+# The AIM3D manifest format's version (AIM3DViewer.version, "MAJOR.MINOR"):
+# keep in sync with AIM3D_MANIFEST_VERSION in viewer/manifesto/manifest-version.js.
+AIM3D_MANIFEST_VERSION = "1.2"
+
+
+def parse_version(value):
+    """ "1.2" / "1" / 1.2 -> (major, minor); anything else -> None."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        value = str(value)
+    if not isinstance(value, str):
+        return None
+    parts = value.strip().lstrip("vV").split(".")
+    if not parts[0].isdigit() or (len(parts) > 1 and not parts[1].isdigit()):
+        return None
+    return int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+
+
+def version_warning(data):
+    """A warning when the manifest is of a newer format than this add-on reads."""
+    aim3d = data.get("AIM3DViewer") if isinstance(data, dict) else None
+    version = aim3d.get("version") if isinstance(aim3d, dict) else None
+    found, own = parse_version(version), parse_version(AIM3D_MANIFEST_VERSION)
+    if not found or found <= own:
+        return None
+    return (
+        f"The manifest is of AIM3D format {version}; this add-on reads up to "
+        f"{AIM3D_MANIFEST_VERSION}: update it to import all of the manifest"
+    )
+
 
 def is_url(value):
     return isinstance(value, str) and value.split(":", 1)[0].lower() in ("http", "https")
