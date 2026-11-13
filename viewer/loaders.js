@@ -396,7 +396,8 @@ function setupSingleMaterial(materials, material) {
   material.envMapIntensity = 0.76;
   material.roughness = Math.min(material.roughness * 1.35, 1);
   material.clipShadows = true;
-  material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
+  // Built two-sided on purpose (an audio file's landscape, audio.js): kept.
+  if (!material.userData?.keepSide) material.side = core.PRESENTATION_MODE ? THREE.DoubleSide : THREE.FrontSide;
   material.clippingPlanes = core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []);
   //material.clipIntersection = false;
   // The direct specular light scaled down (the WebGPU renderer's lighting

@@ -4674,7 +4674,7 @@ test('audio files: played, drawn as a spectrogram landscape, with their tags and
   expect(await page.evaluate(() => window.Viewer.isAudioActive())).toBe(false);
 });
 
-test('audio files: the playhead dragged in the scene moves the time; a manifest\'s idle section planes stand at the margins', async ({ page }) => {
+test('audio files: the playhead dragged in the scene, the mini player, a two-sided landscape; a manifest\'s idle section planes stand at the margins', async ({ page }) => {
   // A file and then a manifest: slow with software WebGL.
   test.setTimeout(90_000);
   await openViewer(page, '/examples/audio/soundscape.wav');
@@ -4709,6 +4709,30 @@ test('audio files: the playhead dragged in the scene moves the time; a manifest\
   expect(await page.evaluate(() => window.Viewer.audioState.player.currentTime)).toBeCloseTo(6, 0);
   const after = await camera();
   expect(Math.hypot(...after.map((value, i) => value - before[i]))).toBeLessThan(0.05);
+
+  // The landscape is seen from below too.
+  expect(await page.evaluate(() => {
+    let side = null;
+    window.Viewer.audioState.root.traverse((object) => { if (object.userData?.isAudioTerrain) side = object.material.side; });
+    return side;
+  })).toBe(2);
+
+  // The mini player: not while the panel is open; once it is closed, at
+  // the bottom, its buttons playing and moving the time.
+  const mini = page.locator('#viewerAudioMiniPlayer');
+  await expect(mini).toBeHidden();
+  await page.evaluate(() => window.Viewer.closeAudioPanel());
+  await expect(mini).toBeVisible();
+  await page.evaluate(() => { window.Viewer.audioState.player.currentTime = 1; });
+  await mini.locator('.viewer-audio-mini_forward').click();
+  expect(await page.evaluate(() => window.Viewer.audioState.player.currentTime)).toBeCloseTo(6, 1);
+  await mini.locator('.viewer-audio-mini_play').click();
+  await page.waitForFunction(() => window.Viewer.audioState.player.playing);
+  await expect(mini.locator('.viewer-audio-mini_play')).toHaveAttribute('aria-pressed', 'true');
+  await mini.locator('.viewer-audio-mini_stop').click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.audioState.player.playing)).toBe(false);
+  await page.evaluate(() => window.Viewer.toggleAudioPanel());
+  await expect(mini).toBeHidden();
 
   // A manifest as the viewer saves it: all three constants, 0 for the axes
   // never moved - the middle of the landscape. Turned on, X cuts nothing.

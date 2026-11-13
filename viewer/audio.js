@@ -376,8 +376,10 @@ function buildScene(root, analysis, metadata) {
   if (analysis) {
     const terrain = new THREE.Mesh(
       terrainGeometry(TERRAIN_COLUMNS, TERRAIN_ROWS),
-      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0, name: "Spectrogram" }),
+      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0, side: THREE.DoubleSide, name: "Spectrogram" }),
     );
+    // Both sides, the landscape is also seen from below (loaders.js keeps it).
+    terrain.material.userData.keepSide = true;
     terrain.name = "Spectrogram";
     terrain.userData.isAudioTerrain = true;
     root.add(terrain);
@@ -386,9 +388,10 @@ function buildScene(root, analysis, metadata) {
     const { geometry, columns } = waveformGeometry(analysis.peaks);
     const waveform = new THREE.Mesh(
       geometry,
-      new THREE.MeshBasicMaterial({ vertexColors: true, name: "Waveform" }),
+      new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, name: "Waveform" }),
     );
     waveform.name = "Waveform";
+    waveform.material.userData.keepSide = true;
     // Just above the ground (ground.js), not in it.
     waveform.position.set(0, 0.02, WAVE_CENTRE);
     root.add(waveform);

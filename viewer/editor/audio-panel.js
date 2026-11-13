@@ -15,6 +15,10 @@ import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 //   filter, an even loudness and a reverberation; the 3D scene's
 //   frequency axis, levels and height; below, what the file is.
 //
+// While the panel is not open (on phones: minimized to its icon), a small
+// player stays at the bottom, above the toolbar: back and forward, play or
+// pause, stop, repeat and the time, to be reached with a thumb.
+//
 // In the scene, the playhead's pane (audio.js) is dragged with the pointer
 // to move the time, as the panel's waveform is clicked.
 //
@@ -24,6 +28,9 @@ import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 // drawn each frame (updateAudio, from main.js animate) while it is open.
 
 const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// The mini player's back and forward step, in seconds.
+const MINI_STEP = 5;
+const MINI_GAP = 8;
 const VIEWS = ["spectrogram", "spectrum", "scope"];
 const FILTER_MIN = 20;
 const FILTER_MAX = 20000;
@@ -94,6 +101,7 @@ export function attachAudioPanel(Viewer) {
       Viewer.endAudioPlayheadDrag(state);
       state.player?.pause();
       state.ui?.root.remove();
+      state.mini?.root.remove();
       Viewer.audioState = null;
       Viewer.updateEditorToolbarState?.();
     },
@@ -310,6 +318,7 @@ export function attachAudioPanel(Viewer) {
       const state = Viewer.audioState;
       if (!state?.api) return;
       state.api.updateAudioScene(state.root);
+      Viewer.updateAudioMiniPlayer();
       if (state.ui && !state.hidden && !(state.collapsed && !isPhone()) && !isToolPanelMinimized(state.ui.root)) {
         Viewer.drawAudioPanel();
       }
@@ -624,6 +633,7 @@ export function attachAudioPanel(Viewer) {
       body.appendChild(summary);
 
       stack.appendChild(root);
+      Viewer.createAudioMiniPlayer();
       if (isPhone()) setToolPanelMinimized(root, true, { focus: false });
       new MutationObserver(() => Viewer.updateEditorToolbarState?.()).observe(root, { attributes: true, attributeFilter: ["class"] });
       Viewer.syncAudioPanel();
@@ -685,7 +695,119 @@ export function attachAudioPanel(Viewer) {
         }
       });
       (ui.selects || []).forEach((element) => element.audioLabels?.());
+      Viewer.syncAudioMiniPlayer();
       Viewer.drawAudioPanel();
+    },
+
+    // ---- The mini player ----
+
+    createAudioMiniPlayer() {
+      const state = Viewer.audioState;
+      if (!state?.player || state.mini || !core.container) return;
+      const player = state.player;
+      const root = document.createElement("div");
+      root.id = "viewerAudioMiniPlayer";
+      root.className = "viewer-audio-mini";
+      root.setAttribute("role", "group");
+      root.hidden = true;
+      // Its taps and drags are not the camera's.
+      ["pointerdown", "pointerup", "wheel", "keydown", "touchstart"].forEach((type) => {
+        root.addEventListener(type, (event) => event.stopPropagation(), { passive: true });
+      });
+      const button = (className, text, onClick) => {
+        const element = document.createElement("button");
+        element.type = "button";
+        element.className = `viewer-audio-mini_button ${className}`;
+        element.textContent = text;
+        element.addEventListener("click", onClick);
+        return element;
+      };
+      const mini = { root };
+      mini.back = button("viewer-audio-mini_back", "−5", () => { player.currentTime = player.currentTime - MINI_STEP; });
+      mini.play = button("viewer-audio-mini_play", "▶", () => Viewer.toggleAudioPlayback());
+      mini.forward = button("viewer-audio-mini_forward", "+5", () => { player.currentTime = player.currentTime + MINI_STEP; });
+      mini.stop = button("viewer-audio-mini_stop", "■", () => player.stop());
+      mini.loop = button("viewer-audio-mini_loop", "⟲", () => Viewer.updateAudioPlayback((s) => { s.loop = !s.loop; }));
+      mini.range = document.createElement("input");
+      mini.range.type = "range";
+      mini.range.className = "viewer-audio-mini_range";
+      mini.range.min = "0";
+      mini.range.max = "1000";
+      mini.range.step = "1";
+      mini.range.addEventListener("input", () => {
+        player.currentTime = (Number(mini.range.value) / 1000) * player.duration;
+      });
+      mini.time = document.createElement("span");
+      mini.time.className = "viewer-audio-mini_time";
+      root.append(mini.back, mini.play, mini.forward, mini.stop, mini.loop, mini.range, mini.time);
+      core.container.appendChild(root);
+      state.mini = mini;
+      Viewer.syncAudioMiniPlayer();
+    },
+
+    // Labels and states (with the panel's, syncAudioPanel).
+    syncAudioMiniPlayer() {
+      const state = Viewer.audioState;
+      const mini = state?.mini;
+      if (!mini) return;
+      const player = state.player;
+      const label = (element, text) => {
+        element.title = text;
+        element.setAttribute("aria-label", text);
+      };
+      mini.root.setAttribute("aria-label", t("audio.toggle", "Audio player"));
+      const playing = player.playing;
+      mini.play.textContent = playing ? "❚❚" : "▶";
+      mini.play.setAttribute("aria-pressed", playing ? "true" : "false");
+      label(mini.play, playing ? t("audio.pause", "Pause") : t("audio.play", "Play"));
+      label(mini.back, t("audio.back", { seconds: MINI_STEP }, "Back {seconds} s"));
+      label(mini.forward, t("audio.forward", { seconds: MINI_STEP }, "Forward {seconds} s"));
+      label(mini.stop, t("audio.stop", "Stop"));
+      label(mini.loop, t("audio.loop", "Repeat"));
+      mini.loop.setAttribute("aria-pressed", player.settings.loop ? "true" : "false");
+      mini.range.setAttribute("aria-label", t("audio.position", "Position"));
+      Viewer.updateAudioMiniPlayer();
+    },
+
+    // Each frame: shown while the panel is not, above the toolbar; the time.
+    updateAudioMiniPlayer() {
+      const state = Viewer.audioState;
+      const mini = state?.mini;
+      if (!mini) return;
+      const show = Boolean(state.ui) && !Viewer.isAudioPanelVisible();
+      if (mini.root.hidden === show) mini.root.hidden = !show;
+      if (!show) return;
+
+      // Above the toolbar when it is at the bottom (it can be moved).
+      let bottom = 12;
+      const toolbar = document.getElementById("viewerEditorToolbar");
+      const container = core.container.getBoundingClientRect();
+      if (toolbar && toolbar.offsetParent !== null) {
+        // On phones its row of tools floats above its dock.
+        [toolbar, toolbar.querySelector(".viewer-menus_nav")].forEach((element) => {
+          const box = element?.getBoundingClientRect();
+          if (box?.height && box.top > container.top + container.height / 2) {
+            bottom = Math.max(bottom, Math.round(container.bottom - box.top + MINI_GAP));
+          }
+        });
+      }
+      if (state.miniBottom !== bottom) {
+        state.miniBottom = bottom;
+        mini.root.style.bottom = `${bottom}px`;
+      }
+
+      const player = state.player;
+      const duration = player.duration;
+      const time = player.currentTime;
+      const text = `${state.api.formatTime(time)} / ${state.api.formatTime(duration)}`;
+      if (mini.time.textContent !== text) mini.time.textContent = text;
+      // Not while the slider is held.
+      if (!mini.range.matches(":active")) {
+        const value = String(Math.round((duration > 0 ? time / duration : 0) * 1000));
+        if (mini.range.value !== value) mini.range.value = value;
+      }
+      const playing = player.playing;
+      if ((mini.play.getAttribute("aria-pressed") === "true") !== playing) Viewer.syncAudioMiniPlayer();
     },
 
     drawAudioPanel() {
