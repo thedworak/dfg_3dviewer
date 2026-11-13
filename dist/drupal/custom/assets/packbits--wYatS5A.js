@@ -1,0 +1,2 @@
+import{B as e}from"./tiff-reader-DIHuGuTr.js";import"./_node-resolve_empty-DDCmjgak.js";import"./volume-voxels-BTms9hMZ.js";import"./slice-stack-H-Cl9ZF8.js";class t extends e{decodeBlock(e){const t=new DataView(e),s=[];for(let o=0;o<e.byteLength;++o){let e=t.getInt8(o);if(e<0){const r=t.getUint8(o+1);e=-e;for(let t=0;t<=e;++t)s.push(r);o+=1}else{for(let r=0;r<=e;++r)s.push(t.getUint8(o+r+1));o+=e+1}}return new Uint8Array(s).buffer}}export{t as default};
+//# sourceMappingURL=packbits-BzW_dkAM.js.map

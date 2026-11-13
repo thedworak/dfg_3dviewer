@@ -47,10 +47,10 @@
 #ultra-loader-bar {
   width: 0%;
   height: 100%;
-  /* The app icon's gold (--viewer-brand-gold in main.css), like the
+  /* The app icon's gold (--viewer-brand-accent in main.css), like the
      toolbar's loading ring. */
-  background: var(--viewer-brand-glow, #e9b264);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 60%, transparent);
+  background: var(--viewer-brand-glow, #ffb300);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 60%, transparent);
   transition: width .35s ease;
 }
 
@@ -147,7 +147,7 @@ body[data-viewer-theme="light"] .ultra-step-detail-bar {
   display: block;
   width: 0%;
   height: 100%;
-  background: var(--viewer-brand-glow, #e9b264);
+  background: var(--viewer-brand-glow, #ffb300);
   transition: width .25s ease;
 }
 

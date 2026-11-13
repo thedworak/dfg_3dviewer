@@ -76,7 +76,7 @@
 
 .ai-findings [data-level="warning"],
 .ai-findings [data-status="incomplete"] {
-  --status-color: #d48806;
+  --status-color: var(--viewer-warning, #ea6a1f);
 }
 
 .ai-findings [data-status="ok"] {

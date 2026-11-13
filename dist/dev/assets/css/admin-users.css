@@ -63,7 +63,7 @@
 }
 
 .admin-plan-icon[data-tier="pro"] {
-  color: var(--viewer-brand-blue, #d9c3a0);
+  color: var(--viewer-brand-secondary, #d9c3a0);
 }
 
 .admin-users-list {

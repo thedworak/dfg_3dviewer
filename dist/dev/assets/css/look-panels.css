@@ -35,8 +35,8 @@
 }
 
 .viewer-lights_item.is-selected {
-  border-color: var(--viewer-brand-gold, #e9b264);
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent);
+  border-color: var(--viewer-brand-accent, #f5a524);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 14%, transparent);
 }
 
 .viewer-lights_item.is-off {
@@ -86,8 +86,8 @@
 }
 
 .viewer-lights_handle.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 18%, transparent) !important;
 }
 
 .viewer-lights_current {
@@ -162,7 +162,7 @@
 
 .viewer-lights_field input[type="range"] {
   width: 100%;
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-lights_field input[type="color"] {
@@ -179,7 +179,7 @@
   justify-self: start;
   width: 16px;
   height: 16px;
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-lights_field-value {
@@ -215,7 +215,7 @@
 }
 
 .viewer-cameras_item.is-selected .viewer-cameras_icon {
-  color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-accent, #f5a524);
   opacity: 1;
 }
 
@@ -253,8 +253,8 @@
 }
 
 .viewer-shading_mode.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 14%, transparent) !important;
 }
 
 .viewer-shading_mode-icon {
@@ -290,7 +290,7 @@
 }
 
 .viewer-shading_shader-title.is-active {
-  color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-shading_code {

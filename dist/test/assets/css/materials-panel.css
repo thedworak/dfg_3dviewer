@@ -11,7 +11,7 @@
   margin-top: 8px;
   padding: 6px 8px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 16%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 16%, transparent);
   font-size: 12px;
 }
 
@@ -61,8 +61,8 @@
 }
 
 .viewer-materials_pick.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 18%, transparent) !important;
 }
 
 .viewer-materials_list {
@@ -90,8 +90,8 @@
 }
 
 .viewer-materials_item.is-selected {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 14%, transparent) !important;
 }
 
 .viewer-materials_item-name {
@@ -107,7 +107,7 @@
 }
 
 .viewer-materials_item.is-edited .viewer-materials_item-meta {
-  color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-accent, #f5a524);
   opacity: 1;
 }
 
@@ -194,8 +194,8 @@
 }
 
 .viewer-materials_group.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 18%, transparent) !important;
 }
 
 .viewer-materials_presets {
@@ -217,8 +217,8 @@
 }
 
 .viewer-materials_preset.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 14%, transparent) !important;
 }
 
 /* Two lines at most ("Glazed ceramic", "Ściana malowana"). */
@@ -241,7 +241,7 @@
 
 .viewer-materials_keep input,
 .viewer-materials_field input[type="checkbox"] {
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-materials_fields {
@@ -265,7 +265,7 @@
 
 .viewer-materials_field input[type="range"] {
   width: 100%;
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-materials_field input[type="color"] {
@@ -319,7 +319,7 @@
   margin-top: 8px;
   padding: 5px 8px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 14%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 14%, transparent);
   font-size: 12px;
 }
 
@@ -331,7 +331,7 @@
   flex: 0 0 auto;
   min-height: 26px;
   padding: 2px 10px;
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
   font-size: 12px !important;
 }
 

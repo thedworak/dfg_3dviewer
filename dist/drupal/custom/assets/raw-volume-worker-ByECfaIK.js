@@ -1,2 +1,0 @@
-import{readRawVolume as e}from"./raw-volume-reader-DKUUL7iZ.js";import"./volume-voxels-BTms9hMZ.js";self.onmessage=async s=>{const{source:r,layout:o}=s.data||{};try{const s=await e(r,o,{onProgress:e=>self.postMessage({type:"progress",progress:e})});self.postMessage({type:"done",result:s},[s.bytes.buffer])}catch(e){self.postMessage({type:"error",message:e?.message||String(e)})}},self.postMessage({type:"ready"});
-//# sourceMappingURL=raw-volume-worker-DYpvgf4K.js.map

@@ -56,7 +56,7 @@
 }
 
 #manifestPreviewPanel .manifesto-view-toggle button.active {
-  background: var(--viewer-brand-blue-strong, #4a3d2c);
+  background: var(--viewer-brand-strong, #4a3d2c);
   color: #fff;
 }
 

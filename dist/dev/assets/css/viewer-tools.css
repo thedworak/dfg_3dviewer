@@ -115,8 +115,8 @@
 /* 4D timeline (timeline.js): year axis with the stages as points, playback
    and the description of the point reached. */
 .viewer-timeline {
-  --viewer-timeline-accent: var(--viewer-brand-blue, #d9c3a0);
-  --viewer-timeline-documented: var(--viewer-brand-gold, #e9b264);
+  --viewer-timeline-accent: var(--viewer-brand-secondary, #d9c3a0);
+  --viewer-timeline-documented: var(--viewer-brand-accent, #f5a524);
   width: 420px;
   max-width: 100%;
   padding: 8px 12px 10px;
@@ -604,7 +604,7 @@
 }
 
 .viewer-tour-panel_progress-bar {
-  stroke: var(--viewer-brand-gold, #e9b264);
+  stroke: var(--viewer-brand-accent, #f5a524);
   stroke-linecap: round;
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
@@ -627,6 +627,31 @@
 .viewer-tour-panel_next {
   font-size: 20px !important;
   line-height: 1;
+}
+
+.viewer-tour-panel_narration[hidden] {
+  display: none;
+}
+
+/* A narration's captions (editor/narration.js), over the bottom of the scene. */
+.viewer-narration-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  z-index: 120;
+  max-width: min(720px, calc(100% - 32px));
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(10, 8, 6, 0.82);
+  color: #fff;
+  font: 500 16px/1.4 system-ui, sans-serif;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.viewer-narration-caption[hidden] {
+  display: none;
 }
 
 .viewer-tour-panel_close {
@@ -678,12 +703,12 @@
 }
 
 .annotation-spread-line.is-current {
-  stroke: #c9963f;
+  stroke: var(--viewer-brand-accent, #f5a524);
   stroke-width: 2.5;
 }
 
 .annotation-spread-dot.is-current {
-  fill: #c9963f;
+  fill: var(--viewer-brand-accent, #f5a524);
   stroke: #fff;
 }
 
@@ -723,7 +748,7 @@
 
 .annotation-spread-card:hover,
 .annotation-spread-card:focus-visible {
-  border-color: var(--viewer-brand-blue, #d9c3a0);
+  border-color: var(--viewer-brand-secondary, #d9c3a0);
   opacity: 1;
 }
 
@@ -733,8 +758,8 @@
 }
 
 .annotation-spread-card.is-current {
-  border-color: #c9963f;
-  box-shadow: 0 0 0 1px #c9963f, var(--viewer-panel-shadow, 0 8px 20px rgba(12, 10, 8, 0.28));
+  border-color: var(--viewer-brand-accent, #f5a524);
+  box-shadow: 0 0 0 1px var(--viewer-brand-accent, #f5a524), var(--viewer-panel-shadow, 0 8px 20px rgba(12, 10, 8, 0.28));
 }
 
 .annotation-spread-card.is-behind:not(.is-current) {
@@ -757,7 +782,7 @@
   height: 20px;
   padding: 0 4px;
   box-sizing: border-box;
-  border: 2px solid #c9963f;
+  border: 2px solid var(--viewer-brand-accent, #f5a524);
   border-radius: 10px;
   background: rgba(22, 19, 16, 0.88);
   color: #fff;
@@ -856,7 +881,7 @@
 
 .annotation-stack-card:hover,
 .annotation-stack-card:focus-visible {
-  border-color: var(--viewer-brand-blue, #d9c3a0);
+  border-color: var(--viewer-brand-secondary, #d9c3a0);
 }
 
 .annotation-stack-card:focus-visible {
@@ -865,8 +890,8 @@
 }
 
 .annotation-stack-card.is-current {
-  border-color: #c9963f;
-  box-shadow: inset 0 0 0 1px #c9963f, 0 -4px 14px rgba(12, 10, 8, 0.22);
+  border-color: var(--viewer-brand-accent, #f5a524);
+  box-shadow: inset 0 0 0 1px var(--viewer-brand-accent, #f5a524), 0 -4px 14px rgba(12, 10, 8, 0.22);
 }
 
 .annotation-stack-card.is-covered .annotation-stack-card_title {
@@ -889,7 +914,7 @@
   height: 20px;
   padding: 0 4px;
   box-sizing: border-box;
-  border: 2px solid #c9963f;
+  border: 2px solid var(--viewer-brand-accent, #f5a524);
   border-radius: 10px;
   background: rgba(22, 19, 16, 0.88);
   color: #fff;
@@ -951,22 +976,36 @@
   z-index: 105;
 }
 
+/* A value on the model: an opaque chip with a dark ring and a drop shadow,
+   readable over bright and dark surfaces alike. The measurement being
+   drawn takes the accent (white on #e65100 was 3.8:1; the amber with the
+   theme's own text colour is 8.7:1 dark, 6.1:1 light). */
 .viewer-measure-label {
   position: absolute;
   top: 0;
   left: 0;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: rgba(22, 19, 16, 0.85);
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: rgba(20, 17, 14, 0.94);
   color: #fff;
-  font: 600 12px/1.3 system-ui, sans-serif;
+  font: 600 12.5px/1.3 system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
   white-space: nowrap;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 6px 16px rgba(0, 0, 0, 0.35);
   will-change: transform;
 }
 
 .viewer-measure-label--accent {
-  background: #e65100;
+  background: var(--viewer-brand-accent, #f5a524);
+  color: var(--viewer-on-accent, #1a1714);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    0 6px 18px color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 35%, rgba(0, 0, 0, 0.35));
 }
 
 .viewer-measure-readout {
@@ -1099,8 +1138,25 @@
   gap: 6px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, #ffb300 16%, transparent);
-  border: 1px solid color-mix(in srgb, #ffb300 45%, transparent);
+  background: color-mix(in srgb, var(--viewer-warning, #ff8a3d) 14%, transparent);
+  border: 1px solid var(--viewer-warning-border, rgba(255, 138, 61, 0.55));
+}
+
+.viewer-measure-units_warning > span:first-child {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.viewer-measure-units_warning > span:first-child::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  background: var(--viewer-warning, #ff8a3d);
+  -webkit-mask: var(--viewer-warning-icon) center / contain no-repeat;
+  mask: var(--viewer-warning-icon) center / contain no-repeat;
 }
 
 .viewer-measure-units_choices,
@@ -1127,7 +1183,7 @@
 
 .viewer-measure-units_warning button:not(.is-quiet) {
   font-weight: 600;
-  border-color: color-mix(in srgb, #ffb300 60%, transparent);
+  border-color: var(--viewer-warning, #ff8a3d);
 }
 
 .viewer-measure-units button.is-quiet {
@@ -1356,6 +1412,26 @@
   overscroll-behavior: contain;
 }
 
+/* The header stays in view while the window's body scrolls under it: over
+   the panel's padding (8px 12px, .viewer-pointcloud-panel), opaque so the
+   rows passing beneath do not show through. Panels that scroll docked
+   (volume, image, audio, sounds) do the same. */
+.has-tool-chrome.is-modal-open > .tool-panel-chrome,
+.viewer-volume-panel > .viewer-pointcloud-panel_header {
+  position: sticky;
+  top: -8px;
+  z-index: 2;
+  margin: -8px -12px 0;
+  padding: 8px 12px 4px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(var(--viewer-panel-bg, rgba(22, 19, 16, 0.82)), var(--viewer-panel-bg, rgba(22, 19, 16, 0.82))),
+    var(--tool-panel-header-solid, #16130f);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] {
+  --tool-panel-header-solid: #f6f3ee;
+}
+
 /* Docked again only by minimizing: no grip while it is a window, nor a
    panel's own folding of its body (minimizing does that). */
 .has-tool-chrome.is-modal-open .tool-panel-chrome_grip,
@@ -1398,7 +1474,7 @@
   border: none !important;
   border-radius: 50%;
   background: transparent;
-  color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-accent, #f5a524);
   cursor: pointer;
   touch-action: none;
 }
@@ -1415,7 +1491,7 @@
   inset: 0;
   border-radius: 50%;
   background: conic-gradient(
-    var(--viewer-brand-gold, #e9b264) calc(var(--tool-panel-progress, 0) * 360deg),
+    var(--viewer-brand-accent, #f5a524) calc(var(--tool-panel-progress, 0) * 360deg),
     var(--viewer-panel-border, rgba(255, 255, 255, 0.18)) 0
   );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
@@ -1598,6 +1674,505 @@
   overflow-wrap: anywhere;
 }
 
+/* Audio player (editor/audio-panel.js), on the volume panel's. */
+.viewer-audio-panel {
+  width: 300px;
+}
+
+.viewer-audio-panel_title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-audio-panel_transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viewer-audio-panel_transport .viewer-pointcloud-panel_button {
+  min-width: 34px;
+  padding: 0 8px;
+}
+
+.viewer-audio-panel_play {
+  min-width: 44px;
+  font-weight: 600;
+}
+
+.viewer-audio-panel_time {
+  margin-left: auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* The mini player (editor/audio-panel.js): while the panel is not open,
+   at the bottom above the toolbar (its `bottom` set there), big enough
+   for a thumb. */
+.viewer-audio-mini {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 6px 10px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 13px/1.2 system-ui, sans-serif;
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  touch-action: manipulation;
+}
+
+.viewer-audio-mini[hidden] {
+  display: none;
+}
+
+.viewer-audio-mini_button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.viewer-audio-mini_button:hover {
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.viewer-audio-mini_button:focus-visible,
+.viewer-audio-mini_range:focus-visible {
+  outline: 2px solid var(--viewer-gui-slider-fill, #d9c3a0);
+  outline-offset: 2px;
+}
+
+.viewer-audio-mini_play {
+  min-width: 48px;
+  font-weight: 600;
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
+}
+
+.viewer-audio-mini_loop[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c);
+  color: #fff;
+}
+
+.viewer-audio-mini_range {
+  width: 160px;
+  min-width: 60px;
+  flex: 1 1 160px;
+  accent-color: var(--viewer-gui-slider-fill, #d9c3a0);
+}
+
+.viewer-audio-mini_time {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* Phones: the buttons in one row, the slider and the time in a second. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  .viewer-audio-mini {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: min(360px, calc(100% - 24px));
+    row-gap: 4px;
+  }
+
+  .viewer-audio-mini_button {
+    flex: 1 1 0;
+    min-width: 44px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .viewer-audio-mini_range {
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+/* Not the viewer's canvas (main.css: absolute, full size, its gradient). */
+.viewer-audio-panel_wave,
+.viewer-audio-panel_view {
+  position: relative;
+  z-index: auto;
+  display: block;
+  width: 100%;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.viewer-audio-panel_wave {
+  height: 56px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.viewer-audio-panel_wave:focus-visible {
+  outline: 2px solid var(--viewer-gui-slider-fill, #d9c3a0);
+  outline-offset: 1px;
+}
+
+.viewer-audio-panel_view {
+  height: 120px;
+  background: #000004;
+}
+
+.viewer-audio-panel_region {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-audio-panel_region[hidden],
+.viewer-pointcloud-panel_note[hidden] {
+  display: none;
+}
+
+.viewer-audio-panel_heading {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.viewer-audio-panel_check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.viewer-audio-panel_check input {
+  accent-color: var(--viewer-gui-slider-fill, #d9c3a0);
+}
+
+.viewer-audio-panel_markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.viewer-audio-panel_marker {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sounds in the scene (editor/scene-sounds.js), on the volume panel's. */
+.viewer-sounds-panel {
+  width: 300px;
+}
+
+.viewer-sounds-panel_play {
+  flex: none;
+  font-weight: 600;
+}
+
+.viewer-sounds-panel_volume {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--viewer-gui-slider-fill, #d9c3a0);
+}
+
+.viewer-sounds-panel_list {
+  display: grid;
+  gap: 2px;
+}
+
+.viewer-sounds-panel_item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 8px;
+}
+
+.viewer-sounds-panel_item.is-selected {
+  background: var(--viewer-gui-widget-focus-bg, rgba(74, 61, 44, 0.75));
+}
+
+.viewer-sounds-panel_item input {
+  accent-color: var(--viewer-gui-slider-fill, #d9c3a0);
+}
+
+.viewer-sounds-panel .viewer-sounds-panel_name {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-sounds-panel_kind {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.viewer-sounds-panel_remove {
+  min-width: 26px;
+  min-height: 24px;
+  padding: 0 6px;
+}
+
+.viewer-sounds-panel_details input[type="text"],
+.viewer-sounds-panel_add input[type="url"],
+.viewer-sounds-panel_years input {
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.viewer-sounds-panel_years {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.viewer-sounds-panel_placing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.viewer-sounds-panel_src {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.65;
+  overflow-wrap: anywhere;
+}
+
+.viewer-sounds-panel_src:empty {
+  display: none;
+}
+
+/* The room's acoustics (editor/scene-acoustics.js). */
+.viewer-sounds-panel_heading {
+  font-size: 12px;
+}
+
+.viewer-sounds-panel_bands {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.viewer-sounds-panel_bands:empty {
+  display: none;
+}
+
+/* A 2D image (editor/image-panel.js), on the volume panel's. */
+.viewer-image-panel {
+  width: 300px;
+}
+
+.viewer-image-panel_histogram {
+  position: relative;
+  z-index: auto;
+  display: block;
+  width: 100%;
+  height: 72px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.viewer-image-panel .viewer-pointcloud-panel_row[hidden] {
+  display: none;
+}
+
+/* The filmstrip of a set, over the top of the scene. */
+.viewer-image-strip {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 115;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(760px, calc(100% - 32px));
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 12px/1.3 system-ui, sans-serif;
+  transform: translateX(-50%);
+  backdrop-filter: blur(6px);
+}
+
+.viewer-image-strip button {
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.viewer-image-strip_step {
+  min-width: 28px;
+  height: 44px;
+  font-size: 18px !important;
+}
+
+.viewer-image-strip_list {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.viewer-image-strip_thumb {
+  flex: none;
+  width: 56px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0.7;
+}
+
+.viewer-image-strip_thumb.is-current {
+  border-color: var(--viewer-gui-slider-fill, #d9c3a0) !important;
+  box-shadow: 0 0 0 1px var(--viewer-gui-slider-fill, #d9c3a0);
+  opacity: 1;
+}
+
+.viewer-image-strip_thumb img,
+.viewer-image-grid_item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.viewer-image-strip_counter {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.viewer-image-strip_grid {
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+.viewer-image-strip_grid[aria-pressed="true"] {
+  background: var(--viewer-gui-widget-focus-bg, #4a3d2c) !important;
+}
+
+/* All the images of a set at once, over the side stack's windows
+   (z-index 10000) and the buttons on the canvas. */
+.viewer-image-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 10004;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: rgba(14, 12, 10, 0.92);
+  color: #fff;
+  font: 13px/1.35 system-ui, sans-serif;
+}
+
+.viewer-image-grid[hidden] {
+  display: none;
+}
+
+.viewer-image-grid_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.viewer-image-grid_close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.viewer-image-grid_list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.viewer-image-grid_item {
+  display: grid;
+  grid-template-rows: 105px auto;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.viewer-image-grid_item.is-current {
+  border-color: var(--viewer-gui-slider-fill, #d9c3a0);
+}
+
+.viewer-image-grid_item span {
+  overflow: hidden;
+  font-size: 11px;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Profile and classes (editor/point-cloud-tools.js). */
 .viewer-pointcloud-panel_row[hidden],
 .viewer-pointcloud-panel_classes[hidden] {
@@ -1676,7 +2251,7 @@
 }
 
 .viewer-compare {
-  --viewer-compare-accent: var(--viewer-brand-blue, #d9c3a0);
+  --viewer-compare-accent: var(--viewer-brand-secondary, #d9c3a0);
   position: absolute;
   left: 0;
   top: 0;
@@ -1896,7 +2471,7 @@
 }
 
 .viewer-variants button:focus-visible {
-  outline: 2px solid var(--viewer-brand-blue, #d9c3a0);
+  outline: 2px solid var(--viewer-brand-secondary, #d9c3a0);
   outline-offset: 2px;
 }
 
@@ -1967,12 +2542,12 @@
 }
 
 .viewer-variants_item.is-active {
-  border-color: var(--viewer-brand-blue, #d9c3a0);
+  border-color: var(--viewer-brand-secondary, #d9c3a0);
 }
 
 .viewer-variants_item.is-active::before {
-  border-color: var(--viewer-brand-blue, #d9c3a0);
-  background: var(--viewer-brand-blue, #d9c3a0);
+  border-color: var(--viewer-brand-secondary, #d9c3a0);
+  background: var(--viewer-brand-secondary, #d9c3a0);
   opacity: 1;
 }
 
@@ -2325,7 +2900,7 @@
 
 .viewer-photos button:focus-visible,
 .viewer-photos input:focus-visible {
-  outline: 2px solid var(--viewer-brand-blue, #d9c3a0);
+  outline: 2px solid var(--viewer-brand-secondary, #d9c3a0);
   outline-offset: 2px;
 }
 
@@ -2363,7 +2938,7 @@
 }
 
 .viewer-photos_item.is-active {
-  border-color: var(--viewer-brand-blue, #d9c3a0);
+  border-color: var(--viewer-brand-secondary, #d9c3a0);
 }
 
 .viewer-photos_thumb {
@@ -2432,7 +3007,7 @@
 .viewer-photos_row input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
-  accent-color: var(--viewer-brand-blue, #d9c3a0);
+  accent-color: var(--viewer-brand-secondary, #d9c3a0);
 }
 
 .viewer-photos_row > span:first-child {
@@ -2524,7 +3099,7 @@
 
 .viewer-sun button:focus-visible,
 .viewer-sun input:focus-visible {
-  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
   outline-offset: 2px;
 }
 
@@ -2570,7 +3145,7 @@
 .viewer-sun_time {
   flex: 1 1 auto;
   min-width: 0;
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-sun_field {
@@ -2653,7 +3228,7 @@
 
 .viewer-weather button:focus-visible,
 .viewer-weather input:focus-visible {
-  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
   outline-offset: 2px;
 }
 
@@ -2717,8 +3292,8 @@
 }
 
 .viewer-weather_type.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264);
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent);
+  border-color: var(--viewer-brand-accent, #f5a524);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 18%, transparent);
 }
 
 .viewer-weather_settings {
@@ -2745,7 +3320,7 @@
   width: 100%;
   min-width: 0;
   margin: 0;
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-weather_slider-value {
@@ -2770,7 +3345,7 @@
 }
 
 .viewer-weather_check input {
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 /* On a phone: compact, so the model stays in view - the weathers in one
@@ -2870,7 +3445,7 @@
 
 .viewer-xr button:focus-visible,
 .viewer-xr input:focus-visible {
-  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
   outline-offset: 2px;
 }
 
@@ -2906,8 +3481,8 @@
 }
 
 .viewer-xr_button.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264);
-  color: var(--viewer-brand-gold, #e9b264);
+  border-color: var(--viewer-brand-accent, #f5a524);
+  color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-xr_scale {
@@ -2931,7 +3506,7 @@
 }
 
 .viewer-xr_check input {
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-xr_note {
@@ -3002,7 +3577,7 @@
 .viewer-scene button:focus-visible,
 .viewer-scene input:focus-visible,
 .viewer-scene summary:focus-visible {
-  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
   outline-offset: 2px;
 }
 
@@ -3033,7 +3608,7 @@
 }
 
 .viewer-scene_uncertain {
-  color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-accent, #f5a524);
   opacity: 1;
 }
 
@@ -3051,8 +3626,8 @@
 }
 
 .viewer-scene_purpose.is-active {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 18%, transparent) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 18%, transparent) !important;
 }
 
 .viewer-scene_items {
@@ -3074,7 +3649,7 @@
 
 .viewer-scene_item input {
   grid-row: span 2;
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-scene_item-name {
@@ -3101,7 +3676,7 @@
 }
 
 .viewer-scene_confidence[data-level="low"] {
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 22%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 22%, transparent);
 }
 
 .viewer-scene_item.is-unchanged {
@@ -3131,7 +3706,7 @@
 }
 
 .viewer-scene_apply:not(:disabled) {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
 }
 
 .viewer-scene_basis {

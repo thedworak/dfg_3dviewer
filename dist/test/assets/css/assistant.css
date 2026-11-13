@@ -26,7 +26,18 @@
 }
 
 .viewer-hint[data-tone="warning"] {
-  border-color: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 55%, transparent);
+  border-color: var(--viewer-warning-border, rgba(255, 138, 61, 0.55));
+  box-shadow: inset 3px 0 0 var(--viewer-warning, #ff8a3d), 0 8px 24px rgba(12, 10, 8, 0.24);
+}
+
+.viewer-hint[data-tone="warning"]::before {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: var(--viewer-warning, #ff8a3d);
+  -webkit-mask: var(--viewer-warning-icon) center / contain no-repeat;
+  mask: var(--viewer-warning-icon) center / contain no-repeat;
 }
 
 .viewer-hint_text {
@@ -63,8 +74,8 @@
 }
 
 .viewer-hint_action.is-primary {
-  border-color: var(--viewer-brand-gold, #e9b264);
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 22%, transparent);
+  border-color: var(--viewer-brand-accent, #f5a524);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 22%, transparent);
 }
 
 .viewer-hint button:hover {
@@ -72,7 +83,7 @@
 }
 
 .viewer-hint button:focus-visible {
-  outline: 2px solid var(--viewer-brand-gold, #e9b264);
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
   outline-offset: 2px;
 }
 
@@ -116,7 +127,7 @@
 }
 
 .viewer-prepare_summary[data-state="fix"] {
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 20%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 20%, transparent);
 }
 
 .viewer-prepare_summary[data-state="ready"] {
@@ -155,8 +166,8 @@
 }
 
 .viewer-prepare_item[data-level="fix"] .viewer-prepare_mark {
-  background: var(--viewer-brand-gold, #e9b264);
-  color: #1c1610;
+  background: var(--viewer-brand-accent, #f5a524);
+  color: var(--viewer-on-accent, #1a1714);
 }
 
 .viewer-prepare_text {
@@ -186,7 +197,7 @@
 }
 
 .viewer-prepare_item[data-level="fix"] .viewer-prepare_fix {
-  border-color: var(--viewer-brand-gold, #e9b264) !important;
+  border-color: var(--viewer-brand-accent, #f5a524) !important;
 }
 
 .viewer-prepare_recheck {
@@ -220,7 +231,7 @@
 }
 
 .viewer-prepare_step[data-state="changed"] .viewer-prepare_text span {
-  color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-accent, #f5a524);
   opacity: 1;
 }
 
@@ -240,7 +251,7 @@
 }
 
 .viewer-prepare_front input {
-  accent-color: var(--viewer-brand-gold, #e9b264);
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 /* The number of things to fix on the toolbar's button, and a dot on the
@@ -258,8 +269,8 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--viewer-brand-gold, #e9b264);
-  color: #1c1610;
+  background: var(--viewer-brand-accent, #f5a524);
+  color: var(--viewer-on-accent, #1a1714);
   font: 700 10px/16px system-ui, sans-serif;
   text-align: center;
   box-sizing: border-box;
@@ -278,5 +289,5 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--viewer-brand-gold, #e9b264);
+  background: var(--viewer-brand-accent, #f5a524);
 }

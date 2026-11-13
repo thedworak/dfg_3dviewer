@@ -1,0 +1,68 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/audio/soundscape.ogg/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Soundscape: a linear frequency axis, through a low-pass filter (audio)"
+    ]
+  },
+  "rights": "http://creativecommons.org/publicdomain/zero/1.0/",
+  "items": [
+    {
+      "id": "./examples/audio/soundscape.ogg/scene",
+      "type": "Scene",
+      "label": {
+        "en": [
+          "soundscape"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/audio/soundscape.ogg/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/audio/soundscape.ogg/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/audio/soundscape.ogg",
+                "type": "Sound",
+                "format": "audio/ogg"
+              },
+              "target": {
+                "id": "./examples/audio/soundscape.ogg/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/audio/soundscape.ogg/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.2",
+    "generatedAt": "2026-11-11T00:00:00.000Z",
+    "audio": {
+      "frequencyScale": "linear",
+      "heightScale": 0.6,
+      "playback": {
+        "filter": {
+          "type": "lowpass",
+          "frequency": 700,
+          "q": 1
+        }
+      }
+    }
+  }
+}

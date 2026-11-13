@@ -1,0 +1,142 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/WolpaSynagogue.glb/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": ["Wolpa Synagogue - measured: height, hall, roof angle (AIM3D, localhost)"],
+    "pl": ["Synagoga w Wołpie - pomiary: wysokość, sala, kąt dachu (AIM3D, localhost)"],
+    "de": ["Synagoge Wolpa - vermessen: Höhe, Saal, Dachwinkel (AIM3D, localhost)"]
+  },
+  "summary": {
+    "en": ["The synagogue measured from outside: its height to the top of the roof, the length and width of the prayer hall, the angle of the roof at the ridge and the hall's footprint. The model is in centimetres."],
+    "pl": ["Synagoga zmierzona z zewnątrz: wysokość do szczytu dachu, długość i szerokość sali modlitw, kąt dachu przy kalenicy i powierzchnia zabudowy sali. Model jest w centymetrach."],
+    "de": ["Die Synagoge von außen vermessen: Höhe bis zum Dachfirst, Länge und Breite des Gebetssaals, Dachwinkel am First und Grundfläche des Saals. Das Modell ist in Zentimetern."]
+  },
+  "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "items": [
+    {
+      "id": "./examples/WolpaSynagogue.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 0.01,
+        "unit": "m"
+      },
+      "label": {
+        "en": ["Wolpa Synagogue"]
+      },
+      "items": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "id": "./examples/WolpaSynagogue.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.2",
+    "generatedAt": "2026-11-09T00:00:00.000Z",
+    "camera": {
+      "position": [3773.8, 1722.2, 4336.7],
+      "target": [-50, 750, -200],
+      "up": [0, 1, 0],
+      "fov": 45,
+      "zoom": 1,
+      "distance": 6012.3,
+      "perspectiveMode": "perspective",
+      "aspect": 1.7277,
+      "orientation": "landscape"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "performance": "high-performance"
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [0, 0, 0],
+        "color": "#404040",
+        "intensity": 1
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [0, 3000, 1500],
+        "target": [-50, 750, -200],
+        "color": "#ffffff",
+        "intensity": 1
+      }
+    ],
+    "modelTransform": {
+      "position": [0, 0, 0],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [1, 1, 1],
+      "wireframe": false,
+      "shadingMode": "standard"
+    },
+    "measurements": [
+      {
+        "mode": "distance",
+        "points": [[0, 0, 100], [0, 1667, 100]]
+      },
+      {
+        "mode": "distance",
+        "points": [[641, 700, -1016], [641, 700, 582]]
+      },
+      {
+        "mode": "distance",
+        "points": [[-740, 700, 582], [641, 700, 582]]
+      },
+      {
+        "mode": "angle",
+        "points": [[-800, 868, -300], [0, 1598, -300], [700, 870, -300]]
+      },
+      {
+        "mode": "area",
+        "points": [[-740, 0, -1016], [641, 0, -1016], [641, 0, 582], [-740, 0, 582]]
+      }
+    ]
+  },
+  "modified": "2026-11-09T00:00:00.000Z"
+}

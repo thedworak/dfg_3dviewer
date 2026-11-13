@@ -1,5 +1,9 @@
-import { gd as KTX2Loader, g7 as GLTFLoader, ge as MeshoptDecoder, a1 as Matrix4, M as Matrix3, V as Vector3, aM as Group, Q as Vector2, am as BufferGeometry, a9 as BufferAttribute, h as Mesh, f1 as Points, fj as ShaderMaterial, c8 as AdditiveBlending, eJ as LineSegments, d5 as HemisphereLight, d2 as DirectionalLight, Y as Vector4, ai as DoubleSide, fG as TextureLoader, bp as PlaneGeometry, aV as LineBasicMaterial, C as Color, bb as SRGBColorSpace, g8 as WebGLRenderer, i as Scene, bn as PerspectiveCamera, gf as OrbitControls, N as NormalBlending, fs as Spherical } from './assets/three-cXLO51tH.js';
-import { s as sunriseSunset, f as formatSunTime, a as solarPosition, b as sunTimestamp, H as HORIZON, R as RAD, l as loadIntroScene, c as sceneTexts, p as pickText } from './assets/intro-scene-DYWpSsos.js';
+import { a1 as Matrix4, M as Matrix3, V as Vector3, aM as Group, Q as Vector2, am as BufferGeometry, a9 as BufferAttribute, h as Mesh, f1 as Points, fj as ShaderMaterial, c8 as AdditiveBlending, eJ as LineSegments, d5 as HemisphereLight, d2 as DirectionalLight, Y as Vector4, ai as DoubleSide, fG as TextureLoader, bp as PlaneGeometry, aV as LineBasicMaterial, C as Color, bb as SRGBColorSpace, g7 as WebGLRenderer, i as Scene, bn as PerspectiveCamera, N as NormalBlending, fs as Spherical } from './assets/three-DQIwNvhE.js';
+import { s as sunriseSunset, f as formatSunTime, a as solarPosition, b as sunTimestamp, H as HORIZON, R as RAD, l as loadIntroScene, c as sceneTexts, p as pickText, O as OrbitControls } from './assets/intro-scene-DnRWY5Zp.js';
+import { GLTFLoader } from './assets/GLTFLoader-BRGPr9n5.js';
+import { KTX2Loader } from './assets/KTX2Loader-DH_brhHp.js';
+import { MeshoptDecoder } from './assets/meshopt_decoder.module-ddw5RWcg.js';
+import './assets/BufferGeometryUtils-kzrqI7hk.js';
 
 // The intro's second act (viewer/intro/intro.js): once the points stand,
 // the real model takes their place - first its vertices light up, then its
@@ -3410,4 +3414,4 @@ if (embedded) {
   });
   document.documentElement.classList.add('is-embedded');
 }
-//# sourceMappingURL=intro-B0A5-T0W.js.map
+//# sourceMappingURL=intro-D6dtZB7p.js.map

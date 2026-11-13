@@ -1,0 +1,2 @@
+import{a as s,b as e}from"./audio-analysis-CAkz3XAw.js";self.onmessage=a=>{const{channels:t,sampleRate:o}=a.data||{};try{const a=s({channels:t,sampleRate:o},{onProgress:s=>self.postMessage({type:"progress",progress:s})});self.postMessage({type:"done",result:a},e(a))}catch(s){self.postMessage({type:"error",message:s?.message||String(s)})}},self.postMessage({type:"ready"});
+//# sourceMappingURL=audio-analysis-worker-BPE2dmpK.js.map

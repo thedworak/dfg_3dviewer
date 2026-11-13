@@ -207,10 +207,10 @@
   padding: 2.5px;
   border-radius: inherit;
   background: conic-gradient(
-    var(--viewer-loader-accent, #e9b264) calc(var(--toolbar-load-progress) * 1%),
+    var(--viewer-loader-accent, #f5a524) calc(var(--toolbar-load-progress) * 1%),
     color-mix(in srgb, var(--viewer-panel-text) 18%, transparent) 0
   );
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 55%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--viewer-loader-accent, #f5a524) 55%, transparent));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -221,13 +221,13 @@
   right: 16px;
   bottom: calc(100% + 8px);
   padding: 4px 11px;
-  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #f5a524) 70%, transparent);
   border-radius: 999px;
   color: var(--viewer-panel-text);
   background: color-mix(in srgb, var(--viewer-panel-bg) 96%, transparent);
   box-shadow:
     0 4px 14px rgba(0, 0, 0, 0.26),
-    0 0 8px color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 30%, transparent);
+    0 0 8px color-mix(in srgb, var(--viewer-loader-accent, #f5a524) 30%, transparent);
   font-family: var(--font-ui);
   font-size: 14px;
   font-weight: 700;
@@ -245,7 +245,7 @@
 }
 
 #viewerEditorToolbar[data-loading="complete"]::after {
-  color: var(--viewer-loader-accent, #e9b264);
+  color: var(--viewer-loader-accent, #f5a524);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -397,7 +397,7 @@
 }
 
 /* The tools for the kind of model shown, brought onto the bar
-   (ui/format-tools.js): a small dot in the brand's gold under the icon, the
+   (ui/format-tools.js): a thin horizontal line in the brand's gold under the icon, the
    icon and its group's background as any other's - the gold frame and glow
    are for an active tool only. */
 #viewerEditorToolbar .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon {
@@ -408,17 +408,17 @@
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -6px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
+  bottom: -5px;
+  width: 14px;
+  height: 1.5px;
+  border-radius: 1px;
   transform: translateX(-50%);
-  background: color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 75%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-accent, #f5a524) 75%, transparent);
   pointer-events: none;
 }
 
 .viewer-wrapper[data-viewer-theme="light"] #viewerEditorToolbar .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon::after {
-  background: color-mix(in srgb, var(--viewer-brand-gold, #a8701f) 80%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-accent, #8a5300) 80%, transparent);
 }
 
 /* The hover lift (below) moves the button; its piece stays in line. */
@@ -689,20 +689,20 @@
   white-space: nowrap;
 }
 
-/* Active: the blue fill inside a frame of the brand's gold, with a faint
-   gold glow. */
+/* Active: a sand fill inside a frame of the brand's amber, with a faint
+   amber glow. */
 .viewer-editor-tool_submenu-button.is-active,
 .viewer-editor-tool.is-active {
   background: rgba(217, 195, 160, 0.16);
-  border-color: color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 80%, transparent);
+  border-color: color-mix(in srgb, var(--viewer-brand-accent, #f5a524) 80%, transparent);
   color: #e6d5b8;
-  box-shadow: 0 0 6px color-mix(in srgb, var(--viewer-brand-gold, #e9b264) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--viewer-brand-accent, #f5a524) 30%, transparent);
 }
 
 .viewer-wrapper[data-viewer-theme="light"] .viewer-editor-tool.is-active {
   background: rgba(74, 61, 44, 0.12);
-  border-color: color-mix(in srgb, var(--viewer-brand-gold, #a8701f) 70%, transparent);
-  color: var(--viewer-brand-blue-strong, #4a3d2c);
+  border-color: color-mix(in srgb, var(--viewer-brand-accent, #8a5300) 70%, transparent);
+  color: var(--viewer-brand-strong, #4a3d2c);
 }
 
 .viewer-editor-tool:focus-visible {
@@ -941,7 +941,7 @@
 }
 
 .viewer-editor-hierarchy-item.is-active .viewer-editor-hierarchy-submenu-label::before {
-  background: var(--viewer-brand-gold, #e9b264);
+  background: var(--viewer-brand-accent, #f5a524);
   opacity: 1;
 }
 
@@ -1077,7 +1077,7 @@
 .viewer-wrapper[data-viewer-theme="light"] #viewerActionMenuToggle:checked + .viewer-action-menu_toggle {
   background: rgba(74, 61, 44, 0.12);
   border-color: rgba(74, 61, 44, 0.3);
-  color: var(--viewer-brand-blue-strong, #4a3d2c);
+  color: var(--viewer-brand-strong, #4a3d2c);
 }
 
 .viewer-action-icon {
@@ -1352,7 +1352,7 @@
 .language-dropdown-item.active::before {
   content: "✓ ";
   margin-right: 4px;
-  color: var(--viewer-brand-gold, #e9b264);
+  color: var(--viewer-brand-accent, #f5a524);
 }
 
 .language-dropdown-item-english::before {

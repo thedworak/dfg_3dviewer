@@ -1,0 +1,148 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/WolpaSynagogue.glb/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": ["Wolpa Synagogue - section through the prayer hall, measured inside (AIM3D, localhost)"],
+    "pl": ["Synagoga w Wołpie - przekrój przez salę modlitw z pomiarami wnętrza (AIM3D, localhost)"],
+    "de": ["Synagoge Wolpa - Schnitt durch den Gebetssaal, innen vermessen (AIM3D, localhost)"]
+  },
+  "summary": {
+    "en": ["A section along the prayer hall, its cut faces filled, with the hall's clear height up to the dome, its inner length and the floor area of the half shown."],
+    "pl": ["Przekrój wzdłuż sali modlitw z wypełnionymi płaszczyznami cięcia: wysokość w świetle do kopuły, długość wnętrza i powierzchnia podłogi pokazanej połowy."],
+    "de": ["Ein Schnitt längs durch den Gebetssaal mit gefüllten Schnittflächen: lichte Höhe bis zur Kuppel, innere Länge und Bodenfläche der gezeigten Hälfte."]
+  },
+  "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "items": [
+    {
+      "id": "./examples/WolpaSynagogue.glb/scene",
+      "type": "Scene",
+      "spatialScale": {
+        "type": "Quantity",
+        "quantityValue": 0.01,
+        "unit": "m"
+      },
+      "label": {
+        "en": ["Wolpa Synagogue"]
+      },
+      "items": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/WolpaSynagogue.glb/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": ["painting"],
+              "body": {
+                "id": "./examples/WolpaSynagogue.glb",
+                "type": "Model"
+              },
+              "target": {
+                "id": "./examples/WolpaSynagogue.glb/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/WolpaSynagogue.glb/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.2",
+    "generatedAt": "2026-11-09T00:00:00.000Z",
+    "camera": {
+      "position": [2700, 800, -150],
+      "target": [0, 750, -200],
+      "up": [0, 1, 0],
+      "fov": 50,
+      "zoom": 1,
+      "distance": 2700,
+      "perspectiveMode": "perspective",
+      "aspect": 1.7778,
+      "orientation": "landscape"
+    },
+    "viewer": {
+      "container": "DFG_3DViewer",
+      "theme": "dark",
+      "language": "en",
+      "environmentMap": {
+        "intensity": 1,
+        "preset": "neutral",
+        "enabled": true
+      },
+      "rendering": {
+        "toneMapping": "neutral",
+        "exposure": 1,
+        "postprocessing": {
+          "enabled": false,
+          "antialias": "msaa"
+        }
+      },
+      "performance": "high-performance",
+      "clipping": {
+        "mode": {
+          "x": true,
+          "y": false,
+          "z": false
+        },
+        "negated": {
+          "x": false,
+          "y": false,
+          "z": false
+        },
+        "constants": [0, 0, 0],
+        "outlineVisible": true
+      }
+    },
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "position": [0, 0, 0],
+        "color": "#404040",
+        "intensity": 1
+      },
+      {
+        "type": "DirectionalLight",
+        "position": [0, 3000, 1500],
+        "target": [0, 750, -200],
+        "color": "#ffffff",
+        "intensity": 1
+      }
+    ],
+    "modelTransform": {
+      "position": [0, 0, 0],
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "order": "XYZ"
+      },
+      "scale": [1, 1, 1],
+      "wireframe": false,
+      "shadingMode": "standard"
+    },
+    "measurements": [
+      {
+        "mode": "distance",
+        "points": [[-5, 110, -300], [-5, 1455, -300]]
+      },
+      {
+        "mode": "distance",
+        "points": [[-5, 600, -991], [-5, 600, 577]]
+      },
+      {
+        "mode": "area",
+        "points": [[-715, 110, -991], [-5, 110, -991], [-5, 110, 577], [-715, 110, 577]]
+      }
+    ]
+  },
+  "modified": "2026-11-09T00:00:00.000Z"
+}

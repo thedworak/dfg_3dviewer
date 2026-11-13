@@ -44,16 +44,18 @@
     }
   ],
   "AIM3DViewer": {
-    "version": "1.0",
+    "version": "1.2",
     "generatedAt": "2026-08-21T00:00:00.000Z",
     "camera": {
-      "position": [-1.6694479537305902, 1.8347239768652952, 3.3388959074611804],
+      "position": [-2.39, 2.19, 4.77],
       "target": [0, 1, 0],
       "up": [0, 1, 0],
       "fov": 45,
       "zoom": 1,
-      "distance": 3.825185808379782,
-      "perspectiveMode": "perspective"
+      "distance": 5.47,
+      "perspectiveMode": "perspective",
+      "aspect": 1.7277,
+      "orientation": "landscape"
     },
     "viewer": {
       "container": "DFG_3DViewer",

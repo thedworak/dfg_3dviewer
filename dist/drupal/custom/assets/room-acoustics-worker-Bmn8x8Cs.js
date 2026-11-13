@@ -1,0 +1,2 @@
+import{c as s,a as e}from"./room-acoustics-DLqrPUIx.js";self.onmessage=o=>{const{geometry:r,options:t}=o.data||{};try{const{result:o,response:a}=s(r,{...t,onProgress:s=>self.postMessage({type:"progress",progress:s})});self.postMessage({type:"done",result:o,response:a},[...e(a),...o.histogram.map(s=>s.buffer)])}catch(s){self.postMessage({type:"error",message:s?.message||String(s)})}},self.postMessage({type:"ready"});
+//# sourceMappingURL=room-acoustics-worker--Fc9_HTC.js.map

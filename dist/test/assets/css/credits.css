@@ -109,7 +109,7 @@
 }
 
 .credits-link:hover {
-    color: var(--viewer-brand-gold, #e9b264);
+    color: var(--viewer-brand-accent, #f5a524);
     text-decoration: underline;
 }
 
@@ -137,6 +137,6 @@
 
 .credits-changelog:hover,
 .credits-changelog:focus-visible {
-    border-color: var(--viewer-brand-gold, #e9b264);
-    color: var(--viewer-brand-gold, #e9b264);
+    border-color: var(--viewer-brand-accent, #f5a524);
+    color: var(--viewer-brand-accent, #f5a524);
 }

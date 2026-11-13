@@ -3,7 +3,7 @@
 .feature-icon[data-status="warning"],
 .validation-report-row[data-status="warning"],
 .validation-report-issues [data-level="warning"] {
-  --status-color: #d48806;
+  --status-color: var(--viewer-warning, #ea6a1f);
 }
 
 .feature-icon[data-status="error"],
@@ -90,7 +90,7 @@
 }
 
 .validation-report-summary[data-status="ok"] { --status-color: #30a46c; }
-.validation-report-summary[data-status="warning"] { --status-color: #d48806; }
+.validation-report-summary[data-status="warning"] { --status-color: var(--viewer-warning, #ea6a1f); }
 .validation-report-summary[data-status="error"] { --status-color: #e5484d; }
 
 .validation-report-ring {

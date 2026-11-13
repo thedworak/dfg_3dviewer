@@ -55,7 +55,7 @@
     "AIM3DViewer": {
       "type": "object",
       "properties": {
-        "version": { "type": "string" },
+        "version": { "type": "string", "pattern": "^\\d+(\\.\\d+)?$", "description": "Manifest format version, MAJOR.MINOR (manifest-version.js): a newer MINOR opens in an older viewer without what it does not know; a newer MAJOR does not." },
         "generatedAt": { "type": "string" },
         "camera": {
           "type": "object",
@@ -66,7 +66,9 @@
             "fov": { "type": "number" },
             "zoom": { "type": "number" },
             "distance": { "type": "number" },
-            "perspectiveMode": { "enum": ["perspective", "orthographic"] }
+            "perspectiveMode": { "enum": ["perspective", "orthographic"] },
+            "aspect": { "type": "number", "exclusiveMinimum": 0 },
+            "orientation": { "enum": ["landscape", "portrait"] }
           },
           "additionalProperties": true
         },
@@ -196,6 +198,16 @@
                   },
                   "additionalProperties": true
                 },
+                "negated": {
+                  "description": "The planes flipped to keep the other side (default: each keeps the side below its cut).",
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "boolean" },
+                    "y": { "type": "boolean" },
+                    "z": { "type": "boolean" }
+                  },
+                  "additionalProperties": true
+                },
                 "constants": { "$ref": "#/$defs/vector3" },
                 "outlineVisible": { "type": "boolean" }
               },
@@ -291,6 +303,27 @@
           },
           "additionalProperties": true
         },
+        "measurements": {
+          "description": "The measurements placed in the viewer (Measure): distances, angles and areas, drawn when the manifest loads. Their points are in the model's own coordinates (before modelTransform), so they stay on the model.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["mode", "points"],
+            "properties": {
+              "mode": { "enum": ["distance", "angle", "area"], "description": "distance: a path through the points, each segment and the total; angle: start, vertex, end; area: the corners of a polygon, closed back to the first." },
+              "points": {
+                "type": "array",
+                "minItems": 2,
+                "description": "The points as [x, y, z]: at least 2 for a distance, 3 for an angle (only the first 3 count) and an area.",
+                "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } }
+              }
+            },
+            "allOf": [
+              { "if": { "properties": { "mode": { "enum": ["angle", "area"] } } }, "then": { "properties": { "points": { "minItems": 3 } } } }
+            ],
+            "additionalProperties": true
+          }
+        },
         "materials": {
           "description": "The model's materials as edited in the viewer (Look > Materials); exported while any is edited. The model's own materials stay as they are in its file.",
           "type": "array",
@@ -331,6 +364,79 @@
           "properties": {
             "open": { "type": "boolean", "description": "Open the window on load (default false)." },
             "purpose": { "enum": ["documentation", "presentation"], "description": "The purpose shown first (default: the one the rules pick)." }
+          },
+          "additionalProperties": true
+        },
+        "sounds": {
+          "description": "Sound in the scene: sources heard from where the camera is. Also written as AmbientAudio / PointAudio / SpotAudio annotations painted into the scene, for other viewers; this block wins when both are there.",
+          "type": "object",
+          "properties": {
+            "autoplay": { "type": "boolean", "description": "Play from the first click or key press in the page (browsers allow sound only after one); default false: from the Sounds window's play button." },
+            "volume": { "type": "number", "minimum": 0, "maximum": 1, "description": "All of them (default 1)." },
+            "sources": { "type": "array", "items": { "$ref": "#/$defs/sound" } },
+            "acoustics": {
+              "description": "The room's acoustics: the sounds heard with the reverberation worked out from the model's geometry at a listening point (worked out again when they play).",
+              "type": "object",
+              "properties": {
+                "on": { "type": "boolean", "description": "Hear the sounds in the room (default false)." },
+                "position": { "$ref": "#/$defs/vector3", "description": "The listening point, in scene coordinates (default: where the camera is)." },
+                "material": { "enum": ["stone", "plaster", "brick", "wood", "glass", "fabric", "ground"], "description": "The surfaces whose material's name does not say what they are (default plaster)." },
+                "floor": { "enum": ["material", "pews", "people"], "description": "What covers the floors (surfaces facing up): their material (default), empty benches or pews, benches with people." },
+                "amount": { "type": "number", "minimum": 0, "maximum": 2, "description": "The reverberation, louder or quieter than worked out (default 1)." }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "image": {
+          "description": "A 2D image's tools (when the scene shows an Image): the settings that are not the defaults.",
+          "type": "object",
+          "properties": {
+            "brightness": { "type": "number", "minimum": -0.5, "maximum": 0.5 },
+            "contrast": { "type": "number", "minimum": 0, "maximum": 3 },
+            "gamma": { "type": "number", "minimum": 0.2, "maximum": 3 },
+            "saturation": { "type": "number", "minimum": 0, "maximum": 3 },
+            "invert": { "type": "boolean" },
+            "channel": { "enum": ["rgb", "red", "green", "blue", "luminance"] },
+            "autoLevels": { "type": "boolean" },
+            "equalize": { "type": "boolean" },
+            "sharpen": { "type": "number", "minimum": 0, "maximum": 2 },
+            "relief": { "type": "number", "minimum": 0, "maximum": 1 },
+            "reliefAngle": { "type": "number", "minimum": 0, "maximum": 360, "description": "Where the relief's light comes from, degrees (0: the right, 90: the top)." },
+            "edges": { "type": "number", "minimum": 0, "maximum": 1 },
+            "dstretch": { "type": "boolean", "description": "Decorrelation stretch." },
+            "falseColor": { "enum": ["none", "inferno", "viridis", "turbo"] },
+            "compare": { "type": "boolean", "description": "The original shown left of the line at `split` (0 to 1)." },
+            "split": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": true
+        },
+        "audio": {
+          "description": "An audio file's 3D view and playback (when the scene shows a Sound): the settings that are not the defaults.",
+          "type": "object",
+          "properties": {
+            "frequencyScale": { "enum": ["log", "linear"] },
+            "range": { "type": "number", "minimum": 30, "maximum": 120, "description": "The levels shown, dB below the loudest." },
+            "heightScale": { "type": "number", "exclusiveMinimum": 0 },
+            "showTerrain": { "type": "boolean" },
+            "showWaveform": { "type": "boolean" },
+            "playback": {
+              "type": "object",
+              "properties": {
+                "volume": { "type": "number", "minimum": 0, "maximum": 1 },
+                "rate": { "type": "number", "exclusiveMinimum": 0 },
+                "preservePitch": { "type": "boolean" },
+                "loop": { "type": "boolean" },
+                "region": { "type": "object", "properties": { "start": { "type": "number", "minimum": 0 }, "end": { "type": "number", "minimum": 0 } }, "description": "The part played (seconds)." },
+                "channelMode": { "enum": ["stereo", "mono", "left", "right"] },
+                "filter": { "type": "object", "properties": { "type": { "enum": ["off", "lowpass", "highpass", "bandpass", "notch"] }, "frequency": { "type": "number", "exclusiveMinimum": 0 }, "q": { "type": "number", "exclusiveMinimum": 0 } } },
+                "compressor": { "type": "boolean" },
+                "reverb": { "enum": ["off", "room", "hall", "church"] },
+                "reverbMix": { "type": "number", "minimum": 0, "maximum": 1 }
+              },
+              "additionalProperties": true
+            }
           },
           "additionalProperties": true
         },
@@ -397,6 +503,15 @@
           "type": "object",
           "properties": {
             "mode": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "boolean" },
+                "y": { "type": "boolean" },
+                "z": { "type": "boolean" }
+              },
+              "additionalProperties": true
+            },
+            "negated": {
               "type": "object",
               "properties": {
                 "x": { "type": "boolean" },
@@ -549,6 +664,26 @@
         "position": { "type": "number", "minimum": 0, "maximum": 1, "description": "Divider position across the canvas in swipe mode (default 0.5)." },
         "left": { "$ref": "#/$defs/compareSide" },
         "right": { "$ref": "#/$defs/compareSide" }
+      },
+      "additionalProperties": true
+    },
+    "sound": {
+      "type": "object",
+      "required": ["src"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["ambient", "point", "spot"], "description": "ambient: everywhere at the same level; point: from `position`, fainter with the distance; spot: from `position` towards `lookAt`, full inside its cone (default: point with a position, else ambient)." },
+        "src": { "type": "string", "minLength": 1, "description": "The sound file (WAV, MP3, FLAC, Ogg, M4A...). Relative URLs (\"./...\") resolve like the manifest's model URLs; another site must allow it (CORS)." },
+        "label": { "type": "string" },
+        "position": { "$ref": "#/$defs/vector3", "description": "Where it is, in scene coordinates (point, spot)." },
+        "lookAt": { "$ref": "#/$defs/vector3", "description": "Where a spot source aims." },
+        "angle": { "type": "number", "exclusiveMinimum": 0, "maximum": 360, "description": "A spot source's cone, degrees (default 90): full volume inside half of it, 15% outside it." },
+        "distance": { "type": "number", "exclusiveMinimum": 0, "description": "Full volume up to this distance (scene units); halves with each doubling beyond it. Default: half the model's radius." },
+        "volume": { "type": "number", "minimum": 0, "maximum": 1, "description": "Default 1." },
+        "loop": { "type": "boolean", "description": "Default true." },
+        "years": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": ["number", "null"] }, "description": "[from, to]: heard only while the 4D timeline shows a year between them (null: open), faded in and out." },
+        "on": { "type": "boolean", "description": "Default true; false: listed, not heard." },
+        "acoustics": { "type": "boolean", "description": "Heard in the room's acoustics (sounds.acoustics); default: point and spot sources yes, ambient ones no." }
       },
       "additionalProperties": true
     },

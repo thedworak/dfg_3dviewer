@@ -259,7 +259,9 @@ canvas {
   pointer-events: none;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(12, 10, 8, 0.18);
+  box-shadow:
+    0 1px 2px rgba(12, 10, 8, 0.2),
+    0 10px 28px -6px rgba(12, 10, 8, 0.32);
 }
 
 /* The picking hint's buttons on a touch screen (updatePickingHintVisibility
@@ -295,15 +297,16 @@ canvas {
 }
 
 .viewer-notice-action--primary {
-  background: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 90%, transparent);
-  border-color: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 90%, transparent);
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 90%, transparent);
+  border-color: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 90%, transparent);
   color: #1c160f;
 }
 
 .viewer-notice-status {
   position: relative;
   opacity: 0;
-  transform: translateY(8px) scale(0.98);
+  transform: perspective(600px) rotateX(-18deg) translateY(8px) scale(0.98);
+  transform-origin: 50% 100%;
   transition: opacity 0.2s ease, transform 0.2s ease;
   white-space: pre-line;
   text-align: center;
@@ -344,7 +347,7 @@ canvas {
 
 .viewer-notice-status.is-visible {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: perspective(600px) rotateX(0deg) translateY(0) scale(1);
 }
 
 .viewer-notice-status.is-hiding {
@@ -354,7 +357,7 @@ canvas {
 
 .viewer-notice-status[data-tone="success"] {
   background: rgba(46, 37, 26, 0.8);
-  border-color: color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 42%, transparent);
+  border-color: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 42%, transparent);
 }
 
 .viewer-notice-status[data-tone="error"] {
@@ -363,8 +366,21 @@ canvas {
 }
 
 .viewer-notice-status[data-tone="warning"] {
-  background: rgba(120, 53, 15, 0.76);
-  border-color: rgba(253, 230, 138, 0.26);
+  background: var(--viewer-warning-bg);
+  border-color: var(--viewer-warning-border);
+  color: var(--viewer-warning-text);
+}
+
+.viewer-notice-status[data-tone="warning"] .viewer-notice-message::before {
+  content: "";
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.45em;
+  vertical-align: -0.2em;
+  background: var(--viewer-warning);
+  -webkit-mask: var(--viewer-warning-icon) center / contain no-repeat;
+  mask: var(--viewer-warning-icon) center / contain no-repeat;
 }
 
 .viewer-notice-status[data-tone="info"] {
@@ -384,7 +400,7 @@ canvas {
   background: rgba(22, 19, 16, 0.64);
   border-color: rgba(255, 255, 255, 0.24);
   box-shadow: 0 18px 56px rgba(12, 10, 8, 0.28);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 0%, transparent),
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 0%, transparent),
               0 18px 56px rgba(12, 10, 8, 0.28);
 
   animation: sandbox-outline 2.4s ease-in-out infinite;
@@ -409,15 +425,15 @@ canvas {
 
 @keyframes sandbox-outline {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 0%, transparent),
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 0%, transparent),
                 0 18px 56px rgba(12, 10, 8, 0.28);
   }
   50% {
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 43%, transparent),
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 43%, transparent),
                 0 18px 56px rgba(12, 10, 8, 0.28);
   }
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-glow, #e9b264) 0%, transparent),
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 0%, transparent),
                 0 18px 56px rgba(12, 10, 8, 0.28);
   }
 }
@@ -507,8 +523,8 @@ canvas {
   --widget-color: var(--viewer-gui-widget-bg);
   --hover-color: var(--viewer-gui-widget-hover-bg);
   --focus-color: var(--viewer-gui-widget-focus-bg);
-  --number-color: var(--viewer-brand-blue);
-  --string-color: var(--viewer-brand-gold);
+  --number-color: var(--viewer-brand-secondary);
+  --string-color: var(--viewer-brand-accent);
   --color: var(--viewer-panel-text);
   background: var(--viewer-gui-bg);
   border-radius: 6px;
@@ -630,7 +646,7 @@ canvas {
 
 .model-loader__percent {
   padding: 3px 9px;
-  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #e9b264) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--viewer-loader-accent, #f5a524) 45%, transparent);
   border-radius: 999px;
   color: currentColor;
   background: color-mix(in srgb, var(--viewer-panel-bg, rgba(22, 19, 16, 0.82)) 88%, transparent);
@@ -657,6 +673,11 @@ canvas {
   .model-loader__bar {
     transition: none;
   }
+
+  .viewer-notice-status,
+  .viewer-notice-status.is-hiding {
+    transform: none;
+  }
 }
 
 .toastify {
@@ -666,8 +687,8 @@ canvas {
   box-shadow:
     0 3px 6px -1px rgba(0, 0, 0, 0.12),
     0 10px 36px -4px rgba(74, 61, 44, 0.3);
-  background: -webkit-linear-gradient(315deg, #a68b64, var(--viewer-brand-blue-strong, #4a3d2c));
-  background: linear-gradient(135deg, #a68b64, var(--viewer-brand-blue-strong, #4a3d2c));
+  background: -webkit-linear-gradient(315deg, #a68b64, var(--viewer-brand-strong, #4a3d2c));
+  background: linear-gradient(135deg, #a68b64, var(--viewer-brand-strong, #4a3d2c));
   position: fixed;
   right: 15px;
   opacity: 0;
@@ -730,30 +751,84 @@ canvas {
   width: 70%;
 }
 
-/* Museum palette: the app icon's gold with a sand beige, over near-black
+/* Amber palette: an amber accent with a sand beige, over near-black
    umber neutrals (panels) and parchment (light theme), for the viewer's
-   accents (active buttons, selection, focus, sliders, loading, documented
-   timeline events). The "blue" names stay for the stylesheets using them.
-   --viewer-brand-blue-strong, a dark coffee brown, fills behind white text
-   (11:1); the light theme has darker tones, for contrast on its panels.
-   On :root, so panels outside .viewer-wrapper (manifest form) have them.
-   --viewer-brand-glow is the gold of the translucent highlights (active
-   rows, glows, the loading bar), the same in both themes.
-   A deployment changes all of them with "branding.colors" in
-   viewer-settings.json (viewer/branding.js, docs/branding.md). */
+   accents. The scene and the panels stay neutral, so the model keeps its
+   own colours.
+   --viewer-brand-accent     active buttons, focus rings, loading, selection
+   --viewer-brand-secondary  slider fills, numbers, secondary accents
+   --viewer-brand-strong     dark coffee brown behind white text (10.5:1)
+   --viewer-brand-glow       resin amber of translucent highlights (active
+                             rows, glows, the loading bar), both themes
+   The light theme has darker tones, for contrast on its panels (accent
+   6.1:1 on #fcfaf6). On :root, so panels outside .viewer-wrapper (manifest
+   form) have them. A deployment changes all of them with "branding.colors"
+   in viewer-settings.json (viewer/branding.js, docs/branding.md).
+   --viewer-brand-gold, -blue and -blue-strong are the former names, kept
+   for brand stylesheets written against them; declared again with the
+   light values so they follow the theme. */
 :root {
-  --viewer-brand-blue: #d9c3a0;
-  --viewer-brand-blue-strong: #4a3d2c;
-  --viewer-brand-gold: #e9b264;
-  --viewer-brand-glow: #e9b264;
+  --viewer-brand-secondary: #d9c3a0;
+  --viewer-brand-strong: #4a3d2c;
+  --viewer-brand-accent: #f5a524;
+  --viewer-brand-glow: #ffb300;
+  /* Text on an --viewer-brand-accent fill. */
+  --viewer-on-accent: #1a1714;
+  /* Shadows in layers: a contact line, a near key shadow and a wide
+     ambient one, so a panel reads as lifted off the scene. -raised is for
+     what floats above the panels (open menus, the bar under the pointer). */
+  --viewer-panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.32),
+    0 6px 14px -4px rgba(0, 0, 0, 0.38),
+    0 18px 40px -12px rgba(0, 0, 0, 0.5);
+  --viewer-panel-shadow-raised:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 12px 24px -6px rgba(0, 0, 0, 0.42),
+    0 32px 64px -16px rgba(0, 0, 0, 0.6);
+  /* Warnings: an orange apart from the amber accent, with an icon. */
+  --viewer-warning: #ff8a3d;
+  --viewer-warning-strong: #9a3412;
+  --viewer-warning-bg: rgba(124, 45, 18, 0.82);
+  --viewer-warning-border: rgba(255, 138, 61, 0.55);
+  --viewer-warning-text: #ffe8d6;
+  /* A triangle with a "!" cut out, painted through mask-image. */
+  --viewer-warning-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M10.3 3.6 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0ZM11 9h2v5.5h-2zM11 16.5h2v2h-2z'/%3E%3C/svg%3E");
 }
 
 html[data-viewer-theme="light"],
 .viewer-wrapper[data-viewer-theme="light"],
 #form-manifesto[data-viewer-theme="light"] {
-  --viewer-brand-blue: #4a3d2c;
-  --viewer-brand-blue-strong: #4a3d2c;
-  --viewer-brand-gold: #a8701f;
+  --viewer-brand-secondary: #4a3d2c;
+  --viewer-brand-strong: #4a3d2c;
+  --viewer-brand-accent: #8a5300;
+  --viewer-on-accent: #ffffff;
+  /* Warm, lighter shadows on parchment. */
+  --viewer-panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 2px rgba(74, 61, 44, 0.14),
+    0 6px 14px -4px rgba(74, 61, 44, 0.18),
+    0 18px 40px -12px rgba(74, 61, 44, 0.26);
+  --viewer-panel-shadow-raised:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 4px rgba(74, 61, 44, 0.14),
+    0 12px 24px -6px rgba(74, 61, 44, 0.2),
+    0 32px 64px -16px rgba(74, 61, 44, 0.32);
+  --viewer-warning: #c2410c;
+  --viewer-warning-strong: #9a3412;
+  --viewer-warning-bg: rgba(255, 237, 224, 0.96);
+  --viewer-warning-border: rgba(194, 65, 12, 0.45);
+  --viewer-warning-text: #7c2d12;
+}
+
+:root,
+html[data-viewer-theme="light"],
+.viewer-wrapper,
+#form-manifesto[data-viewer-theme="light"] {
+  --viewer-brand-gold: var(--viewer-brand-accent);
+  --viewer-brand-blue: var(--viewer-brand-secondary);
+  --viewer-brand-blue-strong: var(--viewer-brand-strong);
 }
 
 .viewer-wrapper {
@@ -764,14 +839,14 @@ html[data-viewer-theme="light"],
   --viewer-panel-border: rgba(255, 255, 255, 0.12);
   --viewer-panel-shadow: 0 12px 30px rgba(12, 10, 8, 0.28);
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
-  --viewer-loader-accent: var(--viewer-brand-gold);
+  --viewer-loader-accent: var(--viewer-brand-accent);
   --viewer-gui-bg: rgba(38, 34, 29, 0.9);
   --viewer-gui-title-bg: rgba(38, 34, 29, 0.9);
   --viewer-gui-title-hover-bg: rgba(24, 21, 18, 0.9);
   --viewer-gui-widget-bg: rgba(255, 255, 255, 0.14);
   --viewer-gui-widget-hover-bg: rgba(255, 255, 255, 0.2);
-  --viewer-gui-widget-focus-bg: var(--viewer-brand-blue-strong);
-  --viewer-gui-slider-fill: var(--viewer-brand-blue);
+  --viewer-gui-widget-focus-bg: var(--viewer-brand-strong);
+  --viewer-gui-slider-fill: var(--viewer-brand-secondary);
   --viewer-gui-checkbox-tick: rgba(255, 255, 255, 0.96);
   --metadata-border: rgba(255, 255, 255, 0.12);
   --metadata-shadow: 0 12px 30px rgba(12, 10, 8, 0.28);
@@ -810,14 +885,14 @@ html[data-viewer-theme="light"],
   --viewer-panel-border: rgba(164, 151, 132, 0.28);
   --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
   --viewer-panel-text: rgba(37, 33, 28, 0.92);
-  --viewer-loader-accent: var(--viewer-brand-gold);
+  --viewer-loader-accent: var(--viewer-brand-accent);
   --viewer-gui-bg: rgba(249, 246, 240, 0.96);
   --viewer-gui-title-bg: rgba(243, 238, 230, 0.98);
   --viewer-gui-title-hover-bg: rgba(236, 230, 220, 0.98);
   --viewer-gui-widget-bg: rgba(236, 230, 220, 0.9);
   --viewer-gui-widget-hover-bg: rgba(228, 221, 210, 0.96);
-  --viewer-gui-widget-focus-bg: var(--viewer-brand-blue-strong);
-  --viewer-gui-slider-fill: var(--viewer-brand-gold);
+  --viewer-gui-widget-focus-bg: var(--viewer-brand-strong);
+  --viewer-gui-slider-fill: var(--viewer-brand-accent);
   --viewer-gui-checkbox-tick: rgba(37, 33, 28, 0.92);
   --metadata-border: rgba(164, 151, 132, 0.24);
   --metadata-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
@@ -1491,6 +1566,16 @@ html[data-viewer-theme="light"],
   padding: 7px 9px;
 }
 
+/* An annotation's narration and its captions (editor/narration.js). */
+.annotation-dialog__narration {
+  display: grid;
+  gap: 8px;
+}
+
+.annotation-dialog__narration-preview {
+  justify-self: start;
+}
+
 /* Level of Certainty and what it applies to, side by side. */
 .annotation-dialog__certainty {
   display: grid;
@@ -2117,10 +2202,10 @@ body.viewer-app #viewer-account-bar:not(:has(button:not([hidden]))) {
 @keyframes first-run-pulse-glow {
   0%,
   100% {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--viewer-brand-blue) 35%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--viewer-brand-secondary) 35%, transparent);
   }
   50% {
-    box-shadow: inset 0 0 0 2px var(--viewer-brand-blue), inset 0 0 14px color-mix(in srgb, var(--viewer-brand-blue) 55%, transparent);
+    box-shadow: inset 0 0 0 2px var(--viewer-brand-secondary), inset 0 0 14px color-mix(in srgb, var(--viewer-brand-secondary) 55%, transparent);
   }
 }
 
@@ -2141,7 +2226,7 @@ body.viewer-app #viewer-account-bar:not(:has(button:not([hidden]))) {
   }
 
   .first-run-pulse {
-    box-shadow: inset 0 0 0 2px var(--viewer-brand-blue);
+    box-shadow: inset 0 0 0 2px var(--viewer-brand-secondary);
   }
 }
 

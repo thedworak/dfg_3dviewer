@@ -82,7 +82,7 @@
 }
 
 .event-log-entry[data-tone="warning"] {
-  border-left-color: #d9a35a;
+  border-left-color: var(--viewer-warning, #ff8a3d);
 }
 
 .event-log-entry[data-tone="error"] {

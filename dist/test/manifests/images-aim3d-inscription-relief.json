@@ -1,0 +1,62 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/images/inscription.png/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Worn inscription in relief (2D image)"
+    ]
+  },
+  "rights": "http://creativecommons.org/publicdomain/zero/1.0/",
+  "items": [
+    {
+      "id": "./examples/images/inscription.png/scene",
+      "type": "Scene",
+      "label": {
+        "en": [
+          "inscription"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/images/inscription.png/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/images/inscription.png/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/images/inscription.png",
+                "type": "Image",
+                "format": "image/png"
+              },
+              "target": {
+                "id": "./examples/images/inscription.png/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/images/inscription.png/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.2",
+    "generatedAt": "2026-11-11T00:00:00.000Z",
+    "image": {
+      "relief": 0.85,
+      "reliefAngle": 120,
+      "sharpen": 0.4
+    }
+  }
+}

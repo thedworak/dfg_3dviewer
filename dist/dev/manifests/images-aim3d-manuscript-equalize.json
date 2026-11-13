@@ -1,0 +1,62 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/images/manuscript.jpg/manifest.json",
+  "type": "Manifest",
+  "label": {
+    "en": [
+      "Faded manuscript, equalised (2D image)"
+    ]
+  },
+  "rights": "http://creativecommons.org/publicdomain/zero/1.0/",
+  "items": [
+    {
+      "id": "./examples/images/manuscript.jpg/scene",
+      "type": "Scene",
+      "label": {
+        "en": [
+          "manuscript"
+        ]
+      },
+      "items": [
+        {
+          "id": "./examples/images/manuscript.jpg/scene/page/model",
+          "type": "AnnotationPage",
+          "items": [
+            {
+              "id": "./examples/images/manuscript.jpg/scene/annotation/model",
+              "type": "Annotation",
+              "motivation": [
+                "painting"
+              ],
+              "body": {
+                "id": "./examples/images/manuscript.jpg",
+                "type": "Image",
+                "format": "image/jpeg"
+              },
+              "target": {
+                "id": "./examples/images/manuscript.jpg/scene",
+                "type": "Scene"
+              }
+            }
+          ]
+        }
+      ],
+      "annotations": [
+        {
+          "id": "./examples/images/manuscript.jpg/scene/page/annotations",
+          "type": "AnnotationPage",
+          "items": []
+        }
+      ]
+    }
+  ],
+  "AIM3DViewer": {
+    "version": "1.2",
+    "generatedAt": "2026-11-11T00:00:00.000Z",
+    "image": {
+      "equalize": true,
+      "channel": "luminance",
+      "contrast": 1.2
+    }
+  }
+}
