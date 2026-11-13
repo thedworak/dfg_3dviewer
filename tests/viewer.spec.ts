@@ -4674,6 +4674,56 @@ test('audio files: played, drawn as a spectrogram landscape, with their tags and
   expect(await page.evaluate(() => window.Viewer.isAudioActive())).toBe(false);
 });
 
+test('audio files: the playhead dragged in the scene moves the time; a manifest\'s idle section planes stand at the margins', async ({ page }) => {
+  // A file and then a manifest: slow with software WebGL.
+  test.setTimeout(90_000);
+  await openViewer(page, '/examples/audio/soundscape.wav');
+  await waitForModel(page, 30_000);
+  await page.waitForFunction(() => window.Viewer.isAudioActive?.() && document.getElementById('viewerAudioPanel'));
+  await waitForCameraIdle(page);
+
+  // A point of the playhead's pane on screen, moved to the time `x` (scene
+  // units along the landscape, 0 its middle).
+  const onScreen = (x) => page.evaluate((x) => {
+    const state = window.Viewer.audioState;
+    let playhead = null;
+    state.root.traverse((object) => { if (object.userData?.isAudioPlayhead) playhead = object; });
+    const point = playhead.position.clone();
+    point.x = x;
+    point.y = 0.3;
+    point.z = 3;
+    state.root.localToWorld(point).project(window.Viewer.camera);
+    const box = document.getElementById('MainCanvas').getBoundingClientRect();
+    return { x: box.left + (point.x + 1) / 2 * box.width, y: box.top + (1 - point.y) / 2 * box.height };
+  }, x);
+  const from = await onScreen(-6);
+  const to = await onScreen(0);
+  const camera = () => page.evaluate(() => window.Viewer.camera.position.toArray());
+  const before = await camera();
+  await page.mouse.move(from.x, from.y);
+  await expect.poll(() => page.evaluate(() => document.getElementById('MainCanvas').style.cursor)).toBe('ew-resize');
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.up();
+  // Half way along the 12 s, and the camera did not turn.
+  expect(await page.evaluate(() => window.Viewer.audioState.player.currentTime)).toBeCloseTo(6, 0);
+  const after = await camera();
+  expect(Math.hypot(...after.map((value, i) => value - before[i]))).toBeLessThan(0.05);
+
+  // A manifest as the viewer saves it: all three constants, 0 for the axes
+  // never moved - the middle of the landscape. Turned on, X cuts nothing.
+  await loadExampleManifest(page, 'sounds-aim3d-bird-call.json',
+    "manifest.AIM3DViewer.clipping = { mode: { x: false, y: false, z: false }, constants: [0, 0, 0], outlineVisible: true };");
+  await page.waitForFunction(() => window.Viewer.isAudioActive?.());
+  await page.evaluate(() => window.Viewer.toggleClippingPlanesPanel());
+  const clipping = await page.evaluate(() => ({
+    x: window.Viewer.isClippingAxisEnabled('x'),
+    cut: window.Viewer.clippingPositionToCut('x', window.Viewer.getClippingAxisPosition('x')),
+  }));
+  expect(clipping.x).toBe(true);
+  expect(clipping.cut).toBeCloseTo(0, 3);
+});
+
 test('audio files: Ogg Vorbis with its comments and chapters', async ({ page }) => {
   await openViewer(page, '/examples/audio/soundscape.ogg');
   await waitForModel(page, 30_000);

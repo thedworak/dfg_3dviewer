@@ -23,7 +23,8 @@ import { canvasFont } from "./ui/canvas-font.js";
 //   from the camera and hides little; linear or logarithmic), the level as
 //   height and colour (the `range` dB below the loudest are shown);
 //   the waveform lying flat in front of it, coloured where already played;
-//   the playhead, a pane across both at the current time;
+//   the playhead, a pane across both at the current time - dragged with
+//   the pointer, it moves the time (editor/audio-panel.js);
 //   labels: the times in front, the frequencies at the left.
 //
 // Settings (root.userData.audio) are JSON (userData is serialised); the
@@ -523,6 +524,55 @@ export function updateAudioScene(root) {
   state.meshes.playhead.position.x = (fraction - 0.5) * SCENE_WIDTH;
   const columns = state.meshes.waveColumns;
   colorWaveform(state, columns && fraction > 0 ? Math.floor(fraction * (columns - 1)) : -1);
+}
+
+// ---- Dragging the playhead (editor/audio-panel.js) ----
+
+// The pane is caught this far (scene units) to either side of it: it is
+// a hairline itself.
+const PLAYHEAD_GRAB = 0.2;
+
+// A world ray in the root's own space, where the landscape is laid out.
+function localRay(root, ray) {
+  root.updateMatrixWorld(true);
+  return ray.clone().applyMatrix4(new THREE.Matrix4().copy(root.matrixWorld).invert());
+}
+
+// Where a world ray (the pointer's) meets the playhead's pane, in the
+// root's space; null when it misses.
+export function hitAudioPlayhead(root, ray) {
+  const playhead = states.get(root)?.meshes.playhead;
+  if (!playhead?.visible) return null;
+  const local = localRay(root, ray);
+  const x = playhead.position.x;
+  const box = new THREE.Box3(
+    new THREE.Vector3(x - PLAYHEAD_GRAB, 0, -SCENE_DEPTH / 2 - 0.1),
+    new THREE.Vector3(x + PLAYHEAD_GRAB, TERRAIN_HEIGHT + 0.5, FRONT + 0.1),
+  );
+  if (!local.intersectsBox(box)) return null;
+  // On the pane itself, so that the drag starts where the playhead is;
+  // the box's side when the ray runs along the pane.
+  const pane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -x);
+  return local.intersectPlane(pane, new THREE.Vector3()) || local.intersectBox(box, new THREE.Vector3());
+}
+
+// The time under a world ray: the point nearest to the ray on the line
+// along the time axis through `grab` (where the pane was caught, from
+// hitAudioPlayhead; its middle without), in seconds - the caught point
+// stays under the pointer. Null while looking along that line.
+export function audioTimeAtRay(root, ray, grab = null) {
+  const state = states.get(root);
+  const playhead = state?.meshes.playhead;
+  const duration = state?.player.duration;
+  if (!playhead || !(duration > 0)) return null;
+  const local = localRay(root, ray);
+  const through = grab || playhead.position;
+  const w0 = new THREE.Vector3(0, through.y, through.z).sub(local.origin);
+  const b = local.direction.x;
+  const denom = 1 - b * b;
+  if (denom < 1e-3) return null;
+  const x = (b * local.direction.dot(w0) - w0.x) / denom;
+  return Math.min(1, Math.max(0, x / SCENE_WIDTH + 0.5)) * duration;
 }
 
 export function disposeAudio(root) {

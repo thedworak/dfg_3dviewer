@@ -294,6 +294,21 @@ export function attachClipping(Viewer) {
       Viewer.applyClippingState();
     },
 
+    // An axis that does not cut stands at the margin, past the model's kept
+    // side, whatever constant came with it (manifests save all three, 0 for
+    // an axis never moved, which is the middle of most models): when it is
+    // turned on, the whole model is still there - an audio file's whole
+    // spectrum, say.
+    placeIdleClippingPlanesAtMargins() {
+      if (!Viewer.isClippingAvailable() || !core.planeParams?.clippingMode) return;
+      CLIPPING_AXES.forEach((axis) => {
+        if (Viewer.isClippingAxisEnabled(axis)) return;
+        Viewer.clippingState.fraction[axis] = Viewer.isClippingAxisNegated(axis) ? -OVERSHOOT : DEFAULT_FRACTION;
+      });
+      if (Viewer.clippingState.bounds) Viewer.positionClippingPlanesFromFractions();
+      else Viewer.applyClippingState();
+    },
+
     // Re-reads fractions after the planes were set from outside (URL, manifest).
     syncClippingFractions() {
       CLIPPING_AXES.forEach((axis) => {
@@ -692,6 +707,10 @@ export function attachClipping(Viewer) {
       }
       if (hasOutline) core.planeParams.outline.visible = clippingOutline;
       Viewer.syncClippingFractions();
+      if (hasMode) {
+        Viewer.placeIdleClippingPlanesAtMargins();
+        return;
+      }
       Viewer.applyClippingState();
     },
 

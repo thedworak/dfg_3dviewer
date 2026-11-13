@@ -1,3 +1,4 @@
+import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
@@ -13,6 +14,9 @@ import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 //   the speed (with or without the pitch), the volume, the channels, a
 //   filter, an even loudness and a reverberation; the 3D scene's
 //   frequency axis, levels and height; below, what the file is.
+//
+// In the scene, the playhead's pane (audio.js) is dragged with the pointer
+// to move the time, as the panel's waveform is clicked.
 //
 // Like the volume settings (volume-panel.js): it opens by itself in the
 // side stack; on phones it appears minimized to its icon and opens as a
@@ -76,6 +80,7 @@ export function attachAudioPanel(Viewer) {
         state.player = api.getAudioState(root)?.player || null;
         if (!state.player) return;
         state.unsubscribe = state.player.on(() => Viewer.syncAudioPanel());
+        Viewer.bindAudioPlayheadDrag();
         Viewer.createAudioPanel();
         Viewer.updateEditorToolbarState?.();
       });
@@ -86,6 +91,7 @@ export function attachAudioPanel(Viewer) {
       const state = Viewer.audioState;
       if (!state) return;
       state.unsubscribe?.();
+      Viewer.endAudioPlayheadDrag(state);
       state.player?.pause();
       state.ui?.root.remove();
       Viewer.audioState = null;
@@ -146,6 +152,99 @@ export function attachAudioPanel(Viewer) {
     updateAudioPlayback(change) {
       Viewer.audioState?.player?.update(change);
       Viewer.syncAudioPanel();
+    },
+
+    // ---- The playhead dragged in the scene ----
+
+    bindAudioPlayheadDrag() {
+      const canvas = core.renderer?.domElement;
+      if (!canvas || Viewer.audioPlayheadCanvas === canvas) return;
+      Viewer.audioPlayheadCanvas = canvas;
+      Viewer.audioPlayheadRaycaster = new THREE.Raycaster();
+      // Capture phase: a grab on the pane never reaches OrbitControls.
+      canvas.addEventListener("pointerdown", Viewer.onAudioPlayheadPointerDown, { capture: true });
+      canvas.addEventListener("pointermove", Viewer.onAudioPlayheadPointerMove);
+      canvas.addEventListener("pointerup", Viewer.onAudioPlayheadPointerUp);
+      canvas.addEventListener("pointercancel", Viewer.onAudioPlayheadPointerUp);
+      canvas.addEventListener("pointerleave", () => Viewer.setAudioPlayheadHover(false));
+    },
+
+    getAudioPointerRay(event) {
+      const canvas = core.renderer.domElement;
+      const rect = canvas.getBoundingClientRect();
+      const pointer = new THREE.Vector2(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      Viewer.audioPlayheadRaycaster.setFromCamera(pointer, core.camera);
+      return Viewer.audioPlayheadRaycaster.ray;
+    },
+
+    // Where the pointer meets the playhead's pane (audio.js), or null.
+    pickAudioPlayhead(event) {
+      const state = Viewer.audioState;
+      if (!state?.api || !state.player || !core.camera || state.root.visible === false) return null;
+      return state.api.hitAudioPlayhead(state.root, Viewer.getAudioPointerRay(event));
+    },
+
+    setAudioPlayheadHover(hover) {
+      const state = Viewer.audioState;
+      if (!state || state.playheadHover === hover) return;
+      state.playheadHover = hover;
+      const canvas = core.renderer?.domElement;
+      if (canvas && !state.playheadDrag) canvas.style.cursor = hover ? "ew-resize" : "";
+    },
+
+    seekAudioToPointer(event) {
+      const state = Viewer.audioState;
+      const time = state.api.audioTimeAtRay(state.root, Viewer.getAudioPointerRay(event), state.playheadDrag?.grab);
+      if (time !== null) state.player.currentTime = time;
+    },
+
+    onAudioPlayheadPointerDown(event) {
+      if (event.button !== 0 || Viewer.clippingState?.drag) return;
+      const state = Viewer.audioState;
+      const grab = state ? Viewer.pickAudioPlayhead(event) : null;
+      if (!grab) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const canvas = core.renderer.domElement;
+      canvas.setPointerCapture?.(event.pointerId);
+      state.playheadDrag = { pointerId: event.pointerId, grab, controlsEnabled: core.controls?.enabled !== false };
+      if (core.controls) core.controls.enabled = false;
+      // Keep the click handler in picking.js from treating the release as a click.
+      Viewer.onDownPosition?.set?.(Number.NaN, Number.NaN);
+      canvas.style.cursor = "grabbing";
+      Viewer.disableInteractionHint?.();
+      Viewer.seekAudioToPointer(event);
+    },
+
+    onAudioPlayheadPointerMove(event) {
+      const state = Viewer.audioState;
+      if (!state) return;
+      if (!state.playheadDrag) {
+        if (event.buttons === 0 && !Viewer.clippingState?.drag) Viewer.setAudioPlayheadHover(Boolean(Viewer.pickAudioPlayhead(event)));
+        return;
+      }
+      if (event.pointerId !== state.playheadDrag.pointerId) return;
+      Viewer.seekAudioToPointer(event);
+    },
+
+    onAudioPlayheadPointerUp(event) {
+      const state = Viewer.audioState;
+      if (!state?.playheadDrag || event.pointerId !== state.playheadDrag.pointerId) return;
+      core.renderer.domElement.releasePointerCapture?.(event.pointerId);
+      Viewer.endAudioPlayheadDrag(state);
+      state.playheadHover = Boolean(Viewer.pickAudioPlayhead(event));
+      core.renderer.domElement.style.cursor = state.playheadHover ? "ew-resize" : "";
+    },
+
+    endAudioPlayheadDrag(state) {
+      const drag = state?.playheadDrag;
+      if (!drag) return;
+      state.playheadDrag = null;
+      if (core.controls) core.controls.enabled = drag.controlsEnabled;
+      if (core.renderer?.domElement) core.renderer.domElement.style.cursor = "";
     },
 
     // ---- manifests ----

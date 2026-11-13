@@ -1848,7 +1848,12 @@ export function attachAnnotations(Viewer) {
     },
 
     apply3IFManifestClipping(clippingConfig) {
-      if (!clippingConfig || typeof clippingConfig !== "object") return false;
+      if (!clippingConfig || typeof clippingConfig !== "object") {
+        // None in the manifest: the planes not cutting wait at the margins,
+        // not where the model before had them.
+        this.placeIdleClippingPlanesAtMargins?.();
+        return false;
+      }
 
       const constants = this.parse3IFManifestVector(clippingConfig.constants, null, 3);
       const mode = clippingConfig.mode && typeof clippingConfig.mode === "object"
