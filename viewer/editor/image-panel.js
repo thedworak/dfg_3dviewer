@@ -22,9 +22,13 @@ import { toastHelper } from "../viewer-utils.js";
 // shows all of them at once (a contact sheet; Escape closes it).
 //
 // While an image is shown the camera does not turn: a drag moves the image,
-// the wheel zooms; the ground is hidden.
+// the wheel zooms; the ground is hidden. Comparing, the divider is dragged
+// across the image with the cursor (or a finger) as well as by its slider.
 
 const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// How near the comparison's divider (CSS pixels) a press takes it; twice
+// that for a finger.
+const SPLIT_GRAB_PX = 10;
 const percent = (value) => `${Math.round(value * 100)}%`;
 
 function formatBytes(bytes) {
@@ -65,6 +69,7 @@ export function attachImagePanel(Viewer) {
       }
       state.onKey = (event) => Viewer.handleImageKey(event);
       window.addEventListener("keydown", state.onKey);
+      Viewer.attachImageSplitDrag(state);
       import("../image2d.js").then((api) => {
         if (Viewer.imageState !== state) return;
         state.api = api;
@@ -83,6 +88,7 @@ export function attachImagePanel(Viewer) {
       if (!state) return;
       state.unsubscribe?.();
       window.removeEventListener("keydown", state.onKey);
+      state.detachSplitDrag?.();
       const controls = core.controls;
       if (controls && state.controls) {
         controls.enableRotate = state.controls.enableRotate;
@@ -95,6 +101,98 @@ export function attachImagePanel(Viewer) {
       state.grid?.remove();
       Viewer.imageState = null;
       Viewer.updateEditorToolbarState?.();
+    },
+
+    // The comparison's divider, dragged on the image: a press near the line
+    // (SPLIT_GRAB_PX) takes it, before the camera controls see the press;
+    // elsewhere the drag still moves the image. The cursor shows where.
+    attachImageSplitDrag(state) {
+      const canvas = core.renderer?.domElement;
+      if (!canvas) return;
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      const point = new THREE.Vector3();
+      let drag = null;
+      const plane = () => state.api?.getImageState(state.root)?.plane || null;
+      const comparing = () => Boolean(state.api && state.root.userData.image?.compare && core.camera);
+      // The line's x on the canvas (CSS pixels), and the image's left and
+      // right edges there.
+      const lineGeometry = () => {
+        const mesh = plane();
+        if (!mesh) return null;
+        const rect = canvas.getBoundingClientRect();
+        const toScreen = (x, y) => {
+          point.set(x, y, 0).applyMatrix4(mesh.matrixWorld).project(core.camera);
+          return { x: rect.left + ((point.x + 1) / 2) * rect.width, y: rect.top + ((1 - point.y) / 2) * rect.height };
+        };
+        const split = state.root.userData.image.split;
+        const top = toScreen(split - 0.5, 0.5);
+        const bottom = toScreen(split - 0.5, -0.5);
+        return { x: (top.x + bottom.x) / 2, top: Math.min(top.y, bottom.y), bottom: Math.max(top.y, bottom.y) };
+      };
+      // The image's u (0 left .. 1 right) under the pointer, unclamped.
+      const uAt = (event) => {
+        const mesh = plane();
+        if (!mesh) return null;
+        const rect = canvas.getBoundingClientRect();
+        pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+        raycaster.setFromCamera(pointer, core.camera);
+        const surface = new THREE.Plane().setFromNormalAndCoplanarPoint(
+          new THREE.Vector3(0, 0, 1).transformDirection(mesh.matrixWorld),
+          new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld),
+        );
+        if (!raycaster.ray.intersectPlane(surface, point)) return null;
+        return mesh.worldToLocal(point).x + 0.5;
+      };
+      const nearLine = (event) => {
+        if (!comparing()) return false;
+        const line = lineGeometry();
+        if (!line) return false;
+        const grab = event.pointerType === "touch" ? SPLIT_GRAB_PX * 2 : SPLIT_GRAB_PX;
+        return Math.abs(event.clientX - line.x) <= grab && event.clientY >= line.top - grab && event.clientY <= line.bottom + grab;
+      };
+      const setCursor = (on) => {
+        if (on) canvas.style.cursor = "ew-resize";
+        else if (canvas.style.cursor === "ew-resize") canvas.style.cursor = "";
+      };
+      const onDown = (event) => {
+        if (drag || (event.pointerType === "mouse" && event.button !== 0) || !nearLine(event)) return;
+        // Before OrbitControls (a listener on the same canvas, added
+        // earlier but not capturing): the image does not move.
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        drag = { id: event.pointerId };
+        canvas.setPointerCapture?.(event.pointerId);
+        setCursor(true);
+      };
+      const onMove = (event) => {
+        if (drag && event.pointerId === drag.id) {
+          event.stopImmediatePropagation();
+          const u = uAt(event);
+          if (u !== null) Viewer.updateImageSettings((s) => { s.split = Math.round(THREE.MathUtils.clamp(u, 0, 1) * 1000) / 1000; });
+          return;
+        }
+        if (event.pointerType === "mouse" && event.buttons === 0) setCursor(nearLine(event));
+      };
+      const onUp = (event) => {
+        if (!drag || event.pointerId !== drag.id) return;
+        event.stopImmediatePropagation();
+        canvas.releasePointerCapture?.(event.pointerId);
+        drag = null;
+        setCursor(false);
+      };
+      const options = { capture: true };
+      canvas.addEventListener("pointerdown", onDown, options);
+      canvas.addEventListener("pointermove", onMove, options);
+      canvas.addEventListener("pointerup", onUp, options);
+      canvas.addEventListener("pointercancel", onUp, options);
+      state.detachSplitDrag = () => {
+        canvas.removeEventListener("pointerdown", onDown, options);
+        canvas.removeEventListener("pointermove", onMove, options);
+        canvas.removeEventListener("pointerup", onUp, options);
+        canvas.removeEventListener("pointercancel", onUp, options);
+        setCursor(false);
+      };
     },
 
     isImageActive() {
@@ -441,6 +539,7 @@ export function attachImagePanel(Viewer) {
       const split = row(() => t("image.split", "Line"),
         slider(0, 100, 1, Math.round(settings.split * 100), (value) => Viewer.updateImageSettings((s) => { s.split = value / 100; })));
       split.classList.add("viewer-image-panel_split");
+      ui.splitInput = split.querySelector("input");
 
       const actions = el("div", "viewer-sounds-panel_placing");
       button("viewer-image-panel_reset", () => t("image.reset", "Reset"), () => Viewer.resetImageSettings(), actions);
@@ -493,6 +592,7 @@ export function attachImagePanel(Viewer) {
       ui.collapse.setAttribute("aria-label", collapseLabel);
       ui.body.querySelector(".viewer-image-panel_relief-angle")?.toggleAttribute("hidden", !(settings.relief > 0));
       ui.body.querySelector(".viewer-image-panel_split")?.toggleAttribute("hidden", !settings.compare);
+      if (ui.splitInput && document.activeElement !== ui.splitInput) ui.splitInput.value = String(Math.round(settings.split * 100));
       ui.labels.forEach(([element, text]) => {
         if (element instanceof HTMLCanvasElement) element.setAttribute("aria-label", text());
         else element.textContent = text();

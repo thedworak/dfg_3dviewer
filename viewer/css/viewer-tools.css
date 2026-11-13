@@ -1412,6 +1412,26 @@
   overscroll-behavior: contain;
 }
 
+/* The header stays in view while the window's body scrolls under it: over
+   the panel's padding (8px 12px, .viewer-pointcloud-panel), opaque so the
+   rows passing beneath do not show through. Panels that scroll docked
+   (volume, image, audio, sounds) do the same. */
+.has-tool-chrome.is-modal-open > .tool-panel-chrome,
+.viewer-volume-panel > .viewer-pointcloud-panel_header {
+  position: sticky;
+  top: -8px;
+  z-index: 2;
+  margin: -8px -12px 0;
+  padding: 8px 12px 4px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(var(--viewer-panel-bg, rgba(22, 19, 16, 0.82)), var(--viewer-panel-bg, rgba(22, 19, 16, 0.82))),
+    var(--tool-panel-header-solid, #16130f);
+}
+
+.viewer-wrapper[data-viewer-theme="light"] {
+  --tool-panel-header-solid: #f6f3ee;
+}
+
 /* Docked again only by minimizing: no grip while it is a window, nor a
    panel's own folding of its body (minimizing does that). */
 .has-tool-chrome.is-modal-open .tool-panel-chrome_grip,

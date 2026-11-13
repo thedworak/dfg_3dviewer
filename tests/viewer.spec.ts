@@ -5101,6 +5101,53 @@ test('2D images: one image with its resolution and tags, enhanced on the GPU, sa
   await expect(page.locator('#viewerImagePanel')).toHaveCount(0);
 });
 
+test('2D images: the comparison line dragged with the cursor; the hint pans the image, not turns it', async ({ page }) => {
+  await openViewer(page, '/examples/images/inscription.png');
+  await waitForModel(page, 30_000);
+  await page.waitForFunction(() => window.Viewer.isImageActive?.() && document.getElementById('viewerImagePanel'));
+  await page.evaluate(() => {
+    window.Viewer.frameImage();
+    window.Viewer.updateImageSettings((s) => { s.compare = true; s.split = 0.5; });
+  });
+  const box = await page.locator('#MainCanvas').boundingBox();
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const target = () => page.evaluate(() => window.Viewer.controls.target.toArray());
+  const before = await target();
+  // On the line: the cursor shows it, a drag moves it (and its slider), not the image.
+  await page.mouse.move(x + 3, y);
+  expect(await page.evaluate(() => document.getElementById('MainCanvas').style.cursor)).toBe('ew-resize');
+  await page.mouse.down();
+  await page.mouse.move(x + box.width / 8, y, { steps: 6 });
+  await page.mouse.up();
+  const split = await page.evaluate(() => window.Viewer.imageState.root.userData.image.split);
+  expect(split).toBeGreaterThan(0.55);
+  expect(await page.locator('.viewer-image-panel_split input').inputValue()).toBe(String(Math.round(split * 100)));
+  expect(await target()).toEqual(before);
+  // Away from it: the drag moves the image, the line stays.
+  await page.mouse.move(x - box.width / 4, y);
+  await page.mouse.down();
+  await page.mouse.move(x - box.width / 8, y, { steps: 6 });
+  await page.mouse.up();
+  expect(await page.evaluate(() => window.Viewer.imageState.root.userData.image.split)).toBe(split);
+
+  // The interaction hint: the camera moves sideways, still straight on.
+  await page.evaluate(() => {
+    window.__E2E__ = false;
+    window.Viewer.handHint.hidden = false;
+    window.Viewer.GESTURE.rotate = true;
+  });
+  await page.waitForTimeout(1500);
+  const hint = await page.evaluate(() => {
+    const camera = window.Viewer.camera;
+    return { pan: window.Viewer.GESTURE.pan, direction: camera.getWorldDirection(camera.position.clone()).toArray() };
+  });
+  await page.evaluate(() => window.Viewer.stopHandMode());
+  expect(hint.pan).toBe(true);
+  expect(hint.direction[0]).toBeCloseTo(0, 4);
+  expect(hint.direction[2]).toBeCloseTo(-1, 4);
+});
+
 test('2D images: a .zip of photos browsed as a set - filmstrip, keys, grid; the settings kept', async ({ page }) => {
   await openViewer(page, '/examples/images/images-set.zip');
   await waitForModel(page, 30_000);

@@ -426,10 +426,15 @@ export const Viewer = {
     markViewerUsed();
     const g = core.GESTURE;
     if (g) {
+      // A panned image: the target moves with the camera (no tilt).
+      if (g.active && g.pan && g.panOffset && core.controls) core.controls.target.copy(g.target).add(g.panOffset);
       g.rotate = false;
       g.active = false;
       g.baseAngle = null;
       g.target = null;
+      g.pan = false;
+      g.basePosition = null;
+      g.panOffset = null;
     }
 
     if (core.handHint) {
@@ -2574,6 +2579,22 @@ export const Viewer = {
     // light over dark, dark over light
     updateHandHintContrast(time);
 
+    // A 2D image: moved under the hand (a drag pans it), not turned - an
+    // orbit would tilt the flat picture into perspective.
+    if (g.pan) {
+      const height = core.renderer?.domElement?.clientHeight || window.innerHeight || 1;
+      const distance = g.baseAngle.radius;
+      const fov = THREE.MathUtils.degToRad(core.camera.fov || 45);
+      const unitsPerPx = (2 * distance * Math.tan(fov / 2)) / height;
+      const right = new THREE.Vector3().setFromMatrixColumn(core.camera.matrixWorld, 0).normalize();
+      // The camera goes the other way to the hand, so the image follows it.
+      g.panOffset = right.multiplyScalar(-s * g.handPx * unitsPerPx * ease);
+      core.camera.position.copy(g.basePosition).add(g.panOffset);
+      // The target with it: the controls' update keeps looking straight on.
+      core.controls?.target.copy(g.target).add(g.panOffset);
+      return;
+    }
+
     // camera - orbit
     const sph = g.baseAngle.clone();
     sph.theta = g.baseAngle.theta + s * core.GESTURE.orbitAngle * ease;
@@ -2600,6 +2621,10 @@ export const Viewer = {
     g.baseAngle = new THREE.Spherical().setFromVector3(
       core.camera.position.clone().sub(g.target)
     );
+    // A 2D image (editor/image-panel.js): panned, not orbited.
+    g.pan = Boolean(Viewer.imageState);
+    g.basePosition = core.camera.position.clone();
+    g.panOffset = null;
 
     core.controls.enabled = false;
   },
@@ -2613,6 +2638,8 @@ export const Viewer = {
     g.active = false;
 
     core.controls.target.copy(g.target);
+    // Panned: the target moved with the camera.
+    if (g.pan && g.panOffset) core.controls.target.add(g.panOffset);
 
     core.controls.object.position.copy(core.camera.position);
     core.controls.update();
@@ -2620,6 +2647,9 @@ export const Viewer = {
 
     g.baseAngle = null;
     g.target = null;
+    g.pan = false;
+    g.basePosition = null;
+    g.panOffset = null;
     core.handHint.hidden = true;
     core.GESTURE.active = false;
   },
