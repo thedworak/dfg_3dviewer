@@ -111,6 +111,8 @@ import { attachPointCloudPanel } from "./editor/point-cloud-panel.js";
 import { attachVolumePanel } from "./editor/volume-panel.js";
 import { attachAudioPanel } from "./editor/audio-panel.js";
 import { attachSceneSounds } from "./editor/scene-sounds.js";
+import { attachLiveData } from "./editor/live-data.js";
+import { attachLiveLink } from "./editor/live-link.js";
 import { attachSceneAcoustics } from "./editor/scene-acoustics.js";
 import { attachNarration } from "./editor/narration.js";
 import { attachImagePanel } from "./editor/image-panel.js";
@@ -1621,6 +1623,10 @@ export const Viewer = {
     Viewer.disposeImageControls();
     // The scene's sounds come with its manifest (editor/scene-sounds.js).
     Viewer.disposeSceneSounds();
+    // The table that drives the model, too (editor/live-data.js).
+    Viewer.disposeLiveData();
+    // What followed the scene's manifest and model (editor/live-link.js).
+    Viewer.disposeLiveLink();
     Viewer.stopNarration();
     disposeTiles();
     removeImportedLights();
@@ -2728,6 +2734,8 @@ export const Viewer = {
     Viewer.updateTimeline(delta);
     Viewer.updateAudio();
     Viewer.updateSceneSounds(delta);
+    Viewer.updateLiveData(delta);
+    Viewer.updateLiveLink(delta);
     Viewer.updateImageView();
     Viewer.updateAnnotationSpread();
     Viewer.updateAnnotationStack();
@@ -4721,6 +4729,8 @@ attachPointCloudPanel(Viewer);
 attachVolumePanel(Viewer);
 attachAudioPanel(Viewer);
 attachSceneSounds(Viewer);
+attachLiveData(Viewer);
+attachLiveLink(Viewer);
 attachSceneAcoustics(Viewer);
 attachNarration(Viewer);
 attachImagePanel(Viewer);

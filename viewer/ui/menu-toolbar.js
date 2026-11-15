@@ -37,7 +37,7 @@ const CATEGORIES = [
     id: "analysis",
     label: () => t("menus.analysis", "Analysis"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6 19c1-3 2-3 3 0s2 3 3 0 2-3 3 0 2 3 3 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5l7 6M5 9l4 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    tools: ["rakingLight", "sunStudy", "clippingPlanes", "ruler", "certainty"],
+    tools: ["rakingLight", "sunStudy", "clippingPlanes", "ruler", "certainty", "liveData"],
     breaks: ["clippingPlanes"],
   },
   // The model itself: its parts and what only some models have (shown when
@@ -63,7 +63,7 @@ const CATEGORIES = [
     more: true,
     label: () => t("menus.file", "File"),
     icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
-    tools: ["publishCheck", "validationReport", "download", "save", "preview", "generateThumbnails", "IIIFimport", "IIIFexport", "manifestPreview"],
+    tools: ["publishCheck", "validationReport", "download", "save", "preview", "liveLink", "generateThumbnails", "IIIFimport", "IIIFexport", "manifestPreview"],
     breaks: ["download", "preview", "IIIFimport"],
   },
   // With what the classic toolbar's main menu (the cog) held: language

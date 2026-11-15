@@ -1,0 +1,97 @@
+// Live link (editor/live-link.js): the rules that need neither the DOM nor
+// three.js - what changed between two versions of a manifest, what a shared
+// session's camera may hold. This also runs in Node (the tests).
+
+export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+// The blocks of AIM3DViewer a shared session carries from viewer to viewer
+// (the camera and the timeline's year travel beside them, more often).
+export const LIVE_SESSION_BLOCKS = ["clipping", "variants", "compare", "rakingLight", "location", "sun", "weather", "modelTransform", "timeline", "data"];
+
+// Not the scene: when the manifest was written, and its gallery renders.
+const IGNORED_BLOCKS = new Set(["version", "generatedAt", "thumbnails"]);
+
+const ID_LETTERS = "abcdefghijkmnpqrstuvwxyz23456789";
+
+// A session's id: its key, so long and random. Without letters and digits
+// that are mistaken for each other when read out (l, o, 0, 1).
+export function newSessionId(length = 14) {
+  const bytes = new Uint8Array(Math.max(8, length));
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => ID_LETTERS[byte % ID_LETTERS.length]).join("");
+}
+
+const triple = (value) => {
+  const list = Array.isArray(value) ? value : value && typeof value === "object" ? [value.x, value.y, value.z] : null;
+  if (!list || list.length < 3) return null;
+  const numbers = list.slice(0, 3).map(Number);
+  return numbers.every((number) => Number.isFinite(number) && Math.abs(number) < 1e9) ? numbers.map((number) => Math.round(number * 1e5) / 1e5) : null;
+};
+
+// A camera as a manifest or another viewer gives it -> { position, target,
+// up, fov, zoom } with nothing but finite numbers in range, or null.
+export function normalizeSessionCamera(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const position = triple(raw.position);
+  const target = triple(raw.target);
+  if (!position || !target) return null;
+  if (position.every((value, index) => value === target[index])) return null;
+  const up = triple(raw.up);
+  const upLength = up ? Math.hypot(...up) : 0;
+  const fov = Number(raw.fov);
+  const zoom = Number(raw.zoom);
+  return {
+    position,
+    target,
+    ...(upLength > 1e-6 ? { up: up.map((value) => Math.round((value / upLength) * 1e5) / 1e5) } : {}),
+    ...(Number.isFinite(fov) && fov >= 1 && fov <= 170 ? { fov: Math.round(fov * 100) / 100 } : {}),
+    ...(Number.isFinite(zoom) && zoom > 0 && zoom < 1e6 ? { zoom: Math.round(zoom * 1e4) / 1e4 } : {}),
+  };
+}
+
+// Whether two cameras show the same view (within a ten-thousandth of the
+// distance they look from).
+export function sameSessionCamera(a, b) {
+  if (!a || !b) return false;
+  const reach = Math.max(Math.hypot(...a.position.map((value, index) => value - a.target[index])), 1e-6);
+  const close = (left, right, scale) => left.every((value, index) => Math.abs(value - right[index]) <= scale);
+  return close(a.position, b.position, reach * 1e-4)
+    && close(a.target, b.target, reach * 1e-4)
+    && Math.abs((a.fov ?? 0) - (b.fov ?? 0)) < 0.05
+    && Math.abs((a.zoom ?? 1) - (b.zoom ?? 1)) < 1e-3
+    && (!a.up || !b.up || close(a.up, b.up, 1e-3));
+}
+
+const scenesOf = (manifest) => (Array.isArray(manifest?.items) ? manifest.items.filter((item) => item?.type === "Scene") : []);
+
+// What the manifest's scenes show: each painted body (model, image, sound)
+// by its id and type, in order. Another answer means another model.
+export function manifestModels(manifest) {
+  return scenesOf(manifest).map((scene) => (Array.isArray(scene.items) ? scene.items : [])
+    .flatMap((page) => (Array.isArray(page?.items) ? page.items : []))
+    .map((annotation) => {
+      const body = Array.isArray(annotation?.body) ? annotation.body[0] : annotation?.body;
+      const source = body?.source && typeof body.source === "object" ? (Array.isArray(body.source) ? body.source[0] : body.source) : body;
+      return source?.id && /^(Model|Image|Sound|Canvas|Video)$/.test(source.type || "") ? `${source.type}:${source.id}` : null;
+    })
+    .filter(Boolean));
+}
+
+function commentsOf(manifest) {
+  return [
+    ...scenesOf(manifest).map((scene) => scene.annotations ?? null),
+    manifest?.annotations ?? null,
+  ];
+}
+
+// The parts of the scene that differ between two versions of a manifest:
+// the keys of AIM3DViewer (a block added, changed or taken away), and
+// "annotations" for the comments.
+export function changedManifestBlocks(before, after) {
+  const old = before?.AIM3DViewer && typeof before.AIM3DViewer === "object" ? before.AIM3DViewer : {};
+  const now = after?.AIM3DViewer && typeof after.AIM3DViewer === "object" ? after.AIM3DViewer : {};
+  const changed = [...new Set([...Object.keys(old), ...Object.keys(now)])]
+    .filter((key) => !IGNORED_BLOCKS.has(key) && JSON.stringify(old[key]) !== JSON.stringify(now[key]));
+  if (JSON.stringify(commentsOf(before)) !== JSON.stringify(commentsOf(after))) changed.push("annotations");
+  return changed;
+}

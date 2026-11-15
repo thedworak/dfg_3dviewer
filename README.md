@@ -56,6 +56,8 @@ The topics below used to live in this file; they now have their own page in [`do
 - [Bug reports and error tracking](docs/error-tracking.md) — the "Report a bug" button, self-hosted GlitchTip
 - [Audio files and sound](docs/audio.md) — WAV / Broadcast Wave, MP3, FLAC, Ogg, M4A: played with effects, drawn as a spectrogram landscape, with their tags and markers; sound sources in a model's scene (ambient, point, spot; IIIF `AmbientAudio` / `PointAudio` / `SpotAudio`); narrated annotations with captions in the guided tour; the room's acoustics - the sounds heard with the reverberation worked out from the model's geometry (auralization)
 - [2D images](docs/images.md) — JPEG, PNG, WebP, AVIF, GIF, BMP, one or a set (.zip, several dropped): levels, equalisation, relief, decorrelation stretch, false colour, before/after, saved as PNG; filmstrip and grid; measured in centimetres when the file gives its DPI
+- [Live data](docs/live-data.md) — a table (CSV, JSON, a spreadsheet's link) drives the model: colours, labels and alerts on its parts follow the table as it changes, without loading anything again
+- [Live link](docs/live-link.md) — a shared session (everyone with the link sees the scene as one of them moves it; a phone as the remote control of a screen), the manifest followed (only what changed is applied), the model's file followed (saved again, it takes the old one's place)
 - [AI assistance](docs/ai.md) — optional Claude API help: validation explained, IFC questions, variants and paradata review, point cloud classification
 - [`viewer/FUNCTIONS.md`](viewer/FUNCTIONS.md) — runtime function reference
 - [`worker/README.md`](worker/README.md) — standalone conversion worker's API contract/configuration

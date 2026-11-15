@@ -245,6 +245,17 @@ needing the tag.
   whether it is on (`state`: `ready`, `building` while the index is built,
   `off`, `error`); off, the POST answers 404 (`503` while building). Open
   to everyone (nothing leaves the server, no key). See "Place search" below.
+- `POST /api/live/<session>` and `GET /api/live/<session>?since=<version>&client=<id>&wait=<seconds>` -
+  shared live sessions between viewers (`worker/live_sessions.py`, the
+  viewer's File > Live link). A viewer posts `{"client": "<id>", "state":
+  {...}}` (at most 64 KB; the worker does not read the state) and gets
+  `{"version", "peers"}`; the GET is a long poll, answered with `{"version",
+  "state", "sender", "peers"}` as soon as a state newer than `since` is
+  there, or after `wait` seconds (at most 25) with `{"version", "peers"}`
+  only. Kept in memory, at most 2000 sessions, each forgotten two hours
+  after its last use. Open to everyone: the session's id (8 to 64 letters,
+  digits, `-` or `_`) is its key. A reverse proxy in front must wait longer
+  than the long poll (the examples in `docker/` wait 100 s and more).
 - `GET /files/<id>/...` - serves the converted model and rendered thumbnails.
 
 ## Configuration

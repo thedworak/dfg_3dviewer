@@ -367,6 +367,79 @@
           },
           "additionalProperties": true
         },
+        "data": {
+          "description": "Live data: a table (CSV, TSV, JSON) that drives the model. Each row belongs to the part of the model its key cell names; its other cells give the part's colour, label, alert and visibility. The table stays connected (its URL read again every `refresh` seconds), and what changes moves to its new look without the model being loaded again.",
+          "type": "object",
+          "properties": {
+            "src": { "type": "string", "description": "The table's URL: CSV or TSV with the column names in the first line (comma, semicolon or tab), or JSON (an array of objects, or { rows: [...] })." },
+            "refresh": { "type": "number", "minimum": 0, "description": "Seconds between two reads of `src` (0.5 to 3600); 0 or absent: read once." },
+            "rows": { "type": "array", "items": { "type": "object" }, "description": "The table itself, one object per row, instead of `src` (or shown until `src` has been read)." },
+            "key": { "type": "string", "description": "The column with the part's name: an object's name in the model (compared without case, spaces and punctuation), or an IFC element's GlobalId. Default: the column that names most objects." },
+            "color": {
+              "description": "The colour: a column's name, or an object. A numeric column runs along the ramp from `min` to `max`; a text column gets a colour per value; a cell that is a colour (#rrggbb) is used as it is.",
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "column": { "type": "string" },
+                    "ramp": { "oneOf": [{ "enum": ["heat", "viridis", "blue", "green", "traffic", "diverging"] }, { "type": "array", "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }, "minItems": 2 }], "description": "A ramp's name (default heat) or its colours, lowest value first." },
+                    "reverse": { "type": "boolean", "description": "The ramp the other way round (default false)." },
+                    "min": { "type": "number", "description": "The value at the ramp's start (default: the column's lowest)." },
+                    "max": { "type": "number", "description": "The value at the ramp's end (default: the column's highest)." },
+                    "categories": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }, "description": "A text column's colours: value -> colour. Values not listed get the palette's next colour." }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "label": {
+              "description": "A cell shown above the part: a column's name, or { column, unit, name }.",
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "column": { "type": "string" },
+                    "unit": { "type": "string", "description": "Written after the value (%, °C, mm)." },
+                    "name": { "type": "boolean", "description": "The part's name before the value (default false)." }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "alert": {
+              "description": "The part pulses while its cell is above `above`, below `below`, or equal to `equals`.",
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "column": { "type": "string" },
+                    "above": { "type": "number" },
+                    "below": { "type": "number" },
+                    "equals": { "type": ["string", "number"] }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "visible": {
+              "description": "The part is hidden while its cell says 0, false, no or off (an empty cell hides nothing): a column's name, or { column }.",
+              "oneOf": [
+                { "type": "string" },
+                { "type": "object", "properties": { "column": { "type": "string" } }, "required": ["column"], "additionalProperties": true }
+              ]
+            },
+            "strength": { "type": "number", "minimum": 0, "maximum": 1, "description": "How much of the colour covers the part's own material (default 0.75)." },
+            "transition": { "type": "number", "minimum": 0, "description": "Seconds a change takes to show (default 0.9; 0: at once)." },
+            "open": { "type": "boolean", "description": "The Live data window open on load (default true)." }
+          },
+          "additionalProperties": true
+        },
         "sounds": {
           "description": "Sound in the scene: sources heard from where the camera is. Also written as AmbientAudio / PointAudio / SpotAudio annotations painted into the scene, for other viewers; this block wins when both are there.",
           "type": "object",

@@ -12,6 +12,8 @@ import { decideExposure, decideModelBase, evaluatePublishChecks, measureFraming,
 import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterialPreset } from '../viewer/editor/material-presets.js';
 import { deviceTier, qualityForWeight } from '../viewer/editor/performance-rules.js';
 import { materialFromName, schroederRT, sendGain, synthesizeImpulseResponse, traceRoom } from '../viewer/room-acoustics.js';
+import { changedManifestBlocks, manifestModels, newSessionId, normalizeSessionCamera, sameSessionCamera, SESSION_ID_PATTERN } from '../viewer/live-link-rules.js';
+import { dataAlert, dataColorScale, dataNumber, dataTableToCsv, dataTruthy, diffDataRows, guessKeyColumn, normalizeDataKey, normalizeLiveData, parseDataTable } from '../viewer/live-data-table.js';
 
 const defaultModel = '/examples/box.stl';
 const supportedFormatsText = 'GLB, GLTF, OBJ, DAE, FBX, PLY, IFC, STL, XYZ, JSON, 3DS, PCD, USD, USDA, USDC, USDZ, 3MF, AMF, WRL, KMZ, VOX, LWO, LAS, LAZ, SPZ, SPLAT, KSPLAT, SOG, RAD, LIF, NRRD, NHDR, NII, MHA, MHD, MRC, REC, CCP4, VGI, XTEKCT, DCM, DICOM, LSM, TIF, TIFF, WAV, WAVE, BWF, MP3, OGG, OGA, OPUS, FLAC, M4A, AAC, WEBA, JPG, JPEG, PNG, WEBP, AVIF, GIF, BMP';
@@ -4912,6 +4914,433 @@ test('sounds in a manifest for another model: the ambient ones stay, the placed 
   expect(inspectAIM3DManifest(source).features.find((feature) => feature.id === 'sounds')).toMatchObject({ present: true, count: 6, status: 'ok' });
 });
 
+test('live data: tables read from CSV and JSON, compared, and turned into colours', () => {
+  // A spreadsheet's CSV where the comma is the decimal sign.
+  const table = parseDataTable('﻿part;moisture;note\r\nColumn_1;9,5;"dry; ""sound"""\r\nStep 1;31,5;\r\n\r\n');
+  expect(table.columns).toEqual(['part', 'moisture', 'note']);
+  expect(table.rows).toEqual([{ part: 'Column_1', moisture: '9,5', note: 'dry; "sound"' }, { part: 'Step 1', moisture: '31,5', note: '' }]);
+  expect(parseDataTable('a\tb\n1\t2').rows).toEqual([{ a: '1', b: '2' }]);
+  expect(parseDataTable('[{"part":"Wall","t":21.5,"ok":true}]').rows).toEqual([{ part: 'Wall', t: 21.5, ok: true }]);
+  expect(parseDataTable('{"rows":[{"part":"Wall"},{"part":"Roof","t":3}]}').rows).toEqual([{ part: 'Wall', t: '' }, { part: 'Roof', t: 3 }]);
+  expect(parseDataTable('{"Wall":{"t":1},"Roof":{"t":2}}').rows).toEqual([{ key: 'Wall', t: 1 }, { key: 'Roof', t: 2 }]);
+  expect(parseDataTable('  ')).toEqual({ columns: [], rows: [] });
+  expect(parseDataTable(dataTableToCsv(table.columns, table.rows))).toEqual(table);
+
+  expect(['9,5', '23 %', '1.250,5', '-3', '1e2', 'n/a', ''].map(dataNumber)).toEqual([9.5, 23, 1250.5, -3, 100, NaN, NaN]);
+  expect(['yes', '1', '', 'no', '0', 'FALSE', 'nie'].map(dataTruthy)).toEqual([true, true, true, false, false, false, false]);
+  expect(normalizeDataKey('Column_1')).toBe(normalizeDataKey('column 1'));
+  expect(guessKeyColumn(['id', 'name'], [{ id: '1', name: 'Step_1' }, { id: '2', name: 'Roof' }], new Set(['step1', 'roof']))).toBe('name');
+
+  // What changed between two tables: a changed row, a new one, one gone.
+  const before = [{ part: 'A', v: 1 }, { part: 'B', v: 2 }, { part: 'C', v: 3 }];
+  const after = [{ part: 'A', v: 1 }, { part: 'B', v: 5 }, { part: 'D', v: 4 }];
+  expect([...diffDataRows(before, after, 'part')].sort()).toEqual(['b', 'c', 'd']);
+  expect(diffDataRows(before, before, 'part').size).toBe(0);
+
+  // Numbers along a ramp, between the ends given or the column's own.
+  const rows = [{ part: 'A', v: '10', state: 'good' }, { part: 'B', v: '30', state: 'poor' }, { part: 'C', v: '', state: '#123456' }];
+  const ramp = dataColorScale({ column: 'v', ramp: ['#000000', '#ffffff'] }, rows);
+  expect([ramp.kind, ramp.min, ramp.max]).toEqual(['number', 10, 30]);
+  expect(['10', '20', '30', '99', ''].map((value) => ramp.colorOf(value))).toEqual(['#000000', '#808080', '#ffffff', '#ffffff', null]);
+  expect(dataColorScale({ column: 'v', ramp: ['#000000', '#ffffff'], min: 0, max: 40, reverse: true }, rows).colorOf('10')).toBe('#bfbfbf');
+  // Texts: the colours given, the palette for the rest, a colour as it is.
+  const categories = dataColorScale({ column: 'state', categories: { good: '#1a9850' } }, rows);
+  expect(categories.kind).toBe('category');
+  expect(['good', 'Poor', '#123456', 'unknown'].map((value) => categories.colorOf(value))).toEqual(['#1a9850', '#0072b2', '#123456', null]);
+  expect(dataColorScale({ column: 'missing' }, rows).kind).toBe('none');
+
+  expect(dataAlert({ column: 'v', above: 28 }, rows[1])).toBe(true);
+  expect(dataAlert({ column: 'v', above: 28 }, rows[0])).toBe(false);
+  expect(dataAlert({ column: 'v', below: 15 }, rows[0])).toBe(true);
+  expect(dataAlert({ column: 'state', equals: 'POOR' }, rows[1])).toBe(true);
+
+  // The settings as a manifest gives them.
+  expect(normalizeLiveData('./table.csv')).toMatchObject({ src: './table.csv', refresh: 0, color: null, strength: 0.75 });
+  expect(normalizeLiveData({ src: 'x.csv', refresh: 0.1, color: 'v', label: { column: 'v', unit: '%' }, alert: { column: 'v', above: '28' }, visible: 'on', strength: 7 }))
+    .toMatchObject({ refresh: 0.5, color: { column: 'v', ramp: 'heat', min: null }, label: { column: 'v', unit: '%', name: false }, alert: { column: 'v', above: 28, below: null }, visible: { column: 'on' }, strength: 1 });
+
+  const manifest = JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-live-data.json', 'utf8'));
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+  expect(inspectAIM3DManifest(manifest).features.find((feature) => feature.id === 'data')).toMatchObject({ present: true, status: 'ok' });
+  manifest.AIM3DViewer.data = { rows: 'none', refresh: -1, color: { ramp: 'heat' }, strength: 2 };
+  expect(validateAIM3DManifest(manifest).errors.map((error) => error.path))
+    .toEqual(['$.AIM3DViewer.data.rows', '$.AIM3DViewer.data.refresh', '$.AIM3DViewer.data.strength', '$.AIM3DViewer.data.color.column']);
+});
+
+// The parts live data paints, as the model shows them (editor/live-data.js).
+const liveParts = (page) => page.evaluate(() => Object.fromEntries(window.Viewer.getLiveData().parts.map((part) => {
+  const state = window.Viewer.liveDataState.parts.get(part.key.toLowerCase().replace(/[^a-z0-9]/g, ''));
+  return [part.key, {
+    color: part.color,
+    label: part.label,
+    alert: part.alert,
+    visible: part.visible,
+    overlays: state.meshes.filter(({ overlay }) => overlay.visible && overlay.parent === state.meshes[0].mesh).length,
+    opacity: Math.round(state.material.opacity * 100) / 100,
+    painted: `#${state.material.color.getHexString()}`,
+  }];
+})));
+
+test('live data: a table drives the model - read again when it changes, edited in the window, pushed by the page, saved', async ({ page }) => {
+  test.setTimeout(90_000);
+  // The table as its server gives it: changed between two reads.
+  let csv = fs.readFileSync('viewer/examples/tempietto/data/monitoring.csv', 'utf8');
+  let reads = 0;
+  await page.route('**/examples/tempietto/data/monitoring.csv', (route) => {
+    reads += 1;
+    return route.fulfill({ contentType: 'text/csv', body: csv });
+  });
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  // No transitions to wait for: the looks are where they end.
+  await loadExampleManifest(page, 'tempietto-aim3d-live-data.json', 'manifest.AIM3DViewer.data.refresh = 0.5; manifest.AIM3DViewer.data.transition = 0;');
+  await page.waitForFunction(() => window.Viewer.getLiveData()?.parts.length === 17);
+
+  const panel = page.locator('#viewerLiveDataPanel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.viewer-livedata-panel_status')).toHaveClass(/is-live/);
+  await expect(panel.locator('.viewer-livedata-panel_matched')).toHaveText('17 of 17 rows found in the model.');
+  await expect(panel.locator('tbody tr')).toHaveCount(17);
+  await expect(panel.locator('.viewer-livedata-panel_ends')).toHaveText('5%moisture35%');
+  let parts = await liveParts(page);
+  // 9.5% and 31.5% between 5 and 35 on the heat ramp; an alert above 28.
+  expect(parts.Column_1).toMatchObject({ color: '#fee07e', painted: '#fee07e', label: '9.5%', alert: false, overlays: 1, visible: true });
+  expect(parts.Step_1).toMatchObject({ color: '#d51c23', label: '31.5%', alert: true, overlays: 1 });
+  expect(parts.Column_1.opacity).toBeGreaterThan(0.7);
+  await expect(panel.locator('tbody tr.is-alert')).toHaveCount(3);
+  // The model's own materials are not touched, and nothing is picked twice.
+  expect(await page.evaluate(() => {
+    let overlays = 0;
+    window.viewer.scene.traverse((object) => { if (object.userData?.isLiveDataOverlay) overlays += 1; });
+    return [overlays, window.viewer.scene.getObjectByName('live-data-labels').children.length];
+  })).toEqual([17, 17]);
+
+  // The table changes where it lives: the model follows, nothing is loaded again.
+  const model = await page.evaluate(() => window.viewer.scene.getObjectByName('Column_1').uuid);
+  csv = csv.replace('Column_1,9.5,good', 'Column_1,34,poor').replace(/Fallen_Drum.*\n/, '');
+  await page.waitForFunction(() => window.Viewer.getLiveData().parts.find((part) => part.key === 'Column_1').label === '34%');
+  await page.waitForFunction(() => window.Viewer.getLiveData().parts.length === 16);
+  parts = await liveParts(page);
+  expect(parts.Column_1).toMatchObject({ color: '#c40825', painted: '#c40825', alert: true });
+  expect(parts.Fallen_Drum).toBeUndefined();
+  expect(await page.evaluate(() => [window.Viewer.getLiveData().source.changed, window.viewer.scene.getObjectByName('Column_1').uuid])).toEqual([2, model]);
+  await expect(panel.locator('tbody tr')).toHaveCount(16);
+  await expect(panel.locator('input[data-row="7"][data-column="moisture"]')).toHaveValue('34');
+  await expect(panel.locator('.viewer-livedata-panel_status')).toContainText('Last change');
+  expect(reads).toBeGreaterThan(1);
+
+  // A cell typed in the window; the arrow keys nudge it.
+  const cell = panel.locator('input[data-row="8"][data-column="moisture"]');
+  await cell.fill('20');
+  await expect.poll(async () => (await liveParts(page)).Column_2.label).toBe('20%');
+  await cell.press('ArrowUp');
+  await cell.press('Shift+ArrowUp');
+  await expect(cell).toHaveValue('31');
+  parts = await liveParts(page);
+  expect(parts.Column_2).toMatchObject({ label: '31%', alert: true });
+
+  // Rows pushed by the page, and by a page that embeds the viewer.
+  expect(await page.evaluate(() => window.Viewer.updateLiveDataRow('Step_2', { moisture: 6 }))).toBe(true);
+  await page.evaluate(() => window.postMessage({ type: 'aim3d-data', key: 'step 3', values: { moisture: 7 } }, '*'));
+  await expect.poll(async () => (await liveParts(page)).Step_3.label).toBe('7%');
+  expect((await liveParts(page)).Step_2).toMatchObject({ label: '6%', alert: false });
+
+  // Other columns: a colour per value, a part hidden, a row that names no part.
+  await page.evaluate(() => {
+    window.Viewer.updateLiveDataConfig({ color: { column: 'condition', categories: { good: '#1a9850', poor: '#d73027' } }, label: { column: 'condition', name: true }, alert: { column: 'condition', equals: 'poor' }, visible: 'standing' });
+    window.Viewer.updateLiveDataRow('Entablature', { standing: 'no' });
+    window.Viewer.updateLiveDataRow('Nowhere', { condition: 'good' });
+  });
+  parts = await liveParts(page);
+  expect(parts.Wall_Front).toMatchObject({ color: '#1a9850', label: 'Wall_Front  good', alert: false, visible: true });
+  expect(parts.Step_1).toMatchObject({ color: '#d73027', alert: true });
+  expect(parts.Step_2.color).toBe('#0072b2');
+  expect(parts.Entablature.visible).toBe(false);
+  expect(await page.evaluate(() => window.Viewer.getLiveData().unmatched)).toEqual(['nowhere']);
+  await expect(panel.locator('.viewer-livedata-panel_matched')).toHaveText('16 of 17 rows found in the model.');
+  await expect(panel.locator('tbody tr.is-unmatched')).toHaveCount(1);
+  await expect(panel.locator('.viewer-livedata-panel_category')).toHaveCount(3);
+
+  // Saved: the table's URL and what its columns do.
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.version).toBe(AIM3D_MANIFEST_VERSION);
+  expect(manifest.AIM3DViewer.data).toEqual({
+    src: './examples/tempietto/data/monitoring.csv',
+    refresh: 0.5,
+    key: 'part',
+    color: { column: 'condition', categories: { good: '#1a9850', poor: '#d73027' } },
+    label: { column: 'condition', name: true },
+    alert: { column: 'condition', equals: 'poor' },
+    visible: { column: 'standing' },
+    transition: 0,
+  });
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+
+  // Rows of its own, without a URL: saved as rows.
+  await page.evaluate(() => window.Viewer.setLiveData({ rows: [{ part: 'Column_1', t: 3 }, { part: 'Column_2', t: 9 }], transition: 0 }));
+  expect(await page.evaluate(() => window.Viewer.getLiveData().config)).toMatchObject({ key: 'part', color: { column: 't' } });
+  expect(Object.keys(await liveParts(page))).toEqual(['Column_1', 'Column_2']);
+  expect(await page.evaluate(() => window.viewer.scene.getObjectByName('Entablature').visible)).toBe(true);
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.data)).toEqual({ rows: [{ part: 'Column_1', t: 3 }, { part: 'Column_2', t: 9 }], key: 'part', color: { column: 't', ramp: 'heat' }, transition: 0 });
+
+  // Another model: the table goes with the scene it came with.
+  await page.evaluate(() => window.Viewer.disposeLiveData());
+  await expect(panel).toBeHidden();
+  expect(await page.evaluate(() => {
+    let left = 0;
+    window.viewer.scene.traverse((object) => { if (object.userData?.isLiveDataOverlay || object.name === 'live-data-labels') left += 1; });
+    return [left, window.Viewer.build3IFManifest().AIM3DViewer.data];
+  })).toEqual([0, undefined]);
+});
+
+test('live link: what changed between two manifests, a session\'s ids and cameras', () => {
+  const manifest = JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-live-data.json', 'utf8'));
+  expect(manifestModels(manifest)).toEqual([['Model:./examples/tempietto/Tempietto.glb']]);
+  const next = structuredClone(manifest);
+  expect(changedManifestBlocks(manifest, next)).toEqual([]);
+  // When it was written and its renders are not the scene.
+  next.AIM3DViewer.generatedAt = '2030-01-01T00:00:00.000Z';
+  next.AIM3DViewer.thumbnails = [{ src: './a.png' }];
+  expect(changedManifestBlocks(manifest, next)).toEqual([]);
+  next.AIM3DViewer.lights[0].intensity = 0.1;
+  next.AIM3DViewer.weather = { type: 'snow' };
+  delete next.AIM3DViewer.data;
+  next.items[0].annotations = [{ type: 'AnnotationPage', items: [] }];
+  expect(changedManifestBlocks(manifest, next).sort()).toEqual(['annotations', 'data', 'lights', 'weather']);
+  next.items[0].items[0].items[0].body.id = './examples/box.glb';
+  expect(manifestModels(next)).not.toEqual(manifestModels(manifest));
+
+  const id = newSessionId();
+  expect(id).toMatch(SESSION_ID_PATTERN);
+  expect(id).not.toBe(newSessionId());
+  expect(SESSION_ID_PATTERN.test('short')).toBe(false);
+  expect(SESSION_ID_PATTERN.test('../../etc/passwd')).toBe(false);
+
+  // Only finite numbers in range pass from one viewer to another.
+  const camera = normalizeSessionCamera({ position: [1, 2, 3.0000004], target: { x: 0, y: 0, z: 0 }, up: [0, 2, 0], fov: 45, zoom: 1, extra: 'x' });
+  expect(camera).toEqual({ position: [1, 2, 3], target: [0, 0, 0], up: [0, 1, 0], fov: 45, zoom: 1 });
+  expect(normalizeSessionCamera({ position: [1, 2, NaN], target: [0, 0, 0] })).toBeNull();
+  expect(normalizeSessionCamera({ position: [1, 2, 3], target: [1, 2, 3] })).toBeNull();
+  expect(normalizeSessionCamera({ position: '1,2,3', target: [0, 0, 0] })).toBeNull();
+  expect(normalizeSessionCamera({ position: [1, 2, 3], target: [0, 0, 0], fov: 900, zoom: -1 })).toEqual({ position: [1, 2, 3], target: [0, 0, 0] });
+  expect(sameSessionCamera(camera, { ...camera, position: [1, 2, 3.0001] })).toBe(true);
+  expect(sameSessionCamera(camera, { ...camera, position: [1, 2, 3.1] })).toBe(false);
+  expect(sameSessionCamera(camera, null)).toBe(false);
+});
+
+const cameraAt = (page) => page.evaluate(() => window.viewer.camera.position.toArray().map((value) => Math.round(value * 10) / 10));
+
+// Two viewers in one session, each a tab of the same browser.
+async function sessionPair(page, { model = '/examples/tempietto/Tempietto.glb' } = {}) {
+  await openViewer(page, model);
+  await waitForModel(page);
+  const id = await page.evaluate(() => window.Viewer.startLiveSession());
+  const other = await page.context().newPage();
+  await openViewer(other, model, `session=${id}`);
+  await waitForModel(other);
+  await other.waitForFunction(() => window.Viewer.getLiveLink()?.session?.peers === 2, null, { timeout: 20_000 });
+  await page.waitForFunction(() => window.Viewer.getLiveLink().session.peers === 2, null, { timeout: 20_000 });
+  return { id, other };
+}
+
+test('live link: a shared session - the camera, the raking light and the scene go from one viewer to the others', async ({ page }) => {
+  test.setTimeout(120_000);
+  const { id, other } = await sessionPair(page);
+  expect(await other.evaluate(() => window.Viewer.getLiveLink().session)).toMatchObject({ id, mode: 'browser', send: true, receive: true });
+  expect(await page.evaluate(() => window.Viewer.getLiveLink().session.link)).toContain(`session=${id}`);
+
+  // The first viewer moves: the second follows.
+  await page.evaluate(() => {
+    window.viewer.camera.position.set(3, 9, 14);
+    window.Viewer.setRakingLight(true);
+  });
+  await expect.poll(() => cameraAt(other), { timeout: 20_000 }).toEqual([3, 9, 14]);
+  await expect.poll(() => other.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.rakingLight?.enabled), { timeout: 20_000 }).toBe(true);
+  // What arrived is not sent back: the first viewer stays where it was put.
+  await other.waitForTimeout(1500);
+  expect(await cameraAt(page)).toEqual([3, 9, 14]);
+  const sentByOther = await other.evaluate(() => window.Viewer.getLiveLink().session.sent);
+
+  // The second viewer is the remote control now.
+  await other.evaluate(() => {
+    window.viewer.camera.position.set(-8, 3, 6);
+    window.Viewer.setRakingLight(false);
+  });
+  await expect.poll(() => cameraAt(page), { timeout: 20_000 }).toEqual([-8, 3, 6]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.rakingLight?.enabled === true), { timeout: 20_000 }).toBe(false);
+  expect(await other.evaluate(() => window.Viewer.getLiveLink().session.sent)).toBeGreaterThan(sentByOther);
+
+  // Not following: the first viewer keeps its view.
+  await page.evaluate(() => window.Viewer.setLiveSessionOptions({ receive: false }));
+  await other.evaluate(() => window.viewer.camera.position.set(1, 1, 20));
+  await other.waitForTimeout(2000);
+  expect(await cameraAt(page)).toEqual([-8, 3, 6]);
+  await page.evaluate(() => window.Viewer.setLiveSessionOptions({ receive: true }));
+
+  // The window: the link to hand on, and who is there.
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  const panel = page.locator('#viewerLiveLinkPanel');
+  await expect(panel.locator('.viewer-livelink-panel_link')).toHaveValue(new RegExp(`session=${id}`));
+  await expect(panel.locator('details[data-section="session"] .viewer-livedata-panel_status')).toHaveText('In the session: 2');
+
+  // Another model opened by the first: the others open it too.
+  await page.evaluate(async () => {
+    document.querySelector('#example-model-select').value = [...document.querySelectorAll('#example-model-select option')].find((option) => /examples\/animated\.glb$/.test(option.value)).value;
+    document.querySelector('#example-model-select').dispatchEvent(new Event('change'));
+  });
+  await expect.poll(() => other.evaluate(() => String(window.Viewer.shownModelUrl || '')), { timeout: 40_000 }).toMatch(/examples\/animated\.glb$/);
+
+  await panel.locator('.viewer-livelink-panel_leave').click();
+  expect(await page.evaluate(() => window.Viewer.getLiveLink().session)).toBeNull();
+  await other.close();
+});
+
+test('live link: a session through the worker\'s relay', async ({ page }) => {
+  test.setTimeout(120_000);
+  // The relay (worker/live_sessions.py), answered at once here.
+  const rooms = new Map();
+  await page.context().route('**/api/live/*', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const name = url.pathname.split('/').pop();
+    const room = rooms.get(name) || { version: 0, state: null, sender: '', peers: new Set() };
+    rooms.set(name, room);
+    if (request.method() === 'POST') {
+      const body = request.postDataJSON();
+      room.version += 1;
+      room.state = body.state;
+      room.sender = body.client;
+      room.peers.add(body.client);
+      return route.fulfill({ json: { version: room.version, peers: room.peers.size } });
+    }
+    room.peers.add(url.searchParams.get('client'));
+    const since = Number(url.searchParams.get('since'));
+    if (room.version <= since) await new Promise((resolve) => setTimeout(resolve, 250));
+    return route.fulfill({
+      json: room.version > since && room.state
+        ? { version: room.version, state: room.state, sender: room.sender, peers: room.peers.size }
+        : { version: room.version, peers: room.peers.size },
+    });
+  });
+  const { id, other } = await sessionPair(page);
+  expect(await other.evaluate(() => window.Viewer.getLiveLink().session.mode)).toBe('server');
+  await page.evaluate(() => window.viewer.camera.position.set(2, 7, 11));
+  await expect.poll(() => cameraAt(other), { timeout: 20_000 }).toEqual([2, 7, 11]);
+  // Who joins later gets the scene as it is.
+  const late = await page.context().newPage();
+  await openViewer(late, '/examples/tempietto/Tempietto.glb', `session=${id}`);
+  await waitForModel(late);
+  await expect.poll(() => cameraAt(late), { timeout: 20_000 }).toEqual([2, 7, 11]);
+  expect(rooms.get(id).peers.size).toBe(3);
+  await late.close();
+  await other.close();
+});
+
+test('live link: the manifest followed - only what changed is applied, the model stays', async ({ page }) => {
+  test.setTimeout(120_000);
+  let manifest = JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-toon.json', 'utf8'));
+  await page.route('**/manifests/followed.json', (route) => route.fulfill({ json: manifest }));
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await page.evaluate(async () => {
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(new URL('/manifests/followed.json', window.location.href).href, 'url');
+  });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+  const model = await page.evaluate(() => window.viewer.scene.getObjectByName('Column_1').uuid);
+  expect(await page.evaluate(() => window.Viewer.followLiveManifest({ interval: 0.5 }))).toBe(true);
+  await page.waitForFunction(() => window.Viewer.liveLinkState.manifest.lastText !== null);
+
+  // The manifest changes where it lives: a light, the shading, the camera.
+  manifest = structuredClone(manifest);
+  manifest.AIM3DViewer.lights[0].intensity = 0.11;
+  manifest.AIM3DViewer.modelTransform.shadingMode = 'original';
+  manifest.AIM3DViewer.camera.position = [0, 12, 12];
+  manifest.AIM3DViewer.rakingLight = { enabled: true, direction: 120, height: 20 };
+  await page.waitForFunction(() => window.Viewer.getLiveLink().manifest.reloads === 1, null, { timeout: 20_000 });
+  expect((await page.evaluate(() => window.Viewer.getLiveLink().manifest.changed)).sort()).toEqual(['camera', 'lights', 'modelTransform', 'rakingLight']);
+  await expect.poll(() => cameraAt(page), { timeout: 20_000 }).toEqual([0, 12, 12]);
+  const scene = await page.evaluate(() => {
+    const block = window.Viewer.build3IFManifest().AIM3DViewer;
+    return { raking: block.rakingLight?.enabled, shading: window.Viewer.shadingMode, uuid: window.viewer.scene.getObjectByName('Column_1').uuid };
+  });
+  // The same model object: nothing was loaded again.
+  expect(scene).toEqual({ raking: true, shading: 'original', uuid: model });
+
+  // The settings typed in the window: applied as they are, or refused.
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  const editor = page.locator('#viewerLiveLinkPanel textarea');
+  await expect(page.locator('#viewerLiveLinkPanel details[data-section="manifest"] .viewer-livedata-panel_status')).toHaveClass(/is-live/);
+  const block = JSON.parse(await editor.inputValue());
+  expect(block.rakingLight.enabled).toBe(true);
+  block.rakingLight.enabled = false;
+  await editor.fill(JSON.stringify(block, null, 2));
+  await expect(page.locator('.viewer-livelink-panel_editor-note')).toHaveText('Applied: rakingLight');
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.rakingLight?.enabled === true)).toBe(false);
+  await editor.fill('{ "camera": ');
+  await expect(editor).toHaveClass(/is-invalid/);
+  await expect(page.locator('.viewer-livelink-panel_editor-note')).toContainText('Not applied yet');
+
+  // Another model in the manifest: that one is loaded, and still followed.
+  manifest = JSON.parse(JSON.stringify(manifest).replaceAll('examples/tempietto/Tempietto.glb', 'examples/box.glb'));
+  await page.waitForFunction(() => window.Viewer.getLiveLink().manifest?.changed[0] === 'model', null, { timeout: 40_000 });
+  expect(await page.evaluate(() => [Boolean(window.viewer.scene.getObjectByName('Column_1')), window.Viewer.getLiveLink().manifest.kind])).toEqual([false, 'url']);
+
+  // A scene opened by hand ends the following.
+  await loadExampleManifest(page, 'box-aim3d-local.json');
+  expect(await page.evaluate(() => window.Viewer.getLiveLink().manifest)).toBeNull();
+});
+
+test('live link: the model\'s file followed - saved again, it takes the old one\'s place and the scene stays', async ({ page }) => {
+  test.setTimeout(120_000);
+  let file = 'viewer/examples/tempietto/Tempietto.glb';
+  let heads = 0;
+  await page.route('**/examples/followed/model.glb', (route) => {
+    const body = fs.readFileSync(file);
+    const headers = { ETag: `"${file}"`, 'Content-Length': String(body.length), 'Content-Type': 'model/gltf-binary' };
+    if (route.request().method() === 'HEAD') {
+      heads += 1;
+      return route.fulfill({ status: 200, headers });
+    }
+    return route.fulfill({ status: 200, headers, body });
+  });
+  await openViewer(page, '/examples/followed/model.glb');
+  await waitForModel(page);
+  expect(await page.evaluate(() => Boolean(window.viewer.scene.getObjectByName('Column_1')))).toBe(true);
+  // The scene around the model: a view, a raking light.
+  await page.evaluate(() => {
+    // Ends the opening flight of the camera, which would take the view back.
+    window.Viewer.glideLiveCamera({ position: [4, 6, 9], target: [0, 2, 0] }, 0);
+    window.Viewer.setRakingLight(true);
+  });
+  expect(await page.evaluate(() => window.Viewer.followLiveModel({ interval: 0.5 }))).toBe(true);
+  await page.waitForFunction(() => window.Viewer.liveLinkState.model.stamp !== null);
+
+  // Nothing changed: nothing is loaded.
+  await expect.poll(() => heads).toBeGreaterThan(2);
+  expect(await page.evaluate(() => window.Viewer.getLiveLink().model.reloads)).toBe(0);
+
+  // Saved again (another file under the same address).
+  file = 'viewer/examples/box.glb';
+  await page.waitForFunction(() => window.Viewer.getLiveLink().model.reloads === 1, null, { timeout: 60_000 });
+  const after = await page.evaluate(() => ({
+    tempietto: Boolean(window.viewer.scene.getObjectByName('Column_1')),
+    camera: window.viewer.camera.position.toArray().map((value) => Math.round(value * 10) / 10),
+    raking: window.Viewer.build3IFManifest().AIM3DViewer.rakingLight?.enabled,
+    shown: window.Viewer.shownModelUrl,
+    following: window.Viewer.getLiveLink().model.kind,
+  }));
+  expect(after).toMatchObject({ tempietto: false, camera: [4, 6, 9], raking: true, following: 'url' });
+  expect(after.shown).toMatch(/followed\/model\.glb$/);
+  // The old view was held over the canvas, then let go.
+  await expect(page.locator('.viewer-livelink-veil')).toHaveCount(0, { timeout: 10_000 });
+
+  await page.evaluate(() => window.Viewer.stopLiveModel());
+  const stopped = heads;
+  await page.waitForTimeout(1500);
+  expect(heads).toBeLessThanOrEqual(stopped + 1);
+});
+
 // A closed box of w × h × d (scene units), its faces cut into n × n squares.
 function roomBox(w, h, d, { roof = true, n = 3 } = {}) {
   const triangles = [];
@@ -5759,12 +6188,12 @@ test('toolbar menus on a desktop: the tools sorted into named menus, submenus op
   await lookTools.last().click();
   await page.keyboard.press('Escape');
 
-  // Analysis: the sun and the raking light, out of Lights; section planes and
-  // the ruler.
+  // Analysis: the sun and the raking light, out of Lights; section planes,
+  // the ruler, the certainty view and live data.
   await toolbar.locator('.viewer-menus_tab[data-menu="analysis"]').click();
   const panel = toolbar.locator('.viewer-menus_panel');
   await expect(panel).toBeVisible();
-  await expect(panel.locator('.viewer-menus_group.is-shown > [data-tool]:visible')).toHaveCount(5);
+  await expect(panel.locator('.viewer-menus_group.is-shown > [data-tool]:visible')).toHaveCount(6);
   await expect(page.locator('[data-tool="lights"] [data-tool="lightSun"]')).toHaveCount(0);
   const sunToggle = panel.locator('button[data-tool="lightSunToggle"]');
   await expect(sunToggle).toBeHidden();
@@ -7774,7 +8203,7 @@ test('classic toolbar: the tools for the model\'s kind come onto the bar, and go
   await page.selectOption('#example-model-select', './examples/volumes/amphora-ct.nrrd');
   await page.waitForFunction(() => window.Viewer.getModelKind?.() === 'volume' && window.Viewer.isVolumeActive?.(), null, { timeout: 60_000 });
   await expect.poll(async () => (await formatTools(page)).onBar).toEqual(['volume', 'clippingPlanes', 'ruler']);
-  expect((await formatTools(page)).hidden.sort()).toEqual(['ground', 'sceneSuggest', 'seasons', 'shading', 'weather', 'wireframe']);
+  expect((await formatTools(page)).hidden.sort()).toEqual(['ground', 'liveData', 'sceneSuggest', 'seasons', 'shading', 'weather', 'wireframe']);
 });
 
 test('classic toolbar: an IFC model brings its hierarchy and section tools to the top, two on a phone', async ({ browser }) => {

@@ -38,6 +38,7 @@ import {
 } from "./aim3dviewer-validation.js";
 import { CERTAINTY_SCOPES } from "./certainty-scale.js";
 import { manifestVersionStatus } from "./manifest-version.js";
+import { LIVE_DATA_RAMP_NAMES } from "../live-data-table.js";
 
 export const INSPECTION_SCHEMA = "explora4d-manifest-inspection/1";
 
@@ -125,6 +126,7 @@ export const MANIFEST_FEATURES = [
     count: (m) => (length(block(m).sounds?.sources) || paintedBodies(m).filter((body) => bodyFeature(body) === "sounds").length)
       + annotationsOf(m, "annotations").filter((annotation) => annotation.AIM3DViewer?.audio !== undefined).length,
   },
+  { id: "data", label: "Live data", count: (m) => (block(m).data ? Math.max(length(block(m).data.rows), 1) : 0) },
   { id: "location", label: "Geographic location", count: (m) => has(block(m).location) },
   { id: "sun", label: "Sun study", count: (m) => has(block(m).sun) },
   { id: "weather", label: "Weather", count: (m) => has(block(m).weather) },
@@ -510,6 +512,19 @@ const AIM3D_BLOCK = obj({
       reverb: leaf(oneOf(["off", "room", "hall", "church"])),
       reverbMix: leaf(number({ min: 0, max: 1 })),
     }),
+  })),
+  data: tag("data", obj({
+    src: FILE_URL,
+    refresh: leaf(number({ min: 0 })),
+    rows: arr(ANY),
+    key: TEXT,
+    color: alt({ string: TEXT, object: obj({ column: TEXT, ramp: alt({ string: leaf(oneOf(LIVE_DATA_RAMP_NAMES)), array: arr(COLOR, { minLength: 2 }) }), reverse: BOOL, min: NUM, max: NUM, categories: ANY }, { expect: [["column", "error"]] }) }),
+    label: alt({ string: TEXT, object: obj({ column: TEXT, unit: STRING, name: BOOL }, { expect: [["column", "error"]] }) }),
+    alert: alt({ string: TEXT, object: obj({ column: TEXT, above: NUM, below: NUM, equals: alt({ string: STRING, number: NUM }) }, { expect: [["column", "error"]] }) }),
+    visible: alt({ string: TEXT, object: obj({ column: TEXT }, { expect: [["column", "error"]] }) }),
+    strength: leaf(number({ min: 0, max: 1 })),
+    transition: leaf(number({ min: 0 })),
+    open: BOOL,
   })),
   sounds: tag("sounds", obj({
     autoplay: BOOL,

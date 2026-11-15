@@ -13,7 +13,7 @@ MODEL_EXTENSIONS = {".glb", ".gltf", ".obj", ".stl", ".ply", ".fbx"}
 
 # The AIM3D manifest format's version (AIM3DViewer.version, "MAJOR.MINOR"):
 # keep in sync with AIM3D_MANIFEST_VERSION in viewer/manifesto/manifest-version.js.
-AIM3D_MANIFEST_VERSION = "1.2"
+AIM3D_MANIFEST_VERSION = "1.3"
 
 
 def parse_version(value):

@@ -126,6 +126,8 @@ export function getEditorToolbarIcon(icon) {
     ground: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="5" width="8" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="18.5" rx="7" ry="1.8" fill="currentColor" fill-opacity="0.45"/></svg>',
     volume: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z"/><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10" opacity=".55"/><circle cx="12" cy="11.5" r="2.2" fill="currentColor" stroke="none"/></svg>',
     image: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="m3.5 16.5 5-5 4 4 2.5-2.5 5.5 5.5"/><circle cx="15.5" cy="9" r="1.6"/></svg>',
+    liveLink: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.9l7.6-3.8M8.2 13.1l7.6 3.8"/></svg>',
+    liveData: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="9" rx="1.5"/><path d="M3.5 8.5h17M9.5 4v9"/><path d="M3 18h4l2-3 3 5 2-3.5 1.5 1.5H21"/></svg>',
     sounds: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
     audio: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 11v2M6.5 8v8M10 4.5v15M13.5 7.5v9M17 10v4M20.5 11.25v1.5"/></svg>',
     pointCloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="1.6" fill="currentColor"/><circle cx="11" cy="5.5" r="1.6" fill="currentColor"/><circle cx="17" cy="7" r="1.6" fill="currentColor"/><circle cx="8.5" cy="12.5" r="1.6" fill="currentColor"/><circle cx="14" cy="11" r="1.6" fill="currentColor"/><circle cx="19" cy="12.5" r="1.6" fill="currentColor"/><circle cx="5.5" cy="17" r="1.6" fill="currentColor"/><circle cx="11.5" cy="17.5" r="1.6" fill="currentColor"/><circle cx="17" cy="18" r="1.6" fill="currentColor"/></svg>',
@@ -1461,6 +1463,12 @@ export function createEditorToolbar(viewer) {
     { key: "ruler", group: "inspect", icon: "ruler", onClick: () => viewer.toggleDistanceMeasurement(), pressed: true, primary: false },
     { key: "annotate", group: "inspect", icon: "annotate", onClick: () => viewer.openAnnotationDialogWithAutoPicking(), primary: false },
     { key: "certainty", group: "inspect", icon: "certainty", onClick: () => viewer.toggleCertaintyView(), pressed: true, primary: false },
+    // A table that drives the model: colours, labels and alerts that follow
+    // its rows as they change (editor/live-data.js).
+    { key: "liveData", group: "inspect", icon: "liveData", onClick: () => viewer.toggleLiveDataPanel?.(), pressed: true, primary: false },
+    // The scene connected to its manifest, its model's file and other
+    // viewers: a shared session (editor/live-link.js).
+    { key: "liveLink", group: "inspect", icon: "liveLink", onClick: () => viewer.toggleLiveLinkPanel?.(), pressed: true, primary: false },
     { key: "statistics", group: "inspect", icon: "statistics", onClick: () => {}, pressed: false, primary: false },
     // Is the model ready to publish (ui/validation-report.js).
     { key: "validationReport", group: "inspect", icon: "validationReport", onClick: () => viewer.toggleValidationReport(), pressed: true, primary: false },
@@ -2407,6 +2415,8 @@ export function updateEditorToolbarLabels(viewer) {
     upAxis: t("gui.upAxis", "Up axis of the model"),
     lights: t("gui.lights", "Lights"),
     sounds: t("sounds.toggle", "Sounds in the scene"),
+    liveData: t("liveData.toggle", "Live data on the model"),
+    liveLink: t("liveLink.toggle", "Live link: manifest, model file, shared session"),
     cameras: t("gui.sceneCameras", "Scene cameras"),
     environmentMap: t("gui.environmentMap", "Environment map"),
     weather: t("weather.title", "Weather"),
@@ -2741,6 +2751,8 @@ export function updateEditorToolbarState(viewer) {
     shading: viewer.isShadingPanelOpen?.() === true,
     lights: viewer.isLightsPanelOpen?.() === true,
     sounds: viewer.isSoundsPanelOpen?.() === true || viewer.isSceneSoundPlaying?.() === true,
+    liveData: viewer.isLiveDataPanelOpen?.() === true,
+    liveLink: viewer.isLiveLinkPanelOpen?.() === true || viewer.isLiveLinkActive?.() === true,
     cameras: viewer.isCamerasPanelOpen?.() === true,
     download: false,
     pointCloud: viewer.isPointCloudPanelVisible?.() === true,

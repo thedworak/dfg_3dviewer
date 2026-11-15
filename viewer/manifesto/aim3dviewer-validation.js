@@ -809,6 +809,35 @@ function validateSceneSuggest(sceneSuggest, path, errors) {
   if (sceneSuggest.purpose !== undefined) validateEnum(sceneSuggest.purpose, ["documentation", "presentation"], `${path}.purpose`, errors);
 }
 
+// AIM3DViewer.data (editor/live-data.js): a table that drives the model.
+function validateLiveData(data, path, errors) {
+  if (!isPlainObject(data)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  if (data.src !== undefined) validateString(data.src, `${path}.src`, errors);
+  if (data.key !== undefined) validateString(data.key, `${path}.key`, errors);
+  if (data.rows !== undefined) {
+    if (!Array.isArray(data.rows)) pushError(errors, `${path}.rows`, "must be an array");
+    else data.rows.forEach((row, index) => {
+      if (!isPlainObject(row)) pushError(errors, `${path}.rows[${index}]`, "must be an object");
+    });
+  }
+  ["refresh", "transition"].forEach((key) => {
+    if (data[key] !== undefined && (!isFiniteNumber(data[key]) || data[key] < 0)) pushError(errors, `${path}.${key}`, "must be a number, 0 or more");
+  });
+  if (data.strength !== undefined && (!isFiniteNumber(data.strength) || data.strength < 0 || data.strength > 1)) {
+    pushError(errors, `${path}.strength`, "must be a number from 0 to 1");
+  }
+  ["color", "label", "alert", "visible"].forEach((key) => {
+    const channel = data[key];
+    if (channel === undefined || channel === null || typeof channel === "string") return;
+    if (!isPlainObject(channel)) pushError(errors, `${path}.${key}`, "must be a column's name or an object");
+    else if (typeof channel.column !== "string" || !channel.column.trim()) pushError(errors, `${path}.${key}.column`, "must be a column's name");
+  });
+  if (data.open !== undefined) validateBoolean(data.open, `${path}.open`, errors);
+}
+
 function validateAIM3DViewerBlock(block, path, errors) {
   if (!isPlainObject(block)) {
     pushError(errors, path, "must be an object");
@@ -837,6 +866,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
   if (block.weather !== undefined) validateWeather(block.weather, `${path}.weather`, errors);
   if (block.sceneSuggest !== undefined) validateSceneSuggest(block.sceneSuggest, `${path}.sceneSuggest`, errors);
+  if (block.data !== undefined) validateLiveData(block.data, `${path}.data`, errors);
   if (block.materials !== undefined) validateMaterials(block.materials, `${path}.materials`, errors);
   if (block.measurements !== undefined) validateMeasurements(block.measurements, `${path}.measurements`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);

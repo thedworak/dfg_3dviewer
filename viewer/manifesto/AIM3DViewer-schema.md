@@ -7,7 +7,7 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
 ```json
 {
   "AIM3DViewer": {
-    "version": "1.2",
+    "version": "1.3",
     "generatedAt": "2026-08-11T12:00:00.000Z",
     "camera": {},
     "viewer": {},
@@ -25,7 +25,7 @@ The runtime currently reads and writes the following fields.
 
 ## `AIM3DViewer.version`
 
-The version of the manifest format, `"MAJOR.MINOR"` (now `"1.2"`:
+The version of the manifest format, `"MAJOR.MINOR"` (now `"1.3"`:
 `AIM3D_MANIFEST_VERSION` in [manifest-version.js](./manifest-version.js)).
 A manifest is written with the version of the viewer that writes it (the
 viewer's export, the Blender add-on, `scripts/build-showcase-examples.mjs`).
@@ -50,6 +50,7 @@ reloading the page, or, in an app build, the app's store page.
 | 1.0 | The format as first published |
 | 1.1 | `camera.aspect`, `camera.orientation`, `measurements` |
 | 1.2 | `sounds` (with `sounds.acoustics`), `image`, `audio`; an annotation's `AIM3DViewer.audio` (narration); a scene showing a `Sound` or an `Image` |
+| 1.3 | `data` (live data: a table that drives the model) |
 
 ## `AIM3DViewer.camera`
 
@@ -690,6 +691,58 @@ is not kept: it is worked out again when the sounds play.
 A source's `acoustics` (boolean) says whether it is heard in the room:
 by default point and spot sources are, ambient ones are not (wind is
 outside).
+
+## `AIM3DViewer.data`
+
+Live data ([docs/live-data.md](../../docs/live-data.md)): a table that drives
+the model. Each row belongs to the part of the model its key cell names, and
+its other cells give the part's look. The table stays connected: what changes
+in it moves to its new look without the model being loaded again.
+
+```json
+"data": {
+  "src": "./examples/tempietto/data/monitoring.csv",
+  "refresh": 2,
+  "key": "part",
+  "color": { "column": "moisture", "ramp": "heat", "min": 5, "max": 35 },
+  "label": { "column": "moisture", "unit": "%" },
+  "alert": { "column": "moisture", "above": 28 },
+  "visible": "standing",
+  "strength": 0.75,
+  "transition": 0.9
+}
+```
+
+- `src`: the table's URL - CSV or TSV with the column names in its first line
+  (comma, semicolon or tab; a decimal comma is read), or JSON: an array of
+  objects, `{ "rows": [...] }`, or an object of objects keyed by the part's
+  name. Relative to the manifest
+- `refresh`: seconds between two reads of `src` (0.5 to 3600). Without it the
+  table is read once. An unchanged table changes nothing
+- `rows`: the table itself, one object per row, instead of `src`. A table
+  opened from a file, edited in the window or pushed by the page is saved
+  this way
+- `key`: the column with the part's name - an object's name in the model,
+  compared without case, spaces and punctuation (`Column_1`, `column 1`), or
+  an IFC element's `GlobalId`. A row naming a group paints all of it; a row
+  naming one of its objects wins there. Default: the column that names most
+  objects
+- `color`: a column's name, or `{ column, ramp, reverse, min, max,
+  categories }`. A numeric column runs along the ramp (`heat`, `viridis`,
+  `blue`, `green`, `traffic`, `diverging`, or a list of colours) from `min`
+  to `max` (default: the column's lowest and highest). A text column gets a
+  colour per value: those in `categories` (`{ "good": "#1a9850" }`), the
+  others from a palette. A cell that is a colour (`#c0392b`) is used as it is
+- `label`: a column's name, or `{ column, unit, name }`: the cell above the
+  part, with its unit, after the part's name when `name` is true
+- `alert`: `{ column, above, below, equals }`: the part pulses while its cell
+  is above or below the limit, or says `equals`
+- `visible`: a column's name: the part is hidden while its cell says `0`,
+  `false`, `no` or `off` (an empty cell hides nothing)
+- `strength`: how much of the colour covers the part's own material (0 to 1,
+  default `0.75`)
+- `transition`: seconds a change takes to show (default `0.9`)
+- `open`: `false` keeps the Live data window closed on load
 
 ## `AIM3DViewer.image` and `AIM3DViewer.audio`
 

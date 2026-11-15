@@ -95,6 +95,7 @@ import dicom_series
 import example_thumbnails
 import image_slices
 import lif
+import live_sessions
 import raw_volume
 import tiff_stack
 import volumes
@@ -318,6 +319,8 @@ def find_model_file(root: Path):
 JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 THUMBNAIL_VIEWS = {f"side{angle}" for angle in range(0, 360, 45)} | {"top"}
 LIMITS = Limits(JOBS_DIR, JOB_ID_RE, MAX_CONCURRENT_CONVERSIONS)
+# Shared live sessions between viewers (in memory).
+LIVE_SESSIONS = live_sessions.LiveSessions()
 # Plans of an app (see the entitlements import above); off without it.
 ENTITLEMENTS = Entitlements() if Entitlements else None
 # Testing only: without a verification key, accept the plan the app reports
@@ -1437,11 +1440,36 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _handle_live_session(self, room: str, publish: bool) -> None:
+        """Shared live sessions (live_sessions.py): POST publishes a
+        viewer's state, GET waits for the next one."""
+        try:
+            if publish:
+                body = self._read_json_body(live_sessions.MAX_STATE_BYTES)
+                result = LIVE_SESSIONS.publish(room, str(body.get("client") or ""), body.get("state"))
+            else:
+                query = parse_qs(urlparse(self.path).query)
+                first = lambda name, default: (query.get(name) or [default])[0]
+                try:
+                    since, wait = int(first("since", "0")), float(first("wait", "20"))
+                except ValueError:
+                    raise live_sessions.LiveError(400, "since and wait must be numbers")
+                result = LIVE_SESSIONS.wait(room, first("client", ""), since, wait)
+        except (live_sessions.LiveError, AuthError) as error:
+            self._send_json(error.status, {"error": error.message})
+            return
+        self._send_json(200, result)
+
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
 
         if path == "/healthz":
             self._send_json(200, {"status": "ok"})
+            return
+
+        match = re.fullmatch(r"/api/live/([^/]+)", path)
+        if match:
+            self._handle_live_session(match.group(1), publish=False)
             return
 
         match = re.fullmatch(r"/api/model/status/([A-Za-z0-9_-]+)", path)
@@ -1567,6 +1595,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)
+        match = re.fullmatch(r"/api/live/([^/]+)", path)
+        if match:
+            self._handle_live_session(match.group(1), publish=True)
+            return
         if path == "/api/model/create":
             self._handle_create()
             return

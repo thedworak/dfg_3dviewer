@@ -24,7 +24,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "viewer" / "manifesto" / "examples"
-VERSION = "1.2"
+VERSION = "1.3"
 GENERATED = "2026-11-11T00:00:00.000Z"
 RIGHTS = "http://creativecommons.org/publicdomain/zero/1.0/"
 

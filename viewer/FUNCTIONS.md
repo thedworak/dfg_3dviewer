@@ -628,6 +628,28 @@ Sound sources in the scene, heard from the camera (see [docs/audio.md](../docs/a
 - `toggleSoundsPanel(open)`, `isSoundsPanelOpen()`; `getSoundsForExport()` (AIM3DViewer.sounds), `apply3IFManifestSounds(config)`, `disposeSceneSounds()`.
 - `buildSoundAnnotations(sceneId, baseId, sources)` (`IIIF/presentation4.js`) - the IIIF `AmbientAudio` / `PointAudio` / `SpotAudio` painting annotations; `readSceneContent()` returns them back as `sounds`.
 
+## `viewer/editor/live-data.js`, `viewer/live-data-table.js`
+
+Live data: a table that drives the model (see [docs/live-data.md](../docs/live-data.md)). Settings `{ src, refresh, rows, key, color: { column, ramp, reverse, min, max, categories }, label: { column, unit, name }, alert: { column, above, below, equals }, visible: { column }, strength, transition, open }`, kept in `Viewer.liveDataState` with the table (`columns`, `rows`), its `source` and the bound `parts`.
+
+- `setLiveData(config)` - replaces the settings and connects the table (a URL, an array of rows, or the settings); `updateLiveDataConfig(patch)` changes some of them (a channel set to `null` is switched off); `getLiveData()` -> `{ config, columns, rows, source, parts, unmatched }`, `hasLiveData()`.
+- `setLiveDataRows(rows)` - a new table pushed by the page; `updateLiveDataRow(key, values)` - one row changed or added; `handleLiveDataMessage(event)` - the same from a `{ type: "aim3d-data", rows | key, values }` message to an embedded viewer.
+- `loadLiveDataUrl()` - reads `src`, and again after `refresh` seconds; `openLiveDataFile(file | handle)` - a table from the device, watched for being saved where the File System Access API is there; `stopLiveDataSource()`, `isLiveDataFollowing()`.
+- `applyLiveDataTable(columns, rows, { quiet })` - a new table: returns the keys that changed; `bindLiveData({ flash })` - rows to parts and each part's look to move to; `rebuildLiveDataOverlays()`, `unbindLiveData()`, `flashLiveDataPart(key)`.
+- `updateLiveData(delta)` - each frame: colours, flashes, alerts and counting labels on their way.
+- `toggleLiveDataPanel(open)`, `isLiveDataPanelOpen()`, `editLiveDataCell(rowIndex, column, text)`, `downloadLiveDataTable()`; `getLiveDataForExport()` (AIM3DViewer.data), `apply3IFManifestLiveData(config)`, `disposeLiveData()`.
+- `live-data-table.js` (no DOM, no three.js): `parseDataTable(text)` (CSV, TSV, JSON) and `tableFromObjects(list)` -> `{ columns, rows }`, `dataTableToCsv(columns, rows)`, `dataNumber(value)`, `dataTruthy(value)`, `dataColumnKind(rows, column)`, `normalizeDataKey(name)`, `guessKeyColumn(columns, rows, names)`, `diffDataRows(before, after, key)`, `dataColorScale(color, rows)` -> `{ kind, colorOf(value), ... }`, `rampColor(stops, position)`, `dataAlert(alert, row)`, `normalizeLiveData(raw)`; `LIVE_DATA_RAMPS`, `LIVE_DATA_CATEGORY_COLORS`.
+
+## `viewer/editor/live-link.js`, `viewer/live-link-rules.js`
+
+Live link (see [docs/live-link.md](../docs/live-link.md)): the scene connected to its manifest, its model's file and other viewers. State in `Viewer.liveLinkState` (`manifest`, `model`, `session`, `glide`, `busy`); `getLiveLink()` -> `{ manifest, model, session, busy }`, `isLiveLinkActive()`.
+
+- A shared session: `startLiveSession(id)` (a new one without `id`; a `?session=<id>` link joins once the model is there), `leaveLiveSession()`, `setLiveSessionOptions({ send, receive })`, `liveSessionLink()`; `stepLiveSession(now)` sends what changed here (the camera, the year, `LIVE_SESSION_BLOCKS` of the scene written out, where the scene comes from), `receiveLiveSession(answer)` shows what differs from what this viewer knows; `publishLiveSession()`, `pollLiveSession(session)` (the worker's `/api/live/<id>`, else a `BroadcastChannel` between the tabs of one browser).
+- The manifest: `followLiveManifest({ url, interval })`, `openLiveManifestFile(file | handle)`, `stopLiveManifest()`; `applyLiveManifest(next, { baseUrl })` applies only the blocks that differ (`import3IFManifest(json, { only, quiet })`), flies the camera, and resolves to their keys (`["model"]` when another model was loaded); `currentLiveManifest()`, `applyLiveManifestText(text)` and `fillLiveManifestEditor()` for the window's editor.
+- The model's file: `followLiveModel({ url, interval })`, `openLiveModelFile(file | handle)`, `stopLiveModel()`; `reloadLiveModel(load)` keeps the scene (written out before, imported after) under `showLiveVeil()` / `hideLiveVeil(veil)`.
+- `glideLiveCamera(view, seconds, { fromSession })`, `updateLiveLink(delta)` (each frame), `disposeLiveLink()` (another scene opened), `toggleLiveLinkPanel(open)`, `isLiveLinkPanelOpen()`.
+- `live-link-rules.js` (no DOM): `changedManifestBlocks(before, after)`, `manifestModels(manifest)`, `newSessionId(length)`, `SESSION_ID_PATTERN`, `normalizeSessionCamera(raw)`, `sameSessionCamera(a, b)`, `LIVE_SESSION_BLOCKS`.
+
 ## `viewer/editor/scene-acoustics.js`, `viewer/room-acoustics.js`
 
 The room's acoustics (auralization; see [docs/audio.md](../docs/audio.md#room-acoustics)): the scene's sounds heard with the reverberation worked out from the model's geometry. Settings `{ on, position, material, floor, amount }` (`normalizeAcoustics(raw)`), kept as `AIM3DViewer.sounds.acoustics`; a source's own `acoustics` (boolean, `soundInRoom(source)`).

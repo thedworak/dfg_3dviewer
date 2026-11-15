@@ -14,7 +14,7 @@
 //
 // Keep in sync with AIM3D_MANIFEST_VERSION in blender/aim3d_iiif/manifest.py
 // and the "Versions" section of AIM3DViewer-schema.md.
-export const AIM3D_MANIFEST_VERSION = "1.2";
+export const AIM3D_MANIFEST_VERSION = "1.3";
 
 const VERSION_PATTERN = /^\s*v?(\d+)(?:\.(\d+))?(?:\.\d+)*\s*$/i;
 

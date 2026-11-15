@@ -1753,6 +1753,9 @@ export function attachAnnotations(Viewer) {
           // Sound sources in the scene (editor/scene-sounds.js).
           sounds: this.getSoundsForExport?.(),
 
+          // The table that drives the model (editor/live-data.js).
+          data: this.getLiveDataForExport?.(),
+
           modelTransform: {
             position:
               primaryModelObject?.position?.toArray?.() ||
@@ -2363,9 +2366,15 @@ export function attachAnnotations(Viewer) {
       return true;
     },
 
-    import3IFManifest(manifestJson) {
+    // `only`: the AIM3DViewer blocks to apply (a Set of their keys, with
+    // "annotations" for the comments) - the rest of the scene stays as it
+    // is (editor/live-link.js follows a manifest this way); `quiet`: no
+    // notices.
+    import3IFManifest(manifestJson, { only = null, quiet = false } = {}) {
+      const want = (key) => !only || only.has(key);
+      const notify = quiet ? () => {} : toastHelper;
       if (!manifestJson || typeof manifestJson !== "object") {
-        toastHelper("invalidManifest", "error");
+        notify("invalidManifest", "error");
         return false;
       }
 
@@ -2374,11 +2383,13 @@ export function attachAnnotations(Viewer) {
       // opened when this viewer cannot read it, else opened with a notice
       // that a newer viewer shows all of it.
       const version = manifestVersionStatus(manifestJson);
+      const importValidation = validateAIM3DManifest(manifestJson);
+      // Quiet: neither notices nor dialogs - the caller says what went wrong.
+      if (quiet && (version.blocking || !importValidation.valid)) return false;
       if (version.blocking) {
         showManifestUpdateDialog(version);
         return false;
       }
-      const importValidation = validateAIM3DManifest(manifestJson);
       if (!importValidation.valid) {
         const detail = formatAIM3DManifestValidationErrors(importValidation.errors);
         if (version.newer) {
@@ -2386,46 +2397,47 @@ export function attachAnnotations(Viewer) {
           return false;
         }
         console.error("AIM3D manifest import validation failed", importValidation.errors);
-        toastHelper("invalidManifest", "error", { detail, duration: 9000 });
+        notify("invalidManifest", "error", { detail, duration: 9000 });
         return false;
       }
-      if (version.newer) showManifestNewerNotice(version);
+      if (version.newer && !quiet) showManifestNewerNotice(version);
 
       const aim3dConfig = manifestJson.AIM3DViewer;
       let appliedAIM3DConfig = false;
       // The manifest's Level of Certainty scale (the default one without),
       // before its annotations are read against it.
-      this.setCertaintyScale?.(aim3dConfig?.certainty ?? null);
+      if (want("certainty")) this.setCertaintyScale?.(aim3dConfig?.certainty ?? null);
       // Imported over the current model (no reset): a manifest without a
       // scale leaves no Level of Certainty view open.
-      if (!aim3dConfig?.certainty && this.certaintyView) this.setCertaintyView(false);
+      if (want("certainty") && !aim3dConfig?.certainty && this.certaintyView) this.setCertaintyView(false);
       // The raking light dims the lights and the environment the manifest
       // is about to set: off first, on again (if the manifest has it) after.
-      this.setRakingLight?.(false);
-      this.setSunStudy?.(false);
-      this.setWeather?.(false);
+      if (want("rakingLight")) this.setRakingLight?.(false);
+      if (want("sun")) this.setSunStudy?.(false);
+      if (want("weather")) this.setWeather?.(false);
       if (aim3dConfig && typeof aim3dConfig === "object") {
-        const appliedCamera = this.apply3IFManifestCamera(aim3dConfig.camera);
+        const appliedCamera = want("camera") && this.apply3IFManifestCamera(aim3dConfig.camera);
         // The manifest's camera is a start view chosen (the renders' front).
         if (appliedCamera) this.markStartViewChosen?.();
-        const appliedViewer = this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
-        const appliedClipping = this.apply3IFManifestClipping(aim3dConfig.clipping);
-        const appliedIntegration = this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
-        const appliedLights = this.apply3IFManifestLights(aim3dConfig.lights);
-        const appliedModelTransform = this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
-        const appliedRakingLight = this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
-        const appliedSun = this.apply3IFManifestSun?.(aim3dConfig.location, aim3dConfig.sun) === true;
-        const appliedWeather = this.apply3IFManifestWeather?.(aim3dConfig.weather) === true;
-        const appliedTimeline = this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
-        const appliedVariants = this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
-        const appliedPhotos = this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
-        const appliedSounds = this.apply3IFManifestSounds?.(aim3dConfig.sounds) === true;
-        const appliedImage = this.apply3IFManifestImage?.(aim3dConfig.image) === true;
-        const appliedAudio = this.apply3IFManifestAudio?.(aim3dConfig.audio) === true;
-        const appliedSceneSuggest = this.apply3IFManifestSceneSuggest?.(aim3dConfig.sceneSuggest) === true;
-        const appliedMaterials = this.apply3IFManifestMaterials?.(aim3dConfig.materials) === true;
+        const appliedViewer = want("viewer") && this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
+        const appliedClipping = want("clipping") && this.apply3IFManifestClipping(aim3dConfig.clipping);
+        const appliedIntegration = want("integration") && this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
+        const appliedLights = want("lights") && this.apply3IFManifestLights(aim3dConfig.lights);
+        const appliedModelTransform = want("modelTransform") && this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
+        const appliedRakingLight = want("rakingLight") && this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
+        const appliedSun = want("sun") && this.apply3IFManifestSun?.(aim3dConfig.location, aim3dConfig.sun) === true;
+        const appliedWeather = want("weather") && this.apply3IFManifestWeather?.(aim3dConfig.weather) === true;
+        const appliedTimeline = want("timeline") && this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
+        const appliedVariants = want("variants") && this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
+        const appliedPhotos = want("photos") && this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
+        const appliedSounds = want("sounds") && this.apply3IFManifestSounds?.(aim3dConfig.sounds) === true;
+        const appliedLiveData = want("data") && this.apply3IFManifestLiveData?.(aim3dConfig.data) === true;
+        const appliedImage = want("image") && this.apply3IFManifestImage?.(aim3dConfig.image) === true;
+        const appliedAudio = want("audio") && this.apply3IFManifestAudio?.(aim3dConfig.audio) === true;
+        const appliedSceneSuggest = want("sceneSuggest") && this.apply3IFManifestSceneSuggest?.(aim3dConfig.sceneSuggest) === true;
+        const appliedMaterials = want("materials") && this.apply3IFManifestMaterials?.(aim3dConfig.materials) === true;
         // After the model transform: the points are in the model's frame.
-        const appliedMeasurements = Array.isArray(aim3dConfig.measurements)
+        const appliedMeasurements = want("measurements") && Array.isArray(aim3dConfig.measurements)
           && (this.applySavedMeasurements?.(aim3dConfig.measurements) || 0) > 0;
 
         appliedAIM3DConfig = [
@@ -2442,6 +2454,7 @@ export function attachAnnotations(Viewer) {
           appliedVariants,
           appliedPhotos,
           appliedSounds,
+          appliedLiveData,
           appliedImage,
           appliedAudio,
           appliedSceneSuggest,
@@ -2449,6 +2462,8 @@ export function attachAnnotations(Viewer) {
           appliedMeasurements,
         ].some(Boolean);
       }
+
+      if (!want("annotations")) return true;
 
       // The comments of the scene shown (core.activeScene), and the
       // manifest's own ones.
@@ -2460,7 +2475,7 @@ export function attachAnnotations(Viewer) {
       ].filter((page) => Array.isArray(page?.items));
 
       if (annotationPages.length === 0) {
-        toastHelper(
+        notify(
           appliedAIM3DConfig
             ? "manifestImportedWithoutAnnotations"
             : "noValidAnnotationsInManifest",
@@ -2563,7 +2578,7 @@ export function attachAnnotations(Viewer) {
       }).filter(Boolean);
 
       if (importedEntries.length === 0) {
-        toastHelper(
+        notify(
           appliedAIM3DConfig
             ? "manifestImportedWithoutAnnotations"
             : "noValidAnnotationsInManifest",
@@ -2579,7 +2594,7 @@ export function attachAnnotations(Viewer) {
       } else {
         this.refreshAnnotationPOIs();
       }
-      toastHelper("annotationsImportedFromManifest", "success", {
+      notify("annotationsImportedFromManifest", "success", {
         count: importedEntries.length,
         plural: importedEntries.length === 1 ? "" : "s"
       });
