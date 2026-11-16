@@ -2498,7 +2498,15 @@ export function attachAnnotations(Viewer) {
         ...(Array.isArray(manifestJson?.annotations) ? manifestJson.annotations : []),
       ].filter((page) => Array.isArray(page?.items));
 
+      // Asked for by name and none there: the comments shown are taken away.
+      const takeAway = () => {
+        if (!only?.has("annotations") || !this.annotationEntries?.length) return;
+        this.annotationEntries = [];
+        this.refreshAnnotationPOIs();
+      };
+
       if (annotationPages.length === 0) {
+        takeAway();
         notify(
           appliedAIM3DConfig
             ? "manifestImportedWithoutAnnotations"
@@ -2602,6 +2610,7 @@ export function attachAnnotations(Viewer) {
       }).filter(Boolean);
 
       if (importedEntries.length === 0) {
+        takeAway();
         notify(
           appliedAIM3DConfig
             ? "manifestImportedWithoutAnnotations"

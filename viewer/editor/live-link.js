@@ -7,11 +7,13 @@ import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 import { apiUrl, appRequestHeaders } from "../remote.js";
 import { stopCameraIntro } from "../IIIF/presentation4.js";
 import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
+import { liveSessionParts } from "./live-session-parts.js";
 import {
   changedManifestBlocks,
   changedSessionLook,
   LIVE_SESSION_BLOCK_LIMIT,
   LIVE_SESSION_BLOCKS,
+  LIVE_SESSION_PARTS,
   manifestModels,
   newSessionId,
   normalizeSessionBackground,
@@ -62,11 +64,14 @@ function modelLoaded() {
 }
 
 // What a session's state holds of the scene: the blocks, and the look.
-const SESSION_KEYS = [...LIVE_SESSION_BLOCKS, "look", "background"];
+const SESSION_KEYS = [...LIVE_SESSION_BLOCKS, "look", "background", ...LIVE_SESSION_PARTS];
+// The parts read and shown by the viewer itself (the comments go through
+// the manifest's import).
+const OWN_PARTS = LIVE_SESSION_PARTS.filter((key) => key !== "comments");
 const readBackground = () => normalizeSessionBackground(core.mainCanvas?.style?.getPropertyValue("background"));
 // Blocks the scene writes out at once as they were set: one that reads
 // otherwise right after the others' state was shown was changed here.
-const SETTLED_KEYS = ["clipping", "lights", "materials", "measurements", "look", "background"];
+const SETTLED_KEYS = ["clipping", "lights", "materials", "measurements", "look", "background", "certainty", "comments", "cameras", "photos", "photo", "sounds", "surroundings", "image", "pointCloud"];
 const blockTexts = (blocks) => Object.fromEntries(Object.entries(blocks).map(([key, value]) => [key, JSON.stringify(value)]));
 const projectionOf = (camera) => (camera?.isOrthographicCamera ? "orthographic" : "perspective");
 
@@ -634,8 +639,10 @@ export function attachLiveLink(Viewer) {
 
     readLiveSessionBlocks() {
       let block = {};
+      let manifest = null;
       try {
-        block = Viewer.build3IFManifest()?.AIM3DViewer || {};
+        manifest = Viewer.build3IFManifest();
+        block = manifest?.AIM3DViewer || {};
       } catch {
         return null;
       }
@@ -661,6 +668,25 @@ export function attachLiveLink(Viewer) {
       }
       // The year travels on its own, many times a second.
       if (blocks.timeline) blocks.timeline = { ...blocks.timeline, year: 0 };
+      // The surroundings: their window is each viewer's own, and the year
+      // they follow is the timeline's.
+      if (blocks.surroundings) {
+        const { open: _open, year, ...surroundings } = blocks.surroundings;
+        blocks.surroundings = { ...surroundings, ...(surroundings.followTimeline ? {} : { year }) };
+      }
+      // The comments, as the manifest writes them.
+      const comments = (manifest?.items || []).find((item) => item?.type === "Scene")?.annotations?.[0]?.items;
+      if (Array.isArray(comments) && comments.length) blocks.comments = comments;
+      // The parts no block of the manifest holds.
+      Viewer.liveSessionParts ??= liveSessionParts(Viewer);
+      OWN_PARTS.forEach((key) => {
+        try {
+          const value = Viewer.liveSessionParts[key].read(block);
+          if (value !== undefined) blocks[key] = JSON.parse(JSON.stringify(value));
+        } catch (error) {
+          console.warn(`Live session: ${key} could not be read`, error);
+        }
+      });
       // Too much to send with every state (a table kept as rows, hundreds
       // of measurements): left out, and named so that the others keep theirs.
       const skipped = SESSION_KEYS.filter((key) => blocks[key] !== undefined && JSON.stringify(blocks[key]).length > LIVE_SESSION_BLOCK_LIMIT);
@@ -866,6 +892,8 @@ export function attachLiveLink(Viewer) {
         const skipped = new Set(Array.isArray(remote.skipped) ? remote.skipped : []);
         let look = null;
         let background = null;
+        let comments = null;
+        const parts = [];
         SESSION_KEYS.forEach((key) => {
           if (skipped.has(key)) return;
           const text = remote.blocks[key] === undefined ? undefined : JSON.stringify(remote.blocks[key]);
@@ -880,10 +908,18 @@ export function attachLiveLink(Viewer) {
             background = normalizeSessionBackground(remote.blocks.background);
             return;
           }
+          if (key === "comments") {
+            comments = Array.isArray(remote.blocks.comments) ? remote.blocks.comments : [];
+            return;
+          }
+          if (OWN_PARTS.includes(key)) {
+            parts.push(key);
+            return;
+          }
           only.add(key);
           if (remote.blocks[key] !== undefined) next[key] = remote.blocks[key];
         });
-        if (only.size || look || background) {
+        if (only.size || look || background || comments || parts.length) {
           try {
             const base = Viewer.build3IFManifest();
             // The year is not the session's to set here.
@@ -901,10 +937,36 @@ export function attachLiveLink(Viewer) {
               only.add("viewer");
               next.viewer = { ...changedLook, ...(base.AIM3DViewer?.viewer?.clipping ? { clipping: base.AIM3DViewer.viewer.clipping } : {}) };
             }
+            // The surroundings follow this viewer's timeline, where they do.
+            if (next.surroundings?.followTimeline && Number.isFinite(Viewer.surroundings?.year)) next.surroundings = { ...next.surroundings, year: Viewer.surroundings.year };
+            const blockKeys = [...only];
+            // The comments, in the place of the scene's own.
+            const items = !comments ? base.items : base.items.map((item) => (item?.type === "Scene"
+              ? { ...item, annotations: [{ id: `${item.id}/page/annotations`, type: "AnnotationPage", items: comments }] }
+              : item));
+            if (comments) only.add("annotations");
+            // Their windows open with a manifest; here they stay as they are.
+            const windows = [["photos", "isPhotosPanelOpen", "togglePhotosPanel"], ["sounds", "isSoundsPanelOpen", "toggleSoundsPanel"]]
+              .filter(([key, isOpen]) => only.has(key) && Viewer[isOpen]?.() !== true);
             if (only.size) {
-              const imported = Viewer.import3IFManifest({ ...base, AIM3DViewer: { ...base.AIM3DViewer, ...Object.fromEntries([...only].map((key) => [key, next[key]])) } }, { only, quiet: true });
+              const imported = Viewer.import3IFManifest({ ...base, items, AIM3DViewer: { ...base.AIM3DViewer, ...Object.fromEntries(blockKeys.map((key) => [key, next[key]])) } }, { only, quiet: true });
               if (!imported) console.warn("Live session: a state was not valid", [...only]);
             }
+            windows.forEach(([, , toggle]) => Viewer[toggle]?.(false));
+            // The Level of Certainty view goes on with the comments' import;
+            // here it may be the only thing that changed.
+            if (only.has("certainty") && next.certainty && (next.certainty.visible === true) !== (Viewer.certaintyView === true)) {
+              Viewer.setCertaintyView?.(next.certainty.visible === true);
+            }
+            // After the blocks: a photo is opened from the list they bring.
+            Viewer.liveSessionParts ??= liveSessionParts(Viewer);
+            parts.forEach((key) => {
+              try {
+                Viewer.liveSessionParts[key].show(remote.blocks[key]);
+              } catch (error) {
+                console.warn(`Live session: ${key} could not be shown`, error);
+              }
+            });
             // After the ground, which may bring a background of its own.
             if (background && background !== readBackground()) core.mainCanvas?.style?.setProperty("background", background);
             // The lights are set anew: the camera's own one back at the camera.
@@ -1276,7 +1338,7 @@ export function attachLiveLink(Viewer) {
         labels.push([note, () => t("liveLink.session.intro", "Everyone who opens the session's link sees this scene as you move it. A phone becomes the remote control of a screen.")]);
         sessionChildren.push(note, actions(button("viewer-livelink-panel_start", () => t("liveLink.session.start", "Start a session"), () => Viewer.startLiveSession())));
       }
-      section("session", () => t("liveLink.session.title", "Shared session"), true, sessionChildren);
+      section("session", () => t("liveLink.session.title", "Cooperation mode"), true, sessionChildren);
 
       // The manifest.
       const manifest = state.manifest;

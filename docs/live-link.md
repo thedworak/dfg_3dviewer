@@ -7,17 +7,32 @@ changes on screen, and the page is not loaded again.
 **File > Live link** opens the window with the three of them. (A fourth,
 [live data](live-data.md), connects the model to a table.)
 
-## A shared session
+## Cooperation mode
+
+The window calls it **Cooperation mode**: a shared session.
 
 Everyone who opens a session's link sees one scene. Whoever moves the camera
 moves it for all - and switches its projection (perspective or orthographic)
-for all; the same goes for the year on the 4D timeline, the section planes,
-the reconstruction variant, the lights (moved, coloured, added, removed), the
-raking light, the sun, the weather, the edited materials, the shading, the
-measurements placed, the ground, the background, the environment map, the
-rendering (tone mapping, exposure, ambient occlusion) and the live data's
-settings. A phone becomes the remote control
-of a screen: open the link on both and turn the model on the phone.
+for all. The same goes for:
+
+- the year on the 4D timeline, the section planes, the reconstruction
+  variant and the comparison;
+- the lights (moved, coloured, added, removed), the raking light, the sun,
+  the weather, the generated surroundings;
+- the edited materials, the shading, the ground, the background, the
+  environment map and the rendering (tone mapping, exposure, ambient
+  occlusion);
+- the comments with their Level of Certainty, and the Level of Certainty
+  view; the measurements placed; the scene's cameras;
+- the historical photos and the one held over the view, the scene's sounds,
+  the live data's settings;
+- the tools of what is not a mesh: a 2D image's filters and which image of
+  a set is shown, a sound file's view and playback settings, a point
+  cloud's points (size, shape, colours, classes hidden), a volume's
+  rendering (stack, mode, channels).
+
+A phone becomes the remote control of a screen: open the link on both and
+turn the model on the phone.
 
 - **Start a session** makes the link (`…?session=<id>`). Copy it, send it, or
   open it on another device.
@@ -28,16 +43,14 @@ of a screen: open the link on both and turn the model on the phone.
   you only lead.
 - Everyone can lead. When two people move at once, the last one wins.
 
-Not shared: comments and their Level of Certainty, the generated
-surroundings, historical photos, the scene's sounds and cameras, a 2D
-image's and a sound file's tools, a point cloud's and a volume's settings,
-and what belongs to each viewer (its language, its theme, its toolbars,
-which windows are open). A measurement is shared once it is finished, not
-while its points are being placed. Neither is a model opened from a file on
-the device shared (it has no address the others could open).
+Not shared: what belongs to each viewer (its language, its theme, its
+toolbars, which windows are open), whether a sound plays, and what is still
+being made - a measurement while its points are placed, a comment while it
+is written. A model, a photo or a sound opened from a file on the device is
+not shared either: it has no address the others could open.
 
 A part of the state too large to send with every change (a table kept as
-rows, hundreds of measurements: more than 24 kB) stays out; the others keep
+rows, hundreds of measurements or comments: more than 24 kB) stays out; the others keep
 theirs.
 
 The states travel through the worker (`worker/live_sessions.py`,

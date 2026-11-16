@@ -6,7 +6,13 @@ export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 // The blocks of AIM3DViewer a shared session carries from viewer to viewer
 // (the camera and the timeline's year travel beside them, more often).
-export const LIVE_SESSION_BLOCKS = ["clipping", "variants", "compare", "lights", "rakingLight", "location", "sun", "weather", "materials", "measurements", "modelTransform", "timeline", "data"];
+export const LIVE_SESSION_BLOCKS = ["clipping", "variants", "compare", "lights", "rakingLight", "location", "sun", "weather", "surroundings", "materials", "measurements", "modelTransform", "timeline", "data", "certainty", "photos", "sounds"];
+
+// What a session carries beside those blocks, each read and shown by the
+// viewer itself (editor/live-link.js): the comments, the scene's cameras,
+// the photo held over the view, and the tools of what is not a mesh - a
+// 2D image, a sound file, a point cloud, a volume.
+export const LIVE_SESSION_PARTS = ["comments", "cameras", "photo", "image", "audio", "pointCloud", "volume"];
 
 // What a session carries of the `viewer` block, as its "look": the ground,
 // the background, the environment and the rendering. The rest of that block

@@ -5311,6 +5311,124 @@ test('live link: a shared session - the lights, the measurements, the ground, th
   await other.close();
 });
 
+test('live link: a shared session - the comments, the scene\'s cameras, the photos, the sounds and the surroundings', async ({ page }) => {
+  test.setTimeout(180_000);
+  const { other } = await sessionPair(page);
+  const block = (target, key) => target.evaluate((name) => window.Viewer.build3IFManifest().AIM3DViewer[name], key);
+  const comments = (target) => target.evaluate(() => window.Viewer.getAnnotationEntriesForPersistence().map((entry) => [entry.title, entry.point, entry.certainty?.value ?? null]));
+
+  // Comments: written by one, read by the other; changed there; taken away.
+  await page.evaluate(() => {
+    window.Viewer.annotationEntries = [
+      { id: 'note-1', targetId: 'model-root', point: [0, 1, 0], title: 'Lantern', description: 'Rebuilt in 1605.' },
+      { id: 'note-2', targetId: 'model-root', point: [1, 0.5, 0], title: 'Step', description: '' },
+    ];
+    window.Viewer.refreshAnnotationPOIs();
+  });
+  await expect.poll(() => comments(other), { timeout: 20_000 }).toEqual([['Lantern', [0, 1, 0], null], ['Step', [1, 0.5, 0], null]]);
+  expect(await other.evaluate(() => window.Viewer.annotationPOIMarkers.length)).toBe(await page.evaluate(() => window.Viewer.annotationPOIMarkers.length));
+  await other.evaluate(() => {
+    window.Viewer.annotationEntries = window.Viewer.annotationEntries.slice(0, 1).map((entry) => ({ ...entry, title: 'The lantern' }));
+    window.Viewer.refreshAnnotationPOIs();
+  });
+  await expect.poll(() => comments(page), { timeout: 20_000 }).toEqual([['The lantern', [0, 1, 0], null]]);
+  await page.evaluate(() => {
+    window.Viewer.annotationEntries = [];
+    window.Viewer.refreshAnnotationPOIs();
+  });
+  await expect.poll(() => comments(other), { timeout: 20_000 }).toEqual([]);
+
+  // The scene's cameras: added from the view, named, removed.
+  await page.evaluate(() => {
+    window.Viewer.addSceneCameraFromView();
+    window.Viewer.setSceneCameraProperty('label', 'From the gate');
+  });
+  await expect.poll(() => other.evaluate(() => window.Viewer.getSceneCameras().map((camera) => camera.label)), { timeout: 20_000 }).toEqual(['From the gate']);
+  expect(await other.evaluate(() => window.Viewer.getSceneCameras()[0].position.toArray().map((value) => Math.round(value * 100))))
+    .toEqual(await page.evaluate(() => window.Viewer.getSceneCameras()[0].position.toArray().map((value) => Math.round(value * 100))));
+  await other.evaluate(() => window.Viewer.removeActiveSceneCamera());
+  await expect.poll(() => page.evaluate(() => window.Viewer.getSceneCameras().length), { timeout: 20_000 }).toBe(0);
+
+  // Photos: the list, the one held over the view and how much of it shows -
+  // without their window opening at the others'.
+  const photo = await page.evaluate(() => {
+    const item = window.Viewer.addPhoto({ src: '/examples/tempietto/photos/Tempietto_1783.webp', label: 'In 1783', open: false });
+    window.Viewer.openPhoto(item.id, { fly: false });
+    window.Viewer.setPhotoOpacity(0.4);
+    return item.id;
+  });
+  await expect.poll(() => other.evaluate(() => [window.Viewer.getOpenPhoto()?.id ?? null, window.Viewer.photosState?.opacity ?? null]), { timeout: 20_000 }).toEqual([photo, 0.4]);
+  expect(await other.evaluate(() => window.Viewer.isPhotosPanelOpen())).toBe(false);
+  await other.evaluate(() => window.Viewer.closePhoto());
+  await expect.poll(() => page.evaluate(() => window.Viewer.getOpenPhoto()), { timeout: 20_000 }).toBeNull();
+
+  // The scene's sounds.
+  await page.evaluate(() => window.Viewer.setSceneSounds({ sources: [{ id: 'bells', type: 'ambient', src: '/examples/audio/soundscape.ogg', label: 'Bells' }] }));
+  await expect.poll(async () => (await block(other, 'sounds'))?.sources.map((source) => [source.id, source.label]), { timeout: 20_000 }).toEqual([['bells', 'Bells']]);
+  expect(await other.evaluate(() => window.Viewer.isSoundsPanelOpen())).toBe(false);
+
+  // The generated surroundings, without their window.
+  await page.evaluate(() => window.Viewer.apply3IFManifestSurroundings({ kind: 'shtetl', year: 1780, seed: 7 }));
+  await expect.poll(async () => {
+    const surroundings = await block(other, 'surroundings');
+    return [surroundings?.kind, surroundings?.year, surroundings?.seed, surroundings?.open ?? false];
+  }, { timeout: 40_000 }).toEqual(['shtetl', 1780, 7, false]);
+  await other.evaluate(() => window.Viewer.setSurroundings(false));
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.enabled), { timeout: 20_000 }).toBe(false);
+  await other.close();
+});
+
+test('live link: a shared session - a point cloud\'s, an image\'s, a volume\'s and a sound file\'s tools', async ({ page }) => {
+  test.setTimeout(240_000);
+  // A point cloud: how its points are drawn.
+  let { other } = await sessionPair(page, { model: '/examples/box.xyz' });
+  await page.waitForFunction(() => window.Viewer.pointCloudState);
+  await other.waitForFunction(() => window.Viewer.pointCloudState);
+  await page.evaluate(() => {
+    window.Viewer.setPointCloudShape('round');
+    window.Viewer.setPointCloudEdl(0.25);
+    window.Viewer.setPointCloudSize(2);
+  });
+  await expect.poll(() => other.evaluate(() => [window.Viewer.pointCloudState.shape, window.Viewer.pointCloudState.edl, window.Viewer.pointCloudState.size]), { timeout: 20_000 }).toEqual(['round', 0.25, 2]);
+  await other.close();
+  await page.evaluate(() => window.Viewer.leaveLiveSession());
+
+  // A 2D image: its filters, and the defaults again.
+  ({ other } = await sessionPair(page, { model: '/examples/images/inscription.png' }));
+  await page.waitForFunction(() => window.Viewer.imageState?.api);
+  await other.waitForFunction(() => window.Viewer.imageState?.api);
+  await page.evaluate(() => window.Viewer.apply3IFManifestImage({ invert: true, contrast: 1.5 }));
+  await expect.poll(() => other.evaluate(() => window.Viewer.getImageForExport()), { timeout: 20_000 }).toEqual({ invert: true, contrast: 1.5 });
+  await other.evaluate(() => window.Viewer.apply3IFManifestImage({ invert: false, contrast: 1 }));
+  await expect.poll(() => page.evaluate(() => window.Viewer.getImageForExport()), { timeout: 20_000 }).toBeUndefined();
+  await other.close();
+  await page.evaluate(() => window.Viewer.leaveLiveSession());
+
+  // A volume: the rendering mode and its strength.
+  ({ other } = await sessionPair(page, { model: '/examples/volumes/amphora-ct.nrrd' }));
+  await page.waitForFunction(() => window.Viewer.volumeState?.api);
+  await other.waitForFunction(() => window.Viewer.volumeState?.api);
+  await page.evaluate(() => window.Viewer.updateVolumeSettings((settings) => {
+    settings.mode = 'iso';
+    settings.iso = 0.45;
+  }));
+  await expect.poll(() => other.evaluate(() => [window.Viewer.volumeState.mesh.userData.volume.mode, window.Viewer.volumeState.mesh.userData.volume.iso]), { timeout: 20_000 }).toEqual(['iso', 0.45]);
+  await other.close();
+  await page.evaluate(() => window.Viewer.leaveLiveSession());
+
+  // A sound file: its view and its playback settings.
+  ({ other } = await sessionPair(page, { model: '/examples/audio/shofar.ogg' }));
+  await page.waitForFunction(() => window.Viewer.audioState?.player);
+  await other.waitForFunction(() => window.Viewer.audioState?.player);
+  await page.evaluate(() => window.Viewer.apply3IFManifestAudio({ range: 40, playback: { rate: 0.5, loop: true } }));
+  await expect.poll(() => other.evaluate(() => window.Viewer.getAudioForExport()), { timeout: 20_000 }).toEqual({ range: 40, playback: { rate: 0.5, loop: true } });
+  // Its settings are applied a moment later (the module is fetched).
+  await other.waitForTimeout(1500);
+  await other.evaluate(() => window.Viewer.apply3IFManifestAudio({ range: 60, playback: { rate: 1, loop: false } }));
+  await expect.poll(() => page.evaluate(() => window.Viewer.getAudioForExport()), { timeout: 20_000 }).toBeUndefined();
+  await other.close();
+});
+
 test('live link: a session through the worker\'s relay', async ({ page }) => {
   test.setTimeout(120_000);
   // The relay (worker/live_sessions.py), answered at once here.

@@ -1236,7 +1236,7 @@ export const VIEWER_I18N = {
     },
     liveLink: {
       title: "Live link",
-      toggle: "Live link: manifest, model file, shared session",
+      toggle: "Live link: manifest, model file, cooperation mode",
       stop: "Stop following",
       fileOnce: "This browser reads a file once. In Chrome or Edge the file stays connected: save it and the viewer follows.",
       editorApplied: "Applied: {blocks}",
@@ -1266,7 +1266,7 @@ export const VIEWER_I18N = {
         hint: "Save the model again in the program it is made in: the new one takes its place, with the camera, the comments and the section kept.",
       },
       session: {
-        title: "Shared session",
+        title: "Cooperation mode",
         idle: "No session.",
         intro: "Everyone who opens the session's link sees this scene as you move it. A phone becomes the remote control of a screen.",
         start: "Start a session",
@@ -3563,7 +3563,7 @@ export const VIEWER_I18N = {
     },
     liveLink: {
       title: "Połączenie na żywo",
-      toggle: "Połączenie na żywo: manifest, plik modelu, wspólna sesja",
+      toggle: "Połączenie na żywo: manifest, plik modelu, tryb współpracy",
       stop: "Przestań śledzić",
       fileOnce: "Ta przeglądarka czyta plik raz. W Chrome lub Edge plik zostaje połączony: zapisz go, a viewer się zmieni.",
       editorApplied: "Zastosowano: {blocks}",
@@ -3593,7 +3593,7 @@ export const VIEWER_I18N = {
         hint: "Zapisz model ponownie w programie, w którym powstaje: nowy zajmie jego miejsce, a kamera, komentarze i przekrój zostaną.",
       },
       session: {
-        title: "Wspólna sesja",
+        title: "Tryb współpracy",
         idle: "Brak sesji.",
         intro: "Każdy, kto otworzy link sesji, widzi tę scenę tak, jak ją poruszasz. Telefon staje się pilotem do ekranu.",
         start: "Rozpocznij sesję",
@@ -5889,7 +5889,7 @@ export const VIEWER_I18N = {
     },
     liveLink: {
       title: "Live-Verbindung",
-      toggle: "Live-Verbindung: Manifest, Modelldatei, gemeinsame Sitzung",
+      toggle: "Live-Verbindung: Manifest, Modelldatei, Kooperationsmodus",
       stop: "Nicht mehr folgen",
       fileOnce: "Dieser Browser liest eine Datei einmal. In Chrome oder Edge bleibt die Datei verbunden: speichern, und der Viewer folgt.",
       editorApplied: "Angewendet: {blocks}",
@@ -5919,7 +5919,7 @@ export const VIEWER_I18N = {
         hint: "Das Modell im Programm, in dem es entsteht, erneut speichern: das neue nimmt seinen Platz ein, Kamera, Kommentare und Schnitt bleiben.",
       },
       session: {
-        title: "Gemeinsame Sitzung",
+        title: "Kooperationsmodus",
         idle: "Keine Sitzung.",
         intro: "Alle, die den Link der Sitzung öffnen, sehen diese Szene so, wie Sie sie bewegen. Ein Telefon wird zur Fernbedienung eines Bildschirms.",
         start: "Sitzung starten",
