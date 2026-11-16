@@ -23,6 +23,12 @@ import {
 import { DEFAULT_ELEVATION_URL, createHeightfield, loadElevation, loadMapOverlay } from "./surroundings-terrain.js";
 import { readOldMap } from "../ai/old-map-reader.js";
 import { attachSurroundingsPanel } from "./surroundings-panel.js";
+import { attachSurroundingsEditor } from "./surroundings-edit.js";
+import { changesBefore, loadTerrainChanges, restoreElevation } from "./surroundings-past-terrain.js";
+import { planSurroundingsLife } from "./surroundings-life.js";
+import { buildSurroundingsLife } from "./surroundings-life-mesh.js";
+import { getViewerSideStack } from "../ui/side-stack.js";
+import { deviceTier } from "./performance-rules.js";
 import { aiAvailability } from "../ai/ai-client.js";
 import {
   DEFAULT_HISTORICAL_MAP_URL,
@@ -69,6 +75,8 @@ import {
 // worked out again while the light moves.
 const SHADOW_STRENGTH = 0.5;
 const SHADOW_INTERVAL = 100;
+// On a light device (getSurroundingsDetail), less often.
+const SHADOW_INTERVAL_LIGHT = 400;
 // How far beyond the model's footprint (metres) the sun's shadow map
 // reaches while the realistic surroundings are shown: their houses and
 // trees there cast real shadows on each other's walls and on the model, and
@@ -180,8 +188,8 @@ function writeTree(writer, tree, y, color, trunkColor, winter) {
 
 // The layout as meshes: { meshes, triangles, farthest } - `farthest` how far
 // out they reach, in metres.
-export function buildSurroundingsMeshes(layout, { uniforms = null, nearRadius = 0 } = {}) {
-  const built = layout.params.style === "realistic" ? buildRealisticSurroundings(layout, { uniforms, nearRadius }) : buildSchematicSurroundings(layout);
+export function buildSurroundingsMeshes(layout, { uniforms = null, nearRadius = 0, detail = "full" } = {}) {
+  const built = layout.params.style === "realistic" ? buildRealisticSurroundings(layout, { uniforms, nearRadius, detail }) : buildSchematicSurroundings(layout);
   built.meshes.forEach((mesh) => {
     mesh.raycast = () => {};
     mesh.frustumCulled = false;
@@ -388,6 +396,8 @@ export function buildOverlayMesh(layout, overlay, { north = 0, opacity = 0.85 } 
 export function attachSurroundings(Viewer) {
   // Their window (Look > Generated surroundings).
   attachSurroundingsPanel(Viewer);
+  // Correcting the AI's reading of an old map, over the ground.
+  attachSurroundingsEditor(Viewer);
   Object.assign(Viewer, {
     // The parameters (surroundings-rules.js) and whether they are drawn.
     surroundings: { enabled: false, ...SURROUNDINGS_DEFAULTS },
@@ -397,7 +407,7 @@ export function attachSurroundings(Viewer) {
     surroundingsUniforms: null,
     // The real terrain: "none" | "loading" | "real" | "failed", for which
     // place (key), and its elevation once loaded.
-    surroundingsTerrain: { state: "none", key: "", elevation: null },
+    surroundingsTerrain: { state: "none", key: "", elevation: null, past: { state: "none", key: "", changes: null, restored: null, count: 0, kinds: [] } },
     // The real water from the map, likewise: its features and, for a north,
     // the distance it gives (surroundings-map.js).
     surroundingsMap: { state: "none", key: "", loaded: null, water: null, waterKey: "", source: null },
@@ -461,6 +471,7 @@ export function attachSurroundings(Viewer) {
       const on = enabled === true;
       // Off: no more playing through the years.
       if (!on && Viewer.surroundingsPlaying) Viewer.playSurroundings?.(false);
+      if (!on) Viewer.setSurroundingsEditing?.(false);
       if (on === Viewer.surroundings.enabled && (!on || Viewer.surroundingsObjects)) return on;
       Viewer.surroundings.enabled = on;
       if (on) Viewer.rebuildSurroundings();
@@ -523,7 +534,8 @@ export function attachSurroundings(Viewer) {
       if (shaders) Viewer.surroundingsUniforms ??= createSurroundingsUniforms();
       // What stands within the sun's shadow map's reach: a mesh of its own.
       const nearRadius = realistic && core.rendererBackend !== "webgpu" ? Math.max(0, site.radius + Viewer.getSurroundingsShadowReachMetres() - 25) : 0;
-      const { meshes, triangles, farthest, casters } = buildSurroundingsMeshes(layout, { uniforms: shaders ? Viewer.surroundingsUniforms : null, nearRadius });
+      const detail = Viewer.getSurroundingsDetail();
+      const { meshes, triangles, farthest, casters } = buildSurroundingsMeshes(layout, { uniforms: shaders ? Viewer.surroundingsUniforms : null, nearRadius, detail });
       const group = new THREE.Group();
       group.name = "surroundings";
       group.userData.isSurroundings = true;
@@ -580,7 +592,15 @@ export function attachSurroundings(Viewer) {
       // The old map draped over the ground, once its tiles are there.
       const overlay = Viewer.getSurroundingsOverlay(layout);
       if (overlay) group.add(buildOverlayMesh(layout, overlay, { north: Viewer.sunStudy?.north || 0, opacity: Viewer.surroundings.mapOverlay.opacity }));
-      Viewer.surroundingsObjects = { group, layout, triangles, site, far, reach, shadows };
+      // Life in the streets and on the water (the realistic look).
+      let life = null;
+      if (realistic && Viewer.surroundings.life !== false) {
+        life = buildSurroundingsLife(layout, planSurroundingsLife(layout, { light: detail === "light" }));
+        group.add(life.group);
+      }
+      Viewer.surroundingsObjects = { group, layout, triangles, site, far, reach, shadows, detail, life };
+      // The reading being corrected, over the new ground.
+      if (Viewer.surroundingsEdit?.active) Viewer.drawSurroundingsEditOverlay();
       Viewer.updateSurroundings(0, { force: true });
       return true;
     },
@@ -608,7 +628,8 @@ export function attachSurroundings(Viewer) {
       const radius = layout.extent * 1.8;
       const key = [state.latitude, state.longitude, Math.round(radius), url].join("|");
       if (terrain.key === key && terrain.elevation) {
-        layout.heightfield = createHeightfield(terrain.elevation, { north: Viewer.sunStudy?.north || 0, flat: layout.clear * 0.9, blend: layout.clear * 2 });
+        const elevation = Viewer.getSurroundingsPastElevation(terrain.elevation, radius);
+        layout.heightfield = createHeightfield(elevation, { north: Viewer.sunStudy?.north || 0, flat: layout.clear * 0.9, blend: layout.clear * 2 });
         return true;
       }
       if (terrain.key === key && (terrain.state === "loading" || terrain.state === "failed")) return false;
@@ -627,6 +648,48 @@ export function attachSurroundings(Viewer) {
           Viewer.syncSurroundingsBadge();
         });
       return false;
+    },
+
+    // The terrain as it was in the year: today's elevation with what was
+    // made later taken away (surroundings-past-terrain.js) - the changes
+    // asked of the map once per place, put back for each set of them.
+    // `terrain.past`: { state, key, changes, restored: { signature,
+    // elevation }, count, kinds }.
+    getSurroundingsPastElevation(elevation, radius) {
+      const state = Viewer.surroundings;
+      const terrain = Viewer.surroundingsTerrain;
+      const past = terrain.past;
+      past.count = 0;
+      past.kinds = [];
+      const urls = Viewer.getSurroundingsMapUrls();
+      if (!state.pastTerrain || !urls.length) return elevation;
+      const key = [state.latitude, state.longitude, Math.round(radius), urls.join(",")].join("|");
+      if (past.key !== key) {
+        Object.assign(past, { state: "loading", key, changes: null, restored: null });
+        loadTerrainChanges({ latitude: state.latitude, longitude: state.longitude, radius, mapUrls: urls })
+          .then((changes) => {
+            if (past.key !== key) return;
+            Object.assign(past, { state: "real", changes });
+            if (changes.length && Viewer.surroundings.enabled) Viewer.rebuildSurroundings();
+            Viewer.syncSurroundingsBadge();
+          })
+          .catch((error) => {
+            if (past.key !== key) return;
+            console.warn("The later changes to the ground could not be asked of the map; today's terrain stays", error);
+            past.state = "failed";
+          });
+        return elevation;
+      }
+      if (!past.changes?.length) return elevation;
+      const before = changesBefore(past.changes, state.year);
+      if (!before.length) return elevation;
+      const signature = before.map((change) => change.id).join(",");
+      if (past.restored?.signature !== signature) {
+        past.restored = { signature, elevation: restoreElevation(elevation, before, { latitude: state.latitude, longitude: state.longitude }) };
+      }
+      past.count = before.length;
+      past.kinds = [...new Set(before.map((change) => change.kind))];
+      return past.restored.elevation;
     },
 
     // The servers of today's water, tried in turn: viewer.surroundings.
@@ -803,6 +866,8 @@ export function attachSurroundings(Viewer) {
         const geojson = await readOldMap(old.overlay, { year: Viewer.surroundings.year, onProgress: progress });
         if (old.overlayKey !== key) return null;
         Object.assign(old, { aiState: "done", aiGeojson: geojson, aiAnswer: mapGeoJsonToAnswer(geojson) });
+        // A new reading: nothing of the last one to undo.
+        if (Viewer.surroundingsEdit) Viewer.surroundingsEdit.history = [];
         Viewer.rebuildSurroundings();
         Viewer.syncSurroundingsBadge();
         return geojson;
@@ -924,8 +989,23 @@ export function attachSurroundings(Viewer) {
       return metres > 0 ? (objects.site.radius + metres) / objects.site.meters : 0;
     },
 
-    // viewer.surroundings.shadowReach (metres beyond the model's footprint).
+    // How much is drawn: "full", or "light" on a phone or a weak device
+    // (performance-rules.js, deviceTier), or while the render quality is
+    // "fast" - fewer trees and ground far out, simpler from nearer, no
+    // smoke, no sun shadow map for them, cast shadows redrawn less often.
+    // viewer.surroundings.detail: "auto" (default), "full" or "light".
+    getSurroundingsDetail() {
+      const configured = core.CONFIG?.viewer?.surroundings?.detail;
+      if (configured === "full" || configured === "light") return configured;
+      if (Viewer.performance?.quality === "fast") return "light";
+      const tier = Viewer.getDeviceInfo ? deviceTier(Viewer.getDeviceInfo()) : "desktop";
+      return tier === "desktop" ? "full" : "light";
+    },
+
+    // viewer.surroundings.shadowReach (metres beyond the model's footprint);
+    // none on a light device (no 4096 map).
     getSurroundingsShadowReachMetres() {
+      if (Viewer.getSurroundingsDetail() === "light") return 0;
       const configured = Number(core.CONFIG?.viewer?.surroundings?.shadowReach);
       return Number.isFinite(configured) && configured >= 0 ? configured : SHADOW_REACH;
     },
@@ -957,6 +1037,7 @@ export function attachSurroundings(Viewer) {
       Viewer.followSurroundingsTimeline(now);
       const objects = Viewer.surroundingsObjects;
       if (!objects) return;
+      objects.life?.update(Math.min(delta, 0.25));
       const uniforms = Viewer.surroundingsUniforms;
       if (uniforms) {
         uniforms.surroundingsTime.value = (uniforms.surroundingsTime.value + delta) % 3600;
@@ -985,7 +1066,7 @@ export function attachSurroundings(Viewer) {
       });
       const shadows = objects.shadows;
       if (!shadows) return;
-      if (!force && now - shadows.time < SHADOW_INTERVAL) return;
+      if (!force && now - shadows.time < (objects.detail === "light" ? SHADOW_INTERVAL_LIGHT : SHADOW_INTERVAL)) return;
       const light = Viewer.getSurroundingsLight();
       // The casters the shadow map covers, not projected again (25 m short
       // of its edge, where a long shadow would be cut off).
@@ -1026,6 +1107,8 @@ export function attachSurroundings(Viewer) {
       Viewer.syncSurroundingsPanel?.();
       const show = state.enabled && Boolean(Viewer.surroundingsObjects) && Boolean(core.container) && Viewer.urlOptions?.hideUi !== true;
       if (!show) {
+        Viewer.surroundingsBadge?.watch?.disconnect();
+        Viewer.surroundingsBadge?.mutations?.disconnect();
         Viewer.surroundingsBadge?.root.remove();
         Viewer.surroundingsBadge = null;
         return;
@@ -1072,7 +1155,16 @@ export function attachSurroundings(Viewer) {
         root.append(text, read, save, style, reshuffle, off);
         ["pointerdown", "pointerup", "wheel"].forEach((type) => root.addEventListener(type, (event) => event.stopPropagation()));
         core.container.append(root);
-        Viewer.surroundingsBadge = { root, text, read, save, style, reshuffle, off };
+        // Kept clear of the windows on the right as they open, close and
+        // change size, and of the viewer's own size.
+        const relayout = () => Viewer.layoutSurroundingsBadge();
+        const watch = typeof ResizeObserver === "function" ? new ResizeObserver(relayout) : null;
+        watch?.observe(core.container);
+        const stack = getViewerSideStack();
+        if (stack) watch?.observe(stack);
+        const mutations = stack && typeof MutationObserver === "function" ? new MutationObserver(relayout) : null;
+        mutations?.observe(stack, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden", "style"] });
+        Viewer.surroundingsBadge = { root, text, read, save, style, reshuffle, off, watch, mutations };
       }
       const badge = Viewer.surroundingsBadge;
       badge.text.textContent = t("surroundings.badge", { what: Viewer.describeSurroundings() }, "Generated surroundings: {what}. A typical setting, not this place's.");
@@ -1094,6 +1186,33 @@ export function attachSurroundings(Viewer) {
       badge.reshuffle.setAttribute("aria-label", badge.reshuffle.title);
       badge.off.title = t("surroundings.off", "Remove the generated surroundings");
       badge.off.setAttribute("aria-label", badge.off.title);
+      Viewer.layoutSurroundingsBadge();
+    },
+
+    // The badge in the free width left of the windows on the right (the
+    // side stack) where they reach down to it; centred in the view where
+    // they do not, or where too little is left (a phone's full-width stack).
+    layoutSurroundingsBadge() {
+      const badge = Viewer.surroundingsBadge?.root;
+      if (!badge || !core.container) return;
+      badge.style.left = "";
+      badge.style.maxWidth = "";
+      const box = core.container.getBoundingClientRect();
+      const stack = core.container.querySelector(":scope > .viewer-side-stack");
+      if (!stack || !box.width) return;
+      const own = badge.getBoundingClientRect();
+      // The lowest left edge among the windows reaching the badge's height.
+      let edge = Infinity;
+      [...stack.children].forEach((child) => {
+        if (child.hidden) return;
+        const rect = child.getBoundingClientRect();
+        if (rect.width && rect.bottom > own.top - 8 && rect.left < own.right + 8) edge = Math.min(edge, rect.left);
+      });
+      if (!Number.isFinite(edge)) return;
+      const free = edge - box.left - 24;
+      if (free < 260) return;
+      badge.style.maxWidth = `${Math.min(560, free)}px`;
+      badge.style.left = `${12 + free / 2}px`;
     },
 
     // "a castle's settlement, 14th century (about 1350)".
@@ -1110,6 +1229,10 @@ export function attachSurroundings(Viewer) {
         if (value.terrain === "real") {
           const terrain = Viewer.surroundingsTerrain.state;
           if (terrain === "real") parts.push(t("surroundings.terrain.real", "on the place's real terrain"));
+          const past = Viewer.surroundingsTerrain.past;
+          if (terrain === "real" && past?.count) {
+            parts.push(t("surroundings.terrain.past", { what: past.kinds.map((kind) => t(`surroundings.terrain.change.${kind}`, kind)).join(", ") }, "the ground as it was: later {what} taken away"));
+          }
           else if (terrain === "loading") parts.push(t("surroundings.terrain.loading", "loading the terrain…"));
           else parts.push(t("surroundings.terrain.failed", "generated hills (the terrain could not be loaded)"));
           const map = Viewer.surroundingsMap.state;
@@ -1163,6 +1286,8 @@ export function attachSurroundings(Viewer) {
         ...(state.layoutUrl ? { layoutUrl: state.layoutUrl } : {}),
         ...(state.mapOverlay ? { mapOverlay: { ...state.mapOverlay } } : {}),
         ...(state.followTimeline ? { followTimeline: true } : {}),
+        ...(state.terrain === "real" && state.pastTerrain === false ? { pastTerrain: false } : {}),
+        ...(state.life === false ? { life: false } : {}),
         ...(Viewer.isSurroundingsPanelOpen?.() ? { open: true } : {}),
         ...(state.terrain === "real" ? { latitude: state.latitude, longitude: state.longitude } : {}),
       };
@@ -1201,8 +1326,10 @@ export function attachSurroundings(Viewer) {
 
     // Before a new model: they were the old one's.
     disposeSurroundings() {
+      Viewer.setSurroundingsEditing?.(false);
+      if (Viewer.surroundingsEdit) Viewer.surroundingsEdit.history = [];
       Viewer.setSurroundings(false);
-      Object.assign(Viewer.surroundingsTerrain, { state: "none", key: "", elevation: null });
+      Object.assign(Viewer.surroundingsTerrain, { state: "none", key: "", elevation: null, past: { state: "none", key: "", changes: null, restored: null, count: 0, kinds: [] } });
       Object.assign(Viewer.surroundingsMap, { state: "none", key: "", loaded: null, water: null, waterKey: "", source: null });
       Viewer.surroundingsOldMap.texture?.dispose();
       Object.assign(Viewer.surroundingsOldMap, {

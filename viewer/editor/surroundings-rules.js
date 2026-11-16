@@ -25,7 +25,7 @@
 // (a market town of timber houses round its square), a port's building (a
 // town on the shore, quays and warehouses).
 export const SURROUNDINGS_KINDS = ["castle", "town", "church", "village", "monastery", "manor", "manor-farm", "shtetl", "port"];
-export const SURROUNDINGS_PERIODS = ["early-medieval", "medieval", "early-modern", "industrial", "modern", "postwar"];
+export const SURROUNDINGS_PERIODS = ["early-medieval", "medieval", "early-modern", "industrial", "modern", "postwar", "contemporary"];
 // Each period's years: from `start`, up to `end` (the last one with it).
 // They are also the milestones of the year's slider (the panel): where the
 // look changes most.
@@ -36,13 +36,18 @@ export const SURROUNDINGS_ERAS = [
   { period: "industrial", start: 1800, end: 1914 },
   { period: "modern", start: 1914, end: 1945 },
   { period: "postwar", start: 1945, end: 1990 },
+  { period: "contemporary", start: 1990, end: 2025 },
 ];
 // The years covered.
 export const SURROUNDINGS_YEARS = [SURROUNDINGS_ERAS[0].start, SURROUNDINGS_ERAS[SURROUNDINGS_ERAS.length - 1].end];
 // The building traditions: Central Europe (timber, brick and stone, steep
 // roofs), the Mediterranean (stone and render, low tiled or flat roofs,
-// cypresses and olive groves).
-export const SURROUNDINGS_REGIONS = ["central", "mediterranean"];
+// cypresses and olive groves), the North (timber painted red and ochre,
+// turf and later tiles, whitewashed churches, spruce and pine), the British
+// Isles (stone and brick, thatch and slate, churches with square towers,
+// fields in hedgerows), the East beyond the Bug (log houses under thatch,
+// wooden churches with onion domes, birch and pine).
+export const SURROUNDINGS_REGIONS = ["central", "mediterranean", "nordic", "british", "eastern"];
 export const SURROUNDINGS_SEASONS = ["spring", "summer", "autumn", "winter"];
 // How they are drawn (editor/surroundings.js): plain pale shapes, or with
 // the materials, openings, vegetation and haze of the period. Both are
@@ -58,6 +63,12 @@ export const SURROUNDINGS_MASONRY = ["brick", "stone"];
 export const SURROUNDINGS_DEFAULTS = {
   kind: "castle", period: "medieval", year: 1350, season: "summer", seed: 1, density: 0.6, style: "schematic",
   water: true, terrain: "generated", latitude: null, longitude: null, masonry: "brick", region: "central",
+  // On the real terrain: what was made later (reservoirs, quarries, heaps,
+  // dams) taken away for the years before (surroundings-past-terrain.js).
+  pastTerrain: true,
+  // People, carts and cars, boats moving through them (the realistic look;
+  // surroundings-life.js).
+  life: true,
   // Following the 4D timeline's year (editor/surroundings.js): the period
   // and how far the settlement has grown (`growth`, 0-1, of its houses).
   followTimeline: false, growth: 1,
@@ -80,7 +91,9 @@ export const SURROUNDINGS_DEFAULTS = {
 export function surroundingsMasonry(location) {
   if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return null;
   const { latitude: lat, longitude: lon } = location;
-  if (surroundingsRegion(location) === "mediterranean") return "stone";
+  const region = surroundingsRegion(location);
+  if (region === "mediterranean" || region === "nordic" || region === "british") return "stone";
+  if (region === "eastern") return "brick";
   if (lat < 49.6) return "stone";
   if (lat < 50.9 && lon >= 12 && lon <= 17.2) return "stone";
   if (lat < 50.5 && lon < 12) return "stone";
@@ -91,7 +104,7 @@ export function surroundingsMasonry(location) {
 // third at the start of its period to all of them at its end.
 export function surroundingsGrowth(year) {
   if (!Number.isFinite(year)) return 1;
-  const [start, end] = year < 1250 ? [900, 1250] : year < 1550 ? [1250, 1550] : year <= 1800 ? [1550, 1800] : year <= 1914 ? [1800, 1914] : year <= 1945 ? [1914, 1945] : [1945, 1990];
+  const [start, end] = year < 1250 ? [900, 1250] : year < 1550 ? [1250, 1550] : year <= 1800 ? [1550, 1800] : year <= 1914 ? [1800, 1914] : year <= 1945 ? [1914, 1945] : year <= 1990 ? [1945, 1990] : [1990, 2025];
   return Math.round((0.35 + 0.65 * smoothstep(start, end, year)) * 20) / 20;
 }
 
@@ -139,8 +152,8 @@ const KIND_WORDS = {
   "manor-farm": ["folwark", "vorwerk", "gutshof", "=grange", "granary", "spichlerz", "spichrz", "speicher", "gorzelni", "distillery", "brennerei", "obora", "cowshed", "kuhstall", "stajni", "=stable"],
   manor: ["manor", "=dwor", "dworek", "gutshaus", "herrenhaus", "country house", "landed estate", "ziemiansk", "szlachecki", "palac", "palace", "schloss", "=villa", "=willa"],
   town: ["=town", "=city", "miasto", "miast", "=stadt", "rynek", "marktplatz", "town hall", "ratusz", "rathaus", "kamienic", "tenement", "burgher", "mieszczan", "stadtmauer", "mury miejskie", "cathedral", "katedr", "kathedral"],
-  church: ["church", "kosciol", "kosciel", "kirche", "chapel", "kaplic", "kapelle", "cerkiew", "cerkw", "=chiesa", "=iglesia", "=eglise"],
-  village: ["village", "=wies", "=wsi", "=dorf", "cottage", "chalup", "chata", "farmstead", "zagrod", "gehoft", "=mill", "mlyn", "muhle", "barn", "stodol", "scheune", "=borgo", "=pueblo"],
+  church: ["church", "kosciol", "kosciel", "kirche", "chapel", "kaplic", "kapelle", "cerkiew", "cerkw", "=chiesa", "=iglesia", "=eglise", "=kyrka", "=kirke", "=kirkko", "tserkv", "=khram", "parish"],
+  village: ["village", "=wies", "=wsi", "=dorf", "cottage", "chalup", "chata", "farmstead", "zagrod", "gehoft", "=mill", "mlyn", "muhle", "barn", "stodol", "scheune", "=borgo", "=pueblo", "=by", "=gard", "=selo", "derevn", "=hamlet"],
 };
 // The order the kinds are looked for in: the most particular first (a
 // monastery's text names its church, a shtetl's its town).
@@ -168,9 +181,15 @@ export function surroundingsPeriod(year) {
 export function surroundingsRegion(location) {
   if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return null;
   const { latitude: lat, longitude: lon } = location;
+  // The British Isles: Ireland to East Anglia, Cornwall to Shetland.
+  if (lat >= 49.8 && lat <= 61 && lon >= -10.8 && lon <= 1.9) return "british";
+  // The North: Norway, Sweden, Finland, the Baltic's northern shore.
+  if (lat >= 57 && lat <= 71 && lon >= 4.5 && lon <= 32) return "nordic";
   if (lat >= 34 && lat < 44.6 && lon >= -10 && lon <= 36) return "mediterranean";
   if (lat >= 44.6 && lat < 45.6 && lon >= -2 && lon <= 8.5) return "mediterranean";
   if (lat >= 45 && lat <= 57 && lon >= 5 && lon <= 30) return "central";
+  // The East: beyond the Bug's lands, to the Volga's upper reaches.
+  if (lat >= 44.6 && lat <= 60 && lon > 30 && lon <= 45) return "eastern";
   return null;
 }
 
@@ -228,6 +247,9 @@ export function suggestSurroundings({ normalizedText = "", year = null, location
   if (kind === "castle") reasons.push({ key: "surroundingsMoat" });
   const region = surroundingsRegion(location) || "central";
   if (region === "mediterranean") reasons.push({ key: "surroundingsMediterranean" });
+  else if (region === "nordic") reasons.push({ key: "surroundingsNordic" });
+  else if (region === "british") reasons.push({ key: "surroundingsBritish" });
+  else if (region === "eastern") reasons.push({ key: "surroundingsEastern" });
   // The houses are in metres: against a model of an unknown unit their
   // scale is a guess.
   if (unitSource === "default") {
@@ -290,6 +312,8 @@ export function normalizeSurroundings(input = {}) {
     longitude: placed ? source.longitude : null,
     masonry: SURROUNDINGS_MASONRY.includes(source.masonry) ? source.masonry : SURROUNDINGS_DEFAULTS.masonry,
     region: SURROUNDINGS_REGIONS.includes(source.region) ? source.region : SURROUNDINGS_DEFAULTS.region,
+    pastTerrain: source.pastTerrain !== false,
+    life: source.life !== false,
     followTimeline: source.followTimeline === true,
     growth: Number.isFinite(source.growth) ? clamp(source.growth, 0, 1) : SURROUNDINGS_DEFAULTS.growth,
     waterUrl: typeof source.waterUrl === "string" && source.waterUrl.trim() ? source.waterUrl.trim() : null,
@@ -503,6 +527,9 @@ export function layoutSurroundings(input = {}, site = {}) {
   const burgher = town && !early;
   // Stone and render, low roofs, narrow streets, cypresses and olives.
   const med = params.region === "mediterranean";
+  const nordic = params.region === "nordic";
+  const british = params.region === "british";
+  const eastern = params.region === "eastern";
   // A monastery's precinct, a manor's park and farm, a manor farm's yard:
   // round the model, the village beyond them.
   const estate = kind === "monastery" ? 50 : kind === "manor" ? 62 : kind === "manor-farm" ? 48 : 0;
@@ -511,9 +538,16 @@ export function layoutSurroundings(input = {}, site = {}) {
   // 1800-1914: tenements, a boulevard where the walls stood, a railway with
   // its station, factories, a neo-Gothic church.
   // (and 1914-1945, which keeps them, with flat-roofed blocks of flats)
-  const industrial = params.period === "industrial" || params.period === "modern" || params.period === "postwar";
-  // After 1945: housing estates of prefabricated blocks, collective farms.
-  const postwar = params.period === "postwar";
+  const contemporary = params.period === "contemporary";
+  const industrial = params.period === "industrial" || params.period === "modern" || params.period === "postwar" || contemporary;
+  // After 1945: housing estates of prefabricated blocks, collective farms
+  // (and after 1990 the same, renovated, with more round them).
+  const postwar = params.period === "postwar" || contemporary;
+  // The war's ruins, until about 1950; the estates from the late 1950s, the
+  // collective farms from about 1950.
+  const ruins = params.period === "postwar" && params.year <= 1950;
+  const estatesBuilt = postwar && params.year >= 1958;
+  const collective = postwar && params.year >= 1950;
   // An old map's roads, fields, buildings and walls (in metres, of the
   // year; surroundings-map.js, readMapLayout): they take the place of the
   // generated ones of their kind.
@@ -961,7 +995,7 @@ export function layoutSurroundings(input = {}, site = {}) {
   // After 1945: a housing estate of prefabricated blocks beyond a town's
   // boulevard; a collective farm's long sheds at a village's edge.
   if (postwar && !mapped("buildings")) {
-    if (town || shtetl) {
+    if ((town || shtetl) && estatesBuilt) {
       const side = direction + Math.PI * 0.7;
       const [ex, ez] = [zone.x + Math.cos(side) * (zone.r + 95), zone.z + Math.sin(side) * (zone.r + 95)];
       const eu = [Math.cos(side), Math.sin(side)];
@@ -971,10 +1005,10 @@ export function layoutSurroundings(input = {}, site = {}) {
           const x = ex + eu[0] * row * 34 + ev[0] * column * 82;
           const z = ez + eu[1] * row * 34 + ev[1] * column * 82;
           const tall = (row + column + 3) % 3 === 0;
-          place({ x, z, w: range(58, 74), d: 12, h: tall ? 31 : 15, angle: side + Math.PI / 2, roof: "none", roofHeight: 0, ridge: "w", role: "estate" }, 3);
+          place({ x, z, w: range(58, 74), d: 12, h: tall ? 31 : 15, angle: side + Math.PI / 2, roof: "none", roofHeight: 0, ridge: "w", role: "estate", ...(contemporary ? { renovated: true } : {}) }, 3);
         }
       }
-    } else {
+    } else if (!town && !shtetl && collective) {
       // Between the roads (the second runs across).
       const side = direction + Math.PI * 0.75;
       const count = 3 + Math.floor(rng() * 2);
@@ -1090,7 +1124,16 @@ export function layoutSurroundings(input = {}, site = {}) {
         const tz = z - Math.cos(angle) * (nave.d / 2 + 2.5);
         // A baroque tower: taller, under an onion dome.
         // A neo-Gothic one after 1800: a tall, slender spire.
-        layout.blocks.push(modern
+        layout.blocks.push(eastern
+          // An Orthodox church: the bell tower under an onion dome.
+          ? { x: tx, z: tz, w: 6, d: 6, h: modern || industrial ? 24 : 16, angle, roof: "onion", roofHeight: 9, ridge: "d", role: "church" }
+          : nordic
+            // A tall, slender spire over a whitewashed tower.
+            ? { x: tx, z: tz, w: 6, d: 6, h: industrial ? 24 : 18, angle, roof: "pyramid", roofHeight: 16, ridge: "d", role: "church" }
+          : british
+            // A square tower, its top flat behind a parapet.
+            ? { x: tx, z: tz, w: 6.5, d: 6.5, h: industrial ? 24 : 20, angle, roof: "none", roofHeight: 0, ridge: "d", role: "church" }
+            : modern
           ? { x: tx, z: tz, w: 7, d: 7, h: 28, angle, roof: "onion", roofHeight: 12, ridge: "d", role: "church" }
           : industrial
             ? { x: tx, z: tz, w: 7, d: 7, h: 36, angle, roof: "pyramid", roofHeight: 26, ridge: "d", role: "church" }
@@ -1115,8 +1158,11 @@ export function layoutSurroundings(input = {}, site = {}) {
         const market = road.market === true;
         // Blocks of flats: every lot between the wars; after 1945 some, the
         // old town's tenements standing between them (the estates outside).
-        const flats = burgher && (params.period === "modern" || (postwar && rng() < 0.4));
-        const lot = market ? range(8, 10) : town ? (flats ? range(22, 32) : industrial ? range(12, 18) : med ? range(5, 8) : range(6, 9)) : shtetl ? range(8, 11) : range(8, 12);
+        // (none new until the mid-1950s: the ruins first)
+        const flats = burgher && (params.period === "modern" || (postwar && rng() < 0.4 && params.year >= 1955));
+        // British terraces after 1800: narrow lots, one house against the next.
+        const terrace = british && burgher && industrial && !flats;
+        const lot = market ? range(8, 10) : town ? (flats ? range(22, 32) : terrace ? range(5.5, 6.5) : industrial ? range(12, 18) : med ? range(5, 8) : range(6, 9)) : shtetl ? range(8, 11) : range(8, 12);
         const px = ax + Math.cos(heading) * (at + lot / 2);
         const pz = az + Math.sin(heading) * (at + lot / 2);
         at += lot;
@@ -1129,16 +1175,20 @@ export function layoutSurroundings(input = {}, site = {}) {
           // house however many stand (growth: the settlement grows by
           // adding houses, not by moving them).
           const roll = rng();
-          const w = town || market ? lot - range(0.5, 1.5) : range(5, 8);
-          const d = market ? range(10, 13) : burgher ? (flats ? range(12, 14) : industrial ? range(14, 18) : modern ? range(12, 16) : range(10, 15)) : med ? range(6, 8) : range(7, 11);
+          const w = town || market ? (terrace ? lot - range(0, 0.1) : lot - range(0.5, 1.5)) : british || nordic ? range(7, 10) : range(5, 8);
+          const d = market ? range(10, 13) : burgher ? (flats ? range(12, 14) : terrace ? range(9, 10) : industrial ? range(14, 18) : modern ? range(12, 16) : range(10, 15))
+            : med ? range(6, 8) : british ? range(5, 6.5) : nordic ? range(5.5, 7) : eastern ? range(8, 11) : range(7, 11);
           const h = market ? (industrial ? range(5.5, 7.5) : range(3.2, 4.4))
-            : burgher ? (flats ? range(15, 21) : industrial ? range(12, 16) : med ? range(7, 11) : modern ? range(8, 12) : range(5, 8.5))
-              : med ? range(3.5, 6.5) : early ? range(2.2, 3) : range(2.6, 4);
+            : burgher ? (flats ? range(15, 21) : terrace ? range(7, 8.5) : industrial ? range(12, 16) : med ? range(7, 11) : nordic ? range(6, 8) : modern ? range(8, 12) : range(5, 8.5))
+              : med ? range(3.5, 6.5) : nordic ? range(3.5, 5) : british ? range(2.8, 3.8) : early ? range(2.2, 3) : range(2.6, 4);
           const setback = road.width / 2 + range(1, town || market ? 2 : 5) + d / 2;
           const turn = range(-0.06, 0.06);
           const pitch = range(0.6, 0.85);
           // In the south some roofs are flat terraces.
           const flatRoof = med && rng() < (burgher ? 0.25 : 0.3);
+          // Just after the war: a share of the houses burnt-out shells, more
+          // in a town (by the place, not the numbers: the rest stays).
+          const ruined = ruins && Math.abs(Math.sin(px * 12.9898 + pz * 78.233 + hand) * 43758.5453) % 1 < (town ? 0.45 : 0.2);
           // Fewer towards the edge, fewer on the lesser roads; the share
           // built by the year (growth).
           const chance = (town || market ? 0.95 : shtetl ? 0.85 : 0.6 + 0.4 * params.density) * (market ? 1 : 1 - smoothstep(0.7, 1, fromZone)) * (roadIndex > 1 && !market ? 0.85 : 1);
@@ -1153,14 +1203,18 @@ export function layoutSurroundings(input = {}, site = {}) {
             // The front (w) to the road. A town's houses turn their gables
             // to the street; a village's their eaves.
             block: {
-              x, z, w, d, h,
+              x, z, w, d, h: ruined ? h * 0.65 : h,
               angle: heading + turn,
               // A block of flats after 1914: flat; in the south a terrace.
-              roof: flats || flatRoof ? "none" : "gable",
+              roof: flats || flatRoof || ruined ? "none" : "gable",
               // A tenement's low roof along the street; in the south a low
               // tiled roof, its eaves to the street.
-              roofHeight: med ? d * 0.14 : industrial && burgher ? d * 0.18 : market ? w * 0.95 : (burgher ? w : Math.min(w, d)) * pitch,
-              ridge: (burgher && !industrial && !med) || market ? "d" : "w",
+              roofHeight: med ? d * 0.14 : terrace ? d * 0.28 : industrial && burgher ? d * 0.18 : market ? w * 0.95 : (burgher ? w : Math.min(w, d)) * pitch,
+              // Gable to the street: a chartered town's house, a shtetl's on
+              // its square, an eastern village's; eaves to it in the south,
+              // the North and a British town.
+              ridge: (burgher && !industrial && !med && !nordic && !british) || market || (eastern && !burgher) ? "d" : "w",
+              ...(ruined ? { ruin: true } : {}),
               role: "house",
               ...(market ? { market: true } : {}),
             },
@@ -1180,6 +1234,54 @@ export function layoutSurroundings(input = {}, site = {}) {
     take(x, z, r);
     layout.blocks.push(block);
   });
+
+  // After 1990: detached houses along the roads beyond the old edge; a shop
+  // with its car park out of town, on the main road.
+  if (contemporary && !mapped("buildings")) {
+    const villaRng = mulberry32((params.seed ^ 0x2545f491) >>> 0);
+    const villaRange = (min, max) => min + (max - min) * villaRng();
+    layout.roads.forEach((road) => {
+      if (road.market || road.quay || road.boulevard) return;
+      // Every 20 m along the road (its pieces are short).
+      const points = road.points;
+      let next = 8;
+      let walked = 0;
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const [ax, az] = points[index];
+        const [bx, bz] = points[index + 1];
+        const length = Math.hypot(bx - ax, bz - az);
+        const heading = Math.atan2(bz - az, bx - ax);
+        for (; next < walked + length; next += 20) {
+          const at = next - walked;
+          const px = ax + Math.cos(heading) * at;
+          const pz = az + Math.sin(heading) * at;
+          const fromZone = Math.hypot(px - zone.x, pz - zone.z) / zone.r;
+          if (fromZone < 1.04 || fromZone > 1.75) continue;
+          [-1, 1].forEach((hand) => {
+            if (villaRng() > 0.55) return;
+            const out = road.width / 2 + 10;
+            const x = px + Math.cos(heading + Math.PI / 2) * out * hand;
+            const z = pz + Math.sin(heading + Math.PI / 2) * out * hand;
+            place({ x, z, w: villaRange(9, 12), d: villaRange(8, 10), h: villaRange(5.5, 7), angle: heading, roof: "pyramid", roofHeight: villaRange(2, 3), ridge: "w", role: "villa" }, 1.5);
+          });
+        }
+        walked += length;
+      }
+    });
+    const main = layout.roads[0]?.points;
+    if (main && !shtetl && kind !== "village" && kind !== "church") {
+      const wanted = zone.r + 130;
+      const spot = main.find(([x, z]) => Math.hypot(x - zone.x, z - zone.z) >= wanted);
+      const next = spot && main[main.indexOf(spot) + 1];
+      if (spot && next) {
+        const heading = Math.atan2(next[1] - spot[1], next[0] - spot[0]);
+        const nx = -Math.sin(heading);
+        const nz = Math.cos(heading);
+        const store = { x: spot[0] + nx * 62, z: spot[1] + nz * 62, w: 72, d: 46, h: 8, angle: heading, roof: "none", roofHeight: 0, ridge: "w", role: "store" };
+        if (place(store, 2)) layout.fields.push({ x: spot[0] + nx * 22, z: spot[1] + nz * 22, w: 66, d: 26, angle: heading, tone: 0, parking: true });
+      }
+    }
+  }
 
   // ---- a wall: a town's ring with towers; a palisade round an early
   // town or the settlement below a stronghold; after 1550 a town's ring of
@@ -1252,7 +1354,7 @@ export function layoutSurroundings(input = {}, site = {}) {
   // ---- fields: bundles of long strips beyond the settlement (or the old
   // map's)
   if (mapped("fields")) mapLayout.fields.forEach((field) => layout.fields.push({ ...field }));
-  const bundles = mapped("fields") ? 0 : 3 + Math.floor(rng() * 3);
+  const bundles = mapped("fields") ? 0 : (nordic ? 2 : 3) + Math.floor(rng() * 3);
   for (let bundle = 0; bundle < bundles; bundle += 1) {
     const angle = direction + ((bundle + range(0.1, 0.9)) / bundles) * Math.PI * 2;
     const length = range(80, 140);
@@ -1269,6 +1371,30 @@ export function layoutSurroundings(input = {}, site = {}) {
       const wide = strips * stripWidth;
       if (Math.hypot(cx, cz) >= clear + length / 2 && !along.some(([x, z]) => wet(x, z, wide / 2 + 4) || !railFree(x, z, wide / 2 + 3) || nearEstate(x, z))) {
         layout.fields.push({ x: cx, z: cz, w: length * 1.1, d: wide, angle, tone: bundle % 3 });
+      }
+      continue;
+    }
+    // The British Isles after the enclosures (about 1750): the strips made
+    // into wider fields, hedgerows with trees round them.
+    if (british && params.year >= 1750) {
+      const wide = stripWidth * 2.6;
+      const count = Math.max(1, Math.round((strips * stripWidth) / wide));
+      for (let index = 0; index < count; index += 1) {
+        const shift = (index - (count - 1) / 2) * wide;
+        const x = cx + Math.cos(angle + Math.PI / 2) * shift;
+        const z = cz + Math.sin(angle + Math.PI / 2) * shift;
+        const ends = [-length / 2, 0, length / 2].map((t) => [x + Math.cos(angle) * t, z + Math.sin(angle) * t]);
+        if (Math.hypot(x, z) < clear + length / 2 || ends.some(([ex, ez]) => wet(ex, ez, wide / 2 + 3) || !railFree(ex, ez, wide / 2 + 3) || nearEstate(ex, ez))) continue;
+        layout.fields.push({ x, z, w: length, d: wide - 3, angle, tone: (index + bundle) % 3 });
+        // The hedge along one long side, with a tree now and then.
+        for (let t = -length / 2; t <= length / 2; t += 9) {
+          const hx = x + Math.cos(angle) * t + Math.cos(angle + Math.PI / 2) * (wide / 2);
+          const hz = z + Math.sin(angle) * t + Math.sin(angle + Math.PI / 2) * (wide / 2);
+          if (wet(hx, hz, 3) || taken.some((circle) => Math.hypot(hx - circle.x, hz - circle.z) < circle.r + 2)) continue;
+          if (layout.roads.some((road) => distanceToPolyline(road.points, hx, hz) < road.width / 2 + 2)) continue;
+          const tall = Math.abs(Math.sin(hx * 3.1 + hz * 7.7)) < 0.25;
+          layout.trees.push({ x: hx, z: hz, h: tall ? 11 : 3.2, r: tall ? 3.6 : 2.2, kind: "broadleaf" });
+        }
       }
       continue;
     }
@@ -1303,7 +1429,8 @@ export function layoutSurroundings(input = {}, site = {}) {
   }
 
   // ---- trees: a forest in clumps towards the rim, clear of roads and fields
-  const wanted = Math.round(clamp((extent * extent) / 160, 300, 1400));
+  // More wood in the North, less in the British Isles' farmland.
+  const wanted = Math.round(clamp((extent * extent) / 160, 300, 1400) * (nordic ? 1.3 : british ? 0.6 : 1));
   const clumpScale = extent / 4;
   for (let attempt = 0; attempt < wanted * 8 && layout.trees.length < wanted; attempt += 1) {
     const distance = Math.sqrt(range(0.08, 1.2)) * extent;
@@ -1332,7 +1459,9 @@ export function layoutSurroundings(input = {}, site = {}) {
       }
       continue;
     }
-    const conifer = rng() < 0.35;
+    // Spruce and pine in the North, birch and pine in the East, oak, ash and
+    // beech in the British Isles.
+    const conifer = rng() < (nordic ? 0.75 : eastern ? 0.45 : british ? 0.12 : 0.35);
     const h = conifer ? range(11, 19) : range(8, 15);
     layout.trees.push({ x, z, h, r: conifer ? h * range(0.16, 0.22) : h * range(0.28, 0.38), kind: conifer ? "conifer" : "broadleaf" });
   }

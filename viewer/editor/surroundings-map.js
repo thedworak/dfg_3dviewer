@@ -62,6 +62,21 @@ export function mapProjector(latitude, longitude, north = 0) {
   };
 }
 
+// The other way: the layout's metres (x, z) back to [longitude, latitude],
+// as GeoJSON writes them.
+export function mapUnprojector(latitude, longitude, north = 0) {
+  const angle = (north * Math.PI) / 180;
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  const metresEast = 111320 * Math.cos((latitude * Math.PI) / 180);
+  const metresNorth = 110540;
+  return (x, z) => {
+    const east = x * cos + z * sin;
+    const northing = x * sin - z * cos;
+    return [longitude + east / metresEast, latitude + northing / metresNorth];
+  };
+}
+
 /**
  * The water of an Overpass answer ({ elements } with `out geom`), in the
  * layout's metres: { lines: [{ points, width, kind }], areas: [{ segments,
@@ -433,6 +448,20 @@ async function overpass(url, query) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// A query asked of the servers in turn (the first that answers), once per
+// `key`; rejects if none does.
+export async function askOverpass(urls, query, key) {
+  let failure = null;
+  for (const url of urls || []) {
+    try {
+      return await once(`${key}|${url}`, () => overpass(url, query));
+    } catch (error) {
+      failure = error;
+    }
+  }
+  throw failure || new Error("No map server");
 }
 
 const hasWater = (answer) => (answer?.elements || []).some((element) => element.tags?.waterway || element.tags?.natural === "water" || element.tags?.natural === "coastline");

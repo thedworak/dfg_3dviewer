@@ -82,7 +82,10 @@ export function attachPerformance(Viewer) {
         state.saved = state.saved || getRenderingSettings();
         if (QUALITY[level].rendering) applyRenderingSettings(QUALITY[level].rendering);
       }
+      const detailBefore = Viewer.getSurroundingsDetail?.();
       state.quality = level;
+      // Generated surroundings drawn lighter (or fuller) for the new level.
+      if (Viewer.surroundings?.enabled && Viewer.getSurroundingsDetail?.() !== detailBefore) Viewer.rebuildSurroundings?.();
       core.renderer?.setPixelRatio?.(Viewer.getRenderPixelRatio());
       Viewer.updateSize?.();
       Viewer.resetPerformanceSamples();

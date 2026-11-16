@@ -4302,3 +4302,44 @@
 .viewer-surroundings-panel {
   width: 400px;
 }
+
+/* The old map read by AI, corrected over the ground
+   (editor/surroundings-edit.js). */
+.viewer-surroundings-panel_reading {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-surroundings-panel_subtitle {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.viewer-surroundings-panel_tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.viewer-surroundings-panel button.viewer-surroundings-panel_tool {
+  padding: 4px 9px;
+}
+
+.viewer-surroundings-panel button.viewer-surroundings-panel_tool[aria-pressed="true"] {
+  border-color: var(--viewer-brand-accent, #f5a524);
+  color: var(--viewer-brand-accent, #f5a524);
+}
+
+.viewer-surroundings-panel_hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* A setting under another (the ground as it was, under the real terrain). */
+.viewer-surroundings-panel_sub {
+  margin-left: 24px;
+  font-size: 12px;
+}

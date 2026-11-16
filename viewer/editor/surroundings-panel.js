@@ -2,6 +2,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
+import { SURROUNDINGS_EDIT_KINDS } from "./surroundings-edit.js";
 import {
   SURROUNDINGS_ERAS,
   SURROUNDINGS_KINDS,
@@ -182,7 +183,42 @@ export function attachSurroundingsPanel(Viewer) {
       const terrain = checkbox("terrain", (on) => Viewer.setSurroundingsOptions({ terrain: on ? "real" : "generated" }));
       const waterField = field("water", water);
       const terrainField = field("terrain", terrain);
+      // The ground as it was (on the real terrain only).
+      const pastTerrain = checkbox("pastTerrain", (on) => Viewer.setSurroundingsOptions({ pastTerrain: on }));
+      const pastTerrainField = field("pastTerrain", pastTerrain);
+      // Life: people, carts and cars, boats (the realistic look).
+      const life = checkbox("life", (on) => Viewer.setSurroundingsOptions({ life: on }));
+      const lifeField = field("life", life);
+      lifeField.label.classList.add("viewer-surroundings-panel_toggle");
+      pastTerrainField.label.classList.add("viewer-surroundings-panel_toggle", "viewer-surroundings-panel_sub");
       [waterField, terrainField].forEach((item) => item.label.classList.add("viewer-surroundings-panel_toggle"));
+
+      // The old map read by AI: corrected over the ground, saved.
+      const reading = el("div", "viewer-surroundings-panel_reading");
+      const readingTitle = el("h3", "viewer-surroundings-panel_subtitle");
+      const readingStatus = el("p", "viewer-surroundings-panel_hint");
+      const readingTools = el("div", "viewer-surroundings-panel_tools");
+      const button = (action, onClick) => {
+        const node = el("button", "viewer-surroundings-panel_tool");
+        node.type = "button";
+        node.dataset.action = action;
+        node.addEventListener("click", onClick);
+        return node;
+      };
+      const correct = button("correct", () => Viewer.setSurroundingsEditing(!Viewer.surroundingsEdit.active));
+      const drawKind = el("select");
+      drawKind.name = "drawKind";
+      SURROUNDINGS_EDIT_KINDS.forEach((value) => {
+        const option = el("option");
+        option.value = value;
+        drawKind.append(option);
+      });
+      const draw = button("draw", () => Viewer.drawSurroundingsFeature(Viewer.surroundingsEdit.adding ? null : drawKind.value));
+      const remove = button("delete", () => Viewer.deleteSurroundingsEditFeature());
+      const undo = button("undo", () => Viewer.undoSurroundingsEdit());
+      const save = button("save", () => Viewer.downloadSurroundingsOldMap());
+      readingTools.append(correct, drawKind, draw, remove, undo, save);
+      reading.append(readingTitle, readingTools, readingStatus);
 
       const actions = el("div", "viewer-scene_actions");
       const reshuffle = el("button", "viewer-surroundings-panel_reshuffle");
@@ -193,7 +229,7 @@ export function attachSurroundingsPanel(Viewer) {
       status.setAttribute("role", "status");
       const note = el("p", "viewer-scene_intro viewer-surroundings-panel_note");
 
-      panel.append(header, enabledField.label, yearBox, followField.label, grid, waterField.label, terrainField.label, actions, status, note);
+      panel.append(header, enabledField.label, yearBox, followField.label, grid, waterField.label, terrainField.label, pastTerrainField.label, lifeField.label, reading, actions, status, note);
       ["pointerdown", "pointerup", "wheel", "keydown"].forEach((type) => {
         panel.addEventListener(type, (event) => event.stopPropagation());
       });
@@ -206,8 +242,9 @@ export function attachSurroundingsPanel(Viewer) {
       getViewerSideStack()?.append(panel);
       Viewer.surroundingsPanel = {
         panel, title, closeButton, enabled, enabledField, year, yearLabel, showYear, play, follow, followField, milestoneButtons,
-        kind, kindField, region, regionField, style, styleField, season, seasonField, water, waterField, terrain, terrainField,
+        kind, kindField, region, regionField, style, styleField, season, seasonField, water, waterField, terrain, terrainField, pastTerrain, pastTerrainField, life, lifeField,
         reshuffle, status, note, stopTimer: () => clearTimeout(timer),
+        reading, readingTitle, readingStatus, correct, drawKind, draw, remove, undo, save,
       };
       Viewer.updateSurroundingsPanelLabels();
     },
@@ -273,10 +310,19 @@ export function attachSurroundingsPanel(Viewer) {
       ui.seasonField.text.textContent = t("surroundings.panel.season", "Season");
       ui.waterField.text.textContent = t("surroundings.panel.water", "Water (a moat, a river)");
       ui.terrainField.text.textContent = t("surroundings.panel.terrain", "The place's real terrain");
+      ui.lifeField.text.textContent = t("surroundings.panel.life", "Life: people, carts and cars, boats");
+      ui.pastTerrainField.text.textContent = t("surroundings.panel.pastTerrain", "The ground as it was (without later reservoirs, quarries, heaps)");
       [...ui.kind.options].forEach((option) => { option.textContent = t(`surroundings.kind.${option.value}`, option.value); });
       [...ui.style.options].forEach((option) => { option.textContent = t(`surroundings.panel.styles.${option.value}`, option.value); });
       [...ui.season.options].forEach((option) => { option.textContent = t(`scene.season.${option.value}`, option.value); });
       ui.reshuffle.textContent = `↻ ${t("surroundings.reshuffle", "Another layout")}`;
+      ui.readingTitle.textContent = t("surroundings.edit.title", "The old map read by AI");
+      ui.correct.textContent = t("surroundings.edit.correct", "Correct");
+      ui.remove.textContent = t("surroundings.edit.delete", "Delete");
+      ui.undo.textContent = t("surroundings.edit.undo", "Undo");
+      ui.save.textContent = t("surroundings.edit.save", "Save GeoJSON");
+      ui.save.title = t("surroundings.oldMap.save", "Save what was read (GeoJSON), to check and correct it");
+      [...ui.drawKind.options].forEach((option) => { option.textContent = t(`surroundings.edit.kind.${option.value}`, option.value); });
       ui.note.textContent = t("surroundings.panel.note", "A typical setting of the kind and time, worked out from rules - not this place's own. Years 900-1990, Central Europe and the Mediterranean.");
       Viewer.syncSurroundingsPanel();
     },
@@ -313,11 +359,38 @@ export function attachSurroundingsPanel(Viewer) {
       ui.season.value = state.season;
       ui.water.checked = state.water !== false;
       ui.terrain.checked = state.terrain === "real";
+      ui.pastTerrain.checked = state.pastTerrain !== false;
+      ui.life.checked = state.life !== false;
+      ui.lifeField.label.hidden = state.style !== "realistic";
+      ui.pastTerrainField.label.hidden = state.terrain !== "real";
       const place = (Number.isFinite(state.latitude) && Number.isFinite(state.longitude))
         || (Viewer.sunStudy?.locationSet && Number.isFinite(Viewer.sunStudy?.latitude));
       ui.terrain.disabled = !place && state.terrain !== "real";
       ui.terrainField.label.title = ui.terrain.disabled ? t("surroundings.panel.noPlace", "Set the place first (Sun study) for the real terrain") : "";
       ui.reshuffle.disabled = !state.enabled;
+      // The AI's reading: shown once there is one.
+      const old = Viewer.surroundingsOldMap;
+      const edit = Viewer.surroundingsEdit;
+      const features = old?.aiGeojson?.features || [];
+      ui.reading.hidden = !old?.aiGeojson;
+      if (old?.aiGeojson) {
+        const can = Viewer.canEditSurroundingsReading?.() === true;
+        ui.correct.disabled = !can && !edit.active;
+        ui.correct.setAttribute("aria-pressed", edit.active ? "true" : "false");
+        ui.draw.disabled = !can;
+        ui.draw.textContent = edit.adding ? t("surroundings.edit.finish", "Finish") : t("surroundings.edit.draw", "Draw");
+        ui.draw.setAttribute("aria-pressed", edit.adding ? "true" : "false");
+        if (edit.adding) ui.drawKind.value = edit.adding.kind;
+        ui.drawKind.disabled = Boolean(edit.adding) || !can;
+        ui.remove.disabled = !edit.active || edit.selected < 0;
+        ui.undo.disabled = !edit.history.length;
+        const counts = { count: features.length, edited: features.filter((feature) => feature.properties?.edited || feature.properties?.source === "hand").length };
+        ui.readingStatus.textContent = edit.adding
+          ? t("surroundings.edit.drawing", { points: edit.adding.points.length }, "Click the points on the ground ({points} so far); double-click or Enter to finish, Esc to cancel.")
+          : edit.active
+            ? t("surroundings.edit.hint", counts, "Drag a point to move it; click a line to select it, Delete removes it. {count} features, {edited} changed by hand.")
+            : t("surroundings.edit.summary", counts, "{count} features read; {edited} changed by hand. Check them over the map, then save.");
+      }
       ui.status.textContent = state.enabled && Viewer.surroundingsObjects
         ? Viewer.describeSurroundings()
         : state.enabled || core.scene == null || Viewer.getSurroundingsSite?.() ? "" : t("surroundings.panel.noModel", "Open a model first.");

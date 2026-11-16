@@ -7774,7 +7774,7 @@ test('generated surroundings rules: more kinds, the Mediterranean, after 1945, t
   // The region by the place: the Mediterranean's stone and low roofs.
   expect(surroundingsRegion({ latitude: 43.77, longitude: 11.25 })).toBe('mediterranean');
   expect(surroundingsRegion({ latitude: 52.23, longitude: 21.01 })).toBe('central');
-  expect(surroundingsRegion({ latitude: 60.17, longitude: 24.94 })).toBeNull();
+  expect(surroundingsRegion({ latitude: 35.68, longitude: 139.7 })).toBeNull();
   expect(surroundingsMasonry({ latitude: 43.77, longitude: 11.25 })).toBe('stone');
   const florence = suggestSurroundings({ normalizedText: 'chiesa, borgo, 1500', year: { year: 1500 }, location: { latitude: 43.77, longitude: 11.25 }, sizeClass: 'building' });
   expect(florence.value).toMatchObject({ enabled: true, kind: 'church', region: 'mediterranean', masonry: 'stone' });
@@ -7812,9 +7812,17 @@ test('generated surroundings rules: more kinds, the Mediterranean, after 1945, t
   // After 1945: an estate of slabs by a town, a collective farm by a
   // village, fields ploughed together.
   expect(surroundingsPeriod(1945)).toBe('postwar');
-  expect(surroundingsPeriod(1990)).toBe('postwar');
-  expect(surroundingsPeriod(1991)).toBeNull();
+  expect(surroundingsPeriod(1989)).toBe('postwar');
+  expect(surroundingsPeriod(1990)).toBe('contemporary');
+  expect(surroundingsPeriod(2025)).toBe('contemporary');
+  expect(surroundingsPeriod(2026)).toBeNull();
+  // Just after the war: ruins, no estate yet.
+  const ruined = layoutSurroundings({ kind: 'town', year: 1947, seed: 1 }, { radius: 20 });
+  expect(ruined.blocks.filter((block) => block.ruin).length).toBeGreaterThan(5);
+  expect(ruined.blocks.filter((block) => block.ruin).every((block) => block.roof === 'none')).toBe(true);
+  expect(ruined.blocks.some((block) => block.role === 'estate')).toBe(false);
   const estate = layoutSurroundings({ kind: 'town', year: 1975, seed: 1 }, { radius: 20 });
+  expect(estate.blocks.some((block) => block.ruin)).toBe(false);
   expect(estate.params.period).toBe('postwar');
   expect(estate.blocks.filter((block) => block.role === 'estate').length).toBeGreaterThan(4);
   expect(estate.blocks.filter((block) => block.role === 'estate').every((block) => block.roof === 'none' && block.w > 50)).toBe(true);
@@ -7823,13 +7831,187 @@ test('generated surroundings rules: more kinds, the Mediterranean, after 1945, t
   const strips = layoutSurroundings({ kind: 'village', year: 1900, seed: 1 }, { radius: 20 });
   expect(farm.fields.length).toBeLessThan(strips.fields.length);
 
+  // After 1990: detached houses round the edge, a shop and its car park.
+  const today = layoutSurroundings({ kind: 'town', year: 2010, seed: 5 }, { radius: 18 });
+  expect(today.params.period).toBe('contemporary');
+  expect(today.blocks.filter((block) => block.role === 'villa').length).toBeGreaterThan(5);
+  expect(today.blocks.filter((block) => block.role === 'estate').every((block) => block.renovated)).toBe(true);
+  expect(today.blocks.some((block) => block.role === 'store')).toBe(true);
+  expect(today.fields.some((field) => field.parking)).toBe(true);
+
+  // Further regions by the place, each its own.
+  expect([[51.5, -0.12], [59.33, 18.07], [50.45, 30.52], [53.9, 27.56]].map(([latitude, longitude]) => surroundingsRegion({ latitude, longitude }))).toEqual(['british', 'nordic', 'eastern', 'central']);
+  const british = suggestSurroundings({ normalizedText: 'parish church, 1650', year: { year: 1650 }, location: { latitude: 51.75, longitude: -1.25 }, sizeClass: 'building' });
+  expect(british.value).toMatchObject({ region: 'british', masonry: 'stone' });
+  expect(british.reasons).toContainEqual({ key: 'surroundingsBritish' });
+  const towers = (region) => layoutSurroundings({ kind: 'village', region, year: 1650, seed: 2 }, { radius: 18 }).blocks.filter((block) => block.role === 'church' && block.w < 8);
+  expect(towers('british').every((tower) => tower.roof === 'none')).toBe(true);
+  expect(towers('eastern').every((tower) => tower.roof === 'onion')).toBe(true);
+  const terraces = layoutSurroundings({ kind: 'town', region: 'british', year: 1880, seed: 1 }, { radius: 20 }).blocks.filter((block) => block.role === 'house');
+  expect(terraces.filter((block) => block.w < 7).length).toBeGreaterThan(terraces.length * 0.6);
+  const hedged = layoutSurroundings({ kind: 'village', region: 'british', year: 1800, seed: 1 }, { radius: 18 });
+  expect(Math.min(...hedged.fields.map((field) => field.d))).toBeGreaterThan(15);
+  const conifers = (region) => { const trees = layoutSurroundings({ kind: 'village', region, year: 1600, seed: 1 }, { radius: 18 }).trees; return trees.filter((tree) => tree.kind === 'conifer').length / trees.length; };
+  expect(conifers('nordic')).toBeGreaterThan(0.6);
+  expect(conifers('british')).toBeLessThan(0.2);
+  expect(normalizeSurroundings({ region: 'eastern', period: 'contemporary' })).toMatchObject({ region: 'eastern', period: 'contemporary' });
+
   // The slider: each period the same width; the milestones where they start.
-  expect([900, 1250, 1550, 1800, 1914, 1945, 1990].map(surroundingsYearToSlider)).toEqual([0, 100, 200, 300, 400, 500, 600]);
+  expect([900, 1250, 1550, 1800, 1914, 1945, 1990, 2025].map(surroundingsYearToSlider)).toEqual([0, 100, 200, 300, 400, 500, 600, 700]);
   expect(surroundingsSliderToYear(260)).toBe(1700);
   expect(surroundingsSliderToYear(450)).toBe(1930);
   [1100, 1400, 1666, 1871, 1939, 1968].forEach((year) => expect(surroundingsSliderToYear(surroundingsYearToSlider(year))).toBeCloseTo(year, -1));
   expect(normalizeSurroundings({ kind: 'port', region: 'mediterranean', period: 'postwar' })).toMatchObject({ kind: 'port', region: 'mediterranean', period: 'postwar' });
   expect(normalizeSurroundings({ region: 'arctic' }).region).toBe('central');
+});
+
+test('generated surroundings on a phone: drawn light, simpler far out', async ({ page }) => {
+  await openViewer(page, '/examples/WolpaSynagogue.glb', 'ui=menus');
+  await waitForModel(page);
+  // Chosen by itself: a desktop full, a phone (a coarse pointer) light, the
+  // "fast" render quality light.
+  const chosen = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const info = viewer.getDeviceInfo;
+    const desktop = viewer.getSurroundingsDetail();
+    viewer.getDeviceInfo = () => ({ ...info(), coarse: true, memory: 8, cores: 8, gpu: '' });
+    const phone = viewer.getSurroundingsDetail();
+    viewer.getDeviceInfo = info;
+    viewer.setRenderQuality('fast', { silent: true });
+    const fast = viewer.getSurroundingsDetail();
+    viewer.setRenderQuality('high', { silent: true });
+    return { desktop, phone, fast };
+  });
+  expect(chosen).toEqual({ desktop: 'full', phone: 'light', fast: 'light' });
+  const original = await page.evaluate(() => { window.__detail = window.Viewer.getSurroundingsDetail; return true; });
+  expect(original).toBe(true);
+  const build = (detail) => page.evaluate((detail) => {
+    window.Viewer.getSurroundingsDetail = () => detail;
+    window.Viewer.setSurroundingsOptions({ kind: 'town', year: 1700, seed: 3, style: 'realistic' });
+    const objects = window.Viewer.surroundingsObjects;
+    return { triangles: objects.triangles, detail: objects.detail, smoke: objects.group.getObjectByName('surroundings-smoke') != null, reach: window.Viewer.getSurroundingsShadowReachMetres() };
+  }, detail);
+  const full = await build('full');
+  const light = await build('light');
+  expect(full).toMatchObject({ detail: 'full', smoke: true, reach: 80 });
+  expect(light).toMatchObject({ detail: 'light', smoke: false, reach: 0 });
+  expect(light.triangles).toBeLessThan(full.triangles * 0.7);
+  // Far out simpler on every device: well under the 160,000 triangles of before.
+  expect(full.triangles).toBeLessThan(110_000);
+  await page.evaluate(() => { window.Viewer.getSurroundingsDetail = window.__detail; });
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('generated surroundings, the ground as it was: a later quarry filled for the years before it', async ({ page }) => {
+  test.setTimeout(60_000);
+  // A slope with a pit 20 m deep east of the place (the quarry), in the
+  // elevation tiles; the map says the quarry was opened in 1960.
+  const [latitude, longitude] = [49.4197, 20.3198];
+  let zoom = null;
+  const pit = { from: 50, to: 90, half: 25 };
+  await page.route('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/**', async (route) => {
+    const [z, x, y] = route.request().url().match(/terrarium\/(\d+)\/(\d+)\/(\d+)\.png/).slice(1).map(Number);
+    zoom = z;
+    const centre = worldPixel(latitude, longitude, z);
+    const data = Buffer.alloc(256 * 256 * 3);
+    for (let py = 0; py < 256; py += 1) {
+      for (let px = 0; px < 256; px += 1) {
+        const dx = x * 256 + px + 0.5 - centre.x;
+        const dy = y * 256 + py + 0.5 - centre.y;
+        const inPit = dx > pit.from && dx < pit.to && Math.abs(dy) < pit.half;
+        const value = 500 + 0.1 * dx - (inPit ? 20 : 0) + 32768;
+        const index = (py * 256 + px) * 3;
+        data[index] = Math.floor(value / 256);
+        data[index + 1] = Math.floor(value) % 256;
+        data[index + 2] = Math.round((value - Math.floor(value)) * 256) % 256;
+      }
+    }
+    await route.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: await sharp(data, { raw: { width: 256, height: 256, channels: 3 } }).png().toBuffer() });
+  });
+  const asked = [];
+  await page.route('https://overpass-api.de/**', (route) => {
+    const query = decodeURIComponent(route.request().postData() || '');
+    asked.push(query);
+    if (!query.includes('quarry') || zoom == null) return route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ elements: [] }) });
+    // The pit's outline in degrees (Web Mercator back).
+    const centre = worldPixel(latitude, longitude, zoom);
+    const size = 256 * 2 ** zoom;
+    const at = (dx, dy) => {
+      const lon = ((centre.x + dx) / size) * 360 - 180;
+      const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (centre.y + dy)) / size))) * 180) / Math.PI;
+      return { lat, lon };
+    };
+    const ring = [at(pit.from, -pit.half), at(pit.to, -pit.half), at(pit.to, pit.half), at(pit.from, pit.half), at(pit.from, -pit.half)];
+    return route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ elements: [{ type: 'way', id: 7, tags: { landuse: 'quarry', start_date: '1960' }, geometry: ring }] }) });
+  });
+  await page.route('https://overpass-api.openhistoricalmap.org/**', (route) => route.abort());
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(([latitude, longitude]) => window.Viewer.setSurroundingsOptions({ kind: 'village', terrain: 'real', latitude, longitude, year: 1990 }), [latitude, longitude]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsTerrain.state), { timeout: 30_000 }).toBe('real');
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsTerrain.past.state), { timeout: 15_000 }).toBe('real');
+  const sample = () => page.evaluate(() => {
+    const { layout } = window.Viewer.surroundingsObjects;
+    const mpp = window.Viewer.surroundingsTerrain.elevation.metresPerPixel;
+    // The pit's middle, and the slope beside it (the same distance east).
+    return { pit: layout.heightfield(70 * mpp, 0), beside: layout.heightfield(70 * mpp, 40 * mpp), badge: document.querySelector('#viewerSurroundingsBadge').textContent };
+  });
+  // 1990: the quarry is there.
+  const today = await sample();
+  expect(today.beside - today.pit).toBeGreaterThan(15);
+  expect(today.badge).not.toContain('the ground as it was');
+  // 1900: filled to the slope round it, and said so.
+  await page.evaluate(() => window.Viewer.setSurroundingsOptions({ year: 1900 }));
+  const before = await sample();
+  expect(Math.abs(before.beside - before.pit)).toBeLessThan(3);
+  expect(before.badge).toContain('the ground as it was: later quarries taken away');
+  expect(asked.some((query) => query.includes('quarry'))).toBe(true);
+  // Switched off: today's ground whatever the year; exported so.
+  await page.evaluate(() => window.Viewer.setSurroundingsOptions({ pastTerrain: false }));
+  const off = await sample();
+  expect(off.beside - off.pit).toBeGreaterThan(15);
+  expect(await page.evaluate(() => window.Viewer.getSurroundingsForExport().pastTerrain)).toBe(false);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('generated surroundings, life: people, carts and boats moving, fewer in winter, off on request', async ({ page }) => {
+  await openViewer(page, '/examples/WolpaSynagogue.glb', 'ui=menus');
+  await waitForModel(page);
+  const life = (options) => page.evaluate((options) => {
+    window.Viewer.setSurroundingsOptions({ style: 'realistic', seed: 3, ...options });
+    const group = window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-life');
+    if (!group) return null;
+    const counts = {};
+    group.children.forEach((mesh) => { counts[mesh.name.replace('surroundings-life-', '')] = mesh.count; });
+    return counts;
+  }, options);
+  // A port in summer: people, carts, boats with sails.
+  const port = await life({ kind: 'port', year: 1700, season: 'summer' });
+  expect(port.person).toBeGreaterThan(20);
+  expect(port.cart).toBeGreaterThan(0);
+  expect((port.sail || 0) + (port.rowing || 0)).toBeGreaterThan(2);
+  // They move: a person somewhere else a few seconds on.
+  const where = () => page.evaluate(() => {
+    const mesh = window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-life-person');
+    const matrix = new window.Viewer.camera.matrix.constructor();
+    mesh.getMatrixAt(0, matrix);
+    return [matrix.elements[12], matrix.elements[14]];
+  });
+  const first = await where();
+  await page.evaluate(() => window.Viewer.surroundingsObjects.life.update(3));
+  const later = await where();
+  expect(Math.hypot(later[0] - first[0], later[1] - first[1])).toBeGreaterThan(1);
+  // Cars after 1945; no boats on the ice, fewer people in winter.
+  const town = await life({ kind: 'town', year: 1975, season: 'summer' });
+  expect(town.car).toBeGreaterThan(3);
+  const winter = await life({ kind: 'port', year: 1700, season: 'winter' });
+  expect(winter.sail || 0).toBe(0);
+  expect(winter.rowing || 0).toBe(0);
+  expect(winter.person).toBeLessThan(port.person);
+  // Off: none; exported so.
+  expect(await life({ life: false })).toBeNull();
+  expect(await page.evaluate(() => window.Viewer.getSurroundingsForExport().life)).toBe(false);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
 test('generated surroundings window: on and off, the year on a slider with its period, the place and the look', async ({ page }) => {
@@ -7846,6 +8028,13 @@ test('generated surroundings window: on and off, the year on a slider with its p
   await panel.locator('input[name="enabled"]').check();
   await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.enabled && Boolean(window.Viewer.surroundingsObjects))).toBe(true);
   await expect(page.locator('#viewerSurroundingsBadge')).toBeVisible();
+  // The badge kept clear of the window on the right.
+  const clear = async () => {
+    const badge = await page.locator('#viewerSurroundingsBadge').boundingBox();
+    const box = await panel.boundingBox();
+    return badge.x + badge.width <= box.x || badge.y >= box.y + box.height;
+  };
+  await expect.poll(clear).toBe(true);
 
   // Back to 1700: the early modern period, drawn once the slider rests.
   // Each period is the same stretch of the slider: 1700 is 3/5 into the
@@ -7871,7 +8060,7 @@ test('generated surroundings window: on and off, the year on a slider with its p
 
   // A milestone: 1945, the housing estates.
   const milestones = panel.locator('.viewer-surroundings-panel_milestone');
-  await expect(milestones).toHaveText(['1250', '1550', '1800', '1914', '1945']);
+  await expect(milestones).toHaveText(['1250', '1550', '1800', '1914', '1945', '1990']);
   await expect(milestones.nth(1)).toHaveAttribute('aria-pressed', 'true');
   await expect(milestones.nth(4)).toHaveAttribute('title', /housing estates/);
   await milestones.nth(4).click();
@@ -7987,9 +8176,9 @@ test('generated surroundings: the real water from the map, and the timeline foll
   expect(late.growth).toBeGreaterThan(early.growth);
   expect(late.exported).toMatchObject({ followTimeline: true, period: 'medieval', year: 1520 });
   // A year the surroundings do not cover: hidden, and said so.
-  await page.evaluate(() => { window.__year = 2005; });
+  await page.evaluate(() => { window.__year = 2040; });
   await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.group.visible)).toBe(false);
-  await expect(page.locator('#viewerSurroundingsBadge')).toContainText('none for 2005');
+  await expect(page.locator('#viewerSurroundingsBadge')).toContainText('none for 2040');
   await page.evaluate(() => { window.__year = 1400; });
   await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.group.visible)).toBe(true);
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
@@ -8126,6 +8315,7 @@ test('generated surroundings on an old map: its layout file, and its tiles drape
 });
 
 test('generated surroundings: an old map read by AI, saved as GeoJSON; OpenHistoricalMap roads and buildings', async ({ page }) => {
+  test.setTimeout(60_000);
   const [latitude, longitude] = [54, 18.6];
   const tile = await sharp({ create: { width: 256, height: 256, channels: 3, background: { r: 196, g: 176, b: 132 } } }).png().toBuffer();
   await page.route('https://tiles.example.org/**', (route) => route.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: tile }));
@@ -8202,6 +8392,80 @@ test('generated surroundings: an old map read by AI, saved as GeoJSON; OpenHisto
   expect(saved.features.map((feature) => feature.properties.kind).sort()).toEqual(['building', 'lake', 'road']);
   // Not stored in the manifest by itself.
   expect(await page.evaluate(() => window.Viewer.getSurroundingsForExport().layoutUrl)).toBeUndefined();
+
+  // Corrected in the viewer: the reading over the ground, its points
+  // dragged, a feature removed, one drawn, undone.
+  await page.evaluate(() => window.Viewer.toggleSurroundingsPanel(true));
+  const panel = page.locator('#viewerSurroundingsPanel');
+  const reading = panel.locator('.viewer-surroundings-panel_reading');
+  await expect(reading).toBeVisible();
+  await expect(reading).toContainText('3 features read; 0 changed by hand');
+  // From above, the whole reading in view.
+  await page.evaluate(() => {
+    const { group } = window.Viewer.surroundingsObjects;
+    const centre = group.localToWorld(new window.Viewer.camera.position.constructor(0, 0, 0));
+    const up = group.localToWorld(new window.Viewer.camera.position.constructor(0, 900, 60));
+    window.Viewer.camera.position.copy(up);
+    window.Viewer.controls.target.copy(centre);
+    window.Viewer.controls.update();
+  });
+  await reading.locator('button[data-action="correct"]').click();
+  await expect(reading.locator('button[data-action="correct"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-edit') != null)).toBe(true);
+  // The church's first corner dragged 20 m east.
+  const corner = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const index = viewer.surroundingsOldMap.aiGeojson.features.findIndex((feature) => feature.properties.kind === 'building');
+    const vertex = viewer.surroundingsEditVertices().find((entry) => entry.feature === index && entry.index === 0);
+    return { index, before: viewer.surroundingsOldMap.aiGeojson.features[index].geometry.coordinates[0][0], from: viewer.surroundingsEditToScreen(vertex.x, vertex.z), to: viewer.surroundingsEditToScreen(vertex.x + 20, vertex.z) };
+  });
+  await page.mouse.move(corner.from.x, corner.from.y);
+  await page.mouse.down();
+  await page.mouse.move((corner.from.x + corner.to.x) / 2, (corner.from.y + corner.to.y) / 2, { steps: 4 });
+  await page.mouse.move(corner.to.x, corner.to.y, { steps: 4 });
+  await page.mouse.up();
+  const dragged = await page.evaluate((index) => window.Viewer.surroundingsOldMap.aiGeojson.features[index], corner.index);
+  expect(dragged.properties.edited).toBe(true);
+  expect(dragged.geometry.coordinates[0][0][0]).toBeGreaterThan(corner.before[0]);
+  // The ring stays closed.
+  expect(dragged.geometry.coordinates[0].at(-1)).toEqual(dragged.geometry.coordinates[0][0]);
+  await expect(reading).toContainText('1 changed by hand');
+  // The road selected by a click on it, removed with Delete.
+  const roadAt = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const index = viewer.surroundingsOldMap.aiGeojson.features.findIndex((feature) => feature.properties.kind === 'road');
+    const points = viewer.surroundingsEditVertices().filter((entry) => entry.feature === index);
+    return viewer.surroundingsEditToScreen((points[0].x + points[1].x) / 2, (points[0].z + points[1].z) / 2);
+  });
+  await page.mouse.click(roadAt.x, roadAt.y);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsEdit.selected)).toBeGreaterThanOrEqual(0);
+  await expect(reading.locator('button[data-action="delete"]')).toBeEnabled();
+  await page.keyboard.press('Delete');
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsOldMap.aiGeojson.features.map((feature) => feature.properties.kind).sort())).toEqual(['building', 'lake']);
+  // A building drawn: three clicks, Enter.
+  const blocksBefore = await page.evaluate(() => window.Viewer.surroundingsObjects.layout.blocks.length);
+  await reading.locator('select[name="drawKind"]').selectOption('building');
+  await reading.locator('button[data-action="draw"]').click();
+  await expect(reading).toContainText('Click the points on the ground');
+  const spots = await page.evaluate(() => [[-120, -80], [-100, -80], [-100, -64]].map(([x, z]) => window.Viewer.surroundingsEditToScreen(x, z)));
+  for (const spot of spots) await page.mouse.click(spot.x, spot.y);
+  await page.keyboard.press('Enter');
+  const drawn = await page.evaluate(() => window.Viewer.surroundingsOldMap.aiGeojson.features.at(-1));
+  expect(drawn.properties).toMatchObject({ kind: 'building', source: 'hand' });
+  expect(drawn.geometry.coordinates[0]).toHaveLength(4);
+  expect(await page.evaluate(() => window.Viewer.surroundingsObjects.layout.blocks.length)).toBe(blocksBefore + 1);
+  // Undone: the building gone again.
+  await reading.locator('button[data-action="undo"]').click();
+  expect(await page.evaluate(() => window.Viewer.surroundingsOldMap.aiGeojson.features.length)).toBe(2);
+  expect(await page.evaluate(() => window.Viewer.surroundingsObjects.layout.blocks.length)).toBe(blocksBefore);
+  // Saved with what was changed.
+  const [corrected] = await Promise.all([page.waitForEvent('download'), reading.locator('button[data-action="save"]').click()]);
+  const correctedFile = JSON.parse(fs.readFileSync(await corrected.path(), 'utf8'));
+  expect(correctedFile.properties.checked_by_hand).toBe(true);
+  expect(correctedFile.features.find((feature) => feature.properties.kind === 'building').properties.edited).toBe(true);
+  await reading.locator('button[data-action="correct"]').click();
+  expect(await page.evaluate(() => window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-edit') == null)).toBe(true);
+  await page.evaluate(() => window.Viewer.toggleSurroundingsPanel(false));
 
   // OpenHistoricalMap's roads and buildings of the year, on the real terrain.
   await page.unroute('https://overpass-api.openhistoricalmap.org/**');

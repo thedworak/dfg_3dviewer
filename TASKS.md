@@ -5,16 +5,11 @@
 - [ ] **2D images: deep zoom** - tiles from a IIIF Image API service or a pyramidal TIFF for images beyond one texture; IIIF Presentation 3 manifests of images as a set; RTI / PTM relighting; a single-page TIFF as a 2D image
 - [ ] **Volumes: OME-Zarr** - archive format written by the worker, and streamed level-of-detail rendering (bricks) for scans above 512 voxels per axis (micro-CT is often 2000³+)
 
-- [ ] **Generated surroundings: correcting the AI's reading in the viewer** - the roads, buildings and water read from an old map shown over it, moved, removed and added by hand, then saved as the model's GeoJSON (`layoutUrl`/`waterUrl`) instead of editing the file elsewhere
-- [ ] **Generated surroundings: the terrain as it was** - today's elevation flattened where reservoirs, quarries, embankments and spoil heaps were made later (from OSM tags and their dates), so an old river valley is not under a dam's lake
 
 ## Waiting On
 
 ## Someday
 
-- [ ] **Generated surroundings: further regions and the rest of the century** - Scandinavia and the British Isles (timber and stone, other field systems), Eastern Europe beyond the Bug; war damage and its rebuilding in 1945-1950; after 1990 (the estates renovated, out-of-town shops); ports with ships and cranes
-- [ ] **Generated surroundings: phones** - houses of a kind merged into fewer draw calls, simpler far houses (level of detail), a lighter look chosen by itself on weak devices
-- [ ] **Generated surroundings: life** - people in the streets, carts on the roads, boats on the river, smoke and wind already there; all marked as generated
 
 - [ ] **Volumes: Zeiss CZI, Nikon ND2, Imaris IMS (worker only)** - when real users bring such files; `pylibCZIrw`, `nd2`, `h5py`
 - [ ] **Volumes: LAS X 4 `.xlef` / `.lof`** - LIF successor (XML + separate image files)
@@ -26,6 +21,11 @@
 
 ## Done
 
+- [x] ~~**Generated surroundings: life**~~ (2026-11-16) - people walking the streets in the clothes of the period, carts and from the 1920s cars on the roads, rowing, sailing and motor boats on the water; fewer in winter, half on a phone; `life: false` for none (`viewer/editor/surroundings-life.js`, `docs/surroundings.md`)
+- [x] ~~**Generated surroundings: the terrain as it was**~~ (2026-11-16) - reservoirs, dams, quarries, landfills, spoil heaps and embankments from OpenStreetMap taken away for the years before their `start_date` (else a typical year), the ground put back from round them, a reservoir's old valley guessed (`viewer/editor/surroundings-past-terrain.js`, `docs/surroundings.md`)
+- [x] ~~**Generated surroundings: further regions and the rest of the century**~~ (2026-11-16) - the North, the British Isles and Eastern Europe as regions; the war's ruins until about 1950, the estates from the late 1950s; 1990-2025: renovated estates, detached houses, a shop with its car park; the slider to 2025 (`docs/surroundings.md`)
+- [x] ~~**Generated surroundings: phones**~~ (2026-11-16) - what stands far out drawn simpler on every device (about half the triangles and build time), and a light detail on phones and weak devices (`viewer.surroundings.detail`): sparser far wood, coarser ground, no smoke, no own sun shadow map, cast shadows less often (`docs/surroundings.md`)
+- [x] ~~**Generated surroundings: correcting the AI's reading in the viewer**~~ (2026-11-16) - the reading drawn over the ground in the kinds' colours, points dragged, features selected and deleted, new ones drawn, undo, saved as corrected GeoJSON (`viewer/editor/surroundings-edit.js`, `docs/surroundings.md`)
 - [x] ~~**Generated surroundings: milestones, more kinds, the Mediterranean, after 1945**~~ (2026-11-16) - the year's slider gives each period the same width, its milestones (1250, 1550, 1800, 1914, 1945) marked and a click away; a monastery's precinct, a manor house with its park and farm, a manor farm's yard, a shtetl's market square, a port's quay and warehouses; the Mediterranean (stone and render, low roofs, a bell tower, cypresses and olive groves); 1945-1990: housing estates, collective farms, fields ploughed together (`viewer/editor/surroundings-rules.js`, `docs/surroundings.md`)
 - [x] ~~**Generated surroundings: their window**~~ (2026-11-16) - Look > Generated surroundings: on or off, the year on a slider (900-1945) with its period, the kind of place, the look, the season, the water, the real terrain, following the timeline, another layout (`viewer/editor/surroundings-panel.js`, `docs/surroundings.md`)
 - [x] ~~**Generated surroundings: an old map read by AI, OpenHistoricalMap's layout, the early 20th century**~~ (2026-11-16) - the draped old map's picture read by the worker's AI (`old-map`: roads, buildings, fields, water, walls in pixels, in the background; back to degrees, saved as GeoJSON to be checked); OpenHistoricalMap's roads and buildings of the year on the real terrain; 1914-1945: flat-roofed blocks of flats (`viewer/ai/old-map-reader.js`, `worker/ai.py`, `docs/ai.md`, `docs/surroundings.md`)

@@ -7,7 +7,7 @@ its century, its region. Nothing is sent anywhere and no AI is involved: the
 metadata become a handful of parameters by rules, and the parameters become a
 layout by a seeded procedure.
 
-It is a prototype. Covered so far: **Central Europe and the Mediterranean, about 900-1990**.
+It is a prototype. Covered so far: **Europe - the centre, the East, the North, the British Isles and the Mediterranean - about 900-2025**.
 Other periods and regions get no surroundings rather than wrong ones.
 
 ## What it is, and what it is not
@@ -65,7 +65,8 @@ of the kind, the year and the texts: the same metadata, the same picture.
 | `medieval` (1250-1550) | a masonry church with a tower; in a town, deep houses gable to the street and a masonry wall with towers |
 | `industrial` (1800-1914) | four-storey tenements under low roofs along the street (plaster in greys and ochres, brick, tiles, slate or tin), paved streets; no walls but a boulevard with an avenue of trees where they stood; a railway past the settlement with its station and a road to it, factories with sawtooth roofs and round brick chimneys that smoke along the line; a neo-Gothic church with a tall spire |
 | `modern` (1914-1945) | as the 19th century, with flat-roofed blocks of flats of five to seven storeys in light render (white, cream, grey) along wider lots |
-| `postwar` (1945-1990) | as before, with a housing estate of prefabricated blocks (five and eleven storeys, in rows) beyond a town's boulevard; a collective farm's long sheds of silicate brick under asbestos-cement at a village's edge; the strips ploughed together into wide fields; barns' roofs of asbestos-cement |
+| `postwar` (1945-1990) | the war's ruins until about 1950 (a share of the houses burnt-out, roofless shells - nearly half in a town); then as before, with a housing estate of prefabricated blocks (five and eleven storeys, in rows) beyond a town's boulevard from the late 1950s; a collective farm's long sheds of silicate brick under asbestos-cement at a village's edge from about 1950; the strips ploughed together into wide fields |
+| `contemporary` (1990-2025) | the estates renovated in pastels, detached houses with hipped roofs along the roads round the old edge, a shop with its car park out of town on the main road |
 
 Each period starts in its first year (1800 is already the 19th century).
 The window's year slider gives each period the same width, so the decades
@@ -76,6 +77,9 @@ the periods' starts, marked on it with what changes.
 |---|---|
 | `central` (Central Europe) | as above: timber, brick and stone, steep roofs of thatch, shingle and tiles, strip fields, mixed woods |
 | `mediterranean` (Italy, Iberia, southern France, the Adriatic's shore, Greece, Anatolia's west, the Levant) | stone and render in lime, ochre and sienna; low terracotta roofs or flat terraces, eaves to the street; narrower streets; a bell tower standing beside the church; olive groves in rows in every other field; a thinner wood of holm oaks, pines and cypresses; a drier land; masonry always stone |
+| `nordic` (Norway, Sweden, Finland) | timber painted Falu red (some ochre or white, more in a town after 1800), turf roofs until about 1800 then tiles, eaves to the street; whitewashed churches; fewer fields, more wood - three in four trees spruce and pine; masonry stone |
+| `british` (Great Britain, Ireland) | cottages of stone or whitewash under thatch (slate after 1800), a town's houses rendered or timber-framed, brick and stucco after 1550, red-brick terraces under slate after 1800; churches of stone with a square tower, flat behind its parapet; after the enclosures (about 1750) wider fields in hedgerows with trees; less wood, mostly oak, ash and beech |
+| `eastern` (beyond the Bug, to the upper Volga) | log houses gable to the road, half of them whitewashed clay, under thatch (tin after 1914); wooden churches with a bell tower under an onion dome, blue or green, white after 1800; birch and pine; masonry brick |
 | `early-modern` (1550-1800) | taller, deeper town houses (plastered in ochre, rose, pale green; mostly tiled), a larger plastered church whose tower has a baroque onion dome (copper gone green, or shingled), and round a town earthen ramparts with bastions - a faced scarp outside, grass on top - instead of a wall with towers |
 
 ## Two looks
@@ -135,6 +139,22 @@ the hills on the horizon are the real ones. Until the tiles are there - or
 if they cannot be loaded - the generated hills stay and the badge says so.
 No river is generated on the real terrain: the real ones are drawn instead
 (below).
+
+### The ground as it was
+
+Today's elevation shows what was made later. On the real terrain the viewer
+asks the same map servers as for the water (`viewer.surroundings.mapUrl`) for
+the reservoirs, dams, quarries, landfills, spoil heaps and embankments round
+the place, with their `start_date` - else a typical year: reservoirs and dams
+1900, quarries, heaps and embankments 1850, landfills 1950. For a year before
+one was made, the ground within it is drawn again from the ground round it:
+a quarry's pit filled and a heap taken down to the level round them, a dam
+or an embankment to the ground on either side, and under a reservoir a
+valley sinking towards its middle (the lake hides the old floor; its depth
+is guessed from its size, 3-25 m). The badge says what was taken away ("the
+ground as it was: later reservoirs, quarries taken away"). It is an
+estimate, like the rest; `pastTerrain: false` (or the window's checkbox)
+keeps today's ground whatever the year.
 
 ## Real water
 
@@ -229,6 +249,16 @@ rules (both need the place: `latitude`, `longitude`):
   and ⤓ saves them as GeoJSON to check, correct and give to the manifest as
   `layoutUrl` / `waterUrl`. Nothing read by AI is stored in the manifest by
   itself.
+- **Correcting the reading** in the viewer (the surroundings' window, "The
+  old map read by AI"): *Correct* draws what was read over the ground, each
+  kind in its colour (roads gold, buildings red, fields yellow, water blue,
+  walls violet) with a point at each corner. Drag a point to move it; click
+  a line to select its feature and Delete to remove it; *Draw* adds a road,
+  building, field, river, lake or wall - click its points on the ground,
+  double-click or Enter to finish, Esc to cancel; *Undo* (Ctrl+Z) takes back
+  the last change. The surroundings are drawn again after each change. A
+  changed feature gets `edited: true`, a drawn one `source: "hand"`, the
+  file `checked_by_hand: true`; *Save GeoJSON* saves it as corrected.
 
 Without a file or a reading, on the real terrain, the roads, buildings,
 fields and town walls of the year come from **OpenHistoricalMap** where it
@@ -255,7 +285,7 @@ after), and the settlement grows: `growth`, the share of its houses built,
 rises from about a third at a period's start to all of them at its end
 (`surroundingsGrowth`). Houses are built in a fixed order, so one standing
 in 1300 still stands in 1450, where it stood. In years the surroundings do
-not cover (before 900, after 1990) they are hidden and the badge says so.
+not cover (before 900, after 2025) they are hidden and the badge says so.
 While the timeline plays they are drawn again at most every 0.7 s.
 
 ## From parameters to a layout
@@ -270,15 +300,15 @@ meshes, scaled to the model's unit and placed on the model's ground.
 ## The window
 
 **Look > Generated surroundings** opens their window: switch them on or off,
-move the **year** on a slider from 900 to 1990 (the period beside it changes
+move the **year** on a slider from 900 to 2025 (the period beside it changes
 with it; the surroundings are drawn again once the slider rests) or click one
-of its milestones - 1250, 1550, 1800, 1914, 1945, the periods' starts, each
+of its milestones - 1250, 1550, 1800, 1914, 1945, 1990, the periods' starts, each
 saying what changes then - pick the kind of place, the region, the look (schematic or realistic), the season, the water, the
 place's real terrain (once a place is set, in the sun study) and whether
 they follow the timeline's year - then the slider waits for the timeline.
 **▶** plays through the years: the slider moves on by itself, a twentieth
 of a period at a time, each step drawn before the next, with a longer stop
-at each milestone, up to 1990 (from 900 again once there); moving the year
+at each milestone, up to 2025 (from 900 again once there); moving the year
 any other way, switching them off or closing the window stops it. A
 manifest's `open: true` opens the window with the model, for a
 reconstruction told through its stages.
@@ -309,10 +339,35 @@ enough; its bias follows the bigger texels. Farther out the shadows stay
 projected onto the ground. `shadowReach: 0` keeps them all projected (and
 the sun's map as it was). Not with the WebGPU renderer.
 
+## Life
+
+In the realistic look the surroundings are not empty: people walk to and fro
+along the settlement's streets (in the clothes of the period - undyed wool
+and linen, then darker cloth, brighter after 1945), carts drawn by horses
+and, from the 1920s, more and more cars go along its roads, across its
+bridges, and boats are on its water - rowing boats on a river, a moat or a
+pond, sailing boats in a port, motorboats after 1945. More in a town, fewer
+in winter, no boats on the ice, half as many on a phone. They are as
+generated as the houses (`life: false`, or the window's checkbox: none).
+
+## On phones
+
+What stands far out - past about half the setting's radius, deep in the
+haze - is drawn simpler on every device: trees with fewer sides and without
+their soft or cast shadows, houses without doors, windows or eaves. That
+alone halves the triangles and the time to build them (a town of about 1700:
+from 160,000 to 70,000 triangles).
+
+On a phone or a weak device (or while the render quality is "fast") they are
+drawn **light** (`viewer.surroundings.detail`, default `"auto"`): simpler
+from nearer, every other far tree left out, a coarser ground, no smoke or
+haystacks, no sun shadow map of their own, and their cast shadows redrawn
+less often - again about half (a town: 37,000 triangles, built in under
+half the time), which keeps playing through the years smooth.
+
 ## Not yet
 
-Shadows on walls beyond the sun's shadow map; after 1990 and other regions
-(Scandinavia, the British Isles, Eastern Europe beyond the Bug);
+Shadows on walls beyond the sun's shadow map; regions beyond Europe;
 reading descriptions the rules do not understand with the optional AI
 assistant; correcting the AI's reading of an old map in the viewer; the
 terrain as it was (before reservoirs and quarries); people, carts and boats;
