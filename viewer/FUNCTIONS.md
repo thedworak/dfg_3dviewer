@@ -266,7 +266,8 @@ Generated surroundings: a typical setting drawn round the model from its kind, c
   - The badge over the view while they are shown; "a town, late Middle Ages".
 - `Viewer.getSurroundingsForExport()` / `Viewer.apply3IFManifestSurroundings(block)` / `Viewer.disposeSurroundings()`
   - `AIM3DViewer.surroundings`, exported while shown; removed before a new model.
-- `Viewer.toggleSurroundingsPanel(open)` / `Viewer.isSurroundingsPanelOpen()` / `Viewer.syncSurroundingsPanel()` / `Viewer.updateSurroundingsPanelLabels()` (`surroundings-panel.js`)
+- `Viewer.toggleSurroundingsPanel(open)` / `Viewer.isSurroundingsPanelOpen()` / `Viewer.syncSurroundingsPanel()` / `Viewer.updateSurroundingsPanelLabels()` / `Viewer.playSurroundings(on)` / `Viewer.surroundingsPlaying` (`surroundings-panel.js`)
+  - Play: the year moves on by itself, 5 of the slider's 600 steps every 450 ms after each is drawn, 1.6 s at each milestone, to 1990; stopped by any other move of the year, switching them off, closing the window. `AIM3DViewer.surroundings.open` opens the window on load. While shown, `controls.maxDistance` is raised to see the whole setting (put back when they go).
   - Their window (Look > Generated surroundings, `#viewerSurroundingsPanel`): on or off, the year on a slider (900-1990, each period the same width - `surroundingsYearToSlider` / `surroundingsSliderToYear` of `surroundings-rules.js`; its period beside it, drawn 250 ms after the slider rests; off while the timeline is followed) with its milestones (the periods' starts, `SURROUNDINGS_ERAS`: a tick on the track, the year under it, a click away, what changes in its title), the kind of place, the region, the look, the season, the water, the real terrain (only with a place), following the timeline, another layout. Follows changes made elsewhere (the badge, a manifest).
 
 ## `viewer/editor/scene-rules.js`, `viewer/editor/scene-suggest.js`

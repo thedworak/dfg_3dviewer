@@ -4136,7 +4136,22 @@
 }
 
 .viewer-surroundings-panel_period {
+  flex: 1 1 auto;
   opacity: 0.75;
+}
+
+.viewer-surroundings-panel button.viewer-surroundings-panel_play {
+  flex: none;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.viewer-surroundings-panel button.viewer-surroundings-panel_play[aria-pressed="true"] {
+  border-color: var(--viewer-brand-accent, #f5a524);
+  color: var(--viewer-brand-accent, #f5a524);
 }
 
 /* The track and the thumb drawn here: the browser's own range follows the

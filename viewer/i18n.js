@@ -1883,6 +1883,8 @@ export const VIEWER_I18N = {
         noPlace: "Set the place first (Sun study) for the real terrain",
         noModel: "Open a model first.",
         region: "Region",
+        play: "Play through the years",
+        pause: "Pause",
         milestone: "{year}: {period} - {what}",
         changes: {
           medieval: "towns chartered: masonry walls with towers, brick or stone churches, burghers' houses gable to the street",
@@ -4183,6 +4185,8 @@ export const VIEWER_I18N = {
         noPlace: "Najpierw ustaw miejsce (Badanie słońca), by użyć prawdziwego terenu",
         noModel: "Najpierw otwórz model.",
         region: "Region",
+        play: "Odtwórz kolejne lata",
+        pause: "Wstrzymaj",
         milestone: "{year}: {period} - {what}",
         changes: {
           medieval: "lokacje miast: mury z basztami, murowane kościoły, kamienice szczytem do ulicy",
@@ -6482,6 +6486,8 @@ export const VIEWER_I18N = {
         noPlace: "Zuerst den Ort setzen (Sonnenstudie), für das echte Gelände",
         noModel: "Zuerst ein Modell öffnen.",
         region: "Region",
+        play: "Die Jahre abspielen",
+        pause: "Anhalten",
         milestone: "{year}: {period} - {what}",
         changes: {
           medieval: "Stadtgründungen: Mauern mit Türmen, Kirchen aus Backstein oder Stein, Bürgerhäuser giebelständig",

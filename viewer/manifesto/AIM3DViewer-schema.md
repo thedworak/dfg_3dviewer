@@ -606,6 +606,7 @@ shown.
 - `followTimeline`: `true`: the surroundings follow the 4D timeline's year - its period, and how far the settlement has grown (`growth`); hidden in years outside 900-1990
 - `growth`: 0 to 1, the share of the settlement's houses built (default `1`); a house that stands at a lower growth stands at a higher one too
 - `generated`: always `true` in exports; it tells whoever reads the manifest what the block is
+- `open`: `true`: their window open on load - the year's slider with its milestones, and play through the years (exported while it is open)
 
 ## `AIM3DViewer.sceneSuggest`
 

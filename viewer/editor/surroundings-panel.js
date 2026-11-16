@@ -27,6 +27,12 @@ import {
 
 // While the slider moves: drawn this long after it stops.
 const SLIDER_DELAY = 250;
+// Playing through the years: a step of the slider (a twentieth of a
+// period) this often, after the last one is drawn; a longer stop at each
+// milestone, where the look changes.
+const PLAY_STEP = 5;
+const PLAY_INTERVAL = 450;
+const PLAY_MILESTONE_PAUSE = 1600;
 
 export function attachSurroundingsPanel(Viewer) {
   Object.assign(Viewer, {
@@ -112,6 +118,7 @@ export function attachSurroundingsPanel(Viewer) {
         button.dataset.period = era.period;
         button.style.setProperty("--at", String(share));
         button.addEventListener("click", () => {
+          Viewer.playSurroundings(false);
           clearTimeout(timer);
           timer = 0;
           year.value = String(surroundingsYearToSlider(era.start));
@@ -126,7 +133,12 @@ export function attachSurroundingsPanel(Viewer) {
       const periodValue = el("span", "viewer-surroundings-panel_period");
       const yearHead = el("div", "viewer-surroundings-panel_year-head");
       const yearLabel = el("span", "viewer-surroundings-panel_label");
-      yearHead.append(yearLabel, yearValue, periodValue);
+      // Play: the years go by on their own, from 900 (or where the slider
+      // stands) to 1990.
+      const play = el("button", "viewer-surroundings-panel_play");
+      play.type = "button";
+      play.addEventListener("click", () => Viewer.playSurroundings(!Viewer.surroundingsPlaying));
+      yearHead.append(yearLabel, yearValue, periodValue, play);
       const yearBox = el("div", "viewer-surroundings-panel_field");
       yearBox.dataset.field = "year";
       yearBox.append(yearHead, track, milestones);
@@ -144,6 +156,7 @@ export function attachSurroundingsPanel(Viewer) {
         Viewer.setSurroundingsOptions({ year: value, period: surroundingsPeriod(value) });
       };
       year.addEventListener("input", () => {
+        Viewer.playSurroundings(false);
         showYear(surroundingsSliderToYear(year.value));
         clearTimeout(timer);
         timer = setTimeout(drawYear, SLIDER_DELAY);
@@ -192,14 +205,48 @@ export function attachSurroundingsPanel(Viewer) {
       });
       getViewerSideStack()?.append(panel);
       Viewer.surroundingsPanel = {
-        panel, title, closeButton, enabled, enabledField, year, yearLabel, showYear, follow, followField, milestoneButtons,
+        panel, title, closeButton, enabled, enabledField, year, yearLabel, showYear, play, follow, followField, milestoneButtons,
         kind, kindField, region, regionField, style, styleField, season, seasonField, water, waterField, terrain, terrainField,
         reshuffle, status, note, stopTimer: () => clearTimeout(timer),
       };
       Viewer.updateSurroundingsPanelLabels();
     },
 
+    // Playing through the years (the panel's play button): a step of the
+    // slider at a time, each drawn before the next; a pause at each
+    // milestone; to 1990, then stopped. Any other move of the year stops it.
+    surroundingsPlaying: false,
+    surroundingsPlayTimer: 0,
+
+    playSurroundings(on = true) {
+      clearTimeout(Viewer.surroundingsPlayTimer);
+      Viewer.surroundingsPlayTimer = 0;
+      const following = Viewer.surroundings.followTimeline === true && Viewer.hasTimeline?.() === true;
+      Viewer.surroundingsPlaying = on === true && !following;
+      if (Viewer.surroundingsPlaying) {
+        let position = surroundingsYearToSlider(Viewer.surroundings.year);
+        // From the start again once at the end.
+        if (position >= SURROUNDINGS_SLIDER_SPAN || !Viewer.surroundings.enabled) position = position >= SURROUNDINGS_SLIDER_SPAN ? -PLAY_STEP : position - PLAY_STEP;
+        const step = () => {
+          if (!Viewer.surroundingsPlaying) return;
+          position = Math.min(position + PLAY_STEP, SURROUNDINGS_SLIDER_SPAN);
+          const value = surroundingsSliderToYear(position);
+          Viewer.setSurroundingsOptions({ year: value, period: surroundingsPeriod(value) });
+          if (!Viewer.surroundings.enabled || position >= SURROUNDINGS_SLIDER_SPAN) {
+            Viewer.playSurroundings(false);
+            return;
+          }
+          const milestone = position % SURROUNDINGS_SLIDER_STEPS === 0;
+          Viewer.surroundingsPlayTimer = setTimeout(step, milestone ? PLAY_MILESTONE_PAUSE : PLAY_INTERVAL);
+        };
+        step();
+      }
+      Viewer.syncSurroundingsPanel?.();
+      return Viewer.surroundingsPlaying;
+    },
+
     removeSurroundingsPanel() {
+      Viewer.playSurroundings(false);
       Viewer.surroundingsPanel?.stopTimer();
       Viewer.surroundingsPanel?.panel.remove();
       Viewer.surroundingsPanel = null;
@@ -252,6 +299,12 @@ export function attachSurroundingsPanel(Viewer) {
         button.setAttribute("aria-pressed", surroundingsPeriod(state.year) === button.dataset.period ? "true" : "false");
       });
       ui.year.disabled = following;
+      const playing = Viewer.surroundingsPlaying === true;
+      ui.play.disabled = following;
+      ui.play.textContent = playing ? "⏸" : "▶";
+      ui.play.title = playing ? t("surroundings.panel.pause", "Pause") : t("surroundings.panel.play", "Play through the years");
+      ui.play.setAttribute("aria-label", ui.play.title);
+      ui.play.setAttribute("aria-pressed", playing ? "true" : "false");
       ui.follow.checked = state.followTimeline === true;
       ui.followField.label.hidden = !Viewer.hasTimeline?.() && state.followTimeline !== true;
       ui.kind.value = state.kind;

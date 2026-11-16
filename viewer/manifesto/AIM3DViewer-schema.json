@@ -364,6 +364,7 @@
           "required": ["kind"],
           "properties": {
             "generated": { "type": "boolean", "description": "Always true in exports: says what the block is to whoever reads the manifest." },
+            "open": { "type": "boolean", "description": "Their window open on load: the year's slider with its milestones, and play through the years." },
             "kind": { "enum": ["castle", "town", "church", "village", "monastery", "manor", "manor-farm", "shtetl", "port"], "description": "What the model is: a castle gets a settlement beside it; a church, a house or a town's building stands in the middle of theirs; a monastery its precinct, a manor house its park and farm, a manor farm its yard (a village beyond each); a shtetl's building a market square of timber houses; a port's building a town on the shore with quays and warehouses." },
             "period": { "enum": ["early-medieval", "medieval", "early-modern", "industrial", "modern", "postwar"], "description": "From 900, 1250, 1550, 1800, 1914 or 1945 (to 1990) (default: from `year`)." },
             "year": { "type": "number", "description": "The year shown (default 1350)." },

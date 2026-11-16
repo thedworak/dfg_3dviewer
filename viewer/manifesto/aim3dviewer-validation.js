@@ -858,6 +858,7 @@ function validateSurroundings(surroundings, path, errors) {
     pushError(errors, `${path}.density`, "must be a number from 0 to 1");
   }
   if (surroundings.generated !== undefined) validateBoolean(surroundings.generated, `${path}.generated`, errors);
+  if (surroundings.open !== undefined) validateBoolean(surroundings.open, `${path}.open`, errors);
 }
 
 // AIM3DViewer.sceneSuggest (editor/scene-suggest.js): the Suggested scene

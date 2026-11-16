@@ -276,7 +276,17 @@ of its milestones - 1250, 1550, 1800, 1914, 1945, the periods' starts, each
 saying what changes then - pick the kind of place, the region, the look (schematic or realistic), the season, the water, the
 place's real terrain (once a place is set, in the sun study) and whether
 they follow the timeline's year - then the slider waits for the timeline.
-"Another layout" draws the same kind of place with a new seed. Changes made
+**▶** plays through the years: the slider moves on by itself, a twentieth
+of a period at a time, each step drawn before the next, with a longer stop
+at each milestone, up to 1990 (from 900 again once there); moving the year
+any other way, switching them off or closing the window stops it. A
+manifest's `open: true` opens the window with the model, for a
+reconstruction told through its stages.
+"Another layout" draws the same kind of place with a new seed.
+
+While they are shown the camera may zoom out far enough to see the whole
+setting from above (the model's own limit is a few times its size); the
+limit is put back when they go. Changes made
 elsewhere - the badge, a manifest, the suggested scene - show in the window.
 
 ## API

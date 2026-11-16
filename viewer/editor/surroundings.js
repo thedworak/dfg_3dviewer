@@ -459,6 +459,8 @@ export function attachSurroundings(Viewer) {
 
     setSurroundings(enabled) {
       const on = enabled === true;
+      // Off: no more playing through the years.
+      if (!on && Viewer.surroundingsPlaying) Viewer.playSurroundings?.(false);
       if (on === Viewer.surroundings.enabled && (!on || Viewer.surroundingsObjects)) return on;
       Viewer.surroundings.enabled = on;
       if (on) Viewer.rebuildSurroundings();
@@ -534,6 +536,17 @@ export function attachSurroundings(Viewer) {
       // The camera sees out to the horizon from as far as it may go; put
       // back when they go (unless a new model has set its own meanwhile).
       const camera = core.camera;
+      // Zooming out: far enough to see the whole setting from above (the
+      // model's own limit is a few times its size); put back when they go.
+      let reach = null;
+      const controls = core.controls;
+      if (controls && Number.isFinite(controls.maxDistance)) {
+        const wanted = (layout.extent * 1.6) / site.meters;
+        if (wanted > controls.maxDistance) {
+          reach = { before: controls.maxDistance, set: wanted };
+          controls.maxDistance = wanted;
+        }
+      }
       let far = null;
       if (camera) {
         const needed = farthest / site.meters + (core.controls?.maxDistance || 0);
@@ -567,7 +580,7 @@ export function attachSurroundings(Viewer) {
       // The old map draped over the ground, once its tiles are there.
       const overlay = Viewer.getSurroundingsOverlay(layout);
       if (overlay) group.add(buildOverlayMesh(layout, overlay, { north: Viewer.sunStudy?.north || 0, opacity: Viewer.surroundings.mapOverlay.opacity }));
-      Viewer.surroundingsObjects = { group, layout, triangles, site, far, shadows };
+      Viewer.surroundingsObjects = { group, layout, triangles, site, far, reach, shadows };
       Viewer.updateSurroundings(0, { force: true });
       return true;
     },
@@ -994,6 +1007,12 @@ export function attachSurroundings(Viewer) {
         camera.far = objects.far.before;
         camera.updateProjectionMatrix();
       }
+      const controls = core.controls;
+      if (objects.reach && controls && controls.maxDistance === objects.reach.set) {
+        // A camera beyond the old limit comes back within it on the next
+        // frame - not when they are only being drawn again (same frame).
+        controls.maxDistance = objects.reach.before;
+      }
       objects.group.traverse((object) => {
         object.geometry?.dispose();
         object.material?.dispose();
@@ -1144,6 +1163,7 @@ export function attachSurroundings(Viewer) {
         ...(state.layoutUrl ? { layoutUrl: state.layoutUrl } : {}),
         ...(state.mapOverlay ? { mapOverlay: { ...state.mapOverlay } } : {}),
         ...(state.followTimeline ? { followTimeline: true } : {}),
+        ...(Viewer.isSurroundingsPanelOpen?.() ? { open: true } : {}),
         ...(state.terrain === "real" ? { latitude: state.latitude, longitude: state.longitude } : {}),
       };
     },
@@ -1173,7 +1193,10 @@ export function attachSurroundings(Viewer) {
       block.layoutUrl = resolve(block.layoutUrl);
       if (block.mapOverlay && typeof block.mapOverlay === "object") block.mapOverlay = { ...block.mapOverlay, url: resolve(block.mapOverlay.url) };
       Object.assign(Viewer.surroundings, normalizeSurroundings(block));
-      return Viewer.setSurroundingsOptions({}) === true;
+      const shown = Viewer.setSurroundingsOptions({}) === true;
+      // Their window open on load: the year's slider, its milestones, play.
+      if (config.open === true) Viewer.toggleSurroundingsPanel?.(true);
+      return shown;
     },
 
     // Before a new model: they were the old one's.

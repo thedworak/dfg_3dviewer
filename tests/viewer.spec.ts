@@ -7833,6 +7833,7 @@ test('generated surroundings rules: more kinds, the Mediterranean, after 1945, t
 });
 
 test('generated surroundings window: on and off, the year on a slider with its period, the place and the look', async ({ page }) => {
+  test.setTimeout(60_000);
   await openViewer(page, '/examples/box.glb', 'ui=menus');
   await waitForModel(page);
   const toolbar = page.locator('#viewerEditorToolbar');
@@ -7854,6 +7855,19 @@ test('generated surroundings window: on and off, the year on a slider with its p
   await expect(panel.locator('.viewer-surroundings-panel_period')).toHaveText('early modern period');
   await expect.poll(() => page.evaluate(() => [window.Viewer.surroundings.year, window.Viewer.surroundings.period])).toEqual([1700, 'early-modern']);
   await expect(panel.locator('.viewer-scene_status')).toContainText('early modern period');
+
+  // Play: the years go by on their own, until paused.
+  const play = panel.locator('.viewer-surroundings-panel_play');
+  await panel.locator('input[name="year"]').fill('200');
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.year)).toBe(1550);
+  await play.click();
+  await expect(play).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.year), { timeout: 15_000 }).toBeGreaterThan(1580);
+  await play.click({ force: true });
+  await expect(play).toHaveAttribute('aria-pressed', 'false');
+  const paused = await page.evaluate(() => window.Viewer.surroundings.year);
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.Viewer.surroundings.year)).toBe(paused);
 
   // A milestone: 1945, the housing estates.
   const milestones = panel.locator('.viewer-surroundings-panel_milestone');
@@ -7878,9 +7892,24 @@ test('generated surroundings window: on and off, the year on a slider with its p
   // No place: no real terrain to ask for.
   await expect(panel.locator('input[name="terrain"]')).toBeDisabled();
 
+  // Zooming out: far enough to see the whole setting.
+  const reach = await page.evaluate(() => ({ max: window.Viewer.controls.maxDistance, extent: window.Viewer.surroundingsObjects.layout.extent / window.Viewer.surroundingsObjects.site.meters }));
+  expect(reach.max).toBeGreaterThanOrEqual(reach.extent * 1.5);
+
+
   await panel.locator('input[name="enabled"]').uncheck();
   await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.enabled)).toBe(false);
   await expect(page.locator('#viewerSurroundingsBadge')).toHaveCount(0);
+  // The camera's limit put back.
+  expect(await page.evaluate(() => window.Viewer.controls.maxDistance)).toBeLessThan(reach.max);
+  // From a manifest, the window open with them.
+  await panel.locator('.viewer-scene_header button', { hasText: '×' }).click();
+  await expect(panel).toHaveCount(0);
+  expect(await page.evaluate(() => window.Viewer.apply3IFManifestSurroundings({ kind: 'shtetl', year: 1780, open: true }))).toBe(true);
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('select[name="kind"]')).toHaveValue('shtetl');
+  expect(await page.evaluate(() => window.Viewer.getSurroundingsForExport().open)).toBe(true);
+  await page.evaluate(() => window.Viewer.setSurroundings(false));
   await panel.locator('.viewer-scene_header button', { hasText: '×' }).click();
   await expect(panel).toHaveCount(0);
 });

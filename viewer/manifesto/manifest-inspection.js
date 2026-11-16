@@ -592,6 +592,7 @@ const AIM3D_BLOCK = obj({
     terrain: leaf(oneOf(SURROUNDINGS_TERRAINS)),
     masonry: leaf(oneOf(SURROUNDINGS_MASONRY)),
     region: leaf(oneOf(SURROUNDINGS_REGIONS)),
+    open: BOOL,
     waterUrl: URL_,
     layoutUrl: URL_,
     mapOverlay: obj({ url: STRING, opacity: leaf(number({ min: 0, max: 1 })), attribution: STRING }),

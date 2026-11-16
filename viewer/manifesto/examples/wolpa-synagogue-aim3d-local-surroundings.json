@@ -161,19 +161,20 @@
       "latitude": 53.3647,
       "longitude": 24.3711,
       "masonry": "brick",
-      "region": "central"
+      "region": "central",
+      "open": true
     }
   },
   "modified": "2026-11-16T00:00:00.000Z",
   "summary": {
     "en": [
-      "The wooden synagogue of Wołpa on the market square of a generated shtetl of the late 18th century - timber houses gable to the square, a church off it, strip fields - on the place's real terrain, under the summer sun of its place. A typical shtetl of the kind and time, worked out by rules, not Wołpa's own streets. The model is in centimetres. Move the year in Look > Generated surroundings."
+      "The wooden synagogue of Wołpa on the market square of a generated shtetl of the late 18th century - timber houses gable to the square, a church off it, strip fields - on the place's real terrain, under the summer sun of its place. A typical shtetl of the kind and time, worked out by rules, not Wołpa's own streets. The model is in centimetres. The window opens with the year's slider: click a milestone or play through the years."
     ],
     "pl": [
-      "Drewniana synagoga w Wołpie na rynku wygenerowanego sztetla z końca XVIII wieku - drewniane domy szczytem do rynku, kościół przy nim, pola w zagonach - na prawdziwym terenie miejsca, w letnim słońcu tego miejsca. Typowy sztetl dla rodzaju i czasu, wyznaczony regułami, nie prawdziwe ulice Wołpy. Model jest w centymetrach. Rok można zmienić w Wygląd > Wygenerowane otoczenie."
+      "Drewniana synagoga w Wołpie na rynku wygenerowanego sztetla z końca XVIII wieku - drewniane domy szczytem do rynku, kościół przy nim, pola w zagonach - na prawdziwym terenie miejsca, w letnim słońcu tego miejsca. Typowy sztetl dla rodzaju i czasu, wyznaczony regułami, nie prawdziwe ulice Wołpy. Model jest w centymetrach. Okno otwiera się z suwakiem roku: kliknij kamień milowy albo odtwórz kolejne lata."
     ],
     "de": [
-      "Die Holzsynagoge von Wołpa am Marktplatz eines generierten Schtetls des späten 18. Jahrhunderts - Holzhäuser giebelständig zum Platz, eine Kirche daneben, Streifenfelder - auf dem echten Gelände des Ortes, unter der Sommersonne des Ortes. Ein typisches Schtetl dieser Art und Zeit, nach Regeln erzeugt, nicht Wołpas eigene Straßen. Das Modell ist in Zentimetern. Das Jahr lässt sich unter Darstellung > Generierte Umgebung ändern."
+      "Die Holzsynagoge von Wołpa am Marktplatz eines generierten Schtetls des späten 18. Jahrhunderts - Holzhäuser giebelständig zum Platz, eine Kirche daneben, Streifenfelder - auf dem echten Gelände des Ortes, unter der Sommersonne des Ortes. Ein typisches Schtetl dieser Art und Zeit, nach Regeln erzeugt, nicht Wołpas eigene Straßen. Das Modell ist in Zentimetern. Das Fenster öffnet sich mit dem Jahresregler: einen Meilenstein anklicken oder die Jahre abspielen."
     ]
   }
 }
