@@ -3,11 +3,16 @@ import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
 import {
+  SURROUNDINGS_ERAS,
   SURROUNDINGS_KINDS,
+  SURROUNDINGS_REGIONS,
   SURROUNDINGS_SEASONS,
+  SURROUNDINGS_SLIDER_SPAN,
+  SURROUNDINGS_SLIDER_STEPS,
   SURROUNDINGS_STYLES,
-  SURROUNDINGS_YEARS,
   surroundingsPeriod,
+  surroundingsSliderToYear,
+  surroundingsYearToSlider,
 } from "./surroundings-rules.js";
 
 // The surroundings' window (Look > Generated surroundings): on or off, the
@@ -15,6 +20,10 @@ import {
 // season, the water, the real terrain, following the timeline, another
 // layout. Every change is drawn at once through setSurroundingsOptions
 // (editor/surroundings.js); the slider waits for the hand to rest.
+//
+// The slider gives each period the same width (surroundings-rules.js,
+// surroundingsYearToSlider): the years where the look changes most - the
+// periods' starts - are its milestones, marked on it and a click away.
 
 // While the slider moves: drawn this long after it stops.
 const SLIDER_DELAY = 250;
@@ -80,13 +89,39 @@ export function attachSurroundingsPanel(Viewer) {
       const enabledField = field("enabled", enabled);
       enabledField.label.classList.add("viewer-surroundings-panel_toggle");
 
-      // The year: 900-1945, its period beside it.
+      // The year: 900-1990, its period beside it; each period a stretch of
+      // the same length.
       const year = el("input");
       year.type = "range";
       year.name = "year";
-      year.min = String(SURROUNDINGS_YEARS[0]);
-      year.max = String(SURROUNDINGS_YEARS[1]);
-      year.step = "5";
+      year.min = "0";
+      year.max = String(SURROUNDINGS_SLIDER_SPAN);
+      year.step = "1";
+      // The milestones: a mark on the track where each period begins, the
+      // year under it, a click away.
+      const track = el("div", "viewer-surroundings-panel_track");
+      const milestones = el("div", "viewer-surroundings-panel_milestones");
+      const milestoneButtons = SURROUNDINGS_ERAS.slice(1).map((era, index) => {
+        const share = ((index + 1) * SURROUNDINGS_SLIDER_STEPS) / SURROUNDINGS_SLIDER_SPAN;
+        const tick = el("span", "viewer-surroundings-panel_tick");
+        tick.style.setProperty("--at", String(share));
+        track.append(tick);
+        const button = el("button", "viewer-surroundings-panel_milestone", String(era.start));
+        button.type = "button";
+        button.dataset.year = String(era.start);
+        button.dataset.period = era.period;
+        button.style.setProperty("--at", String(share));
+        button.addEventListener("click", () => {
+          clearTimeout(timer);
+          timer = 0;
+          year.value = String(surroundingsYearToSlider(era.start));
+          showYear(era.start);
+          Viewer.setSurroundingsOptions({ year: era.start, period: era.period });
+        });
+        milestones.append(button);
+        return button;
+      });
+      track.prepend(year);
       const yearValue = el("output", "viewer-surroundings-panel_year");
       const periodValue = el("span", "viewer-surroundings-panel_period");
       const yearHead = el("div", "viewer-surroundings-panel_year-head");
@@ -94,7 +129,7 @@ export function attachSurroundingsPanel(Viewer) {
       yearHead.append(yearLabel, yearValue, periodValue);
       const yearBox = el("div", "viewer-surroundings-panel_field");
       yearBox.dataset.field = "year";
-      yearBox.append(yearHead, year);
+      yearBox.append(yearHead, track, milestones);
       let timer = 0;
       const showYear = (value) => {
         yearValue.textContent = String(value);
@@ -104,12 +139,12 @@ export function attachSurroundingsPanel(Viewer) {
       const drawYear = () => {
         clearTimeout(timer);
         timer = 0;
-        const value = Number(year.value);
+        const value = surroundingsSliderToYear(year.value);
         if (value === Viewer.surroundings.year && Viewer.surroundings.enabled) return;
         Viewer.setSurroundingsOptions({ year: value, period: surroundingsPeriod(value) });
       };
       year.addEventListener("input", () => {
-        showYear(Number(year.value));
+        showYear(surroundingsSliderToYear(year.value));
         clearTimeout(timer);
         timer = setTimeout(drawYear, SLIDER_DELAY);
       });
@@ -120,13 +155,15 @@ export function attachSurroundingsPanel(Viewer) {
       followField.label.classList.add("viewer-surroundings-panel_toggle");
 
       const kind = select("kind", SURROUNDINGS_KINDS);
+      const region = select("region", SURROUNDINGS_REGIONS);
       const style = select("style", SURROUNDINGS_STYLES);
       const season = select("season", SURROUNDINGS_SEASONS);
       const kindField = field("kind", kind);
+      const regionField = field("region", region);
       const styleField = field("style", style);
       const seasonField = field("season", season);
       const grid = el("div", "viewer-surroundings-panel_grid");
-      grid.append(kindField.label, styleField.label, seasonField.label);
+      grid.append(kindField.label, regionField.label, styleField.label, seasonField.label);
 
       const water = checkbox("water", (on) => Viewer.setSurroundingsOptions({ water: on }));
       const terrain = checkbox("terrain", (on) => Viewer.setSurroundingsOptions({ terrain: on ? "real" : "generated" }));
@@ -155,8 +192,8 @@ export function attachSurroundingsPanel(Viewer) {
       });
       getViewerSideStack()?.append(panel);
       Viewer.surroundingsPanel = {
-        panel, title, closeButton, enabled, enabledField, year, yearLabel, showYear, follow, followField,
-        kind, kindField, style, styleField, season, seasonField, water, waterField, terrain, terrainField,
+        panel, title, closeButton, enabled, enabledField, year, yearLabel, showYear, follow, followField, milestoneButtons,
+        kind, kindField, region, regionField, style, styleField, season, seasonField, water, waterField, terrain, terrainField,
         reshuffle, status, note, stopTimer: () => clearTimeout(timer),
       };
       Viewer.updateSurroundingsPanelLabels();
@@ -178,6 +215,13 @@ export function attachSurroundingsPanel(Viewer) {
       ui.yearLabel.textContent = t("surroundings.panel.year", "Year");
       ui.followField.text.textContent = t("surroundings.panel.followTimeline", "Follow the timeline's year");
       ui.kindField.text.textContent = t("surroundings.panel.kind", "Place");
+      ui.regionField.text.textContent = t("surroundings.panel.region", "Region");
+      [...ui.region.options].forEach((option) => { option.textContent = t(`surroundings.region.${option.value}`, option.value); });
+      ui.milestoneButtons.forEach((button) => {
+        const period = button.dataset.period;
+        button.title = t("surroundings.panel.milestone", { year: button.dataset.year, period: t(`surroundings.period.${period}`, period), what: t(`surroundings.panel.changes.${period}`, "") }, "{year}: {period} - {what}");
+        button.setAttribute("aria-label", button.title);
+      });
       ui.styleField.text.textContent = t("surroundings.panel.style", "Look");
       ui.seasonField.text.textContent = t("surroundings.panel.season", "Season");
       ui.waterField.text.textContent = t("surroundings.panel.water", "Water (a moat, a river)");
@@ -186,7 +230,7 @@ export function attachSurroundingsPanel(Viewer) {
       [...ui.style.options].forEach((option) => { option.textContent = t(`surroundings.panel.styles.${option.value}`, option.value); });
       [...ui.season.options].forEach((option) => { option.textContent = t(`scene.season.${option.value}`, option.value); });
       ui.reshuffle.textContent = `↻ ${t("surroundings.reshuffle", "Another layout")}`;
-      ui.note.textContent = t("surroundings.panel.note", "A typical setting of the kind and time, worked out from rules - not this place's own. Years 900-1945, Central Europe.");
+      ui.note.textContent = t("surroundings.panel.note", "A typical setting of the kind and time, worked out from rules - not this place's own. Years 900-1990, Central Europe and the Mediterranean.");
       Viewer.syncSurroundingsPanel();
     },
 
@@ -199,13 +243,19 @@ export function attachSurroundingsPanel(Viewer) {
       const following = state.followTimeline === true && Viewer.hasTimeline?.() === true;
       // Not while the hand is on it.
       if (document.activeElement !== ui.year) {
-        ui.year.value = String(state.year);
+        ui.year.value = String(surroundingsYearToSlider(state.year));
         ui.showYear(state.year);
       }
+      ui.milestoneButtons.forEach((button) => {
+        button.disabled = following;
+        button.classList.toggle("is-passed", Number(button.dataset.year) <= state.year);
+        button.setAttribute("aria-pressed", surroundingsPeriod(state.year) === button.dataset.period ? "true" : "false");
+      });
       ui.year.disabled = following;
       ui.follow.checked = state.followTimeline === true;
       ui.followField.label.hidden = !Viewer.hasTimeline?.() && state.followTimeline !== true;
       ui.kind.value = state.kind;
+      ui.region.value = state.region;
       ui.style.value = state.style;
       ui.season.value = state.season;
       ui.water.checked = state.water !== false;

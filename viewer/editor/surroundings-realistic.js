@@ -1,5 +1,7 @@
 import THREE from "../init.js";
 import {
+  hasSurroundingsGridWater,
+  surroundingsGridWaterDistance,
   surroundingsGroundHeight,
   surroundingsNoise,
   surroundingsTerrainHeight,
@@ -480,9 +482,24 @@ const GROUND = {
   },
   haze: { spring: 0xc6d3de, summer: 0xc8d3dc, autumn: 0xcfd2d3, winter: 0xdfe5eb },
 };
+// The south: dry grass, pale earth, vineyards and stubble.
+const GROUND_MED = {
+  meadow: { spring: 0x8b9c5c, summer: 0x9f9c66, autumn: 0x979463, winter: 0x87955f },
+  earth: { spring: 0xab9474, summer: 0xb59c78, autumn: 0xa58c6c, winter: 0xa28b6c },
+  crops: {
+    spring: [0x9cae62, 0x8a7a55, 0x7f9a58],
+    summer: [0xd9bf7b, 0x7d8a4e, 0xc4a86a],
+    autumn: [0xb59d6c, 0x8a6a48, 0x7c7f4c],
+    winter: [0x9a9466, 0x8c7a5c, 0x8a915e],
+  },
+  haze: { spring: 0xd2dbe2, summer: 0xdcdcd6, autumn: 0xd8d8d2, winter: 0xd6dde2 },
+};
 const FOLIAGE = {
   broadleaf: { spring: [0x86a852, 0x95b35e, 0x7d9d4c], summer: [0x587538, 0x4d6a33, 0x67803f], autumn: [0xb47a2e, 0x9c5a28, 0x8f8a3a, 0xa86d2c], winter: [0x766d62, 0x6e665c] },
   conifer: { spring: [0x3d5a3c, 0x46613f], summer: [0x3d5a3c, 0x46613f, 0x355238], autumn: [0x3d5a3c, 0x46613f], winter: [0x56685f, 0x5e6f66] },
+  // Evergreen, the year round.
+  cypress: { spring: [0x2f4430, 0x34492f], summer: [0x2f4430, 0x34492f], autumn: [0x2f4430, 0x34492f], winter: [0x34463a, 0x3a4b3e] },
+  olive: { spring: [0x7f8c62, 0x88936b], summer: [0x7d8a63, 0x86916c, 0x738062], autumn: [0x7d8a63, 0x738062], winter: [0x7a8462, 0x737e60] },
 };
 const BUILT = {
   timber: 0x7b5b3e,
@@ -506,6 +523,13 @@ const BUILT = {
   trunk: 0x5a4636,
   hay: 0xb89c5c,
   snow: 0xf1f3f5,
+  // The south: render in lime, ochre and sienna; pale limestone.
+  stucco: [0xeae0c9, 0xe4cfa6, 0xd9b585, 0xf0ebe0, 0xd8a77e, 0xe6d6b8],
+  limestone: 0xcbbd9e,
+  // Prefabricated panels; silicate brick; asbestos-cement roofs.
+  prefab: [0xcbc8bf, 0xd8d2c4, 0xbfc3c0, 0xe0d9c8, 0xc4bcae],
+  silicate: 0xd5d1c3,
+  asbestos: 0x8d8f8b,
 };
 
 const colour = (hex) => new THREE.Color(hex);
@@ -523,36 +547,96 @@ function vary(hex, x, z, amount = 1) {
 function blockLook(block, params) {
   const early = params.period === "early-medieval";
   const modern = params.period === "early-modern";
-  const industrial = params.period === "industrial" || params.period === "modern";
-  const twentieth = params.period === "modern";
+  const industrial = params.period === "industrial" || params.period === "modern" || params.period === "postwar";
+  const twentieth = params.period === "modern" || params.period === "postwar";
+  const postwar = params.period === "postwar";
+  const med = params.region === "mediterranean";
   // Brick or stone, by the region (surroundings-rules.js, surroundingsMasonry).
-  const stone = params.masonry === "stone";
-  const masonryColour = (amount) => vary(stone ? BUILT.stone : BUILT.brick, block.x, block.z, amount);
+  const stone = params.masonry === "stone" || med;
+  const masonryColour = (amount) => vary(stone ? (med ? BUILT.limestone : BUILT.stone) : BUILT.brick, block.x, block.z, amount);
   const masonryTile = stone ? DETAIL.stone : DETAIL.brick;
   const winter = params.season === "winter";
-  const town = params.kind === "town";
+  const town = params.kind === "town" || params.kind === "port";
   const pick = (key) => surroundingsHash(block.x, block.z, key);
+  const stucco = (amount = 1) => vary(choose(BUILT.stucco, pick(5)), block.x, block.z, amount);
+  const tiles = () => vary(choose(BUILT.tiles, pick(7)), block.x, block.z, 0.6);
   let wall;
   let roof;
   let wallTile;
   let roofTile;
   let overhang = 0.5;
   let openings = "cottage";
-  if (block.role === "church") {
+  if (block.role === "estate") {
+    // A block of prefabricated panels, a flat tarred roof.
+    wall = vary(choose(BUILT.prefab, pick(5)), block.x, block.z, 0.4);
+    wallTile = DETAIL.plaster;
+    roof = colour(0x58544f);
+    roofTile = 0;
+    openings = "townhouse";
+    overhang = 0;
+  } else if (block.role === "farm") {
+    // A collective farm's shed: silicate brick or grey render, asbestos.
+    wall = vary(pick(4) < 0.5 ? BUILT.silicate : BUILT.prefab[2], block.x, block.z, 0.5);
+    wallTile = pick(4) < 0.5 ? DETAIL.brick : DETAIL.plaster;
+    roof = vary(BUILT.asbestos, block.x, block.z, 0.4);
+    roofTile = DETAIL.shingle;
+    openings = "barn";
+    overhang = 0.3;
+  } else if (block.role === "barn" || block.role === "granary") {
+    // Timber under thatch or shingle; brick and tiles after 1800; stone in
+    // the south.
+    const masonryBarn = med || industrial || (block.role === "granary" && !early && pick(4) < 0.5);
+    wall = med ? masonryColour(0.6) : masonryBarn ? masonryColour(0.7) : vary(BUILT.timber, block.x, block.z);
+    wallTile = med ? DETAIL.stone : masonryBarn ? (stone ? DETAIL.stone : DETAIL.brick) : DETAIL.planks;
+    const tiled = med || industrial;
+    roof = tiled ? (postwar ? vary(BUILT.asbestos, block.x, block.z, 0.4) : tiles()) : pick(6) < 0.6 ? vary(BUILT.thatch, block.x, block.z) : vary(BUILT.shingle, block.x, block.z, 0.6);
+    roofTile = tiled ? DETAIL.tiles : pick(6) < 0.6 ? DETAIL.thatch : DETAIL.shingle;
+    openings = block.role === "granary" ? "tower" : "barn";
+    overhang = 0.5;
+  } else if (block.role === "manor" || block.role === "cloister") {
+    // White or ochre render (stone in the south and before 1550 for a
+    // monastery), tiles or shingle.
+    const bare = block.role === "cloister" && !med && !modern && !industrial;
+    wall = med ? stucco(0.6) : bare ? masonryColour(0.5) : vary(block.role === "manor" ? BUILT.baroque[3] : choose(BUILT.baroque, pick(5)), block.x, block.z, 0.4);
+    wallTile = bare ? masonryTile : DETAIL.plaster;
+    const shingled = block.role === "manor" && !med && !industrial && pick(6) < 0.6;
+    roof = shingled ? vary(BUILT.shingle, block.x, block.z, 0.6) : tiles();
+    roofTile = shingled ? DETAIL.shingle : DETAIL.tiles;
+    openings = "townhouse";
+    overhang = 0.45;
+  } else if (block.role === "warehouse") {
+    // A port's warehouse: brick (or half-timber before 1550), steep tiles;
+    // limestone in the south.
+    const timber = !med && (early || params.period === "medieval") && pick(4) < 0.4;
+    wall = med ? masonryColour(0.6) : timber ? vary(BUILT.palisade, block.x, block.z) : vary(BUILT.brick, block.x, block.z, 0.6);
+    wallTile = med ? DETAIL.stone : timber ? DETAIL.planks : DETAIL.brick;
+    roof = tiles();
+    roofTile = DETAIL.tiles;
+    openings = "townhouse";
+    overhang = 0.3;
+  } else if (block.role === "campanile") {
+    wall = masonryColour(0.4);
+    wallTile = DETAIL.stone;
+    roof = tiles();
+    roofTile = DETAIL.tiles;
+    openings = "tower";
+    overhang = 0.3;
+  } else if (block.role === "church") {
     // After 1550 a plastered church, its dome copper gone green or shingled.
-    wall = early ? vary(BUILT.timber, block.x, block.z) : modern ? vary(BUILT.baroque[3], block.x, block.z, 0.5) : masonryColour(0.5);
-    wallTile = early ? DETAIL.logs : modern ? DETAIL.plaster : masonryTile;
-    roof = colour(early ? BUILT.shingle : block.roof === "onion" ? (pick(8) < 0.6 ? BUILT.copper : BUILT.slate) : block.roof === "pyramid" ? BUILT.slate : BUILT.tiles[1]);
+    // In the south pale stone, a low tiled roof.
+    wall = med && !early ? (modern ? stucco(0.4) : masonryColour(0.4)) : early ? vary(BUILT.timber, block.x, block.z) : modern ? vary(BUILT.baroque[3], block.x, block.z, 0.5) : masonryColour(0.5);
+    wallTile = med && !early ? (modern ? DETAIL.plaster : DETAIL.stone) : early ? DETAIL.logs : modern ? DETAIL.plaster : masonryTile;
+    roof = colour(med && !early && block.roof === "gable" ? BUILT.tiles[0] : early ? BUILT.shingle : block.roof === "onion" ? (pick(8) < 0.6 ? BUILT.copper : BUILT.slate) : block.roof === "pyramid" ? BUILT.slate : BUILT.tiles[1]);
     roofTile = early || block.roof === "pyramid" || block.roof === "onion" ? DETAIL.shingle : DETAIL.tiles;
     openings = block.roof === "pyramid" ? "tower" : early ? "chapel" : "church";
     overhang = 0.4;
-  } else if (block.role === "factory" || block.role === "chimney") {
+  } else if (block.role === "factory" || block.role === "factory-hall" || block.role === "chimney") {
     // Brick (always, after 1800), a tarred roof with glazed teeth.
     wall = vary(BUILT.brick, block.x, block.z, 0.6);
     wallTile = DETAIL.brick;
     roof = colour(0x45413e);
     roofTile = DETAIL.shingle;
-    openings = block.role === "factory" ? "factory" : null;
+    openings = block.role === "factory" || block.role === "factory-hall" ? "factory" : null;
     overhang = 0.2;
   } else if (block.role === "station") {
     wall = vary(BUILT.industrial[1], block.x, block.z, 0.5);
@@ -568,6 +652,33 @@ function blockLook(block, params) {
     roofTile = DETAIL.shingle;
     openings = "tower";
     overhang = 0.3;
+  } else if (med && block.role === "house") {
+    // The south: render or bare stone, low terracotta roofs (or a flat
+    // terrace); tenements and blocks of flats as in the north.
+    const bareStone = pick(4) < (town ? 0.2 : 0.45) && !industrial;
+    wall = bareStone ? masonryColour(0.8) : stucco();
+    wallTile = bareStone ? DETAIL.stone : DETAIL.plaster;
+    roof = block.roof === "none" ? colour(0xb9ab92) : tiles();
+    roofTile = block.roof === "none" ? DETAIL.plaster : DETAIL.tiles;
+    openings = town || block.h > 5 ? "townhouse" : "cottage";
+    overhang = 0.3;
+    if (twentieth && block.roof === "none" && town) {
+      wall = vary(choose(BUILT.modernist, pick(5)), block.x, block.z, 0.5);
+      roof = colour(0x58544f);
+      roofTile = 0;
+      overhang = 0;
+    }
+  } else if (block.market) {
+    // A shtetl's house on the square: planks or white clay, a tall shingled
+    // roof; brick or plaster on two storeys after 1800.
+    const plastered = industrial ? pick(4) < 0.7 : pick(4) < 0.35;
+    wall = plastered ? (industrial && pick(5) < 0.4 ? vary(BUILT.brick, block.x, block.z) : vary(choose(BUILT.plaster, pick(5)), block.x, block.z)) : vary(BUILT.timber, block.x, block.z);
+    wallTile = plastered ? (industrial && pick(5) < 0.4 ? DETAIL.brick : DETAIL.plaster) : DETAIL.planks;
+    const tinned = industrial && pick(6) < 0.5;
+    roof = tinned ? colour(0x7d8288) : vary(BUILT.shingle, block.x, block.z, 0.6);
+    roofTile = DETAIL.shingle;
+    openings = "townhouse";
+    overhang = 0.5;
   } else if (town && !early) {
     // A burgher's house: plastered or brick, tiled or shingled; a
     // tenement after 1800: grey and ochre plaster or brick, tiles, slate or tin.
@@ -769,6 +880,17 @@ function writeDetailedBlock(writer, block, y, look) {
       for (let side = 0; side < 4; side += 1) opening(side, 0, h * 0.72, 0.45, Math.min(1.3, h * 0.12));
       break;
     }
+    case "barn": {
+      // Wide gates on the long sides, a few small windows.
+      const long = block.w >= block.d;
+      const sides = long ? [0, 2] : [1, 3];
+      const length = long ? block.w : block.d;
+      const gates = Math.max(1, Math.round(length / 22));
+      sides.forEach((side) => {
+        for (let index = 0; index < gates; index += 1) opening(side, -length / 2 + ((index + 0.5) * length) / gates, 0, 3.2, Math.min(3.4, h * 0.8));
+      });
+      break;
+    }
     default:
   }
 }
@@ -840,10 +962,11 @@ function writeWall(writer, segment, height, look) {
 
 // A tree: a trunk under an irregular crown, its colour its own.
 function writeDetailedTree(writer, tree, y, season) {
-  const conifer = tree.kind === "conifer";
-  const bare = !conifer && season === "winter";
+  // A cypress is a slender conifer; an olive an evergreen broadleaf.
+  const conifer = tree.kind === "conifer" || tree.kind === "cypress";
+  const bare = tree.kind === "broadleaf" && season === "winter";
   const sides = conifer ? 7 : 8;
-  const palette = FOLIAGE[conifer ? "conifer" : "broadleaf"][season];
+  const palette = (FOLIAGE[tree.kind] || FOLIAGE[conifer ? "conifer" : "broadleaf"])[season];
   const color = vary(choose(palette, surroundingsHash(tree.x, tree.z, 9)), tree.x, tree.z, 1.5);
   const trunk = colour(BUILT.trunk);
   const radius = tree.r * (bare ? 0.75 : 1);
@@ -866,7 +989,7 @@ function writeDetailedTree(writer, tree, y, season) {
   const cap = (points, tip, tone, want, shades) => {
     for (let side = 0; side < sides; side += 1) writer.tri(points[side], points[(side + 1) % sides], tip, tone, { want, shades, sway, tile: leaves });
   };
-  const crownFrom = conifer ? 0.12 : 0.28;
+  const crownFrom = tree.kind === "cypress" ? 0.06 : conifer ? 0.12 : tree.kind === "olive" ? 0.36 : 0.28;
   band(ring(0.07, -0.03, 1), ring(0.07, crownFrom + 0.06, 1), trunk, [0.7, 0.7, 1, 1], 0);
   const apex = v(tree.x, y + tree.h, tree.z);
   if (conifer) {
@@ -933,7 +1056,7 @@ const WATER_REACH = 2.8;
  */
 export function buildSurroundingsWater(layout, { realistic = false, uniforms = null, fade = () => 1, tint = null } = {}) {
   const water = layout.water;
-  if (!water || (!water.river && !water.moat && !water.map)) return null;
+  if (!water || (!water.river && !water.moat && !hasSurroundingsGridWater(layout))) return null;
   const winter = layout.params.season === "winter";
   const writer = createSurroundingsWriter(fade, tint);
   const color = colour(realistic ? WATER[layout.params.season] : 0xb5c3cb);
@@ -974,9 +1097,9 @@ export function buildSurroundingsWater(layout, { realistic = false, uniforms = n
       writer.quad(at(inner, index), at(outer, index), at(outer, index + 1), at(inner, index + 1), color, { want: UP });
     }
   }
-  if (water.map) {
-    // The real water: cells of a grid where it reaches, each row's cells
-    // joined into runs.
+  if (hasSurroundingsGridWater(layout)) {
+    // The real water, a port's sea, ponds: cells of a grid where it
+    // reaches, each row's cells joined into runs.
     const cell = 5;
     const span = Math.ceil(rim / cell);
     for (let row = -span; row < span; row += 1) {
@@ -986,7 +1109,7 @@ export function buildSurroundingsWater(layout, { realistic = false, uniforms = n
       for (let column = -span; column <= span; column += 1) {
         const x = column * cell;
         const inside = column < span && Math.hypot(x + cell / 2, z0 + cell / 2) < rim
-          && water.map.distance(x + cell / 2, z0 + cell / 2) < WATER_REACH + cell * 0.71;
+          && surroundingsGridWaterDistance(layout, x + cell / 2, z0 + cell / 2) < WATER_REACH + cell * 0.71;
         if (inside && start == null) start = x;
         if (!inside && start != null) {
           writer.quad(v(start, level(start, z0), z0), v(x, level(x, z0), z0), v(x, level(x, z1), z1), v(start, level(start, z1), z1), color, { want: UP });
@@ -1194,15 +1317,17 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
   const extent = layout.extent;
   const seed = layout.seed;
   const height = (x, z) => surroundingsTerrainHeight(layout, x, z);
-  const haze = colour(GROUND.haze[season]);
+  const med = params.region === "mediterranean";
+  const palette = med ? GROUND_MED : GROUND;
+  const haze = colour(palette.haze[season]);
   // Aerial perspective: farther colours closer to the haze.
   const tint = (x, z, value) => value.lerp(haze, 0.62 * smoothstep(Math.hypot(x, z), extent * 0.18, extent * 1.6));
   const opaque = () => 1;
 
   // ---- the ground: one opaque sheet out to the hills
   const ground = createSurroundingsWriter(opaque, tint);
-  const meadow = colour(GROUND.meadow[season]);
-  const earth = colour(GROUND.earth[season]);
+  const meadow = colour(palette.meadow[season]);
+  const earth = colour(palette.earth[season]);
   const zone = layout.zone;
   const groundAt = (x, z) => {
     const patches = surroundingsNoise(seed + 11, x / 45, z / 45) * 0.7 + surroundingsNoise(seed + 12, x / 12, z / 12) * 0.3;
@@ -1239,7 +1364,7 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
     }
   }
   // Fields: crops of the season in furrows along the strip.
-  const crops = GROUND.crops[season];
+  const crops = palette.crops[season];
   layout.fields.forEach((field) => {
     // An old map's field: its own outline.
     if (field.polygon) {
@@ -1295,7 +1420,7 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
     return Array.from({ length: steps }, (_item, step) => [x + ((nx - x) * step) / steps, z + ((nz - z) * step) / steps]);
   });
   // After 1800 a town's streets are paved.
-  const paved = (params.period === "industrial" || params.period === "modern") && params.kind === "town";
+  const paved = (params.period === "industrial" || params.period === "modern" || params.period === "postwar") && (params.kind === "town" || params.kind === "port");
   const cobbles = colour(winter ? 0xcfcdca : 0x8b8781);
   layout.roads.forEach((entry) => {
     const points = densify(entry.points);
@@ -1418,8 +1543,8 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
     const y = height(tree.x, tree.z);
     writeDetailedTree(writerAt(tree.x, tree.z), tree, y, season);
     blobRound(tree.x, tree.z, tree.r, 0.3);
-    const conifer = tree.kind === "conifer";
-    const radius = tree.r * (!conifer && winter ? 0.75 : 1);
+    const conifer = tree.kind === "conifer" || tree.kind === "cypress";
+    const radius = tree.r * (tree.kind === "broadleaf" && winter ? 0.75 : 1);
     const crown = [];
     for (let index = 0; index < 6; index += 1) {
       const angle = (index / 6) * Math.PI * 2;
@@ -1447,7 +1572,7 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
 
   // ---- the horizon: low wooded hills beyond the rim, deep in the haze
   const hillHeight = extent * 0.05;
-  const hillColor = colour(FOLIAGE.conifer.summer[0]).lerp(meadow, 0.35);
+  const hillColor = colour(med ? FOLIAGE.olive.summer[2] : FOLIAGE.conifer.summer[0]).lerp(meadow, med ? 0.55 : 0.35);
   const real = typeof layout.heightfield === "function";
   const realLift = (radius) => (angle) => height(Math.cos(angle) * radius, Math.sin(angle) * radius);
   const rows = real ? [

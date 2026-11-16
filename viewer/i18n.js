@@ -1827,8 +1827,9 @@ export const VIEWER_I18N = {
         surroundingsSmall: "not a building or a site",
         surroundingsNoType: "the texts do not say what kind of place it is",
         surroundingsNoYear: "the texts give no year or century",
-        surroundingsOtherPeriod: "no surroundings for the year {year} yet (900-1945 only)",
-        surroundingsOtherRegion: "no surroundings for this region yet (Central Europe only)",
+        surroundingsOtherPeriod: "no surroundings for the year {year} yet (900-1990 only)",
+        surroundingsOtherRegion: "no surroundings for this region yet (Central Europe and the Mediterranean only)",
+        surroundingsMediterranean: "the Mediterranean: stone and render, low tiled roofs, cypresses and olive groves",
       },
     },
     surroundings: {
@@ -1854,7 +1855,7 @@ export const VIEWER_I18N = {
       },
       timeline: {
         year: "{year}, following the timeline",
-        outside: "none for {year} (they cover 900-1945)",
+        outside: "none for {year} (they cover 900-1990)",
       },
       terrain: {
         real: "on the place's real terrain",
@@ -1878,9 +1879,18 @@ export const VIEWER_I18N = {
         water: "Water (a moat, a river)",
         terrain: "The place's real terrain",
         styles: { schematic: "schematic", realistic: "realistic" },
-        note: "A typical setting of the kind and time, worked out from rules - not this place's own. Years 900-1945, Central Europe.",
+        note: "A typical setting of the kind and time, worked out from rules - not this place's own. Years 900-1990, Central Europe and the Mediterranean.",
         noPlace: "Set the place first (Sun study) for the real terrain",
         noModel: "Open a model first.",
+        region: "Region",
+        milestone: "{year}: {period} - {what}",
+        changes: {
+          medieval: "towns chartered: masonry walls with towers, brick or stone churches, burghers' houses gable to the street",
+          "early-modern": "taller town houses, baroque churches, earthen ramparts with bastions",
+          industrial: "the walls gone: a boulevard, the railway and its station, factories, tenements",
+          modern: "flat-roofed blocks of flats in light render",
+          postwar: "housing estates of prefabricated blocks, collective farms, fields ploughed together",
+        },
         close: "Close",
       },
       kind: {
@@ -1888,6 +1898,11 @@ export const VIEWER_I18N = {
         town: "a town",
         church: "a village round a church",
         village: "a village",
+        monastery: "a monastery's precinct",
+        manor: "a manor house, its park and farm",
+        "manor-farm": "a manor farm",
+        shtetl: "a shtetl",
+        port: "a port town",
       },
       period: {
         "early-medieval": "early Middle Ages",
@@ -1895,6 +1910,11 @@ export const VIEWER_I18N = {
         "early-modern": "early modern period",
         industrial: "19th century",
         modern: "early 20th century",
+        postwar: "after 1945",
+      },
+      region: {
+        central: "Central Europe",
+        mediterranean: "Mediterranean",
       },
     },
     photos: {
@@ -4107,8 +4127,9 @@ export const VIEWER_I18N = {
         surroundingsSmall: "to nie budynek ani stanowisko",
         surroundingsNoType: "teksty nie mówią, jakie to miejsce",
         surroundingsNoYear: "teksty nie podają roku ani wieku",
-        surroundingsOtherPeriod: "brak jeszcze otoczenia dla roku {year} (tylko lata 900-1945)",
-        surroundingsOtherRegion: "brak jeszcze otoczenia dla tego regionu (tylko Europa Środkowa)",
+        surroundingsOtherPeriod: "brak jeszcze otoczenia dla roku {year} (tylko lata 900-1990)",
+        surroundingsOtherRegion: "brak jeszcze otoczenia dla tego regionu (tylko Europa Środkowa i basen Morza Śródziemnego)",
+        surroundingsMediterranean: "basen Morza Śródziemnego: kamień i tynk, niskie dachy z dachówki, cyprysy i gaje oliwne",
       },
     },
     surroundings: {
@@ -4134,7 +4155,7 @@ export const VIEWER_I18N = {
       },
       timeline: {
         year: "{year}, za osią czasu",
-        outside: "brak dla roku {year} (obejmuje lata 900-1945)",
+        outside: "brak dla roku {year} (obejmuje lata 900-1990)",
       },
       terrain: {
         real: "na prawdziwym terenie miejsca",
@@ -4158,9 +4179,18 @@ export const VIEWER_I18N = {
         water: "Woda (fosa, rzeka)",
         terrain: "Prawdziwy teren miejsca",
         styles: { schematic: "schematyczny", realistic: "realistyczny" },
-        note: "Typowe otoczenie dla rodzaju miejsca i czasu, wyznaczone regułami - nie to konkretne miejsce. Lata 900-1945, Europa Środkowa.",
+        note: "Typowe otoczenie dla rodzaju miejsca i czasu, wyznaczone regułami - nie to konkretne miejsce. Lata 900-1990, Europa Środkowa i basen Morza Śródziemnego.",
         noPlace: "Najpierw ustaw miejsce (Badanie słońca), by użyć prawdziwego terenu",
         noModel: "Najpierw otwórz model.",
+        region: "Region",
+        milestone: "{year}: {period} - {what}",
+        changes: {
+          medieval: "lokacje miast: mury z basztami, murowane kościoły, kamienice szczytem do ulicy",
+          "early-modern": "wyższe kamienice, barokowe kościoły, wały ziemne z bastionami",
+          industrial: "mury rozebrane: bulwar, kolej z dworcem, fabryki, czynszówki",
+          modern: "bloki mieszkalne z płaskimi dachami, w jasnym tynku",
+          postwar: "osiedla z wielkiej płyty, PGR-y i kołchozy, pola scalone w łany",
+        },
         close: "Zamknij",
       },
       kind: {
@@ -4168,6 +4198,11 @@ export const VIEWER_I18N = {
         town: "miasto",
         church: "wieś wokół kościoła",
         village: "wieś",
+        monastery: "zespół klasztorny",
+        manor: "dwór z parkiem i folwarkiem",
+        "manor-farm": "folwark",
+        shtetl: "sztetl",
+        port: "miasto portowe",
       },
       period: {
         "early-medieval": "wczesne średniowiecze",
@@ -4175,6 +4210,11 @@ export const VIEWER_I18N = {
         "early-modern": "okres nowożytny",
         industrial: "XIX wiek",
         modern: "początek XX wieku",
+        postwar: "po 1945 roku",
+      },
+      region: {
+        central: "Europa Środkowa",
+        mediterranean: "basen Morza Śródziemnego",
       },
     },
     photos: {
@@ -6386,8 +6426,9 @@ export const VIEWER_I18N = {
         surroundingsSmall: "kein Gebäude und keine Stätte",
         surroundingsNoType: "die Texte sagen nicht, was für ein Ort es ist",
         surroundingsNoYear: "die Texte nennen weder Jahr noch Jahrhundert",
-        surroundingsOtherPeriod: "noch keine Umgebung für das Jahr {year} (nur 900-1945)",
-        surroundingsOtherRegion: "noch keine Umgebung für diese Region (nur Mitteleuropa)",
+        surroundingsOtherPeriod: "noch keine Umgebung für das Jahr {year} (nur 900-1990)",
+        surroundingsOtherRegion: "noch keine Umgebung für diese Region (nur Mitteleuropa und Mittelmeerraum)",
+        surroundingsMediterranean: "Mittelmeerraum: Stein und Putz, flache Ziegeldächer, Zypressen und Olivenhaine",
       },
     },
     surroundings: {
@@ -6413,7 +6454,7 @@ export const VIEWER_I18N = {
       },
       timeline: {
         year: "{year}, der Zeitleiste folgend",
-        outside: "keine für {year} (sie umfasst 900-1945)",
+        outside: "keine für {year} (sie umfasst 900-1990)",
       },
       terrain: {
         real: "auf dem echten Gelände des Ortes",
@@ -6437,9 +6478,18 @@ export const VIEWER_I18N = {
         water: "Wasser (Graben, Fluss)",
         terrain: "Das echte Gelände des Ortes",
         styles: { schematic: "schematisch", realistic: "realistisch" },
-        note: "Eine typische Umgebung dieser Art und Zeit, nach Regeln erzeugt - nicht die dieses Ortes. Jahre 900-1945, Mitteleuropa.",
+        note: "Eine typische Umgebung dieser Art und Zeit, nach Regeln erzeugt - nicht die dieses Ortes. Jahre 900-1990, Mitteleuropa und Mittelmeerraum.",
         noPlace: "Zuerst den Ort setzen (Sonnenstudie), für das echte Gelände",
         noModel: "Zuerst ein Modell öffnen.",
+        region: "Region",
+        milestone: "{year}: {period} - {what}",
+        changes: {
+          medieval: "Stadtgründungen: Mauern mit Türmen, Kirchen aus Backstein oder Stein, Bürgerhäuser giebelständig",
+          "early-modern": "höhere Bürgerhäuser, Barockkirchen, Erdwälle mit Bastionen",
+          industrial: "die Mauern fallen: ein Ring, die Eisenbahn mit Bahnhof, Fabriken, Mietshäuser",
+          modern: "Wohnblocks mit Flachdach in hellem Putz",
+          postwar: "Plattenbausiedlungen, LPG und Kolchosen, zusammengelegte Felder",
+        },
         close: "Schließen",
       },
       kind: {
@@ -6447,6 +6497,11 @@ export const VIEWER_I18N = {
         town: "Stadt",
         church: "Dorf um eine Kirche",
         village: "Dorf",
+        monastery: "Klosterbezirk",
+        manor: "Gutshaus mit Park und Hof",
+        "manor-farm": "Vorwerk",
+        shtetl: "Schtetl",
+        port: "Hafenstadt",
       },
       period: {
         "early-medieval": "Frühmittelalter",
@@ -6454,6 +6509,11 @@ export const VIEWER_I18N = {
         "early-modern": "Frühe Neuzeit",
         industrial: "19. Jahrhundert",
         modern: "frühes 20. Jahrhundert",
+        postwar: "nach 1945",
+      },
+      region: {
+        central: "Mitteleuropa",
+        mediterranean: "Mittelmeerraum",
       },
     },
     photos: {

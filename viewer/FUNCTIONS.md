@@ -267,7 +267,7 @@ Generated surroundings: a typical setting drawn round the model from its kind, c
 - `Viewer.getSurroundingsForExport()` / `Viewer.apply3IFManifestSurroundings(block)` / `Viewer.disposeSurroundings()`
   - `AIM3DViewer.surroundings`, exported while shown; removed before a new model.
 - `Viewer.toggleSurroundingsPanel(open)` / `Viewer.isSurroundingsPanelOpen()` / `Viewer.syncSurroundingsPanel()` / `Viewer.updateSurroundingsPanelLabels()` (`surroundings-panel.js`)
-  - Their window (Look > Generated surroundings, `#viewerSurroundingsPanel`): on or off, the year on a slider (900-1945; its period beside it, drawn 250 ms after the slider rests; off while the timeline is followed), the kind of place, the look, the season, the water, the real terrain (only with a place), following the timeline, another layout. Follows changes made elsewhere (the badge, a manifest).
+  - Their window (Look > Generated surroundings, `#viewerSurroundingsPanel`): on or off, the year on a slider (900-1990, each period the same width - `surroundingsYearToSlider` / `surroundingsSliderToYear` of `surroundings-rules.js`; its period beside it, drawn 250 ms after the slider rests; off while the timeline is followed) with its milestones (the periods' starts, `SURROUNDINGS_ERAS`: a tick on the track, the year under it, a click away, what changes in its title), the kind of place, the region, the look, the season, the water, the real terrain (only with a place), following the timeline, another layout. Follows changes made elsewhere (the badge, a manifest).
 
 ## `viewer/editor/scene-rules.js`, `viewer/editor/scene-suggest.js`
 

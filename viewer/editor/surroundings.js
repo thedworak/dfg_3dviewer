@@ -145,7 +145,7 @@ function writeBlock(writer, block, y, wallColor, roofColor) {
 // A trunk under a cone (a conifer) or under a faceted crown (a broadleaf).
 function writeTree(writer, tree, y, color, trunkColor, winter) {
   const sides = 6;
-  const conifer = tree.kind === "conifer";
+  const conifer = tree.kind === "conifer" || tree.kind === "cypress";
   // Bare in winter: a broadleaf's crown is thinner.
   const radius = tree.r * (!conifer && winter ? 0.7 : 1);
   const turn = (Math.abs(tree.x * 12.9898 + tree.z * 78.233) % 1) * Math.PI;
@@ -267,7 +267,7 @@ function buildSchematicSurroundings(layout) {
   const masonry = colour(PALETTE.masonry, winter);
   const roof = colour(PALETTE.roof, winter);
   layout.blocks.forEach((block) => {
-    writeBlock(built, block, surroundingsBlockFoot(layout, block), block.role === "house" ? wall : masonry, roof);
+    writeBlock(built, block, surroundingsBlockFoot(layout, block), block.role === "house" || block.role === "barn" || block.role === "farm" ? wall : masonry, roof);
   });
   // Bridges: a plain deck.
   layout.bridges.forEach((bridge) => {
@@ -292,7 +292,7 @@ function buildSchematicSurroundings(layout) {
     // Smaller towards the rim, none beyond it.
     const size = fade(tree.x, tree.z);
     if (size < 0.15) return;
-    writeTree(built, { ...tree, h: tree.h * size, r: tree.r * size }, height(tree.x, tree.z), tree.kind === "conifer" ? conifer : broadleaf, trunk, winter);
+    writeTree(built, { ...tree, h: tree.h * size, r: tree.r * size }, height(tree.x, tree.z), tree.kind === "conifer" || tree.kind === "cypress" ? conifer : broadleaf, trunk, winter);
   });
 
   // The ground fades out towards the rim; what stands on it is opaque and
@@ -1139,6 +1139,7 @@ export function attachSurroundings(Viewer) {
         water: state.water,
         terrain: state.terrain,
         masonry: state.masonry,
+        region: state.region,
         ...(state.waterUrl ? { waterUrl: state.waterUrl } : {}),
         ...(state.layoutUrl ? { layoutUrl: state.layoutUrl } : {}),
         ...(state.mapOverlay ? { mapOverlay: { ...state.mapOverlay } } : {}),

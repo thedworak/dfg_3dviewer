@@ -7,7 +7,7 @@ import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 import { AIM3D_MANIFEST_VERSION, manifestVersionStatus } from '../viewer/manifesto/manifest-version.js';
 import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 import { findSceneCoordinates, findSceneYear, sceneProportions, suggestScene } from '../viewer/editor/scene-rules.js';
-import { layoutSurroundings, normalizeSurroundings, suggestSurroundings, surroundingsGrowth, surroundingsMasonry, surroundingsTerrainHeight, surroundingsWaterDistance, surroundingsWaterLevel } from '../viewer/editor/surroundings-rules.js';
+import { findSurroundingsKind, layoutSurroundings, normalizeSurroundings, suggestSurroundings, surroundingsGrowth, surroundingsMasonry, surroundingsPeriod, surroundingsRegion, surroundingsSliderToYear, surroundingsTerrainHeight, surroundingsWaterDistance, surroundingsWaterLevel, surroundingsYearToSlider } from '../viewer/editor/surroundings-rules.js';
 import { createMapWater, dateYear, filterByYear, mapGeoJsonToAnswer, mapProjector, mapWaterQuery, minimumRectangle, readMapLayout, readMapWater, waterGeoJsonToAnswer } from '../viewer/editor/surroundings-map.js';
 import { createHeightfield, decodeTerrarium, elevationZoom, metresPerPixel, worldPixel } from '../viewer/editor/surroundings-terrain.js';
 import sharp from 'sharp';
@@ -7298,7 +7298,7 @@ test('generated surroundings rules: offered for a dated building of a known kind
   // No year, another period, another region, no kind, an object: none.
   const why = (text, size = castleFacts.size) => item(suggestScene({ size, unitSource: 'file', text }, 'presentation')).reasons[0].key;
   expect(why('Zamek w Malborku')).toBe('surroundingsNoYear');
-  expect(why('Castle, 1955')).toBe('surroundingsOtherPeriod');
+  expect(why('Castle, 9th century')).toBe('surroundingsOtherPeriod');
   expect(why('Castle, 14th century. 35.0116, 135.7681')).toBe('surroundingsOtherRegion');
   expect(why('Bridge, 14th century')).toBe('surroundingsNoType');
   expect(why('Castle, 14th century', { x: 0.3, y: 0.2, z: 0.3 })).not.toBe('surroundingsType');
@@ -7545,6 +7545,8 @@ test('generated surroundings rules: offered for a dated building of a known kind
 });
 
 test('generated surroundings: drawn round the model, marked, stored in the manifest, and no part of the model', async ({ page }) => {
+  // Builds and redraws them many times over (software WebGL in CI).
+  test.setTimeout(60_000);
   await openViewer(page, '/examples/box.glb', 'ui=menus');
   await waitForModel(page);
   await page.evaluate(() => {
@@ -7760,6 +7762,76 @@ test('generated surroundings on the real terrain: elevation tiles of the place, 
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
+test('generated surroundings rules: more kinds, the Mediterranean, after 1945, the slider\'s milestones', () => {
+  // The kind from the texts, the most particular first.
+  expect(findSurroundingsKind('opactwo cystersow w wachocku, kosciol')).toBe('monastery');
+  expect(findSurroundingsKind('dwor szlachecki z parkiem')).toBe('manor');
+  expect(findSurroundingsKind('folwark, spichlerz dworski')).toBe('manor-farm');
+  expect(findSurroundingsKind('drewniana synagoga w miasteczku')).toBe('shtetl');
+  expect(findSurroundingsKind('zuraw w porcie, nabrzeze')).toBe('port');
+  expect(findSurroundingsKind('zamek krolewski')).toBe('castle');
+
+  // The region by the place: the Mediterranean's stone and low roofs.
+  expect(surroundingsRegion({ latitude: 43.77, longitude: 11.25 })).toBe('mediterranean');
+  expect(surroundingsRegion({ latitude: 52.23, longitude: 21.01 })).toBe('central');
+  expect(surroundingsRegion({ latitude: 60.17, longitude: 24.94 })).toBeNull();
+  expect(surroundingsMasonry({ latitude: 43.77, longitude: 11.25 })).toBe('stone');
+  const florence = suggestSurroundings({ normalizedText: 'chiesa, borgo, 1500', year: { year: 1500 }, location: { latitude: 43.77, longitude: 11.25 }, sizeClass: 'building' });
+  expect(florence.value).toMatchObject({ enabled: true, kind: 'church', region: 'mediterranean', masonry: 'stone' });
+  const south = layoutSurroundings({ kind: 'village', region: 'mediterranean', year: 1600, seed: 4 }, { radius: 20 });
+  expect(south.blocks.some((block) => block.role === 'campanile')).toBe(true);
+  expect(south.trees.some((tree) => tree.kind === 'olive')).toBe(true);
+  expect(south.blocks.filter((block) => block.role === 'house' && block.roof === 'gable').every((block) => block.roofHeight < 1.5)).toBe(true);
+
+  // Each kind its own: a precinct's wall and ponds, a manor's farm, a
+  // farmyard, a market square, a port's shore and warehouses.
+  const of = (kind, extra = {}) => layoutSurroundings({ kind, year: 1700, seed: 7, ...extra }, { radius: 15 });
+  const monastery = of('monastery');
+  expect(monastery.walls.length).toBeGreaterThan(10);
+  expect(monastery.water.ponds.length).toBe(2);
+  expect(monastery.blocks.filter((block) => block.role === 'cloister').length).toBeGreaterThanOrEqual(3);
+  expect(monastery.blocks.some((block) => block.role === 'church')).toBe(false);
+  expect(of('manor').blocks.filter((block) => block.role === 'barn').length).toBeGreaterThanOrEqual(2);
+  expect(of('manor-farm').blocks.some((block) => block.role === 'manor')).toBe(true);
+  const shtetl = of('shtetl');
+  expect(shtetl.roads.filter((road) => road.market).length).toBe(4);
+  expect(shtetl.blocks.filter((block) => block.market).length).toBeGreaterThan(10);
+  expect(shtetl.walls).toEqual([]);
+  const port = of('port');
+  expect(port.water.coast).not.toBeNull();
+  expect(port.water.river).toBeNull();
+  expect(port.blocks.filter((block) => block.role === 'warehouse').length).toBeGreaterThan(2);
+  expect(port.bridges.filter((bridge) => bridge.pier).length).toBeGreaterThanOrEqual(3);
+  // Nothing built in the water; the sea flat.
+  expect(port.blocks.every((block) => surroundingsWaterDistance(port, block.x, block.z) > 0)).toBe(true);
+  const sea = port.water.coast;
+  expect(surroundingsWaterLevel(port, sea.nx * (sea.offset + 150), sea.nz * (sea.offset + 150))).toBeCloseTo(-0.55, 1);
+  // Not on the real terrain, whose shore the map gives.
+  expect(of('port', { terrain: 'real', latitude: 54.35, longitude: 18.65 }).water.coast).toBeNull();
+
+  // After 1945: an estate of slabs by a town, a collective farm by a
+  // village, fields ploughed together.
+  expect(surroundingsPeriod(1945)).toBe('postwar');
+  expect(surroundingsPeriod(1990)).toBe('postwar');
+  expect(surroundingsPeriod(1991)).toBeNull();
+  const estate = layoutSurroundings({ kind: 'town', year: 1975, seed: 1 }, { radius: 20 });
+  expect(estate.params.period).toBe('postwar');
+  expect(estate.blocks.filter((block) => block.role === 'estate').length).toBeGreaterThan(4);
+  expect(estate.blocks.filter((block) => block.role === 'estate').every((block) => block.roof === 'none' && block.w > 50)).toBe(true);
+  const farm = layoutSurroundings({ kind: 'village', year: 1970, seed: 1 }, { radius: 20 });
+  expect(farm.blocks.some((block) => block.role === 'farm')).toBe(true);
+  const strips = layoutSurroundings({ kind: 'village', year: 1900, seed: 1 }, { radius: 20 });
+  expect(farm.fields.length).toBeLessThan(strips.fields.length);
+
+  // The slider: each period the same width; the milestones where they start.
+  expect([900, 1250, 1550, 1800, 1914, 1945, 1990].map(surroundingsYearToSlider)).toEqual([0, 100, 200, 300, 400, 500, 600]);
+  expect(surroundingsSliderToYear(260)).toBe(1700);
+  expect(surroundingsSliderToYear(450)).toBe(1930);
+  [1100, 1400, 1666, 1871, 1939, 1968].forEach((year) => expect(surroundingsSliderToYear(surroundingsYearToSlider(year))).toBeCloseTo(year, -1));
+  expect(normalizeSurroundings({ kind: 'port', region: 'mediterranean', period: 'postwar' })).toMatchObject({ kind: 'port', region: 'mediterranean', period: 'postwar' });
+  expect(normalizeSurroundings({ region: 'arctic' }).region).toBe('central');
+});
+
 test('generated surroundings window: on and off, the year on a slider with its period, the place and the look', async ({ page }) => {
   await openViewer(page, '/examples/box.glb', 'ui=menus');
   await waitForModel(page);
@@ -7775,12 +7847,28 @@ test('generated surroundings window: on and off, the year on a slider with its p
   await expect(page.locator('#viewerSurroundingsBadge')).toBeVisible();
 
   // Back to 1700: the early modern period, drawn once the slider rests.
-  await panel.locator('input[name="year"]').fill('1700');
+  // Each period is the same stretch of the slider: 1700 is 3/5 into the
+  // third (1550-1800).
+  await panel.locator('input[name="year"]').fill('260');
   await expect(panel.locator('.viewer-surroundings-panel_year')).toHaveText('1700');
   await expect(panel.locator('.viewer-surroundings-panel_period')).toHaveText('early modern period');
   await expect.poll(() => page.evaluate(() => [window.Viewer.surroundings.year, window.Viewer.surroundings.period])).toEqual([1700, 'early-modern']);
   await expect(panel.locator('.viewer-scene_status')).toContainText('early modern period');
 
+  // A milestone: 1945, the housing estates.
+  const milestones = panel.locator('.viewer-surroundings-panel_milestone');
+  await expect(milestones).toHaveText(['1250', '1550', '1800', '1914', '1945']);
+  await expect(milestones.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(milestones.nth(4)).toHaveAttribute('title', /housing estates/);
+  await milestones.nth(4).click();
+  await expect.poll(() => page.evaluate(() => [window.Viewer.surroundings.year, window.Viewer.surroundings.period])).toEqual([1945, 'postwar']);
+  await expect(panel.locator('.viewer-surroundings-panel_period')).toHaveText('after 1945');
+  await expect(milestones.nth(4)).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('input[name="year"]')).toHaveValue('500');
+
+  await panel.locator('select[name="region"]').selectOption('mediterranean');
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.region)).toBe('mediterranean');
+  await expect.poll(() => page.evaluate(() => window.Viewer.getSurroundingsForExport().region)).toBe('mediterranean');
   await panel.locator('select[name="kind"]').selectOption('town');
   await panel.locator('select[name="season"]').selectOption('winter');
   await expect.poll(() => page.evaluate(() => [window.Viewer.surroundings.kind, window.Viewer.surroundings.season])).toEqual(['town', 'winter']);
@@ -7870,9 +7958,9 @@ test('generated surroundings: the real water from the map, and the timeline foll
   expect(late.growth).toBeGreaterThan(early.growth);
   expect(late.exported).toMatchObject({ followTimeline: true, period: 'medieval', year: 1520 });
   // A year the surroundings do not cover: hidden, and said so.
-  await page.evaluate(() => { window.__year = 1950; });
+  await page.evaluate(() => { window.__year = 2005; });
   await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.group.visible)).toBe(false);
-  await expect(page.locator('#viewerSurroundingsBadge')).toContainText('none for 1950');
+  await expect(page.locator('#viewerSurroundingsBadge')).toContainText('none for 2005');
   await page.evaluate(() => { window.__year = 1400; });
   await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.group.visible)).toBe(true);
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);

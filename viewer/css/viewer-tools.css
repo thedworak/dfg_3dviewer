@@ -4194,6 +4194,53 @@
   cursor: default;
 }
 
+/* The milestones: where each period begins (the slider gives each period
+   the same width), a tick on the track, the year under it. The thumb is
+   16px wide: its middle runs from 8px to the width less 8px. */
+.viewer-surroundings-panel_track {
+  position: relative;
+}
+
+.viewer-surroundings-panel_tick {
+  position: absolute;
+  top: 5px;
+  left: calc(8px + (100% - 16px) * var(--at));
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
+.viewer-surroundings-panel_milestones {
+  position: relative;
+  height: 20px;
+}
+
+.viewer-surroundings-panel button.viewer-surroundings-panel_milestone {
+  position: absolute;
+  top: 0;
+  left: calc(8px + (100% - 16px) * var(--at));
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  border: 0;
+  border-radius: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.viewer-surroundings-panel button.viewer-surroundings-panel_milestone.is-passed {
+  opacity: 0.9;
+}
+
+.viewer-surroundings-panel button.viewer-surroundings-panel_milestone[aria-pressed="true"] {
+  color: var(--viewer-brand-accent, #f5a524);
+  opacity: 1;
+  font-weight: 600;
+}
+
 .viewer-surroundings-panel input[type="checkbox"] {
   width: 16px;
   height: 16px;
@@ -4203,7 +4250,7 @@
 
 .viewer-surroundings-panel_grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 8px;
 }
 

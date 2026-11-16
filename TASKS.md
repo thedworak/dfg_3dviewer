@@ -12,8 +12,7 @@
 
 ## Someday
 
-- [ ] **Generated surroundings: more kinds and regions** - a monastery with its precinct, a manor farm, a shtetl round its market and synagogue, a port with quays and warehouses, a manor house with a park; outside Central Europe a Mediterranean town (stone, flat roofs, terraces) - each with its own rules and sources
-- [ ] **Generated surroundings: after 1945** - war damage and rebuilding, prefabricated housing estates, collective farms' buildings; the timeline then reaching today
+- [ ] **Generated surroundings: further regions and the rest of the century** - Scandinavia and the British Isles (timber and stone, other field systems), Eastern Europe beyond the Bug; war damage and its rebuilding in 1945-1950; after 1990 (the estates renovated, out-of-town shops); ports with ships and cranes
 - [ ] **Generated surroundings: phones** - houses of a kind merged into fewer draw calls, simpler far houses (level of detail), a lighter look chosen by itself on weak devices
 - [ ] **Generated surroundings: life** - people in the streets, carts on the roads, boats on the river, smoke and wind already there; all marked as generated
 
@@ -27,6 +26,7 @@
 
 ## Done
 
+- [x] ~~**Generated surroundings: milestones, more kinds, the Mediterranean, after 1945**~~ (2026-11-16) - the year's slider gives each period the same width, its milestones (1250, 1550, 1800, 1914, 1945) marked and a click away; a monastery's precinct, a manor house with its park and farm, a manor farm's yard, a shtetl's market square, a port's quay and warehouses; the Mediterranean (stone and render, low roofs, a bell tower, cypresses and olive groves); 1945-1990: housing estates, collective farms, fields ploughed together (`viewer/editor/surroundings-rules.js`, `docs/surroundings.md`)
 - [x] ~~**Generated surroundings: their window**~~ (2026-11-16) - Look > Generated surroundings: on or off, the year on a slider (900-1945) with its period, the kind of place, the look, the season, the water, the real terrain, following the timeline, another layout (`viewer/editor/surroundings-panel.js`, `docs/surroundings.md`)
 - [x] ~~**Generated surroundings: an old map read by AI, OpenHistoricalMap's layout, the early 20th century**~~ (2026-11-16) - the draped old map's picture read by the worker's AI (`old-map`: roads, buildings, fields, water, walls in pixels, in the background; back to degrees, saved as GeoJSON to be checked); OpenHistoricalMap's roads and buildings of the year on the real terrain; 1914-1945: flat-roofed blocks of flats (`viewer/ai/old-map-reader.js`, `worker/ai.py`, `docs/ai.md`, `docs/surroundings.md`)
 - [x] ~~**Generated surroundings: an old map, the 19th century**~~ (2026-11-16) - an old map's layout (GeoJSON: roads, fields, buildings, walls, dated) in place of the generated ones, and its tiles draped over the ground with their attribution; 1800-1914: tenements, a boulevard with an avenue where the walls stood, a railway with its station, factories with sawtooth roofs and smoking chimneys, a neo-Gothic church (`docs/surroundings.md`)

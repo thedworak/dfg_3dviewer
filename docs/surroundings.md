@@ -7,7 +7,7 @@ its century, its region. Nothing is sent anywhere and no AI is involved: the
 metadata become a handful of parameters by rules, and the parameters become a
 layout by a seeded procedure.
 
-It is a prototype. Covered so far: **Central Europe, about 900-1945**.
+It is a prototype. Covered so far: **Central Europe and the Mediterranean, about 900-1990**.
 Other periods and regions get no surroundings rather than wrong ones.
 
 ## What it is, and what it is not
@@ -39,13 +39,13 @@ only what was recorded). The rules (`viewer/editor/surroundings-rules.js`,
 
 | Fact | From | Without it |
 |---|---|---|
-| the kind | words in the file name, metadata and manifest texts (English, Polish, German): castle / stronghold, town, church / monastery, village / manor / mill | not offered |
+| the kind | words in the file name, metadata and manifest texts (English, Polish, German, a few Italian and Spanish): castle / stronghold, monastery / abbey, port / harbour / lighthouse, shtetl / synagogue, manor farm / granary, manor house, town, church, village / mill | not offered |
 | the year | the 4D timeline, else the earliest year or century in the texts ("XIV w.", "14th century") | not offered |
-| the region | the manifest's place, coordinates in the texts, a town they name | taken as Central Europe, less surely |
+| the region | the manifest's place, coordinates in the texts, a town they name: Central Europe or the Mediterranean | taken as Central Europe, less surely |
 | the size | the model's box in metres: a building or a site | not offered; with an unknown unit, less surely |
 | the season | a season the texts name | summer |
 
-They give `{ kind, period, year, season, seed, density }`. The seed is a hash
+They give `{ kind, period, year, season, seed, density, region }`. The seed is a hash
 of the kind, the year and the texts: the same metadata, the same picture.
 
 | Kind | Layout |
@@ -53,6 +53,11 @@ of the kind, the year and the texts: the same metadata, the same picture.
 | `castle` | a settlement beside the model, on the road leaving it |
 | `town` | streets past the model on every side, a wall with gates |
 | `church`, `village` | a village along a road past the model |
+| `monastery` | its precinct round the model: a wall with a gate tower where the road leaves, the cloister's three ranges round a court beside the church (when the model is the church alone), a granary and a brewery, an orchard; fishponds beyond the wall; a village farther along the road |
+| `manor` | a manor house: an avenue of limes (cypresses in the south) along the drive, a park with a pond behind the house, its farm beside it; a village farther along the road |
+| `manor-farm` | a farmyard round the model: long barns on its sides, a cowshed across its far end, a granary under a tall hipped roof, the manor house at its head with a few park trees; a distillery with its chimney after 1800; a village farther along the road |
+| `shtetl` | a market square round the model, its four sides lined with narrow timber houses gable to the square under tall shingled roofs (brick, plaster or tin after 1800), a road out of the town from each side, a church off the square, no walls |
+| `port` | a town on the shore: the water on one side (the sea or a lake, flat, the town's half on dry land), a quay along it with brick warehouses gable to the water, piers; walls on the land side only; the railway landward |
 
 | Period | |
 |---|---|
@@ -60,6 +65,17 @@ of the kind, the year and the texts: the same metadata, the same picture.
 | `medieval` (1250-1550) | a masonry church with a tower; in a town, deep houses gable to the street and a masonry wall with towers |
 | `industrial` (1800-1914) | four-storey tenements under low roofs along the street (plaster in greys and ochres, brick, tiles, slate or tin), paved streets; no walls but a boulevard with an avenue of trees where they stood; a railway past the settlement with its station and a road to it, factories with sawtooth roofs and round brick chimneys that smoke along the line; a neo-Gothic church with a tall spire |
 | `modern` (1914-1945) | as the 19th century, with flat-roofed blocks of flats of five to seven storeys in light render (white, cream, grey) along wider lots |
+| `postwar` (1945-1990) | as before, with a housing estate of prefabricated blocks (five and eleven storeys, in rows) beyond a town's boulevard; a collective farm's long sheds of silicate brick under asbestos-cement at a village's edge; the strips ploughed together into wide fields; barns' roofs of asbestos-cement |
+
+Each period starts in its first year (1800 is already the 19th century).
+The window's year slider gives each period the same width, so the decades
+after 1914 are as easy to reach as the centuries before; its milestones are
+the periods' starts, marked on it with what changes.
+
+| Region | |
+|---|---|
+| `central` (Central Europe) | as above: timber, brick and stone, steep roofs of thatch, shingle and tiles, strip fields, mixed woods |
+| `mediterranean` (Italy, Iberia, southern France, the Adriatic's shore, Greece, Anatolia's west, the Levant) | stone and render in lime, ochre and sienna; low terracotta roofs or flat terraces, eaves to the street; narrower streets; a bell tower standing beside the church; olive groves in rows in every other field; a thinner wood of holm oaks, pines and cypresses; a drier land; masonry always stone |
 | `early-modern` (1550-1800) | taller, deeper town houses (plastered in ochre, rose, pale green; mostly tiled), a larger plastered church whose tower has a baroque onion dome (copper gone green, or shingled), and round a town earthen ramparts with bastions - a faced scarp outside, grass on top - instead of a wall with towers |
 
 ## Two looks
@@ -239,7 +255,7 @@ after), and the settlement grows: `growth`, the share of its houses built,
 rises from about a third at a period's start to all of them at its end
 (`surroundingsGrowth`). Houses are built in a fixed order, so one standing
 in 1300 still stands in 1450, where it stood. In years the surroundings do
-not cover (before 900, after 1945) they are hidden and the badge says so.
+not cover (before 900, after 1990) they are hidden and the badge says so.
 While the timeline plays they are drawn again at most every 0.7 s.
 
 ## From parameters to a layout
@@ -254,9 +270,10 @@ meshes, scaled to the model's unit and placed on the model's ground.
 ## The window
 
 **Look > Generated surroundings** opens their window: switch them on or off,
-move the **year** on a slider from 900 to 1945 (the period beside it changes
-with it; the surroundings are drawn again once the slider rests), pick the
-kind of place, the look (schematic or realistic), the season, the water, the
+move the **year** on a slider from 900 to 1990 (the period beside it changes
+with it; the surroundings are drawn again once the slider rests) or click one
+of its milestones - 1250, 1550, 1800, 1914, 1945, the periods' starts, each
+saying what changes then - pick the kind of place, the region, the look (schematic or realistic), the season, the water, the
 place's real terrain (once a place is set, in the sun study) and whether
 they follow the timeline's year - then the slider waits for the timeline.
 "Another layout" draws the same kind of place with a new seed. Changes made
@@ -284,7 +301,8 @@ the sun's map as it was). Not with the WebGPU renderer.
 
 ## Not yet
 
-Shadows on walls beyond the sun's shadow map; after 1945 and other regions;
+Shadows on walls beyond the sun's shadow map; after 1990 and other regions
+(Scandinavia, the British Isles, Eastern Europe beyond the Bug);
 reading descriptions the rules do not understand with the optional AI
 assistant; correcting the AI's reading of an old map in the viewer; the
 terrain as it was (before reservoirs and quarries); people, carts and boats;

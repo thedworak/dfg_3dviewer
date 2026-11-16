@@ -11,8 +11,9 @@ export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
 // Keep in sync with WEATHER_TYPES in viewer/editor/weather-config.js (same reason).
 export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
 // Keep in sync with viewer/editor/surroundings-rules.js (same reason).
-export const SURROUNDINGS_KINDS = ["castle", "town", "church", "village"];
-export const SURROUNDINGS_PERIODS = ["early-medieval", "medieval", "early-modern", "industrial", "modern"];
+export const SURROUNDINGS_KINDS = ["castle", "town", "church", "village", "monastery", "manor", "manor-farm", "shtetl", "port"];
+export const SURROUNDINGS_PERIODS = ["early-medieval", "medieval", "early-modern", "industrial", "modern", "postwar"];
+export const SURROUNDINGS_REGIONS = ["central", "mediterranean"];
 export const SURROUNDINGS_SEASONS = ["spring", "summer", "autumn", "winter"];
 export const SURROUNDINGS_STYLES = ["schematic", "realistic"];
 export const SURROUNDINGS_TERRAINS = ["generated", "real"];
@@ -838,6 +839,7 @@ function validateSurroundings(surroundings, path, errors) {
     }
   }
   if (surroundings.masonry !== undefined) validateEnum(surroundings.masonry, SURROUNDINGS_MASONRY, `${path}.masonry`, errors);
+  if (surroundings.region !== undefined) validateEnum(surroundings.region, SURROUNDINGS_REGIONS, `${path}.region`, errors);
   if (surroundings.followTimeline !== undefined) validateBoolean(surroundings.followTimeline, `${path}.followTimeline`, errors);
   if (surroundings.growth !== undefined && (!isFiniteNumber(surroundings.growth) || surroundings.growth < 0 || surroundings.growth > 1)) {
     pushError(errors, `${path}.growth`, "must be a number from 0 to 1");

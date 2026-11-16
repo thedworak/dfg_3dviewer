@@ -364,8 +364,8 @@
           "required": ["kind"],
           "properties": {
             "generated": { "type": "boolean", "description": "Always true in exports: says what the block is to whoever reads the manifest." },
-            "kind": { "enum": ["castle", "town", "church", "village"], "description": "What the model is: a castle gets a settlement beside it; a church, a house or a town's building stands in the middle of theirs." },
-            "period": { "enum": ["early-medieval", "medieval", "early-modern", "industrial", "modern"], "description": "About 900-1250, 1250-1550, 1550-1800, 1800-1914 or 1914-1945 (default: from `year`)." },
+            "kind": { "enum": ["castle", "town", "church", "village", "monastery", "manor", "manor-farm", "shtetl", "port"], "description": "What the model is: a castle gets a settlement beside it; a church, a house or a town's building stands in the middle of theirs; a monastery its precinct, a manor house its park and farm, a manor farm its yard (a village beyond each); a shtetl's building a market square of timber houses; a port's building a town on the shore with quays and warehouses." },
+            "period": { "enum": ["early-medieval", "medieval", "early-modern", "industrial", "modern", "postwar"], "description": "From 900, 1250, 1550, 1800, 1914 or 1945 (to 1990) (default: from `year`)." },
             "year": { "type": "number", "description": "The year shown (default 1350)." },
             "season": { "enum": ["spring", "summer", "autumn", "winter"], "description": "Winter is drawn under snow (default summer)." },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295, "description": "The same seed gives the same layout." },
@@ -386,8 +386,9 @@
               "additionalProperties": true
             },
             "waterUrl": { "type": "string", "description": "GeoJSON of the water as it was, digitised from an old map (relative: next to the manifest); used before any map on the real terrain." },
+            "region": { "enum": ["central", "mediterranean"], "description": "The building tradition: Central Europe (default) or the Mediterranean (stone and render, low tiled or flat roofs, cypresses and olive groves); the Suggested scene picks it by the place." },
             "masonry": { "enum": ["brick", "stone"], "description": "What churches, towers and town walls are built of (default brick; the Suggested scene picks it by the region)." },
-            "followTimeline": { "type": "boolean", "description": "Follow the 4D timeline's year: its period and how far the settlement has grown; hidden in years outside 900-1550." },
+            "followTimeline": { "type": "boolean", "description": "Follow the 4D timeline's year: its period and how far the settlement has grown; hidden in years outside 900-1990." },
             "growth": { "type": "number", "minimum": 0, "maximum": 1, "description": "The share of the settlement's houses built (default 1); set from the year while following the timeline." },
             "latitude": { "type": "number", "minimum": -85, "maximum": 85, "description": "The place, for the real terrain." },
             "longitude": { "type": "number", "minimum": -180, "maximum": 180, "description": "The place, for the real terrain." }
