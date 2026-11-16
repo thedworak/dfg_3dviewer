@@ -463,6 +463,16 @@ export function attachMeasurement(Viewer) {
       return valid.length;
     },
 
+    // The finished measurements taken away (the others placed none); one
+    // being placed and the model's dimensions stay.
+    removeMeasurementResults() {
+      if (!Viewer.measurementResults.length) return;
+      Viewer.measurementResults.forEach((entry) => Viewer.discardMeasurement(entry));
+      Viewer.measurementResults = [];
+      Viewer.updateMeasurementReadout();
+      Viewer.updateEditorToolbarState?.();
+    },
+
     clearMeasurements() {
       Viewer.cancelMeasurementDraft();
       Viewer.measurementResults.forEach((entry) => Viewer.discardMeasurement(entry));

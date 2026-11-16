@@ -501,6 +501,7 @@ Measurement tools in the ruler button's submenu. Lengths use `viewer.measurement
 
 - `Viewer.clearMeasurements()`
   - Remove all measurements, their labels and the dimensions box.
+- `Viewer.removeMeasurementResults()` - the finished measurements taken away (a shared session whose others have none); one being placed stays.
 - `Viewer.getMeasurementsForExport(root)` / `Viewer.applySavedMeasurements(entries, root)`
   - The finished measurements as `[{ mode, points: [[x, y, z], ...] }]`, the points in the model root's own coordinates (so they stay on the model when its transform is saved too). Saved with the settings (`measurements` in `_viewer.json` / the worker's settings, the *Measurements* tick of *Save settings*) and drawn again when they load (`setupObject`); also `AIM3DViewer.measurements` of the AIM3D manifest, applied after its model transform. Applying replaces the measurements shown.
 
@@ -704,11 +705,11 @@ Live data: a table that drives the model (see [docs/live-data.md](../docs/live-d
 
 Live link (see [docs/live-link.md](../docs/live-link.md)): the scene connected to its manifest, its model's file and other viewers. State in `Viewer.liveLinkState` (`manifest`, `model`, `session`, `glide`, `busy`); `getLiveLink()` -> `{ manifest, model, session, busy }`, `isLiveLinkActive()`.
 
-- A shared session: `startLiveSession(id)` (a new one without `id`; a `?session=<id>` link joins once the model is there), `leaveLiveSession()`, `setLiveSessionOptions({ send, receive })`, `liveSessionLink()`; `stepLiveSession(now)` sends what changed here (the camera, the year, `LIVE_SESSION_BLOCKS` of the scene written out, where the scene comes from), `receiveLiveSession(answer)` shows what differs from what this viewer knows; `publishLiveSession()`, `pollLiveSession(session)` (the worker's `/api/live/<id>`, else a `BroadcastChannel` between the tabs of one browser).
+- A shared session: `startLiveSession(id)` (a new one without `id`; a `?session=<id>` link joins once the model is there), `leaveLiveSession()`, `setLiveSessionOptions({ send, receive })`, `liveSessionLink()`; `stepLiveSession(now)` sends what changed here (the camera with its projection, the year, `LIVE_SESSION_BLOCKS` of the scene written out - the lights, the materials and the measurements among them -, the look (`LIVE_SESSION_LOOK` of the `viewer` block: ground, background colour, environment map, rendering), the canvas's background gradient, where the scene comes from; a block over `LIVE_SESSION_BLOCK_LIMIT` is left out and named in `skipped`), `receiveLiveSession(answer)` shows what differs from what this viewer knows; `publishLiveSession()`, `pollLiveSession(session)` (the worker's `/api/live/<id>`, else a `BroadcastChannel` between the tabs of one browser).
 - The manifest: `followLiveManifest({ url, interval })`, `openLiveManifestFile(file | handle)`, `stopLiveManifest()`; `applyLiveManifest(next, { baseUrl })` applies only the blocks that differ (`import3IFManifest(json, { only, quiet })`), flies the camera, and resolves to their keys (`["model"]` when another model was loaded); `currentLiveManifest()`, `applyLiveManifestText(text)` and `fillLiveManifestEditor()` for the window's editor.
 - The model's file: `followLiveModel({ url, interval })`, `openLiveModelFile(file | handle)`, `stopLiveModel()`; `reloadLiveModel(load)` keeps the scene (written out before, imported after) under `showLiveVeil()` / `hideLiveVeil(veil)`.
 - `glideLiveCamera(view, seconds, { fromSession })`, `updateLiveLink(delta)` (each frame), `disposeLiveLink()` (another scene opened), `toggleLiveLinkPanel(open)`, `isLiveLinkPanelOpen()`.
-- `live-link-rules.js` (no DOM): `changedManifestBlocks(before, after)`, `manifestModels(manifest)`, `newSessionId(length)`, `SESSION_ID_PATTERN`, `normalizeSessionCamera(raw)`, `sameSessionCamera(a, b)`, `LIVE_SESSION_BLOCKS`.
+- `live-link-rules.js` (no DOM): `changedManifestBlocks(before, after)`, `manifestModels(manifest)`, `newSessionId(length)`, `SESSION_ID_PATTERN`, `normalizeSessionCamera(raw)`, `sameSessionCamera(a, b)`, `LIVE_SESSION_BLOCKS`, `LIVE_SESSION_LOOK`, `sessionLook(viewer)`, `changedSessionLook(look, own)`, `normalizeSessionBackground(value)`, `LIVE_SESSION_BLOCK_LIMIT`.
 
 ## `viewer/editor/scene-acoustics.js`, `viewer/room-acoustics.js`
 

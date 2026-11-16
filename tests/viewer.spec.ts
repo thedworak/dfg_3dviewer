@@ -16,7 +16,7 @@ import { decideExposure, decideModelBase, evaluatePublishChecks, measureFraming,
 import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterialPreset } from '../viewer/editor/material-presets.js';
 import { deviceTier, qualityForWeight } from '../viewer/editor/performance-rules.js';
 import { materialFromName, schroederRT, sendGain, synthesizeImpulseResponse, traceRoom } from '../viewer/room-acoustics.js';
-import { changedManifestBlocks, manifestModels, newSessionId, normalizeSessionCamera, sameSessionCamera, SESSION_ID_PATTERN } from '../viewer/live-link-rules.js';
+import { changedManifestBlocks, changedSessionLook, manifestModels, newSessionId, normalizeSessionBackground, normalizeSessionCamera, sameSessionCamera, sessionLook, SESSION_ID_PATTERN } from '../viewer/live-link-rules.js';
 import { dataAlert, dataColorScale, dataNumber, dataTableToCsv, dataTruthy, diffDataRows, guessKeyColumn, normalizeDataKey, normalizeLiveData, parseDataTable } from '../viewer/live-data-table.js';
 
 const defaultModel = '/examples/box.stl';
@@ -5130,6 +5130,24 @@ test('live link: what changed between two manifests, a session\'s ids and camera
   expect(sameSessionCamera(camera, { ...camera, position: [1, 2, 3.0001] })).toBe(true);
   expect(sameSessionCamera(camera, { ...camera, position: [1, 2, 3.1] })).toBe(false);
   expect(sameSessionCamera(camera, null)).toBe(false);
+  // The projection: one of the two, and a camera that names none fits both.
+  expect(normalizeSessionCamera({ ...camera, projection: 'orthographic' }).projection).toBe('orthographic');
+  expect(normalizeSessionCamera({ ...camera, projection: 'fisheye' })).toEqual(camera);
+  expect(sameSessionCamera({ ...camera, projection: 'orthographic' }, { ...camera, projection: 'perspective' })).toBe(false);
+  expect(sameSessionCamera({ ...camera, projection: 'orthographic' }, camera)).toBe(true);
+
+  // The look: the scene's part of the viewer block, and what differs in it.
+  const look = sessionLook({ language: 'pl', theme: 'dark', ground: 'grid', backgroundColor: '#ffffff', rendering: { exposure: 1 } });
+  expect(look).toEqual({ ground: 'grid', backgroundColor: '#ffffff', rendering: { exposure: 1 } });
+  expect(sessionLook({ language: 'pl' })).toBeUndefined();
+  expect(changedSessionLook(look, { ...look, ground: 'mirror' })).toEqual({ ground: 'grid' });
+  expect(changedSessionLook(look, look)).toEqual({});
+  expect(changedSessionLook(undefined, look)).toEqual({});
+  // The background: a gradient of colours, nothing to fetch.
+  expect(normalizeSessionBackground(' radial-gradient(circle, rgb(1, 2, 3) 0%, #fff 100%) ')).toBe('radial-gradient(circle, rgb(1, 2, 3) 0%, #fff 100%)');
+  expect(normalizeSessionBackground('url(https://example.org/a.png)')).toBeNull();
+  expect(normalizeSessionBackground('linear-gradient(red, url(a))')).toBeNull();
+  expect(normalizeSessionBackground(7)).toBeNull();
 });
 
 const cameraAt = (page) => page.evaluate(() => window.viewer.camera.position.toArray().map((value) => Math.round(value * 10) / 10));
@@ -5196,6 +5214,100 @@ test('live link: a shared session - the camera, the raking light and the scene g
 
   await panel.locator('.viewer-livelink-panel_leave').click();
   expect(await page.evaluate(() => window.Viewer.getLiveLink().session)).toBeNull();
+  await other.close();
+});
+
+test('live link: a shared session - the lights, the measurements, the ground, the projection and the materials', async ({ page }) => {
+  test.setTimeout(150_000);
+  const { other } = await sessionPair(page);
+  const block = (target, key) => target.evaluate((name) => window.Viewer.build3IFManifest().AIM3DViewer[name], key);
+  // How often the others' lights were set here.
+  await other.evaluate(() => {
+    window.lightsSet = 0;
+    const apply = window.Viewer.apply3IFManifestLights;
+    window.Viewer.apply3IFManifestLights = function (...parameters) {
+      window.lightsSet += 1;
+      return apply.apply(this, parameters);
+    };
+  });
+
+  // The lights: one made stronger and coloured, one added.
+  await page.evaluate(() => {
+    window.Viewer.dirLight.intensity = 2.25;
+    window.Viewer.dirLight.color.set('#ff8800');
+    window.Viewer.dirLight.position.set(4, 9, -3);
+  });
+  await expect.poll(() => other.evaluate(() => [window.Viewer.dirLight.intensity, `#${window.Viewer.dirLight.color.getHexString()}`, window.Viewer.dirLight.position.toArray()]), { timeout: 20_000 })
+    .toEqual([2.25, '#ff8800', [4, 9, -3]]);
+  const lights = await block(page, 'lights');
+  await page.evaluate((list) => window.Viewer.apply3IFManifestLights([...list, { type: 'PointLight', position: [1, 2, 3], color: '#00ff00', intensity: 5, distance: 20, decay: 2 }]), lights);
+  await expect.poll(async () => (await block(other, 'lights')).filter((light) => light.type === 'PointLight'), { timeout: 20_000 })
+    .toMatchObject([{ position: [1, 2, 3], color: '#00ff00', intensity: 5 }]);
+
+  // The camera moves with its own light: the lights are not set again.
+  await other.waitForTimeout(1500);
+  const lightsSet = await other.evaluate(() => window.lightsSet);
+  await page.evaluate(() => window.viewer.camera.position.set(5, 6, 12));
+  await expect.poll(() => cameraAt(other), { timeout: 20_000 }).toEqual([5, 6, 12]);
+  await page.evaluate(() => window.viewer.camera.position.set(6, 6, 12));
+  await expect.poll(() => cameraAt(other), { timeout: 20_000 }).toEqual([6, 6, 12]);
+  await other.waitForTimeout(1500);
+  expect(await other.evaluate(() => window.lightsSet)).toBe(lightsSet);
+  // Nor is what arrived sent back.
+  expect((await block(page, 'lights')).filter((light) => light.type === 'PointLight')).toHaveLength(1);
+
+  // Under the raking light a light keeps the strength it was given.
+  await page.evaluate(() => window.Viewer.setRakingLight(true));
+  await expect.poll(() => other.evaluate(() => window.Viewer.rakingLight.enabled), { timeout: 20_000 }).toBe(true);
+  expect((await block(other, 'lights')).find((light) => light.color === '#ff8800').intensity).toBe(2.25);
+  await page.evaluate(() => window.Viewer.setRakingLight(false));
+  await expect.poll(() => other.evaluate(() => [window.Viewer.rakingLight.enabled, window.Viewer.dirLight.intensity]), { timeout: 20_000 }).toEqual([false, 2.25]);
+
+  // Measurements: placed by one, shown to the other; taken away again.
+  await page.evaluate(() => window.Viewer.applySavedMeasurements([
+    { mode: 'distance', points: [[0, 0, 0], [1, 0, 0]] },
+    { mode: 'area', points: [[0, 0, 0], [1, 0, 0], [1, 1, 0]] },
+  ]));
+  await expect.poll(() => block(other, 'measurements'), { timeout: 20_000 }).toEqual([
+    { mode: 'distance', points: [[0, 0, 0], [1, 0, 0]] },
+    { mode: 'area', points: [[0, 0, 0], [1, 0, 0], [1, 1, 0]] },
+  ]);
+  await other.evaluate(() => window.Viewer.clearMeasurements());
+  await expect.poll(() => page.evaluate(() => window.Viewer.measurementResults.length), { timeout: 20_000 }).toBe(0);
+
+  // The ground and the background, without the rest of the viewer block.
+  const language = await other.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.viewer.language);
+  await page.evaluate(() => {
+    window.Viewer.setGroundPreset('grid');
+    window.viewer.scene.background = window.Viewer.dirLight.color.clone().set('#123456');
+  });
+  await expect.poll(async () => {
+    const viewer = await block(other, 'viewer');
+    return [viewer.ground, viewer.backgroundColor, viewer.language];
+  }, { timeout: 20_000 }).toEqual(['grid', '#123456', language]);
+
+  // The background's gradient, as the canvas shows it.
+  await page.evaluate(() => document.querySelector('#MainCanvas').style.setProperty('background', 'radial-gradient(circle, rgb(10, 20, 30) 0%, rgb(200, 210, 220) 100%)'));
+  await expect.poll(() => other.evaluate(() => document.querySelector('#MainCanvas').style.getPropertyValue('background')), { timeout: 20_000 })
+    .toBe(await page.evaluate(() => document.querySelector('#MainCanvas').style.getPropertyValue('background')));
+  expect(await other.evaluate(() => document.querySelector('#MainCanvas').style.getPropertyValue('background'))).toContain('rgb(200, 210, 220)');
+
+  // The projection.
+  await page.evaluate(() => window.Viewer.setCameraProjection('orthographic'));
+  await expect.poll(() => other.evaluate(() => window.viewer.camera.isOrthographicCamera === true), { timeout: 20_000 }).toBe(true);
+  expect(await cameraAt(other)).toEqual(await cameraAt(page));
+  await other.evaluate(() => window.Viewer.setCameraProjection('perspective'));
+  await expect.poll(() => page.evaluate(() => window.viewer.camera.isPerspectiveCamera === true), { timeout: 20_000 }).toBe(true);
+
+  // The materials: one edited, then as loaded again.
+  const edited = await page.evaluate(() => {
+    const [item] = window.Viewer.materialsEditor.items;
+    window.Viewer.setMaterialProperty('color', '#aa0000', item.id);
+    return item.name;
+  });
+  await expect.poll(async () => (await block(other, 'materials'))?.map((entry) => [entry.name, entry.params.color]), { timeout: 20_000 }).toEqual([[edited, '#aa0000']]);
+  await other.evaluate(() => window.Viewer.resetAllMaterials());
+  await expect.poll(() => block(page, 'materials'), { timeout: 20_000 }).toBeUndefined();
   await other.close();
 });
 

@@ -9,11 +9,15 @@ import { stopCameraIntro } from "../IIIF/presentation4.js";
 import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
 import {
   changedManifestBlocks,
+  changedSessionLook,
+  LIVE_SESSION_BLOCK_LIMIT,
   LIVE_SESSION_BLOCKS,
   manifestModels,
   newSessionId,
+  normalizeSessionBackground,
   normalizeSessionCamera,
   sameSessionCamera,
+  sessionLook,
   SESSION_ID_PATTERN,
 } from "../live-link-rules.js";
 
@@ -57,6 +61,15 @@ function modelLoaded() {
   return (Array.isArray(core.mainObject) ? core.mainObject : [core.mainObject]).flat().some((item) => item?.isObject3D);
 }
 
+// What a session's state holds of the scene: the blocks, and the look.
+const SESSION_KEYS = [...LIVE_SESSION_BLOCKS, "look", "background"];
+const readBackground = () => normalizeSessionBackground(core.mainCanvas?.style?.getPropertyValue("background"));
+// Blocks the scene writes out at once as they were set: one that reads
+// otherwise right after the others' state was shown was changed here.
+const SETTLED_KEYS = ["clipping", "lights", "materials", "measurements", "look", "background"];
+const blockTexts = (blocks) => Object.fromEntries(Object.entries(blocks).map(([key, value]) => [key, JSON.stringify(value)]));
+const projectionOf = (camera) => (camera?.isOrthographicCamera ? "orthographic" : "perspective");
+
 function readCamera() {
   const camera = core.camera;
   const target = core.controls?.target;
@@ -67,6 +80,7 @@ function readCamera() {
     up: camera.up.toArray(),
     fov: camera.isPerspectiveCamera ? camera.fov : undefined,
     zoom: camera.zoom,
+    projection: projectionOf(camera),
   });
 }
 
@@ -630,10 +644,28 @@ export function attachLiveLink(Viewer) {
         if (block[key] === undefined) return;
         blocks[key] = block[key];
       });
-      // A table kept as rows may be too much to send with every state.
-      if (blocks.data?.rows && JSON.stringify(blocks.data).length > 24000) delete blocks.data;
+      // The ground, the background, the environment, the rendering.
+      const look = sessionLook(block.viewer);
+      if (look) blocks.look = look;
+      // The background as the canvas shows it (a gradient is in no block).
+      const background = readBackground();
+      if (background) blocks.background = background;
+      // The camera's own light is where each viewer's camera is.
+      const headlight = core.cameraLight?.position?.toArray?.();
+      if (headlight && Array.isArray(blocks.lights)) {
+        blocks.lights = blocks.lights.map((light) => {
+          if (light?.type !== "DirectionalLight" || !Array.isArray(light.position) || light.position.some((value, index) => value !== headlight[index])) return light;
+          const { position: _position, ...rest } = light;
+          return rest;
+        });
+      }
       // The year travels on its own, many times a second.
       if (blocks.timeline) blocks.timeline = { ...blocks.timeline, year: 0 };
+      // Too much to send with every state (a table kept as rows, hundreds
+      // of measurements): left out, and named so that the others keep theirs.
+      const skipped = SESSION_KEYS.filter((key) => blocks[key] !== undefined && JSON.stringify(blocks[key]).length > LIVE_SESSION_BLOCK_LIMIT);
+      skipped.forEach((key) => delete blocks[key]);
+      if (skipped.length) Object.defineProperty(blocks, "skipped", { value: skipped, enumerable: false });
       return blocks;
     },
 
@@ -650,6 +682,10 @@ export function attachLiveLink(Viewer) {
         receive: true,
         version: 0,
         known: { camera: null, year: null, blocks: {}, scene: null },
+        // The others' blocks as they came and were shown, until changed
+        // here: the scene may write them out a little differently, and
+        // they are not shown again with every state.
+        shown: {},
         // Until the others' state has been asked for, nothing is sent: a
         // viewer that joins takes the session's view, not the other way.
         ready: false,
@@ -793,6 +829,7 @@ export function attachLiveLink(Viewer) {
               session.absorbCamera = true;
               // The state that came with the scene, now on the model.
               session.known.blocks = {};
+              session.shown = {};
               session.known.camera = null;
               Viewer.receiveLiveSession({ state: remote, sender: answer.sender });
             }
@@ -806,6 +843,16 @@ export function attachLiveLink(Viewer) {
       const camera = normalizeSessionCamera(remote.camera);
       if (camera && !state.dragging && !sameSessionCamera(camera, known.camera)) {
         known.camera = camera;
+        if (camera.projection && camera.projection !== projectionOf(core.camera)) {
+          // The other projection: from the others' place, so that it shows
+          // as much as theirs.
+          core.camera.position.fromArray(camera.position);
+          core.controls?.target?.fromArray(camera.target);
+          if (camera.up) core.camera.up.fromArray(camera.up);
+          if (camera.fov && core.camera.isPerspectiveCamera) core.camera.fov = camera.fov;
+          core.camera.lookAt(core.controls?.target ?? new THREE.Vector3());
+          Viewer.setCameraProjection?.(camera.projection);
+        }
         Viewer.glideLiveCamera(camera, 0.22, { fromSession: true });
       }
       if (Number.isFinite(remote.year) && remote.year !== known.year && Viewer.hasTimeline?.()) {
@@ -815,26 +862,63 @@ export function attachLiveLink(Viewer) {
       if (remote.blocks && typeof remote.blocks === "object") {
         const only = new Set();
         const next = {};
-        LIVE_SESSION_BLOCKS.forEach((key) => {
+        // Blocks the sender left out (too large) stay as they are here.
+        const skipped = new Set(Array.isArray(remote.skipped) ? remote.skipped : []);
+        let look = null;
+        let background = null;
+        SESSION_KEYS.forEach((key) => {
+          if (skipped.has(key)) return;
           const text = remote.blocks[key] === undefined ? undefined : JSON.stringify(remote.blocks[key]);
-          if (text === known.blocks[key]) return;
+          if (text === known.blocks[key] || (key in session.shown && text === session.shown[key])) return;
           known.blocks[key] = text;
+          session.shown[key] = text;
+          if (key === "look") {
+            look = remote.blocks.look;
+            return;
+          }
+          if (key === "background") {
+            background = normalizeSessionBackground(remote.blocks.background);
+            return;
+          }
           only.add(key);
           if (remote.blocks[key] !== undefined) next[key] = remote.blocks[key];
         });
-        if (only.size) {
+        if (only.size || look || background) {
           try {
             const base = Viewer.build3IFManifest();
             // The year is not the session's to set here.
             if (next.timeline) next.timeline = { ...next.timeline, year: base.AIM3DViewer?.timeline?.year ?? next.timeline.year };
             if (only.has("location")) only.add("sun");
             if (only.has("compare")) only.add("variants");
-            Viewer.import3IFManifest({ ...base, AIM3DViewer: { ...base.AIM3DViewer, ...Object.fromEntries([...only].map((key) => [key, next[key]])) } }, { only, quiet: true });
+            // Read along: as the others have them.
+            ["sun", "variants"].forEach((key) => {
+              if (only.has(key) && !(key in next) && !skipped.has(key)) next[key] = remote.blocks[key];
+            });
+            // Of the look, what differs from the one shown - with this
+            // viewer's own section, which that block is read with.
+            const changedLook = changedSessionLook(look, sessionLook(base.AIM3DViewer?.viewer));
+            if (Object.keys(changedLook).length) {
+              only.add("viewer");
+              next.viewer = { ...changedLook, ...(base.AIM3DViewer?.viewer?.clipping ? { clipping: base.AIM3DViewer.viewer.clipping } : {}) };
+            }
+            if (only.size) {
+              const imported = Viewer.import3IFManifest({ ...base, AIM3DViewer: { ...base.AIM3DViewer, ...Object.fromEntries([...only].map((key) => [key, next[key]])) } }, { only, quiet: true });
+              if (!imported) console.warn("Live session: a state was not valid", [...only]);
+            }
+            // After the ground, which may bring a background of its own.
+            if (background && background !== readBackground()) core.mainCanvas?.style?.setProperty("background", background);
+            // The lights are set anew: the camera's own one back at the camera.
+            if (only.has("lights")) core.cameraLight?.position?.copy?.(core.camera.position);
           } catch (error) {
             console.warn("Live session: a state could not be shown", error);
           }
-          // What the scene writes out after it is what this viewer knows.
+          // What the scene writes out after it is what this viewer knows:
+          // read with the next frame, so that a change made here right
+          // after it is one to send.
           session.absorb = true;
+          session.lastBlockSample = 0;
+          const written = Viewer.readLiveSessionBlocks();
+          session.settled = written ? blockTexts(written) : null;
         }
       }
     },
@@ -850,7 +934,10 @@ export function attachLiveLink(Viewer) {
       // The camera: while it is this viewer's hand that moves it.
       if (session.absorbCamera && !state.glide) {
         session.absorbCamera = false;
-        known.camera = readCamera();
+        const camera = readCamera();
+        // The projection switched here while the camera was on its way.
+        if (camera && known.camera?.projection && camera.projection !== known.camera.projection) changed = true;
+        known.camera = camera;
       } else if (!state.glide && now - session.lastCameraSent >= CAMERA_SEND_MS) {
         const camera = readCamera();
         if (camera && !sameSessionCamera(camera, known.camera)) {
@@ -872,16 +959,25 @@ export function attachLiveLink(Viewer) {
         session.lastBlockSample = now;
         const blocks = Viewer.readLiveSessionBlocks();
         if (blocks) {
-          const texts = Object.fromEntries(Object.entries(blocks).map(([key, value]) => [key, JSON.stringify(value)]));
-          const differs = LIVE_SESSION_BLOCKS.some((key) => texts[key] !== known.blocks[key]);
+          const texts = blockTexts(blocks);
+          // A block left out as too large is not one taken away.
+          (blocks.skipped || []).forEach((key) => { texts[key] = known.blocks[key]; });
+          const differs = SESSION_KEYS.some((key) => texts[key] !== known.blocks[key]);
           if (differs) {
+            // After a state from the others the scene's own writing of it
+            // is taken in, not sent back - but for what was changed here
+            // since.
+            const settled = session.absorb ? session.settled : null;
+            const mine = !session.absorb
+              ? SESSION_KEYS.filter((key) => texts[key] !== known.blocks[key])
+              : settled ? SETTLED_KEYS.filter((key) => texts[key] !== settled[key]) : [];
+            mine.forEach((key) => delete session.shown[key]);
             known.blocks = texts;
             session.blocks = blocks;
-            // After a state from the others the scene's own writing of it
-            // is taken in, not sent back.
-            if (!session.absorb) changed = true;
+            if (mine.length) changed = true;
           } else session.blocks ??= blocks;
           session.absorb = false;
+          session.settled = null;
           const scene = JSON.stringify(Viewer.readLiveSessionScene());
           if (scene !== known.scene) {
             known.scene = scene;
@@ -906,6 +1002,7 @@ export function attachLiveLink(Viewer) {
         camera: session.known.camera || readCamera(),
         ...(session.known.year !== null ? { year: session.known.year } : {}),
         blocks: session.blocks || {},
+        ...(session.blocks?.skipped ? { skipped: session.blocks.skipped } : {}),
         scene: Viewer.readLiveSessionScene(),
       };
       session.last = message;

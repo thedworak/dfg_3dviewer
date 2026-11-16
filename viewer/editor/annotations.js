@@ -17,6 +17,7 @@ import { unitNameToMeters } from "./model-units.js";
 import { DEFAULT_UP_AXIS, getUpAxis, normalizeUpAxis } from "../up-axis.js";
 import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
 import { getGroundPreset, normalizeGroundPreset, setGroundPreset } from "../ground.js";
+import { DIM_FACTOR as RAKING_DIM_FACTOR } from "./raking-light.js";
 import { EnvironmentNode } from "three/src/nodes/Nodes.js";
 import {
   formatAIM3DManifestValidationErrors,
@@ -60,6 +61,14 @@ const SCENE_DESCRIPTIVE_PROPERTIES = ["label", "summary", "metadata", "requiredS
 
 // Point annotations are anchored to the first model root.
 const POINT_ANNOTATION_ROOT = "m0:root";
+
+// A light the raking light or the sun study dims holds its own strength
+// with them: { light, intensity }.
+function lightHeldByTool(viewer, light) {
+  return [viewer?.rakingLightObjects, viewer?.sunObjects]
+    .flatMap((objects) => objects?.dimmed || [])
+    .find((entry) => entry.light === light);
+}
 
 export function attachAnnotations(Viewer) {
   Object.assign(Viewer, {
@@ -1583,7 +1592,7 @@ export function attachAnnotations(Viewer) {
             environmentMap: {
               intensity: core.environmentMapIntensity || 0.5,
               preset: core.environmentMapPreset || "neutral",
-              enabled: core.environmentMapEnabled || true
+              enabled: core.environmentMapEnabled !== false
             },
             ground: getGroundPreset(),
             rendering: getRenderingSettings(),
@@ -1697,7 +1706,8 @@ export function attachAnnotations(Viewer) {
 
               color: `#${light.color.getHexString()}`,
 
-              intensity: light.intensity,
+              // As it was set, not as the raking light or the sun dims it.
+              intensity: lightHeldByTool(this, light)?.intensity ?? light.intensity,
 
               ...(light.visible === false ? { visible: false } : {}),
 
@@ -2239,7 +2249,14 @@ export function attachAnnotations(Viewer) {
           target.target.position.set(targetPosition[0], targetPosition[1], targetPosition[2]);
           target.target.updateMatrixWorld?.();
         }
-        if (Number.isFinite(intensity)) target.intensity = intensity;
+        if (Number.isFinite(intensity)) {
+          // Under the raking light or the sun: the strength they give back
+          // when they go off, and dimmed as they dim it.
+          const held = lightHeldByTool(this, target);
+          if (held) held.intensity = intensity;
+          if (held && this.sunObjects?.dimmed?.includes(held)) this.sunObjects.shownKey = "";
+          else target.intensity = held ? intensity * RAKING_DIM_FACTOR : intensity;
+        }
         target.visible = data.visible !== false;
         // Left out (older manifests): the light keeps its own.
         if (typeof data.castShadow === "boolean" && "castShadow" in target) target.castShadow = data.castShadow;
@@ -2443,6 +2460,8 @@ export function attachAnnotations(Viewer) {
         // After the model transform: the points are in the model's frame.
         const appliedMeasurements = want("measurements") && Array.isArray(aim3dConfig.measurements)
           && (this.applySavedMeasurements?.(aim3dConfig.measurements) || 0) > 0;
+        // Asked for by name and not there: taken away.
+        if (only?.has("measurements") && !Array.isArray(aim3dConfig.measurements)) this.removeMeasurementResults?.();
 
         appliedAIM3DConfig = [
           appliedCamera,

@@ -10,9 +10,13 @@ changes on screen, and the page is not loaded again.
 ## A shared session
 
 Everyone who opens a session's link sees one scene. Whoever moves the camera
-moves it for all; the same goes for the year on the 4D timeline, the section
-planes, the reconstruction variant, the raking light, the sun, the weather,
-the shading and the live data's settings. A phone becomes the remote control
+moves it for all - and switches its projection (perspective or orthographic)
+for all; the same goes for the year on the 4D timeline, the section planes,
+the reconstruction variant, the lights (moved, coloured, added, removed), the
+raking light, the sun, the weather, the edited materials, the shading, the
+measurements placed, the ground, the background, the environment map, the
+rendering (tone mapping, exposure, ambient occlusion) and the live data's
+settings. A phone becomes the remote control
 of a screen: open the link on both and turn the model on the phone.
 
 - **Start a session** makes the link (`…?session=<id>`). Copy it, send it, or
@@ -24,8 +28,17 @@ of a screen: open the link on both and turn the model on the phone.
   you only lead.
 - Everyone can lead. When two people move at once, the last one wins.
 
-Comments, measurements and lights are not shared; neither is a model opened
-from a file on the device (it has no address the others could open).
+Not shared: comments and their Level of Certainty, the generated
+surroundings, historical photos, the scene's sounds and cameras, a 2D
+image's and a sound file's tools, a point cloud's and a volume's settings,
+and what belongs to each viewer (its language, its theme, its toolbars,
+which windows are open). A measurement is shared once it is finished, not
+while its points are being placed. Neither is a model opened from a file on
+the device shared (it has no address the others could open).
+
+A part of the state too large to send with every change (a table kept as
+rows, hundreds of measurements: more than 24 kB) stays out; the others keep
+theirs.
 
 The states travel through the worker (`worker/live_sessions.py`,
 [`worker/README.md`](../worker/README.md)): each viewer posts its state to
