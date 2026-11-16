@@ -76,7 +76,7 @@ COPY docker/profiles/${VIEWER_PROFILE}.manifest.json /usr/share/nginx/html/manif
 # (docker-compose.yml, profile "overpass", at /overpass/), then the public
 # one - unless the settings name their own servers.
 RUN apk add --no-cache jq && \
-    jq '.entity.metadata.sourceType = "AIM3IF" | .entity.metadata.url = "manifests/docker-profile.json"
+    jq '.entity.metadata.sourceType = "AIM3IF" | .entity.metadata.url = "manifests/docker-profile.json" \
         | .viewer.surroundings.mapUrl |= (if . == null then ["/overpass/api/interpreter", "https://overpass-api.de/api/interpreter"] else . end)' \
         /usr/share/nginx/html/viewer-settings.json > /tmp/viewer-settings.json && \
     mv /tmp/viewer-settings.json /usr/share/nginx/html/viewer-settings.json && \
