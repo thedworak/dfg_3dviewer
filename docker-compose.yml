@@ -183,7 +183,43 @@ services:
       - worker
     restart: unless-stopped
 
+  # Optional: your own Overpass API for the water of the generated
+  # surroundings (viewer/editor/surroundings-map.js, docs/surroundings.md),
+  # instead of the public server and its limits. Started only with
+  #
+  #   docker compose --profile overpass up -d
+  #
+  # On its first start it loads a region's extract once (OVERPASS_EXTRACT_URL
+  # in .env, Poland by default; any .osm.pbf from download.geofabrik.de)
+  # cut down by osmium to the water the viewer asks for - rivers, streams,
+  # lakes, the coast - so the database stays small and the load takes
+  # minutes. It is not updated afterwards (water changes slowly): to load a
+  # newer or another extract, remove the overpass-db volume and start again.
+  # The viewers reach it at /overpass/ (docker/nginx.conf) and ask it first;
+  # while it is not running they fall back to the public server.
+  # Image: https://github.com/wiktorn/Overpass-API (pin a tag in .env with
+  # OVERPASS_IMAGE).
+  overpass:
+    image: ${OVERPASS_IMAGE:-wiktorn/overpass-api:latest}
+    profiles: ["overpass"]
+    environment:
+      - OVERPASS_MODE=init
+      - OVERPASS_META=no
+      - OVERPASS_PLANET_URL=${OVERPASS_EXTRACT_URL:-https://download.geofabrik.de/europe/poland-latest.osm.pbf}
+      # The download is saved as planet.osm.bz2: a .pbf is renamed, filtered
+      # to the water (with the nodes its ways need) and written back.
+      - OVERPASS_PLANET_PREPROCESS=mv /db/planet.osm.bz2 /db/planet.osm.pbf && osmium tags-filter --overwrite -o /db/planet.osm.bz2 /db/planet.osm.pbf w/waterway=river,stream nwr/natural=water,coastline && rm /db/planet.osm.pbf
+      - OVERPASS_COMPRESSION=gz
+      - OVERPASS_USE_AREAS=false
+      # Keep serving after the first load.
+      - OVERPASS_STOP_AFTER_INIT=false
+      - OVERPASS_MAX_TIMEOUT=60s
+    volumes:
+      - overpass-db:/db
+    restart: unless-stopped
+
 volumes:
+  overpass-db:
   worker-jobs:
   viewer-test-settings:
   viewer-dev-settings:

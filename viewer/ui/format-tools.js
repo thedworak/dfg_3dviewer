@@ -30,18 +30,18 @@ export const FORMAT_TOOL_PROFILES = {
   },
   volume: {
     promote: ["volume", "clippingPlanes", "ruler"],
-    hide: ["shading", "wireframe", "weather", "seasons", "ground", "sceneSuggest", "liveData"],
+    hide: ["shading", "wireframe", "weather", "seasons", "ground", "sceneSuggest", "surroundings", "liveData"],
   },
   // Sound: its player; a landscape of its spectrogram is no building.
   audio: {
     promote: ["audio", "cameras", "projection"],
-    hide: ["shading", "wireframe", "materials", "weather", "seasons", "ground", "sceneSuggest", "liveData", "clippingPlanes", "rakingLight", "sunStudy", "upAxis"],
+    hide: ["shading", "wireframe", "materials", "weather", "seasons", "ground", "sceneSuggest", "surroundings", "liveData", "clippingPlanes", "rakingLight", "sunStudy", "upAxis"],
   },
   // A 2D image: its tools, the ruler and notes on it; nothing for surfaces,
   // light or the ground.
   image: {
     promote: ["image", "ruler", "picking"],
-    hide: ["shading", "wireframe", "materials", "lights", "weather", "seasons", "ground", "sceneSuggest", "liveData", "clippingPlanes", "rakingLight", "sunStudy", "upAxis", "environmentMap", "rotate", "projection"],
+    hide: ["shading", "wireframe", "materials", "lights", "weather", "seasons", "ground", "sceneSuggest", "surroundings", "liveData", "clippingPlanes", "rakingLight", "sunStudy", "upAxis", "environmentMap", "rotate", "projection"],
   },
   mesh: {
     promote: ["materials", "shading", "lights", "ruler"],

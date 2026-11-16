@@ -1729,6 +1729,8 @@ export function attachAnnotations(Viewer) {
           sun: this.getSunForExport?.(),
           // The weather, while it is on.
           weather: this.getWeatherForExport?.(),
+          // The generated surroundings, while they are shown.
+          surroundings: this.getSurroundingsForExport?.(),
           // The materials edited (editor/materials-editor.js).
           materials: this.getMaterialsForExport?.(),
           // The measurements placed, in the model's own coordinates
@@ -2415,6 +2417,7 @@ export function attachAnnotations(Viewer) {
       if (want("rakingLight")) this.setRakingLight?.(false);
       if (want("sun")) this.setSunStudy?.(false);
       if (want("weather")) this.setWeather?.(false);
+      if (want("surroundings")) this.setSurroundings?.(false);
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = want("camera") && this.apply3IFManifestCamera(aim3dConfig.camera);
         // The manifest's camera is a start view chosen (the renders' front).
@@ -2427,6 +2430,7 @@ export function attachAnnotations(Viewer) {
         const appliedRakingLight = want("rakingLight") && this.apply3IFManifestRakingLight?.(aim3dConfig.rakingLight) === true;
         const appliedSun = want("sun") && this.apply3IFManifestSun?.(aim3dConfig.location, aim3dConfig.sun) === true;
         const appliedWeather = want("weather") && this.apply3IFManifestWeather?.(aim3dConfig.weather) === true;
+        const appliedSurroundings = want("surroundings") && this.apply3IFManifestSurroundings?.(aim3dConfig.surroundings) === true;
         const appliedTimeline = want("timeline") && this.apply3IFManifestTimeline?.(aim3dConfig.timeline) === true;
         const appliedVariants = want("variants") && this.apply3IFManifestVariants?.(aim3dConfig.variants, aim3dConfig.compare) === true;
         const appliedPhotos = want("photos") && this.apply3IFManifestPhotos?.(aim3dConfig.photos) === true;
@@ -2450,6 +2454,7 @@ export function attachAnnotations(Viewer) {
           appliedRakingLight,
           appliedSun,
           appliedWeather,
+          appliedSurroundings,
           appliedTimeline,
           appliedVariants,
           appliedPhotos,

@@ -28,7 +28,8 @@
 //                 studio }, purpose: { documentation, presentation },
 //                 relief } as probabilities; it weighs less than words
 //                 found, and fills in where there are none
-//   current       { sun, weather, rakingLight, toneMapping, ao }: what is on
+//   current       { sun, weather, surroundings, rakingLight, toneMapping, ao }:
+//                 what is on
 //
 // The rules decide first what the scene is for - documentation (neutral,
 // even light that hides nothing; raking light for relief) or presentation
@@ -36,6 +37,8 @@
 // where it is: outdoors, indoors or an object on its own ("studio"). Each
 // suggestion has a confidence and the reasons it rests on; the viewer
 // preselects only the confident ones that change something.
+
+import { suggestSurroundings } from "./surroundings-rules.js";
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -424,6 +427,27 @@ export function suggestScene(input = {}, purpose = null) {
     const currentType = current.weather || null;
     const changes = value.enabled ? currentType !== value.type : currentType != null;
     push("weather", value, confidence, reasons, changes);
+  }
+
+  // Generated surroundings (editor/surroundings-rules.js): a typical
+  // setting of the object's kind, century and region - outdoors, for a
+  // presentation. A hypothesis, said so in its reasons.
+  {
+    let suggestion;
+    if (!outdoor) suggestion = { value: { enabled: false }, reasons: [{ key: "notOutdoor", setting: setting.setting }], confidence: setting.confidence };
+    else if (!presentation) suggestion = { value: { enabled: false }, reasons: [{ key: "surroundingsDocumentation" }], confidence: 0.7 };
+    else {
+      suggestion = suggestSurroundings({
+        normalizedText: normalizeSceneText(text),
+        year,
+        location,
+        sizeClass: size,
+        unitSource: facts.unitSource || "default",
+        season: ["winter", "spring", "summer", "autumn"].find((name) => keywords[name]) || (keywords.snow ? "winter" : null),
+      });
+      if (suggestion.value.enabled) suggestion.confidence *= setting.confidence;
+    }
+    push("surroundings", suggestion.value, suggestion.confidence, suggestion.reasons, suggestion.value.enabled !== (current.surroundings === true));
   }
 
   // Raking light: for documenting relief (inscriptions, tool marks, coins).

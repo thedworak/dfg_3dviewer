@@ -10,6 +10,13 @@ export const RENDERING_TONE_MAPPINGS = ["none", "linear", "reinhard", "cineon", 
 export const RENDERING_ANTIALIAS_MODES = ["msaa", "smaa", "fxaa", "none"];
 // Keep in sync with WEATHER_TYPES in viewer/editor/weather-config.js (same reason).
 export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
+// Keep in sync with viewer/editor/surroundings-rules.js (same reason).
+export const SURROUNDINGS_KINDS = ["castle", "town", "church", "village"];
+export const SURROUNDINGS_PERIODS = ["early-medieval", "medieval", "early-modern", "industrial", "modern"];
+export const SURROUNDINGS_SEASONS = ["spring", "summer", "autumn", "winter"];
+export const SURROUNDINGS_STYLES = ["schematic", "realistic"];
+export const SURROUNDINGS_TERRAINS = ["generated", "real"];
+export const SURROUNDINGS_MASONRY = ["brick", "stone"];
 export const WEATHER_SEASONS = ["spring", "summer", "autumn", "winter"];
 // Keep in sync with SHADING_MODES in viewer/editor/shading.js (same reason).
 export const SHADING_MODES = ["original", "standard", "phong", "lambert", "toon", "flat", "clay", "matcap", "normals", "custom"];
@@ -798,6 +805,59 @@ function validateMeasurements(measurements, path, errors) {
   });
 }
 
+// AIM3DViewer.surroundings (editor/surroundings.js): the generated
+// surroundings drawn round the model.
+function validateSurroundings(surroundings, path, errors) {
+  if (!isPlainObject(surroundings)) {
+    pushError(errors, path, "must be an object");
+    return;
+  }
+  validateEnum(surroundings.kind, SURROUNDINGS_KINDS, `${path}.kind`, errors);
+  if (surroundings.period !== undefined) validateEnum(surroundings.period, SURROUNDINGS_PERIODS, `${path}.period`, errors);
+  if (surroundings.season !== undefined) validateEnum(surroundings.season, SURROUNDINGS_SEASONS, `${path}.season`, errors);
+  if (surroundings.style !== undefined) validateEnum(surroundings.style, SURROUNDINGS_STYLES, `${path}.style`, errors);
+  if (surroundings.water !== undefined) validateBoolean(surroundings.water, `${path}.water`, errors);
+  if (surroundings.terrain !== undefined) validateEnum(surroundings.terrain, SURROUNDINGS_TERRAINS, `${path}.terrain`, errors);
+  if (surroundings.waterUrl !== undefined && (typeof surroundings.waterUrl !== "string" || !surroundings.waterUrl.trim())) {
+    pushError(errors, `${path}.waterUrl`, "must be a URL");
+  }
+  if (surroundings.layoutUrl !== undefined && (typeof surroundings.layoutUrl !== "string" || !surroundings.layoutUrl.trim())) {
+    pushError(errors, `${path}.layoutUrl`, "must be a URL");
+  }
+  if (surroundings.mapOverlay !== undefined) {
+    const overlay = surroundings.mapOverlay;
+    if (!isPlainObject(overlay)) pushError(errors, `${path}.mapOverlay`, "must be an object");
+    else {
+      if (typeof overlay.url !== "string" || !["{z}", "{x}", "{y}"].every((part) => overlay.url.includes(part))) {
+        pushError(errors, `${path}.mapOverlay.url`, "must be a tile URL with {z}, {x} and {y}");
+      }
+      if (overlay.opacity !== undefined && (!isFiniteNumber(overlay.opacity) || overlay.opacity < 0 || overlay.opacity > 1)) {
+        pushError(errors, `${path}.mapOverlay.opacity`, "must be a number from 0 to 1");
+      }
+      if (overlay.attribution !== undefined && typeof overlay.attribution !== "string") pushError(errors, `${path}.mapOverlay.attribution`, "must be a string");
+    }
+  }
+  if (surroundings.masonry !== undefined) validateEnum(surroundings.masonry, SURROUNDINGS_MASONRY, `${path}.masonry`, errors);
+  if (surroundings.followTimeline !== undefined) validateBoolean(surroundings.followTimeline, `${path}.followTimeline`, errors);
+  if (surroundings.growth !== undefined && (!isFiniteNumber(surroundings.growth) || surroundings.growth < 0 || surroundings.growth > 1)) {
+    pushError(errors, `${path}.growth`, "must be a number from 0 to 1");
+  }
+  if (surroundings.latitude !== undefined && (!isFiniteNumber(surroundings.latitude) || Math.abs(surroundings.latitude) > 85)) {
+    pushError(errors, `${path}.latitude`, "must be a number from -85 to 85");
+  }
+  if (surroundings.longitude !== undefined && (!isFiniteNumber(surroundings.longitude) || Math.abs(surroundings.longitude) > 180)) {
+    pushError(errors, `${path}.longitude`, "must be a number from -180 to 180");
+  }
+  if (surroundings.year !== undefined) validateNumber(surroundings.year, `${path}.year`, errors);
+  if (surroundings.seed !== undefined && (!Number.isInteger(surroundings.seed) || surroundings.seed < 0 || surroundings.seed > 4294967295)) {
+    pushError(errors, `${path}.seed`, "must be an integer from 0 to 4294967295");
+  }
+  if (surroundings.density !== undefined && (!isFiniteNumber(surroundings.density) || surroundings.density < 0 || surroundings.density > 1)) {
+    pushError(errors, `${path}.density`, "must be a number from 0 to 1");
+  }
+  if (surroundings.generated !== undefined) validateBoolean(surroundings.generated, `${path}.generated`, errors);
+}
+
 // AIM3DViewer.sceneSuggest (editor/scene-suggest.js): the Suggested scene
 // window open on load, for a purpose.
 function validateSceneSuggest(sceneSuggest, path, errors) {
@@ -865,6 +925,7 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.location !== undefined) validateLocation(block.location, `${path}.location`, errors);
   if (block.sun !== undefined) validateSun(block.sun, `${path}.sun`, errors);
   if (block.weather !== undefined) validateWeather(block.weather, `${path}.weather`, errors);
+  if (block.surroundings !== undefined) validateSurroundings(block.surroundings, `${path}.surroundings`, errors);
   if (block.sceneSuggest !== undefined) validateSceneSuggest(block.sceneSuggest, `${path}.sceneSuggest`, errors);
   if (block.data !== undefined) validateLiveData(block.data, `${path}.data`, errors);
   if (block.materials !== undefined) validateMaterials(block.materials, `${path}.materials`, errors);

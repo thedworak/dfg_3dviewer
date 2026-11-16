@@ -213,6 +213,7 @@ export function attachSceneSuggest(Viewer) {
         current: {
           sun: sun?.enabled === true,
           weather: Viewer.weather?.enabled ? Viewer.weather.type : null,
+          surroundings: Viewer.surroundings?.enabled === true,
           rakingLight: Viewer.rakingLight?.enabled === true,
           toneMapping: settings.toneMapping,
           ao: settings.postprocessing.ao === true,
@@ -356,6 +357,7 @@ export function attachSceneSuggest(Viewer) {
       return {
         sun: sun ? { ...sun, playing: false } : null,
         weather: Viewer.weather ? { ...Viewer.weather } : null,
+        surroundings: Viewer.surroundings ? { ...Viewer.surroundings } : null,
         rakingLight: Viewer.rakingLight?.enabled === true,
         rendering: getRenderingSettings(),
       };
@@ -368,6 +370,7 @@ export function attachSceneSuggest(Viewer) {
         if (snapshot.weather.enabled) Viewer.setWeatherOptions(snapshot.weather);
         else Viewer.setWeather(false);
       }
+      if (snapshot.surroundings) Viewer.setSurroundingsOptions?.(snapshot.surroundings);
       if (snapshot.sun) {
         const { enabled, ...rest } = snapshot.sun;
         Viewer.setSunStudy(false);
@@ -425,6 +428,11 @@ export function attachSceneSuggest(Viewer) {
         } else {
           Viewer.setWeather(false);
         }
+      }
+      const surroundings = byKey.surroundings;
+      if (surroundings) {
+        if (surroundings.enabled) Viewer.setSurroundingsOptions?.(surroundings);
+        else Viewer.setSurroundings?.(false);
       }
       // After the sun, which turns the raking light off.
       if (byKey.rakingLight) Viewer.setRakingLight?.(byKey.rakingLight.enabled);
@@ -573,6 +581,10 @@ export function attachSceneSuggest(Viewer) {
         case "season": return t("scene.reason.season", { season: t(`scene.season.${reason.season}`, reason.season) }, "season: {season}");
         case "weatherNamed": return t("scene.reason.weatherNamed", { words: words(reason.words) }, "the texts say {words}");
         case "relief": return t("scene.reason.relief", { words: words(reason.words) }, "relief to read: {words}");
+        case "surroundingsType": return t("scene.reason.surroundingsType", { kind: t(`surroundings.kind.${reason.kind}`, reason.kind) }, "the texts name its kind: {kind}");
+        case "surroundingsPeriod": return t("scene.reason.surroundingsPeriod", { period: t(`surroundings.period.${reason.period}`, reason.period), year: reason.year }, "{period} (about {year})");
+        case "surroundingsMasonry": return t("scene.reason.surroundingsMasonry", { masonry: t(`surroundings.masonry.${reason.masonry}`, reason.masonry) }, "built of {masonry}, as in the region (roughly)");
+        case "surroundingsOtherPeriod": return t("scene.reason.surroundingsOtherPeriod", { year: reason.year }, "no surroundings for the year {year} yet (900-1945 only)");
         default: return t(`scene.reason.${reason.key}`, reason.key);
       }
     },
@@ -653,6 +665,7 @@ export function attachSceneSuggest(Viewer) {
           const type = t(`weather.${value.type}`, value.type);
           return value.type === "clear" ? type : `${type}, ${Math.round(value.intensity * 100)}%`;
         }
+        case "surroundings": return value.enabled ? Viewer.describeSurroundings(value) : off;
         case "rakingLight": return value.enabled ? t("scene.on", "on") : off;
         case "toneMapping": return value.toneMapping === "agx" ? "AgX" : t("gui.toneMappingNeutral", "Neutral");
         case "ao": return value.ao ? t("scene.on", "on") : off;
@@ -676,6 +689,7 @@ export function attachSceneSuggest(Viewer) {
       const itemNames = {
         sun: t("sun.title", "Sun and shadows"),
         weather: t("weather.title", "Weather"),
+        surroundings: t("surroundings.title", "Generated surroundings"),
         rakingLight: t("gui.rakingLight", "Raking light"),
         toneMapping: t("gui.toneMapping", "Tone mapping"),
         ao: t("gui.ambientOcclusion", "Ambient occlusion"),

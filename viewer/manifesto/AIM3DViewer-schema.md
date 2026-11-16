@@ -573,6 +573,39 @@ planes with it (`clipping`, the *Section cuts* tick).
 - `points`: `[x, y, z]` in the model's own coordinates - those of its file, before `modelTransform` - so the measurements stay on the model wherever it is placed. At least 2 for a distance and 3 for an angle or an area; an angle uses the first 3
 - Lengths and areas are shown in the model's unit (`spatialScale` of the Scene, else `viewer.measurement.modelUnitInMeters`), metric or imperial as the viewer is set
 
+## `AIM3DViewer.surroundings`
+
+Generated surroundings: a typical setting drawn round the model - a
+settlement, fields, a forest, low hills - to say what kind of place the
+object stood in (see [docs/surroundings.md](../../docs/surroundings.md)).
+They are worked out from these parameters alone, so the same block always
+gives the same picture. They are a hypothesis about the kind of place, not a
+reconstruction of this one: drawn as plain pale shapes, marked in the view,
+and no part of the model (no picking, measuring or export). Exported while
+shown.
+
+```json
+"surroundings": { "generated": true, "kind": "castle", "period": "medieval", "year": 1350, "season": "summer", "seed": 2339645102, "density": 0.6, "style": "realistic", "water": true, "terrain": "real", "latitude": 54.0396, "longitude": 19.028 }
+```
+
+- `kind` (required): `"castle"` (a settlement beside it), `"town"` (streets, a wall), `"church"` or `"village"` (a village round the model)
+- `period`: `"early-medieval"` (about 900-1250: timber, a palisade), `"medieval"` (1250-1550), `"early-modern"` (1550-1800: taller town houses, a baroque church, ramparts with bastions), `"industrial"` (1800-1914: tenements, a boulevard where the walls stood, a railway with its station, factories with chimneys, a neo-Gothic church) or `"modern"` (1914-1945: the same, with flat-roofed blocks of flats in light render); default: from `year`
+- `year`: the year shown (default `1350`)
+- `season`: `spring`, `summer`, `autumn` or `winter` (under snow); default `summer`
+- `seed`: an integer; another seed gives another layout of the same kind
+- `density`: 0 to 1, how built-up the settlement is (default `0.6`)
+- `style`: `"schematic"` (default: plain pale shapes) or `"realistic"` (the materials and surface patterns, doors and windows, vegetation and haze of the period, contact shadows and shadows cast by the sun, trees in the wind, smoke from roofs, rippling water, hills on the horizon); marked as generated either way
+- `water`: `true` (default): a moat round a castle (with a bridge), a river past a town or a village where the seed gives one (with bridges); `false`: none
+- `terrain`: `"generated"` (default: low hills towards the rim) or `"real"`: the place's terrain from elevation data (the open Terrain Tiles, `viewer.surroundings.elevationUrl`), with `latitude` and `longitude` (else the manifest's `location`); generated hills until it is loaded or if it cannot be. On the real terrain no river is generated
+- `latitude`, `longitude`: the place, for the real terrain (also of the real water: today's rivers, natural lakes and the coast from OpenStreetMap, `viewer.surroundings.mapUrl`)
+- `layoutUrl`: GeoJSON of an old map's roads, fields, buildings and walls (dated) that take the place of the generated ones of their kind (relative: next to the manifest) - see [surroundings](../../docs/surroundings.md), "An old map"
+- `mapOverlay`: `{ "url": "https://…/{z}/{x}/{y}.png", "opacity": 0.85, "attribution": "…" }`: an old map's tiles draped over the ground (they must allow cross-origin use); the attribution is shown in the badge
+- `waterUrl`: GeoJSON of the water as it was, digitised from an old map (relative: next to the manifest); used before any map on the real terrain - see [surroundings](../../docs/surroundings.md), "Real water"
+- `masonry`: `"brick"` (default) or `"stone"`: what churches, towers and town walls are built of; the Suggested scene picks it by the region (stone south of the Sudetes and the Carpathians' foothills, in Bohemia, Moravia, southern and western Germany)
+- `followTimeline`: `true`: the surroundings follow the 4D timeline's year - its period, and how far the settlement has grown (`growth`); hidden in years outside 900-1550
+- `growth`: 0 to 1, the share of the settlement's houses built (default `1`); a house that stands at a lower growth stands at a higher one too
+- `generated`: always `true` in exports; it tells whoever reads the manifest what the block is
+
 ## `AIM3DViewer.sceneSuggest`
 
 The Suggested scene window (*Look > Suggested scene*) open when the manifest
@@ -883,7 +916,7 @@ lists (`manifestFeatureIcons(inspection)`):
 
 `model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
 `raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
-`location`, `sun`, `weather`, `materials`, `measurements`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`location`, `sun`, `weather`, `surroundings`, `materials`, `measurements`, `certainty`, `thumbnails`, `transform`, `rendering`,
 `tour`, `settings`, `manifest` (the IIIF structure itself).
 
 Each attribute gets a level:

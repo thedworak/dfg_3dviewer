@@ -7,6 +7,10 @@ import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 import { AIM3D_MANIFEST_VERSION, manifestVersionStatus } from '../viewer/manifesto/manifest-version.js';
 import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 import { findSceneCoordinates, findSceneYear, sceneProportions, suggestScene } from '../viewer/editor/scene-rules.js';
+import { layoutSurroundings, normalizeSurroundings, suggestSurroundings, surroundingsGrowth, surroundingsMasonry, surroundingsTerrainHeight, surroundingsWaterDistance, surroundingsWaterLevel } from '../viewer/editor/surroundings-rules.js';
+import { createMapWater, dateYear, filterByYear, mapGeoJsonToAnswer, mapProjector, mapWaterQuery, minimumRectangle, readMapLayout, readMapWater, waterGeoJsonToAnswer } from '../viewer/editor/surroundings-map.js';
+import { createHeightfield, decodeTerrarium, elevationZoom, metresPerPixel, worldPixel } from '../viewer/editor/surroundings-terrain.js';
+import sharp from 'sharp';
 import { getSemanticSettings, scoreSemantic, splitSemanticText } from '../viewer/editor/scene-semantic.js';
 import { decideExposure, decideModelBase, evaluatePublishChecks, measureFraming, suggestUpAxis } from '../viewer/editor/publish-rules.js';
 import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterialPreset } from '../viewer/editor/material-presets.js';
@@ -7271,6 +7275,837 @@ test('suggested scene rules: purpose, setting and what each suggestion rests on'
   expect(findSceneYear('texture 1920x1080, 2048 px')).toBeNull();
   expect(findSceneCoordinates('33.86° S, 151.21° E')).toEqual({ latitude: -33.86, longitude: 151.21 });
   expect(findSceneCoordinates('version 1.20 2.30')).toBeNull();
+});
+
+test('generated surroundings rules: offered for a dated building of a known kind, and laid out the same from the same seed', () => {
+  const item = (result) => result.items.find((entry) => entry.key === 'surroundings');
+  const castleFacts = { size: { x: 60, y: 25, z: 40 }, unitSource: 'file', text: 'Rekonstrukcja zamku w Malborku, XIV w., zimą. 54.0396, 19.0280' };
+
+  // A castle of the 14th century in Poland, presented: a settlement beside
+  // it, under snow; said to be typical, not this place's.
+  const castle = item(suggestScene(castleFacts));
+  expect(castle.value).toMatchObject({ enabled: true, kind: 'castle', period: 'medieval', year: 1350, season: 'winter', density: 0.6 });
+  expect(castle.preselected).toBe(true);
+  expect(castle.reasons).toContainEqual({ key: 'surroundingsType', kind: 'castle' });
+  expect(castle.reasons).toContainEqual({ key: 'surroundingsTypical' });
+  // The same texts, the same seed.
+  expect(item(suggestScene(castleFacts)).value.seed).toBe(castle.value.seed);
+  // Shown already: nothing to change.
+  expect(item(suggestScene({ ...castleFacts, current: { surroundings: true } })).changes).toBe(false);
+
+  // Documented: only what was recorded.
+  expect(item(suggestScene(castleFacts, 'documentation'))).toMatchObject({ value: { enabled: false }, reasons: [{ key: 'surroundingsDocumentation' }] });
+  // No year, another period, another region, no kind, an object: none.
+  const why = (text, size = castleFacts.size) => item(suggestScene({ size, unitSource: 'file', text }, 'presentation')).reasons[0].key;
+  expect(why('Zamek w Malborku')).toBe('surroundingsNoYear');
+  expect(why('Castle, 1955')).toBe('surroundingsOtherPeriod');
+  expect(why('Castle, 14th century. 35.0116, 135.7681')).toBe('surroundingsOtherRegion');
+  expect(why('Bridge, 14th century')).toBe('surroundingsNoType');
+  expect(why('Castle, 14th century', { x: 0.3, y: 0.2, z: 0.3 })).not.toBe('surroundingsType');
+  // An unknown unit or region: offered, less surely.
+  const unsure = item(suggestScene({ size: castleFacts.size, unitSource: 'default', text: 'Church, 12th century' }, 'presentation'));
+  expect(unsure.value).toMatchObject({ enabled: true, kind: 'church', period: 'early-medieval' });
+  expect(unsure.confidence).toBeLessThan(castle.confidence);
+  expect(unsure.reasons.map((reason) => reason.key)).toEqual(expect.arrayContaining(['surroundingsNoPlace', 'surroundingsUnitUnknown']));
+  // A castle's text naming its town is still a castle.
+  expect(suggestSurroundings({ normalizedText: 'zamek, miasto torun', year: { year: 1300 }, sizeClass: 'building' }).value.kind).toBe('castle');
+
+  // The layout: the same from the same parameters, another from another seed.
+  const params = { kind: 'castle', period: 'medieval', seed: 42, density: 0.6 };
+  const layout = layoutSurroundings(params, { radius: 36 });
+  expect(layoutSurroundings(params, { radius: 36 })).toEqual(layout);
+  expect(layoutSurroundings({ ...params, seed: 43 }, { radius: 36 }).blocks).not.toEqual(layout.blocks);
+  const count = (entries, role) => entries.filter((entry) => entry.role === role).length;
+  expect(count(layout.blocks, 'house')).toBeGreaterThan(10);
+  // A masonry church with a tower; no wall round a castle's settlement.
+  expect(count(layout.blocks, 'church')).toBe(2);
+  expect(layout.walls).toEqual([]);
+  expect(layout.fields.length).toBeGreaterThan(5);
+  expect(layout.trees.length).toBeGreaterThan(300);
+  // Nothing stands on the model, and everything built on flat ground.
+  [...layout.blocks, ...layout.trees].forEach((entry) => expect(Math.hypot(entry.x, entry.z)).toBeGreaterThan(layout.clear));
+  layout.blocks.forEach((block) => expect(surroundingsTerrainHeight(layout, block.x, block.z)).toBe(0));
+  expect(layout.clear).toBeGreaterThan(36);
+
+  // Before the mid 13th century: timber, a palisade, a small church.
+  const early = layoutSurroundings({ ...params, period: 'early-medieval' }, { radius: 36 });
+  expect(early.walls.length).toBeGreaterThan(10);
+  expect(early.walls.every((wall) => wall.kind === 'palisade')).toBe(true);
+  expect(count(early.blocks, 'church')).toBe(1);
+  // A town: many houses, a masonry wall with towers, open at its gates.
+  const town = layoutSurroundings({ ...params, kind: 'town' }, { radius: 36 });
+  expect(count(town.blocks, 'house')).toBeGreaterThan(100);
+  expect(count(town.blocks, 'tower')).toBeGreaterThan(4);
+  expect(town.walls.every((wall) => wall.kind === 'masonry')).toBe(true);
+  expect(town.walls.length).toBeLessThan(30);
+  // Water: a moat round a castle, crossed by a bridge where the road leaves.
+  const moated = layoutSurroundings({ ...params, kind: 'castle' }, { radius: 36 });
+  expect(moated.water.moat.inner).toBeGreaterThan(36);
+  expect(moated.bridges.length).toBeGreaterThanOrEqual(1);
+  const across = moated.bridges[0];
+  expect(Math.hypot(across.x, across.z)).toBeGreaterThan(moated.water.moat.inner - 1);
+  expect(Math.hypot(across.x, across.z)).toBeLessThan(moated.water.moat.outer + 1);
+  // The bed lies under the water, the water under the banks.
+  const middle = (moated.water.moat.inner + moated.water.moat.outer) / 2;
+  expect(surroundingsTerrainHeight(moated, middle, 0)).toBeLessThan(surroundingsWaterLevel(moated, middle, 0));
+  expect(surroundingsTerrainHeight(moated, moated.water.moat.outer + 8, 0)).toBe(0);
+  expect(layoutSurroundings({ ...params, kind: 'castle', water: false }, { radius: 36 }).water.moat).toBeNull();
+  // A river past a town (seed 1): nothing built or growing in it; bridges
+  // cross it, roads do not run along it.
+  const riverTown = layoutSurroundings({ kind: 'town', seed: 1 }, { radius: 36 });
+  expect(riverTown.water.river).not.toBeNull();
+  [...riverTown.blocks, ...riverTown.trees].forEach((entry) => expect(surroundingsWaterDistance(riverTown, entry.x, entry.z)).toBeGreaterThan(0));
+  expect(Math.min(...riverTown.water.river.points.map(([x, z]) => Math.hypot(x, z)))).toBeGreaterThan(riverTown.clear);
+  expect(riverTown.bridges.length).toBeGreaterThan(0);
+  riverTown.bridges.forEach((bridge) => expect(bridge.length).toBeLessThan(75));
+  // No river on the real terrain, whose rivers are not known here.
+  expect(layoutSurroundings({ kind: 'town', seed: 1, terrain: 'real', latitude: 50, longitude: 20 }, { radius: 36 }).water.river).toBeNull();
+  // The real terrain needs a place; the suggestion asks for it where one is known.
+  expect(normalizeSurroundings({ terrain: 'real' }).terrain).toBe('generated');
+  expect(normalizeSurroundings({ terrain: 'real', latitude: 50, longitude: 20 })).toMatchObject({ terrain: 'real', latitude: 50, longitude: 20 });
+  expect(item(suggestScene(castleFacts)).value).toMatchObject({ terrain: 'real', latitude: 54.0396, water: true });
+  expect(item(suggestScene(castleFacts)).reasons).toContainEqual({ key: 'surroundingsMoat' });
+  expect(item(suggestScene({ ...castleFacts, text: 'Zamek, XIV w.' })).value.terrain).toBe('generated');
+
+  // Elevation tiles: Terrarium decoding, the zoom for a size, and a
+  // heightfield relative to the place, flat at the model.
+  expect(decodeTerrarium(128, 100, 128)).toBeCloseTo(100.5, 6);
+  expect(elevationZoom(50, 1000)).toBe(14);
+  expect(elevationZoom(50, 40000)).toBeLessThan(12);
+  const slope = { metresPerPixel: 10, origin: { x: 100, y: 100 }, width: 200, height: 200, centre: 0, heights: new Float32Array(200 * 200) };
+  for (let y = 0; y < 200; y += 1) for (let x = 0; x < 200; x += 1) slope.heights[y * 200 + x] = (x + 0.5 - 100) * 2;
+  slope.centre = 0;
+  const field = createHeightfield(slope, { flat: 20, blend: 60 });
+  expect(field(10, 0)).toBe(0);
+  // East (+x when north is -Z): 2 m a pixel of 10 m.
+  expect(field(300, 0)).toBeCloseTo(60, 1);
+  expect(field(-300, 0)).toBeCloseTo(-60, 1);
+  // North turned to +X: east is +Z.
+  expect(createHeightfield(slope, { north: 90, flat: 20, blend: 60 })(0, 300)).toBeCloseTo(60, 1);
+
+  // Brick on the northern lowlands, stone to the south.
+  expect(surroundingsMasonry({ latitude: 54.04, longitude: 19.03 })).toBe('brick');
+  expect(surroundingsMasonry({ latitude: 50.06, longitude: 19.94 })).toBe('brick');
+  expect(surroundingsMasonry({ latitude: 50.09, longitude: 14.42 })).toBe('stone');
+  expect(surroundingsMasonry({ latitude: 49.42, longitude: 20.32 })).toBe('stone');
+  expect(surroundingsMasonry(null)).toBeNull();
+  expect(item(suggestScene(castleFacts)).value.masonry).toBe('brick');
+  expect(item(suggestScene({ ...castleFacts, text: 'Castle, 14th century. 50.0900, 14.4200' })).value.masonry).toBe('stone');
+  // Following the timeline: a third of the houses at a period's start, all
+  // at its end; a house standing at a lower growth stands at a higher one.
+  expect(surroundingsGrowth(1250)).toBeCloseTo(0.35, 2);
+  expect(surroundingsGrowth(1549)).toBe(1);
+  expect(item(suggestScene({ ...castleFacts, timelineYear: 1300 })).value).toMatchObject({ followTimeline: true, period: 'medieval', year: 1300 });
+  const houses = (growth) => new Set(layoutSurroundings({ kind: 'village', seed: 7, growth }, { radius: 30 }).blocks.filter((block) => block.role === 'house').map((block) => `${block.x.toFixed(3)},${block.z.toFixed(3)}`));
+  const young = houses(0.4);
+  const grown = houses(1);
+  expect(grown.size).toBeGreaterThan(young.size);
+  expect([...young].every((house) => grown.has(house))).toBe(true);
+
+  // The real water from the map: a natural lake east, a river north, the sea
+  // south (the coastline runs west to east: land on its left); a reservoir
+  // is left out.
+  const [mapLat, mapLon] = [54, 18.6];
+  const at = (east, north) => ({ lat: mapLat + north / 110540, lon: mapLon + east / (111320 * Math.cos((mapLat * Math.PI) / 180)) });
+  const lake = [[150, -50], [300, -50], [300, 50], [150, 50], [150, -50]].map(([east, north]) => at(east, north));
+  const answer = { elements: [
+    { type: 'way', tags: { natural: 'water' }, geometry: lake },
+    { type: 'way', tags: { natural: 'water', water: 'reservoir' }, geometry: [at(-300, -50), at(-150, -50), at(-150, 50), at(-300, 50), at(-300, -50)] },
+    { type: 'way', tags: { waterway: 'river', width: '20' }, geometry: [at(-800, 200), at(800, 200)] },
+    { type: 'way', tags: { natural: 'coastline' }, geometry: [at(-900, -400), at(900, -400)] },
+  ] };
+  const features = readMapWater(answer, mapProjector(mapLat, mapLon, 0));
+  expect([features.lines.length, features.areas.length, features.coast.length]).toEqual([1, 1, 1]);
+  const map = createMapWater(features, 1000);
+  // x east, z south (north is -Z).
+  expect(map.distance(220, 0)).toBeCloseTo(-50, 0);
+  expect(map.distance(100, 0)).toBeCloseTo(50, 0);
+  expect(map.distance(-220, 0)).toBeGreaterThan(100);
+  expect(map.distance(0, -200)).toBeCloseTo(-10, 0);
+  expect(map.distance(0, 450)).toBeCloseTo(-50, 0);
+  expect(map.distance(0, 900)).toBeLessThan(-200);
+  expect(map.distance(0, 300)).toBeCloseTo(100, 0);
+  expect(mapWaterQuery(mapLat, mapLon, 900)).toContain('(around:900,54.000000,18.600000)');
+  expect(mapWaterQuery(mapLat, mapLon, 900)).toContain('reservoir');
+  // A castle's settlement on dry land; nothing built in the water; a river
+  // generated nowhere on the real terrain.
+  const mapped = layoutSurroundings({ kind: 'castle', seed: 3, terrain: 'real', latitude: mapLat, longitude: mapLon }, { radius: 30, mapWater: map });
+  expect(mapped.water.map).toBe(map);
+  expect(map.distance(mapped.zone.x, mapped.zone.z)).toBeGreaterThan(mapped.zone.r * 0.4);
+  [...mapped.blocks, ...mapped.trees].forEach((entry) => expect(surroundingsWaterDistance(mapped, entry.x, entry.z)).toBeGreaterThan(0));
+  expect(layoutSurroundings({ kind: 'castle', seed: 3, terrain: 'real', latitude: mapLat, longitude: mapLon, water: false }, { radius: 30, mapWater: map }).water.map).toBeNull();
+
+  // 1550-1800: taller town houses, a baroque church under an onion dome,
+  // earthen ramparts with bastions instead of a wall with towers.
+  expect(item(suggestScene({ ...castleFacts, text: 'Town hall, 1780. 54.0396, 19.0280' })).value).toMatchObject({ enabled: true, kind: 'town', period: 'early-modern' });
+  const baroque = layoutSurroundings({ kind: 'town', seed: 3, period: 'early-modern' }, { radius: 30 });
+  expect(baroque.walls.length).toBeGreaterThan(10);
+  expect(baroque.walls.every((wall) => wall.kind === 'rampart')).toBe(true);
+  expect(baroque.blocks.filter((block) => block.roof === 'onion')).toHaveLength(1);
+  expect(baroque.blocks.filter((block) => block.role === 'house').every((block) => block.h >= 8)).toBe(true);
+  expect(layoutSurroundings({ kind: 'town', seed: 3, period: 'early-modern' }, { radius: 30 }).walls.length).toBe(baroque.walls.length);
+  expect(surroundingsGrowth(1550)).toBeCloseTo(0.35, 2);
+  expect(surroundingsGrowth(1800)).toBe(1);
+
+  // 1800-1914: no walls but a boulevard with an avenue where they stood, a
+  // railway past the town with its station and factories; nothing on the
+  // line; tenements.
+  expect(item(suggestScene({ ...castleFacts, text: 'Town hall, 1880. 54.0396, 19.0280' })).value.period).toBe('industrial');
+  const railTown = layoutSurroundings({ kind: 'town', seed: 1, period: 'industrial' }, { radius: 30 });
+  const roles = railTown.blocks.reduce((count, block) => ({ ...count, [block.role]: (count[block.role] || 0) + 1 }), {});
+  expect(roles).toMatchObject({ station: 1, church: 2 });
+  expect(roles.factory).toBeGreaterThanOrEqual(1);
+  expect(roles.chimney).toBeGreaterThanOrEqual(1);
+  expect(railTown.walls).toEqual([]);
+  expect(railTown.roads.some((road) => road.boulevard)).toBe(true);
+  expect(railTown.railway.points.every(([x, z]) => Math.hypot(x, z) > railTown.clear)).toBe(true);
+  const onLine = (x, z) => Math.min(...railTown.railway.points.slice(0, -1).map(([ax, az], index) => {
+    const [bx, bz] = railTown.railway.points[index + 1];
+    const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2)));
+    return Math.hypot(x - ax - t * (bx - ax), z - az - t * (bz - az));
+  }));
+  railTown.blocks.forEach((block) => expect(onLine(block.x, block.z)).toBeGreaterThan(4));
+  expect(railTown.blocks.filter((block) => block.role === 'house').every((block) => block.h >= 12)).toBe(true);
+  expect(layoutSurroundings({ kind: 'village', seed: 2, period: 'industrial' }, { radius: 30 }).railway).not.toBeNull();
+  expect(surroundingsGrowth(1914)).toBe(1);
+  // 1914-1945: the same, with flat-roofed blocks of flats.
+  expect(item(suggestScene({ ...castleFacts, text: 'Town hall, 1930. 54.0396, 19.0280' })).value.period).toBe('modern');
+  const town1930 = layoutSurroundings({ kind: 'town', seed: 1, period: 'modern' }, { radius: 30 });
+  const flats = town1930.blocks.filter((block) => block.role === 'house');
+  expect(flats.length).toBeGreaterThan(10);
+  expect(flats.every((block) => block.roof === 'none' && block.h >= 15)).toBe(true);
+  expect(town1930.railway).not.toBeNull();
+  expect(town1930.walls).toEqual([]);
+
+  // An old map (GeoJSON): roads, fields, buildings, walls, in the
+  // layout's metres; a building as its smallest turned rectangle.
+  const turned = minimumRectangle([[0, 0], [10, 0], [10, 4], [0, 4]].map(([x, z]) => [x * Math.cos(0.5) - z * Math.sin(0.5), x * Math.sin(0.5) + z * Math.cos(0.5)]));
+  expect(turned.w).toBeCloseTo(10, 5);
+  expect(turned.d).toBeCloseTo(4, 5);
+  expect(turned.angle).toBeCloseTo(0.5, 5);
+  const oldMap = mapGeoJsonToAnswer({ type: 'FeatureCollection', features: [
+    { type: 'Feature', properties: { kind: 'road', width: 6 }, geometry: { type: 'LineString', coordinates: [[18.597, 54.0012], [18.603, 54.0012]] } },
+    { type: 'Feature', properties: { kind: 'road', width: 6, start_date: '1700' }, geometry: { type: 'LineString', coordinates: [[18.6, 53.998], [18.6, 54.004]] } },
+    { type: 'Feature', properties: { kind: 'building', height: 9 }, geometry: { type: 'Polygon', coordinates: [[[18.6015, 54.0014], [18.6017, 54.0014], [18.6017, 54.0015], [18.6015, 54.0015], [18.6015, 54.0014]]] } },
+    { type: 'Feature', properties: { kind: 'building', role: 'church', height: 14 }, geometry: { type: 'Polygon', coordinates: [[[18.5985, 54.0014], [18.5989, 54.0014], [18.5989, 54.0016], [18.5985, 54.0016], [18.5985, 54.0014]]] } },
+    { type: 'Feature', properties: { kind: 'field' }, geometry: { type: 'Polygon', coordinates: [[[18.605, 54.002], [18.607, 54.002], [18.607, 54.003], [18.605, 54.003], [18.605, 54.002]]] } },
+    { type: 'Feature', properties: { kind: 'wall' }, geometry: { type: 'LineString', coordinates: [[18.598, 54.0005], [18.602, 54.0005]] } },
+  ] });
+  const old1400 = readMapLayout(filterByYear(oldMap, 1400), mapProjector(54, 18.6, 0));
+  expect([old1400.roads.length, old1400.fields.length, old1400.buildings.length, old1400.walls.length]).toEqual([1, 1, 2, 1]);
+  expect(old1400.buildings.find((building) => building.role === 'church').h).toBe(14);
+  expect(readMapLayout(filterByYear(oldMap, 1750), mapProjector(54, 18.6, 0)).roads).toHaveLength(2);
+  // Laid out on it: its roads, its buildings only, its field, its wall.
+  const onOldMap = layoutSurroundings({ kind: 'town', seed: 5, latitude: 54, longitude: 18.6 }, { radius: 10, mapLayout: old1400 });
+  // (Cut where it meets a generated river's bank, if any.)
+  expect(onOldMap.roads.length).toBeGreaterThanOrEqual(1);
+  expect(onOldMap.roads.every((road) => road.width === 6)).toBe(true);
+  expect(onOldMap.blocks).toHaveLength(2);
+  expect(onOldMap.fields).toHaveLength(1);
+  expect(onOldMap.fields[0].polygon).toHaveLength(4);
+  expect(onOldMap.walls.every((wall) => wall.kind === 'masonry')).toBe(true);
+  onOldMap.trees.forEach((tree) => expect(Math.hypot(tree.x - onOldMap.fields[0].x, tree.z - onOldMap.fields[0].z)).toBeGreaterThan(5));
+  // Without a place, an old map cannot be placed: generated.
+  expect(layoutSurroundings({ kind: 'town', seed: 5 }, { radius: 10, mapLayout: old1400 }).blocks.length).toBeGreaterThan(2);
+
+  // Dated water: kept from its start until before its end.
+  expect([dateYear('1350-05-01'), dateYear('~1350'), dateYear('c. 1350'), dateYear(''), dateYear(undefined)]).toEqual([1350, 1350, 1350, null, null]);
+  const dated = { elements: [
+    { id: 1, tags: { waterway: 'river', start_date: '1200', end_date: '1600' } },
+    { id: 2, tags: { waterway: 'river', start_date: '1600' } },
+    { id: 3, tags: { waterway: 'stream' } },
+  ] };
+  expect(filterByYear(dated, 1400).elements.map((element) => element.id)).toEqual([1, 3]);
+  expect(filterByYear(dated, 1600).elements.map((element) => element.id)).toEqual([2, 3]);
+  // A water file (GeoJSON, digitised from an old map): a lake with an
+  // island, a river by its kind and width, a medieval fishpond kept.
+  const file = waterGeoJsonToAnswer({ type: 'FeatureCollection', features: [
+    { type: 'Feature', properties: { kind: 'lake' }, geometry: { type: 'Polygon', coordinates: [
+      [[18.602, 53.9995], [18.606, 53.9995], [18.606, 54.0005], [18.602, 54.0005], [18.602, 53.9995]],
+      [[18.6035, 53.9999], [18.6045, 53.9999], [18.6045, 54.0001], [18.6035, 54.0001], [18.6035, 53.9999]],
+    ] } },
+    { type: 'Feature', properties: { kind: 'river', width: 30, start_date: '1300' }, geometry: { type: 'LineString', coordinates: [[18.59, 54.002], [18.61, 54.002]] } },
+    { type: 'Feature', properties: { natural: 'water', water: 'fishpond' }, geometry: { type: 'Polygon', coordinates: [[[18.59, 53.998], [18.592, 53.998], [18.592, 53.999], [18.59, 53.998]]] } },
+  ] });
+  const fileWater = createMapWater(readMapWater(file, mapProjector(54, 18.6, 0), { modern: true }), 1000);
+  const east = (lon) => (lon - 18.6) * 111320 * Math.cos((54 * Math.PI) / 180);
+  expect(fileWater.distance(east(18.6025), 0)).toBeLessThan(0);
+  // The island is land.
+  expect(fileWater.distance(east(18.604), 0)).toBeGreaterThan(0);
+  expect(fileWater.distance(0, -0.002 * 110540)).toBeCloseTo(-15, 0);
+  expect(readMapWater(file, mapProjector(54, 18.6, 0)).areas).toHaveLength(1);
+  expect(readMapWater(file, mapProjector(54, 18.6, 0), { modern: true }).areas).toHaveLength(2);
+
+  // The look is a parameter of its own: schematic unless asked.
+  expect(normalizeSurroundings({ kind: 'town' }).style).toBe('schematic');
+  expect(normalizeSurroundings({ kind: 'town', style: 'realistic' }).style).toBe('realistic');
+  expect(normalizeSurroundings({ kind: 'town', style: 'photo' }).style).toBe('schematic');
+  // A church stands in its village and gets no second one.
+  expect(count(layoutSurroundings({ ...params, kind: 'church' }, { radius: 12 }).blocks, 'church')).toBe(0);
+});
+
+test('generated surroundings: drawn round the model, marked, stored in the manifest, and no part of the model', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(() => {
+    const gather = window.Viewer.gatherSceneFacts;
+    window.Viewer.gatherSceneFacts = () => ({
+      ...gather(),
+      size: { x: 60, y: 25, z: 40 },
+      unitSource: 'file',
+      text: 'Castle, 14th century. 54.0396, 19.0280',
+    });
+  });
+  const before = await page.evaluate(() => ({ grid: window.viewer.gridSize, box: window.Viewer.getPublishModelBox().getSize(window.viewer.camera.position.clone()).toArray() }));
+  const farBefore = await page.evaluate(() => window.viewer.camera.far);
+  // The texts give the place: the real terrain is asked for. No tiles here:
+  // the generated hills stay, and the badge says so.
+  await page.route('**/elevation-tiles-prod/**', (route) => route.abort());
+  await page.route('https://overpass-api.openhistoricalmap.org/**', (route) => route.abort());
+  await page.route('https://overpass-api.de/**', (route) => route.abort());
+
+  await page.evaluate(() => window.Viewer.toggleSceneSuggestPanel(true));
+  const panel = page.locator('#viewerScene');
+  const row = panel.locator('.viewer-scene_item[data-item="surroundings"]');
+  await expect(row.locator('input')).toBeChecked();
+  await expect(row.locator('.viewer-scene_item-value')).toHaveText('a settlement below a castle, late Middle Ages');
+  await expect(row.locator('.viewer-scene_reasons')).toContainText('a typical setting of that kind and time');
+  await panel.locator('.viewer-scene_apply').click();
+
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.enabled)).toBe(true);
+  const shown = await page.evaluate(() => {
+    const objects = window.Viewer.surroundingsObjects;
+    return {
+      inScene: window.viewer.scene.children.includes(objects.group),
+      marked: objects.group.userData.isSurroundings,
+      meshes: objects.group.children.map((mesh) => mesh.name),
+      houses: objects.layout.blocks.filter((block) => block.role === 'house').length,
+      triangles: objects.triangles,
+      exported: window.Viewer.getSurroundingsForExport(),
+      manifest: window.Viewer.build3IFManifest().AIM3DViewer.surroundings,
+    };
+  });
+  // Plain shapes, and the castle's moat.
+  expect(shown).toMatchObject({ inScene: true, marked: true, meshes: ['surroundings-ground', 'surroundings-built', 'surroundings-water'] });
+  expect(shown.houses).toBeGreaterThan(10);
+  expect(shown.triangles).toBeGreaterThan(5000);
+  expect(shown.exported).toMatchObject({ generated: true, kind: 'castle', period: 'medieval', year: 1350, season: 'summer', terrain: 'real', latitude: 54.0396, longitude: 19.028 });
+  expect(shown.manifest).toEqual(shown.exported);
+  expect(validateAIM3DManifest({ AIM3DViewer: { surroundings: shown.exported } }).errors.filter((error) => error.path.includes('surroundings'))).toEqual([]);
+  expect(validateAIM3DManifest({ AIM3DViewer: { surroundings: { kind: 'harbour', period: 'baroque', seed: -1, density: 2, style: 'photo' } } }).errors.map((error) => error.path).filter((path) => path.includes('surroundings')))
+    .toEqual(['$.AIM3DViewer.surroundings.kind', '$.AIM3DViewer.surroundings.period', '$.AIM3DViewer.surroundings.style', '$.AIM3DViewer.surroundings.seed', '$.AIM3DViewer.surroundings.density']);
+  // The model's own sizes are as before.
+  expect(await page.evaluate(() => ({ grid: window.viewer.gridSize, box: window.Viewer.getPublishModelBox().getSize(window.viewer.camera.position.clone()).toArray() }))).toEqual(before);
+  expect(shown.exported.style).toBe('schematic');
+
+  // The badge says what it is; another layout; off.
+  const badge = page.locator('#viewerSurroundingsBadge');
+  await expect(badge).toContainText('Generated surroundings: a settlement below a castle, late Middle Ages');
+  await expect(badge).toContainText('generated hills (the terrain could not be loaded)');
+  await badge.locator('button[data-action="reshuffle"]').click();
+  expect(await page.evaluate(() => window.Viewer.surroundings.seed)).not.toBe(shown.exported.seed);
+
+  // The realistic look: the same layout, more drawn - a layer of baked
+  // shadows, the hills on the horizon within the camera's reach - and the
+  // same marks.
+  const layoutBefore = await page.evaluate(() => window.Viewer.surroundingsObjects.layout.blocks.length);
+  await badge.locator('button[data-action="style"]').click();
+  await expect(badge.locator('button[data-action="style"]')).toHaveAttribute('aria-pressed', 'true');
+  const realistic = await page.evaluate(() => {
+    const objects = window.Viewer.surroundingsObjects;
+    return {
+      meshes: objects.group.children.map((mesh) => mesh.name),
+      blocks: objects.layout.blocks.length,
+      triangles: objects.triangles,
+      reach: objects.layout.extent * 1.75 / objects.site.meters,
+      far: window.viewer.camera.far,
+      shadeTransparent: objects.group.children[1].material.transparent,
+      exported: window.Viewer.getSurroundingsForExport(),
+    };
+  });
+  // A moat round the box (a castle), smoke in no house of a summer
+  // castle's settlement necessarily; cast shadows from the key light.
+  expect(realistic.meshes).toEqual(expect.arrayContaining(['surroundings-ground', 'surroundings-shade', 'surroundings-built', 'surroundings-water', 'surroundings-shadows']));
+  expect(realistic.blocks).toBe(layoutBefore);
+  expect(realistic.triangles).toBeGreaterThan(shown.triangles);
+  expect(realistic.far).toBeGreaterThanOrEqual(realistic.reach);
+  expect(realistic.shadeTransparent).toBe(true);
+  expect(realistic.exported).toMatchObject({ generated: true, style: 'realistic', water: true });
+  // The shaders: patterns and sway per corner; time and wind move each
+  // frame; the shadows follow the light.
+  // The time of the shaders runs with the frames (once they are compiled).
+  const started = await page.evaluate(() => window.Viewer.surroundingsUniforms.surroundingsTime.value);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsUniforms.surroundingsTime.value), { timeout: 20_000 }).toBeGreaterThan(started + 0.2);
+  const moving = await page.evaluate(async () => {
+    const objects = window.Viewer.surroundingsObjects;
+    const built = objects.group.getObjectByName('surroundings-built').geometry;
+    const detail = built.getAttribute('surroundingsDetail');
+    const sway = built.getAttribute('surroundingsSway');
+    const tiles = new Set();
+    for (let index = 0; index < detail.count; index += 97) tiles.add(detail.getZ(index));
+    let swaying = 0;
+    for (let index = 0; index < sway.count; index += 1) if (sway.getX(index) > 0) swaying += 1;
+    const shadows = objects.shadows.mesh.geometry.getAttribute('position').count;
+    const key = objects.shadows.key;
+    // The sun instead of the key light: the shadows worked out again.
+    window.Viewer.setSunOptions({ latitude: 52, longitude: 20, month: 7, day: 15, minutes: 960 });
+    window.Viewer.setSunStudy(true);
+    window.Viewer.updateSurroundings(0, { force: true });
+    const sunKey = objects.shadows.key;
+    // Rain: fainter.
+    const strength = window.Viewer.getSurroundingsLight().strength;
+    const before = { ...window.Viewer.weather };
+    Object.assign(window.Viewer.weather, { enabled: true, type: 'rain', intensity: 0.6 });
+    const rainy = window.Viewer.getSurroundingsLight().strength;
+    Object.assign(window.Viewer.weather, before);
+    window.Viewer.setSunStudy(false);
+    return {
+      tiles: tiles.size,
+      swaying,
+      shadows,
+      key,
+      sunKey,
+      strength,
+      rainy,
+      water: objects.group.getObjectByName('surroundings-water').material.transparent,
+    };
+  });
+  expect(moving.tiles).toBeGreaterThan(3);
+  expect(moving.swaying).toBeGreaterThan(1000);
+  expect(moving.shadows).toBeGreaterThan(1000);
+  expect(moving.sunKey).not.toBe(moving.key);
+  expect(moving.rainy).toBeLessThan(moving.strength / 2);
+  expect(moving.water).toBe(true);
+  await expect(badge).toContainText('Generated surroundings');
+  await page.evaluate(() => window.Viewer.selectLanguage('pl'));
+  await expect(badge).toContainText('Wygenerowane otoczenie: podgrodzie zamku');
+  await page.evaluate(() => window.Viewer.selectLanguage('en'));
+
+  // Undo of the suggestion takes them away again.
+  await panel.locator('.viewer-scene_undo').click();
+  await expect(badge).toHaveCount(0);
+  expect(await page.evaluate(() => [window.Viewer.surroundings.enabled, window.Viewer.surroundingsObjects, window.Viewer.getSurroundingsForExport()])).toEqual([false, null, undefined]);
+  // The camera's reach put back.
+  expect(await page.evaluate(() => window.viewer.camera.far)).toBe(farBefore);
+
+  // From a manifest; a block of no known kind is none; gone with the model.
+  expect(await page.evaluate(() => [
+    window.Viewer.apply3IFManifestSurroundings({ generated: true, kind: 'town', year: 1100, seed: 7 }),
+    window.Viewer.surroundings.period,
+    window.Viewer.surroundingsObjects.layout.walls[0].kind,
+  ])).toEqual([true, 'early-medieval', 'palisade']);
+  expect(await page.evaluate(() => [window.Viewer.apply3IFManifestSurroundings({ kind: 'harbour' }), window.Viewer.surroundings.enabled])).toEqual([false, false]);
+  await page.evaluate(() => {
+    window.Viewer.setSurroundingsOptions({ kind: 'village' });
+    window.Viewer.disposeSurroundings();
+  });
+  expect(await page.evaluate(() => window.viewer.scene.children.some((child) => child.userData.isSurroundings))).toBe(false);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('generated surroundings on the real terrain: elevation tiles of the place, relative to the model', async ({ page }) => {
+  // Tiles of a slope rising eastwards, 0.1 m a pixel (Terrarium), served
+  // here instead of the open Terrain Tiles.
+  const [latitude, longitude] = [49.4197, 20.3198];
+  const asked = [];
+  await page.route('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/**', async (route) => {
+    const [z, x, y] = route.request().url().match(/terrarium\/(\d+)\/(\d+)\/(\d+)\.png/).slice(1).map(Number);
+    asked.push([z, x, y]);
+    const centre = worldPixel(latitude, longitude, z).x;
+    const data = Buffer.alloc(256 * 256 * 3);
+    for (let py = 0; py < 256; py += 1) {
+      for (let px = 0; px < 256; px += 1) {
+        const value = 500 + 0.1 * (x * 256 + px + 0.5 - centre) + 32768;
+        const index = (py * 256 + px) * 3;
+        data[index] = Math.floor(value / 256);
+        data[index + 1] = Math.floor(value) % 256;
+        data[index + 2] = Math.round((value - Math.floor(value)) * 256) % 256;
+      }
+    }
+    await route.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: await sharp(data, { raw: { width: 256, height: 256, channels: 3 } }).png().toBuffer() });
+  });
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(([latitude, longitude]) => window.Viewer.setSurroundingsOptions({ kind: 'castle', style: 'realistic', terrain: 'real', latitude, longitude }), [latitude, longitude]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsTerrain.state)).toBe('real');
+  const result = await page.evaluate(() => {
+    const objects = window.Viewer.surroundingsObjects;
+    const elevation = window.Viewer.surroundingsTerrain.elevation;
+    return {
+      zoom: elevation.zoom,
+      mpp: elevation.metresPerPixel,
+      centre: elevation.centre,
+      hasField: typeof objects.layout.heightfield === 'function',
+      atModel: objects.layout.heightfield(0, 0),
+      east: objects.layout.heightfield(300, 0),
+      west: objects.layout.heightfield(-300, 0),
+      north: objects.layout.heightfield(0, -300),
+      badge: document.querySelector('#viewerSurroundingsBadge').textContent,
+    };
+  });
+  expect(result.zoom).toBe(elevationZoom(latitude, 1));
+  expect(result.mpp).toBeCloseTo(metresPerPixel(latitude, result.zoom), 6);
+  expect(result.centre).toBeCloseTo(500, 0);
+  expect(result.hasField).toBe(true);
+  expect(result.atModel).toBe(0);
+  // 0.1 m a pixel eastwards; level north and south.
+  expect(result.east).toBeCloseTo((0.1 * 300) / result.mpp, 0);
+  expect(result.west).toBeCloseTo((-0.1 * 300) / result.mpp, 0);
+  expect(Math.abs(result.north)).toBeLessThan(0.2);
+  expect(result.badge).toContain("on the place's real terrain");
+  expect(asked.length).toBeGreaterThan(0);
+  expect(asked.every(([z]) => z === result.zoom)).toBe(true);
+  // Exported with its place.
+  expect(await page.evaluate(() => window.Viewer.getSurroundingsForExport())).toMatchObject({ terrain: 'real', latitude: 49.4197, longitude: 20.3198 });
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('generated surroundings window: on and off, the year on a slider with its period, the place and the look', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const toolbar = page.locator('#viewerEditorToolbar');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').click();
+  await toolbar.locator('.viewer-menus_panel button[data-tool="surroundings"]').click();
+  const panel = page.locator('#viewerSurroundingsPanel');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('input[name="enabled"]')).not.toBeChecked();
+
+  await panel.locator('input[name="enabled"]').check();
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.enabled && Boolean(window.Viewer.surroundingsObjects))).toBe(true);
+  await expect(page.locator('#viewerSurroundingsBadge')).toBeVisible();
+
+  // Back to 1700: the early modern period, drawn once the slider rests.
+  await panel.locator('input[name="year"]').fill('1700');
+  await expect(panel.locator('.viewer-surroundings-panel_year')).toHaveText('1700');
+  await expect(panel.locator('.viewer-surroundings-panel_period')).toHaveText('early modern period');
+  await expect.poll(() => page.evaluate(() => [window.Viewer.surroundings.year, window.Viewer.surroundings.period])).toEqual([1700, 'early-modern']);
+  await expect(panel.locator('.viewer-scene_status')).toContainText('early modern period');
+
+  await panel.locator('select[name="kind"]').selectOption('town');
+  await panel.locator('select[name="season"]').selectOption('winter');
+  await expect.poll(() => page.evaluate(() => [window.Viewer.surroundings.kind, window.Viewer.surroundings.season])).toEqual(['town', 'winter']);
+  // Set elsewhere (the badge): the window follows.
+  await page.locator('#viewerSurroundingsBadge button[data-action="style"]').click();
+  await expect(panel.locator('select[name="style"]')).toHaveValue('realistic');
+  // No place: no real terrain to ask for.
+  await expect(panel.locator('input[name="terrain"]')).toBeDisabled();
+
+  await panel.locator('input[name="enabled"]').uncheck();
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.enabled)).toBe(false);
+  await expect(page.locator('#viewerSurroundingsBadge')).toHaveCount(0);
+  await panel.locator('.viewer-scene_header button', { hasText: '×' }).click();
+  await expect(panel).toHaveCount(0);
+});
+
+test('generated surroundings: the real water from the map, and the timeline followed', async ({ page }) => {
+  // The map's water for the place (an Overpass answer served here): a lake
+  // east of the model and the sea to the south.
+  const [latitude, longitude] = [54, 18.6];
+  const at = (east, north) => ({ lat: latitude + north / 110540, lon: longitude + east / (111320 * Math.cos((latitude * Math.PI) / 180)) });
+  const queries = [];
+  await page.route('https://overpass-api.de/api/interpreter', async (route) => {
+    queries.push(decodeURIComponent(route.request().postData().replace(/^data=/, '')));
+    await route.fulfill({
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ elements: [
+        { type: 'way', tags: { natural: 'water' }, geometry: [[40, -30], [120, -30], [120, 30], [40, 30], [40, -30]].map(([east, north]) => at(east, north)) },
+        { type: 'way', tags: { natural: 'coastline' }, geometry: [at(-2000, -300), at(2000, -300)] },
+      ] }),
+    });
+  });
+  await page.route('**/elevation-tiles-prod/**', (route) => route.abort());
+  // No historical water there: today's.
+  await page.route('https://overpass-api.openhistoricalmap.org/**', (route) => route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: '{"elements":[]}' }));
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(([latitude, longitude]) => window.Viewer.setSurroundingsOptions({ kind: 'village', style: 'realistic', terrain: 'real', latitude, longitude, seed: 4 }), [latitude, longitude]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsMap.state)).toBe('real');
+  await expect.poll(() => page.evaluate(() => Boolean(window.Viewer.surroundingsObjects?.layout.water.map))).toBe(true);
+  const mapped = await page.evaluate(() => {
+    const objects = window.Viewer.surroundingsObjects;
+    const layout = objects.layout;
+    const map = layout.water.map;
+    return {
+      lake: map.distance(80, 0),
+      sea: map.distance(0, 600),
+      wet: [...layout.blocks, ...layout.trees].filter((entry) => map.distance(entry.x, entry.z) < 0).length,
+      water: objects.group.getObjectByName('surroundings-water')?.geometry.getAttribute('position').count || 0,
+      badge: document.querySelector('#viewerSurroundingsBadge').textContent,
+    };
+  });
+  expect(queries.length).toBe(1);
+  expect(queries[0]).toContain('"natural"="coastline"');
+  expect(mapped.lake).toBeLessThan(0);
+  expect(mapped.sea).toBeLessThan(0);
+  expect(mapped.wet).toBe(0);
+  expect(mapped.water).toBeGreaterThan(100);
+  expect(mapped.badge).toContain('© OpenStreetMap contributors');
+
+  // The timeline (stood in for here): the surroundings follow its year.
+  await page.evaluate(() => {
+    window.__year = 1100;
+    window.Viewer.hasTimeline = () => true;
+    window.Viewer.getTimelineYear = () => window.__year;
+    window.Viewer.setSurroundingsOptions({ kind: 'town', terrain: 'generated', style: 'schematic', followTimeline: true, seed: 2 });
+  });
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.period)).toBe('early-medieval');
+  const early = await page.evaluate(() => ({
+    walls: window.Viewer.surroundingsObjects.layout.walls.map((wall) => wall.kind),
+    houses: window.Viewer.surroundingsObjects.layout.blocks.filter((block) => block.role === 'house').length,
+    growth: window.Viewer.surroundings.growth,
+  }));
+  expect(early.walls.every((kind) => kind === 'palisade')).toBe(true);
+  await expect(page.locator('#viewerSurroundingsBadge')).toContainText('1100, following the timeline');
+  await page.evaluate(() => { window.__year = 1520; });
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundings.period), { timeout: 10_000 }).toBe('medieval');
+  const late = await page.evaluate(() => ({
+    walls: window.Viewer.surroundingsObjects.layout.walls.map((wall) => wall.kind),
+    houses: window.Viewer.surroundingsObjects.layout.blocks.filter((block) => block.role === 'house').length,
+    growth: window.Viewer.surroundings.growth,
+    exported: window.Viewer.getSurroundingsForExport(),
+  }));
+  expect(late.walls.length).toBeGreaterThan(0);
+  expect(late.walls.every((kind) => kind === 'masonry')).toBe(true);
+  expect(late.growth).toBeGreaterThan(early.growth);
+  expect(late.exported).toMatchObject({ followTimeline: true, period: 'medieval', year: 1520 });
+  // A year the surroundings do not cover: hidden, and said so.
+  await page.evaluate(() => { window.__year = 1950; });
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.group.visible)).toBe(false);
+  await expect(page.locator('#viewerSurroundingsBadge')).toContainText('none for 1950');
+  await page.evaluate(() => { window.__year = 1400; });
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.group.visible)).toBe(true);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('generated surroundings: historical water by the year, the servers in turn, and the sun shadows on the nearest houses', async ({ page }) => {
+  const [latitude, longitude] = [54, 18.6];
+  const at = (east, north) => ({ lat: latitude + north / 110540, lon: longitude + east / (111320 * Math.cos((latitude * Math.PI) / 180)) });
+  // Your own Overpass is not running (502); the public one answers with
+  // today's water; OpenHistoricalMap has a river that ran until 1600.
+  const asked = [];
+  await page.route('**/viewer-settings.json', async (route) => {
+    const settings = await (await route.fetch()).json();
+    settings.viewer.surroundings = { mapUrl: ['/own-overpass/api/interpreter', 'https://overpass-api.de/api/interpreter'] };
+    await route.fulfill({ json: settings });
+  });
+  await page.route('**/own-overpass/**', (route) => { asked.push('own'); return route.fulfill({ status: 502, body: 'down' }); });
+  await page.route('https://overpass-api.de/api/interpreter', (route) => {
+    asked.push('public');
+    return route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ elements: [{ type: 'way', id: 9, tags: { waterway: 'river', width: '20' }, geometry: [at(-900, -200), at(900, -200)] }] }) });
+  });
+  let historical = true;
+  await page.route('https://overpass-api.openhistoricalmap.org/api/interpreter', (route) => {
+    asked.push('historical');
+    const elements = historical ? [{ type: 'way', id: 7, tags: { waterway: 'river', width: '25', start_date: '1100', end_date: '1600' }, geometry: [at(-900, 200), at(900, 200)] }] : [];
+    return route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ elements }) });
+  });
+  await page.route('**/elevation-tiles-prod/**', (route) => route.abort());
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+
+  // 1400: the historical river, north of the model.
+  await page.evaluate(([latitude, longitude]) => window.Viewer.setSurroundingsOptions({ kind: 'village', terrain: 'real', latitude, longitude, year: 1400, seed: 4 }), [latitude, longitude]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsMap.source)).toBe('historical');
+  await expect.poll(() => page.evaluate(() => Boolean(window.Viewer.surroundingsObjects?.layout.water.map))).toBe(true);
+  expect(await page.evaluate(() => window.Viewer.surroundingsObjects.layout.water.map.distance(0, -200))).toBeLessThan(0);
+  expect(await page.evaluate(() => window.Viewer.surroundingsObjects.layout.water.map.distance(0, 200))).toBeGreaterThan(50);
+  await expect(page.locator('#viewerSurroundingsBadge')).toContainText('the water of 1400 (© OpenHistoricalMap contributors)');
+  // Followed to 1700: the river had gone; laid out again without it.
+  await page.evaluate(() => {
+    window.__year = 1700;
+    window.Viewer.hasTimeline = () => true;
+    window.Viewer.getTimelineYear = () => window.__year;
+    window.Viewer.surroundings.followTimeline = true;
+  });
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.layout.water.map), { timeout: 10_000 }).toBeNull();
+  expect(await page.evaluate(() => window.Viewer.surroundings.period)).toBe('early-modern');
+
+  // Another place, no historical water: today's, from the second server.
+  historical = false;
+  await page.evaluate(([latitude, longitude]) => {
+    window.Viewer.hasTimeline = () => false;
+    window.Viewer.setSurroundingsOptions({ followTimeline: false, latitude: latitude + 0.01, longitude, year: 1400 });
+  }, [latitude, longitude]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsMap.source)).toBe('today');
+  expect(asked).toEqual(expect.arrayContaining(['historical', 'own', 'public']));
+  expect(asked.indexOf('own')).toBeLessThan(asked.indexOf('public'));
+  await expect(page.locator('#viewerSurroundingsBadge')).toContainText("today's rivers and lakes (© OpenStreetMap contributors)");
+
+  // The sun on the realistic look: its shadow map reaches the nearest
+  // houses, which cast and take shadows; off with the sun.
+  const sunlit = await page.evaluate(() => {
+    window.Viewer.setSurroundingsOptions({ style: 'realistic' });
+    window.Viewer.setSunOptions({ latitude: 52, longitude: 20, month: 7, day: 15, minutes: 960 });
+    window.Viewer.setSunStudy(true);
+    window.Viewer.updateSunStudy(0, { force: true });
+    window.Viewer.updateSurroundings(0, { force: true });
+    const near = window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-near');
+    const far = window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-built');
+    return { reach: window.Viewer.getSunShadowReach(), size: window.Viewer.sunObjects.light.shadow.mapSize.x, cast: near.castShadow, take: near.receiveShadow, farCast: far.castShadow, frustum: window.Viewer.sunObjects.light.shadow.camera.right };
+  });
+  expect(sunlit.reach).toBeGreaterThan(80);
+  expect(sunlit.size).toBe(4096);
+  expect([sunlit.cast, sunlit.take, sunlit.farCast]).toEqual([true, true, false]);
+  expect(sunlit.frustum).toBeCloseTo(sunlit.reach, 3);
+  const shaded = await page.evaluate(() => {
+    window.Viewer.setSunStudy(false);
+    window.Viewer.updateSurroundings(0, { force: true });
+    return [window.Viewer.getSunShadowReach(), window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-near').castShadow];
+  });
+  expect(shaded).toEqual([0, false]);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('generated surroundings on an old map: its layout file, and its tiles draped over the ground', async ({ page }) => {
+  const [latitude, longitude] = [54, 18.6];
+  await page.route('**/old-map.geojson', (route) => route.fulfill({ contentType: 'application/geo+json', body: JSON.stringify({ type: 'FeatureCollection', features: [
+    { type: 'Feature', properties: { kind: 'road', width: 6 }, geometry: { type: 'LineString', coordinates: [[18.597, 54.0012], [18.603, 54.0012]] } },
+    { type: 'Feature', properties: { kind: 'building', height: 9 }, geometry: { type: 'Polygon', coordinates: [[[18.6015, 54.0014], [18.6017, 54.0014], [18.6017, 54.0015], [18.6015, 54.0015], [18.6015, 54.0014]]] } },
+    { type: 'Feature', properties: { kind: 'building', height: 7, end_date: '1500' }, geometry: { type: 'Polygon', coordinates: [[[18.5985, 54.0014], [18.5989, 54.0014], [18.5989, 54.0016], [18.5985, 54.0016], [18.5985, 54.0014]]] } },
+  ] }) }));
+  // Tiles of an old map: sepia, served here.
+  const tile = await sharp({ create: { width: 256, height: 256, channels: 3, background: { r: 196, g: 176, b: 132 } } }).png().toBuffer();
+  const tiles = [];
+  await page.route('https://tiles.example.org/**', (route) => { tiles.push(route.request().url()); return route.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: tile }); });
+  await page.route('https://overpass-api.openhistoricalmap.org/**', (route) => route.abort());
+  await page.route('https://overpass-api.de/**', (route) => route.abort());
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(([latitude, longitude]) => window.Viewer.apply3IFManifestSurroundings({
+    kind: 'town', latitude, longitude, year: 1400, seed: 5,
+    layoutUrl: '/old-map.geojson',
+    mapOverlay: { url: 'https://tiles.example.org/{z}/{x}/{y}.png', opacity: 0.7, attribution: 'Test map, 1830' },
+  }), [latitude, longitude]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects?.layout.blocks.length)).toBe(2);
+  await expect.poll(() => page.evaluate(() => Boolean(window.Viewer.surroundingsObjects?.group.getObjectByName('surroundings-oldmap')))).toBe(true);
+  const draped = await page.evaluate(() => {
+    const mesh = window.Viewer.surroundingsObjects.group.getObjectByName('surroundings-oldmap');
+    const uv = mesh.geometry.getAttribute('uv');
+    let inside = 0;
+    for (let index = 0; index < uv.count; index += 1) if (uv.getX(index) > 0 && uv.getX(index) < 1 && uv.getY(index) > 0 && uv.getY(index) < 1) inside += 1;
+    return { opacity: mesh.material.opacity, map: Boolean(mesh.material.map?.image), inside, count: uv.count, roads: window.Viewer.surroundingsObjects.layout.roads.map((road) => road.width), exported: window.Viewer.getSurroundingsForExport() };
+  });
+  expect(draped.opacity).toBeCloseTo(0.7, 5);
+  expect(draped.map).toBe(true);
+  expect(draped.inside).toBeGreaterThan(draped.count * 0.5);
+  // The old map's road only (cut at a river's bank, if one is generated).
+  expect(draped.roads.length).toBeGreaterThanOrEqual(1);
+  expect(draped.roads.every((width) => width === 6)).toBe(true);
+  expect(tiles.length).toBeGreaterThan(3);
+  expect(tiles.every((url) => /\/\d+\/\d+\/\d+\.png$/.test(url))).toBe(true);
+  expect(draped.exported).toMatchObject({ mapOverlay: { url: 'https://tiles.example.org/{z}/{x}/{y}.png', opacity: 0.7, attribution: 'Test map, 1830' } });
+  expect(draped.exported.layoutUrl).toMatch(/old-map\.geojson$/);
+  const badge = page.locator('#viewerSurroundingsBadge');
+  await expect(badge).toContainText('roads and buildings of 1400 from the old map');
+  await expect(badge).toContainText('on an old map (Test map, 1830)');
+  // 1600: the building gone by 1500 is gone.
+  await page.evaluate(() => window.Viewer.setSurroundingsOptions({ year: 1600 }));
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsObjects.layout.blocks.length)).toBe(1);
+  // A tile URL without its placeholders is refused.
+  expect(validateAIM3DManifest({ AIM3DViewer: { surroundings: { kind: 'town', mapOverlay: { url: 'https://tiles.example.org/map.png', opacity: 3 } } } }).errors.map((error) => error.path).filter((path) => path.includes('mapOverlay')))
+    .toEqual(['$.AIM3DViewer.surroundings.mapOverlay.url', '$.AIM3DViewer.surroundings.mapOverlay.opacity']);
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
+});
+
+test('generated surroundings: an old map read by AI, saved as GeoJSON; OpenHistoricalMap roads and buildings', async ({ page }) => {
+  const [latitude, longitude] = [54, 18.6];
+  const tile = await sharp({ create: { width: 256, height: 256, channels: 3, background: { r: 196, g: 176, b: 132 } } }).png().toBuffer();
+  await page.route('https://tiles.example.org/**', (route) => route.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: tile }));
+  await page.route('**/api/ai/config', (route) => route.fulfill({ json: { enabled: true, features: ['old-map'], model: 'claude-opus-5-5' } }));
+  // The worker reads in the background: an id at once, the answer later.
+  const sent = [];
+  await page.route('**/api/ai/old-map', async (route) => {
+    sent.push(route.request().postDataJSON());
+    await route.fulfill({ status: 202, json: { id: 'a'.repeat(32), state: 'running' } });
+  });
+  let polls = 0;
+  await page.route('**/api/ai/old-map/*', (route) => {
+    polls += 1;
+    const { width: w, height: h } = sent[0];
+    const square = (x, y, s) => [{ x, y }, { x: x + s, y }, { x: x + s, y: y + s }, { x, y: y + s }];
+    return route.fulfill({ json: polls < 2 ? { state: 'running' } : { state: 'done', answer: {
+      readable: true,
+      notes: 'A test map.',
+      roads: [{ points: [{ x: w * 0.1, y: h * 0.45 }, { x: w * 0.9, y: h * 0.45 }], width_px: 3 }],
+      buildings: [{ points: square(w * 0.62, h * 0.38, 8), kind: 'church' }],
+      fields: [],
+      water: [{ kind: 'lake', points: square(w * 0.25, h * 0.7, 30), width_px: 0 }],
+      walls: [],
+      model: 'claude-opus-5-5',
+    } } });
+  });
+  await page.route('https://overpass-api.openhistoricalmap.org/**', (route) => route.abort());
+  await page.route('https://overpass-api.de/**', (route) => route.abort());
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await page.evaluate(([latitude, longitude]) => window.Viewer.setSurroundingsOptions({
+    kind: 'town', latitude, longitude, year: 1830, seed: 5,
+    mapOverlay: { url: 'https://tiles.example.org/{z}/{x}/{y}.png', attribution: 'Test map' },
+  }), [latitude, longitude]);
+  const badge = page.locator('#viewerSurroundingsBadge');
+  const read = badge.locator('button[data-action="read-map"]');
+  await expect(read).toBeVisible();
+  await expect(badge.locator('button[data-action="save-map"]')).toBeHidden();
+  await read.click();
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsOldMap.aiState), { timeout: 20_000 }).toBe('done');
+  // At most 2576 pixels on the long side, a JPEG, with its scale and year.
+  expect(Math.max(sent[0].width, sent[0].height)).toBeLessThanOrEqual(2576);
+  expect(sent[0].mediaType).toBe('image/jpeg');
+  expect(sent[0].metresPerPixel).toBeGreaterThan(0);
+  expect(sent[0].year).toBe(1830);
+  const shaped = await page.evaluate(() => {
+    const layout = window.Viewer.surroundingsObjects.layout;
+    return {
+      roles: layout.blocks.map((block) => block.role),
+      roads: layout.roads.length,
+      water: layout.water.map?.count || 0,
+      river: Boolean(layout.water.river),
+      geojson: window.Viewer.surroundingsOldMap.aiGeojson,
+    };
+  });
+  // The read church only; the read road; the read lake, no generated river.
+  expect(shaped.roles).toEqual(['church']);
+  expect(shaped.roads).toBeGreaterThanOrEqual(1);
+  expect(shaped.water).toBe(1);
+  expect(shaped.river).toBe(false);
+  // In degrees, round the place; the road level (one latitude).
+  const road = shaped.geojson.features.find((feature) => feature.properties.kind === 'road');
+  expect(road.properties.source).toBe('ai');
+  expect(road.geometry.coordinates[0][1]).toBeCloseTo(road.geometry.coordinates[1][1], 6);
+  road.geometry.coordinates.forEach(([lon, lat]) => {
+    expect(Math.abs(lon - longitude)).toBeLessThan(0.05);
+    expect(Math.abs(lat - latitude)).toBeLessThan(0.05);
+  });
+  await expect(badge).toContainText('roads and buildings read from the old map by AI - check them');
+  // Saved as GeoJSON.
+  const [download] = await Promise.all([page.waitForEvent('download'), badge.locator('button[data-action="save-map"]').click()]);
+  expect(download.suggestedFilename()).toBe('old-map-read-by-ai.geojson');
+  const saved = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+  expect(saved.features.map((feature) => feature.properties.kind).sort()).toEqual(['building', 'lake', 'road']);
+  // Not stored in the manifest by itself.
+  expect(await page.evaluate(() => window.Viewer.getSurroundingsForExport().layoutUrl)).toBeUndefined();
+
+  // OpenHistoricalMap's roads and buildings of the year, on the real terrain.
+  await page.unroute('https://overpass-api.openhistoricalmap.org/**');
+  await page.route('https://overpass-api.openhistoricalmap.org/**', (route) => {
+    const query = decodeURIComponent(route.request().postData() || '');
+    const at = (east, north) => ({ lat: latitude + north / 110540, lon: longitude + east / (111320 * Math.cos((latitude * Math.PI) / 180)) });
+    const elements = query.includes('"highway"') ? [
+      { type: 'way', id: 1, tags: { highway: 'residential', start_date: '1700' }, geometry: [at(-200, 60), at(200, 60)] },
+      { type: 'way', id: 2, tags: { building: 'yes', height: '8', start_date: '1750' }, geometry: [at(80, 70), at(92, 70), at(92, 80), at(80, 80), at(80, 70)] },
+    ] : [];
+    return route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ elements }) });
+  });
+  await page.route('**/elevation-tiles-prod/**', (route) => route.abort());
+  await page.evaluate(([latitude, longitude]) => window.Viewer.apply3IFManifestSurroundings({ kind: 'village', terrain: 'real', latitude: latitude + 0.002, longitude, year: 1800, seed: 3 }), [latitude, longitude]);
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsOldMap.layoutSource), { timeout: 10_000 }).toBe('historical');
+  expect(await page.evaluate(() => window.Viewer.surroundingsObjects.layout.blocks.length)).toBe(1);
+  await expect(badge).toContainText('roads and buildings of 1800 (© OpenHistoricalMap contributors)');
+  // Before they were built: none of it, generated again.
+  await page.evaluate(() => window.Viewer.setSurroundingsOptions({ year: 1650 }));
+  await expect.poll(() => page.evaluate(() => window.Viewer.surroundingsOldMap.layoutSource)).toBeNull();
+  expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
 test('suggested scene: the window suggests, applies the ticked and undoes', async ({ page }) => {

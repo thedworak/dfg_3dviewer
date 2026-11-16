@@ -286,7 +286,10 @@ export function attachSunStudy(Viewer) {
         state.minutes = (state.minutes + PLAY_SPEED * delta) % 1440;
       }
       const position = Viewer.getSunPosition();
-      const key = [position.elevation.toFixed(3), position.azimuth.toFixed(3), state.north, core.gridSize].join("|");
+      // How far round the model the shadows must reach (scene units): the
+      // generated surroundings' nearest houses (editor/surroundings.js).
+      const reach = Viewer.getSunShadowReach?.() || 0;
+      const key = [position.elevation.toFixed(3), position.azimuth.toFixed(3), state.north, core.gridSize, reach].join("|");
       // The environment changed by someone else: kept as the one to restore.
       if (objects.appliedEnvironment != null && core.scene.environmentIntensity !== objects.appliedEnvironment) {
         objects.environmentIntensity = core.scene.environmentIntensity;
@@ -320,8 +323,21 @@ export function attachSunStudy(Viewer) {
       const box = new THREE.Box3();
       Viewer.getSunModelRoots().forEach((root) => box.expandByObject(root));
       const sphere = box.isEmpty() ? new THREE.Sphere(new THREE.Vector3(), core.gridSize || 1) : box.getBoundingSphere(new THREE.Sphere());
-      // The ground (viewer-utils.js) reaches out to 1.25 grid sizes.
-      const radius = Math.max(sphere.radius * 1.6, 0.001);
+      // The ground (viewer-utils.js) reaches out to 1.25 grid sizes; the
+      // surroundings' houses near the model, when they cast and take
+      // shadows, farther: a bigger map then (WebGL), so the model's own
+      // shadows stay sharp enough, and a bias for its bigger texels.
+      const radius = Math.max(sphere.radius * 1.6, reach, 0.001);
+      const wide = reach > sphere.radius * 1.6;
+      if (core.rendererBackend !== "webgpu") {
+        const size = wide ? Math.min(4096, core.renderer?.capabilities?.maxTextureSize || 4096) : SHADOW_MAP_SIZE;
+        if (light.shadow.mapSize.x !== size) {
+          light.shadow.mapSize.set(size, size);
+          light.shadow.map?.dispose();
+          light.shadow.map = null;
+        }
+        light.shadow.normalBias = wide ? Math.max(0.02, ((2 * radius) / size) * 1.5) : 0.02;
+      }
       const direction = sunDirection(position, state.north);
       objects.target.position.copy(sphere.center);
       light.position.copy(sphere.center).addScaledVector(direction, radius * 3);

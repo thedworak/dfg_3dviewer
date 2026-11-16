@@ -61,6 +61,7 @@ export function getEditorToolbarIcon(icon) {
     //cameraLight: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h3l2-2h4l2 2h3v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
     weather: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15.5a4 4 0 0 1-.4-7.98A5.5 5.5 0 0 1 17.2 8.1 3.75 3.75 0 0 1 17 15.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 18.5l-1 2.5M12 18.5l-1 2.5M16 18.5l-1 2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
     seasons: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19C5 10 10 5 19 5c0 9-5 14-14 14z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M5 19l8-8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    surroundings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 21h19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M4 21v-7.5L7.5 10.5 11 13.5V21" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 21V8h4.5v13M14 8l2.25-4L18.5 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
     sceneSuggest: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 10-10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m14 10 2-2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M17 3v3M15.5 4.5h3M20 9v2M19 10h2M10 3v2M9 4h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     environmentMap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 7v10l-7 4-7-4V7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 3v18M5 7l7 4 7-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="18.25" cy="5.75" r="1.25" fill="currentColor"/></svg>',
     rendering: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5 15.5 12M20.5 12l-8.5 3.5M12 20.5 8.5 12M3.5 12l8.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
@@ -1447,6 +1448,9 @@ export function createEditorToolbar(viewer) {
     // A lighting, weather and rendering picked for the model by rules
     // (editor/scene-suggest.js).
     { key: "sceneSuggest", group: "appearance", icon: "sceneSuggest", onClick: () => viewer.toggleSceneSuggestPanel(), pressed: true, primary: false },
+    // A typical setting round the model, generated: its window, the year on
+    // a slider (editor/surroundings-panel.js).
+    { key: "surroundings", group: "appearance", icon: "surroundings", onClick: () => viewer.toggleSurroundingsPanel(), pressed: true, primary: false },
     { key: "rendering", group: "appearance", icon: "rendering", onClick: () => {}, pressed: false, primary: false },
     // The model's materials, with built-in material types
     // (editor/materials-editor.js).
@@ -2422,6 +2426,7 @@ export function updateEditorToolbarLabels(viewer) {
     weather: t("weather.title", "Weather"),
     seasons: t("seasons.title", "Seasons"),
     sceneSuggest: t("scene.title", "Suggested scene"),
+    surroundings: t("surroundings.title", "Generated surroundings"),
     rendering: t("gui.rendering", "Rendering"),
     picking: viewer.pickingMode
       ? t("controls.disablePickingMode", "Disable picking mode")
@@ -2747,6 +2752,7 @@ export function updateEditorToolbarState(viewer) {
     weather: viewer.weather?.enabled === true || viewer.isWeatherPanelOpen?.() === true,
     seasons: (viewer.weather?.enabled === true && Boolean(viewer.weather?.season)) || viewer.isSeasonsPanelOpen?.() === true,
     sceneSuggest: viewer.isSceneSuggestPanelOpen?.() === true,
+    surroundings: viewer.surroundings?.enabled === true || viewer.isSurroundingsPanelOpen?.() === true,
     materials: viewer.isMaterialsPanelOpen?.() === true,
     shading: viewer.isShadingPanelOpen?.() === true,
     lights: viewer.isLightsPanelOpen?.() === true,

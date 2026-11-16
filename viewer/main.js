@@ -87,6 +87,8 @@ import { attachPhotoOnSite } from "./editor/photo-onsite.js";
 import { attachSunStudy } from "./editor/sun-study.js";
 // Weather: a stub; the weather itself is downloaded on first use.
 import { attachWeatherLazy } from "./editor/weather-lazy.js";
+// Generated surroundings: a typical setting drawn round the model.
+import { attachSurroundings } from "./editor/surroundings.js";
 import { attachSceneSuggest } from "./editor/scene-suggest.js";
 import { attachWebXR } from "./editor/webxr.js";
 import { attachTour } from "./editor/tour.js";
@@ -1608,6 +1610,7 @@ export const Viewer = {
     Viewer.disposeRakingLight();
     Viewer.disposeSunStudy();
     Viewer.disposeWeather();
+    Viewer.disposeSurroundings();
     Viewer.disposeSceneSuggest();
     // The next model's materials are listed when it has loaded.
     Viewer.disposeMaterialsEditor({ keepPanel: true });
@@ -2731,6 +2734,7 @@ export const Viewer = {
     Viewer.updateCameraMarkers();
     Viewer.updateSunStudy(delta);
     Viewer.updateWeather(delta);
+    Viewer.updateSurroundings(delta);
     Viewer.updateTimeline(delta);
     Viewer.updateAudio();
     Viewer.updateSceneSounds(delta);
@@ -4743,6 +4747,7 @@ attachPhotoOverlay(Viewer);
 attachPhotoOnSite(Viewer);
 attachSunStudy(Viewer);
 attachWeatherLazy(Viewer);
+attachSurroundings(Viewer);
 attachSceneSuggest(Viewer);
 attachWebXR(Viewer);
 attachTour(Viewer);

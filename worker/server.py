@@ -20,7 +20,8 @@ could talk to either backend interchangeably:
   GET  /api/ai/config           -> {enabled, features, ...} optional AI help
   POST /api/ai/validation/<id>     (Claude API, off by default - worker/ai.py):
   POST /api/ai/ifc-query           the validation report explained, IFC
-  POST /api/ai/variants            questions as filters, variants compared
+  POST /api/ai/variants            questions as filters, variants compared,
+  POST /api/ai/old-map             an old map's picture digitised
   GET  /api/geo/config          -> {enabled, state}   places named in a text,
   POST /api/geo/places {text}   -> {places: [...]}    from GeoNames offline
                                                       (worker/geonames.py)
@@ -1034,7 +1035,7 @@ class Handler(BaseHTTPRequestHandler):
             if not ai.allowed(user, self._is_business_caller(user)):
                 raise ai.AIError(403, "AI features are not available for this account.", "ai_forbidden")
             length = int(self.headers.get("Content-Length", "0") or 0)
-            if length > ai.MAX_BODY_BYTES:
+            if length > (ai.MAX_IMAGE_BODY_BYTES if feature == "old-map" else ai.MAX_BODY_BYTES):
                 raise ai.AIError(413, "Request too large.", "too_large")
             try:
                 data = json.loads(self.rfile.read(length)) if length > 0 else {}
@@ -1054,6 +1055,10 @@ class Handler(BaseHTTPRequestHandler):
             elif feature == "ifc-query":
                 ai.RATE_LIMITER.check(key)
                 answer = ai.ifc_query(data.get("question", ""), data.get("schema"), lang, data.get("selection"))
+            elif feature == "old-map":
+                ai.RATE_LIMITER.check(key)
+                self._send_json(202, ai.start_old_map(data, lang))
+                return
             else:
                 ai.RATE_LIMITER.check(key)
                 answer = ai.describe_variants(data, lang)
@@ -1509,6 +1514,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, ai.config(user, self._is_business_caller(user)))
             return
 
+        # How the reading of an old map goes (worker/ai.py, start_old_map).
+        match = re.fullmatch(r"/api/ai/old-map/([0-9a-f]{32})", path)
+        if match:
+            try:
+                self._send_json(200, ai.old_map_job(match.group(1)))
+            except ai.AIError as exc:
+                self._send_json(exc.status, exc.payload())
+            return
+
         if path == "/api/auth/config":
             self._send_json(200, {
                 "mode": AUTH.mode,
@@ -1636,7 +1650,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/geo/places":
             self._handle_geo_places()
             return
-        match = re.fullmatch(r"/api/ai/(validation)/([A-Za-z0-9_-]+)|/api/ai/(ifc-query|variants)", path)
+        match = re.fullmatch(r"/api/ai/(validation)/([A-Za-z0-9_-]+)|/api/ai/(ifc-query|variants|old-map)", path)
         if match:
             self._handle_ai(match.group(1) or match.group(3), match.group(2))
             return

@@ -218,9 +218,60 @@ Weather (*Look > Weather*): a clear sky, fog, rain, snow or a thunderstorm aroun
 - `Viewer.apply3IFManifestWeather(weather)` / `Viewer.getWeatherForExport()` / `Viewer.disposeWeather()`
   - Manifest import and export; switched off when a model is unloaded.
 
+## `viewer/editor/surroundings-rules.js`, `viewer/editor/surroundings.js`, `viewer/editor/surroundings-panel.js`, `viewer/editor/surroundings-realistic.js`, `viewer/editor/surroundings-terrain.js`, `viewer/editor/surroundings-map.js`
+
+Generated surroundings: a typical setting drawn round the model from its kind, century and region ([docs/surroundings.md](../docs/surroundings.md)). A hypothesis about the kind of place: schematic, marked by a badge, no part of the model (`userData.isSurroundings`).
+
+- `suggestSurroundings({ normalizedText, year, location, sizeClass, season, unitSource })` (`surroundings-rules.js`, pure)
+  - `{ value, reasons, confidence }`; `value` is `{ enabled, kind, period, year, season, seed, density, style, water, terrain, latitude?, longitude?, masonry, followTimeline, growth }`. Also `surroundingsMasonry(location)` (brick or stone by the region) and `surroundingsGrowth(year)` (the share of the houses built by a year)., or `{ enabled: false }` with the reason. Also `findSurroundingsKind`, `surroundingsPeriod`, `inSurroundingsRegion`, `surroundingsSeed`, `normalizeSurroundings`.
+- `surroundingsWaterDistance(layout, x, z)` / `surroundingsGroundHeight(layout, x, z)` / `surroundingsWaterLevel(layout, x, z)`
+  - The signed distance to the water's edge (negative in it); the ground before the bed is cut (`layout.heightfield` where the real terrain is loaded, else generated hills, lower along a river's valley); the water's surface.
+- `layoutSurroundings(params, { radius })` / `surroundingsTerrainHeight(layout, x, z)`
+  - The layout in metres round the model at the origin: `{ extent, flat, clear, zone, blocks, walls, roads, fields, trees }`; the same from the same parameters.
+- `buildSurroundingsMeshes(layout)` (`surroundings.js`)
+  - `{ meshes, triangles, farthest }` for `layout.params.style`: schematic - `[ground, built]`, the ground fading out at the rim; realistic - `buildRealisticSurroundings(layout)`, `[ground, shade, built]`: materials of the period, eaves, doors and windows, baked contact shadows (`shade`, transparent), varied trees and crops, haze with the distance, hills on the horizon. `farthest`: how far out they reach, in metres (the camera's far plane is moved out to it while shown).
+- `createSurroundingsWriter(fade, tint)` (`surroundings-realistic.js`)
+  - Flat-shaded triangles with a colour and an opacity per corner; `tri`/`quad` take `{ want, shades, colors, alphas, raw, tile, sway }` (`tile`: a pattern of `DETAIL`, laid in metres; `sway`: how far a corner moves in the wind).
+- `getSurroundingsDetailAtlas()` / `createSurroundingsUniforms()` / `createSurroundingsMaterial({ transparent, uniforms, water })`
+  - The patterns (one canvas, 4 x 4 cells); the uniforms the shaders share (time, wind, ripples, smoke); a lit material for vertex colours that, with `uniforms`, multiplies in the patterns, sways in the wind and, for water, ripples (WebGL's `onBeforeCompile`).
+- `buildSurroundingsWater(layout, options)` / `buildSurroundingsShadows(casters, direction, strength, geometry)` / `createSurroundingsSmoke(sources, uniforms)` / `surroundingsBlockFoot(layout, block)`
+  - The water as one mesh; the cast shadows projected onto the ground along the light (convex hulls with a soft rim, on the slope under each caster); smoke as points of a shader; the lowest ground under a block.
+- `loadElevation({ latitude, longitude, radius, url })` / `createHeightfield(elevation, { north, flat, blend })` (`surroundings-terrain.js`)
+  - The Terrarium tiles round a place, fetched once; the height at a place of the layout relative to the model's, 0 near it. Also `elevationZoom`, `metresPerPixel`, `worldPixel`, `decodeTerrarium`, `sampleElevation`.
+- `Viewer.applySurroundingsTerrain(layout)` / `Viewer.getSurroundingsElevationUrl()` / `Viewer.surroundingsTerrain`
+  - The real terrain under a layout: its heights once loaded (then the surroundings drawn again); `{ state: "none" | "loading" | "real" | "failed", key, elevation }`.
+- `loadWaterSources({ latitude, longitude, radius, year, fileUrl, historicalUrl, mapUrls })` / `readMapWater(answer, project, { modern })` / `createMapWater(features, radius)` (`surroundings-map.js`)
+  - The water from the first source with any for the year - the model's GeoJSON (`waterGeoJsonToAnswer`), OpenHistoricalMap (dated, `filterByYear`, `dateYear`), OpenStreetMap's servers in turn (today's: no reservoirs, canals or roads; `mapWaterQuery`) - as `{ source, answer, dated }`, each source fetched once (25 s at most); its features in the layout's metres (`mapProjector`); `{ distance(x, z), heading(x, z), count }` - the signed distance to the water's edge, the direction of the nearest river or coast - which `layoutSurroundings(params, { radius, mapWater })` reads as `layout.water.map`.
+- `Viewer.getSurroundingsMapWater(layout)` / `Viewer.getSurroundingsMapUrls()` / `Viewer.getSurroundingsHistoricalMapUrl()` / `Viewer.surroundingsMap`
+  - The real water for a layout once loaded (then laid out again), filtered by the year where dated; `{ state, key, loaded, water, source }`.
+- `mapGeoJsonToAnswer(geojson)` / `readMapLayout(answer, project)` / `minimumRectangle(points)` / `loadMapLayout(url)` (`surroundings-map.js`)
+  - An old map's GeoJSON (water and layout kinds, dated) as an Overpass-like answer; its roads, fields (outlines), buildings (smallest turned rectangles) and walls in the layout's metres, which `layoutSurroundings(params, { mapLayout })` puts in the place of the generated ones.
+- `loadMapOverlay({ latitude, longitude, radius, url })` (`surroundings-terrain.js`) / `buildOverlayMesh(layout, overlay, { north, opacity })` (`surroundings.js`)
+  - An old map's XYZ tiles round the place stitched into one canvas; draped over the ground as "surroundings-oldmap".
+- `Viewer.getSurroundingsMapLayout(base)` / `Viewer.getSurroundingsOverlay(layout)` / `Viewer.surroundingsOldMap`
+  - The old map's layout of the year - from the manifest's file, else the AI's reading of the draped map, else OpenHistoricalMap's roads and buildings (`loadHistoricalLayout`, on the real terrain) - and its tiles, each once loaded (then drawn again); `layoutSource`: `"file"` | `"ai"` | `"historical"` | null.
+- `Viewer.readSurroundingsOldMap()` / `Viewer.downloadSurroundingsOldMap()`
+  - The draped map read by the worker's AI (`readOldMap()` of `viewer/ai/old-map-reader.js`: the picture at most 2576 pixels on the long side, POST `/api/ai/old-map` then GET `/api/ai/old-map/<id>` every 3 s; pixels back to degrees by `canvasPixelToLonLat`, `oldMapAnswerToGeoJson`): its roads, buildings, fields, water and walls shape the surroundings, marked as read by AI; saved as GeoJSON to be checked.
+- `Viewer.getSunShadowReach()` / `Viewer.getSurroundingsShadowReachMetres()`
+  - How far round the model the sun's shadow map reaches (scene units; read by `sun-study.js`, which then uses a 4096 map): the realistic surroundings within it (`surroundings-near`) cast and take real shadows; 0 without the sun.
+- `Viewer.followSurroundingsTimeline(now)` / `Viewer.surroundingsTimeline`
+  - With `followTimeline`: the timeline's year gives the period and the growth (drawn again at most every 0.7 s); hidden outside 900-1550.
+- `Viewer.updateSurroundings(delta, { force })` / `Viewer.getSurroundingsLight()`
+  - Every frame (`main.js`): the shaders' time and wind (the weather's while it is on), the smoke's size, and the cast shadows again when the light moved (at most every 100 ms); the light that casts them - the sun of the sun study, else the key light - `{ direction, strength }`.
+- `Viewer.setSurroundings(enabled)` / `Viewer.setSurroundingsOptions(options)` / `Viewer.reshuffleSurroundings()`
+  - Off or on; the parameters changed and drawn again; a new seed.
+- `Viewer.getSurroundingsSite()`
+  - `{ center, radius, meters }`: the model's middle on its ground, its footprint's radius in metres, metres per scene unit.
+- `Viewer.syncSurroundingsBadge()` / `Viewer.describeSurroundings(value)`
+  - The badge over the view while they are shown; "a town, late Middle Ages".
+- `Viewer.getSurroundingsForExport()` / `Viewer.apply3IFManifestSurroundings(block)` / `Viewer.disposeSurroundings()`
+  - `AIM3DViewer.surroundings`, exported while shown; removed before a new model.
+- `Viewer.toggleSurroundingsPanel(open)` / `Viewer.isSurroundingsPanelOpen()` / `Viewer.syncSurroundingsPanel()` / `Viewer.updateSurroundingsPanelLabels()` (`surroundings-panel.js`)
+  - Their window (Look > Generated surroundings, `#viewerSurroundingsPanel`): on or off, the year on a slider (900-1945; its period beside it, drawn 250 ms after the slider rests; off while the timeline is followed), the kind of place, the look, the season, the water, the real terrain (only with a place), following the timeline, another layout. Follows changes made elsewhere (the badge, a manifest).
+
 ## `viewer/editor/scene-rules.js`, `viewer/editor/scene-suggest.js`
 
-Suggested scene (*Look > Suggested scene*): the sun, the weather, the raking light, the tone mapping and ambient occlusion picked for the model by rules, with no AI and nothing sent anywhere. The rules (`scene-rules.js`, pure, no three.js) read the facts `scene-suggest.js` gathers: the file name, the metadata shown, the manifest's describing texts (labels, summaries, metadata, annotations), the place the manifest sets, the timeline's year, the model's size in metres (`resolveModelUnit`), its kind (mesh, point cloud, Gaussian splats; IFC) and materials (textures, vertex colours, normals, unlit, triangles).
+Suggested scene (*Look > Suggested scene*): the sun, the weather, generated surroundings, the raking light, the tone mapping and ambient occlusion picked for the model by rules, with no AI and nothing sent anywhere. The rules (`scene-rules.js`, pure, no three.js) read the facts `scene-suggest.js` gathers: the file name, the metadata shown, the manifest's describing texts (labels, summaries, metadata, annotations), the place the manifest sets, the timeline's year, the model's size in metres (`resolveModelUnit`), its kind (mesh, point cloud, Gaussian splats; IFC) and materials (textures, vertex colours, normals, unlit, triangles).
 
 They decide first the purpose - documentation (even light, raking light for relief, no weather that would hide the geometry) or presentation (the sun of the place and time, the sky, a weather the texts name) - then the setting: outdoors, indoors or an object on its own, from keywords (English, Polish, German, matched by stem without diacritics) and the size. A year comes from the timeline, else the earliest year (1000-1989) or century ("XIV w.", "14th century", "14. Jh.") in the texts; a place from the manifest, else coordinates in the texts, else a town they name (`Viewer.lookupScenePlace`: the worker's `POST /api/geo/places`, GeoNames offline, `worker/geonames.py`; once per model, when the window opens). Splats and scans keep the lighting baked into them (no sun, no AO); a phone gets no AO and lighter weather.
 

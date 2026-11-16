@@ -58,6 +58,7 @@ The topics below used to live in this file; they now have their own page in [`do
 - [2D images](docs/images.md) — JPEG, PNG, WebP, AVIF, GIF, BMP, one or a set (.zip, several dropped): levels, equalisation, relief, decorrelation stretch, false colour, before/after, saved as PNG; filmstrip and grid; measured in centimetres when the file gives its DPI
 - [Live data](docs/live-data.md) — a table (CSV, JSON, a spreadsheet's link) drives the model: colours, labels and alerts on its parts follow the table as it changes, without loading anything again
 - [Live link](docs/live-link.md) — a shared session (everyone with the link sees the scene as one of them moves it; a phone as the remote control of a screen), the manifest followed (only what changed is applied), the model's file followed (saved again, it takes the old one's place)
+- [Generated surroundings](docs/surroundings.md) — a typical setting (a settlement, fields, a forest) drawn schematically round a model from its kind, century and region; marked as generated, stored in the manifest as parameters
 - [AI assistance](docs/ai.md) — optional Claude API help: validation explained, IFC questions, variants and paradata review, point cloud classification
 - [`viewer/FUNCTIONS.md`](viewer/FUNCTIONS.md) — runtime function reference
 - [`worker/README.md`](worker/README.md) — standalone conversion worker's API contract/configuration

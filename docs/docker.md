@@ -78,6 +78,36 @@ scripts/docker.py prune                  # free disk space, asks first
 - Compose variables such as `WORKER_AUTH_MODE` or `WORKER_ADMIN_USER` come from a `.env` file next to `docker-compose.yml` (git-ignored). After editing it, run `scripts/docker.py rebuild --up`.
 - Existing settings volumes keep their old `viewer-settings.json`; see the volume note under "Docker profiles" above.
 
+## Your own Overpass (water of the generated surroundings)
+
+The generated surroundings ([surroundings](surroundings.md)) ask an Overpass
+API for the real water round a place. The public server has limits; the
+`overpass` profile of `docker-compose.yml` runs your own:
+
+```bash
+docker compose --profile overpass up -d
+```
+
+On its first start it downloads a region's extract (`OVERPASS_EXTRACT_URL`
+in `.env`; Poland by default, any `.osm.pbf` from download.geofabrik.de),
+cuts it down with osmium to rivers, streams, lakes and the coast, and loads
+that - a small database, minutes rather than days. It is not updated
+afterwards; to load a newer or another extract, remove the `overpass-db`
+volume and start it again. The image is
+[wiktorn/overpass-api](https://github.com/wiktorn/Overpass-API); pin a tag
+with `OVERPASS_IMAGE` in `.env`.
+
+The viewers reach it at `/overpass/` (`docker/nginx.conf`) and ask it first:
+the image's `viewer-settings.json` gets `viewer.surroundings.mapUrl`
+`["/overpass/api/interpreter", "https://overpass-api.de/api/interpreter"]`
+unless the settings name their own. While the profile is not running nginx
+answers 502 and the viewer goes on to the public server.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OVERPASS_EXTRACT_URL` | Geofabrik's `europe/poland-latest.osm.pbf` | the region loaded |
+| `OVERPASS_IMAGE` | `wiktorn/overpass-api:latest` | the image (pin a tag) |
+
 ## Publishing for a portfolio (cheap static hosting)
 
 Instead of exposing the conversion worker publicly, export the finished models and host them statically:

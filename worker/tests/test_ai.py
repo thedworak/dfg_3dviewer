@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -32,10 +33,29 @@ except ImportError:
     HAVE_SDK = False
 
 
+class FakeStream:
+    def __init__(self, message):
+        self.message = message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def get_final_message(self):
+        return self.message
+
+
 class FakeMessages:
     def __init__(self, answers):
         self.answers = list(answers)
         self.calls = []
+        self.streamed = []
+
+    def stream(self, **params):
+        self.streamed.append(params)
+        return FakeStream(self.create(**params))
 
     def create(self, **params):
         self.calls.append(params)
@@ -50,7 +70,9 @@ class FakeMessages:
 
 def fake_client(*answers):
     messages = FakeMessages(answers)
-    return SimpleNamespace(beta=SimpleNamespace(messages=messages)), messages
+    client = SimpleNamespace(beta=SimpleNamespace(messages=messages))
+    client.with_options = lambda **options: client
+    return client, messages
 
 
 IFC_SUMMARY = {
@@ -322,6 +344,24 @@ class EndpointTests(unittest.TestCase):
         status, body = self.request("/api/ai/ifc-query", {"question": "", "schema": IFC_SUMMARY})
         self.assertEqual(status, 400)
 
+    def test_old_map_endpoint(self):
+        client, _ = fake_client(OLD_MAP_ANSWER)
+        ai.set_client(client)
+        payload = {"image": "aGVsbG8=", "mediaType": "image/jpeg", "width": 200, "height": 120}
+        status, body = self.request("/api/ai/old-map", payload)
+        self.assertEqual(status, 202)
+        for _ in range(100):
+            status, job = self.request(f"/api/ai/old-map/{body['id']}")
+            if job["state"] != "running":
+                break
+            time.sleep(0.02)
+        self.assertEqual((status, job["state"]), (200, "done"))
+        self.assertEqual(job["answer"]["water"][0]["kind"], "river")
+        status, _ = self.request("/api/ai/old-map", {**payload, "width": 9999})
+        self.assertEqual(status, 400)
+        status, _ = self.request(f"/api/ai/old-map/{'0' * 32}")
+        self.assertEqual(status, 404)
+
     def test_unexpected_error_answers_json(self):
         broken = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=lambda **_: 1 / 0)))
         ai.set_client(broken)
@@ -342,3 +382,68 @@ class EndpointTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+OLD_MAP_ANSWER = {
+    "readable": True,
+    "notes": "A cadastral plan.",
+    "roads": [{"points": [{"x": 10, "y": 50}, {"x": 190, "y": 52}], "width_px": 6}],
+    "buildings": [
+        {"points": [{"x": 20, "y": 20}, {"x": 40, "y": 20}, {"x": 40, "y": 35}, {"x": 20, "y": 35}], "kind": "house"},
+        # Outside the picture: dropped.
+        {"points": [{"x": 900, "y": 20}, {"x": 940, "y": 20}, {"x": 940, "y": 35}], "kind": "house"},
+    ],
+    "fields": [],
+    "water": [{"kind": "river", "points": [{"x": 0, "y": 90}, {"x": 200, "y": 95}], "width_px": 12}],
+    "walls": [],
+}
+
+
+@unittest.skipUnless(HAVE_SDK, "anthropic package not installed")
+class OldMapTests(unittest.TestCase):
+    def setUp(self):
+        ai.CACHE.items.clear()
+        os.environ.pop("WORKER_AI_FEATURES", None)
+
+    def payload(self, **extra):
+        return {"image": "aGVsbG8=", "mediaType": "image/jpeg", "width": 200, "height": 120, "metresPerPixel": 2.5, "year": 1820, **extra}
+
+    def test_request_shape_and_cleaning(self):
+        client, messages = fake_client(OLD_MAP_ANSWER)
+        ai.set_client(client)
+        answer = ai.read_old_map(self.payload(), "pl")
+        params = messages.streamed[0]
+        content = params["messages"][0]["content"]
+        self.assertEqual(content[0]["type"], "image")
+        self.assertEqual(content[0]["source"], {"type": "base64", "media_type": "image/jpeg", "data": "aGVsbG8="})
+        self.assertEqual(content[1]["type"], "text")
+        self.assertIn("200 x 120", params["system"])
+        self.assertIn("2.5 metres", params["system"])
+        self.assertIn("1820", params["system"])
+        self.assertIn("Polish", params["system"])
+        self.assertEqual(params["output_config"]["format"]["type"], "json_schema")
+        self.assertEqual(len(answer["buildings"]), 1)
+        self.assertEqual(answer["model"], ai.DEFAULT_MODEL)
+
+    def test_input_checks(self):
+        with self.assertRaises(ai.AIError):
+            ai.read_old_map(self.payload(width=5000))
+        with self.assertRaises(ai.AIError):
+            ai.read_old_map(self.payload(mediaType="image/gif"))
+        with self.assertRaises(ai.AIError):
+            ai.start_old_map(self.payload(image=""))
+
+    def test_background_job(self):
+        client, _ = fake_client(OLD_MAP_ANSWER)
+        ai.set_client(client)
+        started = ai.start_old_map(self.payload())
+        self.assertEqual(started["state"], "running")
+        for _ in range(100):
+            job = ai.old_map_job(started["id"])
+            if job["state"] != "running":
+                break
+            time.sleep(0.02)
+        self.assertEqual(job["state"], "done")
+        self.assertEqual(len(job["answer"]["roads"]), 1)
+        with self.assertRaises(ai.AIError):
+            ai.old_map_job("0" * 32)

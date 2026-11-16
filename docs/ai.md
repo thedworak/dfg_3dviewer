@@ -11,6 +11,7 @@ The assistant never sees the model files. Each feature sends only derived data (
 | `validation` | File > Validation report > "Explain in plain language (AI)" | the model's `validation.json` (issue codes, statistics, bounds, checks) | headline, summary, findings with what to fix |
 | `ifc-query` | Model > "Ask the building model (AI)" (converted IFC models) | the question and a summary of the IFC data: classes with counts, storeys, materials, property sets with property names, types, min/max and up to 3 sample values; asked from the context menu ("Ask about this element"), also the picked element's fields, storey and property values | a filter (conditions, aggregate, action) that the viewer runs on the real data |
 | `variants` | Reconstruction variants panel > "Compare and review paradata (AI)" | each variant's label, description, source, Level of Certainty (with the scale's levels), node names (at most 30) and the viewer's measurements (size, bottom/top in metres, triangles, shared/exclusive nodes) | summary, differences, paradata review per variant (ok / incomplete / inconsistent, issues, suggestions) |
+| `old-map` | The generated surroundings' badge, ✎ "Read the old map's roads and buildings (AI)" (an old map draped over the ground) | the picture of the old map the viewer shows (its tiles stitched, at most 2576 pixels on the long side, JPEG), its metres per pixel and the year shown | roads, buildings, fields, water and walls in the picture's pixels, and notes; the viewer turns them into GeoJSON in degrees |
 
 ## Turning it on
 
@@ -26,10 +27,11 @@ ANTHROPIC_API_KEY=sk-ant-...
 | `WORKER_AI_ENABLED` | `false` | Master switch. Nothing is offered without it, even with a key. |
 | `ANTHROPIC_API_KEY` | – | The Claude API key (any credential the Anthropic SDK resolves works too). |
 | `WORKER_AI_MODEL` | `claude-opus-5-5` | Model used for every feature. |
-| `WORKER_AI_FEATURES` | all | Comma-separated subset of `validation`, `ifc-query`, `variants`. |
+| `WORKER_AI_FEATURES` | all | Comma-separated subset of `validation`, `ifc-query`, `variants`, `old-map`. |
 | `WORKER_AI_ACCESS` | `business` | Who may use it: `business` (the **Business and Enterprise** plans: accounts with either plan, and the app's Business subscribers, who have no account), `users` (anyone logged in), `all`, `admin`. Admins always may. A self-hosted server without plans sets `all` or `users`. |
 | `WORKER_AI_REQUESTS_PER_HOUR` | `30` | Per caller (account, else IP), rolling hour, in memory. `0` = unlimited. |
 | `WORKER_AI_TIMEOUT` | `90` | Seconds per request, one attempt. Keep it under the proxies' limits: `docker/nginx.conf` waits 100 s on `/api/ai/`, Cloudflare 100 s. |
+| `WORKER_AI_OLD_MAP_TIMEOUT` | `600` | Seconds for reading an old map (`old-map`): in the background, streamed, so not bound by the proxies' 100 s. |
 | `WORKER_AI_FALLBACKS` | `true` | Server-side refusal fallback of the Claude API (beta `server-side-fallback-2026-07-01`). |
 
 The worker image installs the `anthropic` package. Running `worker/server.py` outside Docker requires `pip install "anthropic>=1.15,<2"`. Without the package, the features report themselves as off.
@@ -47,7 +49,36 @@ Identical requests are answered from an in-memory cache (the last 256 answers), 
 | `POST /api/ai/ifc-query` | `{question, schema, lang, selection?}` (`schema`: `buildIfcSummary()` of `viewer/ai/ifc-filter.js`; `selection`: the picked element - `guid`, `type`, `name`, `storey`, ..., `psets` - at most 4000 characters, the property sets dropped first) | `{understood, interpretation, match, conditions: [{field, pset, property, op, value}], aggregate: {kind, pset, property, unit}, action, note, model}` |
 | `POST /api/ai/variants` | `{label, description, certaintyScale, variants: [...], lang}` (`buildVariantsPayload()` of `viewer/ai/variants-review.js`) | `{summary, differences: [{aspect, detail, variants}], paradata: [{variant, status, issues, suggestions}], model}` |
 
+| `POST /api/ai/old-map` | `{image (base64), mediaType (image/jpeg, png or webp), width, height (16-2576), metresPerPixel?, year?, lang}` (`readOldMap()` of `viewer/ai/old-map-reader.js`; at most 12 MB) | `202 {id, state: "running"}`: read in the background |
+| `GET /api/ai/old-map/<id>` | – | `{state: "running"}`, `{state: "done", answer: {readable, notes, roads, buildings, fields, water, walls, model}}` (points `{x, y}` in the picture's pixels) or `{state: "failed", status, error, code}`; kept an hour |
+
 Errors are `{error, code}`: `404 ai_disabled` / `ai_feature_disabled`, `403 ai_forbidden`, `429 ai_rate_limited` (with `Retry-After`), `422 ai_refusal`, `503 ai_*` when the Claude API fails or answers unusably (never 502/504, whose bodies Cloudflare replaces with its own page), `500 ai_internal` for an unexpected worker error. Problems of the server's setup (`ai_auth`, `ai_permission`, `ai_bad_request` - also an empty credit balance -, `ai_upstream`, `ai_unreachable`, `ai_internal`) answer only "The AI assistant is temporarily unavailable."; the reason is in the worker log (`docker compose logs worker | grep '\[ai\]'`). `lang` is `en`, `pl` or `de` (the viewer's language). The answer's texts are written in that language.
+
+## Reading an old map
+
+For the generated surroundings ([surroundings](surroundings.md)) on an old
+map draped over the ground (`mapOverlay`): instead of digitising the map by
+hand, the badge's ✎ sends its picture to the assistant, which reads what the
+map draws - street centre lines with their width, building outlines (house,
+church, tower), fields, rivers, lakes, town walls - in the picture's pixels.
+The current models read pictures up to 2576 pixels on the long side at full
+resolution, and their coordinates then map one to one to its pixels; the
+viewer sends the stitched map at most that big and turns the pixels back
+into degrees through the tiles' georeference (Web Mercator).
+
+It is told to read only what is drawn - not to complete a street plan or a
+wall beyond what is visible, nor to add what such a place usually has - and
+to leave out lettering, the legend, grid lines and hill shading. What it
+reads takes the place of the generated roads, buildings, fields, walls and
+water (any terrain), marked in the badge as "read from the old map by AI -
+check them"; ⤓ saves it as GeoJSON (each feature `source: "ai"`) to be
+checked and corrected (in QGIS, say) and then given to the manifest as
+`layoutUrl` and `waterUrl`. It is not stored in the manifest by itself.
+
+A map takes minutes to read, longer than the proxies wait: the worker reads
+it in the background (`WORKER_AI_OLD_MAP_TIMEOUT`, streamed, effort `high`),
+and the viewer asks every 3 seconds how it goes. Only the map's picture,
+its scale and the year go out - never the model.
 
 ## 1. Validation report explained
 

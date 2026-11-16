@@ -4045,3 +4045,145 @@
   font-size: 12px;
   opacity: 0.8;
 }
+
+/* Generated surroundings (editor/surroundings.js): what they are, while shown. */
+.viewer-surroundings-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 76px;
+  z-index: 114;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(560px, calc(100% - 24px));
+  padding: 5px 6px 5px 12px;
+  border: 1px dashed var(--viewer-brand-accent, #f5a524);
+  border-radius: 999px;
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  font: 12px/1.35 system-ui, sans-serif;
+  transform: translateX(-50%);
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+}
+
+.viewer-surroundings-badge_button {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viewer-surroundings-badge_button svg {
+  display: block;
+  margin: auto;
+}
+
+.viewer-surroundings-badge_button[aria-pressed="true"] {
+  color: var(--viewer-brand-accent, #f5a524);
+}
+
+.viewer-surroundings-badge_button:hover,
+.viewer-surroundings-badge_button:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@media (pointer: coarse) {
+  .viewer-surroundings-badge_button {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* The surroundings' window (editor/surroundings-panel.js), on .viewer-scene:
+   the year on a slider, the place, the look. */
+.viewer-surroundings-panel_field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.viewer-surroundings-panel_toggle {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.viewer-surroundings-panel_label {
+  opacity: 0.85;
+}
+
+.viewer-surroundings-panel_year-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.viewer-surroundings-panel_year {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-surroundings-panel_period {
+  opacity: 0.75;
+}
+
+.viewer-surroundings-panel_field input[type="range"] {
+  width: 100%;
+  accent-color: var(--viewer-brand-accent, #f5a524);
+}
+
+.viewer-surroundings-panel_field input[type="range"]:disabled {
+  opacity: 0.45;
+}
+
+.viewer-surroundings-panel_grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 8px;
+}
+
+.viewer-surroundings-panel select {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: var(--viewer-gui-widget-bg, rgba(255, 255, 255, 0.08));
+  color: inherit;
+  font: inherit;
+}
+
+.viewer-surroundings-panel select option {
+  color: #111;
+}
+
+.viewer-surroundings-panel_reshuffle {
+  padding: 5px 10px;
+}
+
+.viewer-surroundings-panel_note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+@media (max-width: 520px) {
+  .viewer-surroundings-panel_grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.viewer-surroundings-panel {
+  width: 400px;
+}
