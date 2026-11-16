@@ -4139,13 +4139,66 @@
   opacity: 0.75;
 }
 
+/* The track and the thumb drawn here: the browser's own range follows the
+   page's colour scheme and can lose its thumb against the dark panel. */
 .viewer-surroundings-panel_field input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  accent-color: var(--viewer-brand-accent, #f5a524);
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.viewer-surroundings-panel_field input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.viewer-surroundings-panel_field input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.viewer-surroundings-panel_field input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--viewer-brand-accent, #f5a524);
+}
+
+.viewer-surroundings-panel_field input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 2px solid var(--viewer-panel-bg, #1a1714);
+  border-radius: 50%;
+  background: var(--viewer-brand-accent, #f5a524);
+  box-shadow: 0 0 0 1px var(--viewer-brand-accent, #f5a524);
+}
+
+.viewer-surroundings-panel_field input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--viewer-panel-bg, #1a1714);
+  border-radius: 50%;
+  background: var(--viewer-brand-accent, #f5a524);
+  box-shadow: 0 0 0 1px var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-surroundings-panel_field input[type="range"]:disabled {
   opacity: 0.45;
+  cursor: default;
+}
+
+.viewer-surroundings-panel input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--viewer-brand-accent, #f5a524);
 }
 
 .viewer-surroundings-panel_grid {

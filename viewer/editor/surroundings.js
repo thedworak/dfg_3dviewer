@@ -76,6 +76,10 @@ const SHADOW_INTERVAL = 100;
 const SHADOW_REACH = 80;
 // While following the timeline: drawn again at most this often (ms).
 const TIMELINE_INTERVAL = 700;
+// A building's footprint, its half-diagonal in metres: wider is taken as a
+// model in another unit, where its unit is not known (getSurroundingsSite).
+const SITE_MAX_RADIUS = 150;
+const SITE_MIN_RADIUS = 2;
 
 // Colours (sRGB): [summer, winter].
 const PALETTE = {
@@ -428,14 +432,28 @@ export function attachSurroundings(Viewer) {
         }
       });
       if (box.isEmpty()) return null;
-      const meters = Viewer.resolveModelUnit?.().meters || 1;
+      const unit = Viewer.resolveModelUnit?.() || { meters: 1, source: "default" };
+      let meters = unit.meters || 1;
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
       const ground = core.basicGrid?.isObject3D ? core.basicGrid.getWorldPosition(new THREE.Vector3()).y : box.min.y;
+      const footprint = Math.hypot(size.x, size.z) / 2;
+      // No unit known (glTF says metres, but models made in centimetres or
+      // millimetres are often exported as they are): a footprint wider than
+      // any building in metres is taken in the unit that makes it one.
+      let unitGuessed = false;
+      if ((unit.source === "default" || unit.source === "config") && footprint * meters > SITE_MAX_RADIUS) {
+        const guess = [0.01, 0.001].find((candidate) => footprint * candidate <= SITE_MAX_RADIUS && footprint * candidate >= SITE_MIN_RADIUS);
+        if (guess) {
+          meters = guess;
+          unitGuessed = true;
+        }
+      }
       return {
         center: new THREE.Vector3(center.x, ground, center.z),
-        radius: (Math.hypot(size.x, size.z) / 2) * meters,
+        radius: footprint * meters,
         meters,
+        unitGuessed,
       };
     },
 
@@ -1083,6 +1101,8 @@ export function attachSurroundings(Viewer) {
           else if (map === "real" && Viewer.surroundingsMap.water?.count) parts.push(t("surroundings.terrain.map", "today's rivers and lakes (© OpenStreetMap contributors)"));
           else if (map === "loading") parts.push(t("surroundings.terrain.mapLoading", "loading the water…"));
         }
+        const site = Viewer.surroundingsObjects?.site;
+        if (site?.unitGuessed) parts.push(t("surroundings.unitGuessed", { unit: site.meters === 0.01 ? "cm" : "mm" }, "the model taken as in {unit} (its unit is not known)"));
         const old = Viewer.surroundingsOldMap;
         if (old.layoutSource === "file") parts.push(t("surroundings.oldMap.layout", { year: value.year }, "roads and buildings of {year} from the old map"));
         else if (old.layoutSource === "ai") parts.push(t("surroundings.oldMap.layoutAi", "roads and buildings read from the old map by AI - check them"));

@@ -1867,6 +1867,7 @@ export const VIEWER_I18N = {
         mapHistorical: "the water of {year} (© OpenHistoricalMap contributors)",
       },
       off: "Remove the generated surroundings",
+      unitGuessed: "the model taken as in {unit} (its unit is not known)",
       panel: {
         show: "Show round the model",
         year: "Year",
@@ -4146,6 +4147,7 @@ export const VIEWER_I18N = {
         mapHistorical: "woda z roku {year} (© współtwórcy OpenHistoricalMap)",
       },
       off: "Usuń wygenerowane otoczenie",
+      unitGuessed: "model przyjęty w {unit} (jego jednostka jest nieznana)",
       panel: {
         show: "Pokaż wokół modelu",
         year: "Rok",
@@ -6424,6 +6426,7 @@ export const VIEWER_I18N = {
         mapHistorical: "die Gewässer von {year} (© OpenHistoricalMap-Mitwirkende)",
       },
       off: "Generierte Umgebung entfernen",
+      unitGuessed: "das Modell in {unit} angenommen (seine Einheit ist unbekannt)",
       panel: {
         show: "Um das Modell zeigen",
         year: "Jahr",

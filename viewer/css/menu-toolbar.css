@@ -180,15 +180,17 @@
   position: relative;
 }
 
+/* On the bar: a thin line under the icon, as on the classic toolbar
+   (editor-toolbar.css); in a menu's row a dot, as a badge (below). */
 #viewerEditorToolbar.viewer-menus .viewer-menus_format-tool > .viewer-editor-tool_icon::after,
 #viewerEditorToolbar.viewer-menus .viewer-menus_panel .viewer-editor-tool.is-format-tool > .viewer-editor-tool_icon::after {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -6px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
+  bottom: -5px;
+  width: 14px;
+  height: 1.5px;
+  border-radius: 1px;
   transform: translateX(-50%);
   background: color-mix(in srgb, var(--viewer-menus-accent) 75%, transparent);
   pointer-events: none;
@@ -200,6 +202,9 @@
   right: -3px;
   top: -2px;
   bottom: auto;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
   transform: none;
 }
 
