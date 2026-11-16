@@ -61,6 +61,13 @@ export function attachLocalizationTheme(viewer) {
       document.documentElement.setAttribute("data-viewer-theme", normalizedTheme);
       document.body.setAttribute("data-viewer-theme", normalizedTheme);
       document.body.classList.toggle("iiif-dark", isDark);
+      // The page's own pages (index.html): the browser's form controls in
+      // the viewer's theme, and no automatic dark mode of the browser over
+      // it - "only light" opts out of it in the light theme too. A page
+      // embedding the viewer keeps its own.
+      if (document.body.classList.contains("viewer-standalone-page")) {
+        document.documentElement.style.colorScheme = isDark ? "dark" : "only light";
+      }
       this.viewerWrapper?.setAttribute("data-viewer-theme", normalizedTheme);
       this.actionMenu?.setAttribute("data-viewer-theme", normalizedTheme);
       this.metadataContainer?.setAttribute("data-viewer-theme", normalizedTheme);

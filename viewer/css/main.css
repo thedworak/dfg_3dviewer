@@ -2107,16 +2107,45 @@ body.presentation-mode {
     display: none !important;
   }
 
-  body.viewer-page-header-folds #viewer-page-header.is-open > #example-model-picker {
-    flex: none;
-    width: calc(100vw - var(--viewer-page-header-toggle-left) - env(safe-area-inset-right) - 12px);
-    box-sizing: border-box;
+  /* Open: the account beside the button, the picker in one row under
+     them - the list gives up width, the buttons keep theirs (they wrapped
+     into a second row, and the account took a card of its own). */
+  body.viewer-standalone-page.viewer-page-header-folds > #viewer-page-header.is-open {
+    flex-direction: row;
     flex-wrap: wrap;
+    align-items: center;
+    width: calc(100vw - var(--viewer-page-header-toggle-left) - env(safe-area-inset-right) - 12px);
+  }
+
+  body.viewer-page-header-folds #viewer-page-header.is-open > #example-model-picker {
+    order: 2;
+    flex: 1 0 100%;
+    width: 100%;
+    box-sizing: border-box;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 6px;
     animation: viewer-page-header-drop 0.18s ease-out;
   }
 
+  body.viewer-page-header-folds #viewer-page-header.is-open > #example-model-picker > select {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  body.viewer-page-header-folds #viewer-page-header.is-open > #example-model-picker > :not(select, label) {
+    flex: none;
+  }
+
   body.viewer-page-header-folds #viewer-page-header.is-open > #viewer-account-bar {
+    order: 1;
     margin: 0;
+    padding: 0;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
     animation: viewer-page-header-drop 0.18s ease-out;
   }
 
