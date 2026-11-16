@@ -9,7 +9,10 @@ import { t } from "../i18n-utils.js";
 // of their own, a close button. A `modal` panel (phones: its settings take
 // the screen) restores as a window centred over the viewer, on a dimmed
 // backdrop; a tap on the backdrop, Escape or its minimize button folds it
-// back to its icon.
+// back to its icon. A fold button rolls a panel up to its header and the
+// controls marked [data-panel-peek] (the surroundings' year, say): on a
+// phone the scene stays in view while the one setting that matters is
+// changed.
 
 const DOUBLE_TAP_MS = 320;
 const TAP_SLOP_PX = 6;
@@ -302,6 +305,40 @@ function createClose(onClose) {
   return button;
 }
 
+const FOLD_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 10 4-4 4 4"/></svg>';
+
+function createFold(panel) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "tool-panel-chrome_fold";
+  button.innerHTML = FOLD_ICON;
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", () => setToolPanelFolded(panel, !isToolPanelFolded(panel)));
+  return button;
+}
+
+function syncFold(panel, button) {
+  const folded = isToolPanelFolded(panel);
+  const label = folded ? t("toolPanel.unfold", "Unfold panel") : t("toolPanel.fold", "Fold panel (keep its main setting)");
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-expanded", String(!folded));
+}
+
+export function isToolPanelFolded(panel) {
+  return Boolean(panel?.classList.contains("is-peek"));
+}
+
+// Rolls the panel up to its header and its [data-panel-peek] controls
+// (true), or shows all of it again.
+export function setToolPanelFolded(panel, folded) {
+  const chrome = panel?.toolPanelChrome;
+  if (!chrome) return;
+  panel.classList.toggle("is-peek", folded);
+  if (chrome.fold) syncFold(panel, chrome.fold);
+  if (panel.classList.contains("is-undocked")) clampPanel(panel);
+}
+
 function createMinimize(panel) {
   const button = document.createElement("button");
   button.type = "button";
@@ -340,6 +377,8 @@ function syncPip(panel, pip, icon, label) {
 // or last) and the round icon the minimized panel shrinks to (`icon`: SVG
 // markup, `label`: the panel's name, or a function returning it) to a panel.
 // `onClose`: adds a close button (last) for panels without one of their own.
+// `foldable: false`: no fold button (attachToolPanelChrome's header and
+// [data-panel-peek] controls only, see setToolPanelFolded).
 // `movable: false` for dialogs that already drag by their header;
 // `visibilityRoot`: the element whose `hidden` shows and hides the panel,
 // when that is not the panel itself. `modal` (or a function, asked at each
@@ -349,6 +388,7 @@ function syncPip(panel, pip, icon, label) {
 export function attachToolPanelChrome(panel, header, {
   before = null,
   minimizable = true,
+  foldable = true,
   movable = true,
   visibilityRoot = panel,
   icon = WINDOW_ICON,
@@ -360,6 +400,7 @@ export function attachToolPanelChrome(panel, header, {
   if (!panel.toolPanelChrome) {
     panel.toolPanelChrome = {
       grip: movable ? createGrip(panel) : null,
+      fold: foldable ? createFold(panel) : null,
       minimize: minimizable ? createMinimize(panel) : null,
       pip: minimizable ? createPip(panel) : null,
       close: onClose ? createClose(onClose) : null,
@@ -375,7 +416,7 @@ export function attachToolPanelChrome(panel, header, {
     }).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
   }
   Object.assign(panel.toolPanelChrome, { header, options: { before, icon, label, modal } });
-  const { grip, minimize, pip, close } = panel.toolPanelChrome;
+  const { grip, fold, minimize, pip, close } = panel.toolPanelChrome;
   header.classList.add("tool-panel-chrome");
   if (grip) {
     const moveLabel = t("toolPanel.move", "Move panel (double tap: dock)");
@@ -393,6 +434,11 @@ export function attachToolPanelChrome(panel, header, {
     syncMinimize(panel, minimize);
     const anchor = before && before.parentNode === header ? before : close;
     if (minimize.nextSibling !== anchor || minimize.parentNode !== header) header.insertBefore(minimize, anchor);
+  }
+  if (fold) {
+    syncFold(panel, fold);
+    const anchor = minimize?.parentNode === header ? minimize : (before && before.parentNode === header ? before : close);
+    if (fold.nextSibling !== anchor || fold.parentNode !== header) header.insertBefore(fold, anchor);
   }
   if (pip) {
     syncPip(panel, pip, icon, label);

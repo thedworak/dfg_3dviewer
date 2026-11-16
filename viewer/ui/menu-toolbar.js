@@ -426,6 +426,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     showSheetHeight();
     if (before) turnTabs(before, previous, mode);
     if (mode === "desktop") requestAnimationFrame(() => keepInside());
+    viewer.menuToolbar.syncHandle?.();
     syncNoticeAboveToolbar();
   };
   const measureTabs = () => {
@@ -525,6 +526,8 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   viewer.bindEventListener(window, "resize", applyLayout);
   applyLayout();
 
+  bindSceneOnly(viewer, toolbar, host, state, openMenu);
+
   updateMenuToolbarLabels(viewer);
 }
 
@@ -570,6 +573,7 @@ export function updateMenuToolbarLabels(viewer) {
     const group = menus.groups[category.id];
     if (group) group.heading.textContent = label;
   });
+  menus.syncHandle?.();
   menus.close.setAttribute("aria-label", t("menus.close", "Close"));
   menus.close.setAttribute("title", t("menus.close", "Close"));
   if (menus.state.open) {
@@ -621,6 +625,130 @@ export function updateMenuToolbarState(viewer) {
     const active = key === "sunStudy" ? viewer.sunStudy?.enabled === true : viewer.rakingLight?.enabled === true;
     button.classList.toggle("is-active", active);
   });
+}
+
+// The scene alone (phones, "bar" and "rail"): the menus slide out of the
+// way and leave a small handle on the edge - the bottom upright, the left
+// sideways; a tap on it or a swipe from it brings them back. The handle on
+// the bar's top edge (the rail's right edge), a tap, or a swipe of the tabs
+// towards the edge hides them; so does the page header's button (body
+// .viewer-scene-only, main.css). Remembered on this device. While the scene
+// is turned with a finger the menus fade a little, so the model shows
+// through them.
+const SCENE_ONLY_KEY = "explora4d-scene-only";
+const SWIPE_PX = 28;
+
+function bindSceneOnly(viewer, toolbar, host, state, openMenu) {
+  const menus = viewer.menuToolbar;
+  const handle = el("button", "viewer-menus_handle", { type: "button" });
+  handle.innerHTML = '<span class="viewer-menus_handle-bar" aria-hidden="true"></span><svg class="viewer-menus_handle-chevron" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m4 10 4-4 4 4"/></svg>';
+  toolbar.appendChild(handle);
+
+  let hidden = false;
+  try {
+    hidden = localStorage.getItem(SCENE_ONLY_KEY) === "1";
+  } catch {
+    // no storage: the menus shown
+  }
+  const phone = () => state.mode === "bar" || state.mode === "rail";
+  const syncHandle = () => {
+    const on = hidden && phone();
+    toolbar.classList.toggle("viewer-menus--scene-only", on);
+    core.container?.classList.toggle("viewer-scene-only", on);
+    document.body.classList.toggle("viewer-scene-only", on);
+    const label = on ? t("menus.showMenus", "Show the menus") : t("menus.hideMenus", "Hide the menus: the scene alone");
+    handle.title = label;
+    handle.setAttribute("aria-label", label);
+    handle.setAttribute("aria-expanded", String(!on));
+    // Hidden, the tabs and the navigation are out of reach of the keyboard.
+    menus.dock.inert = on;
+  };
+  const setSceneOnly = (on) => {
+    hidden = on === true;
+    try {
+      localStorage.setItem(SCENE_ONLY_KEY, hidden ? "1" : "0");
+    } catch {
+      // only for now
+    }
+    if (hidden) openMenu(null);
+    syncHandle();
+    syncNoticeAboveToolbar();
+    setTimeout(syncNoticeAboveToolbar, 320);
+  };
+  menus.handle = handle;
+  menus.syncHandle = syncHandle;
+  viewer.setSceneOnly = setSceneOnly;
+  viewer.isSceneOnly = () => hidden && phone();
+
+  // A swipe on the tabs (towards the edge) or on the handle (both ways);
+  // a tap on the handle.
+  const towardsEdge = (dx, dy) => (state.mode === "rail" ? dx < -SWIPE_PX && Math.abs(dx) > Math.abs(dy) : dy > SWIPE_PX && Math.abs(dy) > Math.abs(dx));
+  const awayFromEdge = (dx, dy) => (state.mode === "rail" ? dx > SWIPE_PX && Math.abs(dx) > Math.abs(dy) : dy < -SWIPE_PX && Math.abs(dy) > Math.abs(dx));
+  const swipe = { start: null };
+  const startSwipe = (event, from) => {
+    if (!phone() || event.button !== 0) return;
+    swipe.start = { x: event.clientX, y: event.clientY, from, done: false };
+  };
+  const moveSwipe = (event) => {
+    const start = swipe.start;
+    if (!start || start.done) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (!hidden && towardsEdge(dx, dy)) {
+      start.done = true;
+      setSceneOnly(true);
+    } else if (hidden && start.from === "handle" && awayFromEdge(dx, dy)) {
+      start.done = true;
+      setSceneOnly(false);
+    }
+  };
+  const endSwipe = () => {
+    // A swipe that did its work is not also a tap.
+    if (swipe.start?.done) handle.swiped = true;
+    swipe.start = null;
+  };
+  viewer.bindEventListener(menus.tabs, "pointerdown", (event) => startSwipe(event, "tabs"));
+  viewer.bindEventListener(handle, "pointerdown", (event) => {
+    startSwipe(event, "handle");
+    handle.setPointerCapture?.(event.pointerId);
+  });
+  [menus.tabs, handle].forEach((target) => {
+    viewer.bindEventListener(target, "pointermove", moveSwipe);
+    viewer.bindEventListener(target, "pointerup", endSwipe);
+    viewer.bindEventListener(target, "pointercancel", endSwipe);
+  });
+  // A tab let go after a swipe that hid the menus does not open its menu.
+  viewer.bindEventListener(menus.tabs, "click", (event) => {
+    if (!hidden) return;
+    event.stopPropagation();
+  }, true);
+  viewer.bindEventListener(handle, "click", (event) => {
+    event.stopPropagation();
+    if (handle.swiped) {
+      handle.swiped = false;
+      return;
+    }
+    setSceneOnly(!hidden);
+  });
+
+  // Turning the scene with a finger: the menus fade while it moves.
+  let turning = null;
+  viewer.bindEventListener(host, "pointerdown", (event) => {
+    if (!phone() || hidden || event.target?.tagName !== "CANVAS") return;
+    turning = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  });
+  viewer.bindEventListener(window, "pointermove", (event) => {
+    if (!turning || event.pointerId !== turning.id) return;
+    if (Math.hypot(event.clientX - turning.x, event.clientY - turning.y) > 10) toolbar.classList.add("viewer-menus--turning");
+  });
+  const stopTurning = () => {
+    turning = null;
+    toolbar.classList.remove("viewer-menus--turning");
+  };
+  viewer.bindEventListener(window, "pointerup", stopTurning);
+  viewer.bindEventListener(window, "pointercancel", stopTurning);
+
+  syncHandle();
 }
 
 // The part of the viewer's bottom the toolbar covers, for the notices

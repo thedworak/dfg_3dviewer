@@ -173,6 +173,8 @@ export function attachLocalizationTheme(viewer) {
       if (label) {
         label.textContent = t("localPreview.loadExampleModel", "Load example model");
       }
+      // The phone's button for the folded row (ui/page-header-fold.js).
+      this.pageHeaderFold?.refreshLabels();
       // Names given per language (example-models.js).
       renderExampleModelOptions(document.getElementById("example-model-select"));
     },

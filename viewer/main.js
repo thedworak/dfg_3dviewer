@@ -219,6 +219,7 @@ import {
   getWrapperSize,
 } from "./viewer-helpers.js";
 import { t, setLanguageSource } from "./i18n-utils.js";
+import { foldPageHeader } from "./ui/page-header-fold.js";
 import { imageSet, loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
@@ -4495,6 +4496,8 @@ export const Viewer = {
         // happened to call refreshAuthState() first. Do that once up front so
         // an admin's session is recognized, and the button shown, right away.
         Viewer.refreshAuthState?.();
+        // On a phone the row folds into one button over the viewer.
+        if (!Viewer.isEmbedMode()) Viewer.pageHeaderFold ||= foldPageHeader(Viewer);
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);

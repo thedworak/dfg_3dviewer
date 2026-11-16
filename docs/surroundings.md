@@ -21,7 +21,10 @@ many houses stood there. The viewer keeps that visible:
   realistic look (below) is a choice, never the default.
 - **Marked.** While they are shown, a badge over the view says "Generated
   surroundings: ... A typical setting, not this place's", with a button for
-  another layout and one to remove them.
+  another layout and one to remove them. On a phone it is one line (a tap
+  shows all of it), and it gives way to the window while that is open; the
+  window's fold button (the chevron in its header) rolls it up to the year
+  and its slider.
 - **Not the model.** One group in the scene (`userData.isSurroundings`): no
   picking, no measuring, not in the model's box (camera framing, ground, the
   sizes of the sun and the weather). They do show in renders taken while

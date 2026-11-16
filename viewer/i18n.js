@@ -42,6 +42,11 @@ export const VIEWER_I18N = {
       minimize: "Minimize panel",
       restore: "Restore panel",
       close: "Close panel",
+      fold: "Fold panel (keep its main setting)",
+      unfold: "Unfold panel",
+    },
+    pageHeader: {
+      toggle: "Models, files and account",
     },
     gallery: {
       label: "Views of the model",
@@ -1986,6 +1991,8 @@ export const VIEWER_I18N = {
       },
     },
     menus: {
+      hideMenus: "Hide the menus: the scene alone",
+      showMenus: "Show the menus",
       look: "Look",
       analysis: "Analysis",
       measure: "Measure",
@@ -3074,6 +3081,11 @@ export const VIEWER_I18N = {
       minimize: "Zminimalizuj panel",
       restore: "Rozwiń panel",
       close: "Zamknij panel",
+      fold: "Zwiń panel (zostaje główne ustawienie)",
+      unfold: "Rozwiń całe okno",
+    },
+    pageHeader: {
+      toggle: "Modele, pliki i konto",
     },
     gallery: {
       label: "Widoki modelu",
@@ -4313,6 +4325,8 @@ export const VIEWER_I18N = {
       },
     },
     menus: {
+      hideMenus: "Ukryj menu: sama scena",
+      showMenus: "Pokaż menu",
       look: "Wygląd",
       analysis: "Analiza",
       measure: "Pomiary",
@@ -5009,6 +5023,11 @@ export const VIEWER_I18N = {
       minimize: "Panel minimieren",
       restore: "Panel wiederherstellen",
       close: "Panel schließen",
+      fold: "Panel einklappen (die wichtigste Einstellung bleibt)",
+      unfold: "Panel ausklappen",
+    },
+    pageHeader: {
+      toggle: "Modelle, Dateien und Konto",
     },
     gallery: {
       label: "Ansichten des Modells",
@@ -6639,6 +6658,8 @@ export const VIEWER_I18N = {
       },
     },
     menus: {
+      hideMenus: "Menüs ausblenden: nur die Szene",
+      showMenus: "Menüs einblenden",
       look: "Darstellung",
       analysis: "Analyse",
       measure: "Messen",

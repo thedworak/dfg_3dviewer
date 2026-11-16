@@ -8244,6 +8244,81 @@ test('generated surroundings, life: people, carts and boats moving, fewer in win
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
+test('more of the scene on a phone: the page header as one button, a window folded to its main setting, the menus hidden behind a handle', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    try { localStorage.removeItem('explora4d-scene-only'); } catch {}
+  });
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
+  await expect(toolbar).toHaveAttribute('data-mode', 'bar');
+
+  // The header: one round button in the corner, the viewer from the top of
+  // the screen; a tap drops the row down, Escape folds it.
+  const toggle = page.locator('#viewer-page-header-toggle');
+  const select = page.locator('#example-model-select');
+  await expect(toggle).toBeVisible();
+  await expect(select).toBeHidden();
+  const viewerTop = await page.locator('#DFG_3DViewer').evaluate((el) => el.getBoundingClientRect().top);
+  expect(viewerTop).toBeLessThan(4);
+  await toggle.tap();
+  await expect(select).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(select).toBeHidden();
+
+  // The surroundings' window: folded, only the year stays.
+  await page.evaluate(() => {
+    window.Viewer.setSurroundingsOptions({});
+    window.Viewer.toggleSurroundingsPanel(true);
+  });
+  const panel = page.locator('#viewerSurroundingsPanel');
+  await expect(panel).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Boolean(window.Viewer.surroundingsObjects))).toBe(true);
+  // Open, the window says what the badge would: no badge.
+  await expect(page.locator('#viewerSurroundingsBadge')).toBeHidden();
+  const full = (await panel.boundingBox()).height;
+  await panel.locator('.tool-panel-chrome_fold').tap();
+  await expect(panel).toHaveClass(/is-peek/);
+  await expect(panel.locator('input[name="year"]')).toBeVisible();
+  await expect(panel.locator('select[name="kind"]')).toBeHidden();
+  expect((await panel.boundingBox()).height).toBeLessThan(full / 2);
+  // The window clear of the header's button.
+  const [panelBox, toggleBox] = await Promise.all([panel.boundingBox(), toggle.boundingBox()]);
+  expect(panelBox.x).toBeGreaterThanOrEqual(toggleBox.x + toggleBox.width);
+  await panel.locator('.tool-panel-chrome_fold').tap();
+  await expect(panel.locator('select[name="kind"]')).toBeVisible();
+
+  // Minimized, the badge comes back: one line.
+  await panel.locator('.tool-panel-chrome_minimize').tap();
+  const badge = page.locator('#viewerSurroundingsBadge');
+  await expect(badge).toBeVisible();
+  expect((await badge.boundingBox()).height).toBeLessThan(48);
+
+  // The scene alone: the handle on the tabs hides the menus and the
+  // header's button, a tab on the bottom edge brings them back.
+  const handle = toolbar.locator('.viewer-menus_handle');
+  const tabs = toolbar.locator('.viewer-menus_tabs');
+  await handle.tap();
+  await expect(toolbar).toHaveClass(/viewer-menus--scene-only/);
+  await expect.poll(async () => (await tabs.boundingBox())?.y ?? 844).toBeGreaterThanOrEqual(844 - 2);
+  await expect(toggle).toBeHidden();
+  await expect(handle).toBeVisible();
+  const handleBox = await handle.boundingBox();
+  expect(handleBox.y + handleBox.height).toBeGreaterThan(844 - 4);
+  expect(handleBox.height).toBeLessThan(40);
+  // Kept on this device.
+  expect(await page.evaluate(() => localStorage.getItem('explora4d-scene-only'))).toBe('1');
+  await handle.tap();
+  await expect(toolbar).not.toHaveClass(/viewer-menus--scene-only/);
+  await expect(tabs).toBeVisible();
+  await expect(toggle).toBeVisible();
+  await context.close();
+});
+
 test('generated surroundings window: on and off, the year on a slider with its period, the place and the look', async ({ page }) => {
   test.setTimeout(60_000);
   await openViewer(page, '/examples/box.glb', 'ui=menus');

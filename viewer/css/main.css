@@ -2039,6 +2039,119 @@ body.presentation-mode {
   }
 }
 
+/* The row's button on a phone (ui/page-header-fold.js): not elsewhere. */
+#viewer-page-header-toggle {
+  display: none;
+}
+
+/* A phone: the row folds into one round button in the viewer's top left
+   corner (where the side stack's windows start a little to its right), the
+   viewer takes the whole screen; open, the picker and the account area drop
+   down over the viewer, the width of the screen. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  body.viewer-page-header-folds {
+    --viewer-page-header-toggle-left: calc(env(safe-area-inset-left) + 12px);
+    --viewer-page-header-toggle-size: 40px;
+  }
+
+  body.viewer-standalone-page.viewer-page-header-folds > #viewer-page-header {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 12px);
+    left: var(--viewer-page-header-toggle-left);
+    z-index: 10050;
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin: 0;
+    max-width: calc(100vw - var(--viewer-page-header-toggle-left) - env(safe-area-inset-right) - 12px);
+    pointer-events: none;
+  }
+
+  body.viewer-page-header-folds #viewer-page-header > * {
+    pointer-events: auto;
+  }
+
+  body.viewer-page-header-folds #viewer-page-header-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: var(--viewer-page-header-toggle-size);
+    height: var(--viewer-page-header-toggle-size);
+    padding: 0;
+    border: 1px solid rgba(164, 151, 132, 0.32);
+    border-radius: 50%;
+    background: rgba(250, 247, 242, 0.9);
+    box-shadow: 0 6px 18px rgba(12, 10, 8, 0.22);
+    color: #171411;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body.viewer-page-header-folds[data-viewer-theme="dark"] #viewer-page-header-toggle {
+    border-color: #444;
+    background: rgba(26, 23, 20, 0.88);
+    color: rgba(255, 255, 255, 0.94);
+  }
+
+  body.viewer-page-header-folds #viewer-page-header.is-open > #viewer-page-header-toggle,
+  body.viewer-page-header-folds #viewer-page-header-toggle:focus-visible {
+    border-color: var(--viewer-brand-accent, #f5a524);
+    color: var(--viewer-brand-accent, #f5a524);
+    outline: none;
+  }
+
+  body.viewer-page-header-folds #viewer-page-header:not(.is-open) > :not(#viewer-page-header-toggle) {
+    display: none !important;
+  }
+
+  body.viewer-page-header-folds #viewer-page-header.is-open > #example-model-picker {
+    flex: none;
+    width: calc(100vw - var(--viewer-page-header-toggle-left) - env(safe-area-inset-right) - 12px);
+    box-sizing: border-box;
+    flex-wrap: wrap;
+    animation: viewer-page-header-drop 0.18s ease-out;
+  }
+
+  body.viewer-page-header-folds #viewer-page-header.is-open > #viewer-account-bar {
+    margin: 0;
+    animation: viewer-page-header-drop 0.18s ease-out;
+  }
+
+  /* The scene alone (menu-toolbar.js): the button goes with the menus. */
+  /* Also while a window is open as a modal (ui/tool-panel-chrome.js): a
+     tap beside it folds it, and must not land on the button. */
+  body.viewer-page-header-folds.viewer-scene-only > #viewer-page-header,
+  body.viewer-page-header-folds:has(.tool-panel-chrome_backdrop) > #viewer-page-header {
+    display: none;
+  }
+
+  /* The windows on the right keep clear of the button. */
+  body.viewer-page-header-folds:not(.viewer-scene-only) .viewer-side-stack {
+    left: calc(12px + var(--viewer-page-header-toggle-size) + 8px);
+  }
+}
+
+/* Sideways the menus' rail has the left edge: the button beside it. */
+@media (max-height: 520px) and (pointer: coarse) {
+  body.viewer-page-header-folds {
+    --viewer-page-header-toggle-left: calc(env(safe-area-inset-left) + 76px + 12px);
+  }
+}
+
+@keyframes viewer-page-header-drop {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.viewer-page-header-folds #viewer-page-header.is-open > * {
+    animation: none !important;
+  }
+}
+
 /* A phone held sideways: the gallery gives its height to the viewer. */
 @media (max-height: 520px) and (pointer: coarse) {
   #image-list,

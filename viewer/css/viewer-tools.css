@@ -1350,6 +1350,56 @@
   margin-left: auto;
 }
 
+/* The fold button (setToolPanelFolded) before the minimize button. */
+.has-tool-chrome .tool-panel-chrome_fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  min-width: 0;
+  height: 32px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid transparent !important;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.has-tool-chrome .tool-panel-chrome_fold svg {
+  transition: transform 0.2s ease;
+}
+
+.has-tool-chrome.is-peek .tool-panel-chrome_fold svg {
+  transform: rotate(180deg);
+}
+
+.has-tool-chrome .tool-panel-chrome_fold:hover,
+.has-tool-chrome .tool-panel-chrome_fold:focus-visible {
+  opacity: 1;
+  background: var(--viewer-gui-widget-hover-bg, rgba(255, 255, 255, 0.2));
+}
+
+.has-tool-chrome .tool-panel-chrome_fold + .tool-panel-chrome_minimize {
+  margin-left: 0;
+}
+
+/* Folded: the header and what is marked [data-panel-peek] (with the boxes
+   holding it); the rest away. */
+.has-tool-chrome.is-peek > :not(.tool-panel-chrome, .tool-panel-chrome_pip, [data-panel-peek], :has([data-panel-peek])),
+.has-tool-chrome.is-peek :has(> [data-panel-peek]) > :not(.tool-panel-chrome, [data-panel-peek], :has([data-panel-peek])) {
+  display: none !important;
+}
+
+.has-tool-chrome.is-peek {
+  min-height: 0 !important;
+  height: auto !important;
+  resize: none !important;
+}
+
 .has-tool-chrome .tool-panel-chrome_close {
   font-size: 20px;
 }
@@ -4099,6 +4149,122 @@
   .viewer-surroundings-badge_button {
     width: 36px;
     height: 36px;
+  }
+}
+
+/* Phones: a rounded bar of one line (a pill grown to several lines became
+   an oval with the text spilling out of it); a tap on the text shows all of
+   it. While the surroundings' window is open (not as its icon), the window
+   says the same and has the same buttons: no badge. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  .viewer-surroundings-badge {
+    gap: 2px;
+    width: max-content;
+    max-width: calc(100% - 24px) !important;
+    padding: 2px 4px 2px 12px;
+    border-radius: 14px;
+  }
+
+  /* Above the menus' navigation (menu-toolbar.css: the tabs, 64px, and
+     the navigation 10px above them, 54px); sideways beside it; with the
+     menus hidden, just above their handle. */
+  :has(#viewerEditorToolbar[data-mode="bar"]) .viewer-surroundings-badge {
+    bottom: calc(136px + env(safe-area-inset-bottom));
+  }
+
+  :has(#viewerEditorToolbar[data-mode="rail"]) .viewer-surroundings-badge {
+    bottom: 72px;
+  }
+
+  :has(#viewerEditorToolbar.viewer-menus--scene-only) .viewer-surroundings-badge {
+    bottom: calc(30px + env(safe-area-inset-bottom));
+  }
+
+  .viewer-surroundings-badge_text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .viewer-surroundings-badge.is-expanded .viewer-surroundings-badge_text {
+    white-space: normal;
+  }
+
+  :has(> .viewer-side-stack > #viewerSurroundingsPanel:not(.is-minimized)) > #viewerSurroundingsBadge,
+  :has(> #viewerSurroundingsPanel:not(.is-minimized)) > #viewerSurroundingsBadge {
+    display: none;
+  }
+}
+
+/* Phones: the windows tighter - less padding, the header lower, at most
+   about half the viewer tall (they scroll inside), so more of the scene
+   stays in view. */
+@media (max-width: 640px), (max-height: 520px) and (pointer: coarse) {
+  .viewer-side-stack > .has-tool-chrome:not(.is-minimized):not(.is-modal-open),
+  .has-tool-chrome.is-undocked:not(.is-minimized):not(.is-modal-open) {
+    max-height: min(52vh, calc(100dvh - 260px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .viewer-scene {
+    padding: 4px 10px 8px;
+  }
+
+  .has-tool-chrome .tool-panel-chrome_grip,
+  .has-tool-chrome .tool-panel-chrome_fold,
+  .has-tool-chrome .tool-panel-chrome_minimize,
+  .has-tool-chrome .tool-panel-chrome_close {
+    width: 36px;
+    height: 36px;
+  }
+
+  .viewer-scene .tool-panel-chrome {
+    position: sticky;
+    top: -4px;
+    z-index: 2;
+    margin: -4px -10px 0;
+    padding: 2px 6px 2px 10px;
+    background: linear-gradient(var(--viewer-panel-bg, rgba(22, 19, 16, 0.82)), var(--viewer-panel-bg, rgba(22, 19, 16, 0.82))),
+      var(--tool-panel-header-solid, #16130f);
+  }
+
+  /* The surroundings: a label beside its list, the switches two to a row. */
+  .viewer-surroundings-panel_grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .viewer-surroundings-panel_grid > .viewer-surroundings-panel_field {
+    display: grid;
+    grid-template-columns: 5.5em minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .viewer-surroundings-panel_field {
+    margin-top: 6px;
+  }
+
+  .viewer-surroundings-panel .viewer-surroundings-panel_toggle {
+    display: inline-flex;
+    width: calc(50% - 6px);
+    margin-right: 4px;
+    vertical-align: top;
+    font-size: 12px;
+  }
+
+  .viewer-surroundings-panel .viewer-surroundings-panel_toggle.viewer-surroundings-panel_sub {
+    margin-left: 0;
+  }
+
+  .viewer-surroundings-panel_note {
+    display: none;
   }
 }
 

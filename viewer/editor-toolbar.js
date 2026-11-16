@@ -304,7 +304,8 @@ export function syncNoticeAboveToolbar() {
     const parentRect = parent.getBoundingClientRect();
     let top = NOTICE_TOP_FALLBACK;
     // The navigation too: on a phone held sideways it stands at the top.
-    const elements = [...parent.querySelectorAll(".viewer-brand-logo, #metadata-card"), toolbar.querySelector(".viewer-menus_nav")];
+    // The page header's button on a phone (ui/page-header-fold.js) too.
+    const elements = [...parent.querySelectorAll(".viewer-brand-logo, #metadata-card"), toolbar.querySelector(".viewer-menus_nav"), document.getElementById("viewer-page-header-toggle")];
     elements.forEach((element) => {
       if (!element) return;
       const rect = element.getBoundingClientRect();

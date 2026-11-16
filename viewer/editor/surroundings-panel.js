@@ -142,6 +142,8 @@ export function attachSurroundingsPanel(Viewer) {
       yearHead.append(yearLabel, yearValue, periodValue, play);
       const yearBox = el("div", "viewer-surroundings-panel_field");
       yearBox.dataset.field = "year";
+      // Kept when the window is folded (tool-panel-chrome.js).
+      yearBox.dataset.panelPeek = "";
       yearBox.append(yearHead, track, milestones);
       let timer = 0;
       const showYear = (value) => {

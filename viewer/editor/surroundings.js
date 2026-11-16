@@ -1120,6 +1120,9 @@ export function attachSurroundings(Viewer) {
         root.setAttribute("role", "note");
         const text = document.createElement("span");
         text.className = "viewer-surroundings-badge_text";
+        // Phones: one line, cut short; a tap shows the whole text
+        // (viewer-tools.css).
+        text.addEventListener("click", () => root.classList.toggle("is-expanded"));
         const reshuffle = document.createElement("button");
         reshuffle.type = "button";
         reshuffle.className = "viewer-surroundings-badge_button";

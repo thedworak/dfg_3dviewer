@@ -167,6 +167,7 @@ There is also a pre-configured complete workflow to handle more file formats and
 - VR and AR in the browser (WebXR): walk around the model at real size in a headset, or put it on a table or the floor through a phone; AR Quick Look on iPhone and iPad
 - Gaussian splats (3D Gaussian Splatting captures) next to meshes: framed, measured and shown in VR/AR like any model
 - fullscreen support and screenshot/thumbnail generation
+- on a phone, the scene first: the page's header folded into one button in the corner, windows folded to their main setting (the surroundings' year, say), and the menus hidden behind a small handle on the screen's edge (a tap or a swipe; remembered on the device); the menus fade while the scene is turned with a finger
 - Drupal/WissKI integration hooks
 - adding watermark
 
