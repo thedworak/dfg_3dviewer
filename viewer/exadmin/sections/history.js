@@ -24,6 +24,7 @@ const ACTIONS = {
   report: ["exadmin.auditReport", "Report decided"],
   "2fa-enable": ["exadmin.audit2faEnable", "Two-step verification turned on"],
   "2fa-reset": ["exadmin.audit2faReset", "Two-step verification reset"],
+  "2fa-forget-devices": ["exadmin.audit2faForgetDevices", "Remembered devices forgotten"],
 };
 
 const label = ([key, fallback]) => t(key, fallback);

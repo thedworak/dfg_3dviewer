@@ -10,16 +10,35 @@
 
 const params = new URLSearchParams(location.search);
 const SESSION_KEY = "dfg3dviewer-session";
+// The app's "remember this device" for the second step, per repository (on
+// the web it is the worker's HttpOnly cookie).
+const DEVICE_KEY = "dfg3dviewer-admin-device";
 
 export const appMode = params.get("app") === "1";
 const remote = appMode ? String(params.get("remote") || "").replace(/\/+$/, "") : "";
 
-function readSessions() {
+function readSessions(key = SESSION_KEY) {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || "{}") || {};
+    return JSON.parse(localStorage.getItem(key) || "{}") || {};
   } catch {
     return {};
   }
+}
+
+function writeSessions(key, sessions) {
+  try {
+    localStorage.setItem(key, JSON.stringify(sessions));
+  } catch {
+    // Storage blocked: the panel keeps working until it is closed.
+  }
+}
+
+export function storeDeviceToken(token) {
+  if (!appMode) return;
+  const devices = readSessions(DEVICE_KEY);
+  if (token) devices[remote] = token;
+  else delete devices[remote];
+  writeSessions(DEVICE_KEY, devices);
 }
 
 export function sessionToken() {
@@ -33,11 +52,7 @@ export function storeSessionToken(token) {
   const sessions = readSessions();
   if (token) sessions[remote] = token;
   else delete sessions[remote];
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
-  } catch {
-    // Storage blocked: the panel keeps working until it is closed.
-  }
+  writeSessions(SESSION_KEY, sessions);
 }
 
 // Site-relative URLs the worker returns (/files/...): on the repository.
@@ -47,6 +62,8 @@ export async function apiRequest(endpoint, method = "GET", body = undefined) {
   const options = { method, credentials: appMode ? "omit" : "same-origin", headers: {} };
   const token = sessionToken();
   if (token) options.headers.Authorization = `Bearer ${token}`;
+  const device = appMode ? readSessions(DEVICE_KEY)[remote] : "";
+  if (device) options.headers["X-Admin-Device"] = device;
   if (body !== undefined) {
     // In the app the token comes back in the answer, not as a cookie.
     if (appMode && endpoint.startsWith("/api/auth/") && body && typeof body === "object") body = { ...body, session: "token" };
@@ -71,6 +88,7 @@ export async function apiRequest(endpoint, method = "GET", body = undefined) {
     throw error;
   }
   if (data.token) storeSessionToken(data.token);
+  if (data.deviceToken) storeDeviceToken(data.deviceToken);
   // Something was changed (an account approved, a report resolved, a
   // model deleted): the navigation's counters are read again (main.js).
   if (method !== "GET" && !endpoint.startsWith("/api/auth/")) {

@@ -98,6 +98,8 @@ services:
       - WORKER_ADMIN_2FA=${WORKER_ADMIN_2FA:-required}
       - WORKER_ADMIN_2FA_TTL=${WORKER_ADMIN_2FA_TTL:-43200}
       - WORKER_ADMIN_2FA_ISSUER=${WORKER_ADMIN_2FA_ISSUER:-ExPlora4D}
+      # "Remember this device" after a code: days without one (0 = not offered).
+      - WORKER_ADMIN_2FA_REMEMBER_DAYS=${WORKER_ADMIN_2FA_REMEMBER_DAYS:-30}
       # Cloudflare Turnstile before logging in, registering, a password reset
       # and an admin's code: on with both keys (worker/turnstile.py).
       - WORKER_TURNSTILE_SITE_KEY=${WORKER_TURNSTILE_SITE_KEY:-}

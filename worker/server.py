@@ -49,7 +49,9 @@ could talk to either backend interchangeably:
   POST /api/admin/users/<u>/plan  a plan granted by an admin (auth.py)
   POST /api/admin/users/<u>/reject {reason} a waiting account deleted, mailed
   POST /api/auth/2fa/setup|enable|verify  an admin's second step: every
-                                /api/admin/* asks for it (WORKER_ADMIN_2FA)
+                                /api/admin/* asks for it (WORKER_ADMIN_2FA);
+                                {remember: true} remembers the device
+  POST /api/auth/2fa/forget-devices       every remembered device asks again
   POST /api/admin/users/<u>/2fa-reset    another admin's lost authenticator
   GET  /api/examples/thumbnails -> {thumbnails: {"<dir>/<basename>": {views,
                                 version}}} the viewer's renders of its example
@@ -180,6 +182,9 @@ ADMIN_2FA = os.environ.get("WORKER_ADMIN_2FA", "required").strip().lower() != "o
 ADMIN_2FA_TTL = int(os.environ.get("WORKER_ADMIN_2FA_TTL", str(12 * 3600)))
 # The name an authenticator app shows next to the codes.
 ADMIN_2FA_ISSUER = os.environ.get("WORKER_ADMIN_2FA_ISSUER", "ExPlora4D")
+# "Remember this device" after a code: days it is not asked again (0 = the
+# choice is not offered).
+ADMIN_2FA_REMEMBER_DAYS = int(os.environ.get("WORKER_ADMIN_2FA_REMEMBER_DAYS", "30"))
 # Reports of objectionable models (worker/reports.py), next to the accounts.
 REPORTS = reports.ReportStore(JOBS_DIR / ".reports")
 # What the administrators did (audit.py): the admin pages' History.
@@ -1166,7 +1171,7 @@ def parse_multipart_form(handler: "Handler", max_bytes: int):
 class Handler(BaseHTTPRequestHandler):
     server_version = "DFG3DWorker/0.1"
 
-    def _send_json(self, status: int, payload: dict, cookie: str = None, headers: dict = None) -> None:
+    def _send_json(self, status: int, payload: dict, cookie=None, headers: dict = None) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         for name, value in (headers or {}).items():
@@ -1175,8 +1180,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
-        if cookie:
-            self.send_header("Set-Cookie", cookie)
+        for value in ([cookie] if isinstance(cookie, str) else cookie or []):
+            if value:
+                self.send_header("Set-Cookie", value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -1226,7 +1232,7 @@ class Handler(BaseHTTPRequestHandler):
             return "ok"
         if not user.get("twoFactor"):
             return "setup"
-        if time.time() - (user.get("mfaAt") or 0) > ADMIN_2FA_TTL:
+        if time.time() - (user.get("mfaAt") or 0) > ADMIN_2FA_TTL and not self._device_remembered(user):
             return "verify"
         return "ok"
 
@@ -1246,6 +1252,15 @@ class Handler(BaseHTTPRequestHandler):
             "code": "turnstile_failed",
         })
         return False
+
+    def _device_remembered(self, user) -> bool:
+        """The device was remembered after a code (auth.py
+        issue_device_token): its cookie, or the app's X-Admin-Device header."""
+        if not ADMIN_2FA_REMEMBER_DAYS:
+            return False
+        token = self.headers.get("X-Admin-Device", "").strip() or \
+            AUTH.device_token_from_cookie_header(self.headers.get("Cookie", ""))
+        return AUTH.device_remembered(user["username"], token)
 
     def _admin_second_step_ok(self) -> bool:
         """Every /api/admin/* request of an admin: refused with 403 and
@@ -1283,6 +1298,12 @@ class Handler(BaseHTTPRequestHandler):
             if action == "setup":
                 self._send_json(200, AUTH.two_factor_setup(user["username"], ADMIN_2FA_ISSUER))
                 return
+            if action == "forget-devices":
+                AUTH.forget_devices(user["username"])
+                AUDIT.record(user["username"], "2fa-forget-devices", user["username"])
+                self._send_json(200, {"status": "ok"}, cookie=AUTH.device_cookie_header(
+                    "", self._cookie_is_secure(), clear=True))
+                return
             if not self._turnstile_ok("2fa", data):
                 return
             if action == "enable":
@@ -1295,9 +1316,17 @@ class Handler(BaseHTTPRequestHandler):
                 payload = {"recoveryLeft": result["recoveryLeft"]}
                 at = result["at"]
             token = AUTH.issue_token(user["username"], mfa_at=at)
+            cookies = [AUTH.cookie_header(token, self._cookie_is_secure())]
             if data.get("session") == "token":
                 payload["token"] = token
-            self._send_json(200, payload, cookie=AUTH.cookie_header(token, self._cookie_is_secure()))
+            # "Remember this device": no code asked here for
+            # ADMIN_2FA_REMEMBER_DAYS (a cookie; for the app, in the answer).
+            if data.get("remember") is True and ADMIN_2FA_REMEMBER_DAYS:
+                device = AUTH.issue_device_token(user["username"], ADMIN_2FA_REMEMBER_DAYS)
+                cookies.append(AUTH.device_cookie_header(device, self._cookie_is_secure(), ADMIN_2FA_REMEMBER_DAYS))
+                if data.get("session") == "token":
+                    payload["deviceToken"] = device
+            self._send_json(200, payload, cookie=cookies)
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
@@ -1797,7 +1826,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, OPTIONS")
         # Range: Potree clouds read octree.bin by ranges (static_files.py).
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-App-User-Id, Authorization, Range, If-None-Match")
+        self.send_header("Access-Control-Allow-Headers",
+                         "Content-Type, X-App-User-Id, X-Admin-Device, Authorization, Range, If-None-Match")
         self.end_headers()
 
     def do_HEAD(self) -> None:
@@ -1916,6 +1946,8 @@ class Handler(BaseHTTPRequestHandler):
                     "enabled": bool(user.get("twoFactor")),
                     "state": self._second_step_state(user),
                     "recoveryLeft": AUTH.two_factor_status(user["username"])["recoveryLeft"],
+                    "rememberDays": ADMIN_2FA_REMEMBER_DAYS,
+                    "remembered": bool(user.get("twoFactor")) and self._device_remembered(user),
                 }
             self._send_json(200, payload)
             return
@@ -2026,7 +2058,7 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(urlparse(self.path).path)
         if path.startswith("/api/admin/") and not self._admin_second_step_ok():
             return
-        match = re.fullmatch(r"/api/auth/2fa/(setup|enable|verify)", path)
+        match = re.fullmatch(r"/api/auth/2fa/(setup|enable|verify|forget-devices)", path)
         if match:
             self._handle_two_factor(match.group(1))
             return

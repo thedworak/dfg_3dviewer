@@ -38,6 +38,18 @@ function codeInput({ recovery = false } = {}) {
   return input;
 }
 
+// "Remember this device for N days" (worker WORKER_ADMIN_2FA_REMEMBER_DAYS):
+// on by default - the admin's own device is the usual case.
+function rememberField(days) {
+  if (!days) return { element: null, checked: () => false };
+  const label = element("label", "exadmin-remember");
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = true;
+  label.append(box, element("span", null, t("exadmin.twoFactorRemember", { days }, "Remember this device for {days} days")));
+  return { element: label, checked: () => box.checked };
+}
+
 function statusLine() {
   const status = element("p", "exadmin-message");
   status.setAttribute("role", "status");
@@ -55,7 +67,7 @@ function fail(status, error) {
 }
 
 // The first time: scan, confirm with a code, keep the recovery codes.
-export function renderTwoFactorSetup(container, { user, turnstile, onDone }) {
+export function renderTwoFactorSetup(container, { user, turnstile, rememberDays, onDone }) {
   const box = element("section", "exadmin-two-factor");
   box.append(
     element("h2", null, t("exadmin.twoFactorSetupTitle", "Set up two-step verification")),
@@ -103,13 +115,14 @@ export function renderTwoFactorSetup(container, { user, turnstile, onDone }) {
     const submit = element("button", null, t("exadmin.twoFactorTurnOn", "Turn on"));
     submit.type = "submit";
     const check = createTurnstile(turnstile, "2fa");
-    form.append(label, ...(check.element ? [check.element] : []), submit);
+    const remember = rememberField(rememberDays);
+    form.append(label, ...[remember.element, check.element].filter(Boolean), submit);
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       submit.disabled = true;
       try {
         const { recoveryCodes } = await apiRequest("/api/auth/2fa/enable", "POST",
-          { code: input.value, turnstileToken: await check.token() });
+          { code: input.value, remember: remember.checked(), turnstileToken: await check.token() });
         box.remove();
         renderRecoveryCodes(container, { codes: recoveryCodes, onDone });
       } catch (error) {
@@ -154,7 +167,7 @@ function renderRecoveryCodes(container, { codes, onDone }) {
 }
 
 // Every 12 hours (WORKER_ADMIN_2FA_TTL): a code from the app.
-export function renderTwoFactorVerify(container, { recoveryLeft, turnstile, onDone }) {
+export function renderTwoFactorVerify(container, { recoveryLeft, turnstile, rememberDays, onDone }) {
   const box = element("section", "exadmin-two-factor exadmin-two-factor-verify");
   const form = element("form", "exadmin-two-factor-form");
   const heading = element("h2", null, t("exadmin.twoFactorVerifyTitle", "Two-step verification"));
@@ -182,12 +195,14 @@ export function renderTwoFactorVerify(container, { recoveryLeft, turnstile, onDo
   const lost = element("p", "exadmin-two-factor-help", t("exadmin.twoFactorLost",
     "Lost the phone and the codes? Another administrator can turn it off for you (Users), or on the server: admin 2fa-reset <user>."));
   const check = createTurnstile(turnstile, "2fa");
-  form.append(heading, intro, input, ...(check.element ? [check.element] : []), submit, swap, status, lost);
+  const remember = rememberField(rememberDays);
+  form.append(heading, intro, input, ...[remember.element, check.element].filter(Boolean), submit, swap, status, lost);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     submit.disabled = true;
     try {
-      const result = await apiRequest("/api/auth/2fa/verify", "POST", { code: input.value, turnstileToken: await check.token() });
+      const result = await apiRequest("/api/auth/2fa/verify", "POST",
+        { code: input.value, remember: remember.checked(), turnstileToken: await check.token() });
       onDone(result);
     } catch (error) {
       fail(status, error);

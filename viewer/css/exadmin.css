@@ -1120,3 +1120,11 @@ body {
 .exadmin-header {
   padding-top: max(10px, env(safe-area-inset-top));
 }
+
+/* "Remember this device" under the code (exadmin/two-factor.js). */
+.exadmin-remember {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}

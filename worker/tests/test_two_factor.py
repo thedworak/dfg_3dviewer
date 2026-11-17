@@ -84,11 +84,13 @@ class TwoFactorTest(unittest.TestCase):
         self.auth.register("alice", PASSWORD, "alice@example.org")
         self.token = self.auth.issue_token("admin")
 
-    def request(self, method, path, token=None, body=None):
+    def request(self, method, path, token=None, body=None, headers=None):
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(self.base + path, data=data, method=method)
         if token:
             req.add_header("Authorization", f"Bearer {token}")
+        for name, value in (headers or {}).items():
+            req.add_header(name, value)
         if data:
             req.add_header("Content-Type", "application/json")
         try:
@@ -181,6 +183,66 @@ class TwoFactorTest(unittest.TestCase):
         # Outside /api/admin/* an admin works as before.
         status, _, _ = self.request("GET", "/api/jobs", self.token)
         self.assertEqual(status, 200)
+
+    # ---- remembered devices -------------------------------------------------
+
+    def remember(self, secret):
+        code = totp.code_at(secret, int(time.time() // 30) + 1)
+        status, body, headers = self.request("POST", "/api/auth/2fa/verify", self.token,
+                                             {"code": code, "remember": True, "session": "token"})
+        self.assertEqual(status, 200)
+        cookies = headers.get_all("Set-Cookie")
+        self.assertTrue(any(c.startswith("dfg3d_admin_device=") and "HttpOnly" in c and "SameSite=Strict" in c
+                            for c in cookies))
+        return body["deviceToken"]
+
+    def test_remembered_device_skips_the_code(self):
+        secret, _ = self.enable()
+        device = self.remember(secret)
+        fresh = self.auth.issue_token("admin")  # a new login, no code given
+        status, body, _ = self.request("GET", "/api/admin/users", fresh)
+        self.assertEqual((status, body["code"]), (403, "2fa_required"))
+        status, _, _ = self.request("GET", "/api/admin/users", fresh, headers={"X-Admin-Device": device})
+        self.assertEqual(status, 200)
+        status, _, _ = self.request("GET", "/api/admin/users", fresh, headers={"Cookie": f"dfg3d_admin_device={device}"})
+        self.assertEqual(status, 200)
+        status, me, _ = self.request("GET", "/api/auth/me", fresh, headers={"X-Admin-Device": device})
+        self.assertEqual((me["twoFactor"]["state"], me["twoFactor"]["remembered"], me["twoFactor"]["rememberDays"]),
+                         ("ok", True, 30))
+
+    def test_remembered_device_is_not_a_session_nor_anothers(self):
+        secret, _ = self.enable()
+        device = self.remember(secret)
+        status, me, _ = self.request("GET", "/api/auth/me", device)
+        self.assertIsNone(me["user"])
+        self.assertFalse(self.auth.device_remembered("alice", device))
+
+    def test_forgetting_and_resetting_end_remembered_devices(self):
+        secret, _ = self.enable()
+        device = self.remember(secret)
+        status, _, headers = self.request("POST", "/api/auth/2fa/forget-devices", self.token, {})
+        self.assertEqual(status, 200)
+        self.assertIn("Max-Age=0", headers.get("Set-Cookie"))
+        self.assertFalse(self.auth.device_remembered("admin", device))
+        self.assertEqual(self.audit.entries(1)[0]["action"], "2fa-forget-devices")
+        # A reset (lost phone) forgets them too.
+        secret2, _ = self.enable_again()
+        device = self.remember(secret2)
+        self.auth.two_factor_reset("admin")
+        self.assertFalse(self.auth.device_remembered("admin", device))
+
+    def enable_again(self):
+        self.auth.two_factor_reset("admin")
+        time.sleep(1.1)  # a device remembered before the new setup must not count
+        return self.enable()
+
+    def test_remembering_off(self):
+        secret, _ = self.enable()
+        device = self.remember(secret)
+        with mock.patch.object(server, "ADMIN_2FA_REMEMBER_DAYS", 0):
+            fresh = self.auth.issue_token("admin")
+            status, _, _ = self.request("GET", "/api/admin/users", fresh, headers={"X-Admin-Device": device})
+        self.assertEqual(status, 403)
 
     def test_off(self):
         with mock.patch.object(server, "ADMIN_2FA", False):

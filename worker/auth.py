@@ -53,6 +53,9 @@ EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 256
 COOKIE_NAME = "dfg3d_session"
+# A device an administrator chose to remember after giving a code: the
+# admin pages do not ask it for one again until it expires.
+DEVICE_COOKIE_NAME = "dfg3d_admin_device"
 SESSION_TTL = int(os.environ.get("WORKER_AUTH_SESSION_TTL", str(7 * 24 * 3600)))
 MAX_FAILED_LOGINS = 5
 LOCKOUT_SECONDS = 300
@@ -304,6 +307,67 @@ class AuthStore:
         signature = hmac.new(self._key(), payload.encode("ascii"), hashlib.sha256).hexdigest()
         return f"{payload}.{signature}"
 
+    # ---- remembered devices (the second step) ------------------------
+
+    def _sign(self, claims: dict) -> str:
+        payload = base64.urlsafe_b64encode(json.dumps(claims).encode("utf-8")).decode("ascii")
+        signature = hmac.new(self._key(), payload.encode("ascii"), hashlib.sha256).hexdigest()
+        return f"{payload}.{signature}"
+
+    def issue_device_token(self, username: str, days: int) -> str:
+        """After a code, "remember this device": a signed token of its own
+        ("t": "device"), kept by the browser as an HttpOnly cookie or by the
+        app; a session's token cannot pass for it, nor it for a session."""
+        now = int(time.time())
+        return self._sign({"t": "device", "u": username, "iat": now, "exp": now + int(days) * 86400})
+
+    def device_remembered(self, username: str, token: str) -> bool:
+        """Whether token remembers this account's device: signed, not
+        expired, given after the authenticator app was (last) set up and
+        after its devices were last forgotten (forget_devices)."""
+        if not token or "." not in token:
+            return False
+        payload, _, signature = token.rpartition(".")
+        expected = hmac.new(self._key(), payload.encode("ascii", "ignore"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            return False
+        try:
+            data = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
+            kind, owner, issued, expires = data.get("t"), data["u"], int(data["iat"]), int(data["exp"])
+        except (ValueError, KeyError, TypeError):
+            return False
+        if kind != "device" or owner != username or expires < time.time():
+            return False
+        record = self._load().get(username) or {}
+        if not record.get("totpEnabledAt") or issued < record["totpEnabledAt"]:
+            return False
+        return issued >= record.get("devicesForgottenAt", 0)
+
+    def forget_devices(self, username: str) -> None:
+        """Every remembered device of the account asks for a code again."""
+        with self._lock:
+            users = self._load()
+            if username not in users:
+                raise AuthError(404, f"No such user: {username}")
+            # +1: a device remembered in this same second is forgotten too.
+            users[username]["devicesForgottenAt"] = int(time.time()) + 1
+            self._save(users)
+
+    def device_cookie_header(self, token: str, secure: bool, days: int = 0, clear: bool = False) -> str:
+        # Strict: only the worker's own pages send it along.
+        parts = [f"{DEVICE_COOKIE_NAME}={'' if clear else token}", "Path=/", "HttpOnly", "SameSite=Strict",
+                 f"Max-Age={0 if clear else int(days) * 86400}"]
+        if secure:
+            parts.append("Secure")
+        return "; ".join(parts)
+
+    def device_token_from_cookie_header(self, cookie_header: str) -> str:
+        for part in (cookie_header or "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == DEVICE_COOKIE_NAME:
+                return value
+        return ""
+
     def user_from_cookie_header(self, cookie_header: str):
         """Returns {"username", "role", "plan"} for a valid, unexpired session
         cookie of an active account, else None."""
@@ -330,6 +394,8 @@ class AuthStore:
             data = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
             username, expires, issued = data["u"], int(data["exp"]), int(data.get("iat", 0))
             mfa_at = int(data.get("m", 0))
+            if data.get("t"):
+                return None  # a remembered device's token, not a session
         except (ValueError, KeyError, TypeError):
             return None
         if expires < time.time():

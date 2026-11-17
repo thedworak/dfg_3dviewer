@@ -1,6 +1,7 @@
 import { t, setLanguageSource } from "../i18n-utils.js";
 import { createPasswordField } from "../ui/password-field.js";
-import { apiRequest, appMode, authRequest } from "./api.js";
+import { apiRequest, appMode, authRequest, storeDeviceToken } from "./api.js";
+import { confirmDialog, toast } from "./dialogs.js";
 import { closePanel } from "./app-bridge.js";
 import { renderTwoFactorSetup, renderTwoFactorVerify } from "./two-factor.js";
 import { createTurnstile } from "../turnstile.js";
@@ -55,6 +56,8 @@ const page = {
 };
 
 let me = null;
+// The signed-in admin's second step (GET /api/auth/me twoFactor).
+let twoFactor = null;
 
 function messageBlock(text, tone = "info") {
   const block = document.createElement("p");
@@ -119,9 +122,37 @@ function renderChrome() {
       start();
     });
     // The app has its own login: signing out stays there.
+    // This device is remembered for the second step: a way to undo it
+    // (every remembered device of the account asks for a code again).
+    if (twoFactor?.remembered) page.account.append(forgetDevicesButton());
     if (appMode) page.account.append(user);
     else page.account.append(user, logout);
   }
+}
+
+function forgetDevicesButton() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = t("exadmin.twoFactorForget", "Forget remembered devices");
+  button.title = t("exadmin.twoFactorForgetTitle", "This and your other remembered devices ask for a code again.");
+  button.addEventListener("click", async () => {
+    const confirmed = await confirmDialog({
+      message: t("exadmin.twoFactorForgetConfirm",
+        "Forget every device you chose to remember? Each of them asks for a code from your authenticator app again."),
+      confirmLabel: t("exadmin.twoFactorForget", "Forget remembered devices"),
+      cancelLabel: t("adminPanel.deleteCancel", "Cancel"),
+    });
+    if (!confirmed) return;
+    try {
+      await apiRequest("/api/auth/2fa/forget-devices", "POST", {});
+      storeDeviceToken("");
+      toast("userUpdated", "success");
+      await start();
+    } catch (error) {
+      console.error("[exadmin] Could not forget the devices:", error);
+    }
+  });
+  return button;
 }
 
 function renderLogin(message) {
@@ -252,9 +283,12 @@ function render() {
   page.nav.textContent = "";
   page.main.textContent = "";
   if (state.view === "sections") renderSection();
-  else if (state.view === "twoFactorSetup") renderTwoFactorSetup(page.main, { user: me, turnstile: authConfig?.turnstile, onDone: start });
-  else if (state.view === "twoFactorVerify") {
-    renderTwoFactorVerify(page.main, { recoveryLeft: state.recoveryLeft, turnstile: authConfig?.turnstile, onDone: start });
+  else if (state.view === "twoFactorSetup") {
+    renderTwoFactorSetup(page.main, { user: me, turnstile: authConfig?.turnstile, rememberDays: twoFactor?.rememberDays, onDone: start });
+  } else if (state.view === "twoFactorVerify") {
+    renderTwoFactorVerify(page.main, {
+      recoveryLeft: state.recoveryLeft, turnstile: authConfig?.turnstile, rememberDays: twoFactor?.rememberDays, onDone: start,
+    });
   }
   else if (state.view === "login") renderLogin(state.message);
   else if (state.view === "accountsOff") page.main.appendChild(messageBlock(t("exadmin.accountsOff", "Accounts are not enabled on this server, so there is nothing to administer here.")));
@@ -264,6 +298,7 @@ function render() {
 
 async function start() {
   me = null;
+  twoFactor = null;
   state = { view: "loading" };
   render();
   try {
@@ -275,6 +310,7 @@ async function start() {
       const session = await authRequest("me");
       if (session.user && session.role === "admin") {
         me = session.user;
+        twoFactor = session.twoFactor || null;
         // The admin pages' second step (worker WORKER_ADMIN_2FA).
         const second = session.twoFactor?.state;
         if (second === "setup") state = { view: "twoFactorSetup" };
