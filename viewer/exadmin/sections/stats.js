@@ -1,5 +1,6 @@
 import { t } from "../../i18n-utils.js";
 import { apiRequest } from "../api.js";
+import { formatBytes, formatCount, locale } from "../format.js";
 
 // Statistics (GET /api/admin/stats, worker/server.py admin_stats): how many
 // accounts there are, of which role, status and plan, and how many models
@@ -36,20 +37,6 @@ const PLAN_LABELS = {
 
 const label = ([key, fallback]) => t(key, fallback);
 
-function formatBytes(bytes) {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const digits = unit === 0 || value >= 100 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toLocaleString(locale(), { maximumFractionDigits: digits })} ${units[unit]}`;
-}
-
-const formatCount = (value) => Math.round(value).toLocaleString(locale());
-
 // ---- buckets -------------------------------------------------------------
 
 function startOf(unit, date) {
@@ -67,8 +54,9 @@ function nextOf(unit, date) {
   return d;
 }
 
-// Dates in the admin page's language (main.js sets <html lang>).
-const locale = () => document.documentElement.lang || undefined;
+// A local date as YYYY-MM-DD (toISOString would give the UTC day).
+const isoDay = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
 function bucketLabel(unit, date, short = false) {
   if (unit === "month") return date.toLocaleDateString(locale(), { year: short ? "2-digit" : "numeric", month: "short" });
@@ -281,7 +269,7 @@ function timeChart({ buckets, values, unit, format, mode = "columns", ticks: tic
 
 // Horizontal bars of a breakdown (role, status, plan), largest first is
 // left to the caller: the order of the categories is fixed.
-function breakdownChart(rows) {
+function breakdownChart(rows, format = formatCount) {
   const list = document.createElement("div");
   list.className = "exadmin-stats-breakdown";
   const max = Math.max(1, ...rows.map((row) => row.value));
@@ -299,7 +287,7 @@ function breakdownChart(rows) {
     track.appendChild(bar);
     const value = document.createElement("span");
     value.className = "exadmin-stats-breakdown-value";
-    value.textContent = formatCount(row.value);
+    value.textContent = format(row.value);
     item.append(name, track, value);
     list.appendChild(item);
   });
@@ -345,6 +333,49 @@ function card(title, subtitle, ...content) {
   return element;
 }
 
+// How full the volume with the models is (admin_watch.py disk_usage), in
+// the warning colour from WORKER_DISK_WARN_PERCENT on.
+function diskMeter(disk) {
+  const element = document.createElement("div");
+  element.className = "exadmin-stats-disk";
+  if (disk.warning) element.dataset.warning = "true";
+  const text = document.createElement("div");
+  text.className = "exadmin-stats-disk-text";
+  const title = document.createElement("strong");
+  title.textContent = t("exadmin.statsDisk", "Disk");
+  const values = document.createElement("span");
+  values.textContent = t("exadmin.statsDiskValues",
+    { used: formatBytes(disk.used), total: formatBytes(disk.total), free: formatBytes(disk.free), percent: Math.round(disk.percent) },
+    "{used} of {total} used ({percent}%) · {free} free");
+  text.append(title, values);
+  const track = document.createElement("div");
+  track.className = "exadmin-stats-disk-track";
+  track.setAttribute("role", "meter");
+  track.setAttribute("aria-valuemin", "0");
+  track.setAttribute("aria-valuemax", "100");
+  track.setAttribute("aria-valuenow", String(disk.percent));
+  track.setAttribute("aria-label", title.textContent);
+  const bar = document.createElement("div");
+  bar.className = "exadmin-stats-disk-bar";
+  bar.style.width = `${Math.min(100, disk.percent)}%`;
+  track.appendChild(bar);
+  if (disk.warnPercent) {
+    const mark = document.createElement("div");
+    mark.className = "exadmin-stats-disk-mark";
+    mark.style.left = `${disk.warnPercent}%`;
+    track.appendChild(mark);
+  }
+  element.append(text, track);
+  if (disk.warning) {
+    const warning = document.createElement("p");
+    warning.className = "exadmin-stats-disk-warning";
+    warning.textContent = t("exadmin.statsDiskWarning", { percent: disk.warnPercent },
+      "Over {percent}% full: uploads fail once the disk is full. Delete models or give the volume more space.");
+    element.appendChild(warning);
+  }
+  return element;
+}
+
 function tile(value, caption) {
   const element = document.createElement("div");
   element.className = "exadmin-stats-tile";
@@ -377,6 +408,7 @@ class StatsSection {
       <div class="exadmin-section-header">
         <h2></h2>
         <div class="exadmin-stats-ranges" role="group"></div>
+        <button type="button" class="exadmin-stats-csv"></button>
       </div>
       <p class="upload-panel-status" role="status" aria-live="polite"></p>
       <div class="exadmin-stats-body"></div>
@@ -386,6 +418,9 @@ class StatsSection {
     this.status = element.querySelector(".upload-panel-status");
     this.body = element.querySelector(".exadmin-stats-body");
     this.ranges = element.querySelector(".exadmin-stats-ranges");
+    const csvButton = element.querySelector(".exadmin-stats-csv");
+    csvButton.textContent = t("exadmin.statsCsv", "Download CSV");
+    csvButton.addEventListener("click", () => this.downloadCsv());
     this.ranges.setAttribute("aria-label", t("exadmin.statsRange", "Period"));
     this.renderRanges();
   }
@@ -409,6 +444,22 @@ class StatsSection {
       });
       this.ranges.appendChild(button);
     });
+  }
+
+  downloadCsv() {
+    if (!this.csv) return;
+    const text = this.csv.rows.map((row) => row.map((cell) => {
+      const value = String(cell);
+      return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+    }).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = this.csv.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async load() {
@@ -445,16 +496,21 @@ class StatsSection {
 
     // Headline numbers.
     const count = (list, key, value) => list.filter((item) => item[key] === value).length;
+    // Accounts that used the viewer signed in (worker/auth.py lastSeenAt).
+    const activeSince = (days) => users.filter((u) => u.lastSeenAt && now.getTime() / 1000 - u.lastSeenAt < days * 86400).length;
     const tiles = document.createElement("div");
     tiles.className = "exadmin-stats-tiles";
     tiles.append(
       tile(formatCount(users.length), t("exadmin.statsUsers", "Accounts")),
       tile(formatCount(count(users, "status", "pending")), t("exadmin.statsPending", "Waiting for approval")),
+      tile(formatCount(activeSince(7)), t("exadmin.statsActive7", "Active in the last 7 days")),
+      tile(formatCount(activeSince(30)), t("exadmin.statsActive30", "Active in the last 30 days")),
       tile(formatCount(models.length), t("exadmin.statsModels", "Models")),
       tile(formatBytes(models.reduce((sum, m) => sum + (m.size || 0), 0)), t("exadmin.statsUploadedSize", "Uploaded")),
       tile(formatBytes(models.reduce((sum, m) => sum + (m.storage || 0), 0)), t("exadmin.statsStorage", "On disk")),
     );
     this.body.appendChild(tiles);
+    if (this.data.disk) this.body.appendChild(diskMeter(this.data.disk));
 
     // Accounts: in total over time, new ones per bucket.
     const signups = fill(buckets, users);
@@ -484,10 +540,57 @@ class StatsSection {
         dataTable([periodHeader, t("exadmin.statsUploadedSize", "Uploaded")], periodLabels.map((p, i) => [p, formatBytes(sizes[i])]))),
     );
 
+    // Conversions that failed (worker failed.json, recorded from this
+    // version on), and of what the models are.
+    const failures = fill(buckets, models, (m) => (m.failed ? 1 : 0));
+    const failedInRange = failures.reduce((sum, n) => sum + n, 0);
+    const uploadsInRange = uploads.reduce((sum, n) => sum + n, 0);
+    const failedShare = uploadsInRange ? Math.round((failedInRange / uploadsInRange) * 1000) / 10 : 0;
+    grid.append(
+      card(t("exadmin.statsFailures", "Failed conversions"),
+        t("exadmin.statsFailuresSub", { count: formatCount(failedInRange), percent: failedShare.toLocaleString(locale()), unit: unitText },
+          "{count} in this period ({percent}% of the uploads) · {unit}"),
+        timeChart({ buckets, values: failures, unit: range.unit, format: formatCount }),
+        dataTable([periodHeader, t("exadmin.statsFailures", "Failed conversions")], periodLabels.map((p, i) => [p, formatCount(failures[i])]))),
+    );
+    const formatCounts = new Map();
+    models.forEach((m) => formatCounts.set(m.format || "?", (formatCounts.get(m.format || "?") || 0) + 1));
+    const formatRows = [...formatCounts.entries()].sort((a, b) => b[1] - a[1]);
+    // Ten formats by name, the rest folded into one row.
+    const topFormats = formatRows.slice(0, 10).map(([format, value]) => ({ label: format === "?" ? "?" : `.${format}`, value }));
+    const otherFormats = formatRows.slice(10).reduce((sum, [, value]) => sum + value, 0);
+    if (otherFormats) topFormats.push({ label: t("exadmin.statsOtherFormats", "Other"), value: otherFormats });
+    if (topFormats.length) {
+      grid.append(card(t("exadmin.statsFormats", "Models by format"), t("exadmin.statsAllTime", "all time"),
+        breakdownChart(topFormats),
+        dataTable([t("exadmin.modelsFormat", "Format"), t("exadmin.statsModels", "Models")],
+          formatRows.map(([format, value]) => [format === "?" ? "?" : `.${format}`, formatCount(value)]))));
+    }
+
+    // The period's numbers as a file, for a spreadsheet.
+    this.csv = {
+      name: `statistics-${range.id}-${isoDay(new Date())}.csv`,
+      rows: [
+        ["period_start", "new_accounts", "accounts_total", "uploaded_models", "uploaded_bytes", "failed_conversions"],
+        ...buckets.map((bucket, i) => [
+          isoDay(bucket.start), signups[i], totals[i], uploads[i], sizes[i], failures[i],
+        ]),
+      ],
+    };
+
     // Breakdowns of the accounts as they are now.
     const breakdown = (labels, key) => Object.entries(labels).map(([id, text]) => ({ label: label(text), value: count(users, key, id) }));
     const breakdownCard = (title, rows) => card(title, null, breakdownChart(rows),
       dataTable([title, t("exadmin.statsUsers", "Accounts")], rows.map((row) => [row.label, formatCount(row.value)])));
+    // The accounts using the most space on disk (named: admins only).
+    const top = Array.isArray(this.data.topStorage) ? this.data.topStorage : [];
+    if (top.length) {
+      const rows = top.map((entry) => ({ label: entry.username, value: entry.storage }));
+      grid.appendChild(card(t("exadmin.statsTopStorage", "Most space on disk"), null,
+        breakdownChart(rows, formatBytes),
+        dataTable([t("exadmin.modelsOwner", "Owner"), t("exadmin.statsModels", "Models"), t("exadmin.statsStorage", "On disk")],
+          top.map((entry) => [entry.username, formatCount(entry.models), formatBytes(entry.storage)]))));
+    }
     grid.append(
       breakdownCard(t("exadmin.statsByRole", "Role"), breakdown(ROLE_LABELS, "role")),
       breakdownCard(t("exadmin.statsByPlan", "Plan"), breakdown(PLAN_LABELS, "plan")),
@@ -500,6 +603,9 @@ class StatsSection {
 export const statsSection = {
   id: "stats",
   label: () => t("exadmin.navStats", "Statistics"),
+  badge: ({ disk }) => (disk?.warning
+    ? { text: "!", alert: true, title: t("exadmin.statsDiskFull", { percent: Math.round(disk.percent) }, "Disk {percent}% full") }
+    : null),
   mount(container) {
     const section = new StatsSection();
     container.appendChild(section.element);

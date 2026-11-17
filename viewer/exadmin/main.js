@@ -1,6 +1,6 @@
 import { t, setLanguageSource } from "../i18n-utils.js";
 import { createPasswordField } from "../ui/password-field.js";
-import { authRequest } from "./api.js";
+import { apiRequest, authRequest } from "./api.js";
 import { SECTIONS } from "./sections/index.js";
 
 // The admin pages (/exadmin/): the worker's administration, apart from the
@@ -151,17 +151,57 @@ function currentSection() {
   return SECTIONS.find((section) => section.id === id) || SECTIONS[0];
 }
 
+// The navigation's counters (GET /api/admin/summary): a section with a
+// badge(summary) shows what waits there - {text, alert, title} or null.
+let summary = null;
+
+function renderNavBadges() {
+  page.nav.querySelectorAll("a[data-section]").forEach((link) => {
+    const section = SECTIONS.find((item) => item.id === link.dataset.section);
+    link.querySelector(".exadmin-nav-badge")?.remove();
+    const badge = summary && section?.badge ? section.badge(summary) : null;
+    if (!badge) return;
+    const element = document.createElement("span");
+    element.className = "exadmin-nav-badge";
+    if (badge.alert) element.dataset.alert = "true";
+    element.textContent = badge.text;
+    element.title = badge.title || "";
+    if (badge.title) element.setAttribute("aria-label", badge.title);
+    link.appendChild(element);
+  });
+}
+
+async function refreshSummary() {
+  try {
+    summary = await apiRequest("/api/admin/summary");
+  } catch (error) {
+    // An older worker, or a moment offline: the navigation stays plain.
+    console.warn("[exadmin] No summary:", error.message);
+    summary = null;
+  }
+  renderNavBadges();
+}
+
+// A section changed something the counters count (approved an account,
+// resolved a report): exadmin:changed asks for them again.
+window.addEventListener("exadmin:changed", () => {
+  if (state.view === "sections") refreshSummary();
+});
+
 function renderSection() {
   const active = currentSection();
   page.nav.textContent = "";
   SECTIONS.forEach((section) => {
     const link = document.createElement("a");
     link.href = `#${section.id}`;
+    link.dataset.section = section.id;
     link.textContent = section.label();
     if (section === active) link.setAttribute("aria-current", "page");
     page.nav.appendChild(link);
   });
   page.nav.appendChild(reloadButton());
+  renderNavBadges();
+  refreshSummary();
   page.main.textContent = "";
   active.mount(page.main, { me });
 }

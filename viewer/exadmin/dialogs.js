@@ -3,13 +3,14 @@ import { t } from "../i18n-utils.js";
 // Replaces window.confirm(), styled like the viewer's (upload-panel.css
 // .viewer-confirm). Resolves true on confirm, false on cancel, Escape or a
 // click beside it.
-export function confirmDialog({ message, confirmLabel, cancelLabel, danger = false }) {
+export function confirmDialog({ message, confirmLabel, cancelLabel, danger = false, input = null }) {
   return new Promise((resolve) => {
     const backdrop = document.createElement("div");
     backdrop.className = "viewer-confirm-backdrop exadmin-confirm-backdrop";
     backdrop.innerHTML = `
       <div class="viewer-confirm" role="alertdialog" aria-modal="true" aria-describedby="exadminConfirmMessage">
         <p id="exadminConfirmMessage" class="viewer-confirm-message"></p>
+        <label class="exadmin-confirm-input" hidden><span></span><textarea rows="4" maxlength="2000"></textarea></label>
         <div class="viewer-confirm-actions">
           <button type="button" class="viewer-confirm-cancel"></button>
           <button type="button" class="viewer-confirm-ok${danger ? " viewer-confirm-ok--danger" : ""}"></button>
@@ -20,8 +21,18 @@ export function confirmDialog({ message, confirmLabel, cancelLabel, danger = fal
     const ok = backdrop.querySelector(".viewer-confirm-ok");
     cancel.textContent = cancelLabel;
     ok.textContent = confirmLabel;
+    // With `input` ({label, placeholder}): a text to give, resolved in place
+    // of true (an empty string when left empty), null on cancel.
+    const field = backdrop.querySelector(".exadmin-confirm-input");
+    const textarea = field.querySelector("textarea");
+    if (input) {
+      field.hidden = false;
+      field.querySelector("span").textContent = input.label || "";
+      textarea.placeholder = input.placeholder || "";
+    }
 
     const finish = (value) => {
+      if (input) value = value ? textarea.value.trim() : null;
       document.removeEventListener("keydown", onKey, true);
       backdrop.remove();
       resolve(value);
@@ -40,7 +51,8 @@ export function confirmDialog({ message, confirmLabel, cancelLabel, danger = fal
     });
 
     document.body.appendChild(backdrop);
-    cancel.focus();
+    if (input) textarea.focus();
+    else cancel.focus();
   });
 }
 

@@ -4,6 +4,7 @@ import { modelCheckPart } from "../../ui/feature-icons.js";
 import { fillModelThumbnail } from "../../ui/model-thumbnail.js";
 import { apiRequest, fetchJobsByOwner } from "../api.js";
 import { confirmDialog, toast } from "../dialogs.js";
+import { formatDate, formatDateTime, formatRelative } from "../format.js";
 
 // Registered accounts (worker/auth.py "administration" methods, server.py
 // _handle_admin_*): approve, disable, promote, delete; each account's plan,
@@ -60,6 +61,7 @@ const USER_SORTS = {
   models: { label: ["adminPanel.sortModels", "Uploaded models"], desc: true, value: (u) => u.models.length },
   storage: { label: ["adminPanel.sortStorage", "Storage used"], desc: true, value: (u) => u.user.usage?.storageBytes || 0 },
   lastUpload: { label: ["adminPanel.sortLastUpload", "Last upload"], desc: true, value: (u) => lastUploadOf(u.models) },
+  lastSeen: { label: ["adminPanel.sortLastSeen", "Last active"], desc: true, value: (u) => u.user.lastSeenAt || 0 },
 };
 
 function compareUsers(a, b, key, desc) {
@@ -88,6 +90,15 @@ function formatLimit(value) {
   return value ? String(value) : "∞";
 }
 
+// The list's tabs, one per account status (worker/auth.py STATUSES), each
+// named with its count; Waiting gets an exclamation mark while any account
+// waits for approval.
+const STATUS_TABS = [
+  { status: "active", label: ["adminPanel.tabActive", "Active"] },
+  { status: "pending", label: ["adminPanel.tabPending", "Waiting"] },
+  { status: "disabled", label: ["adminPanel.tabDisabled", "Disabled"] },
+];
+
 class UsersSection {
   // `me`: the signed-in admin's username (they cannot disable, demote or
   // delete themselves).
@@ -96,9 +107,15 @@ class UsersSection {
     this.users = [];
     this.unownedModels = [];
     this.expandedModels = new Set();
+    // Rows opened to their models, plan and limits (closed by default).
+    this.expandedUsers = new Set();
     this.defaultLimits = null;
     this.businessLimits = null;
     this.sort = { key: "plan", desc: USER_SORTS.plan.desc };
+    // Chosen on the first load: Waiting while accounts wait, else Active.
+    this.statusTab = null;
+    // Accounts waiting for approval picked for a bulk approve or reject.
+    this.selected = new Set();
 
     const element = document.createElement("section");
     element.className = "exadmin-section exadmin-users";
@@ -111,13 +128,28 @@ class UsersSection {
           <button type="button" class="admin-users-sort-direction"></button>
         </div>
       </div>
+      <input type="search" class="admin-users-search" hidden autocomplete="off" spellcheck="false" />
+      <div class="admin-users-tabs" role="tablist" hidden></div>
       <p class="upload-panel-status" role="status" aria-live="polite"></p>
-      <ul class="admin-users-list"></ul>
+      <div class="admin-users-bulk admin-users-actions" hidden></div>
+      <ul class="admin-users-list" role="tabpanel"></ul>
     `;
     this.element = element;
     this.status = element.querySelector(".upload-panel-status");
     this.list = element.querySelector(".admin-users-list");
     this.sortBar = element.querySelector(".admin-users-sort");
+    this.tabs = element.querySelector(".admin-users-tabs");
+    this.bulkBar = element.querySelector(".admin-users-bulk");
+    // Name or e-mail, any part, any case; the tabs count the matches.
+    this.search = element.querySelector(".admin-users-search");
+    this.search.placeholder = t("adminPanel.searchPlaceholder", "Search by name or e-mail");
+    this.search.setAttribute("aria-label", this.search.placeholder);
+    this.query = "";
+    this.search.addEventListener("input", () => {
+      this.query = this.search.value.trim().toLocaleLowerCase();
+      this.render();
+    });
+    this.tabs.setAttribute("aria-label", t("adminPanel.tabsLabel", "Accounts by status"));
     this.sortSelect = element.querySelector("#adminUsersSort");
     this.sortDirection = element.querySelector(".admin-users-sort-direction");
 
@@ -148,6 +180,8 @@ class UsersSection {
   async load() {
     this.list.textContent = "";
     this.sortBar.hidden = true;
+    this.tabs.hidden = true;
+    this.search.hidden = true;
     this.setStatus(t("exadmin.loading", "Loading..."));
 
     let users = [];
@@ -187,8 +221,60 @@ class UsersSection {
     this.unownedModels = [...jobsByOwner.entries()]
       .filter(([owner]) => !known.has(owner))
       .flatMap(([, models]) => models);
+    if (!this.statusTab) {
+      this.statusTab = users.some((user) => user.status === "pending") ? "pending" : "active";
+    }
     this.sortBar.hidden = false;
+    this.tabs.hidden = false;
+    this.search.hidden = false;
     this.render();
+  }
+
+  matches({ user }) {
+    if (!this.query) return true;
+    return [user.username, user.email].some((text) => String(text || "").toLocaleLowerCase().includes(this.query));
+  }
+
+  renderTabs() {
+    this.tabs.textContent = "";
+    const found = this.users.filter((entry) => this.matches(entry));
+    STATUS_TABS.forEach(({ status, label }) => {
+      const count = found.filter(({ user }) => user.status === status).length;
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "admin-users-tab";
+      tab.setAttribute("role", "tab");
+      tab.dataset.status = status;
+      const selected = status === this.statusTab;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      const text = document.createElement("span");
+      text.textContent = `${t(...label)} (${count})`;
+      tab.appendChild(text);
+      if (status === "pending" && count > 0) {
+        const alert = document.createElement("span");
+        alert.className = "admin-users-tab-alert";
+        alert.textContent = "!";
+        alert.title = t("adminPanel.tabPendingAlert", { count }, "{count} accounts waiting for approval");
+        alert.setAttribute("aria-label", alert.title);
+        tab.appendChild(alert);
+      }
+      tab.addEventListener("click", () => {
+        this.statusTab = status;
+        this.render();
+      });
+      // Arrow keys move between the tabs (WAI-ARIA tabs pattern).
+      tab.addEventListener("keydown", (event) => {
+        const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        const index = STATUS_TABS.findIndex((item) => item.status === status);
+        this.statusTab = STATUS_TABS[(index + step + STATUS_TABS.length) % STATUS_TABS.length].status;
+        this.render();
+        this.tabs.querySelector('[aria-selected="true"]')?.focus();
+      });
+      this.tabs.appendChild(tab);
+    });
   }
 
   render() {
@@ -199,11 +285,25 @@ class UsersSection {
     this.sortDirection.textContent = desc ? "↓" : "↑";
     this.sortDirection.title = label;
     this.sortDirection.setAttribute("aria-label", label);
+    this.renderTabs();
+    this.renderBulkBar();
     this.list.textContent = "";
-    [...this.users]
+    const shown = this.users.filter((entry) => entry.user.status === this.statusTab && this.matches(entry));
+    if (!shown.length) {
+      const empty = document.createElement("li");
+      empty.className = "admin-users-empty";
+      empty.textContent = this.query
+        ? t("adminPanel.searchEmpty", "No account here matches the search.")
+        : t("adminPanel.tabEmpty", "No accounts here.");
+      this.list.appendChild(empty);
+    }
+    shown
       .sort((a, b) => compareUsers(a, b, key, desc))
       .forEach(({ user, models }) => this.list.appendChild(this.renderUserRow(user, models)));
-    if (this.unownedModels.length) this.list.appendChild(this.renderUnownedModelsRow(this.unownedModels));
+    // Models without an account belong to no status: listed with the active ones.
+    if (this.statusTab === "active" && !this.query && this.unownedModels.length) {
+      this.list.appendChild(this.renderUnownedModelsRow(this.unownedModels));
+    }
   }
 
   renderUnownedModelsRow(models) {
@@ -234,6 +334,20 @@ class UsersSection {
     const name = document.createElement("span");
     name.className = "admin-users-name";
     name.textContent = user.username;
+    // Accounts waiting for approval: picked for the bulk actions above them.
+    if (user.status === "pending") {
+      const pick = document.createElement("input");
+      pick.type = "checkbox";
+      pick.className = "admin-users-pick";
+      pick.checked = this.selected.has(user.username);
+      pick.setAttribute("aria-label", t("adminPanel.selectUser", { user: user.username }, "Select {user}"));
+      pick.addEventListener("change", () => {
+        if (pick.checked) this.selected.add(user.username);
+        else this.selected.delete(user.username);
+        this.renderBulkBar();
+      });
+      name.prepend(pick);
+    }
     // The account's plan: granted by an admin or bought in an app.
     if (user.plan) {
       const badge = createPlanIcon(user.plan.tier);
@@ -244,10 +358,10 @@ class UsersSection {
           : t("loginPanel.planTitle", "Plan bought in the app"),
       ];
       if (user.plan.expiresAt) {
-        details.push(t("adminPanel.planRenews", { date: new Date(user.plan.expiresAt * 1000).toLocaleDateString() }, "renews/ends {date}"));
+        details.push(t("adminPanel.planRenews", { date: formatDate(user.plan.expiresAt) }, "renews/ends {date}"));
       }
       if (user.plan.updatedAt) {
-        details.push(t("adminPanel.planChecked", { date: new Date(user.plan.updatedAt * 1000).toLocaleString() }, "checked {date}"));
+        details.push(t("adminPanel.planChecked", { date: formatDateTime(user.plan.updatedAt) }, "checked {date}"));
       }
       badge.title = details.join(" · ");
       badge.setAttribute("aria-label", badge.title);
@@ -255,13 +369,21 @@ class UsersSection {
     }
     const meta = document.createElement("span");
     meta.className = "admin-users-meta";
-    const created = user.createdAt ? new Date(user.createdAt * 1000).toLocaleDateString() : "";
+    const created = user.createdAt
+      ? t("adminPanel.createdOn", { date: formatDate(user.createdAt) }, "registered {date}")
+      : "";
     const modelsCount = t("adminPanel.modelsCount", { count: models.length }, "{count} models");
     const lastUpload = lastUploadOf(models);
     const lastUploadText = lastUpload
-      ? t("adminPanel.lastUpload", { date: new Date(lastUpload * 1000).toLocaleDateString() }, "last upload {date}")
+      ? t("adminPanel.lastUpload", { date: formatDate(lastUpload) }, "last upload {date}")
       : "";
-    meta.textContent = [user.email, `${user.role} · ${user.status}`, modelsCount, lastUploadText, created]
+    const role = user.role === "admin" ? t("exadmin.statsRoleAdmin", "Administrator") : t("exadmin.statsRoleUser", "User");
+    // When the account last used the viewer (worker/auth.py lastSeenAt;
+    // empty for accounts not seen since the worker started recording it).
+    const seen = user.lastSeenAt
+      ? t("adminPanel.lastSeen", { when: formatRelative(user.lastSeenAt) }, "active {when}")
+      : user.status === "active" ? t("adminPanel.neverSeen", "not seen yet") : "";
+    meta.textContent = [user.email, role, seen, modelsCount, lastUploadText, created]
       .filter(Boolean)
       .join(" · ");
     info.append(name, meta);
@@ -274,6 +396,14 @@ class UsersSection {
       actions.appendChild(
         this.createUserActionButton(user.username, "approve", t("adminPanel.approve", "Approve"))
       );
+      if (user.status === "pending") {
+        const reject = document.createElement("button");
+        reject.type = "button";
+        reject.className = "admin-users-delete";
+        reject.textContent = t("adminPanel.reject", "Reject");
+        reject.addEventListener("click", () => this.rejectUsers([user.username]));
+        actions.appendChild(reject);
+      }
     } else if (!isSelf) {
       actions.appendChild(
         this.createUserActionButton(user.username, "disable", t("adminPanel.disable", "Disable"))
@@ -302,10 +432,38 @@ class UsersSection {
     actions.appendChild(deleteButton);
 
     top.append(info, actions);
-    item.append(top, this.renderUserModelsTab(user.username, models));
-    item.appendChild(this.renderUserPlanTab(user));
+
+    // Models, plan and limits fold away: a row is one line of name and
+    // actions until opened (kept open across re-renders).
+    const details = document.createElement("div");
+    details.className = "admin-users-details";
+    details.id = `adminUserDetails-${user.username}`;
+    const open = this.expandedUsers.has(user.username);
+    details.hidden = !open;
+    details.append(this.renderUserModelsTab(user.username, models), this.renderUserPlanTab(user));
     // Older workers do not report limits - leave the section out.
-    if (user.effectiveLimits) item.appendChild(this.renderUserLimitsTab(user));
+    if (user.effectiveLimits) details.appendChild(this.renderUserLimitsTab(user));
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "admin-users-expand";
+    toggle.setAttribute("aria-controls", details.id);
+    const syncToggle = () => {
+      const expanded = !details.hidden;
+      toggle.setAttribute("aria-expanded", String(expanded));
+      toggle.textContent = expanded ? t("adminPanel.detailsHide", "Less") : t("adminPanel.detailsShow", "Details");
+      item.classList.toggle("is-expanded", expanded);
+    };
+    toggle.addEventListener("click", () => {
+      details.hidden = !details.hidden;
+      if (details.hidden) this.expandedUsers.delete(user.username);
+      else this.expandedUsers.add(user.username);
+      syncToggle();
+    });
+    syncToggle();
+    actions.prepend(toggle);
+
+    item.append(top, details);
     return item;
   }
 
@@ -323,11 +481,14 @@ class UsersSection {
     summary.className = "admin-users-limits-summary";
     const parts = [
       t("adminPanel.planCurrent", { plan: t(`plans.${plan?.tier || "free"}`, plan?.tier || "free") }, "Plan: {plan}"),
-      t("adminPanel.planPurchase", { plan: t(`plans.${purchase || "free"}`, purchase || "free") }, "bought in the app: {plan}"),
     ];
+    // Only an account that bought something in the app has a purchase to name.
+    if (purchase && purchase !== "free") {
+      parts.push(t("adminPanel.planPurchase", { plan: t(`plans.${purchase}`, purchase) }, "bought in the app: {plan}"));
+    }
     if (grant) {
       parts.push(grant.expiresAt
-        ? t("adminPanel.planGrantUntil", { plan: t(`plans.${grant.tier}`, grant.tier), date: new Date(grant.expiresAt * 1000).toLocaleDateString() }, "granted: {plan} until {date}")
+        ? t("adminPanel.planGrantUntil", { plan: t(`plans.${grant.tier}`, grant.tier), date: formatDate(grant.expiresAt) }, "granted: {plan} until {date}")
         : t("adminPanel.planGrant", { plan: t(`plans.${grant.tier}`, grant.tier) }, "granted: {plan}"));
     }
     summary.textContent = parts.join(" · ");
@@ -585,7 +746,7 @@ class UsersSection {
         ? metaPart("user", t("modelsMeta.uploadedBy", "Uploaded by"), job.owner)
         : metaPart("no-user", t("adminPanel.modelNoOwner", "No owner")),
       job.createdAt
-        ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), new Date(job.createdAt * 1000).toLocaleString())
+        ? metaPart("date", t("modelsMeta.uploaded", "Uploaded"), formatDateTime(job.createdAt))
         : null,
       // The worker's check of the model file (validation.json), as in the
       // browse-models panel.
@@ -749,6 +910,96 @@ class UsersSection {
     return button;
   }
 
+  // Shown in the Waiting tab: pick all, approve or reject the picked ones.
+  renderBulkBar() {
+    const pending = this.users
+      .filter((entry) => entry.user.status === "pending" && this.matches(entry))
+      .map(({ user }) => user.username);
+    // Only what is still waiting (and shown) stays picked.
+    [...this.selected].forEach((name) => { if (!pending.includes(name)) this.selected.delete(name); });
+    this.bulkBar.textContent = "";
+    this.bulkBar.hidden = this.statusTab !== "pending" || pending.length === 0;
+    if (this.bulkBar.hidden) return;
+
+    const all = document.createElement("label");
+    all.className = "admin-users-bulk-all";
+    const allBox = document.createElement("input");
+    allBox.type = "checkbox";
+    allBox.checked = this.selected.size === pending.length;
+    allBox.indeterminate = this.selected.size > 0 && this.selected.size < pending.length;
+    allBox.addEventListener("change", () => {
+      if (allBox.checked) pending.forEach((name) => this.selected.add(name));
+      else this.selected.clear();
+      this.render();
+    });
+    const allText = document.createElement("span");
+    allText.textContent = t("adminPanel.selectAll", "Select all");
+    all.append(allBox, allText);
+
+    const count = this.selected.size;
+    const approve = document.createElement("button");
+    approve.type = "button";
+    approve.textContent = t("adminPanel.approveSelected", { count }, "Approve selected ({count})");
+    approve.disabled = !count;
+    approve.addEventListener("click", () => this.approveUsers([...this.selected]));
+    const reject = document.createElement("button");
+    reject.type = "button";
+    reject.className = "admin-users-delete";
+    reject.textContent = t("adminPanel.rejectSelected", { count }, "Reject selected ({count})");
+    reject.disabled = !count;
+    reject.addEventListener("click", () => this.rejectUsers([...this.selected]));
+    this.bulkBar.append(all, approve, reject);
+  }
+
+  // One request per account (each mailed on its own), then one reload.
+  async approveUsers(usernames) {
+    const failed = [];
+    for (const username of usernames) {
+      try {
+        await adminRequest(`/${encodeURIComponent(username)}/approve`, "POST");
+        this.selected.delete(username);
+      } catch (error) {
+        this.reportError(error, `Failed to approve ${username}`);
+        failed.push(`${username}: ${error.message}`);
+      }
+    }
+    if (failed.length) this.setStatus(failed.join(" · "), "error");
+    else toast("userUpdated", "success");
+    await this.load();
+  }
+
+  // Asks for the reason (mailed to each of them, optional), then deletes
+  // the accounts (POST /api/admin/users/<u>/reject).
+  async rejectUsers(usernames) {
+    if (!usernames.length) return;
+    const reason = await confirmDialog({
+      message: usernames.length === 1
+        ? t("adminPanel.rejectConfirm", { user: usernames[0] }, "Reject the account {user}? It is deleted and they are told by e-mail.")
+        : t("adminPanel.rejectConfirmMany", { count: usernames.length }, "Reject {count} accounts? They are deleted and each is told by e-mail."),
+      input: {
+        label: t("adminPanel.rejectReason", "Reason (sent in the e-mail, optional)"),
+        placeholder: t("adminPanel.rejectReasonPlaceholder", "e.g. We could not confirm who you are."),
+      },
+      confirmLabel: t("adminPanel.reject", "Reject"),
+      cancelLabel: t("adminPanel.deleteCancel", "Cancel"),
+      danger: true,
+    });
+    if (reason === null) return;
+    const failed = [];
+    for (const username of usernames) {
+      try {
+        await adminRequest(`/${encodeURIComponent(username)}/reject`, "POST", { reason });
+        this.selected.delete(username);
+      } catch (error) {
+        this.reportError(error, `Failed to reject ${username}`);
+        failed.push(`${username}: ${error.message}`);
+      }
+    }
+    if (failed.length) this.setStatus(failed.join(" · "), "error");
+    else toast("userUpdated", "success");
+    await this.load();
+  }
+
   async performUserAction(username, action) {
     try {
       await adminRequest(`/${encodeURIComponent(username)}/${action}`, "POST");
@@ -787,6 +1038,9 @@ class UsersSection {
 export const usersSection = {
   id: "users",
   label: () => t("exadmin.navUsers", "Users"),
+  badge: ({ pendingUsers }) => (pendingUsers
+    ? { text: "!", alert: true, title: t("adminPanel.tabPendingAlert", { count: pendingUsers }, "{count} accounts waiting for approval") }
+    : null),
   // Builds the section into `container` and loads its data.
   mount(container, context) {
     const section = new UsersSection(context);

@@ -19,6 +19,11 @@ export async function apiRequest(endpoint, method = "GET", body = undefined) {
     error.status = response.status;
     throw error;
   }
+  // Something was changed (an account approved, a report resolved, a
+  // model deleted): the navigation's counters are read again (main.js).
+  if (method !== "GET" && !endpoint.startsWith("/api/auth/")) {
+    window.dispatchEvent(new Event("exadmin:changed"));
+  }
   return data;
 }
 

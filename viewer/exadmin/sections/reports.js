@@ -1,6 +1,7 @@
 import { t } from "../../i18n-utils.js";
 import { apiRequest } from "../api.js";
 import { confirmDialog, toast } from "../dialogs.js";
+import { formatDateTime } from "../format.js";
 
 // Reported models (worker/reports.py, server.py _handle_admin_resolve_report):
 // what was reported, why and by whom, and the admin's decision - dismiss,
@@ -90,7 +91,7 @@ class ReportsSection {
     name.textContent = report.modelName || report.jobId;
     const when = document.createElement("span");
     when.className = "exadmin-report-date";
-    when.textContent = new Date(report.createdAt * 1000).toLocaleString();
+    when.textContent = formatDateTime(report.createdAt);
     head.append(name, when);
     item.appendChild(head);
 
@@ -182,6 +183,9 @@ class ReportsSection {
 export const reportsSection = {
   id: "reports",
   label: () => t("exadmin.navReports", "Reports"),
+  badge: ({ openReports }) => (openReports
+    ? { text: String(openReports), alert: true, title: t("adminPanel.reportsOpenCount", { count: openReports }, "{count} reports waiting for a decision") }
+    : null),
   mount(container, context) {
     const section = new ReportsSection(context);
     container.appendChild(section.element);

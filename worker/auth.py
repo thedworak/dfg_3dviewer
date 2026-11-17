@@ -8,7 +8,8 @@ portfolio links keep working.
 Storage lives next to the jobs (JOBS_DIR/.auth/, on the same persistent
 volume; the dot prefix keeps it out of the job listing):
 
-  users.json  accounts (scrypt password hashes, role, status, an
+  users.json  accounts (scrypt password hashes, role, status, when they
+              last logged in and were last active, an
               app plan linked to the account - see set_app_plan - and a
               plan granted by an admin - see set_plan_grant)
   secret      HMAC key for session tokens (or WORKER_AUTH_SECRET)
@@ -31,6 +32,7 @@ import json
 import os
 import re
 import secrets
+import sys
 import tempfile
 import threading
 import time
@@ -50,6 +52,9 @@ LOCKOUT_SECONDS = 300
 # one account gets at most one such mail per cooldown.
 RESET_TTL = 3600
 RESET_COOLDOWN = 300
+# How often a signed-in account's last activity (lastSeenAt) is written:
+# users.json is not rewritten on every request.
+SEEN_INTERVAL = 900
 
 MODES = ("off", "required")
 REGISTRATION_MODES = ("open", "approval", "closed")
@@ -263,7 +268,21 @@ class AuthStore:
             raise AuthError(403, "Your account is waiting for approval.")
         if record["status"] != "active":
             raise AuthError(403, "This account is disabled.")
+        now = int(time.time())
+        self._touch(match, lastLoginAt=now, lastSeenAt=now)
         return {"username": match, "role": record["role"]}
+
+    def _touch(self, username: str, **times) -> None:
+        """Records when an account logged in / was last active (the admin
+        pages show it). Best effort: a failed write never fails the request."""
+        try:
+            with self._lock:
+                users = self._load()
+                if username in users:
+                    users[username].update(times)
+                    self._save(users)
+        except OSError as exc:
+            print(f"auth: could not record activity of {username}: {exc}", file=sys.stderr)
 
     # ---- sessions ------------------------------------------------------
 
@@ -309,6 +328,9 @@ class AuthStore:
         # A new password signs out the sessions started before it.
         if issued < record.get("passwordChangedAt", 0):
             return None
+        now = int(time.time())
+        if now - record.get("lastSeenAt", 0) >= SEEN_INTERVAL:
+            self._touch(username, lastSeenAt=now)
         return {"username": username, "role": record["role"], "plan": effective_app_plan(record)}
 
     def cookie_header(self, token: str, secure: bool, clear: bool = False) -> str:
@@ -328,6 +350,8 @@ class AuthStore:
                 "role": rec["role"],
                 "status": rec["status"],
                 "createdAt": rec.get("createdAt", 0),
+                "lastLoginAt": rec.get("lastLoginAt", 0),
+                "lastSeenAt": rec.get("lastSeenAt", 0),
                 "limits": rec.get("limits", {}),
                 "plan": effective_app_plan(rec),
             }
@@ -457,6 +481,22 @@ class AuthStore:
         if was_pending and record.get("email"):
             return {"username": username, "email": record["email"]}
         return None
+
+    def reject_user(self, username: str) -> dict:
+        """Deletes an account that is waiting for approval (POST
+        /api/admin/users/<u>/reject). Returns {"username", "email"} to tell
+        them why; an account that is not pending is refused (409) - an active
+        one is disabled or deleted instead."""
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            if record.get("status") != "pending":
+                raise AuthError(409, "Only an account waiting for approval can be rejected.")
+            users.pop(username)
+            self._save(users)
+        return {"username": username, "email": record.get("email", "")}
 
     # ---- passwords -----------------------------------------------------
 

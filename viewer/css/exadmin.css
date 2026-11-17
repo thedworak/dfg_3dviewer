@@ -92,6 +92,28 @@ body {
   opacity: 0.75;
 }
 
+.exadmin-nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 18%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Something waits for an admin: the warning colour of the Users tabs. */
+.exadmin-nav-badge[data-alert="true"] {
+  background: #eda100;
+  color: #1a1400;
+}
+
 .exadmin-nav a:hover {
   opacity: 1;
 }
@@ -236,6 +258,31 @@ body {
 }
 
 /* The viewer's dialog covers its container; here the window. */
+.exadmin-confirm-input {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 14px;
+}
+
+.exadmin-confirm-input[hidden] {
+  display: none;
+}
+
+.exadmin-confirm-input span {
+  opacity: 0.75;
+}
+
+.exadmin-confirm-input textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
 .exadmin-confirm-backdrop {
   position: fixed;
 }
@@ -353,7 +400,9 @@ body {
 
 /* Example model thumbnails (sections/examples.js) */
 .exadmin-section-header button,
-.exadmin-example .exadmin-report-actions a {
+.exadmin-example .exadmin-report-actions a,
+.exadmin-model .exadmin-report-actions a,
+.exadmin-models-more {
   border: 1px solid var(--viewer-panel-border);
   border-radius: 6px;
   background: transparent;
@@ -437,7 +486,7 @@ body {
 
 .exadmin-stats-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
   margin: 12px 0 16px;
 }
@@ -614,4 +663,299 @@ body {
 .exadmin-stats-table td:last-child,
 .exadmin-stats-table th:last-child {
   text-align: right;
+}
+
+/* Models (sections/models.js). */
+.exadmin-queue {
+  margin: 8px 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-queue[hidden] {
+  display: none;
+}
+
+.exadmin-queue h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.exadmin-queue-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.exadmin-queue-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exadmin-queue-meta {
+  grid-column: 1;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.exadmin-queue-row progress {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 100%;
+  accent-color: var(--exadmin-stats-series);
+}
+
+.exadmin-models-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: end;
+  margin: 8px 0;
+}
+
+.exadmin-models-filters[hidden] {
+  display: none;
+}
+
+.exadmin-models-filters input[type="search"] {
+  flex: 1 1 100%;
+}
+
+.exadmin-models-filters label {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.exadmin-models-filters label span {
+  opacity: 0.7;
+}
+
+.exadmin-models-filters input,
+.exadmin-models-filters select {
+  padding: 5px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.exadmin-models-filters select option {
+  background: var(--viewer-option-bg);
+}
+
+.exadmin-models-summary {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.exadmin-models-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exadmin-model {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-model[data-state="failed"] {
+  border-color: rgba(213, 70, 70, 0.5);
+}
+
+.exadmin-model .models-panel-item-thumb {
+  width: 56px;
+  height: 56px;
+}
+
+.exadmin-model-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.exadmin-model-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exadmin-model-meta {
+  font-size: 12px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
+.exadmin-model-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.exadmin-model-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.exadmin-model-tag[data-tone="error"] {
+  border-color: #d54646;
+  color: #d54646;
+}
+
+.exadmin-model-tag[data-tone="warning"] {
+  border-color: #eda100;
+  color: #c98500;
+}
+
+.exadmin-model-error {
+  font-size: 12px;
+  color: #d54646;
+  overflow-wrap: anywhere;
+}
+
+.exadmin-model .exadmin-report-actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
+.exadmin-models-more {
+  display: block;
+  margin: 12px auto 0;
+}
+
+.exadmin-models-more[hidden] {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .exadmin-model {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .exadmin-model .models-panel-item-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .exadmin-model .exadmin-report-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+/* How full the disk is (sections/stats.js diskMeter). */
+.exadmin-stats-disk {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-stats-disk[data-warning="true"] {
+  border-color: #eda100;
+}
+
+.exadmin-stats-disk-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-disk-text span {
+  opacity: 0.75;
+}
+
+.exadmin-stats-disk-track {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--exadmin-stats-grid);
+}
+
+.exadmin-stats-disk-bar {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--exadmin-stats-series);
+}
+
+.exadmin-stats-disk[data-warning="true"] .exadmin-stats-disk-bar {
+  background: #eda100;
+}
+
+.exadmin-stats-disk-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--viewer-panel-text);
+  opacity: 0.5;
+}
+
+.exadmin-stats-disk-warning {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+/* What the administrators did (sections/history.js). */
+.exadmin-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exadmin-history-entry {
+  display: grid;
+  grid-template-columns: 9.5em minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--viewer-panel-border);
+}
+
+.exadmin-history-entry time {
+  font-size: 12px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-history-what {
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.exadmin-history-details {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+@media (max-width: 600px) {
+  .exadmin-history-entry {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
 }

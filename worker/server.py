@@ -35,6 +35,10 @@ could talk to either backend interchangeably:
   POST /api/jobs/<id>/report {reason, details} - anyone who sees it (reports.py)
   GET  /api/admin/reports       POST /api/admin/reports/<rid> {action} - admins
   GET  /api/admin/stats         -> {users, models} the admin panel's charts
+  GET  /api/admin/summary       -> {pendingUsers, openReports, ...} its counters
+  GET  /api/admin/models        -> {models, queue} every model, conversions now
+  GET  /api/admin/audit?limit=&before=&admin=&action= -> {entries, more}
+                                what the admins did (audit.py)
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
   GET  /api/auth/me                 POST /api/auth/register|login|logout|
                                     delete-account|change-password|
@@ -43,6 +47,7 @@ could talk to either backend interchangeably:
   POST /api/app/link|sync|unlink  an app's plan on an account (only with an
                                   entitlements module, see below)
   POST /api/admin/users/<u>/plan  a plan granted by an admin (auth.py)
+  POST /api/admin/users/<u>/reject {reason} a waiting account deleted, mailed
   GET  /api/examples/thumbnails -> {thumbnails: {"<dir>/<basename>": {views,
                                 version}}} the viewer's renders of its example
                                 models; POST (multipart dir, basename, a PNG
@@ -90,7 +95,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+import admin_watch
 import ai
+import audit
 import cloudflare
 import geonames
 import dicom_series
@@ -164,6 +171,8 @@ AUTH = AuthStore(
 )
 # Reports of objectionable models (worker/reports.py), next to the accounts.
 REPORTS = reports.ReportStore(JOBS_DIR / ".reports")
+# What the administrators did (audit.py): the admin pages' History.
+AUDIT = audit.AuditLog(JOBS_DIR / ".audit")
 # Upload limits (see worker/limits.py for the per-account WORKER_LIMIT_*
 # defaults). Conversions beyond this many at once wait in the "queued" status.
 MAX_CONCURRENT_CONVERSIONS = int(os.environ.get("WORKER_MAX_CONCURRENT_CONVERSIONS", "2"))
@@ -559,18 +568,170 @@ def list_jobs(user=None):
     return jobs
 
 
+FAILURE_NAME = "failed.json"
+
+
+def record_failure(job_id: str, message: str) -> None:
+    """Keeps a failed conversion's reason next to owner.json (JOBS forgets
+    it on a restart): the admin pages' Models list and statistics."""
+    try:
+        (JOBS_DIR / job_id / FAILURE_NAME).write_text(
+            json.dumps({"message": message[:2000], "failedAt": int(time.time())}), "utf-8")
+    except OSError as exc:
+        print(f"[job {job_id}] could not record the failure: {exc}", file=sys.stderr)
+
+
+def read_failure(job_id: str):
+    try:
+        return json.loads((JOBS_DIR / job_id / FAILURE_NAME).read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def upload_format(filename: str) -> str:
+    """The uploaded file's format by its extension (a .nii.gz is NIfTI)."""
+    name = (filename or "").lower()
+    if name.endswith(".nii.gz"):
+        return "nii.gz"
+    return name.rsplit(".", 1)[1] if "." in name else ""
+
+
+def job_state(job_id: str, job_dir: Path, live=None, scanned=None) -> str:
+    """converting (in JOBS, still running), failed (failed.json), ready (a
+    model to serve) or incomplete (neither: interrupted by a restart)."""
+    if live and live.get("status") in ACTIVE_STATUSES:
+        return "converting"
+    if (live and live.get("status") == "failed") or (job_dir / FAILURE_NAME).is_file():
+        return "failed"
+    return "ready" if scanned else "incomplete"
+
+
+def admin_models() -> dict:
+    """GET /api/admin/models: every uploaded model for the admin pages'
+    Models list (viewer/exadmin/sections/models.js) - its owner, format,
+    size, state and reports - and the conversions running or queued now."""
+    models = []
+    hidden = REPORTS.hidden_jobs()
+    open_reports = REPORTS.open_counts()
+    with JOBS_LOCK:
+        live_jobs = {job_id: dict(job) for job_id, job in JOBS.items()}
+    if JOBS_DIR.is_dir():
+        for job_dir in JOBS_DIR.iterdir():
+            if not job_dir.is_dir() or not JOB_ID_RE.fullmatch(job_dir.name):
+                continue
+            job_id = job_dir.name
+            owner = read_owner(job_id) or {}
+            try:
+                scanned = scan_job(job_id, job_dir)
+                storage = limits_dir_size(job_dir)
+                created = int(owner.get("createdAt") or job_dir.stat().st_mtime)
+            except OSError:
+                continue
+            failure = read_failure(job_id)
+            live = live_jobs.get(job_id)
+            filename = owner.get("filename") or (scanned or {}).get("name") or ""
+            metadata = model_metadata.read(job_dir) or {}
+            models.append({
+                "id": job_id,
+                "name": metadata.get("name") or filename or job_id,
+                "filename": filename,
+                "format": upload_format(filename),
+                "owner": owner.get("user"),
+                "createdAt": created,
+                "size": int(owner.get("size") or 0),
+                "storage": storage,
+                "private": bool(owner.get("private")),
+                "underReview": job_id in hidden,
+                "openReports": open_reports.get(job_id, 0),
+                "state": job_state(job_id, job_dir, live, scanned),
+                "error": (live or {}).get("message") if (live or {}).get("status") == "failed"
+                else (failure or {}).get("message"),
+                "modelUrl": (scanned or {}).get("modelUrl"),
+                "imageUrl": ((scanned or {}).get("imageUrls") or [None])[0],
+                "validation": validate.read_summary(validation_path(job_id)),
+            })
+    models.sort(key=lambda model: model["createdAt"], reverse=True)
+    queue = []
+    for job_id, job in live_jobs.items():
+        if job.get("status") not in ACTIVE_STATUSES:
+            continue
+        owner = read_owner(job_id) or {}
+        queue.append({
+            "id": job_id,
+            "status": job.get("status"),
+            "progress": job.get("progress", 0),
+            "message": job.get("message", ""),
+            "owner": owner.get("user"),
+            "filename": owner.get("filename", ""),
+            "createdAt": owner.get("createdAt", 0),
+        })
+    queue.sort(key=lambda job: job["createdAt"])
+    return {"models": models, "queue": queue}
+
+
+def admin_summary() -> dict:
+    """GET /api/admin/summary: the counters on the admin pages' navigation
+    (viewer/exadmin/main.js) - cheap, read on every page."""
+    return {
+        "pendingUsers": sum(1 for u in AUTH.list_users() if u["status"] == "pending"),
+        "openReports": len(REPORTS.list("open")),
+        "disk": admin_watch.disk_usage(JOBS_DIR),
+    }
+
+
+def admin_digest(since: float, now: float) -> dict:
+    """The numbers of the administrators' daily/weekly mail
+    (admin_watch.py): what happened between since and now."""
+    users = AUTH.list_users()
+    new_accounts = [
+        {"username": u["username"], "email": u["email"], "status": u["status"]}
+        for u in sorted(users, key=lambda u: u.get("createdAt", 0))
+        if since <= u.get("createdAt", 0) < now
+    ]
+    uploads = uploaded = failed = 0
+    if JOBS_DIR.is_dir():
+        for job_dir in JOBS_DIR.iterdir():
+            if not job_dir.is_dir() or not JOB_ID_RE.fullmatch(job_dir.name):
+                continue
+            owner = read_owner(job_dir.name) or {}
+            if since <= (owner.get("createdAt") or 0) < now:
+                uploads += 1
+                uploaded += int(owner.get("size") or 0)
+                failed += (job_dir / FAILURE_NAME).is_file()
+    return {
+        "since": int(since),
+        "newAccounts": new_accounts,
+        "pending": sum(1 for u in users if u["status"] == "pending"),
+        "uploads": uploads,
+        "uploadedBytes": uploaded,
+        "failed": failed,
+        "openReports": len(REPORTS.list("open")),
+        "disk": admin_watch.disk_usage(JOBS_DIR),
+    }
+
+
+def admin_mail_recipients() -> list:
+    """Who gets the administrators' mail (new accounts, the disk, the
+    digest): WORKER_SIGNUP_EMAIL, else the active admin accounts."""
+    return mailer.signup_recipients(
+        [u["email"] for u in AUTH.list_users() if u["role"] == "admin" and u["status"] == "active"])
+
+
 def admin_stats() -> dict:
     """GET /api/admin/stats: the raw points of the admin panel's charts
     (viewer/exadmin/sections/stats.js), counted into days in the browser's
-    time zone. No names or addresses: each account's creation time, role,
-    status and plan tier; each model's upload time, uploaded size and the
-    space it takes on disk (the upload and what was converted from it)."""
+    time zone. No addresses, and names only in topStorage (the ten accounts
+    using the most space): each account's creation time, role, status, plan
+    tier and last activity; each model's upload time, uploaded size and the
+    space it takes on disk (the upload and what was converted from it); the
+    jobs volume's size and how full it is."""
     users = [
         {
             "createdAt": u.get("createdAt", 0),
             "role": u["role"],
             "status": u["status"],
             "plan": (u.get("plan") or {}).get("tier") or "free",
+            "lastSeenAt": u.get("lastSeenAt", 0),
         }
         for u in AUTH.list_users()
     ]
@@ -591,9 +752,25 @@ def admin_stats() -> dict:
                 "storage": storage,
                 "private": bool(owner.get("private")),
                 "anonymous": not owner.get("user"),
+                "owner": owner.get("user"),
+                "format": upload_format(owner.get("filename") or ""),
+                # Failures are kept since failed.json was introduced.
+                "failed": (get_job(job_dir.name) or {}).get("status") == "failed"
+                or (job_dir / FAILURE_NAME).is_file(),
             })
     models.sort(key=lambda model: model["createdAt"])
-    return {"users": users, "models": models, "now": int(time.time())}
+    # The accounts using the most space (named: only admins read this).
+    storage_by_owner = {}
+    for model in models:
+        if model["owner"]:
+            entry = storage_by_owner.setdefault(model["owner"], {"username": model["owner"], "storage": 0, "models": 0})
+            entry["storage"] += model["storage"]
+            entry["models"] += 1
+    top_storage = sorted(storage_by_owner.values(), key=lambda entry: entry["storage"], reverse=True)[:10]
+    for model in models:
+        model.pop("owner")
+    return {"users": users, "models": models, "now": int(time.time()),
+            "disk": admin_watch.disk_usage(JOBS_DIR), "topStorage": top_storage}
 
 
 def optimize_converted_glb(job_id: str, glb_path: Path, work_path: Path) -> Path:
@@ -858,6 +1035,7 @@ def run_pipeline(job_id: str, input_path: Path, original_ext: str) -> None:
     except Exception as exc:  # noqa: BLE001 - reported back via job status
         print(f"[job {job_id}] pipeline failed: {exc}", file=sys.stderr)
         set_job(job_id, status="failed", progress=100, message=str(exc))
+        record_failure(job_id, str(exc))
 
 
 class UploadTooLarge(ValueError):
@@ -1316,6 +1494,8 @@ class Handler(BaseHTTPRequestHandler):
                     raise reports.ReportError(400, "You cannot demote or disable your own account.")
                 AUTH.update_user(owner, status="disabled")
             REPORTS.resolve(report_id, action, admin["username"])
+            AUDIT.record(admin["username"], "report", report["jobId"], {
+                "decision": action, "reason": report.get("reason"), "owner": report.get("owner")})
             self._send_json(200, {"status": "ok"})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
@@ -1390,9 +1570,27 @@ class Handler(BaseHTTPRequestHandler):
                 AUTH.update_user(username, role="admin")
             elif action == "demote":
                 AUTH.update_user(username, role="user")
+            AUDIT.record(admin["username"], action, username)
             self._send_json(200, {"status": "ok"})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
+
+    def _handle_admin_reject_user(self, username: str) -> None:
+        """POST /api/admin/users/<u>/reject {"reason": "..."}: an account
+        waiting for approval is deleted and its owner mailed the reason."""
+        admin = self._require_admin()
+        if admin is None:
+            return
+        try:
+            data = self._read_json_body()
+            reason = str(data.get("reason") or "").strip()[:2000]
+            rejected = AUTH.reject_user(username)
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        mailer.send_account_rejected(rejected["username"], rejected["email"], reason)
+        AUDIT.record(admin["username"], "reject", username, {"reason": reason} if reason else None)
+        self._send_json(200, {"status": "rejected", "mailed": bool(mailer.enabled() and rejected["email"])})
 
     def _handle_admin_set_limits(self, username: str) -> None:
         admin = self._require_admin()
@@ -1401,6 +1599,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             overrides = normalize_overrides(self._read_json_body())
             limits = AUTH.set_limits(username, overrides)
+            AUDIT.record(admin["username"], "limits", username, {"limits": limits})
             self._send_json(200, {"status": "ok", "limits": limits})
         except ValueError as exc:
             self._send_json(400, {"error": str(exc)})
@@ -1417,6 +1616,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = self._read_json_body()
             AUTH.set_plan_grant(username, data.get("tier"), data.get("expiresAt"))
+            AUDIT.record(admin["username"], "plan", username,
+                         {"tier": data.get("tier"), "expiresAt": data.get("expiresAt")})
             self._send_json(200, {"status": "ok"})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
@@ -1430,6 +1631,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             AUTH.delete_user(username)
+            AUDIT.record(admin["username"], "delete-user", username)
             self._send_json(200, {"status": "deleted"})
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
@@ -1465,7 +1667,13 @@ class Handler(BaseHTTPRequestHandler):
         if not fields:
             self._send_json(400, {"error": "Nothing to update"})
             return
+        before = read_owner(job_id) or {}
         owner = update_owner(job_id, fields)
+        AUDIT.record(admin["username"], "edit-model", job_id, {
+            "name": owner.get("filename") or "",
+            "owner": [before.get("user"), owner.get("user")] if "user" in fields else None,
+            "createdAt": [before.get("createdAt"), owner.get("createdAt")] if "createdAt" in fields else None,
+        })
         self._send_json(200, {"status": "ok", "owner": owner.get("user"), "createdAt": owner.get("createdAt")})
 
     def log_message(self, fmt, *args) -> None:
@@ -1621,6 +1829,36 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_metadata_get(match.group(1))
             return
 
+        if path == "/api/admin/models":
+            if self._require_admin() is None:
+                return
+            self._send_json(200, admin_models())
+            return
+
+        if path == "/api/admin/audit":
+            if self._require_admin() is None:
+                return
+            query = parse_qs(urlparse(self.path).query)
+
+            def number(name):
+                try:
+                    return int(query[name][0])
+                except (KeyError, ValueError, IndexError):
+                    return None
+
+            limit = max(1, min(500, number("limit") or 100))
+            entries = AUDIT.entries(limit + 1, before=number("before"),
+                                    admin=(query.get("admin") or [None])[0] or None,
+                                    action=(query.get("action") or [None])[0] or None)
+            self._send_json(200, {"entries": entries[:limit], "more": len(entries) > limit})
+            return
+
+        if path == "/api/admin/summary":
+            if self._require_admin() is None:
+                return
+            self._send_json(200, admin_summary())
+            return
+
         if path == "/api/admin/stats":
             if self._require_admin() is None:
                 return
@@ -1736,6 +1974,10 @@ class Handler(BaseHTTPRequestHandler):
         if match:
             self._handle_admin_set_plan(match.group(1))
             return
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/reject", path)
+        if match:
+            self._handle_admin_reject_user(match.group(1))
+            return
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/(approve|disable|promote|demote)", path)
         if match:
             self._handle_admin_user_action(match.group(1), match.group(2))
@@ -1795,6 +2037,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "A model without an owner cannot be private"})
             return
         update_owner(job_id, {"private": private})
+        owner = owner or {}
+        if user.get("role") == "admin" and owner.get("user") != user["username"]:
+            AUDIT.record(user["username"], "visibility", job_id,
+                         {"name": owner.get("filename") or "", "owner": owner.get("user"), "private": private})
         self._send_json(200, {"status": "ok", "private": private})
 
     def _handle_metadata_get(self, job_id: str) -> None:
@@ -1849,7 +2095,12 @@ class Handler(BaseHTTPRequestHandler):
         if not can_delete_job(job_id, user or None):
             self._send_json(403, {"error": "You can only delete your own uploads"})
             return
+        owner = read_owner(job_id) or {}
         remove_job(job_id, self.headers.get("Host", ""))
+        # An admin deleting someone else's model (or one without an owner).
+        if user and user.get("role") == "admin" and owner.get("user") != user["username"]:
+            AUDIT.record(user["username"], "delete-model", job_id,
+                         {"name": owner.get("filename") or "", "owner": owner.get("user")})
         self._send_json(200, {"status": "deleted"})
 
     def _handle_create(self) -> None:
@@ -2479,7 +2730,7 @@ def admin_cli(args) -> None:
         "users | uploads | usage | limits <user> [key=value|key=default ...] | "
         "plan <user> [free|pro|business|enterprise|purchase] [days] | "
         "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user> | "
-        "reports [all] | report <id> dismiss|remove-model|disable-user | "
+        "reports [all] | report <id> dismiss|remove-model|disable-user | audit [count] | "
         "rebuild-splats [--force] [<job id> ...] | import <file> [--user <name>]"
     )
     if not args:
@@ -2523,9 +2774,10 @@ def admin_cli(args) -> None:
                         sys.exit(f"expected key=value, got {assignment!r} (keys: {', '.join(LIMIT_KEYS)})")
                     overrides[name] = None if value == "default" else value
                 try:
-                    AUTH.set_limits(user, normalize_overrides(overrides))
+                    limits = AUTH.set_limits(user, normalize_overrides(overrides))
                 except ValueError as exc:
                     sys.exit(str(exc))
+                AUDIT.record(audit.CLI_ADMIN, "limits", user, {"limits": limits})
             record = next((u for u in AUTH.list_users() if u["username"] == user), None)
             if record is None:
                 sys.exit(f"No such user: {user}")
@@ -2543,6 +2795,7 @@ def admin_cli(args) -> None:
                 tier = None if rest[1] == "purchase" else rest[1]
                 expires = time.time() + float(rest[2]) * 86400 if len(rest) > 2 else None
                 AUTH.set_plan_grant(user, tier, expires)
+                AUDIT.record(audit.CLI_ADMIN, "plan", user, {"tier": tier, "expiresAt": int(expires) if expires else None})
             record = next((u for u in AUTH.list_users() if u["username"] == user), None)
             if record is None:
                 sys.exit(f"No such user: {user}")
@@ -2562,7 +2815,15 @@ def admin_cli(args) -> None:
             elif rest[1] == "disable-user" and report.get("owner"):
                 AUTH.update_user(report["owner"], status="disabled")
             REPORTS.resolve(rest[0], rest[1], "cli")
+            AUDIT.record(audit.CLI_ADMIN, "report", report["jobId"], {
+                "decision": rest[1], "reason": report.get("reason"), "owner": report.get("owner")})
             print(f"ok: {rest[1]} ({report['jobId']})")
+        elif command == "audit":
+            count = int(rest[0]) if rest and rest[0].isdigit() else 50
+            for entry in reversed(AUDIT.entries(count)):
+                when = time.strftime("%Y-%m-%d %H:%M", time.localtime(entry["at"]))
+                details = json.dumps(entry["details"], sort_keys=True) if entry.get("details") else ""
+                print(f"{when}  {entry['admin']:<20} {entry['action']:<12} {entry['target']:<34} {details}")
         elif command == "rebuild-splats":
             rebuild_splats_cli(rest)
         elif command == "import":
@@ -2582,6 +2843,7 @@ def admin_cli(args) -> None:
                 AUTH.update_user(user, role="user")
             else:
                 AUTH.delete_user(user)
+            AUDIT.record(audit.CLI_ADMIN, command, user)
             print(f"ok: {command} {user}")
         else:
             sys.exit(f"usage: server.py admin {commands}")
@@ -2620,6 +2882,9 @@ def main() -> None:
         print(f"AI assistance on ({ai.model()}): {', '.join(ai.enabled_features()) or 'no features'}, access: {ai.access_level()}.")
     elif os.environ.get("WORKER_AI_ENABLED", "").lower() in ("1", "true", "yes", "on"):
         print("WORKER_AI_ENABLED is set but the anthropic package is missing - AI assistance stays off.")
+    admin_watch.AdminWatch(JOBS_DIR / ".admin", JOBS_DIR, admin_mail_recipients, mailer, admin_digest).start()
+    if admin_watch.digest_mode() != "off":
+        print(f"Admin digest: {admin_watch.digest_mode()} from {admin_watch.digest_hour()}:00.")
     geonames.INDEX.start()
     if geonames.INDEX.state != "off":
         print(f"Place search (GeoNames): {geonames.INDEX.state}, index {geonames.INDEX.db_path}.")

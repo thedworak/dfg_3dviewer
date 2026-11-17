@@ -104,8 +104,11 @@ class AdminStatsTest(unittest.TestCase):
         self.assertEqual(status, 200)
         users = sorted((u["role"], u["status"], u["plan"]) for u in body["users"])
         self.assertEqual(users, [("admin", "active", "free"), ("user", "active", "pro"), ("user", "pending", "free")])
-        self.assertNotIn("username", json.dumps(body))
+        # No addresses; names only in the ten accounts using the most space.
         self.assertNotIn("example.org", json.dumps(body))
+        self.assertNotIn("username", json.dumps({key: value for key, value in body.items() if key != "topStorage"}))
+        self.assertEqual([entry["username"] for entry in body["topStorage"]], ["alice"])
+        self.assertIn("percent", body["disk"])
         sizes = sorted((m["size"], m["storage"] >= 300, m["anonymous"]) for m in body["models"])
         # Without a recorded upload size, the space on disk.
         self.assertEqual(sizes[1], (1000, True, False))
