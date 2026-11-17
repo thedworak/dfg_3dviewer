@@ -34,6 +34,7 @@ could talk to either backend interchangeably:
   DELETE /api/jobs/<id>         delete a job's input/converted/render files
   POST /api/jobs/<id>/report {reason, details} - anyone who sees it (reports.py)
   GET  /api/admin/reports       POST /api/admin/reports/<rid> {action} - admins
+  GET  /api/admin/stats         -> {users, models} the admin panel's charts
   GET  /api/auth/config         -> {mode, registration}   (optional accounts,
   GET  /api/auth/me                 POST /api/auth/register|login|logout|
                                     delete-account|change-password|
@@ -121,6 +122,7 @@ except ImportError:
     Entitlements = None
 from limits import LIMIT_KEYS, LimitError, Limits, default_limits, is_business_account, normalize_overrides
 from limits import business_limits as account_business_limits
+from limits import dir_size as limits_dir_size
 
 APP_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = Path(os.environ.get("WORKER_SCRIPTS_DIR", str(APP_DIR / "scripts")))
@@ -555,6 +557,43 @@ def list_jobs(user=None):
             jobs.append(job)
     jobs.sort(key=lambda job: job["createdAt"], reverse=True)
     return jobs
+
+
+def admin_stats() -> dict:
+    """GET /api/admin/stats: the raw points of the admin panel's charts
+    (viewer/exadmin/sections/stats.js), counted into days in the browser's
+    time zone. No names or addresses: each account's creation time, role,
+    status and plan tier; each model's upload time, uploaded size and the
+    space it takes on disk (the upload and what was converted from it)."""
+    users = [
+        {
+            "createdAt": u.get("createdAt", 0),
+            "role": u["role"],
+            "status": u["status"],
+            "plan": (u.get("plan") or {}).get("tier") or "free",
+        }
+        for u in AUTH.list_users()
+    ]
+    models = []
+    if JOBS_DIR.is_dir():
+        for job_dir in JOBS_DIR.iterdir():
+            if not job_dir.is_dir() or not JOB_ID_RE.fullmatch(job_dir.name):
+                continue
+            owner = read_owner(job_dir.name) or {}
+            try:
+                created = int(owner.get("createdAt") or job_dir.stat().st_mtime)
+                storage = limits_dir_size(job_dir)
+            except OSError:
+                continue
+            models.append({
+                "createdAt": created,
+                "size": int(owner.get("size") or 0) or storage,
+                "storage": storage,
+                "private": bool(owner.get("private")),
+                "anonymous": not owner.get("user"),
+            })
+    models.sort(key=lambda model: model["createdAt"])
+    return {"users": users, "models": models, "now": int(time.time())}
 
 
 def optimize_converted_glb(job_id: str, glb_path: Path, work_path: Path) -> Path:
@@ -1119,6 +1158,11 @@ class Handler(BaseHTTPRequestHandler):
             if action == "register":
                 result = AUTH.register(data.get("username", ""), data.get("password", ""), data.get("email", ""),
                                        accepted_terms=data.get("acceptedTerms") is True)
+                mailer.send_new_account(
+                    {"username": result["username"], "status": result["status"],
+                     "email": str(data.get("email", "")).strip()},
+                    [u["email"] for u in AUTH.list_users() if u["role"] == "admin" and u["status"] == "active"],
+                )
                 self._send_json(201, result)
             elif action == "login":
                 user = AUTH.login(data.get("username", ""), data.get("password", ""))
@@ -1575,6 +1619,12 @@ class Handler(BaseHTTPRequestHandler):
         match = re.fullmatch(r"/api/jobs/([A-Za-z0-9_-]+)/metadata", path)
         if match:
             self._handle_metadata_get(match.group(1))
+            return
+
+        if path == "/api/admin/stats":
+            if self._require_admin() is None:
+                return
+            self._send_json(200, admin_stats())
             return
 
         if path == "/api/admin/reports":

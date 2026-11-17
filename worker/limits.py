@@ -136,6 +136,10 @@ def _dir_size(path: Path) -> int:
     return total
 
 
+# The space a job takes on disk, also for the admin panel's statistics.
+dir_size = _dir_size
+
+
 class Limits:
     def __init__(self, jobs_dir: Path, job_id_re, max_concurrent_conversions: int):
         self.jobs_dir = Path(jobs_dir)

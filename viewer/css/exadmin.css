@@ -18,6 +18,10 @@
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
   /* Native dropdown lists need an opaque background to go with the text. */
   --viewer-option-bg: #1a1714;
+  /* Statistics (viewer/exadmin/sections/stats.js): one series hue, stepped
+     for each surface. */
+  --exadmin-stats-series: #3987e5;
+  --exadmin-stats-grid: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-viewer-theme="light"] {
@@ -30,6 +34,8 @@
   --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
   --viewer-panel-text: rgba(37, 33, 28, 0.92);
   --viewer-option-bg: #fcfaf6;
+  --exadmin-stats-series: #2a78d6;
+  --exadmin-stats-grid: rgba(37, 33, 28, 0.08);
 }
 
 * {
@@ -71,8 +77,11 @@ body {
 
 .exadmin-nav {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .exadmin-nav a {
@@ -402,4 +411,207 @@ body {
 /* Renders with a transparent background: no placeholder cube behind them. */
 .exadmin-example-thumb:has(img)::before {
   display: none;
+}
+
+/* Statistics (viewer/exadmin/sections/stats.js). */
+.exadmin-stats-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.exadmin-stats-ranges button {
+  padding: 4px 10px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.exadmin-stats-ranges button[aria-pressed="true"] {
+  background: var(--viewer-panel-text);
+  color: var(--viewer-page-bg);
+}
+
+.exadmin-stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.exadmin-stats-tile,
+.exadmin-stats-card {
+  padding: 12px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+  min-width: 0;
+}
+
+.exadmin-stats-tile strong {
+  display: block;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-tile span,
+.exadmin-stats-sub {
+  opacity: 0.7;
+}
+
+.exadmin-stats-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 12px;
+}
+
+.exadmin-stats-card h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.exadmin-stats-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.exadmin-stats-plot {
+  position: relative;
+  margin-top: 8px;
+}
+
+.exadmin-stats-plot svg {
+  display: block;
+  max-width: 100%;
+}
+
+.exadmin-stats-grid {
+  stroke: var(--exadmin-stats-grid);
+  stroke-width: 1;
+}
+
+.exadmin-stats-baseline {
+  stroke: var(--viewer-panel-border);
+  stroke-width: 1;
+}
+
+.exadmin-stats-axis {
+  fill: currentColor;
+  opacity: 0.6;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-bar {
+  fill: var(--exadmin-stats-series);
+}
+
+.exadmin-stats-line {
+  fill: none;
+  stroke: var(--exadmin-stats-series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.exadmin-stats-area {
+  fill: var(--exadmin-stats-series);
+  opacity: 0.1;
+}
+
+.exadmin-stats-dot {
+  fill: var(--exadmin-stats-series);
+  stroke: var(--viewer-page-bg);
+  stroke-width: 2;
+}
+
+.exadmin-stats-cursor {
+  stroke: var(--viewer-panel-text);
+  stroke-opacity: 0.3;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.exadmin-stats-hit {
+  fill: transparent;
+}
+
+.exadmin-stats-tooltip {
+  position: absolute;
+  z-index: 2;
+  padding: 6px 10px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: var(--viewer-option-bg);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.exadmin-stats-tooltip-title {
+  opacity: 0.7;
+}
+
+.exadmin-stats-breakdown {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.exadmin-stats-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 40%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.exadmin-stats-breakdown-track {
+  height: 16px;
+}
+
+.exadmin-stats-breakdown-bar {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--exadmin-stats-series);
+}
+
+.exadmin-stats-breakdown-value {
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-table {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.exadmin-stats-table summary {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.exadmin-stats-table table {
+  width: 100%;
+  margin-top: 6px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-table th,
+.exadmin-stats-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--exadmin-stats-grid);
+  text-align: left;
+}
+
+.exadmin-stats-table td:last-child,
+.exadmin-stats-table th:last-child {
+  text-align: right;
 }

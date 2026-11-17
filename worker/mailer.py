@@ -1,14 +1,16 @@
 """Optional outgoing mail for the standalone worker (stdlib only).
 
 Off unless WORKER_SMTP_HOST is set. Used to tell a user their account was
-approved, to send a password reset link, and to tell the moderators about a
-reported model. Configuration (all environment variables):
+approved, to send a password reset link, to tell the moderators about a
+reported model and the administrators about a new account. Configuration (all environment variables):
 
   WORKER_SMTP_HOST      SMTP server; unset disables mail entirely
   WORKER_SMTP_PORT      default 587 (465 with ssl)
   WORKER_SMTP_SECURITY  starttls (default) | ssl | none
   WORKER_SMTP_USER / WORKER_SMTP_PASSWORD   optional login
   WORKER_SMTP_FROM      sender address (default: WORKER_SMTP_USER)
+  WORKER_SIGNUP_EMAIL   who is told about a new account (comma-separated;
+                        default: the admin accounts' addresses; "off": nobody)
   WORKER_PUBLIC_URL     link put in the message, e.g. https://viewer.example.org
                         (a password reset needs it: the link points there)
 """
@@ -170,6 +172,62 @@ def send_content_report(report: dict, background: bool = True) -> None:
             _send(message)
         except Exception as exc:  # noqa: BLE001 - logged, never propagated
             print(f"mail: could not send report mail: {exc}", file=sys.stderr)
+
+    if background:
+        threading.Thread(target=run, daemon=True).start()
+    else:
+        run()
+
+
+def signup_recipients(admin_emails) -> list:
+    """WORKER_SIGNUP_EMAIL (comma-separated), "off" for nobody, unset for the
+    addresses of the admin accounts (admin_emails)."""
+    configured = os.environ.get("WORKER_SIGNUP_EMAIL", "").strip()
+    if configured.lower() in ("off", "none", "false", "0"):
+        return []
+    if configured:
+        return [part.strip() for part in configured.split(",") if part.strip()]
+    return sorted({email.strip() for email in admin_emails if email and email.strip()})
+
+
+def send_new_account(account: dict, admin_emails, background: bool = True) -> None:
+    """Tells the administrators that someone registered (auth.py register):
+    who, with which address, and whether the account waits for approval.
+    Never raises: the account is created anyway."""
+    recipients = signup_recipients(admin_emails)
+    if not enabled() or not recipients:
+        return
+    sender = _sender()
+    if not sender:
+        return
+    url = public_url()
+    pending = account.get("status") == "pending"
+    message = EmailMessage()
+    message["Subject"] = (f"New account waiting for approval: {account.get('username')}" if pending
+                          else f"New account: {account.get('username')}")
+    message["From"] = sender
+    message["To"] = ", ".join(recipients)
+    lines = [
+        "Someone created an account.",
+        "",
+        f"Username: {account.get('username')}",
+        f"Email:    {account.get('email') or '(none)'}",
+        f"Status:   {account.get('status')}",
+        "",
+    ]
+    if pending:
+        lines.append(f"Approve or disable it in the admin panel ({url}/exadmin/#users)." if url
+                     else "Approve or disable it in the admin panel, Users.")
+        lines.append(f"Or: docker compose exec worker python3 /app/worker/server.py admin approve {account.get('username')}")
+    else:
+        lines.append(f"The account is active. Accounts: {url}/exadmin/#users" if url else "The account is active.")
+    message.set_content("\n".join(lines))
+
+    def run() -> None:
+        try:
+            _send(message)
+        except Exception as exc:  # noqa: BLE001 - logged, never propagated
+            print(f"mail: could not send new account mail: {exc}", file=sys.stderr)
 
     if background:
         threading.Thread(target=run, daemon=True).start()
