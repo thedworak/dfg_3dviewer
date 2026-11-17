@@ -2589,18 +2589,6 @@ def admin_cli(args) -> None:
         sys.exit(exc.message)
 
 
-class WorkerHTTPServer(ThreadingHTTPServer):
-    """ThreadingHTTPServer with a real listen backlog. socketserver's default
-    of 5 is too small for a page that asks for many images at once (the
-    example list's thumbnails, ~140 requests): the kernel drops the
-    connections that do not fit, nginx re-sends its SYN after 1, 3, 7, 15,
-    31 s... and gives up at 60 s - a 502/504 for images that exist. The
-    kernel caps it at net.core.somaxconn (4096 on current kernels)."""
-
-    request_queue_size = 1024
-    daemon_threads = True
-
-
 def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == "admin":
         admin_cli(sys.argv[2:])
@@ -2628,7 +2616,7 @@ def main() -> None:
     if not CONVERT_MESH_SCRIPT.is_file():
         sys.exit(f"convert_mesh.py not found at {CONVERT_MESH_SCRIPT} - set WORKER_SCRIPTS_DIR")
 
-    server = WorkerHTTPServer(("0.0.0.0", PORT), Handler)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"DFG 3D Viewer worker listening on :{PORT} (jobs dir: {JOBS_DIR})")
     try:
         server.serve_forever()
