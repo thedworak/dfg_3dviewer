@@ -1,6 +1,7 @@
 import { t } from "../i18n-utils.js";
 import { apiRequest } from "./api.js";
 import { qrSvg } from "./qr.js";
+import { createTurnstile } from "../turnstile.js";
 
 // An administrator's second step for the admin pages (worker/auth.py
 // two_factor_*, POST /api/auth/2fa/...): the first time, an authenticator
@@ -54,7 +55,7 @@ function fail(status, error) {
 }
 
 // The first time: scan, confirm with a code, keep the recovery codes.
-export function renderTwoFactorSetup(container, { user, onDone }) {
+export function renderTwoFactorSetup(container, { user, turnstile, onDone }) {
   const box = element("section", "exadmin-two-factor");
   box.append(
     element("h2", null, t("exadmin.twoFactorSetupTitle", "Set up two-step verification")),
@@ -101,17 +102,20 @@ export function renderTwoFactorSetup(container, { user, onDone }) {
     label.appendChild(input);
     const submit = element("button", null, t("exadmin.twoFactorTurnOn", "Turn on"));
     submit.type = "submit";
-    form.append(label, submit);
+    const check = createTurnstile(turnstile, "2fa");
+    form.append(label, ...(check.element ? [check.element] : []), submit);
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       submit.disabled = true;
       try {
-        const { recoveryCodes } = await apiRequest("/api/auth/2fa/enable", "POST", { code: input.value });
+        const { recoveryCodes } = await apiRequest("/api/auth/2fa/enable", "POST",
+          { code: input.value, turnstileToken: await check.token() });
         box.remove();
         renderRecoveryCodes(container, { codes: recoveryCodes, onDone });
       } catch (error) {
         fail(status, error);
         submit.disabled = false;
+        check.reset();
         input.select();
       }
     });
@@ -150,7 +154,7 @@ function renderRecoveryCodes(container, { codes, onDone }) {
 }
 
 // Every 12 hours (WORKER_ADMIN_2FA_TTL): a code from the app.
-export function renderTwoFactorVerify(container, { recoveryLeft, onDone }) {
+export function renderTwoFactorVerify(container, { recoveryLeft, turnstile, onDone }) {
   const box = element("section", "exadmin-two-factor exadmin-two-factor-verify");
   const form = element("form", "exadmin-two-factor-form");
   const heading = element("h2", null, t("exadmin.twoFactorVerifyTitle", "Two-step verification"));
@@ -177,16 +181,18 @@ export function renderTwoFactorVerify(container, { recoveryLeft, onDone }) {
   const status = statusLine();
   const lost = element("p", "exadmin-two-factor-help", t("exadmin.twoFactorLost",
     "Lost the phone and the codes? Another administrator can turn it off for you (Users), or on the server: admin 2fa-reset <user>."));
-  form.append(heading, intro, input, submit, swap, status, lost);
+  const check = createTurnstile(turnstile, "2fa");
+  form.append(heading, intro, input, ...(check.element ? [check.element] : []), submit, swap, status, lost);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     submit.disabled = true;
     try {
-      const result = await apiRequest("/api/auth/2fa/verify", "POST", { code: input.value });
+      const result = await apiRequest("/api/auth/2fa/verify", "POST", { code: input.value, turnstileToken: await check.token() });
       onDone(result);
     } catch (error) {
       fail(status, error);
       submit.disabled = false;
+      check.reset();
       input.select();
     }
   });

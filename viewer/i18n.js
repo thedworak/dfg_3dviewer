@@ -481,6 +481,9 @@ export const VIEWER_I18N = {
       uploadError: "Upload failed. Please try again.",
     },
     loginPanel: {
+      turnstileError: "The check did not work. Reload the page or try again in a moment.",
+      turnstileUnavailable: "The check could not be loaded. Check your connection and try again.",
+      turnstilePending: "Confirm that you are not a robot first.",
       changePassword: "Change password",
       changePasswordTitle: "Change password",
       changePasswordConfirm: "Change password",
@@ -2927,6 +2930,9 @@ export const VIEWER_I18N = {
       uploadError: "Przesyłanie lub konwersja nie powiodła się. Spróbuj ponownie.",
     },
     loginPanel: {
+      turnstileError: "Weryfikacja nie zadziałała. Odśwież stronę albo spróbuj za chwilę.",
+      turnstileUnavailable: "Nie udało się wczytać weryfikacji. Sprawdź połączenie i spróbuj ponownie.",
+      turnstilePending: "Najpierw potwierdź, że nie jesteś robotem.",
       changePassword: "Zmień hasło",
       changePasswordTitle: "Zmiana hasła",
       changePasswordConfirm: "Zmień hasło",
@@ -5464,6 +5470,9 @@ export const VIEWER_I18N = {
       uploadError: "Upload oder Konvertierung fehlgeschlagen. Bitte erneut versuchen.",
     },
     loginPanel: {
+      turnstileError: "Die Prüfung hat nicht funktioniert. Laden Sie die Seite neu oder versuchen Sie es gleich noch einmal.",
+      turnstileUnavailable: "Die Prüfung konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+      turnstilePending: "Bestätigen Sie zuerst, dass Sie kein Roboter sind.",
       changePassword: "Passwort ändern",
       changePasswordTitle: "Passwort ändern",
       changePasswordConfirm: "Passwort ändern",

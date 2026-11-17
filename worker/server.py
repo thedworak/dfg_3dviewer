@@ -110,6 +110,7 @@ import lif
 import live_sessions
 import raw_volume
 import tiff_stack
+import turnstile
 import volumes
 import mailer
 import manifests
@@ -1229,6 +1230,23 @@ class Handler(BaseHTTPRequestHandler):
             return "verify"
         return "ok"
 
+    def _turnstile_ok(self, action: str, data: dict) -> bool:
+        """The widget's token of a protected action (turnstile.py), checked
+        once with Cloudflare; on failure 403 with code turnstile_failed (the
+        page shows the widget again) and False."""
+        if not turnstile.protects(action):
+            return True
+        ok, codes = turnstile.verify(data.get("turnstileToken", ""), self._client_ip())
+        if ok:
+            return True
+        unavailable = "verification-unavailable" in codes
+        self._send_json(503 if unavailable else 403, {
+            "error": "The check could not be completed right now. Try again in a moment." if unavailable
+            else "Confirm that you are not a robot, then try again.",
+            "code": "turnstile_failed",
+        })
+        return False
+
     def _admin_second_step_ok(self) -> bool:
         """Every /api/admin/* request of an admin: refused with 403 and
         code 2fa_setup_required / 2fa_required until the second step
@@ -1264,6 +1282,8 @@ class Handler(BaseHTTPRequestHandler):
             data = self._read_json_body()
             if action == "setup":
                 self._send_json(200, AUTH.two_factor_setup(user["username"], ADMIN_2FA_ISSUER))
+                return
+            if not self._turnstile_ok("2fa", data):
                 return
             if action == "enable":
                 result = AUTH.two_factor_enable(user["username"], data.get("code", ""))
@@ -1406,6 +1426,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._handle_change_password()
                 return
             data = self._read_json_body()
+            # Before the password is even looked at (turnstile.py).
+            if action in ("register", "login", "forgot-password") and not self._turnstile_ok(action, data):
+                return
             if action == "register":
                 result = AUTH.register(data.get("username", ""), data.get("password", ""), data.get("email", ""),
                                        accepted_terms=data.get("acceptedTerms") is True)
@@ -1873,6 +1896,9 @@ class Handler(BaseHTTPRequestHandler):
                 "registration": AUTH.registration,
                 "passwordReset": AUTH.enabled and mailer.password_reset_enabled(),
                 "maxUploadBytes": MAX_UPLOAD_BYTES,
+                # Cloudflare Turnstile before a login, a registration...
+                # (turnstile.py): the widget's site key and where it shows.
+                "turnstile": turnstile.public_config(),
             })
             return
 

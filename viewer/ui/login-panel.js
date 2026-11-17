@@ -8,6 +8,7 @@ import { onAccountChange, onAppLogin } from "../app-hooks.js";
 import { toastHelper } from "../viewer-utils.js";
 import { makePanelWindow } from "./panel-window.js";
 import { createPasswordField } from "./password-field.js";
+import { createTurnstile, turnstileProtects } from "../turnstile.js";
 import { openFormDialog } from "./form-dialog.js";
 
 // Worker endpoints (see worker/auth.py). On a page the repository serves,
@@ -151,6 +152,7 @@ export function attachLoginPanel(Viewer) {
       const uiConfig = core.CONFIG?.viewer?.auth || {};
       const state = {
         required: false, registration: false, passwordReset: false, user: null, role: null, plan: null, maxUploadBytes: 0,
+        turnstile: null,
       };
       // The upload limit is reported by the same endpoint, so query it even
       // when the manifest hides the login UI. The app build with no
@@ -165,6 +167,9 @@ export function attachLoginPanel(Viewer) {
               serverConfig.registration !== "closed" && uiConfig.allowRegistration !== false;
             // "Forgot password?" needs mail on the worker (WORKER_SMTP_*).
             state.passwordReset = serverConfig.passwordReset === true;
+            // Cloudflare Turnstile before logging in, registering...
+            // (worker/turnstile.py, ../turnstile.js).
+            state.turnstile = serverConfig.turnstile || null;
             if (state.required) {
               const me = await authRequest("me");
               state.user = me.user || null;
@@ -274,6 +279,8 @@ export function attachLoginPanel(Viewer) {
       const section = this.loginInputs?.auth;
       if (!section) return;
       const state = this.authState || { required: false };
+      this.loginTurnstile?.remove();
+      this.loginTurnstile = null;
       section.textContent = "";
 
       if (!state.required) {
@@ -316,7 +323,12 @@ export function attachLoginPanel(Viewer) {
       this.bindEventListener(password, "keydown", (event) => {
         if (event.key === "Enter") login.click();
       });
-      section.append(username, passwordField, login);
+      section.append(username, passwordField);
+      // One check for both buttons below (a token is good for one of them).
+      const checked = turnstileProtects(state.turnstile, "login") ? "login" : "register";
+      this.loginTurnstile = createTurnstile(state.turnstile, checked);
+      if (this.loginTurnstile.element) section.append(this.loginTurnstile.element);
+      section.append(login);
       if (state.passwordReset) {
         const forgot = document.createElement("button");
         forgot.type = "button";
@@ -412,6 +424,8 @@ export function attachLoginPanel(Viewer) {
       identifier.value = prefill;
       label.appendChild(identifier);
       body.append(intro, label);
+      const check = createTurnstile(this.authState?.turnstile, "forgot-password");
+      if (check.element) body.append(check.element);
       const result = await openFormDialog({
         title: t("loginPanel.forgotTitle", "Reset password"),
         body,
@@ -421,9 +435,14 @@ export function attachLoginPanel(Viewer) {
           if (!identifier.value.trim()) {
             throw new Error(t("loginPanel.forgotIdentifierMissing", "Enter your username or e-mail address."));
           }
-          return authRequest("forgot-password", { identifier: identifier.value.trim() });
+          try {
+            return await authRequest("forgot-password", { identifier: identifier.value.trim(), turnstileToken: await check.token() });
+          } finally {
+            check.reset();
+          }
         },
       });
+      check.remove();
       if (!result) return false;
       this.setLoginStatusText(
         t("loginPanel.forgotSent", "If the account exists, a link has been sent to its e-mail address. It works for an hour."),
@@ -531,7 +550,13 @@ export function attachLoginPanel(Viewer) {
     },
 
     async handleAuthAction(action, credentials) {
+      // The Turnstile token of the login panel's widget, used up by this
+      // request (a new check follows).
+      const widget = (action === "login" || action === "register") ? this.loginTurnstile : null;
       try {
+        if (widget && turnstileProtects(this.authState?.turnstile, action)) {
+          credentials = { ...credentials, turnstileToken: await widget.token() };
+        }
         if (action === "register") {
           const result = await authRequest("register", credentials);
           this.setLoginStatusText(
@@ -546,6 +571,8 @@ export function attachLoginPanel(Viewer) {
         this.setLoginStatusText("");
       } catch (error) {
         this.setLoginStatusText(error.message, "error");
+      } finally {
+        if (widget === this.loginTurnstile) widget?.reset();
       }
     },
 

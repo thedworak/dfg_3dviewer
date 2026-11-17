@@ -3,6 +3,7 @@ import { createPasswordField } from "../ui/password-field.js";
 import { apiRequest, appMode, authRequest } from "./api.js";
 import { closePanel } from "./app-bridge.js";
 import { renderTwoFactorSetup, renderTwoFactorVerify } from "./two-factor.js";
+import { createTurnstile } from "../turnstile.js";
 import { SECTIONS } from "./sections/index.js";
 
 // The admin pages (/exadmin/): the worker's administration, apart from the
@@ -141,17 +142,20 @@ function renderLogin(message) {
   submit.type = "submit";
   submit.textContent = t("uploadPanel.login", "Log in");
   const status = messageBlock(message || "", message ? "error" : "info");
-  form.append(heading, username, passwordField, submit, status);
+  // Cloudflare Turnstile, when the worker asks for it (worker/turnstile.py).
+  const check = createTurnstile(authConfig?.turnstile, "login");
+  form.append(heading, username, passwordField, ...(check.element ? [check.element] : []), submit, status);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     submit.disabled = true;
     try {
-      await authRequest("login", { username: username.value.trim(), password: password.value });
+      await authRequest("login", { username: username.value.trim(), password: password.value, turnstileToken: await check.token() });
       await start();
     } catch (error) {
       status.dataset.tone = "error";
       status.textContent = error.message;
       submit.disabled = false;
+      check.reset();
     }
   });
   page.main.appendChild(form);
@@ -240,14 +244,18 @@ function reloadButton() {
 // What the page shows: who is signed in decides between the sections, the
 // login form and a notice (accounts off, signed in without admin rights).
 let state = { view: "loading" };
+// GET /api/auth/config: accounts, and Turnstile's site key (login, 2FA).
+let authConfig = null;
 
 function render() {
   renderChrome();
   page.nav.textContent = "";
   page.main.textContent = "";
   if (state.view === "sections") renderSection();
-  else if (state.view === "twoFactorSetup") renderTwoFactorSetup(page.main, { user: me, onDone: start });
-  else if (state.view === "twoFactorVerify") renderTwoFactorVerify(page.main, { recoveryLeft: state.recoveryLeft, onDone: start });
+  else if (state.view === "twoFactorSetup") renderTwoFactorSetup(page.main, { user: me, turnstile: authConfig?.turnstile, onDone: start });
+  else if (state.view === "twoFactorVerify") {
+    renderTwoFactorVerify(page.main, { recoveryLeft: state.recoveryLeft, turnstile: authConfig?.turnstile, onDone: start });
+  }
   else if (state.view === "login") renderLogin(state.message);
   else if (state.view === "accountsOff") page.main.appendChild(messageBlock(t("exadmin.accountsOff", "Accounts are not enabled on this server, so there is nothing to administer here.")));
   else if (state.view === "error") page.main.appendChild(messageBlock(t("exadmin.unreachable", "The server is not responding."), "error"));
@@ -260,6 +268,7 @@ async function start() {
   render();
   try {
     const config = await authRequest("config");
+    authConfig = config;
     if (config.mode !== "required") {
       state = { view: "accountsOff" };
     } else {
