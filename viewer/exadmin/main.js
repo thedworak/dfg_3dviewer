@@ -1,6 +1,8 @@
 import { t, setLanguageSource } from "../i18n-utils.js";
 import { createPasswordField } from "../ui/password-field.js";
-import { apiRequest, authRequest } from "./api.js";
+import { apiRequest, appMode, authRequest } from "./api.js";
+import { closePanel } from "./app-bridge.js";
+import { renderTwoFactorSetup, renderTwoFactorVerify } from "./two-factor.js";
 import { SECTIONS } from "./sections/index.js";
 
 // The admin pages (/exadmin/): the worker's administration, apart from the
@@ -66,6 +68,14 @@ function renderChrome() {
   document.title = t("exadmin.title", "Administration");
   page.title.textContent = t("exadmin.title", "Administration");
   page.viewerLink.textContent = t("exadmin.backToViewer", "Back to the viewer");
+  // In the app: back to its viewer (the panel lies over it, app-bridge.js).
+  if (appMode && !page.viewerLink.dataset.bound) {
+    page.viewerLink.dataset.bound = "true";
+    page.viewerLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      closePanel();
+    });
+  }
 
   page.account.textContent = "";
   const languageSelect = document.createElement("select");
@@ -107,7 +117,9 @@ function renderChrome() {
       }
       start();
     });
-    page.account.append(user, logout);
+    // The app has its own login: signing out stays there.
+    if (appMode) page.account.append(user);
+    else page.account.append(user, logout);
   }
 }
 
@@ -234,6 +246,8 @@ function render() {
   page.nav.textContent = "";
   page.main.textContent = "";
   if (state.view === "sections") renderSection();
+  else if (state.view === "twoFactorSetup") renderTwoFactorSetup(page.main, { user: me, onDone: start });
+  else if (state.view === "twoFactorVerify") renderTwoFactorVerify(page.main, { recoveryLeft: state.recoveryLeft, onDone: start });
   else if (state.view === "login") renderLogin(state.message);
   else if (state.view === "accountsOff") page.main.appendChild(messageBlock(t("exadmin.accountsOff", "Accounts are not enabled on this server, so there is nothing to administer here.")));
   else if (state.view === "error") page.main.appendChild(messageBlock(t("exadmin.unreachable", "The server is not responding."), "error"));
@@ -252,7 +266,11 @@ async function start() {
       const session = await authRequest("me");
       if (session.user && session.role === "admin") {
         me = session.user;
-        state = { view: "sections" };
+        // The admin pages' second step (worker WORKER_ADMIN_2FA).
+        const second = session.twoFactor?.state;
+        if (second === "setup") state = { view: "twoFactorSetup" };
+        else if (second === "verify") state = { view: "twoFactorVerify", recoveryLeft: session.twoFactor.recoveryLeft };
+        else state = { view: "sections" };
       } else {
         state = {
           view: "login",
@@ -268,6 +286,12 @@ async function start() {
   }
   render();
 }
+
+// A section was refused for want of the second step (it lapsed while the
+// page was open): asked for again.
+window.addEventListener("exadmin:second-step", () => {
+  if (state.view === "sections") start();
+});
 
 window.addEventListener("hashchange", () => {
   if (state.view === "sections") renderSection();

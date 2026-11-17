@@ -530,11 +530,9 @@ function copyBuildAssets() {
 
 const viewerConfig = {
   // The viewer, the admin pages (viewer/exadmin/) and the intro page
-  // (intro.html, viewer/intro/) - an app build without the admin pages: it
-  // has no server of its own to administer.
-  input: appBuild
-    ? { 'dfg_3dviewer-module': 'viewer/main.js', intro: 'viewer/intro/intro.js' }
-    : { 'dfg_3dviewer-module': 'viewer/main.js', exadmin: 'viewer/exadmin/main.js', intro: 'viewer/intro/intro.js' },
+  // (intro.html, viewer/intro/). An app build carries the admin pages too:
+  // they administer the repository it is connected to (ui/admin-panel.js).
+  input: { 'dfg_3dviewer-module': 'viewer/main.js', exadmin: 'viewer/exadmin/main.js', intro: 'viewer/intro/intro.js' },
   treeshake: {
     moduleSideEffects: false,
     propertyReadSideEffects: false,

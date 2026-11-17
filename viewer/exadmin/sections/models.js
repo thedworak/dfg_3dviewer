@@ -1,6 +1,7 @@
 import { t } from "../../i18n-utils.js";
 import { fillModelThumbnail } from "../../ui/model-thumbnail.js";
-import { apiRequest } from "../api.js";
+import { apiRequest, remoteUrl } from "../api.js";
+import { modelLink } from "../app-bridge.js";
 import { confirmDialog, toast } from "../dialogs.js";
 import { formatBytes, formatCount, formatDateTime } from "../format.js";
 
@@ -232,7 +233,7 @@ class ModelsSection {
     const thumb = document.createElement("span");
     thumb.className = "models-panel-item-thumb";
     thumb.setAttribute("aria-hidden", "true");
-    fillModelThumbnail(thumb, model.imageUrl || "", model.id);
+    fillModelThumbnail(thumb, remoteUrl(model.imageUrl) || "", model.id);
 
     const body = document.createElement("div");
     body.className = "exadmin-model-body";
@@ -277,12 +278,8 @@ class ModelsSection {
     const actions = document.createElement("div");
     actions.className = "exadmin-report-actions";
     if (model.modelUrl) {
-      const open = document.createElement("a");
-      open.href = `../?model=${encodeURIComponent(model.modelUrl)}`;
-      open.target = "_blank";
-      open.rel = "noopener";
-      open.textContent = t("exadmin.modelsOpen", "Open");
-      actions.appendChild(open);
+      actions.appendChild(modelLink({ id: model.id, modelUrl: model.modelUrl, imageUrls: model.imageUrl ? [model.imageUrl] : [] },
+        t("exadmin.modelsOpen", "Open")));
     }
     // Only a model with an owner can be private (server.py _handle_visibility).
     if (model.owner) {

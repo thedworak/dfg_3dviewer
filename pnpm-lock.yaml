@@ -222,6 +222,9 @@ importers:
       pnpm:
         specifier: ^11.28.12
         version: 11.28.12
+      qrcode-generator:
+        specifier: ^2.0.4
+        version: 2.0.4
       stats.js:
         specifier: ^0.17.0
         version: 0.17.0
@@ -2194,6 +2197,9 @@ packages:
 
   protocol-buffers-schema@3.6.1:
     resolution: {integrity: sha512-VG2K63Igkiv9p76tk1lilczEK1cT+kCjKtkdhw1dQZV3k3IXJbd3o6Ho8b9zJZaHSnT2hKe4I+ObmX9w6m5SmQ==}
+
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
 
   quick-lru@6.1.2:
     resolution: {integrity: sha512-AAFUA5O1d83pIHEhJwWCq/RQcRukCkn/NSm2QsTEMle5f2hP0ChI2+3Xb051PZCkLryI/Ir1MVKviT2FIloaTQ==}
@@ -4309,6 +4315,8 @@ snapshots:
   property-graph@4.1.0: {}
 
   protocol-buffers-schema@3.6.1: {}
+
+  qrcode-generator@2.0.4: {}
 
   quick-lru@6.1.2: {}
 

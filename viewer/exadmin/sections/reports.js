@@ -1,5 +1,6 @@
 import { t } from "../../i18n-utils.js";
 import { apiRequest } from "../api.js";
+import { modelLink } from "../app-bridge.js";
 import { confirmDialog, toast } from "../dialogs.js";
 import { formatDateTime } from "../format.js";
 
@@ -114,12 +115,8 @@ class ReportsSection {
     }
 
     if (report.modelExists && report.modelUrl) {
-      const open = document.createElement("a");
-      open.href = `/?model=${encodeURIComponent(report.modelUrl)}`;
-      open.target = "_blank";
-      open.rel = "noopener";
-      open.textContent = t("adminPanel.reportOpenModel", "Open the model");
-      item.appendChild(open);
+      item.appendChild(modelLink({ id: report.jobId, modelUrl: report.modelUrl },
+        t("adminPanel.reportOpenModel", "Open the model")));
     } else if (!report.modelExists) {
       const gone = document.createElement("p");
       gone.className = "exadmin-report-meta";

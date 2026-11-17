@@ -22,6 +22,8 @@ const ACTIONS = {
   "delete-model": ["exadmin.auditDeleteModel", "Model deleted"],
   visibility: ["exadmin.auditVisibility", "Model visibility changed"],
   report: ["exadmin.auditReport", "Report decided"],
+  "2fa-enable": ["exadmin.audit2faEnable", "Two-step verification turned on"],
+  "2fa-reset": ["exadmin.audit2faReset", "Two-step verification reset"],
 };
 
 const label = ([key, fallback]) => t(key, fallback);

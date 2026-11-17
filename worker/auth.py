@@ -19,6 +19,12 @@ app, which runs on another origin: an Authorization: Bearer header with the
 same token), so they survive a worker restart, and are re-checked against users.json on every request, so
 disabling an account takes effect immediately.
 
+Administrators confirm a second step for the admin pages: a code from an
+authenticator app (TOTP, totp.py) or a recovery code. users.json keeps
+its secret (totpSecret), when it was turned on (totpEnabledAt), the last
+step used (a code is good once) and the recovery codes' hashes; a session
+token that passed it carries "m" (when) - see server.py _require_admin.
+
 Supervision is done from the command line inside the container - there is
 deliberately no admin HTTP API to attack:
 
@@ -37,6 +43,8 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+
+import totp
 
 USERNAME_RE = re.compile(r"[A-Za-z0-9_.-]{3,32}")
 # Sanity check, not full RFC 5322 validation - just enough to catch typos and
@@ -286,10 +294,13 @@ class AuthStore:
 
     # ---- sessions ------------------------------------------------------
 
-    def issue_token(self, username: str) -> str:
-        payload = base64.urlsafe_b64encode(
-            json.dumps({"u": username, "iat": int(time.time()), "exp": int(time.time()) + SESSION_TTL}).encode("utf-8")
-        ).decode("ascii")
+    def issue_token(self, username: str, mfa_at: int = None) -> str:
+        """mfa_at: when the second step was passed (two_factor_verify),
+        carried by the token as "m" - the admin pages ask for it."""
+        claims = {"u": username, "iat": int(time.time()), "exp": int(time.time()) + SESSION_TTL}
+        if mfa_at:
+            claims["m"] = int(mfa_at)
+        payload = base64.urlsafe_b64encode(json.dumps(claims).encode("utf-8")).decode("ascii")
         signature = hmac.new(self._key(), payload.encode("ascii"), hashlib.sha256).hexdigest()
         return f"{payload}.{signature}"
 
@@ -318,6 +329,7 @@ class AuthStore:
         try:
             data = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
             username, expires, issued = data["u"], int(data["exp"]), int(data.get("iat", 0))
+            mfa_at = int(data.get("m", 0))
         except (ValueError, KeyError, TypeError):
             return None
         if expires < time.time():
@@ -331,7 +343,11 @@ class AuthStore:
         now = int(time.time())
         if now - record.get("lastSeenAt", 0) >= SEEN_INTERVAL:
             self._touch(username, lastSeenAt=now)
-        return {"username": username, "role": record["role"], "plan": effective_app_plan(record)}
+        # The second step counts while it is still set up as it was then.
+        if not record.get("totpEnabledAt") or mfa_at < record["totpEnabledAt"]:
+            mfa_at = 0
+        return {"username": username, "role": record["role"], "plan": effective_app_plan(record),
+                "mfaAt": mfa_at, "twoFactor": bool(record.get("totpEnabledAt"))}
 
     def cookie_header(self, token: str, secure: bool, clear: bool = False) -> str:
         parts = [f"{COOKIE_NAME}={'' if clear else token}", "Path=/", "HttpOnly", "SameSite=Lax",
@@ -352,6 +368,7 @@ class AuthStore:
                 "createdAt": rec.get("createdAt", 0),
                 "lastLoginAt": rec.get("lastLoginAt", 0),
                 "lastSeenAt": rec.get("lastSeenAt", 0),
+                "twoFactor": bool(rec.get("totpEnabledAt")),
                 "limits": rec.get("limits", {}),
                 "plan": effective_app_plan(rec),
             }
@@ -497,6 +514,102 @@ class AuthStore:
             users.pop(username)
             self._save(users)
         return {"username": username, "email": record.get("email", "")}
+
+    # ---- second step (TOTP) --------------------------------------------
+
+    def two_factor_setup(self, username: str, issuer: str) -> dict:
+        """A new secret to scan, kept aside (totpPending) until a code from
+        it confirms it (two_factor_enable). Refused while one is on."""
+        secret = totp.new_secret()
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            if record.get("totpEnabledAt"):
+                raise AuthError(409, "Two-step verification is already on.")
+            record["totpPending"] = {"secret": secret, "createdAt": int(time.time())}
+            self._save(users)
+        return {"secret": secret, "uri": totp.provisioning_uri(secret, username, issuer)}
+
+    def two_factor_enable(self, username: str, code: str) -> dict:
+        """Turns it on with the first code of the pending secret. Returns
+        {"recoveryCodes": [...], "enabledAt"} - the codes shown once."""
+        self._check_two_factor_lock(username)
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            pending = record.get("totpPending") or {}
+            if not pending.get("secret") or time.time() - pending.get("createdAt", 0) > 3600:
+                raise AuthError(409, "Start the setup again: no new key is waiting.")
+            step = totp.matching_step(pending["secret"], code)
+            if step is None:
+                self._two_factor_failed(username)
+                raise AuthError(401, "That code is not right. Check the time on your phone.")
+            codes = totp.new_recovery_codes()
+            now = int(time.time())
+            record.pop("totpPending", None)
+            record.update(totpSecret=pending["secret"], totpEnabledAt=now, totpLastStep=step,
+                          totpRecovery=[totp.hash_recovery_code(c) for c in codes])
+            self._save(users)
+        self._failures.pop(f"2fa:{username}", None)
+        return {"recoveryCodes": codes, "enabledAt": now}
+
+    def two_factor_verify(self, username: str, code: str) -> dict:
+        """The second step: a code from the app, or a recovery code (used
+        up). Returns {"at", "recoveryLeft"}; 401 when wrong, 429 after
+        MAX_FAILED_LOGINS wrong ones in a row (for LOCKOUT_SECONDS)."""
+        self._check_two_factor_lock(username)
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None or not record.get("totpEnabledAt"):
+                raise AuthError(409, "Two-step verification is not set up.")
+            step = totp.matching_step(record["totpSecret"], code, after=record.get("totpLastStep", -1))
+            if step is not None:
+                record["totpLastStep"] = step
+            else:
+                hashed = totp.hash_recovery_code(code)
+                recovery = record.get("totpRecovery", [])
+                if len(str(code or "").strip()) < 8 or hashed not in recovery:
+                    self._two_factor_failed(username)
+                    raise AuthError(401, "That code is not right.")
+                recovery.remove(hashed)
+            self._save(users)
+            left = len(record.get("totpRecovery", []))
+        self._failures.pop(f"2fa:{username}", None)
+        return {"at": int(time.time()), "recoveryLeft": left}
+
+    def two_factor_reset(self, username: str) -> None:
+        """Turns it off (a lost phone): set up again on the next visit of
+        the admin pages. Sessions that passed it no longer count."""
+        with self._lock:
+            users = self._load()
+            record = users.get(username)
+            if record is None:
+                raise AuthError(404, f"No such user: {username}")
+            for key in ("totpSecret", "totpEnabledAt", "totpLastStep", "totpRecovery", "totpPending"):
+                record.pop(key, None)
+            self._save(users)
+
+    def two_factor_status(self, username: str) -> dict:
+        record = self._load().get(username) or {}
+        return {"enabled": bool(record.get("totpEnabledAt")), "recoveryLeft": len(record.get("totpRecovery", []))}
+
+    def _check_two_factor_lock(self, username: str) -> None:
+        count, locked_until = self._failures.get(f"2fa:{username}", (0, 0))
+        if locked_until and locked_until > time.time():
+            raise AuthError(429, "Too many wrong codes. Try again in a few minutes.")
+
+    def _two_factor_failed(self, username: str) -> None:
+        key = f"2fa:{username}"
+        count, locked_until = self._failures.get(key, (0, 0))
+        if locked_until and locked_until <= time.time():
+            count = 0
+        count += 1
+        self._failures[key] = (count, time.time() + LOCKOUT_SECONDS if count >= MAX_FAILED_LOGINS else 0)
 
     # ---- passwords -----------------------------------------------------
 

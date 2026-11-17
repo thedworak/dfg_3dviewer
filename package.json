@@ -87,6 +87,7 @@
     "lru-cache": "^11.5.3",
     "playwright": "^1.65.1",
     "pnpm": "^11.28.12",
+    "qrcode-generator": "^2.0.4",
     "stats.js": "^0.17.0",
     "three": "^0.187.0",
     "toastify-js": "^1.12.0",

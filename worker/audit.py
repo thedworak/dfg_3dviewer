@@ -7,6 +7,7 @@ command line (admin "(command line)"), read by the admin pages' History
 (GET /api/admin/audit, viewer/exadmin/sections/history.js).
 
 Actions: approve, reject, disable, promote, demote, delete-user, plan,
+2fa-enable, 2fa-reset,
 limits, edit-model, delete-model, visibility, report.
 """
 

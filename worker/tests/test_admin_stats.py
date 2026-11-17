@@ -50,6 +50,8 @@ class AdminStatsTest(unittest.TestCase):
         for patch in (
             mock.patch.object(server, "AUTH", self.auth),
             mock.patch.object(server, "JOBS_DIR", self.tmp),
+            # The second step has tests of its own (test_two_factor.py).
+            mock.patch.object(server, "ADMIN_2FA", False),
             mock.patch.object(server.mailer, "send_new_account",
                               lambda account, admins, **kwargs: self.mails.append((account, list(admins)))),
         ):

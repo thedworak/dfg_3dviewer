@@ -56,6 +56,8 @@ class AccountAndReportsTest(unittest.TestCase):
             mock.patch.object(server, "AUTH", self.auth),
             mock.patch.object(server, "REPORTS", self.reports),
             mock.patch.object(server, "JOBS_DIR", self.tmp),
+            # The second step has tests of its own (test_two_factor.py).
+            mock.patch.object(server, "ADMIN_2FA", False),
             mock.patch.object(server.cloudflare, "purge_paths_async", lambda *args, **kwargs: None),
             mock.patch.object(server.mailer, "send_content_report", lambda *args, **kwargs: None),
         ):

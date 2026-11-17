@@ -959,3 +959,164 @@ body {
     gap: 2px;
   }
 }
+
+/* An administrator's second step (exadmin/two-factor.js). */
+.exadmin-two-factor {
+  width: min(560px, 100%);
+  margin: 24px auto;
+  padding: 18px 20px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 12px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-two-factor-verify {
+  width: min(380px, 100%);
+}
+
+.exadmin-two-factor h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.exadmin-two-factor p {
+  margin: 0 0 12px;
+}
+
+.exadmin-two-factor-scan {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin: 12px 0 16px;
+}
+
+.exadmin-qr {
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+  line-height: 0;
+}
+
+.exadmin-qr svg {
+  width: 100%;
+  height: auto;
+}
+
+.exadmin-two-factor-manual {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.exadmin-two-factor-manual p {
+  margin: 0;
+}
+
+.exadmin-two-factor-key {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 10%, transparent);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.exadmin-two-factor-account,
+.exadmin-two-factor-help {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.exadmin-two-factor-form {
+  display: grid;
+  gap: 10px;
+}
+
+.exadmin-two-factor-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.exadmin-code-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-two-factor button,
+.exadmin-two-factor-open {
+  padding: 7px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.exadmin-two-factor .exadmin-two-factor-primary,
+.exadmin-two-factor-form button[type="submit"] {
+  background: var(--viewer-panel-text);
+  color: var(--viewer-page-bg);
+  font-weight: 600;
+}
+
+.exadmin-two-factor button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.exadmin-two-factor .exadmin-link-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+.exadmin-recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+  margin: 12px 0 16px;
+  padding: 12px 12px 12px 36px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 8%, transparent);
+  font-family: var(--font-code);
+  font-size: 14px;
+}
+
+.exadmin-two-factor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .exadmin-two-factor-scan {
+    grid-template-columns: 1fr;
+  }
+
+  .exadmin-qr {
+    width: 200px;
+  }
+
+  .exadmin-recovery-codes {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Inside the app (?app=1, ui/admin-panel.js): the safe areas of the phone. */
+.exadmin-header {
+  padding-top: max(10px, env(safe-area-inset-top));
+}

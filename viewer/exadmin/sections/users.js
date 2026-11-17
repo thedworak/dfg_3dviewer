@@ -2,7 +2,7 @@ import { t } from "../../i18n-utils.js";
 import { metaCaption, metaPart } from "../../ui/meta-icons.js";
 import { modelCheckPart } from "../../ui/feature-icons.js";
 import { fillModelThumbnail } from "../../ui/model-thumbnail.js";
-import { apiRequest, fetchJobsByOwner } from "../api.js";
+import { apiRequest, fetchJobsByOwner, remoteUrl } from "../api.js";
 import { confirmDialog, toast } from "../dialogs.js";
 import { formatDate, formatDateTime, formatRelative } from "../format.js";
 
@@ -383,7 +383,11 @@ class UsersSection {
     const seen = user.lastSeenAt
       ? t("adminPanel.lastSeen", { when: formatRelative(user.lastSeenAt) }, "active {when}")
       : user.status === "active" ? t("adminPanel.neverSeen", "not seen yet") : "";
-    meta.textContent = [user.email, role, seen, modelsCount, lastUploadText, created]
+    // An administrator's second step for these pages (worker auth.py).
+    const twoFactor = user.role === "admin"
+      ? (user.twoFactor ? t("adminPanel.twoFactorOn", "two-step verification on") : t("adminPanel.twoFactorOff", "no two-step verification yet"))
+      : "";
+    meta.textContent = [user.email, role, twoFactor, seen, modelsCount, lastUploadText, created]
       .filter(Boolean)
       .join(" · ");
     info.append(name, meta);
@@ -408,6 +412,15 @@ class UsersSection {
       actions.appendChild(
         this.createUserActionButton(user.username, "disable", t("adminPanel.disable", "Disable"))
       );
+    }
+
+    // Another admin lost their phone: they set the app up again next time.
+    if (!isSelf && user.role === "admin" && user.twoFactor) {
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.textContent = t("adminPanel.twoFactorReset", "Reset two-step verification");
+      reset.addEventListener("click", () => this.resetTwoFactor(user.username));
+      actions.appendChild(reset);
     }
 
     if (!isSelf) {
@@ -734,7 +747,7 @@ class UsersSection {
     const thumbSlot = document.createElement("span");
     thumbSlot.className = "models-panel-item-thumb";
     thumbSlot.setAttribute("aria-hidden", "true");
-    fillModelThumbnail(thumbSlot, job.imageUrls?.[0] || "", job.id);
+    fillModelThumbnail(thumbSlot, remoteUrl(job.imageUrls?.[0]) || "", job.id);
     entry.appendChild(thumbSlot);
     const text = document.createElement("span");
     text.className = "models-panel-item-text";
@@ -998,6 +1011,18 @@ class UsersSection {
     if (failed.length) this.setStatus(failed.join(" · "), "error");
     else toast("userUpdated", "success");
     await this.load();
+  }
+
+  async resetTwoFactor(username) {
+    const confirmed = await confirmDialog({
+      message: t("adminPanel.twoFactorResetConfirm", { user: username },
+        "Turn off two-step verification of {user}? They set up their authenticator app again on their next visit here."),
+      confirmLabel: t("adminPanel.twoFactorReset", "Reset two-step verification"),
+      cancelLabel: t("adminPanel.deleteCancel", "Cancel"),
+      danger: true,
+    });
+    if (!confirmed) return;
+    await this.performUserAction(username, "2fa-reset");
   }
 
   async performUserAction(username, action) {

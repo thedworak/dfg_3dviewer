@@ -93,6 +93,11 @@ services:
       # The jobs volume this full (percent): a warning in /exadmin/ and a mail
       # to the administrators; 0 = off.
       - WORKER_DISK_WARN_PERCENT=${WORKER_DISK_WARN_PERCENT:-85}
+      # The admin pages ask administrators for a code from an authenticator
+      # app (required) or not (off); how long a code counts, in seconds.
+      - WORKER_ADMIN_2FA=${WORKER_ADMIN_2FA:-required}
+      - WORKER_ADMIN_2FA_TTL=${WORKER_ADMIN_2FA_TTL:-43200}
+      - WORKER_ADMIN_2FA_ISSUER=${WORKER_ADMIN_2FA_ISSUER:-ExPlora4D}
       # Optional AI assistance (Claude API) - see docs/ai.md. Off unless
       # WORKER_AI_ENABLED=true and an ANTHROPIC_API_KEY is set.
       - WORKER_AI_ENABLED=${WORKER_AI_ENABLED:-false}

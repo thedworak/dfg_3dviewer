@@ -48,6 +48,9 @@ could talk to either backend interchangeably:
                                   entitlements module, see below)
   POST /api/admin/users/<u>/plan  a plan granted by an admin (auth.py)
   POST /api/admin/users/<u>/reject {reason} a waiting account deleted, mailed
+  POST /api/auth/2fa/setup|enable|verify  an admin's second step: every
+                                /api/admin/* asks for it (WORKER_ADMIN_2FA)
+  POST /api/admin/users/<u>/2fa-reset    another admin's lost authenticator
   GET  /api/examples/thumbnails -> {thumbnails: {"<dir>/<basename>": {views,
                                 version}}} the viewer's renders of its example
                                 models; POST (multipart dir, basename, a PNG
@@ -169,6 +172,13 @@ AUTH = AuthStore(
     registration=os.environ.get("WORKER_AUTH_REGISTRATION", "approval").lower(),
     secret=os.environ.get("WORKER_AUTH_SECRET", ""),
 )
+# The admin pages (/api/admin/*) ask an administrator for a second step - a
+# code from an authenticator app (auth.py, totp.py) - once per this many
+# seconds: WORKER_ADMIN_2FA=required (default) or off.
+ADMIN_2FA = os.environ.get("WORKER_ADMIN_2FA", "required").strip().lower() != "off"
+ADMIN_2FA_TTL = int(os.environ.get("WORKER_ADMIN_2FA_TTL", str(12 * 3600)))
+# The name an authenticator app shows next to the codes.
+ADMIN_2FA_ISSUER = os.environ.get("WORKER_ADMIN_2FA_ISSUER", "ExPlora4D")
 # Reports of objectionable models (worker/reports.py), next to the accounts.
 REPORTS = reports.ReportStore(JOBS_DIR / ".reports")
 # What the administrators did (audit.py): the admin pages' History.
@@ -1208,6 +1218,69 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(401, {"error": "Login required"})
         return user
 
+    def _second_step_state(self, user) -> str:
+        """For an admin: "ok", "setup" (no authenticator app set up yet) or
+        "verify" (no code given in the last ADMIN_2FA_TTL seconds)."""
+        if not ADMIN_2FA or not user or user.get("role") != "admin":
+            return "ok"
+        if not user.get("twoFactor"):
+            return "setup"
+        if time.time() - (user.get("mfaAt") or 0) > ADMIN_2FA_TTL:
+            return "verify"
+        return "ok"
+
+    def _admin_second_step_ok(self) -> bool:
+        """Every /api/admin/* request of an admin: refused with 403 and
+        code 2fa_setup_required / 2fa_required until the second step
+        (POST /api/auth/2fa/...). Others are left to the handler (401/403)."""
+        if not AUTH.enabled:
+            return True
+        state = self._second_step_state(self._current_user())
+        if state == "ok":
+            return True
+        if state == "setup":
+            self._send_json(403, {"error": "Set up two-step verification to use the admin pages.",
+                                  "code": "2fa_setup_required"})
+        else:
+            self._send_json(403, {"error": "Enter the code from your authenticator app.", "code": "2fa_required"})
+        return False
+
+    def _handle_two_factor(self, action: str) -> None:
+        """POST /api/auth/2fa/setup -> {secret, uri}; /enable {code} ->
+        {recoveryCodes}; /verify {code} (or a recovery code). enable and
+        verify hand back a session that passed the second step: the cookie,
+        and the token itself for an app ({"session": "token"}, as at login)."""
+        user = self._current_user()
+        if not AUTH.enabled:
+            self._send_json(404, {"error": "Accounts are not enabled."})
+            return
+        if user is None:
+            self._send_json(401, {"error": "Login required"})
+            return
+        if user["role"] != "admin":
+            self._send_json(403, {"error": "Admin role required"})
+            return
+        try:
+            data = self._read_json_body()
+            if action == "setup":
+                self._send_json(200, AUTH.two_factor_setup(user["username"], ADMIN_2FA_ISSUER))
+                return
+            if action == "enable":
+                result = AUTH.two_factor_enable(user["username"], data.get("code", ""))
+                payload = {"recoveryCodes": result["recoveryCodes"]}
+                at = result["enabledAt"]
+                AUDIT.record(user["username"], "2fa-enable", user["username"])
+            else:
+                result = AUTH.two_factor_verify(user["username"], data.get("code", ""))
+                payload = {"recoveryLeft": result["recoveryLeft"]}
+                at = result["at"]
+            token = AUTH.issue_token(user["username"], mfa_at=at)
+            if data.get("session") == "token":
+                payload["token"] = token
+            self._send_json(200, payload, cookie=AUTH.cookie_header(token, self._cookie_is_secure()))
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+
     def _require_admin(self):
         """Returns the admin account calling this endpoint, or None after
         sending 404 (accounts off - nothing to administer), 401 (not logged
@@ -1575,6 +1648,23 @@ class Handler(BaseHTTPRequestHandler):
         except AuthError as exc:
             self._send_json(exc.status, {"error": exc.message})
 
+    def _handle_admin_two_factor_reset(self, username: str) -> None:
+        """POST /api/admin/users/<u>/2fa-reset: another admin lost their
+        phone - they set the app up again on their next visit."""
+        admin = self._require_admin()
+        if admin is None:
+            return
+        if username == admin["username"]:
+            self._send_json(400, {"error": "Your own: ask another administrator, or use the command line."})
+            return
+        try:
+            AUTH.two_factor_reset(username)
+        except AuthError as exc:
+            self._send_json(exc.status, {"error": exc.message})
+            return
+        AUDIT.record(admin["username"], "2fa-reset", username)
+        self._send_json(200, {"status": "ok"})
+
     def _handle_admin_reject_user(self, username: str) -> None:
         """POST /api/admin/users/<u>/reject {"reason": "..."}: an account
         waiting for approval is deleted and its owner mailed the reason."""
@@ -1719,6 +1809,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
+        if path.startswith("/api/admin/") and not self._admin_second_step_ok():
+            return
 
         if path == "/healthz":
             self._send_json(200, {"status": "ok"})
@@ -1786,11 +1878,20 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/auth/me":
             user = self._current_user()
-            self._send_json(200, {
+            payload = {
                 "user": user["username"] if user else None,
                 "role": user["role"] if user else None,
                 "plan": user.get("plan") if user else None,
-            })
+            }
+            # An admin's second step for the admin pages (exadmin/main.js).
+            if user and user["role"] == "admin":
+                payload["twoFactor"] = {
+                    "required": ADMIN_2FA,
+                    "enabled": bool(user.get("twoFactor")),
+                    "state": self._second_step_state(user),
+                    "recoveryLeft": AUTH.two_factor_status(user["username"])["recoveryLeft"],
+                }
+            self._send_json(200, payload)
             return
 
         if path == "/api/jobs":
@@ -1897,6 +1998,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = unquote(urlparse(self.path).path)
+        if path.startswith("/api/admin/") and not self._admin_second_step_ok():
+            return
+        match = re.fullmatch(r"/api/auth/2fa/(setup|enable|verify)", path)
+        if match:
+            self._handle_two_factor(match.group(1))
+            return
         match = re.fullmatch(r"/api/live/([^/]+)", path)
         if match:
             self._handle_live_session(match.group(1), publish=True)
@@ -1974,6 +2081,10 @@ class Handler(BaseHTTPRequestHandler):
         if match:
             self._handle_admin_set_plan(match.group(1))
             return
+        match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/2fa-reset", path)
+        if match:
+            self._handle_admin_two_factor_reset(match.group(1))
+            return
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)/reject", path)
         if match:
             self._handle_admin_reject_user(match.group(1))
@@ -1994,6 +2105,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         path = unquote(urlparse(self.path).path)
+        if path.startswith("/api/admin/") and not self._admin_second_step_ok():
+            return
         match = re.fullmatch(r"/api/admin/users/([A-Za-z0-9_.-]+)", path)
         if match:
             self._handle_admin_delete_user(match.group(1))
@@ -2730,7 +2843,7 @@ def admin_cli(args) -> None:
         "users | uploads | usage | limits <user> [key=value|key=default ...] | "
         "plan <user> [free|pro|business|enterprise|purchase] [days] | "
         "approve <user> | disable <user> | promote <user> | demote <user> | delete-user <user> | "
-        "reports [all] | report <id> dismiss|remove-model|disable-user | audit [count] | "
+        "reports [all] | report <id> dismiss|remove-model|disable-user | audit [count] | 2fa-reset <user> | "
         "rebuild-splats [--force] [<job id> ...] | import <file> [--user <name>]"
     )
     if not args:
@@ -2818,6 +2931,10 @@ def admin_cli(args) -> None:
             AUDIT.record(audit.CLI_ADMIN, "report", report["jobId"], {
                 "decision": rest[1], "reason": report.get("reason"), "owner": report.get("owner")})
             print(f"ok: {rest[1]} ({report['jobId']})")
+        elif command == "2fa-reset" and len(rest) == 1:
+            AUTH.two_factor_reset(rest[0])
+            AUDIT.record(audit.CLI_ADMIN, "2fa-reset", rest[0])
+            print(f"ok: two-step verification of {rest[0]} is off; set up again on the next visit of /exadmin/")
         elif command == "audit":
             count = int(rest[0]) if rest and rest[0].isdigit() else 50
             for entry in reversed(AUDIT.entries(count)):

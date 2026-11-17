@@ -60,6 +60,8 @@ class AdminPanelTest(unittest.TestCase):
             mock.patch.object(server, "AUDIT", self.audit),
             mock.patch.object(server, "REPORTS", self.reports),
             mock.patch.object(server, "JOBS_DIR", self.tmp),
+            # The second step has tests of its own (test_two_factor.py).
+            mock.patch.object(server, "ADMIN_2FA", False),
             mock.patch.object(server.mailer, "send_new_account", lambda *args, **kwargs: None),
             mock.patch.object(server.mailer, "send_account_rejected",
                               lambda *args, **kwargs: self.rejections.append(args)),
