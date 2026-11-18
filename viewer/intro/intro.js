@@ -66,6 +66,13 @@ const FADE_IN = 1.0;
 // Only the cloud this long, then the points set off.
 const ASSEMBLY_START = 1.5;
 const ASSEMBLY = 5.2;
+// Where the last point waits, of the camera's view when it sets off:
+// radians to the side, out from the middle, and above the roof's top - on a
+// narrow screen ([0]: closer in, higher; the sides are cut off) and a wide
+// one ([1]: further out, lower; the logo is above).
+const WAIT_SIDE = 1.9;
+const WAIT_RADIUS = [1.0, 1.9];
+const WAIT_ABOVE = [0.8, -0.1];
 // The last point: sets off late, takes its time, lands on the roof.
 const LAST_START = ASSEMBLY_START + ASSEMBLY * 0.72;
 const LAST_FLIGHT = 3.8;
@@ -1126,14 +1133,24 @@ function createDust(random) {
 
 // A brighter atom with a short trail; on landing a flash and a ring.
 function createLastPoint(target, start) {
-  // Out at the edge of the cloud, so its way in is long.
-  const from = start.clone();
-  from.y = Math.min(Math.max(from.y, 0.2), 0.8);
-  if (Math.hypot(from.x, from.z) < 4.2) {
-    const angle = Math.atan2(from.z, from.x);
-    from.x = Math.cos(angle) * 4.6;
-    from.z = Math.sin(angle) * 4.6;
-  }
+  // Where it waits: beside the building and above it, a little behind it,
+  // as the camera sees it when it sets off - in the picture on any screen
+  // (a narrow one shows little to the sides), never between the camera and
+  // the building.
+  // Until then it keeps that place in the camera's view while the camera
+  // circles (the camera's angle is a function of the intro's time too), so
+  // it waits calmly instead of sweeping across the screen.
+  // Spherical.theta (0: +Z) as an angle in x/z (atan2(z, x)).
+  const waitAngle = (T) => {
+    const before = Math.max(LAST_FLIGHT, LANDING - T);
+    const cameraTheta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
+    return Math.PI / 2 - cameraTheta + WAIT_SIDE;
+  };
+  const wide = Math.min(1, Math.max(0, (camera.aspect - 0.6) / 0.7));
+  const waitRadius = WAIT_RADIUS[0] + (WAIT_RADIUS[1] - WAIT_RADIUS[0]) * wide;
+  const waitAbove = WAIT_ABOVE[0] + (WAIT_ABOVE[1] - WAIT_ABOVE[0]) * wide;
+  const waitAt = (T, out) => out.set(Math.cos(waitAngle(T)) * waitRadius, target.y + waitAbove, Math.sin(waitAngle(T)) * waitRadius);
+  const from = waitAt(LAST_START, new Vector3());
   const group = new Group();
   const glowUniforms = { uIntensity: { value: 1 }, uRing: { value: 0 }, uRingAlpha: { value: 0 }, uTime: { value: 0 } };
   const glow = new Mesh(new PlaneGeometry(1, 1), new ShaderMaterial({
@@ -1210,29 +1227,36 @@ function createLastPoint(target, start) {
   trail.renderOrder = 9;
   group.add(trail);
 
-  // The way in: a wide spiral, slowing down as it comes closer. It sets
-  // off gently from where it waited - speeding up, fastest about a third of
-  // the way, then slowing to land - not at full speed at once (a jump).
+  // The way in: an arc down to the roof, a little round it, coming closer
+  // from the first moment. It sets off gently (speeding up, fastest about a
+  // third of the way, then slowing to land): never a jump.
   const fromAngle = Math.atan2(from.z, from.x);
   const fromRadius = Math.hypot(from.x, from.z);
   const toAngle = Math.atan2(target.z, target.x);
   const toRadius = Math.hypot(target.x, target.z);
-  // One and a quarter turns, in the direction that is the shorter way.
-  let turn = toAngle - fromAngle;
-  turn = turn - Math.round(turn / (Math.PI * 2)) * Math.PI * 2 + Math.PI * 2 * (turn >= 0 ? 1 : -1);
+  const departAngle = fromAngle;
+  let turn = toAngle - departAngle;
+  turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
+  // The roof's top is near the middle: little way round to go; a little
+  // more, away from the camera's side, so it does not cut straight across.
+  turn += (turn >= 0 ? 1 : -1) * 0.6;
   // The share of the way at u (0..1): its speed rises from 0 as u, and
   // falls to 0 as (1 - u)^1.6 (the integral of u (1 - u)^1.6, normalised).
   const along = (u) => {
     const w = 1 - Math.min(1, Math.max(0, u));
     return 1 - 3.6 * Math.pow(w, 2.6) + 2.6 * Math.pow(w, 3.6);
   };
-  const at = (u, out) => {
+  // u <= 0: waiting at time T (turning with the cloud).
+  const at = (u, out, T = LAST_START) => {
+    if (u <= 0) return waitAt(T, out);
     const k = along(u);
-    const angle = fromAngle + turn * k;
-    const radius = fromRadius + (toRadius - fromRadius) * k;
+    // Closer sooner than round: the radius leads the angle.
+    const kr = 1 - Math.pow(1 - k, 1.6);
+    const angle = departAngle + turn * k;
+    const radius = fromRadius + (toRadius - fromRadius) * kr;
     out.set(
       Math.cos(angle) * radius,
-      from.y + (target.y - from.y) * k + Math.sin(k * Math.PI) * 0.45,
+      from.y + (target.y - from.y) * k + Math.sin(k * Math.PI) * 0.2,
       Math.sin(angle) * radius,
     );
     return out;
@@ -1249,7 +1273,7 @@ function createLastPoint(target, start) {
       const flight = Math.min(1, Math.max(0, (T - LAST_START) / LAST_FLIGHT));
       const sinceLanding = T - LANDING;
       glowUniforms.uTime.value = time;
-      at(flight, position);
+      at(flight, position, T);
       // Waiting at the edge of the cloud, drifting a little; the drift dies
       // away as it sets off, so it leaves from where it was.
       const drift = 1 - smoothstep01(flight / 0.18);
@@ -1494,7 +1518,11 @@ function frame() {
       theta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
     } else {
       // The model's act; without the model (yet), from the landing.
-      ({ theta, dolly, tilt } = cameraPath(meshReveal ? stage : T - LANDING));
+      let sunStudy;
+      ({ theta, dolly, tilt, sun: sunStudy } = cameraPath(meshReveal ? stage : T - LANDING));
+      // A narrow screen: back a little for the sun study, so the sun's way
+      // from sunrise to sunset stays in the picture.
+      dolly *= 1 + sunStudy * 0.3 * (1 - Math.min(1, Math.max(0, (camera.aspect - 0.6) / 0.7)));
     }
     const radius = cameraRadius * dolly;
     // Drawing back over the surroundings: further than a visitor may zoom.

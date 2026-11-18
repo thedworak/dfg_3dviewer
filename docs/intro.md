@@ -7,8 +7,11 @@ viewer, about 75 seconds long:
    and then, like atoms, gathers into the Wołpa Synagogue - foundations
    first, the roofs last.
 2. The last point (199 999 / 200 000) takes its time: a glowing atom with a
-   trail sets off gently from where it waited (speeding up, then slowing
-   down - never a jump), spirals in and lands on the top of the roof - a flash, a ring, and a
+   trail waits beside the building, a little behind and about the roof's
+   height (higher and closer in on a narrow screen), keeping its place in
+   the camera's view while the camera circles - so it is in the picture on
+   any screen; then it sets off gently (speeding up, then slowing down -
+   never a jump) and comes down in an arc to the top of the roof - a flash, a ring, and a
    wave of light running through the building. The camera turns so that at
    that moment it faces the synagogue's front (the facade with the two corner
    pavilions, a little from the side): up to the landing its angle follows
@@ -75,7 +78,7 @@ then. If it cannot be loaded, the intro ends with the points.
 
 - The progress bar at the bottom: one part per stage (the cloud, the mesh, the tour's chapters), filling as the intro goes; a click jumps to that stage (the later ones once the model is loaded). On a phone only the current part is named.
 - Language (EN, PL, DE beside the sound button; on a phone on the left, level with it): the intro is loaded again in that language from the same moment (held with `?at=`: held there), the choice remembered (`localStorage`); inside the viewer page the viewer switches to it too.
-- Sound (the button top right; `viewer/intro/intro-sound.js`): made on the fly with the Web Audio API, no audio files - futuristic, a machine of glass assembling itself: a deep drone and a crystalline shimmer for the cloud, glass shards clicking into place over a servo's whir as the points arrive, a rising resonant sweep with ever faster glass pings for the last point, a reversed swell drawn in and a deep blast with a ringing glass lock at its landing, data blips for the vertices, a ratchet for the edges, panels locking as the faces form, a sweep and a ping for each chapter of the tour. Off by default (`?sound=1` turns it on); browsers start it only with the first click or key press. The visitor's choice is remembered.
+- Sound (the button top right; `viewer/intro/intro-sound.js`): made on the fly with the Web Audio API, no audio files - warm and calm, a small ensemble in a hall in D minor: a slow string pad (D minor, B flat, F, C, four seconds each), a soft bass and a harp picking the chord's notes (sparse over the cloud, flowing once the building stands); harp notes as the points arrive, notes climbing the scale and the strings swelling for the last point, a deep soft drum, a bell and the full chord at its landing, high harp notes for the vertices, a ripple for the edges, wooden knocks as the faces form, a small bell for each chapter of the tour. Off by default (`?sound=1` turns it on); browsers start it only with the first click or key press. The visitor's choice is remembered.
 - Drag rotates the building; the mouse pushes points aside.
 - "Assemble again" runs everything backwards into the cloud and gathers it again.
 - "Skip intro" goes straight to the viewer.

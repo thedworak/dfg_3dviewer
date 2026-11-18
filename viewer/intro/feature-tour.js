@@ -129,10 +129,11 @@ const LIVE_SWIPES = [
  *   front      the angle at the landing (the scene's front)
  *   rate       radians a second it turns at the landing (and between holds)
  *   tourStart  seconds from the model's act to the tour's first chapter
- * @returns {(s: number) => { theta: number, dolly: number, tilt: number }}
+ * @returns {(s: number) => { theta: number, dolly: number, tilt: number, sun: number }}
  *   at s seconds into the model's act: the angle, the distance as a share of
  *   the camera's own, and how far it looks down from above (0-1, the
- *   surroundings' overview).
+ *   surroundings' overview), and how far into the sun study (0-1: a
+ *   narrow screen draws back for it, intro.js).
  */
 export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }) {
   const chapter = (key) => plan.chapters.find((c) => c.key === key);
@@ -180,6 +181,8 @@ export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }
   const timeDolly = (s) => (time ? 1 - (1 - TIME_DOLLY) * window01(s - tourStart, time.from, time.to + 1.5, 1.5) : 1);
   // The surroundings: up and back, and down again at the end.
   const overview = (s) => (surroundings ? window01(s - tourStart, surroundings.from + 0.1, surroundings.to - 0.2, SURROUNDINGS_MOVE) : 0);
+  // The sun study (a narrow screen draws back a little for it).
+  const sunWindow = (s) => (sun ? window01(s - tourStart, sun.from, sun.from + SUN_LENGTH, 0.8) : 0);
   const dollyAt = (s) => {
     const o = overview(s);
     return timeDolly(s) * (1 - o) + SURROUNDINGS_DOLLY * o;
@@ -199,7 +202,7 @@ export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }
       const u3 = u2 * u;
       theta = (2 * u3 - 3 * u2 + 1) * p0 + (u3 - 2 * u2 + u) * h * m0 + (-2 * u3 + 3 * u2) * p1 + (u3 - u2) * h * m1;
     }
-    return { theta, dolly: dollyAt(s), tilt: overview(s) };
+    return { theta, dolly: dollyAt(s), tilt: overview(s), sun: sunWindow(s) };
   };
 }
 
@@ -650,11 +653,22 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
   const groundLevel = toIntro(0, ground, 0).y;
   // Around the front (+Z, theta 0): its left, low before the entrance (the
   // chosen one), and high over the right, looking down.
+  // A narrow (portrait) screen shows little to the sides and much above
+  // and below: there they stand closer in, above and before the model.
   const cameraSpots = [
-    { theta: -0.62, radius: 2.45, height: 0.75, look: 0.45 },
-    { theta: 0.12, radius: 3.05, height: 0.5, look: 0.42, chosen: true },
-    { theta: 1.45, radius: 2.3, height: 2.1, look: 0.2 },
+    { theta: -0.62, radius: 2.45, height: 0.75, look: 0.45, narrow: { theta: -0.2, radius: 1.2, height: 2.3, look: 0.6 } },
+    { theta: 0.12, radius: 3.05, height: 0.5, look: 0.42, chosen: true, narrow: { theta: 0.62, radius: 2.7, height: 0.3, look: 0.4 } },
+    { theta: 1.45, radius: 2.3, height: 2.1, look: 0.2, narrow: { theta: 1.2, radius: 1.1, height: 2.9, look: 0.3 } },
   ];
+  const spotAt = (spot, wide, out = new Vector3()) => {
+    const k = (key) => spot.narrow[key] + (spot[key] - spot.narrow[key]) * wide;
+    const theta = k('theta');
+    const radius = k('radius');
+    return {
+      position: out.set(Math.sin(theta) * radius, groundLevel + k('height'), Math.cos(theta) * radius),
+      look: k('look'),
+    };
+  };
   const frustumLines = (() => {
     const w = 0.5;
     const h = 0.32;
@@ -666,6 +680,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
   const sceneCameras = cameraSpots.map((spot, index) => {
     const position = new Vector3(Math.sin(spot.theta) * spot.radius, groundLevel + spot.height, Math.cos(spot.theta) * spot.radius);
     const target = new Vector3(0, groundLevel + spot.look, 0);
+    // Placed again for the screen's shape (update()).
     const marker = new Group();
     marker.position.copy(position);
     marker.lookAt(target);
@@ -696,6 +711,25 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     return { ...spot, index, position, target, marker, glyph, frustum, triangle, dash, lineMaterial, fillMaterial, dashMaterial, view, delay: 0.25 + index * 0.3 };
   });
   const chosenCamera = sceneCameras.find((c) => c.chosen);
+  // Where they stand for this screen: between the narrow and the wide
+  // places by its shape. Only when that changes.
+  let camerasWide = -1;
+  function placeSceneCameras() {
+    const wide = clamp01((camera.aspect - 0.6) / 0.7);
+    if (Math.abs(wide - camerasWide) < 0.01) return;
+    camerasWide = wide;
+    for (const c of sceneCameras) {
+      const { look } = spotAt(c, wide, c.position);
+      c.target.set(0, groundLevel + look, 0);
+      c.marker.position.copy(c.position);
+      c.marker.lookAt(c.target);
+      const line = c.dash.geometry.getAttribute('position');
+      line.setXYZ(0, c.position.x, c.position.y, c.position.z);
+      line.setXYZ(1, c.target.x, c.target.y, c.target.z);
+      line.needsUpdate = true;
+      c.dash.computeLineDistances();
+    }
+  }
   for (const camera_ of sceneCameras) {
     camera_.label = makeLabel(tx.cameras?.names?.[camera_.index] ?? '', 'is-camera');
   }
@@ -775,6 +809,8 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       show(year, visible) {
         element.style.opacity = visible.toFixed(3);
         if (!span || visible <= 0) return;
+        // Under the chapter's name, however many lines it takes.
+        element.style.top = `${(chapter.offsetTop + chapter.offsetHeight + 10).toFixed(0)}px`;
         const [first, last] = span;
         const share = clamp01((year - first) / Math.max(1, last - first));
         fill.style.transform = `scaleX(${share.toFixed(4)})`;
@@ -845,10 +881,15 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
   })();
 
   const project = new Vector3();
-  function place(el, point, visible, offsetY = 0, centred = false) {
+  function place(el, point, visible, offsetY = 0, centred = false, keepIn = false) {
     project.copy(point).project(camera);
     const behind = project.z > 1;
-    const x = (project.x * 0.5 + 0.5) * root.clientWidth;
+    let x = (project.x * 0.5 + 0.5) * root.clientWidth;
+    // Kept on the screen (a name beside something near its edge).
+    if (keepIn) {
+      const half = el.offsetWidth / 2 + 8;
+      x = Math.min(root.clientWidth - half, Math.max(half, x));
+    }
     const y = (-project.y * 0.5 + 0.5) * root.clientHeight;
     el.style.transform = `translate(${x.toFixed(1)}px, ${(y + offsetY).toFixed(1)}px) translate(-50%, ${centred ? '-50%' : '-100%'})`;
     el.style.opacity = behind ? 0 : visible.toFixed(3);
@@ -953,6 +994,13 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       let sunKey = '';
       let sunSub = '';
       const sunOn = sunTime > 0 && sunTime < 1 ? smooth(sunTime / 0.08) * (1 - smooth((sunTime - 0.9) / 0.1)) : 0;
+      // A narrow screen: the sun's track and the compass drawn in at the
+      // sides, so the sun stays in the picture from sunrise to sunset.
+      const sunWide = clamp01((camera.aspect - 0.6) / 0.7);
+      const sunSide = 0.7 + 0.3 * sunWide;
+      track.scale.set(sunSide, 1, sunSide);
+      const compassSide = 0.82 + 0.18 * sunWide;
+      compass.scale.set(compassSide, 1, compassSide);
       if (sunTime > 0 && sunTime < 1) {
         const dayPart = clamp01((sunTime - 0.08) / 0.76);
         const minutes = dayStart + (dayEnd - dayStart) * dayPart;
@@ -964,7 +1012,10 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
         sun.color.copy(horizonColor).lerp(noonColor, clamp01(position.elevation / 30));
         sun.intensity = 3.2 * daylight * (1 - night);
         hemisphere.intensity = defaultHemisphere * (0.3 + 0.7 * daylight) * (1 - night * 0.55);
-        disc.position.copy(direction).multiplyScalar(SUN_RADIUS).add(sunCentre);
+        disc.position.copy(direction).multiplyScalar(SUN_RADIUS);
+        disc.position.x *= sunSide;
+        disc.position.z *= sunSide;
+        disc.position.add(sunCentre);
         disc.quaternion.copy(camera.quaternion);
         disc.scale.setScalar(0.5);
         discUniforms.uAlpha.value = sunOn * clamp01((position.elevation + 3) / 4) * (1 - night);
@@ -984,7 +1035,9 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       compassMaterial.opacity = sunOn * 0.55;
       track.visible = compass.visible = sunOn > 0.001;
       disc.visible = discUniforms.uAlpha.value > 0.001;
-      for (const cardinal of cardinals) place(cardinal.label, cardinal.at, sunOn, 0, true);
+      for (const cardinal of cardinals) {
+        place(cardinal.label, project.set(cardinal.at.x * compassSide, cardinal.at.y, cardinal.at.z * compassSide).clone(), sunOn, 0, true);
+      }
 
       // 5. Seasons: a few seconds each; snow settles in winter.
       const seasonTime = tour - START.seasons;
@@ -1087,6 +1140,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       const camerasLength = CHAPTERS.find((c) => c.key === 'cameras')?.to - START.cameras;
       const camerasOn = exit <= 0 && camerasTime > 0 && camerasTime < camerasLength ? 1 - smooth((camerasTime - camerasLength + 0.35) / 0.35) : 0;
       const chosenOn = camerasOn * smooth((camerasTime - 1.35) / 0.35);
+      if (camerasOn > 0) placeSceneCameras();
       for (const c of sceneCameras) {
         const shown = camerasOn * smooth((camerasTime - c.delay) / 0.3);
         const color = c.chosen ? CAMERA_WHITE.clone().lerp(CAMERA_GOLD, chosenOn) : CAMERA_WHITE;
@@ -1099,7 +1153,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
         c.marker.visible = c.dash.visible = shown > 0.001;
         // The same size on screen, whatever the distance.
         c.glyph.scale.setScalar(camera.position.distanceTo(c.position) * 0.075 * (1 + (c.chosen ? chosenOn * 0.25 : 0)));
-        place(c.label, c.position, shown, -14);
+        place(c.label, c.position, shown, -14, false, true);
         c.label.classList.toggle('is-chosen', c.chosen && chosenOn > 0.5);
       }
       // The chosen camera's view, opening like a shutter, moving in a little.
