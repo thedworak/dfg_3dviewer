@@ -143,6 +143,25 @@ export function replayIntro(lang) {
   return openOverlay(context.settings, lang || context.lang);
 }
 
+// The page's safe area (env(safe-area-inset-*): a phone's status bar and
+// notch, the app's edge-to-edge window), in CSS pixels "top,right,bottom,left".
+// An iframe gets none of its own, so the intro is told.
+function safeAreaInsets() {
+  const probe = document.createElement('div');
+  Object.assign(probe.style, {
+    position: 'fixed',
+    inset: '0',
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    padding: 'env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)',
+  });
+  document.body.appendChild(probe);
+  const style = getComputedStyle(probe);
+  const sides = ['Top', 'Right', 'Bottom', 'Left'].map((side) => Math.round(Number.parseFloat(style[`padding${side}`]) || 0));
+  probe.remove();
+  return sides.join(',');
+}
+
 function openOverlay(settings, lang) {
   const url = new URL(String(settings?.url || 'intro.html'), window.location.href);
   if (url.origin !== window.location.origin) {
@@ -154,6 +173,7 @@ function openOverlay(settings, lang) {
   const hash = new URLSearchParams({ embedded: '1' });
   if (lang) hash.set('lang', lang);
   if (parseBoolean(settings?.sound)) hash.set('sound', '1');
+  hash.set('insets', safeAreaInsets());
   url.hash = hash.toString();
 
   const overlay = document.createElement('div');
@@ -183,6 +203,7 @@ function openOverlay(settings, lang) {
     closed = true;
     window.removeEventListener('message', onMessage);
     window.removeEventListener('keydown', onKey);
+    window.removeEventListener('resize', onResize);
     clearTimeout(readyTimer);
     overlay.style.transition = `opacity ${fade}s ease ${delay}s`;
     overlay.style.opacity = '0';
@@ -203,6 +224,11 @@ function openOverlay(settings, lang) {
     const data = event.data;
     if (!data || data.type !== 'explora4d-intro') return;
     if (data.action === 'ready') clearTimeout(readyTimer);
+    // Its language switched (it reloads itself in it): the viewer's too.
+    if (data.action === 'lang' && ['pl', 'en', 'de'].includes(data.lang)) {
+      if (context) context.lang = data.lang;
+      window.dispatchEvent(new CustomEvent('explora4d-intro-language', { detail: { lang: data.lang } }));
+    }
     // The points fly apart and the picture darkens: the viewer shows through.
     if (data.action === 'leaving') close(1.0, 0.45);
     if (data.action === 'done') close(0.5);
@@ -212,10 +238,25 @@ function openOverlay(settings, lang) {
     if (event.key === 'Escape') close(0.4);
   }
 
+  // Turned (portrait, landscape): the safe area moves.
+  let lastInsets = '';
+  function onResize() {
+    const insets = safeAreaInsets();
+    if (insets === lastInsets) return;
+    lastInsets = insets;
+    frame.contentWindow?.postMessage({ type: 'explora4d-intro-host', insets }, window.location.origin);
+  }
+
   closeOpen = close;
   const readyTimer = setTimeout(() => close(0.4), READY_TIMEOUT);
   window.addEventListener('message', onMessage);
   window.addEventListener('keydown', onKey);
-  frame.addEventListener('load', () => frame.contentWindow?.focus());
+  window.addEventListener('resize', onResize);
+  frame.addEventListener('load', () => {
+    frame.contentWindow?.focus();
+    // Again after a reload of the intro (its language changed).
+    lastInsets = '';
+    onResize();
+  });
   return true;
 }

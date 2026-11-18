@@ -9,10 +9,23 @@
 //                      sun itself and its track in the sky, a compass on the
 //                      ground, shadows; the camera holds still meanwhile
 //   5. seasons       - spring petals, summer, autumn leaves, winter snow
-//   6. time travel   - the 4D model's stages, 1730 to 1936: back to the
+//   6. cameras       - the scene's cameras as the viewer draws them
+//                      (pyramids, as Blender does); one is chosen and its
+//                      view opens in a frame beside the model
+//   7. live          - cooperation mode: a phone with a second session of
+//                      the scene; a finger turns the model on the phone and
+//                      the screen follows, live
+//   8. time travel   - the 4D model's stages, 1730 to 1936: back to the
 //                      building's raw new timber, then year by year its
 //                      ageing and repairs, a warm front sweeping up the walls
-//                      at each stage (textures from scripts/build-intro-time.mjs)
+//                      at each stage, the year on a timeline of dates
+//                      (textures from scripts/build-intro-time.mjs)
+//   9. surroundings  - the camera rises and draws back: the viewer's
+//                      generated surroundings grow round the model from
+//                      1730 to 1936 (intro-surroundings.js), houses rising
+//                      year by year, the town rebuilt with its railway in
+//                      the industrial age; the building's own stage follows
+//                      the year, a timeline shows the periods' dates
 //
 // Like the rest of the intro, update(tour) is a function of the tour's time
 // only (it runs backwards for "Assemble again", ?at= holds it).
@@ -24,8 +37,11 @@ import {
   DoubleSide,
   Group,
   LineBasicMaterial,
+  LineDashedMaterial,
   LineSegments,
   Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
   PlaneGeometry,
   Points,
   SRGBColorSpace,
@@ -35,6 +51,7 @@ import {
   Vector3,
 } from 'three';
 import { HORIZON, RAD, formatSunTime, solarPosition, sunTimestamp, sunriseSunset } from '../sun-position.js';
+import { createIntroSurroundings } from './intro-surroundings.js';
 
 // Seconds into the tour.
 const ALL_CHAPTERS = [
@@ -42,15 +59,28 @@ const ALL_CHAPTERS = [
   { key: 'annotations', from: 3.0, to: 6.4 },
   { key: 'shading', from: 6.4, to: 10.0 },
   { key: 'sun', from: 10.0, to: 14.8 },
-  { key: 'seasons', from: 14.8, to: 25.8 },
-  { key: 'time', from: 25.8, to: 38.5 },
+  { key: 'seasons', from: 14.8, to: 24.0 },
+  { key: 'cameras', from: 24.0, to: 27.8 },
+  { key: 'live', from: 27.8, to: 32.6 },
+  { key: 'time', from: 32.6, to: 45.3 },
+  { key: 'surroundings', from: 45.3, to: 54.3 },
 ];
 const TAIL = 0.6; // after the last chapter, before 'end'
 
 // The chapters for a scene (intro-scene.js): the time travel only with a
 // 4D model's stages. { chapters, length } - the length in seconds.
-export function tourPlan({ time = true } = {}) {
-  const chapters = time ? ALL_CHAPTERS : ALL_CHAPTERS.filter((chapter) => chapter.key !== 'time');
+// The surroundings only with the scene's (intro-scene.js `surroundings`).
+// A chapter left out leaves no gap: the later ones move up.
+export function tourPlan({ time = true, surroundings = true } = {}) {
+  const chapters = [];
+  let shift = 0;
+  for (const chapter of ALL_CHAPTERS) {
+    if ((chapter.key === 'time' && !time) || (chapter.key === 'surroundings' && !surroundings)) {
+      shift += chapter.to - chapter.from;
+      continue;
+    }
+    chapters.push(shift ? { ...chapter, from: chapter.from - shift, to: chapter.to - shift } : chapter);
+  }
   return { chapters, length: chapters.at(-1).to + TAIL };
 }
 export const { chapters: CHAPTERS, length: TOUR_LENGTH } = tourPlan();
@@ -61,6 +91,8 @@ export const { chapters: CHAPTERS, length: TOUR_LENGTH } = tourPlan();
 //     (the plane sweeps in from +Z), holding still while it cuts;
 //   - it turns slowly on through the annotations and the shading, and holds
 //     still again for the sun study (its shadows turn with the sun only);
+//   - in cooperation mode it follows the phone's finger: a turn one way, a
+//     pause, a shorter turn back (LIVE_SWIPES);
 //   - for the time travel it starts at the front's right (seen from the
 //     front, +X) and goes round in an arc towards the entrance in the middle
 //     of the front, a little closer; then it turns on as before.
@@ -70,6 +102,26 @@ const TIME_FROM_THETA = 0.95;
 const TIME_TO_THETA = 0.08;
 // The time travel's distance, of the camera's own.
 const TIME_DOLLY = 0.84;
+// The surroundings: how far out the camera draws back (of its own
+// distance), how long it takes, and how far it turns meanwhile.
+const SURROUNDINGS_DOLLY = 4.4;
+const SURROUNDINGS_MOVE = 1.8;
+const SURROUNDINGS_TURN = 0.5;
+// Their chapter, seconds into it: rising out of the ground, the years
+// running, then sinking back. The periods' changes go slower.
+const SURROUNDINGS_IN = 1.0;
+const SURROUNDINGS_RUN = 6.4;
+const SURROUNDINGS_OUT = 0.9;
+const SURROUNDINGS_SWAP = 1.3;
+// The sun study's angle, and cooperation mode's before the finger turns it.
+const SUN_THETA = 0.3;
+const LIVE_THETA = 0.75;
+// Cooperation mode: the finger's swipes on the phone, seconds into the
+// chapter, and how far each turns the model (radians).
+const LIVE_SWIPES = [
+  { from: 0.7, to: 1.9, turn: 0.7 },
+  { from: 2.3, to: 3.3, turn: -0.4 },
+];
 
 /**
  * @param {object} options
@@ -77,9 +129,10 @@ const TIME_DOLLY = 0.84;
  *   front      the angle at the landing (the scene's front)
  *   rate       radians a second it turns at the landing (and between holds)
  *   tourStart  seconds from the model's act to the tour's first chapter
- * @returns {(s: number) => { theta: number, dolly: number }} at s seconds
- *   into the model's act: the angle, and the distance as a share of the
- *   camera's own.
+ * @returns {(s: number) => { theta: number, dolly: number, tilt: number }}
+ *   at s seconds into the model's act: the angle, the distance as a share of
+ *   the camera's own, and how far it looks down from above (0-1, the
+ *   surroundings' overview).
  */
 export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }) {
   const chapter = (key) => plan.chapters.find((c) => c.key === key);
@@ -89,6 +142,8 @@ export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }
   const section = chapter('section');
   const sun = chapter('sun');
   const time = chapter('time');
+  const live = chapter('live');
+  const surroundings = chapter('surroundings');
   const last = plan.chapters.at(-1);
   const base = nearest(SECTION_THETA, front - rate * tourStart);
   if (section) {
@@ -101,15 +156,34 @@ export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }
     const sunTo = tourStart + sun.from + SUN_LENGTH;
     const end = time ? tourStart + time.from : tourStart + last.to;
     const share = (sunFrom - moving) / Math.max(1e-3, sunFrom - moving + end - sunTo);
-    const sunTheta = base + (time ? TIME_FROM_THETA : 0.6) * share;
+    const sunTheta = base + (live ? SUN_THETA : (time ? TIME_FROM_THETA : 0.6) * share);
     keys.push([sunFrom, sunTheta, 0], [sunTo, sunTheta, 0]);
+  }
+  // Cooperation mode: still, then turned by the phone's finger.
+  if (live) {
+    let theta = base + LIVE_THETA;
+    keys.push([tourStart + live.from + LIVE_SWIPES[0].from, theta, 0]);
+    for (const swipe of LIVE_SWIPES) {
+      theta += swipe.turn;
+      keys.push([tourStart + live.from + swipe.to, theta, 0]);
+    }
   }
   if (time) {
     keys.push([tourStart + time.from, base + TIME_FROM_THETA, 0], [tourStart + time.to, base + TIME_TO_THETA, -rate]);
-  } else {
-    keys.push([tourStart + last.to, base + 0.6, rate]);
   }
-  const dollyAt = (s) => (time ? 1 - (1 - TIME_DOLLY) * window01(s - tourStart, time.from, time.to + 1.5, 1.5) : 1);
+  if (surroundings) {
+    // Turning on slowly while it draws back over the settlement.
+    keys.push([tourStart + surroundings.to, keys.at(-1)[1] - SURROUNDINGS_TURN, -rate]);
+  } else if (!time) {
+    keys.push([tourStart + last.to, keys.at(-1)[1] + 0.6, rate]);
+  }
+  const timeDolly = (s) => (time ? 1 - (1 - TIME_DOLLY) * window01(s - tourStart, time.from, time.to + 1.5, 1.5) : 1);
+  // The surroundings: up and back, and down again at the end.
+  const overview = (s) => (surroundings ? window01(s - tourStart, surroundings.from + 0.1, surroundings.to - 0.2, SURROUNDINGS_MOVE) : 0);
+  const dollyAt = (s) => {
+    const o = overview(s);
+    return timeDolly(s) * (1 - o) + SURROUNDINGS_DOLLY * o;
+  };
   return (s) => {
     let theta;
     if (s <= keys[0][0]) theta = keys[0][1] + keys[0][2] * (s - keys[0][0]);
@@ -125,7 +199,7 @@ export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }
       const u3 = u2 * u;
       theta = (2 * u3 - 3 * u2 + 1) * p0 + (u3 - 2 * u2 + u) * h * m0 + (-2 * u3 + 3 * u2) * p1 + (u3 - u2) * h * m1;
     }
-    return { theta, dolly: dollyAt(s) };
+    return { theta, dolly: dollyAt(s), tilt: overview(s) };
   };
 }
 
@@ -134,7 +208,7 @@ const SHADING_STEPS = [[0, 1], [1, 2], [2, 0]];
 const SHADING_KEYS = ['textures', 'pbr', 'raking'];
 const SHADING_LENGTH = 3.6;
 // Seasons: each this long, then back to the textures' own colours.
-const SEASON_LENGTH = 2.65;
+const SEASON_LENGTH = 2.2;
 const SEASONS_END = 4 * SEASON_LENGTH;
 
 // The sun study: Wołpa (Voŭpa, Belarus), midsummer day, local time (UTC+3).
@@ -173,8 +247,9 @@ const window01 = (x, a, b, fade) => smooth((x - a) / fade) * (1 - smooth((x - b 
  *   texts       the page's texts: texts.tour.*
  *   toIntro     (x, y, z) in the model's units -> Vector3 in the intro's space
  *   heightLabel the measured height, formatted
+ *   footprint   the model's footprint, its half-diagonal in metres
  */
-export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang, scene = {}, plan = tourPlan() }) {
+export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang, scene = {}, plan = tourPlan(), footprint = 20 }) {
   const u = reveal.uniforms;
   const group = new Group();
   const CHAPTERS = plan.chapters;
@@ -564,6 +639,211 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     return { at, label: makeLabel(tx.compass[letter], 'is-compass') };
   });
 
+  // --- Scene cameras ----------------------------------------------------------
+  // Drawn as the viewer draws them (editor/camera-markers.js, as Blender
+  // does): a pyramid from where the camera stands to the frame it sees, a
+  // filled triangle over the frame's top edge for up, and a dashed line to
+  // where it looks. They keep their size on screen and show through the
+  // model; the chosen one turns gold and its view opens in a frame.
+  const CAMERA_GOLD = new Color(0xf5a524);
+  const CAMERA_WHITE = new Color(0xffffff);
+  const groundLevel = toIntro(0, ground, 0).y;
+  // Around the front (+Z, theta 0): its left, low before the entrance (the
+  // chosen one), and high over the right, looking down.
+  const cameraSpots = [
+    { theta: -0.62, radius: 2.45, height: 0.75, look: 0.45 },
+    { theta: 0.12, radius: 3.05, height: 0.5, look: 0.42, chosen: true },
+    { theta: 1.45, radius: 2.3, height: 2.1, look: 0.2 },
+  ];
+  const frustumLines = (() => {
+    const w = 0.5;
+    const h = 0.32;
+    const corners = [[-w, -h], [w, -h], [w, h], [-w, h]].map(([x, y]) => new Vector3(x, y, 1));
+    const points = [];
+    corners.forEach((corner, index) => points.push(0, 0, 0, ...corner.toArray(), ...corner.toArray(), ...corners[(index + 1) % 4].toArray()));
+    return { points, w, h };
+  })();
+  const sceneCameras = cameraSpots.map((spot, index) => {
+    const position = new Vector3(Math.sin(spot.theta) * spot.radius, groundLevel + spot.height, Math.cos(spot.theta) * spot.radius);
+    const target = new Vector3(0, groundLevel + spot.look, 0);
+    const marker = new Group();
+    marker.position.copy(position);
+    marker.lookAt(target);
+    // Object3D.lookAt turns +Z towards the target for anything but a camera.
+    const lineMaterial = new LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthTest: false, depthWrite: false });
+    const frustumGeometry = new BufferGeometry();
+    frustumGeometry.setAttribute('position', new BufferAttribute(new Float32Array(frustumLines.points), 3));
+    const frustum = new LineSegments(frustumGeometry, lineMaterial);
+    const { w, h } = frustumLines;
+    const triangleGeometry = new BufferGeometry();
+    triangleGeometry.setAttribute('position', new BufferAttribute(new Float32Array([
+      -w * 0.6, h * 1.12, 1, w * 0.6, h * 1.12, 1, 0, h * 1.12 + w * 0.5, 1,
+    ]), 3));
+    const fillMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthTest: false, depthWrite: false, side: DoubleSide });
+    const triangle = new Mesh(triangleGeometry, fillMaterial);
+    const glyph = new Group();
+    glyph.add(frustum, triangle);
+    marker.add(glyph);
+    // The dashed line to where it looks, in the scene's own units.
+    const dashGeometry = new BufferGeometry().setFromPoints([position, target]);
+    const dashMaterial = new LineDashedMaterial({ color: 0xffffff, dashSize: 0.06, gapSize: 0.05, transparent: true, opacity: 0, depthTest: false, depthWrite: false });
+    const dash = new LineSegments(dashGeometry, dashMaterial);
+    dash.computeLineDistances();
+    for (const object of [frustum, triangle, dash]) object.renderOrder = 8;
+    group.add(marker, dash);
+    // What it sees: the pyramid's own frame (vertical field of view).
+    const view = new PerspectiveCamera(2 * Math.atan(frustumLines.h) / RAD, frustumLines.w / frustumLines.h, 0.01, 100);
+    return { ...spot, index, position, target, marker, glyph, frustum, triangle, dash, lineMaterial, fillMaterial, dashMaterial, view, delay: 0.25 + index * 0.3 };
+  });
+  const chosenCamera = sceneCameras.find((c) => c.chosen);
+  for (const camera_ of sceneCameras) {
+    camera_.label = makeLabel(tx.cameras?.names?.[camera_.index] ?? '', 'is-camera');
+  }
+  // The chosen camera's view: a frame beside the model, the scene drawn
+  // into it (intro.js draws the views() list after the main picture).
+  const inset = document.createElement('div');
+  inset.className = 'intro-inset';
+  inset.innerHTML = '<span class="intro-inset-name"></span>';
+  inset.firstChild.textContent = tx.cameras?.view ?? '';
+  root.appendChild(inset);
+
+  // --- Cooperation mode: a phone with a second session ------------------------
+  // The phone is HTML (its body and its screen's overlay); the scene is drawn
+  // into its screen from the main camera's place - the same view, live. A
+  // finger swipes on it and the big picture turns with it.
+  const phone = document.createElement('div');
+  phone.className = 'intro-phone';
+  phone.innerHTML = '<div class="intro-phone-screen"><span class="intro-phone-live"></span><span class="intro-phone-finger"></span></div><span class="intro-phone-signal" aria-hidden="true"><i></i><i></i><i></i></span><span class="intro-phone-name"></span>';
+  root.appendChild(phone);
+  const phoneScreen = phone.querySelector('.intro-phone-screen');
+  const phoneFinger = phone.querySelector('.intro-phone-finger');
+  phone.querySelector('.intro-phone-live').textContent = tx.live?.badge ?? 'LIVE';
+  phone.querySelector('.intro-phone-name').textContent = tx.live?.phone ?? '';
+  const phoneCamera = new PerspectiveCamera(camera.fov, 0.5, camera.near, camera.far);
+  // The screen's own badge: two devices, one scene.
+  const liveBadge = document.createElement('div');
+  liveBadge.className = 'intro-live-badge';
+  liveBadge.innerHTML = '<span class="intro-live-dot"></span><span></span>';
+  liveBadge.lastChild.textContent = tx.live?.screen ?? '';
+  root.appendChild(liveBadge);
+
+  // --- Timelines: dates, a year running along them ----------------------------
+  // One for the time travel's stages, one for the surroundings' periods.
+  // Dates under the ticks; those too close to a shown one are left out,
+  // the first and the last always.
+  function createTimeline(extraClass = '') {
+    const element = document.createElement('div');
+    element.className = `intro-timeline ${extraClass}`;
+    element.innerHTML = '<div class="intro-timeline-track"><span class="intro-timeline-fill"></span><span class="intro-timeline-marker"><span class="intro-timeline-year"></span></span></div><p class="intro-timeline-note"></p>';
+    root.appendChild(element);
+    const track = element.firstChild;
+    const fill = element.querySelector('.intro-timeline-fill');
+    const marker = element.querySelector('.intro-timeline-marker');
+    const yearLabel = element.querySelector('.intro-timeline-year');
+    const note = element.querySelector('.intro-timeline-note');
+    let span = null;
+    let ticks = [];
+    return {
+      element,
+      get built() { return Boolean(span); },
+      build(years, noteText = '') {
+        const first = years[0];
+        const last = years.at(-1);
+        span = [first, last];
+        note.textContent = noteText;
+        element.classList.toggle('has-note', Boolean(noteText));
+        let lastShown = -Infinity;
+        ticks = years.map((year, index) => {
+          const share = (year - first) / Math.max(1, last - first);
+          const tick = document.createElement('span');
+          tick.className = 'intro-timeline-tick';
+          tick.style.left = `${(share * 100).toFixed(2)}%`;
+          const isEnd = index === 0 || index === years.length - 1;
+          const nextShare = index < years.length - 1 ? (years[index + 1] - first) / Math.max(1, last - first) : 2;
+          const roomy = share - lastShown >= 0.11 && (nextShare - share >= 0.04 || index === years.length - 1 || years[index + 1] - year > 1);
+          if (isEnd || (roomy && 1 - share >= 0.12)) {
+            const date = document.createElement('span');
+            date.className = 'intro-timeline-date';
+            date.textContent = year;
+            tick.append(date);
+            lastShown = share;
+          }
+          track.insertBefore(tick, fill);
+          return { tick, year };
+        });
+      },
+      show(year, visible) {
+        element.style.opacity = visible.toFixed(3);
+        if (!span || visible <= 0) return;
+        const [first, last] = span;
+        const share = clamp01((year - first) / Math.max(1, last - first));
+        fill.style.transform = `scaleX(${share.toFixed(4)})`;
+        marker.style.left = `${(share * 100).toFixed(2)}%`;
+        yearLabel.textContent = String(Math.round(year));
+        for (const { tick, year: at } of ticks) tick.classList.toggle('is-past', at <= Math.round(year));
+      },
+      hide() { element.style.opacity = 0; },
+    };
+  }
+  const timeline = createTimeline();
+
+  // --- Surroundings through time (intro-surroundings.js) ----------------------
+  // In metres round the model's middle, y from its ground -> the intro's
+  // space (toIntro is linear: its middle is where it maps x and z to 0).
+  const unit = scene.unitInMeters || 1;
+  const o = toIntro(0, 0, 0);
+  const ex = toIntro(1, 0, 0).x - o.x;
+  const ez = toIntro(0, 0, 1).z - o.z;
+  const middle = [-o.x / ex, -o.z / ez];
+  const metresToIntro = (x, y, z) => toIntro(middle[0] + x / unit, ground + y / unit, middle[1] + z / unit).toArray();
+  let surroundings = null;
+  const surroundingsTimeline = createTimeline('is-surroundings');
+  const SURROUNDINGS = CHAPTERS.find((c) => c.key === 'surroundings');
+  if (SURROUNDINGS && scene.surroundings) {
+    const { years, ...params } = scene.surroundings;
+    try {
+      surroundings = createIntroSurroundings({ params, from: years[0], to: years[1], radius: footprint, toIntro: metresToIntro });
+      group.add(surroundings.group);
+      surroundingsTimeline.build(surroundings.dates, tx.surroundings?.generated ?? '');
+    } catch (error) {
+      console.warn('[intro] surroundings:', error);
+    }
+  }
+  // The year at s seconds into the chapter: the periods' changes slower.
+  const surroundingsYear = (() => {
+    if (!surroundings) return () => 0;
+    const [from, to] = [surroundings.spans[0].from, surroundings.spans.at(-1).to];
+    const changes = surroundings.spans.slice(1).map((span) => span.from);
+    const swap = Math.min(SURROUNDINGS_SWAP, SURROUNDINGS_RUN / (2 * Math.max(1, changes.length)));
+    const yearsLeft = Math.max(1, to - from - changes.length * 14);
+    const perYear = (SURROUNDINGS_RUN - changes.length * swap) / yearsLeft;
+    // Keys [seconds, year]: a change's 14 years (7 each side) take `swap`.
+    const keys = [[0, from]];
+    let t = 0;
+    let at = from;
+    for (const change of changes) {
+      t += Math.max(0, change - 7 - at) * perYear;
+      keys.push([t, change - 7]);
+      t += swap;
+      keys.push([t, change + 7]);
+      at = change + 7;
+    }
+    keys.push([SURROUNDINGS_RUN, to]);
+    return (s) => {
+      const local = s - SURROUNDINGS_IN;
+      if (local <= 0) return from;
+      if (local >= SURROUNDINGS_RUN) return to;
+      let i = 0;
+      while (i < keys.length - 2 && local > keys[i + 1][0]) i++;
+      const [t0, y0] = keys[i];
+      const [t1, y1] = keys[i + 1];
+      const u = clamp01((local - t0) / Math.max(1e-3, t1 - t0));
+      // Eased within a change, even between them.
+      const eased = y1 - y0 <= 14 ? smooth(u) : u;
+      return y0 + (y1 - y0) * eased;
+    };
+  })();
+
   const project = new Vector3();
   function place(el, point, visible, offsetY = 0, centred = false) {
     project.copy(point).project(camera);
@@ -590,8 +870,21 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     chapter.classList.remove('is-on');
   }
 
+  // The extra views drawn after the main picture (intro.js): the chosen
+  // camera's, the phone's. Rectangles in CSS pixels from the top left.
+  let views = [];
+  const rectOf = (el) => {
+    const box = el.getBoundingClientRect();
+    const page = root.getBoundingClientRect();
+    return { x: box.left - page.left, y: box.top - page.top, width: box.width, height: box.height };
+  };
+
   return {
     group,
+    /** The extra views to draw after the main picture: [{ camera, rect, hide }]. */
+    views() {
+      return views;
+    },
     setViewport(viewport) {
       dotUniforms.uViewport.value = viewport;
       flakeUniforms.uViewport.value = viewport;
@@ -730,7 +1023,9 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       const timeTime = tour - START.time;
       let timeSub = '';
       let timeStep = '';
-      if (timeTravel && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time && exit <= 0) {
+      let timelineAt = null;
+      const TIME_END = CHAPTERS.find((c) => c.key === 'time')?.to;
+      if (timeTravel && timeTime > 0 && timeTime < TIME_END - START.time && exit <= 0) {
         const { stages } = timeTravel;
         const glowOf = (f) => Math.sin(Math.PI * clamp01(f)) * 1.4;
         if (timeTime < TIME_REWIND) {
@@ -738,6 +1033,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           setTime(TODAY, stages[0], f * 1.1 - 0.05, glowOf(f));
           timeSub = `${stages.at(-1).year} → ${stages[0].year}`;
           timeStep = 'rewind';
+          timelineAt = stages.at(-1).year + (stages[0].year - stages.at(-1).year) * f;
         } else {
           const after = timeTime - TIME_REWIND;
           let index = 1;
@@ -747,11 +1043,118 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           const shown = stages[f > 0.5 ? index : index - 1];
           timeSub = timeLabel(shown);
           timeStep = String(shown.year);
+          timelineAt = stages[index - 1].year + (stages[index].year - stages[index - 1].year) * f;
         }
       } else {
         resetTime();
-        if (!timeTravel && !scene.custom && timeTime > 0 && timeTime < CHAPTERS.at(-1).to - START.time) timeSub = '1730 → 1936';
+        if (!timeTravel && !scene.custom && timeTime > 0 && timeTime < TIME_END - START.time) timeSub = '1730 → 1936';
       }
+      const timeLength = TIME_END - START.time;
+      const timelineOn = timelineAt === null ? 0
+        : smooth(timeTime / 0.4) * (1 - smooth((timeTime - timeLength + 0.5) / 0.4));
+      if (timelineAt !== null) timeline.show(timelineAt, timelineOn);
+      else timeline.hide();
+
+      // 9. Surroundings through time: rising round the model as the camera
+      // draws back, the years running; the building's stage follows them.
+      const surroundingsTime = tour - (START.surroundings ?? Infinity);
+      let surroundingsSub = '';
+      let surroundingsStep = '';
+      const surroundingsLength = SURROUNDINGS ? SURROUNDINGS.to - SURROUNDINGS.from : 0;
+      if (surroundings && exit <= 0 && surroundingsTime > 0 && surroundingsTime < surroundingsLength) {
+        const year = surroundingsYear(surroundingsTime);
+        const show = smooth(surroundingsTime / SURROUNDINGS_IN)
+          * (1 - smooth((surroundingsTime - (surroundingsLength - SURROUNDINGS_OUT)) / SURROUNDINGS_OUT));
+        surroundings.update(year, show);
+        const period = surroundings.periodAt(year);
+        surroundingsSub = `${Math.round(year)} · ${tx.surroundings?.periods?.[period] ?? period}`;
+        surroundingsStep = period;
+        surroundingsTimeline.show(year, Math.min(show * 1.5, 1) * smooth((surroundingsTime - 0.3) / 0.4));
+        // The building as it was that year (its last stage by then).
+        if (timeTravel) {
+          const { stages } = timeTravel;
+          const stage = [...stages].reverse().find((st) => st.year <= year) ?? stages[0];
+          setTime(stage, stage, 1, 0);
+        }
+      } else {
+        surroundings?.update(SURROUNDINGS ? surroundings.spans[0].from : 0, 0);
+        surroundingsTimeline.hide();
+      }
+
+      // 6. Scene cameras: one after another, then the chosen one's view.
+      views = [];
+      const camerasTime = tour - (START.cameras ?? Infinity);
+      const camerasLength = CHAPTERS.find((c) => c.key === 'cameras')?.to - START.cameras;
+      const camerasOn = exit <= 0 && camerasTime > 0 && camerasTime < camerasLength ? 1 - smooth((camerasTime - camerasLength + 0.35) / 0.35) : 0;
+      const chosenOn = camerasOn * smooth((camerasTime - 1.35) / 0.35);
+      for (const c of sceneCameras) {
+        const shown = camerasOn * smooth((camerasTime - c.delay) / 0.3);
+        const color = c.chosen ? CAMERA_WHITE.clone().lerp(CAMERA_GOLD, chosenOn) : CAMERA_WHITE;
+        c.lineMaterial.color.copy(color);
+        c.fillMaterial.color.copy(color);
+        c.dashMaterial.color.copy(color);
+        c.lineMaterial.opacity = shown * 0.95;
+        c.fillMaterial.opacity = shown * 0.9;
+        c.dashMaterial.opacity = shown * 0.55;
+        c.marker.visible = c.dash.visible = shown > 0.001;
+        // The same size on screen, whatever the distance.
+        c.glyph.scale.setScalar(camera.position.distanceTo(c.position) * 0.075 * (1 + (c.chosen ? chosenOn * 0.25 : 0)));
+        place(c.label, c.position, shown, -14);
+        c.label.classList.toggle('is-chosen', c.chosen && chosenOn > 0.5);
+      }
+      // The chosen camera's view, opening like a shutter, moving in a little.
+      const insetOpen = camerasOn * smooth((camerasTime - 1.5) / 0.45);
+      inset.style.opacity = insetOpen.toFixed(3);
+      inset.style.setProperty('--open', insetOpen.toFixed(3));
+      if (insetOpen > 0.02) {
+        const rect = rectOf(inset);
+        const view = chosenCamera.view;
+        view.aspect = rect.width / Math.max(1, rect.height);
+        view.position.copy(chosenCamera.position).lerp(chosenCamera.target, 0.08 * smooth((camerasTime - 1.5) / 2.2));
+        view.lookAt(chosenCamera.target);
+        view.updateProjectionMatrix();
+        // Opening from the middle: the drawn part grows with it.
+        const height = rect.height * insetOpen;
+        views.push({ camera: view, rect: { ...rect, y: rect.y + (rect.height - height) / 2, height }, hide: [group] });
+      }
+
+      // 7. Cooperation mode: the phone comes in, the finger swipes, the
+      // picture follows; the phone shows the same view, live.
+      const liveTime = tour - (START.live ?? Infinity);
+      const liveLength = CHAPTERS.find((c) => c.key === 'live')?.to - START.live;
+      const liveOn = exit <= 0 && liveTime > 0 && liveTime < liveLength
+        ? smooth(liveTime / 0.4) * (1 - smooth((liveTime - liveLength + 0.4) / 0.4)) : 0;
+      phone.style.opacity = liveOn.toFixed(3);
+      phone.style.setProperty('--in', liveOn.toFixed(3));
+      liveBadge.style.opacity = (liveOn * smooth((liveTime - 0.5) / 0.3)).toFixed(3);
+      let fingerX = null;
+      let fingerOn = 0;
+      for (const swipe of LIVE_SWIPES) {
+        const local = (liveTime - swipe.from) / (swipe.to - swipe.from);
+        if (local > -0.25 && local < 1.25) {
+          const a = swipe.turn > 0 ? 0.25 : 0.72;
+          const b = swipe.turn > 0 ? 0.75 : 0.42;
+          fingerX = a + (b - a) * smooth(local);
+          fingerOn = smooth((local + 0.25) / 0.25) * (1 - smooth((local - 1) / 0.25));
+        }
+      }
+      phoneFinger.style.opacity = (fingerOn * liveOn).toFixed(3);
+      if (fingerX !== null) phoneFinger.style.left = `${(fingerX * 100).toFixed(1)}%`;
+      phone.classList.toggle('is-touching', fingerOn > 0.5);
+      if (liveOn > 0.02) {
+        const rect = rectOf(phoneScreen);
+        phoneCamera.position.copy(camera.position);
+        phoneCamera.quaternion.copy(camera.quaternion);
+        phoneCamera.fov = camera.fov;
+        phoneCamera.aspect = rect.width / Math.max(1, rect.height);
+        // As the page does for a narrow screen: further away, so it fits.
+        phoneCamera.zoom = Math.min(1, phoneCamera.aspect / 0.9 + 0.25);
+        phoneCamera.updateProjectionMatrix();
+        views.push({ camera: phoneCamera, rect, hide: [] });
+      }
+
+      // 8. Time travel's timeline (the stages above).
+      if (timeTravel && !timeline.built) timeline.build(timeTravel.stages.map((stage) => stage.year));
 
       // The chapter's title.
       const current = active ? CHAPTERS.find((c) => tour >= c.from && tour < c.to) : null;
@@ -761,6 +1164,11 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           for (const pin of pins) pin.label.style.opacity = 0;
           measureLabel.style.opacity = 0;
           for (const cardinal of cardinals) cardinal.label.style.opacity = 0;
+          for (const c of sceneCameras) c.label.style.opacity = 0;
+          inset.style.opacity = phone.style.opacity = liveBadge.style.opacity = 0;
+          timeline.hide();
+          surroundingsTimeline.hide();
+          views = [];
         }
         // Everything done: once, right after the last chapter.
         const finished = exit <= 0 && tour >= CHAPTERS.at(-1).to && tour < TOUR_LENGTH + 1;
@@ -778,6 +1186,9 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       else if (current.key === 'sun') { sub = sunSub; step = sunKey; }
       else if (current.key === 'seasons' && seasonKey) { sub = tx.seasons[seasonKey]; step = seasonKey; }
       else if (current.key === 'time') { sub = timeSub; step = timeStep; }
+      else if (current.key === 'cameras') { sub = chosenOn > 0.5 ? tx.cameras?.chosen ?? '' : ''; step = chosenOn > 0.5 ? 'chosen' : ''; }
+      else if (current.key === 'live') { sub = tx.live?.sub ?? ''; step = fingerOn > 0.5 ? 'swipe' : ''; }
+      else if (current.key === 'surroundings') { sub = surroundingsSub; step = surroundingsStep; }
       chapterIndex.textContent = `${number} / ${CHAPTERS.length}`;
       chapterTitle.textContent = tx.chapters[current.key];
       chapterSub.textContent = sub;

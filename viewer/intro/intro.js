@@ -16,7 +16,9 @@
 // holds the intro at that moment, ?sound=1 sound on by default (it starts
 // with the first click or key press; the visitor's own choice wins),
 // ?embedded=1 inside the viewer page (viewer/intro-overlay.js): the buttons
-// tell the page instead of leaving it.
+// tell the page instead of leaving it; ?insets=top,right,bottom,left the
+// viewer page's safe area (an iframe gets none of its own); ?resume=<seconds>
+// starts at that moment (the language switch reloads the page with it).
 //
 // Everything follows one clock, the intro's time T (timeline() below):
 // "Assemble again" runs it backwards, ?at= stops it.
@@ -56,7 +58,7 @@ const TRANSCODER_PATH = 'assets/basis/';
 // and other static servers redirect index.html to ./ and lose the query on
 // the way.
 const DEFAULT_NEXT = SCENE.next;
-const PLAN = tourPlan({ time: Boolean(SCENE.time) });
+const PLAN = tourPlan({ time: Boolean(SCENE.time), surroundings: Boolean(SCENE.surroundings) });
 const CHAPTERS = PLAN.chapters;
 const TOUR_LENGTH = PLAN.length;
 // Seconds: the cloud fades in, then gathers into the building.
@@ -74,6 +76,9 @@ const REWIND = 3.6;
 // The feature tour (feature-tour.js): seconds into the model's act.
 const TOUR_START = 11.0;
 const INTRO_END = LANDING + TOUR_START + TOUR_LENGTH;
+// How far a visitor may zoom out (the camera's path goes further for the
+// surroundings' overview).
+const MAX_DISTANCE = 11;
 // The progress bar's parts: the cloud gathering, the mesh, the tour's chapters.
 const SEGMENTS = [
   { key: 'cloud', from: 0, to: LANDING },
@@ -104,7 +109,7 @@ const TEXTS = {
       label: 'Etapy intro',
       cloud: 'Chmura punktów',
       mesh: 'Siatka',
-      short: { cloud: 'Chmura', mesh: 'Siatka', section: 'Przekroje', annotations: 'Adnotacje', shading: 'Cieniowanie', sun: 'Słońce', seasons: 'Pory roku', time: '4D' },
+      short: { cloud: 'Chmura', mesh: 'Siatka', section: 'Przekroje', annotations: 'Adnotacje', shading: 'Cieniowanie', sun: 'Słońce', seasons: 'Pory roku', cameras: 'Kamery', live: 'Live', time: '4D', surroundings: 'Otoczenie' },
     },
     tour: {
       chapters: {
@@ -113,8 +118,20 @@ const TEXTS = {
         shading: 'Cieniowanie',
         sun: 'Analiza nasłonecznienia',
         seasons: 'Pory roku i pogoda',
+        cameras: 'Kamery sceny',
+        live: 'Tryb współpracy',
         time: 'Podróż w czasie (4D)',
+        surroundings: 'Otoczenie w czasie',
       },
+      surroundings: {
+        periods: {
+          'early-medieval': 'wczesne średniowiecze', medieval: 'średniowiecze', 'early-modern': 'wczesna nowożytność',
+          industrial: 'epoka przemysłowa · kolej', modern: 'XX wiek', postwar: 'po wojnie', contemporary: 'współcześnie',
+        },
+        generated: 'Wygenerowane otoczenie: typowe dla rodzaju miejsca i epoki, nie odtworzenie tego miejsca',
+      },
+      cameras: { names: ['Kamera 1', 'Kamera 2 · front', 'Kamera 3 · z góry'], chosen: 'widok z kamery 2', view: 'Kamera 2' },
+      live: { badge: 'LIVE', phone: 'Telefon · druga sesja', screen: 'Na żywo · 2 urządzenia', sub: 'telefon steruje ekranem' },
       shading: { textures: 'tekstury', pbr: 'PBR: połysk i odbicia', raking: 'światło boczne' },
       sun: { night: 'noc' },
       sunDate: 'Wołpa, 21 czerwca',
@@ -125,6 +142,7 @@ const TEXTS = {
     },
     soundOn: 'Wyłącz dźwięk',
     soundOff: 'Włącz dźwięk',
+    language: 'Język',
   },
   en: {
     tagline: 'Heritage in three dimensions - and in time',
@@ -144,7 +162,7 @@ const TEXTS = {
       label: 'Intro chapters',
       cloud: 'Point cloud',
       mesh: 'Mesh',
-      short: { cloud: 'Cloud', mesh: 'Mesh', section: 'Sections', annotations: 'Annotations', shading: 'Shading', sun: 'Sun', seasons: 'Seasons', time: '4D' },
+      short: { cloud: 'Cloud', mesh: 'Mesh', section: 'Sections', annotations: 'Annotations', shading: 'Shading', sun: 'Sun', seasons: 'Seasons', cameras: 'Cameras', live: 'Live', time: '4D', surroundings: 'Setting' },
     },
     tour: {
       chapters: {
@@ -153,8 +171,20 @@ const TEXTS = {
         shading: 'Shading',
         sun: 'Sun study',
         seasons: 'Seasons and weather',
+        cameras: 'Scene cameras',
+        live: 'Cooperation mode',
         time: 'Time travel (4D)',
+        surroundings: 'Surroundings through time',
       },
+      surroundings: {
+        periods: {
+          'early-medieval': 'the early Middle Ages', medieval: 'the Middle Ages', 'early-modern': 'the early modern period',
+          industrial: 'the industrial age · the railway', modern: 'the 20th century', postwar: 'after the war', contemporary: 'today',
+        },
+        generated: 'Generated surroundings: typical of the kind of place and its time, not a reconstruction of this place',
+      },
+      cameras: { names: ['Camera 1', 'Camera 2 · front', 'Camera 3 · from above'], chosen: 'the view from camera 2', view: 'Camera 2' },
+      live: { badge: 'LIVE', phone: 'Phone · second session', screen: 'Live · 2 devices', sub: 'the phone steers the screen' },
       shading: { textures: 'textures', pbr: 'PBR: gloss and reflections', raking: 'raking light' },
       timeNotes: {
         1730: 'built: fresh timber and shingles',
@@ -178,6 +208,7 @@ const TEXTS = {
     },
     soundOn: 'Sound off',
     soundOff: 'Sound on',
+    language: 'Language',
   },
   de: {
     tagline: 'Kulturerbe in drei Dimensionen – und in der Zeit',
@@ -197,7 +228,7 @@ const TEXTS = {
       label: 'Kapitel des Intros',
       cloud: 'Punktwolke',
       mesh: 'Netz',
-      short: { cloud: 'Wolke', mesh: 'Netz', section: 'Schnitte', annotations: 'Annotationen', shading: 'Schattierung', sun: 'Sonne', seasons: 'Jahreszeiten', time: '4D' },
+      short: { cloud: 'Wolke', mesh: 'Netz', section: 'Schnitte', annotations: 'Annotationen', shading: 'Schattierung', sun: 'Sonne', seasons: 'Jahreszeiten', cameras: 'Kameras', live: 'Live', time: '4D', surroundings: 'Umgebung' },
     },
     tour: {
       chapters: {
@@ -206,8 +237,20 @@ const TEXTS = {
         shading: 'Schattierung',
         sun: 'Sonnenstudie',
         seasons: 'Jahreszeiten und Wetter',
+        cameras: 'Szenenkameras',
+        live: 'Kooperationsmodus',
         time: 'Zeitreise (4D)',
+        surroundings: 'Umgebung im Wandel der Zeit',
       },
+      surroundings: {
+        periods: {
+          'early-medieval': 'Frühmittelalter', medieval: 'Mittelalter', 'early-modern': 'Frühe Neuzeit',
+          industrial: 'Industriezeitalter · Eisenbahn', modern: '20. Jahrhundert', postwar: 'Nachkriegszeit', contemporary: 'Gegenwart',
+        },
+        generated: 'Generierte Umgebung: typisch für die Art des Ortes und seine Zeit, keine Rekonstruktion dieses Ortes',
+      },
+      cameras: { names: ['Kamera 1', 'Kamera 2 · Front', 'Kamera 3 · von oben'], chosen: 'Blick aus Kamera 2', view: 'Kamera 2' },
+      live: { badge: 'LIVE', phone: 'Handy · zweite Sitzung', screen: 'Live · 2 Geräte', sub: 'das Handy steuert den Bildschirm' },
       shading: { textures: 'Texturen', pbr: 'PBR: Glanz und Spiegelung', raking: 'Streiflicht' },
       timeNotes: {
         1730: 'Bau: frisches Holz und Schindeln',
@@ -231,6 +274,7 @@ const TEXTS = {
     },
     soundOn: 'Ton aus',
     soundOff: 'Ton an',
+    language: 'Sprache',
   },
 };
 
@@ -260,6 +304,7 @@ const params = new URLSearchParams(window.location.search);
 for (const [key, value] of new URLSearchParams(window.location.hash.slice(1))) {
   if (!params.has(key)) params.set(key, value);
 }
+const LANG_KEY = 'explora4d-intro-lang';
 const lang = pickLanguage(params.get('lang'));
 const t = sceneTexts(TEXTS[lang], GENERIC_TEXTS[lang], SCENE, lang);
 const nextUrl = safeNextUrl(params.get('next'));
@@ -268,7 +313,13 @@ const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').ma
 const numberFormat = new Intl.NumberFormat(lang);
 
 function pickLanguage(requested) {
-  const candidates = [requested, ...(navigator.languages || [navigator.language])];
+  let stored = null;
+  try {
+    stored = localStorage.getItem(LANG_KEY);
+  } catch {
+    // no storage: the browser's
+  }
+  const candidates = [requested, stored, ...(navigator.languages || [navigator.language])];
   for (const candidate of candidates) {
     const code = String(candidate || '').slice(0, 2).toLowerCase();
     if (TEXTS[code]) return code;
@@ -303,9 +354,15 @@ const ui = {
   status: document.getElementById('intro-status'),
   sound: document.getElementById('intro-sound'),
   bar: document.getElementById('intro-bar'),
+  lang: document.getElementById('intro-lang'),
 };
 
 document.documentElement.lang = lang;
+applyHostInsets(params.get('insets'));
+// Started again at a moment (the language switch): no entrance.
+const resumeAt = Number.parseFloat(params.get('resume'));
+const resumed = Number.isFinite(resumeAt) && resumeAt > 0;
+if (resumed) ui.root.classList.add('is-instant');
 applyBranding();
 ui.tagline.textContent = t.tagline;
 ui.caption.textContent = t.caption;
@@ -354,6 +411,57 @@ function applyBranding() {
   image.removeAttribute('width');
   image.removeAttribute('height');
   image.alt = (typeof logo.alt === 'string' && logo.alt) || name || '';
+}
+
+// The viewer page's safe area (viewer/intro-overlay.js), "top,right,bottom,left"
+// in CSS pixels: an iframe gets none of its own, so the sound button and the
+// title would sit under the app's status bar.
+function applyHostInsets(value) {
+  const sides = String(value || '').split(',').map(Number);
+  if (sides.length !== 4 || sides.some((n) => !Number.isFinite(n) || n < 0 || n > 400)) return;
+  ['top', 'right', 'bottom', 'left'].forEach((side, index) => {
+    document.documentElement.style.setProperty(`--intro-host-${side}`, `${sides[index]}px`);
+  });
+}
+if (embedded) {
+  window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin || event.source !== window.parent) return;
+    if (event.data?.type === 'explora4d-intro-host') applyHostInsets(event.data.insets);
+  });
+}
+
+// --- Language ----------------------------------------------------------------
+
+// Three words, the current one marked. A choice is remembered, the viewer
+// page told (it switches too), and the intro loaded again in that language,
+// from the same moment.
+ui.lang?.setAttribute('aria-label', t.language);
+for (const button of ui.lang?.querySelectorAll('button[data-lang]') || []) {
+  button.setAttribute('aria-pressed', String(button.dataset.lang === lang));
+  button.addEventListener('click', () => switchLanguage(button.dataset.lang));
+}
+
+function switchLanguage(code) {
+  if (!TEXTS[code] || code === lang || exitStarted >= 0) return;
+  try { localStorage.setItem(LANG_KEY, code); } catch { /* ignore */ }
+  if (embedded) window.parent.postMessage({ type: 'explora4d-intro', action: 'lang', lang: code }, window.location.origin);
+  const url = new URL(window.location.href);
+  const hash = new URLSearchParams(url.hash.slice(1));
+  url.searchParams.delete('lang');
+  url.searchParams.delete('resume');
+  hash.set('lang', code);
+  // Where it is now: held (?at=) stays held there; otherwise on from here.
+  const T = started >= 0 ? timeline(now()) : 0;
+  hash.delete('resume');
+  if (isHeld()) {
+    url.searchParams.delete('at');
+    hash.set('at', heldAt.toFixed(2));
+  } else if (T > 0.5 && rewindStart < 0) {
+    hash.set('resume', T.toFixed(2));
+  }
+  url.hash = hash.toString();
+  window.history.replaceState(null, '', url.href);
+  window.location.reload();
 }
 
 // --- Progress bar ------------------------------------------------------------
@@ -554,7 +662,7 @@ if (renderer) {
   controls.dampingFactor = 0.06;
   controls.enablePan = false;
   controls.minDistance = 3.2;
-  controls.maxDistance = 11;
+  controls.maxDistance = MAX_DISTANCE;
   controls.minPolarAngle = 0.35;
   controls.maxPolarAngle = 1.62;
   // The camera's path turns it (frame()), not the controls.
@@ -776,7 +884,16 @@ async function load() {
   ui.status.textContent = '';
   ui.root.classList.add('is-ready');
   if (embedded) tellViewer('ready');
-  started = now();
+  started = now() - (resumed ? resumeAt : 0);
+  // Back in the URL without the moment: a reload starts from the beginning.
+  if (resumed) {
+    const url = new URL(window.location.href);
+    const hash = new URLSearchParams(url.hash.slice(1));
+    hash.delete('resume');
+    url.hash = hash.toString();
+    window.history.replaceState(null, '', url.href);
+    requestAnimationFrame(() => requestAnimationFrame(() => ui.root.classList.remove('is-instant')));
+  }
   // Reduced motion: held at the end, everything shown (the bar still moves it).
   if (reducedMotion && !isHeld()) heldAt = INTRO_END;
   renderer.setAnimationLoop(frame);
@@ -788,7 +905,7 @@ async function load() {
       meshReveal = reveal;
       // Late (after the landing): its act starts now. Held (?at=) or shown
       // whole: as if it had been there from the start.
-      meshReadyAt = isHeld() ? 0 : timeline(now());
+      meshReadyAt = isHeld() || resumed ? 0 : timeline(now());
       scene.add(reveal.group);
       // The scene's measurement, or the bounding box's height at its corner.
       const ground = SCENE.ground ?? min[1];
@@ -806,6 +923,9 @@ async function load() {
         lang,
         scene: { ...SCENE, ground, measure },
         plan: PLAN,
+        // Half the footprint's diagonal, in metres (the surroundings keep
+        // clear of it).
+        footprint: (Math.hypot(max[0] - min[0], max[2] - min[2]) / 2) * SCENE.unitInMeters,
       });
       scene.add(tour.group);
       resize();
@@ -1090,7 +1210,9 @@ function createLastPoint(target, start) {
   trail.renderOrder = 9;
   group.add(trail);
 
-  // The way in: a wide spiral, slowing down as it comes closer.
+  // The way in: a wide spiral, slowing down as it comes closer. It sets
+  // off gently from where it waited - speeding up, fastest about a third of
+  // the way, then slowing to land - not at full speed at once (a jump).
   const fromAngle = Math.atan2(from.z, from.x);
   const fromRadius = Math.hypot(from.x, from.z);
   const toAngle = Math.atan2(target.z, target.x);
@@ -1098,8 +1220,14 @@ function createLastPoint(target, start) {
   // One and a quarter turns, in the direction that is the shorter way.
   let turn = toAngle - fromAngle;
   turn = turn - Math.round(turn / (Math.PI * 2)) * Math.PI * 2 + Math.PI * 2 * (turn >= 0 ? 1 : -1);
+  // The share of the way at u (0..1): its speed rises from 0 as u, and
+  // falls to 0 as (1 - u)^1.6 (the integral of u (1 - u)^1.6, normalised).
+  const along = (u) => {
+    const w = 1 - Math.min(1, Math.max(0, u));
+    return 1 - 3.6 * Math.pow(w, 2.6) + 2.6 * Math.pow(w, 3.6);
+  };
   const at = (u, out) => {
-    const k = 1 - Math.pow(1 - u, 2.6);
+    const k = along(u);
     const angle = fromAngle + turn * k;
     const radius = fromRadius + (toRadius - fromRadius) * k;
     out.set(
@@ -1122,11 +1250,13 @@ function createLastPoint(target, start) {
       const sinceLanding = T - LANDING;
       glowUniforms.uTime.value = time;
       at(flight, position);
-      if (flight <= 0) {
-        // Waiting at the edge of the cloud, drifting a little.
-        position.x += Math.sin(time * 0.37) * 0.12;
-        position.y += Math.sin(time * 0.29 + 1.3) * 0.1;
-        position.z += Math.cos(time * 0.31) * 0.12;
+      // Waiting at the edge of the cloud, drifting a little; the drift dies
+      // away as it sets off, so it leaves from where it was.
+      const drift = 1 - smoothstep01(flight / 0.18);
+      if (drift > 0) {
+        position.x += Math.sin(time * 0.37) * 0.12 * drift;
+        position.y += Math.sin(time * 0.29 + 1.3) * 0.1 * drift;
+        position.z += Math.cos(time * 0.31) * 0.12 * drift;
       }
       glow.position.copy(position);
       glow.quaternion.copy(camera.quaternion);
@@ -1158,6 +1288,11 @@ function createLastPoint(target, start) {
 
 // --- Animation ---------------------------------------------------------------
 
+function smoothstep01(x) {
+  const t = Math.min(1, Math.max(0, x));
+  return t * t * (3 - 2 * t);
+}
+
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 // The gathering: under way at once, slowing at the end.
 const easeGather = (x) => 0.5 - 0.5 * Math.cos(Math.PI * Math.pow(x, 0.8));
@@ -1178,6 +1313,10 @@ const LANDING_TURN_RATE = (2 * Math.PI / 60) * 0.4;
 const LANDING_TURN_EASE = 0.014;
 const cameraPath = tourCameraPath({ plan: PLAN, front: FRONT_THETA, rate: LANDING_TURN_RATE, tourStart: TOUR_START });
 const orbit = new Spherical();
+// The surroundings' overview: the camera's polar angle there, and its own
+// before it rose (null: not rising).
+const OVERVIEW_PHI = 0.86;
+let freePhi = null;
 const orbitOffset = new Vector3();
 
 // The intro's time T at the clock's time: running, held (?at=), shown whole
@@ -1350,14 +1489,26 @@ function frame() {
     const before = LANDING - T;
     let theta;
     let dolly = 1;
+    let tilt = 0;
     if (before > 0) {
       theta = FRONT_THETA + LANDING_TURN_RATE * before + LANDING_TURN_EASE * before * before;
     } else {
       // The model's act; without the model (yet), from the landing.
-      ({ theta, dolly } = cameraPath(meshReveal ? stage : T - LANDING));
+      ({ theta, dolly, tilt } = cameraPath(meshReveal ? stage : T - LANDING));
     }
     const radius = cameraRadius * dolly;
+    // Drawing back over the surroundings: further than a visitor may zoom.
+    controls.maxDistance = Math.max(MAX_DISTANCE, radius * 1.05);
     orbit.setFromVector3(orbitOffset.copy(camera.position).sub(controls.target));
+    // Looking down on the surroundings: from the camera's own height
+    // (as it was when it began) towards OVERVIEW_PHI.
+    if (tilt > 0.0005) {
+      freePhi ??= orbit.phi;
+      orbit.phi = freePhi + (OVERVIEW_PHI - freePhi) * tilt;
+    } else if (freePhi !== null) {
+      orbit.phi = freePhi;
+      freePhi = null;
+    }
     const wrap = (angle) => angle - Math.round(angle / (2 * Math.PI)) * 2 * Math.PI;
     // Off the path by as much as last frame, less a little.
     const from = pathLast ?? { theta, radius };
@@ -1384,6 +1535,32 @@ function frame() {
   }
   controls.update();
   renderer.render(scene, camera);
+  const views = tour?.views() ?? [];
+  if (views.length) renderViews(views);
+}
+
+// The tour's extra views (feature-tour.js views()): a scene camera's, the
+// phone's - the scene again, into their rectangles (CSS pixels, top left).
+const viewportSize = new Vector2();
+function renderViews(views) {
+  renderer.getSize(viewportSize);
+  const lensOn = meshReveal.uniforms.uLensOn.value;
+  meshReveal.uniforms.uLensOn.value = 0;
+  renderer.setScissorTest(true);
+  for (const view of views) {
+    const { x, y, width, height } = view.rect;
+    if (width < 2 || height < 2) continue;
+    const bottom = viewportSize.y - y - height;
+    renderer.setViewport(x, bottom, width, height);
+    renderer.setScissor(x, bottom, width, height);
+    const hidden = view.hide.filter((object) => object.visible);
+    for (const object of hidden) object.visible = false;
+    renderer.render(scene, view.camera);
+    for (const object of hidden) object.visible = true;
+  }
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, viewportSize.x, viewportSize.y);
+  meshReveal.uniforms.uLensOn.value = lensOn;
 }
 
 function leave(event) {

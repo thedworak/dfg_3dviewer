@@ -2007,6 +2007,17 @@ export const Viewer = {
         && !this.isEmbedMode() && BUILD !== "drupal",
       lang: this.currentLanguage,
     });
+    // The intro's own language switch: the viewer underneath follows it.
+    window.addEventListener("explora4d-intro-language", (event) => {
+      const lang = event.detail?.lang;
+      if (!["pl", "en", "de"].includes(lang) || lang === core.currentLanguage) return;
+      if (this.languageModeDropdown) {
+        this.selectLanguage(lang);
+      } else {
+        this.currentLanguage = lang;
+        setCore("currentLanguage", lang);
+      }
+    });
 
     if (this.urlOptions.model) {
       setModelAttribute(this.container, this.urlOptions.model);

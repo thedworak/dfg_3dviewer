@@ -42,6 +42,10 @@ export const DEFAULT_SCENE = Object.freeze({
   // The 4D time travel: a folder with time.json and the stages' textures
   // (scripts/build-intro-time.mjs); false leaves the chapter out.
   time: 'assets/intro/time/',
+  // The surroundings through time (intro-surroundings.js): the viewer's
+  // generated surroundings (docs/surroundings.md) of this kind of place and
+  // region, growing over these years; false leaves the chapter out.
+  surroundings: Object.freeze({ kind: 'shtetl', region: 'eastern', masonry: 'brick', seed: 7, years: Object.freeze([1730, 1936]) }),
   // Texts per language over the intro's own (intro.js TEXTS): caption,
   // tagline, hint, hintTouch, tour.sunDate, tour.labels.<pin key>,
   // tour.timeNotes.<year>.
@@ -109,6 +113,19 @@ export function normalizeScene(input, base) {
       day: finite(scene.site.day, 21),
     }
     : null;
+  // The surroundings: a kind of place and the years, at least.
+  const years = Array.isArray(scene.surroundings?.years) ? scene.surroundings.years.map(Number) : null;
+  const surroundings = isObject(scene.surroundings) && typeof scene.surroundings.kind === 'string'
+    && years?.length === 2 && years.every(Number.isFinite) && years[1] > years[0]
+    ? {
+      kind: scene.surroundings.kind,
+      region: typeof scene.surroundings.region === 'string' ? scene.surroundings.region : 'central',
+      masonry: typeof scene.surroundings.masonry === 'string' ? scene.surroundings.masonry : 'brick',
+      seed: finite(scene.surroundings.seed, 1),
+      density: finite(scene.surroundings.density, 0.6),
+      years: [Math.round(years[0]), Math.round(years[1])],
+    }
+    : false;
   let time = false;
   if (typeof scene.time === 'string') {
     const url = sameOriginUrl(scene.time, base);
@@ -129,6 +146,7 @@ export function normalizeScene(input, base) {
     measure,
     site,
     time,
+    surroundings,
     texts: isObject(scene.texts) ? scene.texts : null,
   };
 }
