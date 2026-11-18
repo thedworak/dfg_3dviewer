@@ -1,7 +1,7 @@
 # Intro page
 
 `intro.html` (built to `<build>/intro.html`) is a promo/landing page for the
-viewer, about 75 seconds long:
+viewer, about 90 seconds long:
 
 1. A chaotic cloud of 200 000 points drifts in the dark (1.5 seconds alone)
    and then, like atoms, gathers into the Wołpa Synagogue - foundations
@@ -23,7 +23,7 @@ viewer, about 75 seconds long:
    counter shows vertices and faces.
 
 4. An express tour of the viewer's features (`viewer/intro/feature-tour.js`,
-   about 55 seconds), each chapter named under the title:
+   about 72 seconds), each chapter named under the title:
    **sections** (a plane sweeps through the building; the cut glows, the
    walls' insides are filled like a drawing's section), **annotations and
    POIs** (pins with labels, the model's height measured), **shading**
@@ -41,19 +41,29 @@ viewer, about 75 seconds long:
    swipes on it and the big picture turns with it - the phone shows the same
    view, live) and **time travel (4D)**: the 4D model's stages,
    1730 to 1936 - back to the raw new timber of the building's construction,
-   then year by year the wood darkening and greying, the moss, the roof
+   then stage by stage the wood darkening and greying, the moss, the roof
    renewed in 1781 and 1903, a warm front sweeping up the walls at each
    stage, each stage's year and description under the chapter's name, and a timeline
-   of the stages' dates under it with the year running along; and last
-   **surroundings through time** (`viewer/intro/intro-surroundings.js`): the
-   camera rises and draws back, and the viewer's generated surroundings
-   ([surroundings.md](surroundings.md) - the same rules and seed) grow round
-   the synagogue from 1730 to 1936 - a shtetl of timber houses round its
-   market, each house rising in the year it is built, the town rebuilt with
-   its railway and station in the industrial age (a wave out from the
-   model), the building's own 4D stage following the year; a timeline of the
-   periods' dates says they are generated, typical of the kind of place and
-   its time, not a reconstruction of this place.
+   of the stages' dates under it with the year running along; each step as
+   long as the years it spans (at least 0.4 s), 9 seconds in all; and last
+   **surroundings through time** (`viewer/intro/intro-surroundings.js`, about
+   30 seconds): the camera rises and draws back, and the viewer's generated
+   surroundings ([surroundings.md](surroundings.md) - the same rules and
+   seed) grow round the synagogue through all the periods they cover, 900 to
+   2025, each period the same time (as on the viewer's year slider) - a
+   shtetl of timber houses round its market, each house rising as the place
+   grows, rebuilt in a wave out from the model where a period begins (the
+   railway and its station in the industrial age), the building's own 4D
+   stage following the year (before 1730 its first), a timeline of the
+   periods' dates. Then, from above, other kinds of place in other regions,
+   one after another, in colour (roughly the realistic look: the regions'
+   walls and roofs, grass, crops, water) and with their life moving (people,
+   carts, boats; [surroundings.md](surroundings.md)): a town in Central
+   Europe (1880), a port on the Mediterranean (1700), a village in the North
+   (1850), a monastery in the British Isles (1500). All the while a badge
+   says it is a comparative visualisation - how the building might look in
+   other surroundings through the ages, generated, typical of the kind of
+   place and its time, not a reconstruction of this place.
 
 The camera follows one path through it all, a function of the intro's time
 only (`tourCameraPath` in `feature-tour.js`), not of the frames drawn - every
@@ -100,7 +110,7 @@ By default (`viewer.intro` in `viewer-settings.json`, see [viewer-settings](view
 | `embedded` | `1`: inside the viewer page; the buttons tell it instead of leaving (set by `intro-overlay.js`, in the hash) |
 | `insets` | `top,right,bottom,left` in CSS pixels: the viewer page's safe area (set by `intro-overlay.js`, in the hash) |
 | `resume` | starts at that second (set by the language switch, then taken out of the address) |
-| `at` | Holds the intro at that second (the progress bar then moves the held moment), e.g. `?at=4` (points gathering), `?at=7.5` (the last point), `?at=15` (edges and faces), `?at=21.6` (section), `?at=25.5` (annotations), `?at=27.7` (PBR), `?at=32.3` (noon), `?at=42.4` (winter), `?at=46.8` (a scene camera's view), `?at=50.2` (cooperation mode), `?at=54.1` (1730), `?at=62.4` (1870), `?at=66.4` (the surroundings, 1733), `?at=69.6` (the surroundings, 1836) - for stills and screen recordings |
+| `at` | Holds the intro at that second (the progress bar then moves the held moment), e.g. `?at=4` (points gathering), `?at=7.5` (the last point), `?at=15` (edges and faces), `?at=21.6` (section), `?at=25.5` (annotations), `?at=27.7` (PBR), `?at=32.3` (noon), `?at=42.4` (winter), `?at=46.8` (a scene camera's view), `?at=50.2` (cooperation mode), `?at=53.8` (1730), `?at=56` (1781), `?at=66` (the surroundings, 1423), `?at=70` (1866), `?at=79` (a town in Central Europe), `?at=82.5` (a port), `?at=85.5` (a village in the North), `?at=88` (a monastery) - for stills and screen recordings |
 
 ## Files
 
@@ -154,7 +164,7 @@ The intro page takes the deployment's logo (`branding.logo.srcOnDark`, else
 | `measure` | `{ "x", "z", "from", "to" }`: the height line, model units | the bounding box's height at its corner |
 | `site` | `{ "latitude", "longitude", "utcOffset", "north", "month", "day" }` for the sun study; `north`: the model's north from -Z, degrees | the default place on 21 June |
 | `time` | a folder with `time.json` and the stages' textures (as `viewer/intro/time/`) | no time travel: the chapter is left out |
-| `surroundings` | `{ "kind", "region", "masonry", "seed", "density", "years": [from, to] }`: the generated surroundings through those years ([surroundings.md](surroundings.md); `kind` and `years` required, about 900-2025) | no surroundings: the chapter is left out |
+| `surroundings` | `{ "kind", "region", "masonry", "seed", "density", "years": [from, to], "showcase": [{ "kind", "region", "year" }] }`: the generated surroundings through those years ([surroundings.md](surroundings.md); `kind` and `years` required, 900-2025 at most), then the other places of `showcase` (up to six; none: the chapter ends with the years) | no surroundings: the chapter is left out |
 | `texts` | `{ "pl": {...}, "en": {...}, "de": {...} }` over the intro's texts: `tagline`, `hint`, `hintTouch`, `tour.sunDate`, `tour.timeNotes` | neutral texts ("the model") |
 
 Coordinates are the model's own (y up, as in glTF); the bounds the points

@@ -21,11 +21,15 @@
 //                      at each stage, the year on a timeline of dates
 //                      (textures from scripts/build-intro-time.mjs)
 //   9. surroundings  - the camera rises and draws back: the viewer's
-//                      generated surroundings grow round the model from
-//                      1730 to 1936 (intro-surroundings.js), houses rising
-//                      year by year, the town rebuilt with its railway in
-//                      the industrial age; the building's own stage follows
-//                      the year, a timeline shows the periods' dates
+//                      generated surroundings grow round the model through
+//                      all the periods they cover, 900 to 2025
+//                      (intro-surroundings.js), each period the same time,
+//                      houses rising as the place grows, rebuilt where a
+//                      period begins; the building's own stage follows the
+//                      year, a timeline shows the periods' dates. Then other
+//                      kinds of place in other regions, in colour and with
+//                      their life moving. A badge says it is a comparison:
+//                      how the building might look in other surroundings.
 //
 // Like the rest of the intro, update(tour) is a function of the tour's time
 // only (it runs backwards for "Assemble again", ?at= holds it).
@@ -51,7 +55,7 @@ import {
   Vector3,
 } from 'three';
 import { HORIZON, RAD, formatSunTime, solarPosition, sunTimestamp, sunriseSunset } from '../sun-position.js';
-import { createIntroSurroundings } from './intro-surroundings.js';
+import { createIntroSurroundings, createSurroundingsShowcase, positionOfYear, yearOfPosition } from './intro-surroundings.js';
 
 // Seconds into the tour.
 const ALL_CHAPTERS = [
@@ -62,8 +66,8 @@ const ALL_CHAPTERS = [
   { key: 'seasons', from: 14.8, to: 24.0 },
   { key: 'cameras', from: 24.0, to: 27.8 },
   { key: 'live', from: 27.8, to: 32.6 },
-  { key: 'time', from: 32.6, to: 45.3 },
-  { key: 'surroundings', from: 45.3, to: 54.3 },
+  { key: 'time', from: 32.6, to: 41.6 },
+  { key: 'surroundings', from: 41.6, to: 71.0 },
 ];
 const TAIL = 0.6; // after the last chapter, before 'end'
 
@@ -106,13 +110,16 @@ const TIME_DOLLY = 0.84;
 // distance), how long it takes, and how far it turns meanwhile.
 const SURROUNDINGS_DOLLY = 4.4;
 const SURROUNDINGS_MOVE = 1.8;
-const SURROUNDINGS_TURN = 0.5;
-// Their chapter, seconds into it: rising out of the ground, the years
-// running, then sinking back. The periods' changes go slower.
-const SURROUNDINGS_IN = 1.0;
-const SURROUNDINGS_RUN = 6.4;
-const SURROUNDINGS_OUT = 0.9;
-const SURROUNDINGS_SWAP = 1.3;
+const SURROUNDINGS_TURN = 1.3;
+// Their chapter, seconds into it: rising out of the ground, the periods
+// running (each the same time), a moment at the end, then the other places
+// (each so long, overlapping the next by SHOWCASE_SWAP), sinking at the end.
+const SURROUNDINGS_IN = 1.2;
+const SURROUNDINGS_RUN = 14;
+const SURROUNDINGS_HOLD = 0.8;
+const SHOWCASE_EACH = 3.0;
+const SHOWCASE_SWAP = 1.0;
+const SURROUNDINGS_OUT = 1.2;
 // The sun study's angle, and cooperation mode's before the finger turns it.
 const SUN_THETA = 0.3;
 const LIVE_THETA = 0.75;
@@ -227,16 +234,29 @@ const SEASON_KEYS = ['spring', 'summer', 'autumn', 'winter'];
 
 // Time travel: the 4D model's stages (viewer/intro/time/time.json).
 const DEFAULT_TIME_URL = 'assets/intro/time/';
-// Back from today to the first stage, then each stage in turn: the first
-// steps slow, each next one quicker, as on a shrinking time scale; most of
-// each step is the change itself.
-const TIME_REWIND = 1.4;
-const TIME_FIRST_STEP = 1.6;
-const TIME_STEP_RATIO = 0.86;
+// Back from today to the first stage, then each stage in turn, each step as
+// long as the years it spans (at least TIME_MIN_STEP: a repair a year later
+// still shows), all of them TIME_STEPS seconds; most of each step is the
+// change itself.
+const TIME_REWIND = 1.0;
+const TIME_STEPS = 7.2;
+const TIME_MIN_STEP = 0.4;
 const TIME_SWEEP = 0.75;
-// When step i (stage i - 1 to stage i, i >= 1) starts, seconds after the rewind.
-const timeStepStart = (i) => TIME_FIRST_STEP * (1 - TIME_STEP_RATIO ** (i - 1)) / (1 - TIME_STEP_RATIO);
-const timeStepLength = (i) => TIME_FIRST_STEP * TIME_STEP_RATIO ** (i - 1);
+// The steps for the stages: [{ start, length }] for step i (stage i - 1 to
+// stage i, i >= 1), seconds after the rewind.
+function timeSteps(stages) {
+  const gaps = stages.slice(1).map((stage, i) => Math.max(0, stage.year - stages[i].year));
+  const total = gaps.reduce((sum, gap) => sum + gap, 0) || 1;
+  const spare = Math.max(0, TIME_STEPS - TIME_MIN_STEP * gaps.length);
+  const steps = [null];
+  let start = 0;
+  for (const gap of gaps) {
+    const length = TIME_MIN_STEP + (spare * gap) / total;
+    steps.push({ start, length });
+    start += length;
+  }
+  return steps;
+}
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const smooth = (x) => { const t = clamp01(x); return t * t * (3 - 2 * t); };
@@ -288,7 +308,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       const [fresh, mid] = await Promise.all([load('fresh'), load('mid')]);
       parts[part] = { materials, fresh, mid };
     }
-    timeTravel = { stages: data.stages, parts };
+    timeTravel = { stages: data.stages, parts, steps: timeSteps(data.stages) };
   })().catch((error) => console.warn('[intro] time travel:', error));
 
   // A stage's texture for a part ("old": the model's own).
@@ -780,20 +800,22 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     return {
       element,
       get built() { return Boolean(span); },
-      build(years, noteText = '') {
+      // years: the dates; shareOf(year): where a date stands (0-1), by
+      // default evenly by the years.
+      build(years, noteText = '', shareOf = null) {
         const first = years[0];
         const last = years.at(-1);
-        span = [first, last];
+        span = shareOf || ((year) => (year - first) / Math.max(1, last - first));
         note.textContent = noteText;
         element.classList.toggle('has-note', Boolean(noteText));
         let lastShown = -Infinity;
         ticks = years.map((year, index) => {
-          const share = (year - first) / Math.max(1, last - first);
+          const share = span(year);
           const tick = document.createElement('span');
           tick.className = 'intro-timeline-tick';
           tick.style.left = `${(share * 100).toFixed(2)}%`;
           const isEnd = index === 0 || index === years.length - 1;
-          const nextShare = index < years.length - 1 ? (years[index + 1] - first) / Math.max(1, last - first) : 2;
+          const nextShare = index < years.length - 1 ? span(years[index + 1]) : 2;
           const roomy = share - lastShown >= 0.11 && (nextShare - share >= 0.04 || index === years.length - 1 || years[index + 1] - year > 1);
           if (isEnd || (roomy && 1 - share >= 0.12)) {
             const date = document.createElement('span');
@@ -806,22 +828,37 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           return { tick, year };
         });
       },
-      show(year, visible) {
+      // share: where the marker is (0-1; by default the year's own).
+      show(year, visible, share = span ? span(year) : 0) {
         element.style.opacity = visible.toFixed(3);
         if (!span || visible <= 0) return;
         // Under the chapter's name, however many lines it takes.
         element.style.top = `${(chapter.offsetTop + chapter.offsetHeight + 10).toFixed(0)}px`;
-        const [first, last] = span;
-        const share = clamp01((year - first) / Math.max(1, last - first));
+        share = clamp01(share);
         fill.style.transform = `scaleX(${share.toFixed(4)})`;
         marker.style.left = `${(share * 100).toFixed(2)}%`;
         yearLabel.textContent = String(Math.round(year));
         for (const { tick, year: at } of ticks) tick.classList.toggle('is-past', at <= Math.round(year));
       },
       hide() { element.style.opacity = 0; },
+      get bottom() { return element.offsetTop + element.offsetHeight; },
     };
   }
   const timeline = createTimeline();
+
+  // A badge while the surroundings show: they are a comparison, not this
+  // place. Under the timeline (or the chapter's name).
+  const badge = document.createElement('div');
+  badge.className = 'intro-badge';
+  badge.innerHTML = '<strong></strong><span></span>';
+  root.appendChild(badge);
+  function showBadge(title, text, visible, under) {
+    badge.style.opacity = visible.toFixed(3);
+    if (visible <= 0) return;
+    if (badge.firstChild.textContent !== title) badge.firstChild.textContent = title;
+    if (badge.lastChild.textContent !== text) badge.lastChild.textContent = text;
+    badge.style.top = `${(under + 8).toFixed(0)}px`;
+  }
 
   // --- Surroundings through time (intro-surroundings.js) ----------------------
   // In metres round the model's middle, y from its ground -> the intro's
@@ -833,52 +870,33 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
   const middle = [-o.x / ex, -o.z / ez];
   const metresToIntro = (x, y, z) => toIntro(middle[0] + x / unit, ground + y / unit, middle[1] + z / unit).toArray();
   let surroundings = null;
+  let showcase = null;
   const surroundingsTimeline = createTimeline('is-surroundings');
   const SURROUNDINGS = CHAPTERS.find((c) => c.key === 'surroundings');
   if (SURROUNDINGS && scene.surroundings) {
-    const { years, ...params } = scene.surroundings;
+    const { years, showcase: variants, ...params } = scene.surroundings;
     try {
       surroundings = createIntroSurroundings({ params, from: years[0], to: years[1], radius: footprint, toIntro: metresToIntro });
       group.add(surroundings.group);
-      surroundingsTimeline.build(surroundings.dates, tx.surroundings?.generated ?? '');
+      // The dates evenly by the periods, as on the viewer's slider.
+      const { from, to } = surroundings;
+      surroundingsTimeline.build(surroundings.dates, '', (year) => (positionOfYear(year) - from) / Math.max(1e-3, to - from));
+      if (Array.isArray(variants) && variants.length) {
+        showcase = createSurroundingsShowcase({ variants, seed: (params.seed || 1) + 2, radius: footprint, toIntro: metresToIntro });
+        group.add(showcase.group);
+      }
     } catch (error) {
       console.warn('[intro] surroundings:', error);
     }
   }
-  // The year at s seconds into the chapter: the periods' changes slower.
-  const surroundingsYear = (() => {
-    if (!surroundings) return () => 0;
-    const [from, to] = [surroundings.spans[0].from, surroundings.spans.at(-1).to];
-    const changes = surroundings.spans.slice(1).map((span) => span.from);
-    const swap = Math.min(SURROUNDINGS_SWAP, SURROUNDINGS_RUN / (2 * Math.max(1, changes.length)));
-    const yearsLeft = Math.max(1, to - from - changes.length * 14);
-    const perYear = (SURROUNDINGS_RUN - changes.length * swap) / yearsLeft;
-    // Keys [seconds, year]: a change's 14 years (7 each side) take `swap`.
-    const keys = [[0, from]];
-    let t = 0;
-    let at = from;
-    for (const change of changes) {
-      t += Math.max(0, change - 7 - at) * perYear;
-      keys.push([t, change - 7]);
-      t += swap;
-      keys.push([t, change + 7]);
-      at = change + 7;
-    }
-    keys.push([SURROUNDINGS_RUN, to]);
-    return (s) => {
-      const local = s - SURROUNDINGS_IN;
-      if (local <= 0) return from;
-      if (local >= SURROUNDINGS_RUN) return to;
-      let i = 0;
-      while (i < keys.length - 2 && local > keys[i + 1][0]) i++;
-      const [t0, y0] = keys[i];
-      const [t1, y1] = keys[i + 1];
-      const u = clamp01((local - t0) / Math.max(1e-3, t1 - t0));
-      // Eased within a change, even between them.
-      const eased = y1 - y0 <= 14 ? smooth(u) : u;
-      return y0 + (y1 - y0) * eased;
-    };
-  })();
+  // The position (in periods) at s seconds into the chapter: evenly through
+  // the periods, eased at the ends.
+  const surroundingsAt = (s) => {
+    const { from, to } = surroundings;
+    const u = clamp01((s - SURROUNDINGS_IN) / SURROUNDINGS_RUN);
+    return from + (to - from) * (u < 0.04 ? smooth(u / 0.04) * 0.04 : u > 0.96 ? 0.96 + smooth((u - 0.96) / 0.04) * 0.04 : u);
+  };
+  const SHOWCASE_FROM = SURROUNDINGS_IN + SURROUNDINGS_RUN + SURROUNDINGS_HOLD;
 
   const project = new Vector3();
   function place(el, point, visible, offsetY = 0, centred = false, keepIn = false) {
@@ -1089,9 +1107,10 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           timelineAt = stages.at(-1).year + (stages[0].year - stages.at(-1).year) * f;
         } else {
           const after = timeTime - TIME_REWIND;
+          const { steps } = timeTravel;
           let index = 1;
-          while (index < stages.length - 1 && after >= timeStepStart(index + 1)) index++;
-          const f = smooth((after - timeStepStart(index)) / (timeStepLength(index) * TIME_SWEEP));
+          while (index < stages.length - 1 && after >= steps[index + 1].start) index++;
+          const f = smooth((after - steps[index].start) / (steps[index].length * TIME_SWEEP));
           setTime(stages[index - 1], stages[index], f * 1.1 - 0.05, glowOf(f));
           const shown = stages[f > 0.5 ? index : index - 1];
           timeSub = timeLabel(shown);
@@ -1109,29 +1128,56 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       else timeline.hide();
 
       // 9. Surroundings through time: rising round the model as the camera
-      // draws back, the years running; the building's stage follows them.
+      // draws back, the periods running; the building's stage follows the
+      // year. Then the other places, one after another.
       const surroundingsTime = tour - (START.surroundings ?? Infinity);
       let surroundingsSub = '';
       let surroundingsStep = '';
       const surroundingsLength = SURROUNDINGS ? SURROUNDINGS.to - SURROUNDINGS.from : 0;
+      const sx = tx.surroundings || {};
       if (surroundings && exit <= 0 && surroundingsTime > 0 && surroundingsTime < surroundingsLength) {
-        const year = surroundingsYear(surroundingsTime);
-        const show = smooth(surroundingsTime / SURROUNDINGS_IN)
-          * (1 - smooth((surroundingsTime - (surroundingsLength - SURROUNDINGS_OUT)) / SURROUNDINGS_OUT));
-        surroundings.update(year, show);
-        const period = surroundings.periodAt(year);
-        surroundingsSub = `${Math.round(year)} · ${tx.surroundings?.periods?.[period] ?? period}`;
-        surroundingsStep = period;
-        surroundingsTimeline.show(year, Math.min(show * 1.5, 1) * smooth((surroundingsTime - 0.3) / 0.4));
-        // The building as it was that year (its last stage by then).
+        const on = smooth(surroundingsTime / 0.6) * (1 - smooth((surroundingsTime - surroundingsLength + 0.5) / 0.5));
+        const at = surroundingsAt(surroundingsTime);
+        const year = yearOfPosition(at);
+        // The settlement: up at the start, down when the other places come
+        // (or at the end without them).
+        const runEnd = showcase ? SHOWCASE_FROM : surroundingsLength - SURROUNDINGS_OUT;
+        const runShow = smooth(surroundingsTime / SURROUNDINGS_IN) * (1 - smooth((surroundingsTime - runEnd) / SHOWCASE_SWAP));
+        surroundings.update(at, runShow);
+        // The other places: each rises as the last sinks.
+        const shows = (showcase?.variants || []).map((_variant, i) => {
+          const start = SHOWCASE_FROM + i * SHOWCASE_EACH;
+          const end = i === showcase.variants.length - 1 ? surroundingsLength - SURROUNDINGS_OUT : start + SHOWCASE_EACH;
+          return smooth((surroundingsTime - start) / SHOWCASE_SWAP) * (1 - smooth((surroundingsTime - end) / SHOWCASE_SWAP));
+        });
+        showcase?.update(shows, time);
+        const shown = shows.findIndex((v, i) => v > 0.5 && (shows[i + 1] ?? 0) <= 0.5);
+        if (shown >= 0) {
+          const variant = showcase.variants[shown];
+          surroundingsSub = [sx.kinds?.[variant.kind] ?? variant.kind, sx.regions?.[variant.region] ?? variant.region, variant.year].join(' · ');
+          surroundingsStep = `place${shown}`;
+          surroundingsTimeline.hide();
+          showBadge(sx.badgeTitle ?? '', sx.showcase ?? '', on, chapter.offsetTop + chapter.offsetHeight);
+        } else {
+          const period = surroundings.periodAt(at);
+          surroundingsSub = `${year} · ${sx.periods?.[period] ?? period}`;
+          surroundingsStep = period;
+          const lineOn = runShow * smooth((surroundingsTime - 0.3) / 0.4);
+          surroundingsTimeline.show(year, lineOn, (at - surroundings.from) / Math.max(1e-3, surroundings.to - surroundings.from));
+          showBadge(sx.badgeTitle ?? '', sx.badge ?? '', on, lineOn > 0.05 ? surroundingsTimeline.bottom : chapter.offsetTop + chapter.offsetHeight);
+        }
+        // The building as it was that year (before its first stage: its
+        // first; the other places: as it is).
         if (timeTravel) {
           const { stages } = timeTravel;
-          const stage = [...stages].reverse().find((st) => st.year <= year) ?? stages[0];
+          const stage = shown >= 0 ? stages.at(-1) : [...stages].reverse().find((st) => st.year <= year) ?? stages[0];
           setTime(stage, stage, 1, 0);
         }
       } else {
-        surroundings?.update(SURROUNDINGS ? surroundings.spans[0].from : 0, 0);
+        surroundings?.update(surroundings.from, 0);
+        showcase?.update(showcase.variants.map(() => 0), time);
         surroundingsTimeline.hide();
+        badge.style.opacity = 0;
       }
 
       // 6. Scene cameras: one after another, then the chosen one's view.
@@ -1222,6 +1268,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
           inset.style.opacity = phone.style.opacity = liveBadge.style.opacity = 0;
           timeline.hide();
           surroundingsTimeline.hide();
+          badge.style.opacity = 0;
           views = [];
         }
         // Everything done: once, right after the last chapter.

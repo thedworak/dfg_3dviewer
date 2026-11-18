@@ -44,8 +44,18 @@ export const DEFAULT_SCENE = Object.freeze({
   time: 'assets/intro/time/',
   // The surroundings through time (intro-surroundings.js): the viewer's
   // generated surroundings (docs/surroundings.md) of this kind of place and
-  // region, growing over these years; false leaves the chapter out.
-  surroundings: Object.freeze({ kind: 'shtetl', region: 'eastern', masonry: 'brick', seed: 7, years: Object.freeze([1730, 1936]) }),
+  // region through these years (as the viewer covers them), then other kinds
+  // of place in other regions (`showcase`, in colour, with their life);
+  // false leaves the chapter out.
+  surroundings: Object.freeze({
+    kind: 'shtetl', region: 'eastern', masonry: 'brick', seed: 7, years: Object.freeze([900, 2025]),
+    showcase: Object.freeze([
+      Object.freeze({ kind: 'town', region: 'central', year: 1880 }),
+      Object.freeze({ kind: 'port', region: 'mediterranean', year: 1700 }),
+      Object.freeze({ kind: 'village', region: 'nordic', year: 1850 }),
+      Object.freeze({ kind: 'monastery', region: 'british', year: 1500 }),
+    ]),
+  }),
   // Texts per language over the intro's own (intro.js TEXTS):
   // tagline, hint, hintTouch, tour.sunDate, tour.labels.<pin key>,
   // tour.timeNotes.<year>.
@@ -124,6 +134,11 @@ export function normalizeScene(input, base) {
       seed: finite(scene.surroundings.seed, 1),
       density: finite(scene.surroundings.density, 0.6),
       years: [Math.round(years[0]), Math.round(years[1])],
+      // Other places after it: [{ kind, region, year }].
+      showcase: (Array.isArray(scene.surroundings.showcase) ? scene.surroundings.showcase : [])
+        .filter((v) => isObject(v) && typeof v.kind === 'string' && Number.isFinite(Number(v.year)))
+        .slice(0, 6)
+        .map((v) => ({ kind: v.kind, region: typeof v.region === 'string' ? v.region : 'central', year: Math.round(Number(v.year)) })),
     }
     : false;
   let time = false;
