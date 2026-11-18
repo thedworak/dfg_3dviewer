@@ -13,7 +13,7 @@
   --intro-font: var(--font-ui);
   /* The logo's width: what the chapter's name and the timelines under it
      are placed by (the logo is 0.378 as high as it is wide). */
-  --intro-logo-width: min(260px, 44vw);
+  --intro-logo-width: min(200px, 34vw);
   /* The screen's safe area: the page's own, or inside the viewer page
      (an iframe gets none) the one it passes on (--intro-host-*, set by
      intro.js from viewer/intro-overlay.js) - the app's status bar. */
@@ -95,6 +95,13 @@ html, body {
   height: auto;
   filter: drop-shadow(0 0 18px var(--intro-glow));
 }
+/* Once the intro is under way the logo slowly gives way to it: a faint
+   watermark stays (the tagline goes); intro.js sets the class by the
+   intro's time, so held or rewound it shows as it should. */
+.intro-logo,
+.intro-tagline { transition: opacity 4.5s ease; }
+#intro.is-watermark .intro-logo { opacity: 0.18; }
+#intro.is-watermark .intro-tagline { opacity: 0; }
 
 .intro-tagline {
   margin: 8px 0 0;
@@ -157,14 +164,6 @@ html, body {
 @keyframes intro-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(240, 194, 122, 0.35), 0 8px 30px rgba(0, 0, 0, 0.45); }
   50% { box-shadow: 0 0 0 10px rgba(240, 194, 122, 0), 0 8px 30px rgba(0, 0, 0, 0.45); }
-}
-
-.intro-caption {
-  margin: 0;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--intro-muted);
 }
 
 .intro-footer {

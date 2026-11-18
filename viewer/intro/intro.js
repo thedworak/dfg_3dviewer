@@ -83,6 +83,8 @@ const REWIND = 3.6;
 // The feature tour (feature-tour.js): seconds into the model's act.
 const TOUR_START = 11.0;
 const INTRO_END = LANDING + TOUR_START + TOUR_LENGTH;
+// When the logo starts fading to a watermark (seconds of the intro).
+const WATERMARK_AT = 2.5;
 // How far a visitor may zoom out (the camera's path goes further for the
 // surroundings' overview).
 const MAX_DISTANCE = 11;
@@ -99,8 +101,7 @@ const SEGMENTS = [
 
 const TEXTS = {
   pl: {
-    tagline: 'Dziedzictwo w trzech wymiarach - i w czasie',
-    caption: 'Synagoga w Wołpie · rekonstrukcja cyfrowa',
+    tagline: 'Odkrywaj dziedzictwo w 4D',
     enter: 'Wejdź do viewera',
     skip: 'Pomiń intro',
     replay: 'Złóż ponownie',
@@ -152,8 +153,7 @@ const TEXTS = {
     language: 'Język',
   },
   en: {
-    tagline: 'Heritage in three dimensions - and in time',
-    caption: 'Wołpa Synagogue · digital reconstruction',
+    tagline: 'Explore heritage in 4D',
     enter: 'Enter the viewer',
     skip: 'Skip intro',
     replay: 'Assemble again',
@@ -218,8 +218,7 @@ const TEXTS = {
     language: 'Language',
   },
   de: {
-    tagline: 'Kulturerbe in drei Dimensionen – und in der Zeit',
-    caption: 'Synagoge von Wołpa · digitale Rekonstruktion',
+    tagline: 'Kulturerbe in 4D entdecken',
     enter: 'Zum Viewer',
     skip: 'Intro überspringen',
     replay: 'Neu zusammensetzen',
@@ -289,17 +288,14 @@ const TEXTS = {
 // synagogue, in neutral words; the scene's own texts come on top.
 const GENERIC_TEXTS = {
   pl: {
-    caption: '',
     hint: 'Najedź na model, by zajrzeć do środka · przeciągnij, aby obrócić',
     hintTouch: 'Stuknij model, by zajrzeć do środka · przeciągnij, aby obrócić',
   },
   en: {
-    caption: '',
     hint: 'Hover over the model to look inside · drag to rotate',
     hintTouch: 'Tap the model to look inside · drag to rotate',
   },
   de: {
-    caption: '',
     hint: 'Mit der Maus über das Modell fahren, um hineinzusehen · ziehen zum Drehen',
     hintTouch: 'Auf das Modell tippen, um hineinzusehen · ziehen zum Drehen',
   },
@@ -352,7 +348,6 @@ const ui = {
   root: document.getElementById('intro'),
   canvas: document.getElementById('intro-canvas'),
   tagline: document.getElementById('intro-tagline'),
-  caption: document.getElementById('intro-caption'),
   counter: document.getElementById('intro-counter'),
   enter: document.getElementById('intro-enter'),
   skip: document.getElementById('intro-skip'),
@@ -372,7 +367,6 @@ const resumed = Number.isFinite(resumeAt) && resumeAt > 0;
 if (resumed) ui.root.classList.add('is-instant');
 applyBranding();
 ui.tagline.textContent = t.tagline;
-ui.caption.textContent = t.caption;
 ui.enter.textContent = t.enter;
 ui.skip.textContent = t.skip;
 ui.replay.textContent = t.replay;
@@ -1502,6 +1496,8 @@ function frame() {
   lastArrived = arrivedFraction;
 
   showProgress(T);
+  // The logo fades to a watermark once the points are under way.
+  ui.root.classList.toggle('is-watermark', T > WATERMARK_AT);
   ui.root.classList.toggle('is-assembling', progress > 0.02);
   ui.root.classList.toggle('is-assembled', T >= LANDING - 0.3);
 

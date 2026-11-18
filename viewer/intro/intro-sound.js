@@ -48,7 +48,15 @@ export function createIntroSound() {
   const level = { music: 0, harp: 0.35, swell: 0, exit: 0 };
 
   function build() {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // A larger buffer than the default (made for live playing): a phone
+    // busy drawing the building would otherwise miss it now and then - a
+    // crackle. The intro does not need the low latency.
+    const Context = window.AudioContext || window.webkitAudioContext;
+    try {
+      ctx = new Context({ latencyHint: 'playback' });
+    } catch {
+      ctx = new Context();
+    }
     const master = ctx.createGain();
     master.gain.value = 0;
     const compressor = ctx.createDynamicsCompressor();
@@ -61,9 +69,9 @@ export function createIntroSound() {
     lowCut.frequency.value = 80;
     master.connect(lowCut).connect(compressor).connect(ctx.destination);
 
-    // A warm hall: a long, dark reverb.
+    // A warm hall: a dark reverb (short enough for a phone to keep up).
     const reverb = ctx.createConvolver();
-    reverb.buffer = impulse(ctx, 3.4, 2.6);
+    reverb.buffer = impulse(ctx, 2.2, 2.4);
     const reverbTone = ctx.createBiquadFilter();
     reverbTone.type = 'lowpass';
     reverbTone.frequency.value = 3800;
@@ -99,14 +107,17 @@ export function createIntroSound() {
     out.gain.setValueAtTime(gain, t0 + length - 0.2);
     out.gain.linearRampToValueAtTime(0, t0 + length + 1.6);
     out.connect(v.padFilter);
-    // Each note: a soft triangle and a quieter saw a little apart (an
-    // ensemble's width); the outer voices quieter than the middle.
+    // Each note a soft triangle; the middle note also a quieter saw a little
+    // apart (an ensemble's width, few voices for a phone to play); the
+    // outer voices quieter than the middle.
+    const middle = Math.floor(chord.pad.length / 2);
     chord.pad.forEach((note, index) => {
-      for (const [type, detune, level_] of [['triangle', -6, 1], ['sawtooth', 6, 0.3]]) {
+      const voices = index === middle ? [['triangle', -5, 1], ['sawtooth', 6, 0.45]] : [['triangle', index % 2 ? 4 : -4, 1]];
+      for (const [type, detune, level_] of voices) {
         const osc = ctx.createOscillator();
         osc.type = type;
         osc.frequency.value = hz(note);
-        osc.detune.value = detune + (index % 2 ? 2 : -2);
+        osc.detune.value = detune;
         const g = ctx.createGain();
         g.gain.value = 0.06 * level_ * (index === 0 || index === chord.pad.length - 1 ? 0.7 : 1);
         osc.connect(g).connect(out);
@@ -142,18 +153,15 @@ export function createIntroSound() {
     const t0 = Math.max(now(), when || now());
     const out = ctx.createGain();
     out.gain.setValueAtTime(0, t0);
-    out.gain.linearRampToValueAtTime(gain, t0 + 0.004);
+    out.gain.linearRampToValueAtTime(gain, t0 + 0.006);
     out.gain.exponentialRampToValueAtTime(0.0001, t0 + decay);
-    const tone = ctx.createBiquadFilter();
-    tone.type = 'lowpass';
-    tone.frequency.setValueAtTime(5200, t0);
-    tone.frequency.exponentialRampToValueAtTime(1400, t0 + 0.4);
     const panner = ctx.createStereoPanner();
     panner.pan.value = pan;
-    out.connect(tone).connect(panner);
+    out.connect(panner);
     panner.connect(v.master);
     panner.connect(v.reverbIn);
-    for (const [ratio, g] of [[1, 1], [2, 0.42], [3, 0.16], [4.01, 0.07]]) {
+    // Two voices: the note (a triangle, soft) and its octave fading sooner.
+    for (const [ratio, g] of [[1, 1], [2, 0.3]]) {
       const osc = ctx.createOscillator();
       osc.type = ratio === 1 ? 'triangle' : 'sine';
       osc.frequency.value = hz(note) * ratio;
@@ -177,7 +185,7 @@ export function createIntroSound() {
     out.connect(panner);
     panner.connect(v.master);
     panner.connect(v.reverbIn);
-    for (const [ratio, g, d] of [[0.5, 0.35, 1], [1, 1, 1], [1.19, 0.35, 0.7], [1.5, 0.3, 0.6], [2, 0.25, 0.5], [2.74, 0.12, 0.35]]) {
+    for (const [ratio, g, d] of [[0.5, 0.35, 1], [1, 1, 1], [1.19, 0.3, 0.7], [2, 0.2, 0.5]]) {
       const osc = ctx.createOscillator();
       osc.frequency.value = hz(note) * ratio;
       const level_ = ctx.createGain();
@@ -291,9 +299,9 @@ export function createIntroSound() {
 
     // Points arriving: harp notes of the chord, more as they come.
     if (forward && state.arrivedRate > 0) {
-      const perSecond = Math.min(9, state.arrivedRate * 24);
+      const perSecond = Math.min(5, state.arrivedRate * 14);
       if (Math.random() < perSecond * dt) {
-        harp(randomNote(chordNow().harp) + (Math.random() < 0.3 ? 12 : 0), 0.025 + Math.random() * 0.02, Math.random() * 1.6 - 0.8);
+        harp(randomNote(chordNow().harp), 0.025 + Math.random() * 0.015, Math.random() * 1.6 - 0.8, 0, 1.2);
       }
     }
 
@@ -312,8 +320,8 @@ export function createIntroSound() {
 
     // Vertices: high harp notes now and then.
     if (forward && state.vertices > prev.vertices && state.vertices < 1) {
-      const perSecond = Math.min(10, ((state.vertices - prev.vertices) / Math.max(dt, 1e-3)) * 20);
-      if (Math.random() < perSecond * dt) harp(randomNote(chordNow().harp) + 12, 0.018, Math.random() * 1.8 - 0.9, 0, 1.2);
+      const perSecond = Math.min(5, ((state.vertices - prev.vertices) / Math.max(dt, 1e-3)) * 12);
+      if (Math.random() < perSecond * dt) harp(randomNote(chordNow().harp), 0.018, Math.random() * 1.8 - 0.9, 0, 1.2);
     }
     // Edges: a quick ripple of notes while they are drawn.
     if (forward && state.edges > 0 && state.edges < 1 && Math.random() < bump(state.edges) * 8 * dt) {
@@ -321,12 +329,12 @@ export function createIntroSound() {
     }
     // Faces: soft wooden knocks; a bell when it stands.
     if (forward && state.faces > prev.faces && state.faces < 1) {
-      const perSecond = Math.min(8, ((state.faces - prev.faces) / Math.max(dt, 1e-3)) * 24);
+      const perSecond = Math.min(5, ((state.faces - prev.faces) / Math.max(dt, 1e-3)) * 16);
       if (Math.random() < perSecond * dt) knock(0.05, 160 + Math.random() * 120);
     }
     if (forward && crossed('locked', state.faces, prev.faces, 1)) {
       knock(0.12, 90, 0.5);
-      bell(81, 0.035, -0.2, 0.1);
+      bell(74, 0.035, -0.2, 0.1);
     }
     last = state;
   }
@@ -367,12 +375,12 @@ export function createIntroSound() {
       if (!running()) return;
       const chord = chordNow();
       if (kind === 'end') {
-        [74, 77, 81, 86].forEach((note, i) => bell(note, 0.03 - i * 0.004, (i - 1.5) * 0.3, i * 0.14, 4));
+        [62, 65, 69, 74].forEach((note, i) => bell(note, 0.03 - i * 0.004, (i - 1.5) * 0.3, i * 0.14, 4));
       } else if (kind === 'chapter') {
-        bell(chord.harp[3] + 12, 0.03, 0, 0, 2.6);
+        bell(chord.harp[3], 0.03, 0, 0, 2.6);
         harp(chord.harp[0], 0.03, -0.2, now() + 0.06);
       } else {
-        harp(randomNote(chord.harp) + 12, 0.03, Math.random() * 1.2 - 0.6);
+        harp(randomNote(chord.harp), 0.03, Math.random() * 1.2 - 0.6);
       }
     },
     rewind() {

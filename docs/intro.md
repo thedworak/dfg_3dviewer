@@ -43,7 +43,7 @@ viewer, about 75 seconds long:
    1730 to 1936 - back to the raw new timber of the building's construction,
    then year by year the wood darkening and greying, the moss, the roof
    renewed in 1781 and 1903, a warm front sweeping up the walls at each
-   stage, each stage's year and description in the caption, and a timeline
+   stage, each stage's year and description under the chapter's name, and a timeline
    of the stages' dates under it with the year running along; and last
    **surroundings through time** (`viewer/intro/intro-surroundings.js`): the
    camera rises and draws back, and the viewer's generated surroundings
@@ -76,9 +76,10 @@ plays, so the viewer opens from the browser's cache. The model is
 while the points gather - the file the viewer opens next, so it is cached by
 then. If it cannot be loaded, the intro ends with the points.
 
+- The logo (at most 200 px wide, a third of a phone's width) fades to a faint watermark once the points are under way (2.5 s in), the tagline with it.
 - The progress bar at the bottom: one part per stage (the cloud, the mesh, the tour's chapters), filling as the intro goes; a click jumps to that stage (the later ones once the model is loaded). On a phone only the current part is named.
 - Language (EN, PL, DE beside the sound button; on a phone on the left, level with it): the intro is loaded again in that language from the same moment (held with `?at=`: held there), the choice remembered (`localStorage`); inside the viewer page the viewer switches to it too.
-- Sound (the button top right; `viewer/intro/intro-sound.js`): made on the fly with the Web Audio API, no audio files - warm and calm, a small ensemble in a hall in D minor: a slow string pad (D minor, B flat, F, C, four seconds each), a soft bass and a harp picking the chord's notes (sparse over the cloud, flowing once the building stands); harp notes as the points arrive, notes climbing the scale and the strings swelling for the last point, a deep soft drum, a bell and the full chord at its landing, high harp notes for the vertices, a ripple for the edges, wooden knocks as the faces form, a small bell for each chapter of the tour. Off by default (`?sound=1` turns it on); browsers start it only with the first click or key press. The visitor's choice is remembered.
+- Sound (the button top right; `viewer/intro/intro-sound.js`): made on the fly with the Web Audio API, no audio files - warm and calm, a small ensemble in a hall in D minor: a slow string pad (D minor, B flat, F, C, four seconds each), a soft bass and a harp picking the chord's notes (sparse over the cloud, flowing once the building stands); harp notes as the points arrive, notes climbing the scale and the strings swelling for the last point, a deep soft drum, a bell and the full chord at its landing, harp notes for the vertices, a ripple for the edges, wooden knocks as the faces form, a small bell for each chapter of the tour. Light enough for a phone: a larger audio buffer (`latencyHint: "playback"`), a short reverb, few voices at once. Off by default (`?sound=1` turns it on); browsers start it only with the first click or key press. The visitor's choice is remembered.
 - Drag rotates the building; the mouse pushes points aside.
 - "Assemble again" runs everything backwards into the cloud and gathers it again.
 - "Skip intro" goes straight to the viewer.
@@ -154,7 +155,7 @@ The intro page takes the deployment's logo (`branding.logo.srcOnDark`, else
 | `site` | `{ "latitude", "longitude", "utcOffset", "north", "month", "day" }` for the sun study; `north`: the model's north from -Z, degrees | the default place on 21 June |
 | `time` | a folder with `time.json` and the stages' textures (as `viewer/intro/time/`) | no time travel: the chapter is left out |
 | `surroundings` | `{ "kind", "region", "masonry", "seed", "density", "years": [from, to] }`: the generated surroundings through those years ([surroundings.md](surroundings.md); `kind` and `years` required, about 900-2025) | no surroundings: the chapter is left out |
-| `texts` | `{ "pl": {...}, "en": {...}, "de": {...} }` over the intro's texts: `caption`, `tagline`, `hint`, `hintTouch`, `tour.sunDate`, `tour.timeNotes` | neutral texts ("the model"), no caption |
+| `texts` | `{ "pl": {...}, "en": {...}, "de": {...} }` over the intro's texts: `tagline`, `hint`, `hintTouch`, `tour.sunDate`, `tour.timeNotes` | neutral texts ("the model") |
 
 Coordinates are the model's own (y up, as in glTF); the bounds the points
 script prints help to place pins and the measurement. `?at=<seconds>` holds

@@ -46,7 +46,7 @@ export const DEFAULT_SCENE = Object.freeze({
   // generated surroundings (docs/surroundings.md) of this kind of place and
   // region, growing over these years; false leaves the chapter out.
   surroundings: Object.freeze({ kind: 'shtetl', region: 'eastern', masonry: 'brick', seed: 7, years: Object.freeze([1730, 1936]) }),
-  // Texts per language over the intro's own (intro.js TEXTS): caption,
+  // Texts per language over the intro's own (intro.js TEXTS):
   // tagline, hint, hintTouch, tour.sunDate, tour.labels.<pin key>,
   // tour.timeNotes.<year>.
   texts: null,
