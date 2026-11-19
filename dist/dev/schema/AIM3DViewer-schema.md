@@ -7,7 +7,7 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
 ```json
 {
   "AIM3DViewer": {
-    "version": "1.3",
+    "version": "1.2",
     "generatedAt": "2026-08-11T12:00:00.000Z",
     "camera": {},
     "viewer": {},
@@ -25,7 +25,7 @@ The runtime currently reads and writes the following fields.
 
 ## `AIM3DViewer.version`
 
-The version of the manifest format, `"MAJOR.MINOR"` (now `"1.3"`:
+The version of the manifest format, `"MAJOR.MINOR"` (now `"1.2"`:
 `AIM3D_MANIFEST_VERSION` in [manifest-version.js](./manifest-version.js)).
 A manifest is written with the version of the viewer that writes it (the
 viewer's export, the Blender add-on, `scripts/build-showcase-examples.mjs`).
@@ -50,7 +50,6 @@ reloading the page, or, in an app build, the app's store page.
 | 1.0 | The format as first published |
 | 1.1 | `camera.aspect`, `camera.orientation`, `measurements` |
 | 1.2 | `sounds` (with `sounds.acoustics`), `image`, `audio`; an annotation's `AIM3DViewer.audio` (narration); a scene showing a `Sound` or an `Image` |
-| 1.3 | `data` (live data: a table that drives the model) |
 
 ## `AIM3DViewer.camera`
 
@@ -573,43 +572,6 @@ planes with it (`clipping`, the *Section cuts* tick).
 - `points`: `[x, y, z]` in the model's own coordinates - those of its file, before `modelTransform` - so the measurements stay on the model wherever it is placed. At least 2 for a distance and 3 for an angle or an area; an angle uses the first 3
 - Lengths and areas are shown in the model's unit (`spatialScale` of the Scene, else `viewer.measurement.modelUnitInMeters`), metric or imperial as the viewer is set
 
-## `AIM3DViewer.surroundings`
-
-Generated surroundings: a typical setting drawn round the model - a
-settlement, fields, a forest, low hills - to say what kind of place the
-object stood in (see [docs/surroundings.md](../../docs/surroundings.md)).
-They are worked out from these parameters alone, so the same block always
-gives the same picture. They are a hypothesis about the kind of place, not a
-reconstruction of this one: drawn as plain pale shapes, marked in the view,
-and no part of the model (no picking, measuring or export). Exported while
-shown.
-
-```json
-"surroundings": { "generated": true, "kind": "castle", "period": "medieval", "year": 1350, "season": "summer", "seed": 2339645102, "density": 0.6, "style": "realistic", "water": true, "terrain": "real", "latitude": 54.0396, "longitude": 19.028 }
-```
-
-- `kind` (required): `"castle"` (a settlement beside it), `"town"` (streets, a wall), `"church"` or `"village"` (a village round the model), `"monastery"` (its walled precinct with a gate tower, the cloister's ranges beside the church, an orchard, fishponds; a village beyond), `"manor"` (a manor house: an avenue along the drive, a park with a pond behind it, its farm beside it; a village beyond), `"manor-farm"` (a farmyard of barns, a granary and a cowshed round the model, the manor house at its head), `"shtetl"` (a market square of timber houses facing it, roads out from each side, no walls) or `"port"` (a town on the shore: a quay with warehouses, piers into the water)
-- `period`: `"early-medieval"` (about 900-1250: timber, a palisade), `"medieval"` (1250-1550), `"early-modern"` (1550-1800: taller town houses, a baroque church, ramparts with bastions), `"industrial"` (1800-1914: tenements, a boulevard where the walls stood, a railway with its station, factories with chimneys, a neo-Gothic church), `"modern"` (1914-1945: the same, with flat-roofed blocks of flats in light render), `"postwar"` (1945-1990: the war's ruins until about 1950, housing estates of prefabricated blocks from the late 1950s, a collective farm's sheds, fields ploughed together) or `"contemporary"` (1990-2025: the estates renovated, detached houses round the edge, a shop with its car park out of town); each from its first year; default: from `year`
-- `year`: the year shown (default `1350`)
-- `season`: `spring`, `summer`, `autumn` or `winter` (under snow); default `summer`
-- `seed`: an integer; another seed gives another layout of the same kind
-- `density`: 0 to 1, how built-up the settlement is (default `0.6`)
-- `style`: `"schematic"` (default: plain pale shapes) or `"realistic"` (the materials and surface patterns, doors and windows, vegetation and haze of the period, contact shadows and shadows cast by the sun, trees in the wind, smoke from roofs, rippling water, hills on the horizon); marked as generated either way
-- `water`: `true` (default): a moat round a castle (with a bridge), a river past a town or a village where the seed gives one (with bridges); `false`: none
-- `terrain`: `"generated"` (default: low hills towards the rim) or `"real"`: the place's terrain from elevation data (the open Terrain Tiles, `viewer.surroundings.elevationUrl`), with `latitude` and `longitude` (else the manifest's `location`); generated hills until it is loaded or if it cannot be. On the real terrain no river is generated
-- `latitude`, `longitude`: the place, for the real terrain (also of the real water: today's rivers, natural lakes and the coast from OpenStreetMap, `viewer.surroundings.mapUrl`)
-- `layoutUrl`: GeoJSON of an old map's roads, fields, buildings and walls (dated) that take the place of the generated ones of their kind (relative: next to the manifest) - see [surroundings](../../docs/surroundings.md), "An old map"
-- `mapOverlay`: `{ "url": "https://…/{z}/{x}/{y}.png", "opacity": 0.85, "attribution": "…" }`: an old map's tiles draped over the ground (they must allow cross-origin use); the attribution is shown in the badge
-- `waterUrl`: GeoJSON of the water as it was, digitised from an old map (relative: next to the manifest); used before any map on the real terrain - see [surroundings](../../docs/surroundings.md), "Real water"
-- `region`: `"central"` (default: Central Europe), `"mediterranean"` (stone and render, low terracotta or flat roofs, narrow streets, a bell tower beside the church, cypresses, holm oaks and olive groves, a drier land), `"nordic"` (timber painted Falu red, ochre and white, turf roofs until about 1800, whitewashed churches, spruce and pine), `"british"` (stone cottages under thatch, red-brick terraces under slate after 1800, churches with square towers, fields in hedgerows after about 1750) or `"eastern"` (log houses gable to the road, half whitewashed, thatch, tin after 1914, wooden churches with onion domes, birch and pine), `"japanese"` (dark timber and white plaster under hipped roofs - thatch on farmhouses, grey tiles in towns - a temple hall and a pagoda for the church, white storehouses, rice fields, pines, cedars and maples red in autumn) or `"african"` (West Africa, the Sahel: round mud houses under conical thatch in a village, flat-roofed mud houses in a town, a mud mosque with its minaret for the church, round granaries, a thin savanna of acacias and baobabs, red earth; "winter" is the dry season, without snow); the Suggested scene picks it by the place
-- `masonry`: `"brick"` (default) or `"stone"`: what churches, towers and town walls are built of; the Suggested scene picks it by the region (stone south of the Sudetes and the Carpathians' foothills, in Bohemia, Moravia, southern and western Germany)
-- `followTimeline`: `true`: the surroundings follow the 4D timeline's year - its period, and how far the settlement has grown (`growth`); hidden in years outside 900-2025
-- `growth`: 0 to 1, the share of the settlement's houses built (default `1`); a house that stands at a lower growth stands at a higher one too
-- `generated`: always `true` in exports; it tells whoever reads the manifest what the block is
-- `life`: people walking the settlement's streets, carts (cars from the 1920s) on its roads, rowing boats, sailing boats in a port and motorboats after 1945 on its water - in the realistic look; fewer in winter, no boats on the ice, half as many on a phone (default `true`; `false`: none)
-- `pastTerrain`: on the real terrain, what was made later - reservoirs, dams, quarries, landfills, spoil heaps, embankments (OpenStreetMap, their `start_date`, else a typical year) - is taken away for the years before (default `true`; `false`: today's terrain whatever the year)
-- `open`: `true`: their window open on load - the year's slider with its milestones, and play through the years (exported while it is open)
-
 ## `AIM3DViewer.sceneSuggest`
 
 The Suggested scene window (*Look > Suggested scene*) open when the manifest
@@ -728,58 +690,6 @@ is not kept: it is worked out again when the sounds play.
 A source's `acoustics` (boolean) says whether it is heard in the room:
 by default point and spot sources are, ambient ones are not (wind is
 outside).
-
-## `AIM3DViewer.data`
-
-Live data ([docs/live-data.md](../../docs/live-data.md)): a table that drives
-the model. Each row belongs to the part of the model its key cell names, and
-its other cells give the part's look. The table stays connected: what changes
-in it moves to its new look without the model being loaded again.
-
-```json
-"data": {
-  "src": "./examples/tempietto/data/monitoring.csv",
-  "refresh": 2,
-  "key": "part",
-  "color": { "column": "moisture", "ramp": "heat", "min": 5, "max": 35 },
-  "label": { "column": "moisture", "unit": "%" },
-  "alert": { "column": "moisture", "above": 28 },
-  "visible": "standing",
-  "strength": 0.75,
-  "transition": 0.9
-}
-```
-
-- `src`: the table's URL - CSV or TSV with the column names in its first line
-  (comma, semicolon or tab; a decimal comma is read), or JSON: an array of
-  objects, `{ "rows": [...] }`, or an object of objects keyed by the part's
-  name. Relative to the manifest
-- `refresh`: seconds between two reads of `src` (0.5 to 3600). Without it the
-  table is read once. An unchanged table changes nothing
-- `rows`: the table itself, one object per row, instead of `src`. A table
-  opened from a file, edited in the window or pushed by the page is saved
-  this way
-- `key`: the column with the part's name - an object's name in the model,
-  compared without case, spaces and punctuation (`Column_1`, `column 1`), or
-  an IFC element's `GlobalId`. A row naming a group paints all of it; a row
-  naming one of its objects wins there. Default: the column that names most
-  objects
-- `color`: a column's name, or `{ column, ramp, reverse, min, max,
-  categories }`. A numeric column runs along the ramp (`heat`, `viridis`,
-  `blue`, `green`, `traffic`, `diverging`, or a list of colours) from `min`
-  to `max` (default: the column's lowest and highest). A text column gets a
-  colour per value: those in `categories` (`{ "good": "#1a9850" }`), the
-  others from a palette. A cell that is a colour (`#c0392b`) is used as it is
-- `label`: a column's name, or `{ column, unit, name }`: the cell above the
-  part, with its unit, after the part's name when `name` is true
-- `alert`: `{ column, above, below, equals }`: the part pulses while its cell
-  is above or below the limit, or says `equals`
-- `visible`: a column's name: the part is hidden while its cell says `0`,
-  `false`, `no` or `off` (an empty cell hides nothing)
-- `strength`: how much of the colour covers the part's own material (0 to 1,
-  default `0.75`)
-- `transition`: seconds a change takes to show (default `0.9`)
-- `open`: `false` keeps the Live data window closed on load
 
 ## `AIM3DViewer.image` and `AIM3DViewer.audio`
 
@@ -920,7 +830,7 @@ lists (`manifestFeatureIcons(inspection)`):
 
 `model`, `metadata`, `rights`, `annotations`, `camera`, `lights`,
 `raking-light`, `clipping`, `timeline`, `variants`, `compare`, `photos`,
-`location`, `sun`, `weather`, `surroundings`, `materials`, `measurements`, `certainty`, `thumbnails`, `transform`, `rendering`,
+`location`, `sun`, `weather`, `materials`, `measurements`, `certainty`, `thumbnails`, `transform`, `rendering`,
 `tour`, `settings`, `manifest` (the IIIF structure itself).
 
 Each attribute gets a level:

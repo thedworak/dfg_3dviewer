@@ -62,7 +62,6 @@
     "build:all": "pnpm run build:dev && pnpm run build:test && pnpm run build:drupal && pnpm run build:drupal:custom",
     "examples:tempietto": "node scripts/build-tempietto-examples.mjs",
     "intro:points": "node scripts/build-intro-points.mjs",
-    "examples:pagoda": "node scripts/build-pagoda-examples.mjs",
     "intro:time": "node scripts/build-intro-time.mjs",
     "serve:dev": "npx serve -n -l 3100 --no-port-switching dist/dev",
     "serve:test": "npx serve -n -l 3101 --no-port-switching dist/test",
@@ -70,8 +69,7 @@
     "test:local": "python3 ./scripts/run-local-tests.py",
     "test:smoke": "python3 ./scripts/run-local-tests.py --grep @smoke",
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
-    "pack-dist": "node ./scripts/pack-dist.js",
-    "precompress": "node ./scripts/precompress.mjs"
+    "pack-dist": "node ./scripts/pack-dist.js"
   },
   "files": [
     "dist/**"

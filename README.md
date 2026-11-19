@@ -51,7 +51,7 @@ The topics below used to live in this file; they now have their own page in [`do
 - [`viewer-settings.json` explained](docs/viewer-settings.md)
 - [Branding](docs/branding.md) — a client's name, logo, colours, favicon and addresses from settings; client profiles (`clients/<id>/`, `BRAND=<id>`)
 - [Using/embedding the viewer](docs/embedding.md) — embed markup, `embed.html` parameters, the ultralight `ultra.html`
-- [Intro page](docs/intro.md) — `intro.html`: a point cloud gathering into the pagoda (the project's own model, `scripts/build-pagoda-examples.mjs`), then into the viewer
+- [Intro page](docs/intro.md) — `intro.html`: a point cloud gathering into the Wołpa Synagogue, then into the viewer
 - [Publishing to production](docs/publishing.md) — what must be set before a release
 - [Bug reports and error tracking](docs/error-tracking.md) — the "Report a bug" button, self-hosted GlitchTip
 - [Audio files and sound](docs/audio.md) — WAV / Broadcast Wave, MP3, FLAC, Ogg, M4A: played with effects, drawn as a spectrogram landscape, with their tags and markers; sound sources in a model's scene (ambient, point, spot; IIIF `AmbientAudio` / `PointAudio` / `SpotAudio`); narrated annotations with captions in the guided tour; the room's acoustics - the sounds heard with the reverberation worked out from the model's geometry (auralization)
@@ -170,6 +170,10 @@ There is also a pre-configured complete workflow to handle more file formats and
 - on a phone, the scene first: the page's header folded into one button in the corner, windows folded to their main setting (the surroundings' year, say), and the menus hidden behind a small handle on the screen's edge (a tap or a swipe; remembered on the device); the menus fade while the scene is turned with a finger
 - Drupal/WissKI integration hooks
 - adding watermark
+
+## Example models
+
+The Wołpa Synagogue, the viewer's main example and the intro's model (`viewer/examples/WolpaSynagogue*.glb` and everything made from it): *Volpa Synagogue (1929-1941) reconstructed by Katarzyna Prokopiuk* (Warsaw University of Technology), [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/): non-commercial use only, with the author named, under the same licence. See [viewer/examples/CREDITS.md](viewer/examples/CREDITS.md).
 
 ## Screenshots
 

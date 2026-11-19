@@ -15,7 +15,7 @@
 // place: nothing here knows where a real road ran. It is drawn schematically
 // and marked as generated for that reason.
 //
-// Covered so far: Europe's regions, Japan and West Africa, 900-2025.
+// Covered so far: Central Europe and the Mediterranean, about 900-1990.
 // Other periods and regions get no surroundings rather than wrong ones.
 
 // What the model is: a castle (a settlement beside it), a town's building,
@@ -47,14 +47,7 @@ export const SURROUNDINGS_YEARS = [SURROUNDINGS_ERAS[0].start, SURROUNDINGS_ERAS
 // Isles (stone and brick, thatch and slate, churches with square towers,
 // fields in hedgerows), the East beyond the Bug (log houses under thatch,
 // wooden churches with onion domes, birch and pine).
-// Beyond Europe: Japan (timber under hipped roofs of tiles or thatch,
-// temples and pagodas, rice fields, pines and maples) and West Africa, the
-// Sahel (round mud houses under conical thatch, flat-roofed mud towns, mud
-// mosques with minarets, the savanna's acacias and baobabs) - the same plan
-// as Central Europe's, its buildings those of the region (regionaliseLayout).
-export const SURROUNDINGS_REGIONS = ["central", "mediterranean", "nordic", "british", "eastern", "japanese", "african"];
-// Where it snows in winter (the Sahel's "winter" is its dry season).
-export const surroundingsSnows = (region) => region !== "african";
+export const SURROUNDINGS_REGIONS = ["central", "mediterranean", "nordic", "british", "eastern"];
 export const SURROUNDINGS_SEASONS = ["spring", "summer", "autumn", "winter"];
 // How they are drawn (editor/surroundings.js): plain pale shapes, or with
 // the materials, openings, vegetation and haze of the period. Both are
@@ -101,7 +94,6 @@ export function surroundingsMasonry(location) {
   const region = surroundingsRegion(location);
   if (region === "mediterranean" || region === "nordic" || region === "british") return "stone";
   if (region === "eastern") return "brick";
-  if (region === "japanese" || region === "african") return "stone";
   if (lat < 49.6) return "stone";
   if (lat < 50.9 && lon >= 12 && lon <= 17.2) return "stone";
   if (lat < 50.5 && lon < 12) return "stone";
@@ -198,10 +190,6 @@ export function surroundingsRegion(location) {
   if (lat >= 45 && lat <= 57 && lon >= 5 && lon <= 30) return "central";
   // The East: beyond the Bug's lands, to the Volga's upper reaches.
   if (lat >= 44.6 && lat <= 60 && lon > 30 && lon <= 45) return "eastern";
-  // Japan, Kyushu to Hokkaido.
-  if (lat >= 30 && lat <= 46 && lon >= 128.5 && lon <= 146) return "japanese";
-  // West Africa, the Sahel and the savanna south of it: Senegal to Lake Chad.
-  if (lat >= 4 && lat <= 20 && lon >= -18 && lon <= 16) return "african";
   return null;
 }
 
@@ -262,8 +250,6 @@ export function suggestSurroundings({ normalizedText = "", year = null, location
   else if (region === "nordic") reasons.push({ key: "surroundingsNordic" });
   else if (region === "british") reasons.push({ key: "surroundingsBritish" });
   else if (region === "eastern") reasons.push({ key: "surroundingsEastern" });
-  else if (region === "japanese") reasons.push({ key: "surroundingsJapanese" });
-  else if (region === "african") reasons.push({ key: "surroundingsAfrican" });
   // The houses are in metres: against a model of an unknown unit their
   // scale is a guess.
   if (unitSource === "default") {
@@ -511,9 +497,7 @@ function insideField(field, x, z, margin = 0) {
  *
  *   extent, flat, clear   radii: the whole, the flat middle, kept free
  *   blocks   [{ x, z, w, d, h, angle, roof, roofHeight, ridge, role }]
- *            roof: "gable" | "pyramid" | "onion" | "sawtooth" | "none", and in
- *            Japan and West Africa "hip" | "cone" | "pagoda" (regionaliseLayout;
- *            shape "round", tiers); ridge "w" | "d": the side
+ *            roof: "gable" | "pyramid" | "none"; ridge "w" | "d": the side
  *            the ridge runs along; role: "house" | "church" | "tower"
  *   walls    [{ ax, az, bx, bz, h, t, kind }]  kind: "palisade" | "masonry"
  *   roads    [{ points: [[x, z], ...], width }]
@@ -1536,91 +1520,5 @@ export function layoutSurroundings(input = {}, site = {}) {
       });
     });
   }
-  if (params.region === "japanese" || params.region === "african") regionaliseLayout(layout);
   return layout;
-}
-
-// A number 0-1 from a place and a key: the same house is always turned the
-// same way, without taking from the layout's random numbers (the other
-// regions' layouts stay as they were for a seed).
-function placeHash(x, z, key) {
-  const value = Math.sin(x * 12.9898 + z * 78.233 + key * 37.719) * 43758.5453;
-  return value - Math.floor(value);
-}
-
-// Japan and West Africa: the same plan (roads, lots, fields, the wood), its
-// buildings and plants those of the region, worked out from each one's
-// place. Roof shapes beyond the European ones:
-//   "hip"     four slopes, the ridge along the long side (Japan's hipped
-//             and hip-and-gable roofs, drawn as hipped)
-//   "cone"    a round house's conical roof (`shape: "round"`: round walls,
-//             `w` the diameter)
-//   "pagoda"  a tower of `tiers` storeys, each under its own wide roof,
-//             `roofHeight` the finial
-function regionaliseLayout(layout) {
-  const params = layout.params;
-  const japanese = params.region === "japanese";
-  const town = params.kind === "town" || params.kind === "port" || params.kind === "shtetl";
-  layout.blocks = layout.blocks.map((block) => {
-    const pick = (key) => placeHash(block.x, block.z, key);
-    const short = Math.min(block.w, block.d);
-    const tower = block.role === "church" && block.roof !== "gable";
-    if (japanese) {
-      if (block.role === "house" && block.roof === "gable") {
-        // A town house (machiya): its eaves to the street, a low tiled
-        // roof; a farmhouse (minka) under a tall hipped thatch.
-        if (town || block.market) return { ...block, ridge: "w", roofHeight: block.d * 0.22, h: Math.min(block.h, 7.5) };
-        return { ...block, roof: "hip", roofHeight: short * 0.62, h: Math.min(block.h, 3.2) };
-      }
-      // The church's tower: a pagoda of three storeys, five when tall.
-      if (tower) return { ...block, w: 7, d: 7, h: block.h >= 24 ? 26 : 16, roof: "pagoda", tiers: block.h >= 24 ? 5 : 3, roofHeight: 4, temple: true };
-      // The nave: the temple's hall, nearly square, under a wide hipped roof.
-      if (block.role === "church") {
-        const d = Math.min(block.d, block.w * 1.25);
-        return { ...block, d, h: Math.min(block.h, 7), roof: "hip", roofHeight: block.w * 0.42, temple: true };
-      }
-      // A storehouse (kura): white plaster, a heavy tiled gable.
-      if (block.role === "granary" || block.role === "barn") return { ...block, roof: "gable", roofHeight: short * 0.35, kura: true };
-      if (["cloister", "manor", "tower", "campanile", "station"].includes(block.role) && block.roof !== "none") {
-        return { ...block, roof: "hip", roofHeight: short * 0.4 };
-      }
-      return block;
-    }
-    // West Africa, the Sahel: round houses of mud under conical thatch in a
-    // village; flat-roofed mud houses in a town; the mosque of mud with its
-    // minaret.
-    // (round houses in the villages to this day; a village's flat-roofed
-    // blocks after 1914 stay as they are)
-    if (block.role === "house" && block.roof !== "none" && !(town || block.market)) {
-      const w = Math.max(4, Math.min(6.5, short * 0.8));
-      return { ...block, shape: "round", w, d: w, h: 2.4, roof: "cone", roofHeight: w * 0.5 };
-    }
-    if (block.role === "granary") {
-      return { ...block, shape: "round", w: 3.2, d: 3.2, h: 3, roof: "cone", roofHeight: 1.8 };
-    }
-    if (tower) return { ...block, w: 5.5, d: 5.5, h: block.h >= 24 ? 18 : 13, roof: "none", roofHeight: 0, mosque: true };
-    if (block.role === "church") return { ...block, h: Math.min(block.h, 8), roof: "none", roofHeight: 0, mosque: true };
-    if (block.role === "chimney" || block.role === "factory" || block.role === "store") return block;
-    if (block.roof !== "none") return { ...block, roof: "none", roofHeight: 0, h: block.role === "house" ? Math.min(block.h, 7) : block.h, adobe: true };
-    return block;
-  });
-  if (japanese) {
-    // Pines and cedars, maples and cherries; the fields mostly rice.
-    layout.trees = layout.trees.map((tree) => {
-      if (tree.kind === "conifer") return placeHash(tree.x, tree.z, 3) < 0.5 ? { ...tree, kind: "pine", r: tree.h * 0.3 } : tree;
-      if (tree.kind === "broadleaf") return { ...tree, kind: placeHash(tree.x, tree.z, 4) < 0.65 ? "maple" : "broadleaf" };
-      return tree;
-    });
-    layout.fields = layout.fields.map((field) => (field.parking || placeHash(field.x, field.z, 5) > 0.8 ? field : { ...field, paddy: true }));
-    return;
-  }
-  // The savanna: a thinner wood of acacias and here and there a baobab, low
-  // and wide; the fields millet and sorghum.
-  layout.trees = layout.trees
-    .filter((tree) => placeHash(tree.x, tree.z, 6) < 0.4)
-    .map((tree) => {
-      const baobab = placeHash(tree.x, tree.z, 7) < 0.12;
-      const h = baobab ? 12 + 6 * placeHash(tree.x, tree.z, 8) : Math.min(tree.h, 9) * 0.8;
-      return { ...tree, kind: baobab ? "baobab" : "acacia", h, r: baobab ? h * 0.55 : h * 0.62 };
-    });
 }

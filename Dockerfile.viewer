@@ -51,10 +51,6 @@ ENV BUILD_ID=${BUILD_ID}
 ARG BRAND=
 ENV BRAND=${BRAND}
 RUN pnpm run build:${BUILD_TARGET}
-# Brotli and gzip copies of the code (.br, .gz next to each file), made once
-# at the strongest settings; docker/nginx.conf serves them instead of
-# compressing on the fly. Before the profile, as the build above.
-RUN node scripts/precompress.mjs dist/${BUILD_TARGET}
 # The profile only after the build: an ARG changes the cache key of every
 # RUN below it, so images with the same BUILD_TARGET (viewer-test and
 # viewer-sandbox) share the build above. Fail the build (not the running

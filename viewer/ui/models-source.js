@@ -13,10 +13,9 @@ function headerButtonOf(event) {
   return target instanceof Element && target.closest("header, #example-model-picker") ? target : null;
 }
 
-// The app's "Models" button opens the 4D scenes, the example manifests and
-// the main content (examples-panel.js; the first time and by default), the
-// models on the device (library-panel.js) or those in ExHUB, the repository
-// (models-panel.js), whichever was used last, and
+// The app's "Models" button opens the models on the device
+// (library-panel.js), those in ExHUB, the repository (models-panel.js), or
+// the example manifests (examples-panel.js), whichever was used last, and
 // each panel carries a toggle between them. ExHUB has its own button too.
 // The repository's models can be locked in the app (hasFeature() in
 // app-features.js): ExHUB then carries a lock.
@@ -25,9 +24,9 @@ const SOURCE_KEY = "dfg3dviewer-models-source";
 function storedSource() {
   try {
     const source = window.localStorage.getItem(SOURCE_KEY);
-    return source === "remote" || source === "local" ? source : "examples";
+    return source === "remote" || source === "examples" ? source : "local";
   } catch {
-    return "examples";
+    return "local";
   }
 }
 
@@ -47,7 +46,7 @@ export function attachModelsSource(Viewer) {
         return;
       }
       const source = storedSource();
-      this.showModelsSource(source === "remote" && !hasFeature("remoteModels") ? "examples" : source);
+      this.showModelsSource(source === "remote" && !hasFeature("remoteModels") ? "local" : source);
     },
 
     // The ExHUB button in the app's header: the repository's models, or
@@ -108,12 +107,12 @@ export function attachModelsSource(Viewer) {
       toggle.className = "models-source-toggle";
       toggle.setAttribute("role", "group");
       toggle.setAttribute("aria-label", t("modelsSource.aria", "Where the models come from"));
-      // Icons, with the words as tooltip and accessible name: a star (the
-      // scenes, first), a phone, storage (the .meta-icon masks in models-panel.css).
+      // Icons, with the words as tooltip and accessible name: a phone,
+      // storage, a star (the .meta-icon masks in models-panel.css).
       [
-        ["examples", "examples", t("modelsSource.examples", "4D scenes")],
         ["local", "device", t("modelsSource.local", "On this device")],
         ["remote", "repository", t("modelsSource.remote", "ExHUB")],
+        ["examples", "examples", t("modelsSource.examples", "Examples")],
       ].forEach(([source, icon, label]) => {
         const button = document.createElement("button");
         button.type = "button";

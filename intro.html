@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>ExPlora4D</title>
-    <meta name="description" content="ExPlora4D - a 3D/4D viewer for cultural heritage. A cloud of points gathers into a pagoda." />
+    <meta name="description" content="ExPlora4D - a 3D/4D viewer for cultural heritage. A cloud of points gathers into the Wołpa Synagogue." />
     <meta name="theme-color" content="#05070d" />
     <link rel="shortcut icon" href="assets/img/icon.png" type="image/png">
     <link href="assets/intro/intro.css" rel="stylesheet" />
   </head>
   <body>
     <!-- The intro (viewer/intro/intro.js): a cloud of points gathering into
-         the pagoda, then a link into the viewer (?next=). -->
+         the Wolpa Synagogue, then a link into the viewer (?next=). -->
     <main id="intro">
       <canvas id="intro-canvas" aria-hidden="true"></canvas>
       <div class="intro-vignette" aria-hidden="true"></div>
@@ -28,15 +28,6 @@
           <g class="intro-sound-off" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
             <path d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
           </g>
-        </svg>
-      </button>
-
-      <!-- Pause and play (viewer/intro/intro.js; also Space): the intro held
-           at its moment, the model still turnable; ▶ goes on from there. -->
-      <button type="button" id="intro-pause" class="intro-sound intro-pause" aria-pressed="false">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-          <g class="intro-pause-bars" fill="currentColor"><rect x="7" y="5.5" width="3.4" height="13" rx="1" /><rect x="13.6" y="5.5" width="3.4" height="13" rx="1" /></g>
-          <path class="intro-pause-play" d="M8 5.5v13l11-6.5z" fill="currentColor" />
         </svg>
       </button>
 
@@ -68,6 +59,8 @@
         <button type="button" id="intro-replay" class="intro-replay"></button>
         <a id="intro-skip" class="intro-skip" href="./"></a>
       </footer>
+      <!-- The model's author and licence (the scene's credit). -->
+      <p id="intro-credit" class="intro-credit"></p>
 
       <p id="intro-status" class="intro-status" role="status"></p>
     </main>

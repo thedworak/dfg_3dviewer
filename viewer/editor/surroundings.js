@@ -9,7 +9,6 @@ import {
   surroundingsGroundHeight,
   surroundingsGrowth,
   surroundingsPeriod,
-  surroundingsSnows,
   surroundingsTerrainHeight,
 } from "./surroundings-rules.js";
 import {
@@ -26,7 +25,6 @@ import { readOldMap } from "../ai/old-map-reader.js";
 import { attachSurroundingsPanel } from "./surroundings-panel.js";
 import { attachSurroundingsEditor } from "./surroundings-edit.js";
 import { changesBefore, loadTerrainChanges, restoreElevation } from "./surroundings-past-terrain.js";
-import { hasNewShape, writeBlockShape } from "./surroundings-shapes.js";
 import { planSurroundingsLife } from "./surroundings-life.js";
 import { buildSurroundingsLife } from "./surroundings-life-mesh.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
@@ -116,15 +114,6 @@ function writeBlock(writer, block, y, wallColor, roofColor) {
   const cos = Math.cos(block.angle);
   const sin = Math.sin(block.angle);
   const at = (lx, ly, lz) => v(block.x + lx * cos - lz * sin, y + ly, block.z + lx * sin + lz * cos);
-  // Japan's and West Africa's roofs, round houses (surroundings-shapes.js).
-  if (hasNewShape(block)) {
-    writeBlockShape((points, kind) => {
-      const corners = points.map((point) => at(point[0], point[1], point[2]));
-      const color = kind === "wall" || kind === "gable" ? wallColor : roofColor;
-      for (let index = 1; index < corners.length - 1; index += 1) writer.tri(corners[0], corners[index], corners[index + 1], color);
-    }, block);
-    return;
-  }
   const hw = block.w / 2;
   const hd = block.d / 2;
   const h = block.h;
@@ -213,7 +202,7 @@ export function buildSurroundingsMeshes(layout, { uniforms = null, nearRadius = 
 
 // Two meshes: the ground (terrain, fields, roads) and what stands on it.
 function buildSchematicSurroundings(layout) {
-  const winter = layout.params.season === "winter" && surroundingsSnows(layout.params.region);
+  const winter = layout.params.season === "winter";
   const extent = layout.extent;
   // Opaque in the middle, gone at the rim.
   const fade = (x, z) => 1 - THREE.MathUtils.smoothstep(Math.hypot(x, z), extent * 0.72, extent * 1.08);

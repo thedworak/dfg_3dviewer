@@ -589,22 +589,3 @@
   opacity: 0.5;
   cursor: default;
 }
-
-/* Cloudflare Turnstile before a login, a registration, a password reset or
-   an administrator's code (viewer/turnstile.js); its frame is 300 x 65. */
-.viewer-turnstile {
-  min-height: 65px;
-  margin: 6px 0;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.viewer-turnstile-note {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #d54646;
-}
-
-.viewer-turnstile-note[hidden] {
-  display: none;
-}

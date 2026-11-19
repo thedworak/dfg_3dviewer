@@ -377,19 +377,15 @@ function copyBuildAssets() {
         copyDirectory(
           'viewer/intro',
           path.join(outDistDir, 'assets/intro'),
-          keepFiles('viewer/intro', appBuild ? ['intro.css'] : ['intro.css', 'synagogue-points.bin'])
-        // The scenes (the models, their points and time travel), after: both
-        // make assets/intro/. The default one is the pagoda
-        // (scenes/pagoda/, scripts/build-pagoda-examples.mjs); the others
-        // (viewer.intro.scene, docs/intro.md) - the Wołpa Synagogue with its
-        // points and time travel (scripts/build-intro-time.mjs) among them -
-        // stay out of an app build, which shows the pagoda only.
-        ).then(() => Promise.all(appBuild
-          ? [copyDirectory('viewer/intro/scenes/pagoda', path.join(outDistDir, 'assets/intro/scenes/pagoda'))]
-          : [
-            copyDirectory('viewer/intro/time', path.join(outDistDir, 'assets/intro/time')),
-            copyDirectory('viewer/intro/scenes', path.join(outDistDir, 'assets/intro/scenes')),
-          ])),
+          keepFiles('viewer/intro', ['intro.css', 'synagogue-points.bin'])
+        // The time travel's textures and stages (scripts/build-intro-time.mjs),
+        // after: both make assets/intro/.
+        ).then(() => Promise.all([
+          copyDirectory('viewer/intro/time', path.join(outDistDir, 'assets/intro/time')),
+          // Other models for the intro (viewer.intro.scene, docs/intro.md);
+          // an app build shows the synagogue only.
+          !appBuild && copyDirectory('viewer/intro/scenes', path.join(outDistDir, 'assets/intro/scenes')),
+        ])),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples'),
           extension.examplesFilter && ((source) => extension.examplesFilter(source, buildContext)))
           .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),
@@ -638,11 +634,9 @@ const viewerConfig = {
 
 // The ultralight viewer (ultra.html, viewer/ultra.js): a glTF / GLB model and
 // nothing else. A build of its own, so that it shares no chunk with the full
-// viewer: ultra.js next to the pages, and in assets/ultra/ the loaders it
-// imports only for a model that needs them (Draco, KTX2, Meshopt). It uses
-// the Draco and Basis decoders and the environment map the viewer's build
-// copies into assets/, so it is built after it (rollup runs the configs in
-// order).
+// viewer: one file, ultra.js, next to the pages. It uses the Draco and Basis
+// decoders and the environment map the viewer's build copies into assets/,
+// so it is built after it (rollup runs the configs in order).
 const ultraConfig = {
   input: 'viewer/ultra.js',
   treeshake: viewerConfig.treeshake,
@@ -653,15 +647,9 @@ const ultraConfig = {
   output: {
     dir: outDistDir,
     entryFileNames: 'ultra.js',
-    chunkFileNames: 'assets/ultra/[name]-[hash].js',
-    sourcemapFileNames: 'assets/ultra/[name]-[hash].js.map',
+    sourcemapFileNames: 'assets/ultra-[hash].js.map',
     format: 'es',
-    // three in a chunk of its own, which ultra.js and the loaders import: in
-    // ultra.js, the loaders would import "ultra.js" while the page loads
-    // "ultra.js?v=..." - a second copy of the viewer, started again.
-    manualChunks(id) {
-      if (/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?three\/build\//.test(id)) return 'three';
-    },
+    inlineDynamicImports: true,
     sourcemap: !appBuild,
   },
 };

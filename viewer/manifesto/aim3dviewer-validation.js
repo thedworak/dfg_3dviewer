@@ -13,7 +13,7 @@ export const WEATHER_TYPES = ["clear", "fog", "rain", "snow", "storm"];
 // Keep in sync with viewer/editor/surroundings-rules.js (same reason).
 export const SURROUNDINGS_KINDS = ["castle", "town", "church", "village", "monastery", "manor", "manor-farm", "shtetl", "port"];
 export const SURROUNDINGS_PERIODS = ["early-medieval", "medieval", "early-modern", "industrial", "modern", "postwar", "contemporary"];
-export const SURROUNDINGS_REGIONS = ["central", "mediterranean", "nordic", "british", "eastern", "japanese", "african"];
+export const SURROUNDINGS_REGIONS = ["central", "mediterranean", "nordic", "british", "eastern"];
 export const SURROUNDINGS_SEASONS = ["spring", "summer", "autumn", "winter"];
 export const SURROUNDINGS_STYLES = ["schematic", "realistic"];
 export const SURROUNDINGS_TERRAINS = ["generated", "real"];

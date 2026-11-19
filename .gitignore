@@ -28,14 +28,6 @@ package-lock.json
 !/dist/dev/
 !/dist/test/
 !/dist/prod/
-# Brotli and gzip copies made by scripts/precompress.mjs (Docker images
-# only). Not the volume samples' own .nii.gz.
-/dist/**/*.br
-/dist/**/*.js.gz
-/dist/**/*.mjs.gz
-/dist/**/*.css.gz
-/dist/**/*.wasm.gz
-/dist/**/*.svg.gz
 !/dist/drupal/
 !/dist/.gitkeep
 

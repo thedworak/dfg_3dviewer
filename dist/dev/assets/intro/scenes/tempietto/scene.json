@@ -45,5 +45,16 @@
     "month": 6,
     "day": 21
   },
-  "time": false
+  "time": false,
+  "texts": {
+    "pl": {
+      "caption": "Tempietto · model przykładowy"
+    },
+    "en": {
+      "caption": "Tempietto · example model"
+    },
+    "de": {
+      "caption": "Tempietto · Beispielmodell"
+    }
+  }
 }

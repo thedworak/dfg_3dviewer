@@ -119,18 +119,6 @@ python3 scripts/export-static.py --jobs-dir ./jobs-export --out ./static-export 
 
 This copies each GLB and its renders and writes an AIM3D manifest per model (view-only: editor off, no worker dependency), plus `index.json`. `--only <job-id>` and `--owner <account>` narrow the selection. Upload the folder to any static host (Cloudflare R2/Pages, GitHub Pages, ...) with a long `Cache-Control`; `--base-url` must be the public URL it will be served from. Validate a result with `node scripts/validate-docker-profiles.mjs static-export/manifests/<name>.json`.
 
-## Compression (Brotli) and Cloudflare
-
-The image's code comes compressed already: after the build, `scripts/precompress.mjs` (`pnpm precompress dist/<build>`) writes a Brotli (`.br`) and a gzip (`.gz`) copy of every script, stylesheet, WebAssembly file and SVG image, at the strongest settings - about 18 MB of code becomes 3.8 MB with Brotli and 5.0 MB with gzip. `docker/nginx.conf` serves the `.br` copy to a client whose `Accept-Encoding` has `br`, the `.gz` copy to the others (`gzip_static`), with the same `Cache-Control` as the file itself; no nginx module is needed. HTML pages, `viewer-settings.json`, `manifests/` and the models are not precompressed (they are edited on the server, or binary): nginx gzips the text ones on the fly as before. For the ultralight viewer (`ultra.html`) this is about 130 KB of code instead of 160 KB.
-
-Behind Cloudflare, check what visitors get:
-
-```sh
-curl -sI -H 'Accept-Encoding: br, gzip' https://<your domain>/ultra.js | grep -i content-encoding
-```
-
-`br` means Brotli all the way. With `gzip`, Cloudflare asks the origin for gzip only: a Compression Rule (Rules > Compression Rules) for JavaScript, CSS and WebAssembly that prefers Brotli lets it ask for and pass on the `.br` copies.
-
 ## Upload limit and accounts
 
 Uploads are capped at 100 MB by default (`WORKER_MAX_UPLOAD_BYTES` in `docker-compose.yml`, mirrored by `client_max_body_size` in `docker/nginx.conf`); larger files get HTTP 413 and the upload panel shows the worker's limit. Upload counts, per-account storage/model quotas and concurrent conversions are limited too (`WORKER_LIMIT_*`, `WORKER_MAX_CONCURRENT_CONVERSIONS`; admins can override them per account in the user panel) - see "Upload limits" in [`worker/README.md`](../worker/README.md). To see and control who uploads, enable optional accounts (`WORKER_AUTH_MODE=required` in a `.env` file: registration with admin approval, per-upload ownership, admin CLI) - see "Accounts" in [`worker/README.md`](../worker/README.md). The manifest option `AIM3DViewer.viewer.auth` only shows/hides the login UI; the worker enforces access.

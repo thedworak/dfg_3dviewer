@@ -1,7 +1,6 @@
 {
   "version": 1,
   "groups": {
-    "pagoda": { "name": { "en": "Pagoda (own model)", "pl": "Pagoda (własny model)", "de": "Pagode (eigenes Modell)" } },
     "tempietto": { "name": { "en": "Tempietto", "pl": "Tempietto", "de": "Tempietto" } },
     "wolpa": { "name": { "en": "Wolpa Synagogue", "pl": "Synagoga w Wołpie", "de": "Synagoge Wolpa" } },
     "showcase": { "name": { "en": "ExPlora4D showcase", "pl": "ExPlora4D showcase", "de": "ExPlora4D-Showcase" } },
@@ -22,8 +21,6 @@
   "aim3d": [
     { "url": "https://explora4d.eu/viewer/manifests/box.json", "i18n": "aim3if.optionBox", "fallback": "Box configuration" },
     { "url": "./manifests/box-aim3d-local.json", "i18n": "aim3if.optionBoxLocal", "fallback": "Box (localhost)", "excludeFromMobile": true },
-    { "url": "./manifests/pagoda-aim3d-local.json", "name": { "en": "Pagoda (localhost)", "pl": "Pagoda (localhost)", "de": "Pagode (localhost)" }, "group": "pagoda", "variant": { "en": "Default view", "pl": "Widok podstawowy", "de": "Grundansicht" } },
-    { "url": "./manifests/pagoda-aim3d-local-4d.json", "name": { "en": "Pagoda - 4D: weathering and repairs 1615-2025 (localhost)", "pl": "Pagoda - 4D: starzenie i remonty 1615-2025 (localhost)", "de": "Pagode - 4D: Alterung und Instandsetzungen 1615-2025 (localhost)" }, "group": "pagoda", "variant": { "en": "4D: weathering and repairs 1615-2025", "pl": "4D: starzenie i remonty 1615-2025", "de": "4D: Alterung und Instandsetzungen 1615-2025" } },
     { "url": "./manifests/tempietto-aim3d-tour.json", "name": { "en": "Tempietto - guided tour with annotations (localhost)", "pl": "Tempietto - wycieczka z przewodnikiem i adnotacjami (localhost)", "de": "Tempietto - Führung mit Annotationen (localhost)" }, "group": "tempietto", "variant": { "en": "Guided tour with annotations", "pl": "Wycieczka z przewodnikiem i adnotacjami", "de": "Führung mit Annotationen" } },
     { "url": "./manifests/tempietto-aim3d-4d.json", "name": { "en": "Tempietto - 4D timeline: building, ruin, protection (localhost)", "pl": "Tempietto - oś czasu 4D: budowa, ruina, ochrona (localhost)", "de": "Tempietto - 4D-Zeitleiste: Bau, Ruine, Schutz (localhost)" }, "group": "tempietto", "variant": { "en": "4D timeline: building, ruin, protection", "pl": "Oś czasu 4D: budowa, ruina, ochrona", "de": "4D-Zeitleiste: Bau, Ruine, Schutz" } },
     { "url": "./manifests/tempietto-aim3d-variants.json", "name": { "en": "Tempietto - reconstruction variants, compared (localhost)", "pl": "Tempietto - warianty rekonstrukcji w porównaniu (localhost)", "de": "Tempietto - Rekonstruktionsvarianten im Vergleich (localhost)" }, "group": "tempietto", "variant": { "en": "Reconstruction variants, compared", "pl": "Warianty rekonstrukcji w porównaniu", "de": "Rekonstruktionsvarianten im Vergleich" } },

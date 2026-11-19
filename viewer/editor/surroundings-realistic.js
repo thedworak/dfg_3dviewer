@@ -5,10 +5,8 @@ import {
   surroundingsGroundHeight,
   surroundingsNoise,
   surroundingsTerrainHeight,
-  surroundingsSnows,
   surroundingsWaterLevel,
 } from "./surroundings-rules.js";
-import { hasNewShape, writeBlockShape } from "./surroundings-shapes.js";
 
 // The realistic look of the generated surroundings (editor/surroundings.js):
 // the same layout (editor/surroundings-rules.js) drawn with what makes a
@@ -496,45 +494,12 @@ const GROUND_MED = {
   },
   haze: { spring: 0xd2dbe2, summer: 0xdcdcd6, autumn: 0xd8d8d2, winter: 0xd6dde2 },
 };
-// Japan: green paddies and rice; the hills wooded.
-const GROUND_JAPAN = {
-  meadow: { spring: 0x7fa058, summer: 0x6f8d48, autumn: 0x8f8a52, winter: 0xeef1f4 },
-  earth: { spring: 0x7d6e58, summer: 0x857460, autumn: 0x7a6852, winter: 0xdcdad6 },
-  crops: {
-    spring: [0x8fb066, 0x7e8a5a, 0x96ad6a],
-    summer: [0x8cbf4e, 0x7aae44, 0x9cc45a],
-    autumn: [0xcfae5a, 0xb99a4e, 0xa48a4a],
-    winter: [0xe9ecef, 0xdde1e4, 0xd6d8d8],
-  },
-  haze: { spring: 0xc9d5dc, summer: 0xc6d2d8, autumn: 0xd2d3d0, winter: 0xdfe5eb },
-};
-// A rice field: water with the young rice in it in spring.
-const PADDY = { spring: 0x6f8f86, summer: 0x84b84c, autumn: 0xc8a650, winter: 0xe6e9ec };
-// The Sahel: green in the rains (summer), dry grass and red earth after;
-// "winter" is the dry season, without snow.
-const GROUND_AFRICA = {
-  meadow: { spring: 0xa59a5e, summer: 0x7f8c48, autumn: 0x9c9454, winter: 0xb3a368 },
-  earth: { spring: 0xa8673f, summer: 0x9e6440, autumn: 0xa66a42, winter: 0xb0714a },
-  crops: {
-    spring: [0xb39a62, 0xa07a50, 0xbfa46c],
-    summer: [0x8a9a4a, 0x9cab56, 0xa6a056],
-    autumn: [0xc9a85a, 0xb88a52, 0xd4b870],
-    winter: [0xb8a06a, 0xa4885a, 0xc2a874],
-  },
-  haze: { spring: 0xddd6c4, summer: 0xcfd2cc, autumn: 0xdcd5c2, winter: 0xe2d8c0 },
-};
 const FOLIAGE = {
   broadleaf: { spring: [0x86a852, 0x95b35e, 0x7d9d4c], summer: [0x587538, 0x4d6a33, 0x67803f], autumn: [0xb47a2e, 0x9c5a28, 0x8f8a3a, 0xa86d2c], winter: [0x766d62, 0x6e665c] },
   conifer: { spring: [0x3d5a3c, 0x46613f], summer: [0x3d5a3c, 0x46613f, 0x355238], autumn: [0x3d5a3c, 0x46613f], winter: [0x56685f, 0x5e6f66] },
   // Evergreen, the year round.
   cypress: { spring: [0x2f4430, 0x34492f], summer: [0x2f4430, 0x34492f], autumn: [0x2f4430, 0x34492f], winter: [0x34463a, 0x3a4b3e] },
   olive: { spring: [0x7f8c62, 0x88936b], summer: [0x7d8a63, 0x86916c, 0x738062], autumn: [0x7d8a63, 0x738062], winter: [0x7a8462, 0x737e60] },
-  // Japan: maples (red in autumn), black pines.
-  maple: { spring: [0x8fb25a, 0x9cba62], summer: [0x5a7c36, 0x66863c], autumn: [0xb8402a, 0xc8572c, 0xa83424, 0xd0762e], winter: [0x766d62, 0x6e665c] },
-  pine: { spring: [0x2f4a2e, 0x38523a], summer: [0x2f4a2e, 0x38523a, 0x2a4429], autumn: [0x2f4a2e, 0x38523a], winter: [0x3a4c40, 0x43554a] },
-  // The savanna: acacias, baobabs (bare in the dry season).
-  acacia: { spring: [0x7a8248, 0x868c52], summer: [0x5f7a36, 0x6a843e], autumn: [0x7f8a48, 0x8a8e4e], winter: [0x8f8a5a, 0x857f52] },
-  baobab: { spring: [0x7f8f4a, 0x8a9852], summer: [0x5e7c38, 0x678640], autumn: [0x8a8a4a, 0x7f7f46], winter: [0x8a7a64, 0x7f705c] },
 };
 const BUILT = {
   timber: 0x7b5b3e,
@@ -581,14 +546,6 @@ const BUILT = {
   pastel: [0xe9d7a0, 0xc9dbe8, 0xe8c4b4, 0xd4e3c4, 0xe6e0d2],
   anthracite: 0x3f4043,
   cladding: 0xd9dadb,
-  // Japan: dark-stained timber, white plaster, grey fired tiles,
-  // vermilion for temples and pagodas.
-  japanWood: [0x4e3c2c, 0x5a4632, 0x443528],
-  japanPlaster: 0xe8e4da,
-  kawara: [0x4a4f57, 0x545961, 0x42464d],
-  vermilion: 0xa8402c,
-  // West Africa: mud (banco) walls, laterite red to ochre.
-  mud: [0xa8643c, 0xb87a4c, 0xc28c5c, 0x9a5a36],
 };
 
 const colour = (hex) => new THREE.Color(hex);
@@ -614,7 +571,7 @@ function blockLook(block, params) {
   const stone = params.masonry === "stone" || med || params.region === "nordic" || params.region === "british";
   const masonryColour = (amount) => vary(stone ? (med ? BUILT.limestone : BUILT.stone) : BUILT.brick, block.x, block.z, amount);
   const masonryTile = stone ? DETAIL.stone : DETAIL.brick;
-  const winter = params.season === "winter" && surroundingsSnows(params.region);
+  const winter = params.season === "winter";
   const town = params.kind === "town" || params.kind === "port";
   const pick = (key) => surroundingsHash(block.x, block.z, key);
   const stucco = (amount = 1) => vary(choose(BUILT.stucco, pick(5)), block.x, block.z, amount);
@@ -834,27 +791,6 @@ function blockLook(block, params) {
     roof = block.roof === "onion" ? colour(choose(BUILT.dome, pick(8))) : vary(BUILT.shingle, block.x, block.z, 0.5);
     roofTile = DETAIL.shingle;
   }
-  if (region === "japanese" && block.role !== "estate" && block.role !== "factory" && block.role !== "chimney" && block.role !== "store" && block.role !== "villa") {
-    // Timber, often with white plaster; grey tiles, thatch on farmhouses
-    // until the 20th century; temples and pagodas vermilion.
-    const plastered = block.kura || block.role === "cloister" || pick(4) < (town ? 0.35 : 0.25);
-    wall = block.temple && (block.roof === "pagoda" || pick(4) < 0.5) ? vary(BUILT.vermilion, block.x, block.z, 0.4)
-      : plastered ? vary(BUILT.japanPlaster, block.x, block.z, 0.3) : vary(choose(BUILT.japanWood, pick(5)), block.x, block.z, 0.6);
-    wallTile = plastered || block.temple ? DETAIL.plaster : DETAIL.planks;
-    const thatched = block.role === "house" && block.roof === "hip" && !(twentieth && pick(6) < 0.6);
-    roof = thatched ? vary(BUILT.thatch, block.x, block.z) : vary(choose(BUILT.kawara, pick(7)), block.x, block.z, 0.5);
-    roofTile = thatched ? DETAIL.thatch : DETAIL.tiles;
-    overhang = block.roof === "pagoda" ? 0 : thatched ? 0.7 : 0.8;
-    openings = block.temple ? "church" : block.kura ? "tower" : town || block.h > 5 ? "townhouse" : "cottage";
-  } else if (region === "african" && (block.shape === "round" || block.adobe || block.mosque)) {
-    // Mud walls; thatch on the round houses, the flat roofs mud too.
-    wall = vary(choose(BUILT.mud, pick(5)), block.x, block.z, 0.6);
-    wallTile = DETAIL.plaster;
-    roof = block.roof === "cone" ? vary(BUILT.thatch, block.x, block.z) : wall.clone().multiplyScalar(0.92);
-    roofTile = block.roof === "cone" ? DETAIL.thatch : DETAIL.earth;
-    overhang = block.roof === "cone" ? 0.35 : 0;
-    openings = block.shape === "round" ? null : block.mosque ? "tower" : "cottage";
-  }
   if (block.role === "estate" && block.renovated) {
     wall = vary(choose(BUILT.pastel, pick(5)), block.x, block.z, 0.4);
   } else if (block.role === "villa") {
@@ -894,25 +830,6 @@ function writeDetailedBlock(writer, block, y, look) {
   const sin = Math.sin(block.angle);
   const at = (lx, ly, lz) => v(block.x + lx * cos - lz * sin, y + ly, block.z + lx * sin + lz * cos);
   const dir = (lx, lz) => v(lx * cos - lz * sin, 0, lx * sin + lz * cos);
-  // Japan's and West Africa's roofs, round houses (surroundings-shapes.js):
-  // a pagoda and a round house whole, a hipped roof over the box below.
-  const shaped = hasNewShape(block);
-  const writeShape = (walls) => writeBlockShape((points, kind, outward) => {
-    const corners = points.map((point) => at(point[0], point[1], point[2]));
-    const want = dir(outward[0], outward[2]).add(v(0, outward[1], 0));
-    const roofFace = kind === "roof" || kind === "under";
-    const color = roofFace ? look.roof : look.wall;
-    const extra = {
-      want,
-      tile: roofFace ? look.roofTile : look.wallTile,
-      shades: kind === "under" ? [0.38, 0.38, 0.38] : kind === "wall" ? [0.7, 0.7, 1] : [0.9, 0.95, 1.04],
-    };
-    for (let index = 1; index < corners.length - 1; index += 1) writer.tri(corners[0], corners[index], corners[index + 1], color, extra);
-  }, block, { overhang: look.overhang, walls });
-  if (shaped && (block.roof === "pagoda" || block.shape === "round")) {
-    writeShape(true);
-    return;
-  }
   const hw = block.w / 2;
   const hd = block.d / 2;
   // A ruin: each corner broken off at its own height; openings only below
@@ -982,8 +899,6 @@ function writeDetailedBlock(writer, block, y, look) {
       const next = (side + 1) % sides;
       writer.quad(upper[side], upper[next], crown[next], crown[side], look.wall, { want: v(upper[side].x - block.x, 0, upper[side].z - block.z), tile: look.wallTile });
     }
-  } else if (shaped) {
-    writeShape(false);
   } else if (block.roof === "sawtooth") {
     // Teeth across the hall: a glazed upright face, a slope behind it.
     const teeth = Math.max(2, Math.round(block.d / 6));
@@ -1171,7 +1086,7 @@ function writeWall(writer, segment, height, look) {
 function writeDetailedTree(writer, tree, y, season, { simple = false } = {}) {
   // A cypress is a slender conifer; an olive an evergreen broadleaf.
   const conifer = tree.kind === "conifer" || tree.kind === "cypress";
-  const bare = (tree.kind === "broadleaf" || tree.kind === "maple") && season === "winter";
+  const bare = tree.kind === "broadleaf" && season === "winter";
   const sides = simple ? 5 : conifer ? 7 : 8;
   const palette = (FOLIAGE[tree.kind] || FOLIAGE[conifer ? "conifer" : "broadleaf"])[season];
   const color = vary(choose(palette, surroundingsHash(tree.x, tree.z, 9)), tree.x, tree.z, 1.5);
@@ -1196,11 +1111,8 @@ function writeDetailedTree(writer, tree, y, season, { simple = false } = {}) {
   const cap = (points, tip, tone, want, shades) => {
     for (let side = 0; side < sides; side += 1) writer.tri(points[side], points[(side + 1) % sides], tip, tone, { want, shades, sway, tile: leaves });
   };
-  // An acacia's crown flat and high, a baobab's on a thick trunk.
-  const savanna = tree.kind === "acacia" || tree.kind === "baobab";
-  const crownFrom = tree.kind === "cypress" ? 0.06 : conifer ? 0.12 : tree.kind === "olive" ? 0.36 : savanna ? 0.6 : 0.28;
-  const stem = tree.kind === "baobab" ? 0.3 : 0.07;
-  band(ring(stem, -0.03, 1), ring(stem * (tree.kind === "baobab" ? 0.7 : 1), crownFrom + 0.06, 1), trunk, [0.7, 0.7, 1, 1], 0);
+  const crownFrom = tree.kind === "cypress" ? 0.06 : conifer ? 0.12 : tree.kind === "olive" ? 0.36 : 0.28;
+  band(ring(0.07, -0.03, 1), ring(0.07, crownFrom + 0.06, 1), trunk, [0.7, 0.7, 1, 1], 0);
   const apex = v(tree.x, y + tree.h, tree.z);
   if (conifer && simple) {
     const lower = ring(1, crownFrom, 2);
@@ -1278,9 +1190,9 @@ const WATER_REACH = 2.8;
 export function buildSurroundingsWater(layout, { realistic = false, uniforms = null, fade = () => 1, tint = null } = {}) {
   const water = layout.water;
   if (!water || (!water.river && !water.moat && !hasSurroundingsGridWater(layout))) return null;
-  const winter = layout.params.season === "winter" && surroundingsSnows(layout.params.region);
+  const winter = layout.params.season === "winter";
   const writer = createSurroundingsWriter(fade, tint);
-  const color = colour(realistic ? WATER[winter || layout.params.season !== "winter" ? layout.params.season : "autumn"] : 0xb5c3cb);
+  const color = colour(realistic ? WATER[layout.params.season] : 0xb5c3cb);
   const level = (x, z) => surroundingsWaterLevel(layout, x, z);
   const rim = layout.extent * 1.2;
   if (water.river) {
@@ -1544,13 +1456,12 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
   const lod = layout.extent * (light ? 0.3 : 0.55);
   const far = (x, z) => Math.hypot(x, z) > lod;
   const season = params.season;
-  // The Sahel's dry season: no snow (its own colours under "winter").
-  const winter = season === "winter" && surroundingsSnows(params.region);
+  const winter = season === "winter";
   const extent = layout.extent;
   const seed = layout.seed;
   const height = (x, z) => surroundingsTerrainHeight(layout, x, z);
   const med = params.region === "mediterranean";
-  const palette = med ? GROUND_MED : params.region === "japanese" ? GROUND_JAPAN : params.region === "african" ? GROUND_AFRICA : GROUND;
+  const palette = med ? GROUND_MED : GROUND;
   const haze = colour(palette.haze[season]);
   // Aerial perspective: farther colours closer to the haze.
   const tint = (x, z, value) => value.lerp(haze, 0.62 * smoothstep(Math.hypot(x, z), extent * 0.18, extent * 1.6));
@@ -1627,8 +1538,7 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
       const z = field.z + lx * sin + lz * cos;
       return v(x, height(x, z) + 0.2, z);
     };
-    // A rice field (Japan): water, the young rice, the ripe rice.
-    const crop = field.paddy ? vary(PADDY[season], field.x, field.z, 0.8) : vary(crops[field.tone], field.x, field.z, 1.2);
+    const crop = vary(crops[field.tone], field.x, field.z, 1.2);
     const hw = field.w / 2;
     const furrows = 4;
     for (let index = 0; index < furrows; index += 1) {
@@ -1644,7 +1554,7 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
     }
   });
   // Roads: earth, and a strip of grass between the ruts of the lesser ones.
-  const road = colour(winter ? 0xd2cfc9 : params.region === "african" ? 0xa86a46 : 0x8f7a5e);
+  const road = colour(winter ? 0xd2cfc9 : 0x8f7a5e);
   const strip = (points, half, lift, tone, tile) => {
     const edges = points.map(([x, z], index) => {
       const [px, pz] = points[Math.max(index - 1, 0)];
@@ -1740,7 +1650,7 @@ export function buildRealisticSurroundings(layout, { uniforms = null, nearRadius
     const hd = block.d / 2;
     const points = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].flatMap(([lx, lz]) => [...at(lx, 0, lz), ...at(lx, block.h, lz)]);
     const rise = block.h + (block.roofHeight || 0);
-    if (block.roof === "pyramid" || block.roof === "cone" || block.roof === "pagoda" || block.roof === "hip") points.push(...at(0, rise, 0));
+    if (block.roof === "pyramid") points.push(...at(0, rise, 0));
     else if (block.roof === "gable") points.push(...(block.ridge === "w" ? [...at(-hw, rise, 0), ...at(hw, rise, 0)] : [...at(0, rise, -hd), ...at(0, rise, hd)]));
     casters.push({ y, points, slope: slope(block.x, block.z) });
     // Smoke from some houses' roofs (through the thatch, or a chimney).

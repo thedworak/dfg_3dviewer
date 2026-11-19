@@ -32,10 +32,7 @@
          and user management are not part of choosing a model. -->
     <div id="viewer-page-header">
       <div id="example-model-picker">
-        <!-- The scenes - the example AIM3D/IIIF manifests, the main content -
-             first in the row (viewer/ui/examples-panel.js). -->
-        <button type="button" id="browseManifestsButton"></button>
-        <label for="example-model-select">Models</label>
+        <label for="example-model-select">Load example model</label>
         <!-- Options: the example list, examples/index.json (viewer/example-models.js). -->
         <select id="example-model-select">
           <button><selectedcontent></selectedcontent></button>
@@ -44,6 +41,8 @@
         <button type="button" id="uploadModel"></button>
         <button type="button" id="browseModelsButton"></button>
         <button type="button" id="openLocalFileButton"></button>
+        <!-- The example AIM3D/IIIF manifests (viewer/ui/examples-panel.js). -->
+        <button type="button" id="browseManifestsButton"></button>
       </div>
       <div id="viewer-account-bar">
         <button type="button" id="loginButton" hidden></button>

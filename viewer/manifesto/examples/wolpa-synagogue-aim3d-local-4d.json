@@ -11,6 +11,10 @@
     ]
   },
   "rights": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "requiredStatement": {
+    "label": { "en": ["Attribution"], "pl": ["Atrybucja"], "de": ["Namensnennung"] },
+    "value": { "none": ["Volpa Synagogue (1929-1941) reconstructed by Katarzyna Prokopiuk (Warsaw University of Technology), CC BY-NC-SA 4.0; exterior ageing stages added, shared under the same licence"] }
+  },
   "items": [
     {
       "id": "./examples/4D/WolpaSynagogue_4D.glb/scene",

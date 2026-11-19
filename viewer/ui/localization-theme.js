@@ -178,16 +178,7 @@ export function attachLocalizationTheme(viewer) {
     updateLocalPreviewLabels() {
       const label = document.querySelector("#example-model-picker label[for='example-model-select']");
       if (label) {
-        label.textContent = t("localPreview.loadExampleModel", "Models");
-      }
-      // The scenes button, the only one in the row with words on it.
-      const scenes = document.getElementById("browseManifestsButton");
-      const scenesLabel = scenes?.querySelector(".browse-manifests-label");
-      if (scenesLabel) {
-        const text = t("menu.openExampleManifests", "4D scenes");
-        scenesLabel.textContent = text;
-        scenes.title = text;
-        scenes.setAttribute("aria-label", text);
+        label.textContent = t("localPreview.loadExampleModel", "Load example model");
       }
       // The phone's button for the folded row (ui/page-header-fold.js).
       this.pageHeaderFold?.refreshLabels();

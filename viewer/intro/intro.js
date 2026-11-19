@@ -1,19 +1,18 @@
 // The intro page (intro.html): a chaotic cloud of points that, like atoms,
-// slowly settles into the pagoda (the project's own model,
-// scripts/build-pagoda-examples.mjs). The very last point takes its
+// slowly settles into the Wolpa Synagogue. The very last point takes its
 // time, and its landing sends a wave of light through the building; then
 // the real model takes the points' place - vertices, edges, faces
 // (mesh-reveal.js) - and a button leads into the viewer.
 //
 // The model and what depends on it is the scene (intro-scene.js): the
-// pagoda, or a deployment's own (viewer.intro.scene, docs/intro.md).
-// The points come from viewer/intro/scenes/pagoda/points.bin, sampled from the
+// synagogue, or a deployment's own (viewer.intro.scene, docs/intro.md).
+// The points come from viewer/intro/synagogue-points.bin, sampled from the
 // textured model by scripts/build-intro-points.mjs. Everything moves in the
 // vertex shader: per point a start in the cloud, a delay (lower parts of the
 // building first) and a seed for its own drift and path.
 //
 // Page parameters: ?next=<same-origin URL> is where the button leads
-// (default: the viewer with the pagoda), ?lang=pl|en|de, ?at=<seconds>
+// (default: the viewer with the synagogue), ?lang=pl|en|de, ?at=<seconds>
 // holds the intro at that moment, ?sound=1 sound on by default (it starts
 // with the first click or key press; the visitor's own choice wins),
 // ?embedded=1 inside the viewer page (viewer/intro-overlay.js): the buttons
@@ -47,7 +46,7 @@ import { createIntroSound } from './intro-sound.js';
 import { createFeatureTour, tourCameraPath, tourPlan } from './feature-tour.js';
 import { loadIntroScene, pickText, sceneTexts } from './intro-scene.js';
 
-// The model and what depends on it (intro-scene.js): the pagoda,
+// The model and what depends on it (intro-scene.js): the Wołpa Synagogue,
 // or the deployment's own (viewer.intro.scene in viewer-settings.json).
 const { scene: SCENE, branding: BRANDING } = await loadIntroScene();
 const POINTS_URL = SCENE.points;
@@ -110,8 +109,8 @@ const TEXTS = {
     mesh: (v, f) => `${v} wierzchołków · ${f} ścianek`,
     loading: 'Wczytywanie punktów…',
     error: 'Nie udało się wczytać intro.',
-    hint: 'Najedź na pagodę, by zajrzeć do środka · przeciągnij, aby obrócić',
-    hintTouch: 'Stuknij pagodę, by zajrzeć do środka · przeciągnij, aby obrócić',
+    hint: 'Najedź na synagogę, by zajrzeć do środka · przeciągnij, aby obrócić',
+    hintTouch: 'Stuknij synagogę, by zajrzeć do środka · przeciągnij, aby obrócić',
     lensTip: 'Najedź kursorem – zajrzyj do środka',
     lensTipTouch: 'Stuknij – zajrzyj do środka',
     bar: {
@@ -139,22 +138,20 @@ const TEXTS = {
         },
         badgeTitle: 'Wizualizacja porównawcza',
         badge: 'Jak obiekt mógłby wyglądać w innym otoczeniu w kolejnych epokach. Otoczenie wygenerowane, typowe dla rodzaju miejsca i czasu – nie odtworzenie tego miejsca.',
-        showcase: 'Inne rodzaje miejsc i inne regiony – widok realistyczny, z życiem na ulicach. Wygenerowane, tylko do porównania.',
+        showcase: 'Inne rodzaje miejsc i regiony Europy – widok realistyczny, z życiem na ulicach. Wygenerowane, tylko do porównania.',
         kinds: { town: 'miasto', village: 'wieś', port: 'port', monastery: 'klasztor', castle: 'zamek', church: 'kościół', manor: 'dwór', 'manor-farm': 'folwark', shtetl: 'sztetl' },
-        regions: { central: 'Europa Środkowa', mediterranean: 'Morze Śródziemne', nordic: 'Północ', british: 'Wyspy Brytyjskie', eastern: 'Europa Wschodnia', japanese: 'Japonia', african: 'Afryka Zachodnia' },
+        regions: { central: 'Europa Środkowa', mediterranean: 'Morze Śródziemne', nordic: 'Północ', british: 'Wyspy Brytyjskie', eastern: 'Europa Wschodnia' },
       },
       cameras: { names: ['Kamera 1', 'Kamera 2 · front', 'Kamera 3 · z góry'], chosen: 'widok z kamery 2', view: 'Kamera 2' },
       live: { badge: 'LIVE', phone: 'Telefon · druga sesja', screen: 'Na żywo · 2 urządzenia', sub: 'telefon steruje ekranem' },
       shading: { textures: 'tekstury', pbr: 'PBR: połysk i odbicia', raking: 'światło boczne' },
       sun: { night: 'noc' },
-      sunDate: 'Nara, 21 czerwca',
+      sunDate: 'Wołpa, 21 czerwca',
       compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
       seasons: { spring: 'wiosna', summer: 'lato', autumn: 'jesień', winter: 'zima' },
-      labels: { brackets: 'Wsporniki (tokyō)', bell: 'Dzwonek wietrzny' },
+      labels: { roof: 'Dach', pavilion: 'Narożny pawilon' },
       height: 'wysokość',
     },
-    pause: 'Pauza (spacja)',
-    play: 'Odtwórz (spacja)',
     soundOn: 'Wyłącz dźwięk',
     soundOff: 'Włącz dźwięk',
     language: 'Język',
@@ -168,8 +165,8 @@ const TEXTS = {
     mesh: (v, f) => `${v} vertices · ${f} faces`,
     loading: 'Loading points…',
     error: 'The intro could not be loaded.',
-    hint: 'Hover over the pagoda to look inside · drag to rotate',
-    hintTouch: 'Tap the pagoda to look inside · drag to rotate',
+    hint: 'Hover over the synagogue to look inside · drag to rotate',
+    hintTouch: 'Tap the synagogue to look inside · drag to rotate',
     lensTip: 'Move the cursor here – look inside',
     lensTipTouch: 'Tap here – look inside',
     bar: {
@@ -197,33 +194,33 @@ const TEXTS = {
         },
         badgeTitle: 'A comparative visualisation',
         badge: 'How the building might look in other surroundings through the ages. The surroundings are generated, typical of the kind of place and its time – not a reconstruction of this place.',
-        showcase: 'Other kinds of place in other regions – the realistic look, with life in the streets. Generated, for comparison only.',
+        showcase: 'Other kinds of place in other regions of Europe – the realistic look, with life in the streets. Generated, for comparison only.',
         kinds: { town: 'a town', village: 'a village', port: 'a port', monastery: 'a monastery', castle: 'a castle', church: 'a church', manor: 'a manor', 'manor-farm': 'a manor farm', shtetl: 'a shtetl' },
-        regions: { central: 'Central Europe', mediterranean: 'the Mediterranean', nordic: 'the North', british: 'the British Isles', eastern: 'Eastern Europe', japanese: 'Japan', african: 'West Africa' },
+        regions: { central: 'Central Europe', mediterranean: 'the Mediterranean', nordic: 'the North', british: 'the British Isles', eastern: 'Eastern Europe' },
       },
       cameras: { names: ['Camera 1', 'Camera 2 · front', 'Camera 3 · from above'], chosen: 'the view from camera 2', view: 'Camera 2' },
       live: { badge: 'LIVE', phone: 'Phone · second session', screen: 'Live · 2 devices', sub: 'the phone steers the screen' },
       shading: { textures: 'textures', pbr: 'PBR: gloss and reflections', raking: 'raking light' },
       timeNotes: {
-        1615: 'built: new timber, fresh vermilion, gilt bronze',
-        1640: 'the vermilion darkens',
-        1685: 'paint worn, the bronze turns brown',
-        1702: 'first repair: repainted, walls limed',
-        1765: 'moss in the roof tiles',
-        1830: 're-tiled, new doors; verdigris on the finial',
-        1897: 'restoration: paint and plaster renewed',
-        1952: 'post-war restoration, the roof re-laid',
-        2025: 'today',
+        1730: 'built: fresh timber and shingles',
+        1735: 'the first years: the wood darkens',
+        1745: 'the sunny sides turn grey',
+        1760: 'patina, the first algae on the north',
+        1780: 'old, mossy shingles',
+        1781: 'a new shingle roof',
+        1790: 'the shingles turn grey',
+        1840: 'moss on the northern slopes',
+        1902: 'the roof before its repair',
+        1903: 'the roof repaired',
+        1936: 'as surveyed',
       },
       sun: { night: 'night' },
-      sunDate: 'Nara, 21 June',
+      sunDate: 'Wołpa, 21 June',
       compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
       seasons: { spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' },
-      labels: { brackets: 'Bracket sets (tokyō)', bell: 'Wind bell' },
+      labels: { roof: 'Roof', pavilion: 'Corner pavilion' },
       height: 'height',
     },
-    pause: 'Pause (Space)',
-    play: 'Play (Space)',
     soundOn: 'Sound off',
     soundOff: 'Sound on',
     language: 'Language',
@@ -237,8 +234,8 @@ const TEXTS = {
     mesh: (v, f) => `${v} Eckpunkte · ${f} Flächen`,
     loading: 'Punkte werden geladen…',
     error: 'Das Intro konnte nicht geladen werden.',
-    hint: 'Mit der Maus über die Pagode fahren, um hineinzusehen · ziehen zum Drehen',
-    hintTouch: 'Auf die Pagode tippen, um hineinzusehen · ziehen zum Drehen',
+    hint: 'Mit der Maus über die Synagoge fahren, um hineinzusehen · ziehen zum Drehen',
+    hintTouch: 'Auf die Synagoge tippen, um hineinzusehen · ziehen zum Drehen',
     lensTip: 'Mit der Maus hierher – hineinsehen',
     lensTipTouch: 'Hier tippen – hineinsehen',
     bar: {
@@ -266,33 +263,33 @@ const TEXTS = {
         },
         badgeTitle: 'Vergleichende Visualisierung',
         badge: 'Wie das Gebäude in einer anderen Umgebung durch die Epochen aussehen könnte. Die Umgebung ist generiert, typisch für die Art des Ortes und seine Zeit – keine Rekonstruktion dieses Ortes.',
-        showcase: 'Andere Arten von Orten in anderen Regionen – realistische Ansicht, mit Leben auf den Straßen. Generiert, nur zum Vergleich.',
+        showcase: 'Andere Arten von Orten in anderen Regionen Europas – realistische Ansicht, mit Leben auf den Straßen. Generiert, nur zum Vergleich.',
         kinds: { town: 'Stadt', village: 'Dorf', port: 'Hafen', monastery: 'Kloster', castle: 'Burg', church: 'Kirche', manor: 'Gutshaus', 'manor-farm': 'Gutshof', shtetl: 'Schtetl' },
-        regions: { central: 'Mitteleuropa', mediterranean: 'Mittelmeerraum', nordic: 'Norden', british: 'Britische Inseln', eastern: 'Osteuropa', japanese: 'Japan', african: 'Westafrika' },
+        regions: { central: 'Mitteleuropa', mediterranean: 'Mittelmeerraum', nordic: 'Norden', british: 'Britische Inseln', eastern: 'Osteuropa' },
       },
       cameras: { names: ['Kamera 1', 'Kamera 2 · Front', 'Kamera 3 · von oben'], chosen: 'Blick aus Kamera 2', view: 'Kamera 2' },
       live: { badge: 'LIVE', phone: 'Handy · zweite Sitzung', screen: 'Live · 2 Geräte', sub: 'das Handy steuert den Bildschirm' },
       shading: { textures: 'Texturen', pbr: 'PBR: Glanz und Spiegelung', raking: 'Streiflicht' },
       timeNotes: {
-        1615: 'Bau: neues Holz, frisches Zinnoberrot, vergoldete Bronze',
-        1640: 'das Zinnoberrot dunkelt nach',
-        1685: 'Farbe abgerieben, die Bronze wird braun',
-        1702: 'erste Instandsetzung: neu gestrichen, Wände gekalkt',
-        1765: 'Moos zwischen den Ziegeln',
-        1830: 'neu gedeckt, neue Türen; Grünspan am Aufsatz',
-        1897: 'Restaurierung: Farbe und Putz erneuert',
-        1952: 'Restaurierung nach dem Krieg, Dach neu verlegt',
-        2025: 'heute',
+        1730: 'Bau: frisches Holz und Schindeln',
+        1735: 'die ersten Jahre: das Holz dunkelt nach',
+        1745: 'die Sonnenseiten vergrauen',
+        1760: 'Patina, erste Algen auf der Nordseite',
+        1780: 'alte, bemooste Schindeln',
+        1781: 'neue Schindeldeckung',
+        1790: 'die Schindeln vergrauen',
+        1840: 'Moos auf den Nordflächen',
+        1902: 'das Dach vor der Reparatur',
+        1903: 'Dachreparatur',
+        1936: 'Zustand der Bauaufnahme',
       },
       sun: { night: 'Nacht' },
-      sunDate: 'Nara, 21. Juni',
+      sunDate: 'Wołpa, 21. Juni',
       compass: { N: 'N', E: 'O', S: 'S', W: 'W' },
       seasons: { spring: 'Frühling', summer: 'Sommer', autumn: 'Herbst', winter: 'Winter' },
-      labels: { brackets: 'Konsolen (Tokyō)', bell: 'Windglocke' },
+      labels: { roof: 'Dach', pavilion: 'Eckpavillon' },
       height: 'Höhe',
     },
-    pause: 'Pause (Leertaste)',
-    play: 'Abspielen (Leertaste)',
     soundOn: 'Ton aus',
     soundOff: 'Ton an',
     language: 'Sprache',
@@ -300,7 +297,7 @@ const TEXTS = {
 };
 
 // A deployment's own model (intro-scene.js): the texts above that name the
-// pagoda, in neutral words; the scene's own texts come on top.
+// synagogue, in neutral words; the scene's own texts come on top.
 const GENERIC_TEXTS = {
   pl: {
     hint: 'Najedź na model, by zajrzeć do środka · przeciągnij, aby obrócić',
@@ -370,9 +367,9 @@ const ui = {
   hint: document.getElementById('intro-hint'),
   status: document.getElementById('intro-status'),
   sound: document.getElementById('intro-sound'),
-  pause: document.getElementById('intro-pause'),
   bar: document.getElementById('intro-bar'),
   lang: document.getElementById('intro-lang'),
+  credit: document.getElementById('intro-credit'),
 };
 
 document.documentElement.lang = lang;
@@ -400,6 +397,7 @@ ui.lensTip.className = 'intro-lens-tip';
 ui.lensTip.setAttribute('aria-hidden', 'true');
 ui.lensTip.append(Object.assign(document.createElement('span'), { textContent: canHover ? t.lensTip : t.lensTipTouch }));
 ui.root.append(ui.lensTip);
+applyCredit();
 ui.status.textContent = t.loading;
 ui.enter.href = nextUrl;
 ui.skip.href = nextUrl;
@@ -428,6 +426,28 @@ function applyBranding() {
   image.removeAttribute('width');
   image.removeAttribute('height');
   image.alt = (typeof logo.alt === 'string' && logo.alt) || name || '';
+}
+
+// The model's credit (the scene's `credit`): its author, then the licence,
+// linked when the scene gives its address.
+function applyCredit() {
+  const credit = SCENE.credit;
+  if (!ui.credit) return;
+  const text = credit ? pickText(credit.text, lang) : null;
+  if (!text && !credit?.license) {
+    ui.credit.hidden = true;
+    return;
+  }
+  if (text) ui.credit.append(text);
+  if (credit.license) {
+    if (text) ui.credit.append(' · ');
+    if (credit.url) {
+      const link = Object.assign(document.createElement('a'), { href: credit.url, textContent: credit.license, target: '_blank', rel: 'noopener license' });
+      ui.credit.append(link);
+    } else {
+      ui.credit.append(credit.license);
+    }
+  }
 }
 
 // The viewer page's safe area (viewer/intro-overlay.js), "top,right,bottom,left"
@@ -913,7 +933,6 @@ async function load() {
   }
   // Reduced motion: held at the end, everything shown (the bar still moves it).
   if (reducedMotion && !isHeld()) heldAt = INTRO_END;
-  showPauseState();
   renderer.setAnimationLoop(frame);
 
   // The model, while the points gather. Without it the intro ends with the
@@ -944,11 +963,6 @@ async function load() {
         // Half the footprint's diagonal, in metres (the surroundings keep
         // clear of it).
         footprint: (Math.hypot(max[0] - min[0], max[2] - min[2]) / 2) * SCENE.unitInMeters,
-        // The model's box in the intro's space (the section plane's size).
-        bounds: {
-          min: new Vector3((min[0] - center[0]) * scale, (min[1] - center[1]) * scale, (min[2] - center[2]) * scale),
-          max: new Vector3((max[0] - center[0]) * scale, (max[1] - center[1]) * scale, (max[2] - center[2]) * scale),
-        },
       });
       scene.add(tour.group);
       resize();
@@ -1638,41 +1652,7 @@ ui.skip.addEventListener('click', (event) => {
   tellViewer('done');
 });
 
-// Pause and play: paused, the intro is held at its moment (as ?at= holds
-// it: the bar still moves it, the model can still be turned); play goes on
-// from there - from a moment ?at= held too.
-function showPauseState() {
-  const paused = isHeld();
-  ui.pause.classList.toggle('is-paused', paused);
-  ui.pause.setAttribute('aria-pressed', String(paused));
-  ui.pause.title = paused ? t.play : t.pause;
-  ui.pause.setAttribute('aria-label', ui.pause.title);
-}
-function setPaused(paused) {
-  if (!cloud || exitStarted >= 0 || paused === isHeld()) return;
-  if (paused) {
-    heldAt = timeline(now());
-    rewindStart = -1;
-  } else {
-    started = now() - heldAt;
-    lastT = heldAt; // no single sounds for the pause
-    heldAt = Number.NaN;
-  }
-  showPauseState();
-}
-showPauseState();
-ui.pause.addEventListener('click', () => setPaused(!isHeld()));
-window.addEventListener('keydown', (event) => {
-  if (event.code !== 'Space' || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
-  // A focused button or link takes Space itself.
-  if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea, [role="button"]')) return;
-  event.preventDefault();
-  setPaused(!isHeld());
-});
-
 ui.replay.addEventListener('click', () => {
-  // Paused: it plays again, running back first.
-  if (isHeld() && !reducedMotion) setPaused(false);
   if (!cloud || reducedMotion || exitStarted >= 0 || rewindStart >= 0 || isHeld()) return;
   rewindFrom = timeline(now());
   rewindStart = now();
