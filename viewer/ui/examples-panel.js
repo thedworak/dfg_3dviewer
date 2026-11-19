@@ -9,10 +9,12 @@ import { featureIconsCaption } from "./feature-icons.js";
 import { fetchModelValidation } from "./validation-report.js";
 import { clearExampleModelSelection } from "../example-models.js";
 import { UPDATE_ARROW, manifestUpdateHint } from "./manifest-update.js";
+import { markScenesSeen } from "./scenes-hint.js";
 
-// The example AIM3D/IIIF manifests the dev build offers in its manifest
-// form (metadata.js): in the app the third tab of the "Models" panels
-// (models-source.js), on the page the header's manifests button. The list itself is fetched on every open and on
+// The example AIM3D/IIIF manifests - "4D scenes", the main content - the
+// dev build also offers in its manifest form (metadata.js): in the app the
+// first tab of the "Models" panels (models-source.js), on the page the
+// first button of the header. The list itself is fetched on every open and on
 // "Refresh" (example-manifests.js). The "./manifests/" ones are bundled with
 // the app and work offline; the others are fetched from the internet.
 const GROUPS = [
@@ -86,7 +88,7 @@ export function attachExamplesPanel(Viewer) {
       panel.hidden = true;
       panel.innerHTML = `
         <div class="upload-panel-header">
-          <span>${t("examplesPanel.title", "Example manifests")}</span>
+          <span>${t("examplesPanel.title", "4D scenes")}</span>
           <button id="examplesPanelRefresh" type="button" title="${t("examplesPanel.refresh", "Refresh")}" aria-label="${t("examplesPanel.refresh", "Refresh")}">↻</button>
           <button id="examplesPanelClose" type="button" aria-label="${t("examplesPanel.closeAria", "Close")}">X</button>
         </div>
@@ -109,6 +111,7 @@ export function attachExamplesPanel(Viewer) {
     // one and shows that (the list in use stays when the fetch fails).
     async loadExamplesList({ notify = false } = {}) {
       if (!this.examplesList) return;
+      markScenesSeen();
       this.renderExamplesList();
       const refreshButton = this.examplesPanel?.querySelector("#examplesPanelRefresh");
       if (refreshButton) refreshButton.disabled = true;
@@ -221,14 +224,15 @@ export function attachExamplesPanel(Viewer) {
           }
         });
       }
-      this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl));
+      this.bindEventListener(button, "click", () => this.loadExampleManifest(url, type, baseUrl, displayName(name)));
       item.appendChild(button);
       return item;
     },
 
-    async loadExampleManifest(url, type, baseUrl) {
+    // The model list in the header then names the scene (example-models.js).
+    async loadExampleManifest(url, type, baseUrl, name = "") {
       this.closeExamplesPanel();
-      clearExampleModelSelection();
+      clearExampleModelSelection({ scene: name });
       try {
         core.objectsConfig.setupIndex = 0;
         await this.setupManifesto(url, "url", type, { baseUrl });

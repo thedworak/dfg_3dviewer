@@ -3,7 +3,7 @@ import { isOnline } from "./connectivity.js";
 import { configuredUrl, createRemoteList, isRelativeUrl, listSite, localizedName } from "./remote-list.js";
 import DEFAULT_LIST from "./examples/index.json";
 
-// The example models of the "Load example model" select (main.js). The list
+// The example models of the header's "Models" select (main.js). The list
 // is fetched at runtime (remote-list.js; when: main.js's watchExampleModelList)
 // from viewer.exampleModelsUrl (viewer-settings.json), so
 // a new example needs no new build or app release. The bundled copy is
@@ -108,7 +108,7 @@ export function renderExampleModelOptions(select) {
     const button = select.querySelector(":scope > button");
     select.insertBefore(placeholder, button ? button.nextSibling : select.firstChild);
   }
-  placeholder.textContent = t("localPreview.noExampleModel", "Other model");
+  placeholder.textContent = shownName(select);
   const signature = JSON.stringify(options);
   if (select.dataset.exampleList !== signature) {
     select.dataset.exampleList = signature;
@@ -166,11 +166,36 @@ export function selectExampleModel(select, url) {
   select.value = option ? option.value : "";
 }
 
+// What the placeholder says while the model on screen is not one of the
+// examples: the scene it belongs to, else the model's own name once it has
+// loaded (showLoadedModelName()), else "Choose a model" - no longer a bare
+// "Other model".
+function shownName(select) {
+  const { sceneName, modelName } = select.dataset;
+  if (sceneName) return t("localPreview.currentScene", { name: sceneName }, "Scene: {name}");
+  return modelName || t("localPreview.noExampleModel", "Choose a model");
+}
+
 // A model opened from anywhere but the select: the select shows none of its
-// examples (the placeholder of renderExampleModelOptions()).
-export function clearExampleModelSelection() {
+// examples (the placeholder of renderExampleModelOptions()), but the name
+// of the scene when one was opened (examples-panel.js), or the model's
+// name when it has loaded.
+export function clearExampleModelSelection({ scene = "" } = {}) {
   const select = document.getElementById("example-model-select");
   if (!select) return;
+  delete select.dataset.modelName;
+  if (scene) select.dataset.sceneName = scene;
+  else delete select.dataset.sceneName;
   renderExampleModelOptions(select);
   select.value = "";
+}
+
+// A model has loaded (loaders.js): when the select shows none of its
+// examples and no scene, it shows the model's name instead.
+export function showLoadedModelName(name) {
+  const select = document.getElementById("example-model-select");
+  if (!select || select.value !== "" || select.dataset.sceneName || !name) return;
+  select.dataset.modelName = name;
+  const placeholder = select.querySelector("option[data-placeholder]");
+  if (placeholder) placeholder.textContent = shownName(select);
 }

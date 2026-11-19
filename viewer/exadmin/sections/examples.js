@@ -5,7 +5,7 @@ import { apiRequest } from "../api.js";
 import { confirmDialog, toast } from "../dialogs.js";
 
 // The thumbnails of the viewer's bundled example models (examples/index.json,
-// the "Load example model" list): which have renders, where they come from
+// the header's "Models" list): which have renders, where they come from
 // and whether they load. Admins render them in the viewer - an example
 // opened from here, then "Generate thumbnails" in the editor toolbar
 // (editor/thumbnail-capture.js) - and the worker keeps them

@@ -2270,7 +2270,6 @@ body.presentation-mode {
   #example-model-picker #uploadModel,
   #example-model-picker #browseModelsButton,
   #example-model-picker #openLocalFileButton,
-  #example-model-picker #browseManifestsButton,
   #example-model-picker #planButton,
   #example-model-picker #example-theme-toggle,
   #viewer-account-bar #loginButton,
@@ -2278,6 +2277,10 @@ body.presentation-mode {
     width: 40px;
     height: 40px;
     flex: 0 0 auto;
+  }
+
+  #example-model-picker #browseManifestsButton {
+    height: 40px;
   }
 
   #metadata-collapse {
@@ -2330,13 +2333,40 @@ body.viewer-app #viewer-account-bar:not(:has(button:not([hidden]))) {
   display: none !important;
 }
 
+/* Phones: the scenes button keeps its colour, without the words. */
+@media (max-width: 640px) {
+  #example-model-picker #browseManifestsButton {
+    width: 40px;
+    padding: 0;
+  }
+
+  #browseManifestsButton .browse-manifests-label {
+    display: none;
+  }
+}
+
 /* App, first run (ui/first-run-hints.js): the button to try next pulses.
    Inside its own box - the toolbar clips what sticks out of it. */
-.first-run-pulse {
+.first-run-pulse,
+.scenes-pulse {
   animation: first-run-pulse-glow 1.2s ease-in-out infinite;
 }
 
-.first-run-pulse > span {
+/* The scenes until they have been opened once (ui/scenes-hint.js): on the
+   page's scenes button, the app's "Models" button and the phone's folded
+   header - slower, as it stays. */
+.scenes-pulse {
+  animation-duration: 1.8s;
+}
+
+#browseManifestsButton.scenes-pulse {
+  animation-name: scenes-pulse-ring;
+}
+
+.first-run-pulse > span,
+.scenes-pulse > .browse-manifests-icon,
+.scenes-pulse > .open-local-file-icon,
+.scenes-pulse > svg {
   display: inline-block;
   animation: first-run-pulse-icon 1.2s ease-in-out infinite;
 }
@@ -2348,6 +2378,17 @@ body.viewer-app #viewer-account-bar:not(:has(button:not([hidden]))) {
   }
   50% {
     box-shadow: inset 0 0 0 2px var(--viewer-brand-secondary), inset 0 0 14px color-mix(in srgb, var(--viewer-brand-secondary) 55%, transparent);
+  }
+}
+
+/* A ring around the filled button, which the inset glow would not show. */
+@keyframes scenes-pulse-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-accent) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--viewer-brand-accent) 0%, transparent);
   }
 }
 
@@ -2363,7 +2404,9 @@ body.viewer-app #viewer-account-bar:not(:has(button:not([hidden]))) {
 
 @media (prefers-reduced-motion: reduce) {
   .first-run-pulse,
-  .first-run-pulse > span {
+  .first-run-pulse > span,
+  .scenes-pulse,
+  .scenes-pulse > * {
     animation: none;
   }
 
