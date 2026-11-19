@@ -9837,8 +9837,12 @@ test('ultra.html shows a compressed GLB and loads nothing of the full viewer', a
   await expect(page.locator('#viewer canvas')).toBeVisible();
   await expect(page.locator('.error')).toHaveCount(0);
 
-  expect(requests).toContain('/assets/maps/lite/neutral.hdr');
+  expect(requests).toContain('/assets/maps/lite/neutral.rgbe.webp');
   expect(requests.some((path) => path.includes('/basis/'))).toBe(true);
+  // The loaders this model needs, on demand (Draco: it does not use it).
+  expect(requests.some((path) => /^\/assets\/ultra\/KTX2Loader-[\w-]+\.js$/.test(path))).toBe(true);
+  expect(requests.some((path) => /^\/assets\/ultra\/meshopt_decoder[\w.-]*\.js$/.test(path))).toBe(true);
+  expect(requests.some((path) => path.includes('DRACOLoader') || path.includes('/draco/'))).toBe(false);
   // No stylesheet, font or chunk of the full viewer.
   expect(requests.filter((path) => /\.(css|woff2?)$|dfg_3dviewer-module|\/assets\/[\w.-]+\.js$/.test(path))).toEqual([]);
 });
@@ -9863,8 +9867,9 @@ test('?ultralight=1 on the viewer pages opens ultra.html with the same parameter
   await page.goto('/embed.html?model=./examples/box.glb&ultralight=1&autorotate=1');
   await expect(page).toHaveURL(/\/ultra\.html\?model=\.%2Fexamples%2Fbox\.glb&autorotate=1$/);
   await expect(page.locator('body')).toHaveAttribute('data-state', 'loaded', { timeout: 30_000 });
-  // Not one chunk of the full viewer.
-  expect(scripts.filter((path) => path.startsWith('/assets/'))).toEqual([]);
+  // Not one chunk of the full viewer, nor a decoder (box.glb is not
+  // compressed): only ultra.js's own three.
+  expect(scripts.filter((path) => path.startsWith('/assets/') && !/^\/assets\/ultra\/three-[\w-]+\.js$/.test(path))).toEqual([]);
 
   await page.goto('/?model=./examples/box.glb&ultra=true');
   await expect(page).toHaveURL(/\/ultra\.html\?model=/);

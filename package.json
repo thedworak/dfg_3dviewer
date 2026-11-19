@@ -69,7 +69,8 @@
     "test:local": "python3 ./scripts/run-local-tests.py",
     "test:smoke": "python3 ./scripts/run-local-tests.py --grep @smoke",
     "watch": "cross-env BUILD_SOURCE=IIIF BUILD=test rollup -c -w",
-    "pack-dist": "node ./scripts/pack-dist.js"
+    "pack-dist": "node ./scripts/pack-dist.js",
+    "precompress": "node ./scripts/precompress.mjs"
   },
   "files": [
     "dist/**"
