@@ -220,6 +220,7 @@ import {
 } from "./viewer-helpers.js";
 import { t, setLanguageSource } from "./i18n-utils.js";
 import { foldPageHeader } from "./ui/page-header-fold.js";
+import { showScenesHint } from "./ui/scenes-hint.js";
 import { imageSet, loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
@@ -2276,9 +2277,15 @@ export const Viewer = {
     const picker = document.createElement("div");
     picker.id = "example-model-picker";
 
+    // The scenes (example manifests), the main content: first in the row.
+    const browseManifests = document.createElement("button");
+    browseManifests.type = "button";
+    browseManifests.id = "browseManifestsButton";
+    picker.appendChild(browseManifests);
+
     const label = document.createElement("label");
     label.setAttribute("for", "example-model-select");
-    label.textContent = "Load example model";
+    label.textContent = "Models";
     picker.appendChild(label);
 
     const select = document.createElement("select");
@@ -2314,11 +2321,6 @@ export const Viewer = {
     openLocalFile.type = "button";
     openLocalFile.id = "openLocalFileButton";
     picker.appendChild(openLocalFile);
-
-    const browseManifests = document.createElement("button");
-    browseManifests.type = "button";
-    browseManifests.id = "browseManifestsButton";
-    picker.appendChild(browseManifests);
 
     return picker;
   },
@@ -4491,9 +4493,12 @@ export const Viewer = {
         // The example manifests, as a list with what each one contains
         // (ui/examples-panel.js). The app reaches them through its "Models"
         // button instead (ui/models-source.js); hidden there (main.css).
+        // The main content, so a labelled button, not one more round icon,
+        // pulsing until the scenes have been opened once (scenes-hint.js).
         if (browseManifestsButton) {
-          browseManifestsButton.innerHTML = '<span class="browse-manifests-icon" aria-hidden="true"></span>';
-          const browseManifestsLabel = t("menu.openExampleManifests", "Example manifests");
+          const browseManifestsLabel = t("menu.openExampleManifests", "4D scenes");
+          browseManifestsButton.innerHTML = '<span class="browse-manifests-icon" aria-hidden="true"></span><span class="browse-manifests-label"></span>';
+          browseManifestsButton.querySelector(".browse-manifests-label").textContent = browseManifestsLabel;
           browseManifestsButton.setAttribute("aria-label", browseManifestsLabel);
           browseManifestsButton.setAttribute("title", browseManifestsLabel);
           Viewer.bindEventListener(browseManifestsButton, "click", openUnder(browseManifestsButton, Viewer.toggleExamplesPanel, "examplesPanel", Viewer.closeExamplesPanel));
@@ -4509,6 +4514,8 @@ export const Viewer = {
         Viewer.refreshAuthState?.();
         // On a phone the row folds into one button over the viewer.
         if (!Viewer.isEmbedMode()) Viewer.pageHeaderFold ||= foldPageHeader(Viewer);
+        // The way to the scenes pulses until they are opened once.
+        if (!Viewer.isEmbedMode()) showScenesHint();
         if (picker && selectModel && viewerElement) {
           Viewer.updateLocalPreviewLabels();
           const localurl = new URL(window.location.href);
@@ -4570,6 +4577,9 @@ export const Viewer = {
             // number so a superseded switch skips rebuilding the gallery.
             const switchGeneration = (this.exampleModelSwitchGeneration ?? 0) + 1;
             this.exampleModelSwitchGeneration = switchGeneration;
+            // One of the examples: no longer a scene or another model's name.
+            delete selectModel.dataset.sceneName;
+            delete selectModel.dataset.modelName;
             core.autoPath = selectModel.value;
             window.localStorage.setItem('dfg3dviewer-example-model', selectModel.value);
             this.resetLoadedModelState();

@@ -14,7 +14,8 @@ import re
 import numpy as np
 
 
-def read_hdr(path):
+def read_rgbe(path):
+    """The file's pixels, its RGBE bytes as they are: (height, width, 4) uint8."""
     data = open(path, "rb").read()
     pos = 0
     header = []
@@ -56,6 +57,11 @@ def read_hdr(path):
         else:  # flat scanline
             rgbe[y] = np.frombuffer(data, np.uint8, width * 4, pos).reshape(width, 4)
             pos += width * 4
+    return rgbe
+
+
+def read_hdr(path):
+    rgbe = read_rgbe(path)
     exp = rgbe[..., 3].astype(np.int32)
     scale = np.where(exp == 0, 0.0, np.ldexp(1.0, exp - 136))
     return rgbe[..., :3].astype(np.float64) * scale[..., None]

@@ -634,9 +634,11 @@ const viewerConfig = {
 
 // The ultralight viewer (ultra.html, viewer/ultra.js): a glTF / GLB model and
 // nothing else. A build of its own, so that it shares no chunk with the full
-// viewer: one file, ultra.js, next to the pages. It uses the Draco and Basis
-// decoders and the environment map the viewer's build copies into assets/,
-// so it is built after it (rollup runs the configs in order).
+// viewer: ultra.js next to the pages, and in assets/ultra/ the loaders it
+// imports only for a model that needs them (Draco, KTX2, Meshopt). It uses
+// the Draco and Basis decoders and the environment map the viewer's build
+// copies into assets/, so it is built after it (rollup runs the configs in
+// order).
 const ultraConfig = {
   input: 'viewer/ultra.js',
   treeshake: viewerConfig.treeshake,
@@ -647,9 +649,15 @@ const ultraConfig = {
   output: {
     dir: outDistDir,
     entryFileNames: 'ultra.js',
-    sourcemapFileNames: 'assets/ultra-[hash].js.map',
+    chunkFileNames: 'assets/ultra/[name]-[hash].js',
+    sourcemapFileNames: 'assets/ultra/[name]-[hash].js.map',
     format: 'es',
-    inlineDynamicImports: true,
+    // three in a chunk of its own, which ultra.js and the loaders import: in
+    // ultra.js, the loaders would import "ultra.js" while the page loads
+    // "ultra.js?v=..." - a second copy of the viewer, started again.
+    manualChunks(id) {
+      if (/node_modules\/(\.pnpm\/[^/]+\/node_modules\/)?three\/build\//.test(id)) return 'three';
+    },
     sourcemap: !appBuild,
   },
 };

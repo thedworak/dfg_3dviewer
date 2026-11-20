@@ -1,33 +1,37 @@
 // The ultralight viewer (ultra.html): a glTF / GLB model and nothing else -
 // no menu, intro, gallery, metadata or editor. One bundle of its own
-// (rollup.config.js), about a tenth of the full viewer's download; the Draco
-// and Basis decoders in assets/ are fetched only for models that need them.
+// (rollup.config.js), about a tenth of the full viewer's download. What only
+// some models need comes later, only for them: the Draco, KTX2 (Basis) and
+// Meshopt decoders, chunks in assets/ultra/ and the decoders in assets/.
 //
 //   ultra.html?model=<url of a .glb or .gltf>
 //     &autorotate=1     turn the model slowly
 //     &bg=<css color>   the page's background (default: the viewer's gradient)
 //
 // The lighting matches the lightweight viewer's: its lights, the neutral
-// environment map (the 256x128 copy in assets/maps/lite/) and tone mapping.
+// environment map (the 256x128 map in assets/maps/lite/, its RGBE bytes
+// repacked as a lossless WebP by scripts/hdr-to-rgbe-webp.py) and tone mapping.
 import {
   AmbientLight,
   Box3,
   DirectionalLight,
-  EquirectangularReflectionMapping,
+  HalfFloatType,
   HemisphereLight,
+  Mesh,
+  NearestFilter,
   NeutralToneMapping,
   PerspectiveCamera,
+  PlaneGeometry,
   PMREMGenerator,
   Scene,
+  ShaderMaterial,
   SRGBColorSpace,
+  Texture,
   Vector3,
   WebGLRenderer,
+  WebGLRenderTarget,
 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
-import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
-import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 const params = new URLSearchParams(location.search);
@@ -49,6 +53,87 @@ function fail(message) {
   box.className = "error";
   box.textContent = message;
   container.append(box);
+}
+
+// The environment map: the WebP's left half holds the RGBE mantissas, its
+// right half the exponents. Decoded on the GPU into a half-float equirect,
+// which PMREMGenerator turns into the scene's environment.
+async function loadEnvironment(renderer) {
+  const response = await fetch(`${assets}maps/lite/neutral.rgbe.webp`);
+  if (!response.ok) throw new Error(response.statusText);
+  const bitmap = await createImageBitmap(await response.blob(), {
+    premultiplyAlpha: "none",
+    colorSpaceConversion: "none",
+  });
+  const packed = new Texture(bitmap);
+  packed.minFilter = packed.magFilter = NearestFilter;
+  packed.generateMipmaps = false;
+  packed.flipY = false; // as WebGL does anyway for an ImageBitmap
+  packed.needsUpdate = true;
+  const target = new WebGLRenderTarget(bitmap.width / 2, bitmap.height, { type: HalfFloatType, depthBuffer: false });
+  const quad = new Mesh(
+    new PlaneGeometry(2, 2),
+    new ShaderMaterial({
+      uniforms: { packed: { value: packed } },
+      vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+      // Row 0 of the image is the top of the sky: the target's top (v = 1).
+      fragmentShader: `uniform sampler2D packed; varying vec2 vUv;
+        void main() {
+          vec2 uv = vec2(vUv.x * 0.5, 1.0 - vUv.y);
+          vec3 mantissa = texture2D(packed, uv).rgb;
+          float exponent = floor(texture2D(packed, uv + vec2(0.5, 0.0)).r * 255.0 + 0.5);
+          gl_FragColor = vec4(exponent > 0.0 ? mantissa * exp2(exponent - 128.0) : vec3(0.0), 1.0);
+        }`,
+    })
+  );
+  renderer.setRenderTarget(target);
+  renderer.render(quad, new PerspectiveCamera());
+  renderer.setRenderTarget(null);
+  const pmrem = new PMREMGenerator(renderer);
+  const environment = pmrem.fromEquirectangular(target.texture).texture;
+  pmrem.dispose();
+  target.dispose();
+  packed.dispose();
+  bitmap.close();
+  quad.geometry.dispose();
+  quad.material.dispose();
+  return environment;
+}
+
+// GLTFLoader with the decoders loaded on demand: before parsing, it looks
+// for the compression extensions in the model's JSON and imports only the
+// loaders those need (separate chunks), so a plain model downloads none.
+class UltraGLTFLoader extends GLTFLoader {
+  constructor(renderer) {
+    super();
+    this.renderer = renderer;
+  }
+
+  parse(data, path, onLoad, onError) {
+    let json = data;
+    if (typeof data !== "string") {
+      const view = new DataView(data);
+      const glb = data.byteLength >= 20 && view.getUint32(0, true) === 0x46546c67; // "glTF"
+      json = new TextDecoder().decode(glb ? new Uint8Array(data, 20, view.getUint32(12, true)) : data);
+    }
+    const uses = (name) => json.includes(`"${name}"`);
+    Promise.all([
+      uses("KHR_draco_mesh_compression") &&
+        import("three/examples/jsm/loaders/DRACOLoader.js").then(({ DRACOLoader }) =>
+          this.setDRACOLoader(new DRACOLoader().setDecoderPath(`${assets}draco/gltf/`))
+        ),
+      uses("KHR_texture_basisu") &&
+        import("three/examples/jsm/loaders/KTX2Loader.js").then(({ KTX2Loader }) =>
+          this.setKTX2Loader(new KTX2Loader().setTranscoderPath(`${assets}basis/`).detectSupport(this.renderer))
+        ),
+      (uses("EXT_meshopt_compression") || uses("KHR_meshopt_compression")) &&
+        import("three/examples/jsm/libs/meshopt_decoder.module.js").then(({ MeshoptDecoder }) =>
+          this.setMeshoptDecoder(MeshoptDecoder)
+        ),
+    ])
+      .then(() => super.parse(data, path, onLoad, onError))
+      .catch(onError);
+  }
 }
 
 function start() {
@@ -84,14 +169,12 @@ function start() {
   controls.autoRotate = ["1", "true", "yes", "on"].includes((params.get("autorotate") || "").toLowerCase());
   controls.autoRotateSpeed = 1;
 
-  const pmrem = new PMREMGenerator(renderer);
-  new HDRLoader().load(`${assets}maps/lite/neutral.hdr`, (texture) => {
-    texture.mapping = EquirectangularReflectionMapping;
-    scene.environment = pmrem.fromEquirectangular(texture).texture;
-    scene.environmentIntensity = 0.5;
-    texture.dispose();
-    pmrem.dispose();
-  });
+  loadEnvironment(renderer)
+    .then((texture) => {
+      scene.environment = texture;
+      scene.environmentIntensity = 0.5;
+    })
+    .catch(() => {}); // without it the lights alone light the model
 
   const resize = () => {
     const { clientWidth: width, clientHeight: height } = container;
@@ -112,11 +195,7 @@ function start() {
     return;
   }
 
-  const loader = new GLTFLoader()
-    .setDRACOLoader(new DRACOLoader().setDecoderPath(`${assets}draco/gltf/`))
-    .setKTX2Loader(new KTX2Loader().setTranscoderPath(`${assets}basis/`).detectSupport(renderer))
-    .setMeshoptDecoder(MeshoptDecoder);
-
+  const loader = new UltraGLTFLoader(renderer);
   loader.load(
     modelUrl,
     (gltf) => {

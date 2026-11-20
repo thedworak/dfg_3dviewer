@@ -66,6 +66,7 @@ import { detectTiledFormat, loadTiledModel } from "./tiles.js";
 import { detectFileUnit } from "./editor/model-units.js";
 import { modelNeedsWebGL } from "./renderer-backend.js";
 import { maybeShowFirstRunHints } from "./ui/first-run-hints.js";
+import { showLoadedModelName } from "./example-models.js";
 import { hideAppSplash, onAppModelLoaded } from "./app-hooks.js";
 
 export var outlineClipping;
@@ -1315,9 +1316,10 @@ export async function loadModel() {
       // A file from the device (or a .zip by URL) is a blob: URL - its own
       // name instead.
       const { filename, basename, extension } = core.fileObject;
-      toastHelper("modelLoaded", "success", {
-        filename: filename.startsWith("blob:") ? `${basename}.${extension}` : filename
-      });
+      const shownName = filename.startsWith("blob:") ? `${basename}.${extension}` : filename;
+      toastHelper("modelLoaded", "success", { filename: shownName });
+      // The header's model list names it, if it is none of its examples.
+      showLoadedModelName(shownName);
     } else {
       toastHelper("presentationModeReady", "success");
     }

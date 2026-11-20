@@ -5956,9 +5956,10 @@ test('example model select: a model opened from elsewhere leaves it on none of t
   });
   await waitForModel(page);
   await expect(select).toHaveValue('');
-  await expect(select.locator('option[data-placeholder]')).toHaveText('Other model');
+  // Named by the model itself, in every language.
+  await expect(select.locator('option[data-placeholder]')).toHaveText('box.glb');
   await page.evaluate(() => window.Viewer.selectLanguage('pl'));
-  await expect(select.locator('option[data-placeholder]')).toHaveText('Inny model');
+  await expect(select.locator('option[data-placeholder]')).toHaveText('box.glb');
   await expect(select).toHaveValue('');
 });
 
@@ -7262,16 +7263,39 @@ test('example manifests list: icons of what each manifest contains', async ({ pa
   expect(await icons.evaluateAll((parts) => parts.every((part) => part.dataset.status === 'ok'))).toBe(true);
 });
 
-test('page header: the manifests button opens and closes the example manifests list', async ({ page }) => {
+test('page header: the scenes button comes first, pulses until opened, opens and closes the list', async ({ page }) => {
   await openViewer(page);
   const button = page.locator('#browseManifestsButton');
   await expect(button).toBeVisible();
-  await expect(button).toHaveAttribute('aria-label', 'Example manifests');
+  await expect(button).toHaveAttribute('aria-label', '4D scenes');
+  await expect(button.locator('.browse-manifests-label')).toHaveText('4D scenes');
+  expect(await page.evaluate(() => document.querySelector('#example-model-picker > button')?.id)).toBe('browseManifestsButton');
+  await expect(button).toHaveClass(/scenes-pulse/);
   await button.click();
+  await expect(button).not.toHaveClass(/scenes-pulse/);
+  expect(await page.evaluate(() => localStorage.getItem('dfg3dviewer-scenes-seen'))).toBe('1');
   await expect(page.locator('#examplesPanel')).toBeVisible();
   await expect(page.locator('#examplesPanel .feature-icons').first()).toBeAttached({ timeout: 20_000 });
   await button.click();
   await expect(page.locator('#examplesPanel')).toBeHidden();
+});
+
+test('page header: the model list names the model or scene on screen instead of "Other model"', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const placeholder = page.locator('#example-model-select option[data-placeholder]');
+  await expect(placeholder).toHaveText('box.glb');
+  await page.evaluate(() => {
+    window.Viewer.createExamplesPanel();
+    window.Viewer.examplesPanel.hidden = false;
+    window.Viewer.renderExamplesList();
+  });
+  // One outside the folded groups.
+  const row = page.locator('#examplesPanel .models-panel-item', { hasText: 'Box configuration' }).first();
+  const name = (await row.locator('.models-panel-item-name').textContent()).trim();
+  await row.click();
+  await expect(placeholder).toHaveText(`Scene: ${name}`);
+  await expect.poll(() => page.evaluate(() => document.getElementById('example-model-select').value)).toBe('');
 });
 
 test('weather: rain, snow and a storm around the model; off gives the scene back', async ({ page }) => {
@@ -9837,8 +9861,12 @@ test('ultra.html shows a compressed GLB and loads nothing of the full viewer', a
   await expect(page.locator('#viewer canvas')).toBeVisible();
   await expect(page.locator('.error')).toHaveCount(0);
 
-  expect(requests).toContain('/assets/maps/lite/neutral.hdr');
+  expect(requests).toContain('/assets/maps/lite/neutral.rgbe.webp');
   expect(requests.some((path) => path.includes('/basis/'))).toBe(true);
+  // The loaders this model needs, on demand (Draco: it does not use it).
+  expect(requests.some((path) => /^\/assets\/ultra\/KTX2Loader-[\w-]+\.js$/.test(path))).toBe(true);
+  expect(requests.some((path) => /^\/assets\/ultra\/meshopt_decoder[\w.-]*\.js$/.test(path))).toBe(true);
+  expect(requests.some((path) => path.includes('DRACOLoader') || path.includes('/draco/'))).toBe(false);
   // No stylesheet, font or chunk of the full viewer.
   expect(requests.filter((path) => /\.(css|woff2?)$|dfg_3dviewer-module|\/assets\/[\w.-]+\.js$/.test(path))).toEqual([]);
 });
@@ -9863,8 +9891,9 @@ test('?ultralight=1 on the viewer pages opens ultra.html with the same parameter
   await page.goto('/embed.html?model=./examples/box.glb&ultralight=1&autorotate=1');
   await expect(page).toHaveURL(/\/ultra\.html\?model=\.%2Fexamples%2Fbox\.glb&autorotate=1$/);
   await expect(page.locator('body')).toHaveAttribute('data-state', 'loaded', { timeout: 30_000 });
-  // Not one chunk of the full viewer.
-  expect(scripts.filter((path) => path.startsWith('/assets/'))).toEqual([]);
+  // Not one chunk of the full viewer, nor a decoder (box.glb is not
+  // compressed): only ultra.js's own three.
+  expect(scripts.filter((path) => path.startsWith('/assets/') && !/^\/assets\/ultra\/three-[\w-]+\.js$/.test(path))).toEqual([]);
 
   await page.goto('/?model=./examples/box.glb&ultra=true');
   await expect(page).toHaveURL(/\/ultra\.html\?model=/);

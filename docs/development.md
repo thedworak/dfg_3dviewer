@@ -69,7 +69,7 @@ This writes build output into `dist/test/` and serves it with a small HTTP serve
 - `viewer/main.js` - current viewer runtime entry point in source mode
 - `index.html` - demo page used by local builds and `dist` preview
 - `embed.html` - viewer embed page with URL controls
-- `ultra.html` - the ultralight viewer (`viewer/ultra.js`, a build of its own: `ultra.js`)
+- `ultra.html` - the ultralight viewer (`viewer/ultra.js`, a build of its own: `ultra.js`, and its three.js and on-demand loaders in `assets/ultra/`)
 
 In built output, the generated bundle is exposed through the module entry `dfg_3dviewer-module.js`.
 
