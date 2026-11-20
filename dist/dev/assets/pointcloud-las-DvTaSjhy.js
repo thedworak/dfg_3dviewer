@@ -1,6 +1,6 @@
-import { a as core } from './main-DuXu11KQ.js';
+import { a as core } from './main-qy7Y5yxu.js';
 import { a9 as BufferAttribute, am as BufferGeometry, ba as PointsMaterial, f1 as Points, aM as Group, du as Box3, V as Vector3, G as Sphere, D as DynamicDrawUsage, C as Color, eS as MathUtils } from './three-DQIwNvhE.js';
-import './feature-icons-EpM4BMWo.js';
+import './feature-icons-DdmKTgW2.js';
 import './model-extension-BDXGpmfH.js';
 import './intro-scene-B56HZfgO.js';
 import './room-acoustics-Bwk-VQOn.js';

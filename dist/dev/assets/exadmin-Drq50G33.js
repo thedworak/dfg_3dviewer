@@ -1,4 +1,4 @@
-import { t, c as createTurnstile, e as exampleAssetUrl, G as GALLERY_IMAGE_EXT, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, s as setLanguageSource, d as createPasswordField } from './feature-icons-EpM4BMWo.js';
+import { t, c as createTurnstile, e as exampleAssetUrl, G as GALLERY_IMAGE_EXT, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, s as setLanguageSource, d as createPasswordField } from './feature-icons-DdmKTgW2.js';
 import { m as modelBasename } from './model-extension-BDXGpmfH.js';
 
 // Worker endpoints for the admin pages. On the web they are same-origin

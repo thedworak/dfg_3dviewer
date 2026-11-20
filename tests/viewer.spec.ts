@@ -300,6 +300,29 @@ test('sandbox notice updates after language changes', async ({ page }) => {
   await expect(notice.locator('.viewer-notice-detail').nth(2)).toContainText('archiwa');
 });
 
+for (const manifest of [
+  { name: 'AIM3D', url: '/manifests/box-aim3d-local.json', type: 'aim3if' },
+  { name: 'IIIF', url: '/manifests/box-iiif-p4.json', type: 'iiif' },
+]) {
+  test(`sandbox opens a local ${manifest.name} manifest JSON before legacy geometry`, async ({ page }) => {
+    await openSandboxViewer(page);
+
+    const opened = await page.evaluate(async ({ url, type }) => {
+      const response = await fetch(url);
+      const file = new File([await response.text()], 'manifest.json', { type: 'application/json' });
+      const result = await window.Viewer.openLocalFile(file);
+      return {
+        result,
+        type: window.Viewer.currentManifest?.manifestType,
+        isManifest: window.Viewer.currentManifest?.json?.type === 'Manifest',
+      };
+    }, manifest);
+
+    expect(opened).toEqual({ result: true, type: manifest.type, isManifest: true });
+    await waitForModel(page);
+  });
+}
+
 for (const example of supportedExamples) {
   test(`loads ${example.format.toUpperCase()} example into scene`, async ({ page }) => {
     // web-ifc ships a ~1.3MB WASM binary plus a multi-MB JS API module -

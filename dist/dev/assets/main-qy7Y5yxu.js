@@ -1,5 +1,5 @@
 import { aM as Group$1, i as Scene$1, dm as AxesHelper, bs as Quaternion$2, e6 as Euler$1, a1 as Matrix4$2, h as Mesh, C as Color$2, f_ as WebGLRenderTarget, J as HalfFloatType, fj as ShaderMaterial, g5 as UniformsUtils, V as Vector3$2, aq as Plane, Y as Vector4$1, a2 as OrthographicCamera, am as BufferGeometry, an as Float32BufferAttribute, be as ShadowMaterial, bp as PlaneGeometry, Q as Vector2$1, dE as CircleGeometry, ee as GridHelper, ai as DoubleSide$1, b0 as MeshStandardMaterial, br as CylinderGeometry, B as BoxGeometry, aW as MeshBasicMaterial, bv as RepeatWrapping$1, eT as MeshDepthMaterial, cP as MaxEquation, bi as CustomBlending, dB as CanvasTexture, bb as SRGBColorSpace$1, O as OneMinusSrcAlphaFactor, cy as OneFactor, S as SrcAlphaFactor, f as BackSide$1, du as Box3$1, eS as MathUtils, d4 as AmbientLight, d2 as DirectionalLight, d1 as PointLight, aT as SpotLight, fG as TextureLoader, G as Sphere$1, d$ as DirectionalLightHelper, f0 as PointLightHelper, g7 as WebGLRenderer, a9 as BufferAttribute$1, ao as Object3D, b9 as ObjectLoader, ba as PointsMaterial, f1 as Points, b7 as FileLoader, a_ as MeshPhongMaterial, g9 as PMREMGenerator, aN as EquirectangularReflectionMapping, eN as LoadingManager, bd as FrontSide, g as NoBlending, fJ as Timer, fe as RawShaderMaterial, b as ColorManagement$1, c as SRGBTransfer$1, aG as LinearToneMapping, aH as ReinhardToneMapping, aI as CineonToneMapping, aJ as ACESFilmicToneMapping, aK as AgXToneMapping, aL as NeutralToneMapping, dU as CustomToneMapping, ab as Texture$1, j as LinearFilter$1, a7 as NearestFilter$1, ak as DataTexture, aZ as MeshNormalMaterial, A as AddEquation, bq as ZeroFactor, ct as DstAlphaFactor, cv as DstColorFactor, K as DepthTexture$1, P as DepthStencilFormat$1, U as UnsignedInt248Type, av as RGBAFormat$1, aP as UnsignedByteType$1, gb as ShaderLib, a3 as NoToneMapping$1, a$ as MeshPhysicalMaterial, v as Material, b1 as MeshToonMaterial, aX as MeshLambertMaterial, aY as MeshMatcapMaterial, eE as Line, aV as LineBasicMaterial, bf as SpriteMaterial, fw as Sprite, dv as Box3Helper, fn as ShapeUtils, eQ as LoopRepeat, eO as LoopOnce, db as AnimationMixer, f5 as PropertyBinding, a6 as PCFShadowMap, a4 as NoColorSpace$1, al as ClampToEdgeWrapping$1, L as LinearMipmapLinearFilter$1, fg as Raycaster, eI as LineLoop, en as InstancedMesh, ce as LessDepth, ff as Ray, aU as LineDashedMaterial, eJ as LineSegments, dM as Controls, eZ as OctahedronGeometry, fK as TorusGeometry, bu as SphereGeometry, X as FloatType$1, aw as RedFormat$1, e4 as EdgesGeometry, dh as Audio$1, f4 as PositionalAudio, dk as AudioListener, fq as SkinnedMesh, eR as MOUSE, fE as TOUCH, b6 as Loader, fm as ShapePath, e8 as ExtrudeGeometry, aF as REVISION, bn as PerspectiveCamera, d5 as HemisphereLight, fs as Spherical } from './three-DQIwNvhE.js';
-import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, g as featureIconSvg, h as statusLabel, i as inspectAIM3DManifest, j as featureLabel, k as featureIconsCaption, l as manifestModelUrls, n as turnstileProtects, d as createPasswordField, c as createTurnstile, o as GENERIC_GALLERY_IMAGE_COUNT, p as getGenericGalleryImageUrl, G as GALLERY_IMAGE_EXT, q as isGenericGalleryImageUrl, r as normalizeAIM3DManifest, v as validateAIM3DManifest, u as formatAIM3DManifestValidationErrors, A as AIM3D_MANIFEST_VERSION, w as manifestVersionStatus, x as certaintyText, y as normalizeCertaintyScale, z as normalizeCertaintyAssessment, B as certaintyLevelForValue, C as dataTableToCsv, D as normalizeDataKey, E as dataNumber, L as LIVE_DATA_RAMP_NAMES, F as dataColumnKind, H as normalizeLiveData, I as dataColorScale, J as dataAlert, K as dataTruthy, M as tableFromObjects, N as parseDataTable, O as guessKeyColumn, P as diffDataRows, Q as LIVE_DATA_REFRESH, R as isAIM3DManifest, S as ManifestVersionError, V as VIEWER_I18N, s as setLanguageSource } from './feature-icons-EpM4BMWo.js';
+import { t as t$1, f as fillModelThumbnail, m as metaCaption, a as metaPart, b as modelCheckPart, g as featureIconSvg, h as statusLabel, i as inspectAIM3DManifest, j as featureLabel, k as featureIconsCaption, l as manifestModelUrls, n as turnstileProtects, d as createPasswordField, c as createTurnstile, o as GENERIC_GALLERY_IMAGE_COUNT, p as getGenericGalleryImageUrl, G as GALLERY_IMAGE_EXT, q as isGenericGalleryImageUrl, r as normalizeAIM3DManifest, v as validateAIM3DManifest, u as formatAIM3DManifestValidationErrors, A as AIM3D_MANIFEST_VERSION, w as manifestVersionStatus, x as certaintyText, y as normalizeCertaintyScale, z as normalizeCertaintyAssessment, B as certaintyLevelForValue, C as dataTableToCsv, D as normalizeDataKey, E as dataNumber, L as LIVE_DATA_RAMP_NAMES, F as dataColumnKind, H as normalizeLiveData, I as dataColorScale, J as dataAlert, K as dataTruthy, M as tableFromObjects, N as parseDataTable, O as guessKeyColumn, P as diffDataRows, Q as LIVE_DATA_REFRESH, R as isAIM3DManifest, S as ManifestVersionError, V as VIEWER_I18N, s as setLanguageSource } from './feature-icons-DdmKTgW2.js';
 import { a as modelExtension, m as modelBasename, i as isDicomFile } from './model-extension-BDXGpmfH.js';
 import { D as DEFAULT_SCENE, f as formatSunTime, e as sunriseSunset, H as HORIZON, i as sunTimestamp, g as solarPosition, R as RAD, o as surroundingsGroundHeight, q as surroundingsTerrainHeight, r as surroundingsSnows, h as hasNewShape, u as surroundingsNoise, v as hasSurroundingsGridWater, x as surroundingsGridWaterDistance, w as writeBlockShape, y as surroundingsWaterLevel, c as surroundingsYearToSlider, z as surroundingsPeriod, A as SURROUNDINGS_SLIDER_SPAN, S as SURROUNDINGS_ERAS, s as surroundingsSliderToYear, d as SURROUNDINGS_SLIDER_STEPS, B as SURROUNDINGS_SEASONS, C as SURROUNDINGS_STYLES, E as SURROUNDINGS_REGIONS, F as SURROUNDINGS_KINDS, b as lifeAt, m as mergeGeometries, G as SURROUNDINGS_DEFAULTS, I as normalizeSurroundings, l as layoutSurroundings, p as planSurroundingsLife, J as surroundingsGrowth, K as suggestSurroundings, O as OrbitControls } from './intro-scene-B56HZfgO.js';
 import { R as ROOM_MATERIAL_NAMES, F as FLOOR_COVER_NAMES, s as sendGain, m as materialFromName, c as computeRoomAcoustics } from './room-acoustics-Bwk-VQOn.js';
@@ -9435,7 +9435,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-vjNLNuuZ.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-DH3SwuEV.js'),
+    import('./rendering-webgpu-vXBELC7b.js'),
     import('./weather-webgpu-B6tOXV-8.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -13595,7 +13595,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-B-FFrMT3.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-U7FIl-pU.js');
+const loadTilesPlugins = () => import('./index.three-plugins-a1jhrQnq.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -13937,7 +13937,7 @@ function maybeShowFirstRunHints() {
 const loadDDSLoader = async () => (await import('./DDSLoader-CyqLLwpd.js')).DDSLoader;
 const loadMTLLoader = async () => (await import('./MTLLoader-MpJ8FbTb.js')).MTLLoader;
 const loadOBJLoader = async () => (await import('./OBJLoader-DpZpLQGw.js')).OBJLoader;
-const loadFBXLoader = async () => (await import('./FBXLoader-BYW3WRSg.js')).FBXLoader;
+const loadFBXLoader = async () => (await import('./FBXLoader-yjrDWm7x.js')).FBXLoader;
 const loadPLYLoader = async () => (await import('./PLYLoader-3LwvdLeB.js')).PLYLoader;
 const loadColladaLoader = async () => (await import('./ColladaLoader-rakFlNHu.js')).ColladaLoader;
 const loadSTLLoader = async () => (await import('./STLLoader-BeEAOqnR.js')).STLLoader;
@@ -13948,26 +13948,26 @@ const loadGLTFLoader = async () => (await import('./GLTFLoader-AlTtFYlT.js')).GL
 const loadDRACOLoader = async () => (await import('./DRACOLoader-CJJsHDAc.js')).DRACOLoader;
 const loadKTX2Loader = async () => (await import('./KTX2Loader-DH_brhHp.js')).KTX2Loader;
 const loadMeshoptDecoder = async () => (await import('./meshopt_decoder.module-ddw5RWcg.js')).MeshoptDecoder;
-const loadUSDLoader = async () => (await import('./USDLoader-Cm6Qq8_0.js')).USDLoader;
-const loadThreeMFLoader = async () => (await import('./3MFLoader-hTjuPtgI.js')).ThreeMFLoader;
-const loadAMFLoader = async () => (await import('./AMFLoader-GrJEg74o.js')).AMFLoader;
+const loadUSDLoader = async () => (await import('./USDLoader-C3uc59UC.js')).USDLoader;
+const loadThreeMFLoader = async () => (await import('./3MFLoader-2EYEUz1D.js')).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./AMFLoader-iWH5kGGk.js')).AMFLoader;
 const loadVRMLLoader = async () => (await import('./VRMLLoader-Db6Ya83a.js')).VRMLLoader;
-const loadKMZLoader = async () => (await import('./KMZLoader-BKZd8iLC.js')).KMZLoader;
+const loadKMZLoader = async () => (await import('./KMZLoader-DZM6b5Pl.js')).KMZLoader;
 const loadVOXLoader = async () => (await import('./VOXLoader-BmnzBQZZ.js')).VOXLoader;
 const loadVOXBuildMesh = async () => (await import('./VOXLoader-BmnzBQZZ.js')).buildMesh;
 const loadLWOLoader = async () => (await import('./LWOLoader-D_Qu1Hqd.js')).LWOLoader;
 const loadIFCLoader = async () => (await import('./IFCLoader-C-WidSC0.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./RoomEnvironment-CwCPKJZW.js')).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-Dfzryqp0.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-DvTaSjhy.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-8JB4RQVb.js');
+const loadSplats = async () => import('./splats-CeO4EQCT.js');
 // Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
-const loadVolume = async () => import('./volume-Z7HSkvUu.js');
+const loadVolume = async () => import('./volume-CpJg8SG9.js');
 // Audio files: the player and the spectrogram landscape, with the first one.
-const loadAudio = async () => import('./audio-C6iHVjs6.js');
+const loadAudio = async () => import('./audio-BRZzKd9f.js');
 // 2D images, one or a set (image2d.js).
-const loadImage2D = async () => import('./image2d-DpiFrxPv.js');
+const loadImage2D = async () => import('./image2d-YT5r7ju7.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -27397,7 +27397,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "b9304eec" ;
+const BUILD_ID$2 = "e2ea1b53" ;
 const BUILD$1 = "dev" ;
 
 let initPromise = null;
@@ -27448,8 +27448,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "b9304eec" ;
-const BUILD_TIME$1 = "2026-11-20T12:08:56.618Z" ;
+const BUILD_ID$1 = "e2ea1b53" ;
+const BUILD_TIME$1 = "2026-11-20T15:27:31.237Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -75131,7 +75131,7 @@ function attachWeatherLazy(Viewer) {
 
   let loading = null;
   const load = () => {
-    loading ??= import('./weather-BQchfcUY.js')
+    loading ??= import('./weather-fFWLYRMb.js')
       .then(({ attachWeather }) => {
         attachWeather(Viewer);
         Viewer.updateEditorToolbarState?.();
@@ -94754,7 +94754,7 @@ function attachVolumePanel(Viewer) {
       };
       Viewer.volumeState = state;
       // volume.js is loaded already (loaders.js); this only fetches the module.
-      import('./volume-Z7HSkvUu.js').then((api) => {
+      import('./volume-CpJg8SG9.js').then((api) => {
         if (Viewer.volumeState !== state) return;
         state.api = api;
         Viewer.createVolumePanel();
@@ -95194,7 +95194,7 @@ function attachAudioPanel(Viewer) {
       };
       Viewer.audioState = state;
       // audio.js is loaded already (loaders.js); this only fetches the module.
-      import('./audio-C6iHVjs6.js').then((api) => {
+      import('./audio-BRZzKd9f.js').then((api) => {
         if (Viewer.audioState !== state) return;
         state.api = api;
         state.player = api.getAudioState(root)?.player || null;
@@ -95401,7 +95401,7 @@ function attachAudioPanel(Viewer) {
       Object.entries(scene).forEach(([key, value]) => {
         if (key in state.root.userData.audio && typeof value === typeof state.root.userData.audio[key]) state.root.userData.audio[key] = value;
       });
-      import('./audio-C6iHVjs6.js').then((api) => {
+      import('./audio-BRZzKd9f.js').then((api) => {
         if (Viewer.audioState !== state) return;
         api.applyAudioSettings(state.root);
         const player = api.getAudioState(state.root)?.player;
@@ -100630,7 +100630,7 @@ function attachImagePanel(Viewer) {
       state.onKey = (event) => Viewer.handleImageKey(event);
       window.addEventListener("keydown", state.onKey);
       Viewer.attachImageSplitDrag(state);
-      import('./image2d-DpiFrxPv.js').then((api) => {
+      import('./image2d-YT5r7ju7.js').then((api) => {
         if (Viewer.imageState !== state) return;
         state.api = api;
         // Settings a manifest gave before the module was there.
@@ -112827,8 +112827,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "b9304eec" ;
-const BUILD_TIME = "2026-11-20T12:08:56.618Z" ;
+const BUILD_ID = "e2ea1b53" ;
+const BUILD_TIME = "2026-11-20T15:27:31.237Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -113257,6 +113257,18 @@ function rebaseManifestUrls(value, baseUrl) {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, rebaseManifestUrls(item, baseUrl)]));
   }
   return value;
+}
+
+// A `.json` file can be either a legacy Three.js geometry or a manifest.
+// Check the document itself before sending it to the JSON geometry loader:
+// filenames and MIME types do not distinguish the two reliably, especially
+// for files picked from a device in sandbox mode.
+function localManifestType(json) {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return null;
+  if (isAIM3DManifest(json)) return "aim3if";
+  const types = [json.type, json["@type"]].flatMap((type) => Array.isArray(type) ? type : [type]);
+  // Presentation 2 used `sc:Manifest`; Presentation 3/4 use `Manifest`.
+  return types.some((type) => typeof type === "string" && /(?:^|:)Manifest$/.test(type)) ? "iiif" : null;
 }
 
 // A bundled manifest with the thumbnails the worker keeps for it. The
@@ -114511,11 +114523,11 @@ const Viewer$1 = {
       // Gaussian splats (splats.js) hold their own GPU textures.
       if (node.userData?.isGaussianSplats) node.dispose?.();
       // A volume's 3D textures (volume.js), by then loaded.
-      if (node.isMesh && node.userData?.isVolume) import('./volume-Z7HSkvUu.js').then(({ disposeVolume }) => disposeVolume(node));
+      if (node.isMesh && node.userData?.isVolume) import('./volume-CpJg8SG9.js').then(({ disposeVolume }) => disposeVolume(node));
       // An audio file's player and its blob: URL (audio.js).
-      if (node.userData?.isAudio) import('./audio-C6iHVjs6.js').then(({ disposeAudio }) => disposeAudio(node));
+      if (node.userData?.isAudio) import('./audio-BRZzKd9f.js').then(({ disposeAudio }) => disposeAudio(node));
       // A 2D image's texture and shader (image2d.js).
-      if (node.userData?.isImage2D) import('./image2d-DpiFrxPv.js').then(({ disposeImage }) => disposeImage(node));
+      if (node.userData?.isImage2D) import('./image2d-YT5r7ju7.js').then(({ disposeImage }) => disposeImage(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -115775,6 +115787,39 @@ const Viewer$1 = {
   // whether it loaded.
   async openLocalFile(file) {
     const extension = modelExtension(file.name);
+
+    // JSON also names the old Three.js geometry format. A manifest must be
+    // recognized from its contents first, or it reaches that geometry loader
+    // and fails there. This intentionally leaves arbitrary JSON (including
+    // actual geometry) on the existing model-loading route.
+    if (extension === "json") {
+      let manifest;
+      try {
+        manifest = JSON.parse(await file.text());
+      } catch (_error) {
+        // Keep the established loader's parse error for non-manifest JSON.
+      }
+      const manifestType = localManifestType(manifest);
+      if (manifestType) {
+        clearExampleModelSelection();
+        Viewer$1.shownModelUrl = null;
+        try {
+          // A File has no usable URL to resolve relative resources from, so
+          // resolve them as text manifests have always done: from this page.
+          await Viewer$1.setupManifesto(JSON.stringify(manifest), "text", manifestType, {
+            baseUrl: window.location.href,
+          });
+          if (core.SANDBOX_MODE) {
+            Viewer$1.showSandboxGuiAfterModelLoad();
+            Viewer$1.dismissStatusNotice("sandbox-drop-model");
+          }
+          return true;
+        } catch (error) {
+          Viewer$1.reportError(error, { context: "Error loading local manifest" });
+          return false;
+        }
+      }
+    }
 
     // Not one of the examples: the select says so. Nor on the web: nothing
     // to embed.
@@ -117775,4 +117820,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AUDIO_MIME_TYPES as A, FullScreenQuad as F, PANEL_ICONS as P, Viewer$1 as V, WEATHER_DEFAULTS as W, core as a, readImageMetadata as b, canvasFont as c, AO_RADIUS as d, AO_THICKNESS as e, decompressSync as f, WEATHER_TYPES as g, refreshToolPanelChrome as h, isLightBackground as i, WEATHER_SEASONS as j, attachToolPanelChrome as k, getViewerSideStack as l, isPostProcessingActive as m, getRenderingSettings as n, unzlibSync$1 as o, expectWebGL as p, readAudioMetadata as r, sunDirection as s, unzipSync$1 as u };
-//# sourceMappingURL=main-CBbO7Ca9.js.map
+//# sourceMappingURL=main-D2W-hdOK.js.map

@@ -1180,7 +1180,7 @@ const VIEWER_I18N = {
       unsupportedFormat: "Unsupported file format.",
       presentationModeReady: "Presentation mode is ready.",
       presentationModeError: "An error occurred during presentation mode setup.",
-      sandboxDropModel: "Drag and drop a 3D model into the viewer.",
+      sandboxDropModel: "Drag and drop a 3D model or manifest into the viewer.",
       supportedFormats: "<strong>Supported formats</strong>:\n{formats}\nand <strong>archive formats</strong>: {archives}.",
 
       embedSourceMissing: "Set Model URL or Entity ID for embed.",
@@ -3685,7 +3685,7 @@ const VIEWER_I18N = {
       unsupportedFormat: "Nieobsługiwany format pliku.",
       presentationModeReady: "Tryb prezentacji jest gotowy.",
       presentationModeError: "Wystąpił błąd podczas konfiguracji trybu prezentacji.",
-      sandboxDropModel: "Przeciągnij i upuść model 3D w oknie viewer'a.",
+      sandboxDropModel: "Przeciągnij i upuść model 3D lub manifest w oknie viewer'a.",
       supportedFormats: "<strong>Obłsugiwane formaty</strong>:\n{formats}\ni <strong>archiwa</strong>: {archives}.",
 
       embedSourceMissing: "Ustaw URL modelu lub ID encji do osadzenia.",
@@ -6189,7 +6189,7 @@ const VIEWER_I18N = {
       unsupportedFormat: "Nicht unterstütztes Dateiformat.",
       presentationModeReady: "Präsentationsmodus ist bereit.",
       presentationModeError: "Beim Einrichten des Präsentationsmodus ist ein Fehler aufgetreten.",
-      sandboxDropModel: "Ziehen Sie ein 3D-Modell per Drag-and-drop in den Viewer.",
+      sandboxDropModel: "Ziehen Sie ein 3D-Modell oder Manifest per Drag-and-drop in den Viewer.",
       supportedFormats: "<strong>Unterstützte Formate:</strong> {formats} \n und <strong>Unterstützte Archive:</strong> {archives}.",
 
       embedSourceMissing: "Model-URL oder Entitäts-ID für die Einbettung festlegen.",
@@ -10620,4 +10620,4 @@ function featureIconsCaption(inspection, modelValidation = null) {
 }
 
 export { AIM3D_MANIFEST_VERSION as A, certaintyLevelForValue as B, dataTableToCsv as C, normalizeDataKey as D, dataNumber as E, dataColumnKind as F, GALLERY_IMAGE_EXT as G, normalizeLiveData as H, dataColorScale as I, dataAlert as J, dataTruthy as K, LIVE_DATA_RAMP_NAMES as L, tableFromObjects as M, parseDataTable as N, guessKeyColumn as O, diffDataRows as P, LIVE_DATA_REFRESH as Q, isAIM3DManifest as R, ManifestVersionError as S, VIEWER_I18N as V, metaPart as a, modelCheckPart as b, createTurnstile as c, createPasswordField as d, exampleAssetUrl as e, fillModelThumbnail as f, featureIconSvg as g, statusLabel as h, inspectAIM3DManifest as i, featureLabel as j, featureIconsCaption as k, manifestModelUrls as l, metaCaption as m, turnstileProtects as n, GENERIC_GALLERY_IMAGE_COUNT as o, getGenericGalleryImageUrl as p, isGenericGalleryImageUrl as q, normalizeAIM3DManifest as r, setLanguageSource as s, t, formatAIM3DManifestValidationErrors as u, validateAIM3DManifest as v, manifestVersionStatus as w, certaintyText as x, normalizeCertaintyScale as y, normalizeCertaintyAssessment as z };
-//# sourceMappingURL=feature-icons-DONo4Y-f.js.map
+//# sourceMappingURL=feature-icons-C-TQxOQy.js.map

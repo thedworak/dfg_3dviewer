@@ -1,6 +1,6 @@
-import { a as core, b as readImageMetadata } from './main-DuXu11KQ.js';
+import { a as core, b as readImageMetadata } from './main-qy7Y5yxu.js';
 import { eS as MathUtils, aM as Group, h as Mesh, bp as PlaneGeometry, f_ as WebGLRenderTarget, a2 as OrthographicCamera, i as Scene, ab as Texture, a4 as NoColorSpace, L as LinearMipmapLinearFilter, j as LinearFilter, a7 as NearestFilter, ak as DataTexture, fj as ShaderMaterial, M as Matrix3, V as Vector3, Q as Vector2 } from './three-DQIwNvhE.js';
-import './feature-icons-EpM4BMWo.js';
+import './feature-icons-DdmKTgW2.js';
 import './model-extension-BDXGpmfH.js';
 import './intro-scene-B56HZfgO.js';
 import './room-acoustics-Bwk-VQOn.js';

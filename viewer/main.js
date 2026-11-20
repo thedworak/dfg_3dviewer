@@ -299,6 +299,18 @@ function rebaseManifestUrls(value, baseUrl) {
   return value;
 }
 
+// A `.json` file can be either a legacy Three.js geometry or a manifest.
+// Check the document itself before sending it to the JSON geometry loader:
+// filenames and MIME types do not distinguish the two reliably, especially
+// for files picked from a device in sandbox mode.
+function localManifestType(json) {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return null;
+  if (isAIM3DManifest(json)) return "aim3if";
+  const types = [json.type, json["@type"]].flatMap((type) => Array.isArray(type) ? type : [type]);
+  // Presentation 2 used `sc:Manifest`; Presentation 3/4 use `Manifest`.
+  return types.some((type) => typeof type === "string" && /(?:^|:)Manifest$/.test(type)) ? "iiif" : null;
+}
+
 // A bundled manifest with the thumbnails the worker keeps for it. The
 // worker's copy is the whole manifest as it was when they were saved, so
 // only its thumbnails are taken - everything else (rights, lights, ...) comes
@@ -2830,6 +2842,39 @@ export const Viewer = {
   // whether it loaded.
   async openLocalFile(file) {
     const extension = modelExtension(file.name);
+
+    // JSON also names the old Three.js geometry format. A manifest must be
+    // recognized from its contents first, or it reaches that geometry loader
+    // and fails there. This intentionally leaves arbitrary JSON (including
+    // actual geometry) on the existing model-loading route.
+    if (extension === "json") {
+      let manifest;
+      try {
+        manifest = JSON.parse(await file.text());
+      } catch (_error) {
+        // Keep the established loader's parse error for non-manifest JSON.
+      }
+      const manifestType = localManifestType(manifest);
+      if (manifestType) {
+        clearExampleModelSelection();
+        Viewer.shownModelUrl = null;
+        try {
+          // A File has no usable URL to resolve relative resources from, so
+          // resolve them as text manifests have always done: from this page.
+          await Viewer.setupManifesto(JSON.stringify(manifest), "text", manifestType, {
+            baseUrl: window.location.href,
+          });
+          if (core.SANDBOX_MODE) {
+            Viewer.showSandboxGuiAfterModelLoad();
+            Viewer.dismissStatusNotice("sandbox-drop-model");
+          }
+          return true;
+        } catch (error) {
+          Viewer.reportError(error, { context: "Error loading local manifest" });
+          return false;
+        }
+      }
+    }
 
     // Not one of the examples: the select says so. Nor on the web: nothing
     // to embed.
