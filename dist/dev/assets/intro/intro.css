@@ -1,7 +1,7 @@
 /* The intro page (intro.html, viewer/intro/intro.js). Always dark: the
    points glow against the night. Inter comes from the viewer's
    css/fonts.css (assets/css next to assets/intro). */
-@import "../css/fonts.css?v=e2ea1b53";
+@import "../css/fonts.css?v=8694cfa1";
 
 :root {
   --intro-bg: #05070d;

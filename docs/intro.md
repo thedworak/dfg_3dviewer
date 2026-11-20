@@ -149,12 +149,8 @@ the pagoda. Three scenes come with the viewer:
 
 | Scene | Value |
 |---|---|
-<<<<<<< HEAD
-| Wołpa Synagogue (default, with the 4D time travel and a shtetl round it; the model is CC BY-NC-SA 4.0, by Katarzyna Prokopiuk, Warsaw University of Technology, credited at the bottom of the intro: [CREDITS.md](../viewer/examples/CREDITS.md)) | none |
-=======
 | Pagoda (default, with the 4D time travel and a Japanese temple's precinct round it) | none |
 | Wołpa Synagogue (`viewer/intro/scenes/wolpa/`, with its 4D time travel and a shtetl round it; not in an app build) | `"assets/intro/scenes/wolpa/scene.json"` |
->>>>>>> 6f13639a8612eab6b5aadc9152ec1558c7f96ba4
 | Tempietto (`viewer/intro/scenes/tempietto/`, built to `assets/intro/scenes/tempietto/`) | `"assets/intro/scenes/tempietto/scene.json"` |
 
 The intro page takes the deployment's logo (`branding.logo.srcOnDark`, else

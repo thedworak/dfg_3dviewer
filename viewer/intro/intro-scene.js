@@ -68,9 +68,9 @@ export const DEFAULT_SCENE = Object.freeze({
   // model is shown (viewer/examples/CREDITS.md).
   credit: Object.freeze({
     text: Object.freeze({
-      pl: 'Model: Volpa Synagogue (1929-1941) reconstructed by Katarzyna Prokopiuk, Politechnika Warszawska',
-      en: 'Model: Volpa Synagogue (1929-1941) reconstructed by Katarzyna Prokopiuk, Warsaw University of Technology',
-      de: 'Modell: Volpa Synagogue (1929-1941) reconstructed by Katarzyna Prokopiuk, Technische Universität Warschau',
+      pl: 'Model: Oryginał trójkondygnacyjnej Pagody w stylu japońskim (interpretacja - Daniel Dworak)',
+      en: 'Model: An original three-storey pagoda in the Japanese manner (interpretation by Daniel Dworak)',
+      de: 'Modell: Ein Original Drei-Stockiges Pagoda im japanischen Stil (Interpretation von Daniel Dworak)',
     }),
     license: 'CC BY-NC-SA 4.0',
     url: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
