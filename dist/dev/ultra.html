@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- The viewer has its own dark theme: the browser does not darken the page
+         by itself (Chrome's automatic dark mode dimmed the header's icons). -->
+    <meta name="color-scheme" content="light dark" />
     <title>3D Viewer</title>
     <link rel="shortcut icon" href="assets/img/icon.png" type="image/png">
     <!-- The ultralight viewer: the model and nothing else (viewer/ultra.js). -->
@@ -26,6 +29,6 @@
   <body>
     <div id="viewer"></div>
     <div id="progress"></div>
-    <script type="module" src="ultra.js?v=a93793d9"></script>
+    <script type="module" src="ultra.js?v=1453e482"></script>
   </body>
 </html>

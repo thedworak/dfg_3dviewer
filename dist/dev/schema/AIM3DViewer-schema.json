@@ -358,12 +358,125 @@
             "additionalProperties": true
           }
         },
+        "surroundings": {
+          "description": "Generated surroundings: a typical setting (a settlement, fields, a forest) drawn schematically round the model from its kind, period and seed. A hypothesis about the kind of place, not a reconstruction of this one; exported while shown.",
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "generated": { "type": "boolean", "description": "Always true in exports: says what the block is to whoever reads the manifest." },
+            "life": { "type": "boolean", "description": "People walking the streets, carts and later cars on the roads, boats on the water, in the realistic look (default true); generated like the rest." },
+            "pastTerrain": { "type": "boolean", "description": "On the real terrain: what was made later (reservoirs, dams, quarries, landfills, spoil heaps, embankments, from OpenStreetMap with their start_date) taken away for the years before (default true)." },
+            "open": { "type": "boolean", "description": "Their window open on load: the year's slider with its milestones, and play through the years." },
+            "kind": { "enum": ["castle", "town", "church", "village", "monastery", "manor", "manor-farm", "shtetl", "port"], "description": "What the model is: a castle gets a settlement beside it; a church, a house or a town's building stands in the middle of theirs; a monastery its precinct, a manor house its park and farm, a manor farm its yard (a village beyond each); a shtetl's building a market square of timber houses; a port's building a town on the shore with quays and warehouses." },
+            "period": { "enum": ["early-medieval", "medieval", "early-modern", "industrial", "modern", "postwar", "contemporary"], "description": "From 900, 1250, 1550, 1800, 1914, 1945 or 1990 (to 2025) (default: from `year`)." },
+            "year": { "type": "number", "description": "The year shown (default 1350)." },
+            "season": { "enum": ["spring", "summer", "autumn", "winter"], "description": "Winter is drawn under snow (default summer)." },
+            "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295, "description": "The same seed gives the same layout." },
+            "density": { "type": "number", "minimum": 0, "maximum": 1, "description": "How built-up the settlement is (default 0.6)." },
+            "style": { "enum": ["schematic", "realistic"], "description": "Plain pale shapes (default), or the materials, openings, vegetation and haze of the period, cast shadows, wind and smoke. Marked as generated either way." },
+            "water": { "type": "boolean", "description": "A moat round a castle, a river past a town or a village (by the seed); default true." },
+            "terrain": { "enum": ["generated", "real"], "description": "Generated low hills (default), or the real terrain of the place from elevation data (needs latitude and longitude, else the manifest's location)." },
+            "layoutUrl": { "type": "string", "description": "GeoJSON of an old map's roads, fields, buildings and walls (dated), which take the place of the generated ones; relative: next to the manifest." },
+            "mapOverlay": {
+              "type": "object",
+              "description": "An old map's tiles draped over the ground.",
+              "required": ["url"],
+              "properties": {
+                "url": { "type": "string", "description": "XYZ tiles: {z}, {x}, {y} (and {s}); they must allow cross-origin use." },
+                "opacity": { "type": "number", "minimum": 0, "maximum": 1, "description": "Default 0.85." },
+                "attribution": { "type": "string", "description": "What the map's licence asks to be shown; shown in the badge." }
+              },
+              "additionalProperties": true
+            },
+            "waterUrl": { "type": "string", "description": "GeoJSON of the water as it was, digitised from an old map (relative: next to the manifest); used before any map on the real terrain." },
+            "region": { "enum": ["central", "mediterranean", "nordic", "british", "eastern", "japanese", "african"], "description": "The building tradition: Central Europe (default), the Mediterranean (stone and render, low tiled or flat roofs, cypresses and olive groves), the North (painted timber, turf roofs, whitewashed churches), the British Isles (stone and brick, thatch and slate, square church towers, hedgerows), Eastern Europe (log houses, wooden churches with onion domes), Japan (timber under hipped roofs of tiles or thatch, temples and pagodas, rice fields) or West Africa, the Sahel (round mud houses under conical thatch, flat-roofed mud towns, mud mosques, the savanna; no snow); the Suggested scene picks it by the place." },
+            "masonry": { "enum": ["brick", "stone"], "description": "What churches, towers and town walls are built of (default brick; the Suggested scene picks it by the region)." },
+            "followTimeline": { "type": "boolean", "description": "Follow the 4D timeline's year: its period and how far the settlement has grown; hidden in years outside 900-2025." },
+            "growth": { "type": "number", "minimum": 0, "maximum": 1, "description": "The share of the settlement's houses built (default 1); set from the year while following the timeline." },
+            "latitude": { "type": "number", "minimum": -85, "maximum": 85, "description": "The place, for the real terrain." },
+            "longitude": { "type": "number", "minimum": -180, "maximum": 180, "description": "The place, for the real terrain." }
+          },
+          "additionalProperties": true
+        },
         "sceneSuggest": {
           "description": "The Suggested scene window (Look > Suggested scene) open when the manifest loads; nothing is applied until the user does.",
           "type": "object",
           "properties": {
             "open": { "type": "boolean", "description": "Open the window on load (default false)." },
             "purpose": { "enum": ["documentation", "presentation"], "description": "The purpose shown first (default: the one the rules pick)." }
+          },
+          "additionalProperties": true
+        },
+        "data": {
+          "description": "Live data: a table (CSV, TSV, JSON) that drives the model. Each row belongs to the part of the model its key cell names; its other cells give the part's colour, label, alert and visibility. The table stays connected (its URL read again every `refresh` seconds), and what changes moves to its new look without the model being loaded again.",
+          "type": "object",
+          "properties": {
+            "src": { "type": "string", "description": "The table's URL: CSV or TSV with the column names in the first line (comma, semicolon or tab), or JSON (an array of objects, or { rows: [...] })." },
+            "refresh": { "type": "number", "minimum": 0, "description": "Seconds between two reads of `src` (0.5 to 3600); 0 or absent: read once." },
+            "rows": { "type": "array", "items": { "type": "object" }, "description": "The table itself, one object per row, instead of `src` (or shown until `src` has been read)." },
+            "key": { "type": "string", "description": "The column with the part's name: an object's name in the model (compared without case, spaces and punctuation), or an IFC element's GlobalId. Default: the column that names most objects." },
+            "color": {
+              "description": "The colour: a column's name, or an object. A numeric column runs along the ramp from `min` to `max`; a text column gets a colour per value; a cell that is a colour (#rrggbb) is used as it is.",
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "column": { "type": "string" },
+                    "ramp": { "oneOf": [{ "enum": ["heat", "viridis", "blue", "green", "traffic", "diverging"] }, { "type": "array", "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }, "minItems": 2 }], "description": "A ramp's name (default heat) or its colours, lowest value first." },
+                    "reverse": { "type": "boolean", "description": "The ramp the other way round (default false)." },
+                    "min": { "type": "number", "description": "The value at the ramp's start (default: the column's lowest)." },
+                    "max": { "type": "number", "description": "The value at the ramp's end (default: the column's highest)." },
+                    "categories": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }, "description": "A text column's colours: value -> colour. Values not listed get the palette's next colour." }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "label": {
+              "description": "A cell shown above the part: a column's name, or { column, unit, name }.",
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "column": { "type": "string" },
+                    "unit": { "type": "string", "description": "Written after the value (%, °C, mm)." },
+                    "name": { "type": "boolean", "description": "The part's name before the value (default false)." }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "alert": {
+              "description": "The part pulses while its cell is above `above`, below `below`, or equal to `equals`.",
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "column": { "type": "string" },
+                    "above": { "type": "number" },
+                    "below": { "type": "number" },
+                    "equals": { "type": ["string", "number"] }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "visible": {
+              "description": "The part is hidden while its cell says 0, false, no or off (an empty cell hides nothing): a column's name, or { column }.",
+              "oneOf": [
+                { "type": "string" },
+                { "type": "object", "properties": { "column": { "type": "string" } }, "required": ["column"], "additionalProperties": true }
+              ]
+            },
+            "strength": { "type": "number", "minimum": 0, "maximum": 1, "description": "How much of the colour covers the part's own material (default 0.75)." },
+            "transition": { "type": "number", "minimum": 0, "description": "Seconds a change takes to show (default 0.9; 0: at once)." },
+            "open": { "type": "boolean", "description": "The Live data window open on load (default true)." }
           },
           "additionalProperties": true
         },

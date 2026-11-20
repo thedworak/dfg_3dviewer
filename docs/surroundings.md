@@ -7,7 +7,7 @@ its century, its region. Nothing is sent anywhere and no AI is involved: the
 metadata become a handful of parameters by rules, and the parameters become a
 layout by a seeded procedure.
 
-It is a prototype. Covered so far: **Europe - the centre, the East, the North, the British Isles and the Mediterranean - about 900-2025**.
+It is a prototype. Covered so far: **Europe - the centre, the East, the North, the British Isles and the Mediterranean - Japan and West Africa, about 900-2025**.
 Other periods and regions get no surroundings rather than wrong ones.
 
 ## What it is, and what it is not
@@ -44,7 +44,7 @@ only what was recorded). The rules (`viewer/editor/surroundings-rules.js`,
 |---|---|---|
 | the kind | words in the file name, metadata and manifest texts (English, Polish, German, a few Italian and Spanish): castle / stronghold, monastery / abbey, port / harbour / lighthouse, shtetl / synagogue, manor farm / granary, manor house, town, church, village / mill | not offered |
 | the year | the 4D timeline, else the earliest year or century in the texts ("XIV w.", "14th century") | not offered |
-| the region | the manifest's place, coordinates in the texts, a town they name: Central Europe or the Mediterranean | taken as Central Europe, less surely |
+| the region | the manifest's place, coordinates in the texts, a town they name: one of the regions below | taken as Central Europe, less surely |
 | the size | the model's box in metres: a building or a site | not offered; with an unknown unit, less surely |
 | the season | a season the texts name | summer |
 
@@ -83,6 +83,8 @@ the periods' starts, marked on it with what changes.
 | `nordic` (Norway, Sweden, Finland) | timber painted Falu red (some ochre or white, more in a town after 1800), turf roofs until about 1800 then tiles, eaves to the street; whitewashed churches; fewer fields, more wood - three in four trees spruce and pine; masonry stone |
 | `british` (Great Britain, Ireland) | cottages of stone or whitewash under thatch (slate after 1800), a town's houses rendered or timber-framed, brick and stucco after 1550, red-brick terraces under slate after 1800; churches of stone with a square tower, flat behind its parapet; after the enclosures (about 1750) wider fields in hedgerows with trees; less wood, mostly oak, ash and beech |
 | `eastern` (beyond the Bug, to the upper Volga) | log houses gable to the road, half of them whitewashed clay, under thatch (tin after 1914); wooden churches with a bell tower under an onion dome, blue or green, white after 1800; birch and pine; masonry brick |
+| `japanese` (Japan, Kyushu to Hokkaido) | the plan of Central Europe's (the same roads, lots and fields for a seed), its buildings Japan's: farmhouses (minka) of dark timber under tall hipped thatch, grey tiles after 1914 for most; a town's houses (machiya) eaves to the street under low grey tiles, some white-plastered; white storehouses (kura) for barns and granaries; the church becomes a temple hall under a wide hipped roof and its tower a pagoda of three storeys (five where the tower was tall), vermilion; rice fields - water with young rice in spring, green in summer, gold in autumn; pines and cedars, maples red in autumn |
+| `african` (West Africa, the Sahel: Senegal to Lake Chad) | the same plan, its buildings the Sahel's: round mud houses under conical thatch in a village (to this day), round granaries; flat-roofed mud houses in a town; the church a mud mosque and its tower the minaret, flat-roofed; a thin savanna of acacias (flat crowns) and baobabs; red laterite earth and roads; millet and sorghum; "winter" is the dry season: dry grass, no snow or ice |
 | `early-modern` (1550-1800) | taller, deeper town houses (plastered in ochre, rose, pale green; mostly tiled), a larger plastered church whose tower has a baroque onion dome (copper gone green, or shingled), and round a town earthen ramparts with bastions - a faced scarp outside, grass on top - instead of a wall with towers |
 
 ## Two looks
@@ -370,7 +372,7 @@ half the time), which keeps playing through the years smooth.
 
 ## Not yet
 
-Shadows on walls beyond the sun's shadow map; regions beyond Europe;
+Shadows on walls beyond the sun's shadow map; regions beyond Europe, Japan and West Africa;
 reading descriptions the rules do not understand with the optional AI
 assistant; correcting the AI's reading of an old map in the viewer; the
 terrain as it was (before reservoirs and quarries); people, carts and boats;

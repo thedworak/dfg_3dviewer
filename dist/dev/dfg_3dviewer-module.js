@@ -1,7 +1,7 @@
-export { V as Viewer, p as expectWebGL } from './assets/main-DjndKGWs.js';
+export { V as Viewer, p as expectWebGL } from './assets/main-9cvgVoeO.js';
 import './assets/model-extension-BDXGpmfH.js';
-import './assets/intro-scene-DnRWY5Zp.js';
-import './assets/feature-icons-CHjxEK2R.js';
+import './assets/intro-scene-B56HZfgO.js';
+import './assets/feature-icons-EpM4BMWo.js';
 import './assets/three-DQIwNvhE.js';
 import './assets/room-acoustics-Bwk-VQOn.js';
 import './assets/_commonjsHelpers-1n8l_yFW.js';

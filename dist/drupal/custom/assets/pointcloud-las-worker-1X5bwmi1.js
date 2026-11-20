@@ -1,0 +1,2 @@
+import{decodeLasUrl as e}from"./pointcloud-las-decode-_viVi7jR.js";import"./_node-resolve_empty-DDCmjgak.js";import"./_commonjsHelpers-CcewmdYa.js";self.onmessage=async s=>{const{url:o,maxPoints:t,compressed:r}=s.data||{},a=(e,s=[])=>self.postMessage(e,s);try{await e(o,{maxPoints:t,compressed:r,emit:a})}catch(e){a({type:"error",message:e?.message||String(e)})}},self.postMessage({type:"ready"});
+//# sourceMappingURL=pointcloud-las-worker-C1r9SFPg.js.map

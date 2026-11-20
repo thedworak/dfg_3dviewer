@@ -2,10 +2,10 @@
    confirmation dialog come from the viewer's panel stylesheets; their colours
    (--viewer-panel-*) are set here for the whole page, dark by default like
    the viewer (main.css .viewer-wrapper). */
-@import "./fonts.css?v=a93793d9";
-@import "./upload-panel.css?v=a93793d9";
-@import "./models-panel.css?v=a93793d9";
-@import "./admin-users.css?v=a93793d9";
+@import "./fonts.css?v=1453e482";
+@import "./upload-panel.css?v=1453e482";
+@import "./models-panel.css?v=1453e482";
+@import "./admin-users.css?v=1453e482";
 
 :root {
   color-scheme: dark;
@@ -18,6 +18,10 @@
   --viewer-panel-text: rgba(255, 255, 255, 0.94);
   /* Native dropdown lists need an opaque background to go with the text. */
   --viewer-option-bg: #1a1714;
+  /* Statistics (viewer/exadmin/sections/stats.js): one series hue, stepped
+     for each surface. */
+  --exadmin-stats-series: #3987e5;
+  --exadmin-stats-grid: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-viewer-theme="light"] {
@@ -30,6 +34,8 @@
   --viewer-panel-shadow: 0 14px 30px rgba(129, 116, 96, 0.16);
   --viewer-panel-text: rgba(37, 33, 28, 0.92);
   --viewer-option-bg: #fcfaf6;
+  --exadmin-stats-series: #2a78d6;
+  --exadmin-stats-grid: rgba(37, 33, 28, 0.08);
 }
 
 * {
@@ -71,8 +77,11 @@ body {
 
 .exadmin-nav {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .exadmin-nav a {
@@ -81,6 +90,28 @@ body {
   font-weight: 600;
   text-decoration: none;
   opacity: 0.75;
+}
+
+.exadmin-nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 18%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Something waits for an admin: the warning colour of the Users tabs. */
+.exadmin-nav-badge[data-alert="true"] {
+  background: #eda100;
+  color: #1a1400;
 }
 
 .exadmin-nav a:hover {
@@ -227,6 +258,31 @@ body {
 }
 
 /* The viewer's dialog covers its container; here the window. */
+.exadmin-confirm-input {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 14px;
+}
+
+.exadmin-confirm-input[hidden] {
+  display: none;
+}
+
+.exadmin-confirm-input span {
+  opacity: 0.75;
+}
+
+.exadmin-confirm-input textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
 .exadmin-confirm-backdrop {
   position: fixed;
 }
@@ -344,7 +400,9 @@ body {
 
 /* Example model thumbnails (sections/examples.js) */
 .exadmin-section-header button,
-.exadmin-example .exadmin-report-actions a {
+.exadmin-example .exadmin-report-actions a,
+.exadmin-model .exadmin-report-actions a,
+.exadmin-models-more {
   border: 1px solid var(--viewer-panel-border);
   border-radius: 6px;
   background: transparent;
@@ -402,4 +460,671 @@ body {
 /* Renders with a transparent background: no placeholder cube behind them. */
 .exadmin-example-thumb:has(img)::before {
   display: none;
+}
+
+/* Statistics (viewer/exadmin/sections/stats.js). */
+.exadmin-stats-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.exadmin-stats-ranges button {
+  padding: 4px 10px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.exadmin-stats-ranges button[aria-pressed="true"] {
+  background: var(--viewer-panel-text);
+  color: var(--viewer-page-bg);
+}
+
+.exadmin-stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.exadmin-stats-tile,
+.exadmin-stats-card {
+  padding: 12px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+  min-width: 0;
+}
+
+.exadmin-stats-tile strong {
+  display: block;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-tile span,
+.exadmin-stats-sub {
+  opacity: 0.7;
+}
+
+.exadmin-stats-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 12px;
+}
+
+.exadmin-stats-card h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.exadmin-stats-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.exadmin-stats-plot {
+  position: relative;
+  margin-top: 8px;
+}
+
+.exadmin-stats-plot svg {
+  display: block;
+  max-width: 100%;
+}
+
+.exadmin-stats-grid {
+  stroke: var(--exadmin-stats-grid);
+  stroke-width: 1;
+}
+
+.exadmin-stats-baseline {
+  stroke: var(--viewer-panel-border);
+  stroke-width: 1;
+}
+
+.exadmin-stats-axis {
+  fill: currentColor;
+  opacity: 0.6;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-bar {
+  fill: var(--exadmin-stats-series);
+}
+
+.exadmin-stats-line {
+  fill: none;
+  stroke: var(--exadmin-stats-series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.exadmin-stats-area {
+  fill: var(--exadmin-stats-series);
+  opacity: 0.1;
+}
+
+.exadmin-stats-dot {
+  fill: var(--exadmin-stats-series);
+  stroke: var(--viewer-page-bg);
+  stroke-width: 2;
+}
+
+.exadmin-stats-cursor {
+  stroke: var(--viewer-panel-text);
+  stroke-opacity: 0.3;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.exadmin-stats-hit {
+  fill: transparent;
+}
+
+.exadmin-stats-tooltip {
+  position: absolute;
+  z-index: 2;
+  padding: 6px 10px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: var(--viewer-option-bg);
+  box-shadow: var(--viewer-panel-shadow);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.exadmin-stats-tooltip-title {
+  opacity: 0.7;
+}
+
+.exadmin-stats-breakdown {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.exadmin-stats-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 40%) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.exadmin-stats-breakdown-track {
+  height: 16px;
+}
+
+.exadmin-stats-breakdown-bar {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--exadmin-stats-series);
+}
+
+.exadmin-stats-breakdown-value {
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-table {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.exadmin-stats-table summary {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.exadmin-stats-table table {
+  width: 100%;
+  margin-top: 6px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-table th,
+.exadmin-stats-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--exadmin-stats-grid);
+  text-align: left;
+}
+
+.exadmin-stats-table td:last-child,
+.exadmin-stats-table th:last-child {
+  text-align: right;
+}
+
+/* Models (sections/models.js). */
+.exadmin-queue {
+  margin: 8px 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-queue[hidden] {
+  display: none;
+}
+
+.exadmin-queue h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.exadmin-queue-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.exadmin-queue-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exadmin-queue-meta {
+  grid-column: 1;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.exadmin-queue-row progress {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 100%;
+  accent-color: var(--exadmin-stats-series);
+}
+
+.exadmin-models-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: end;
+  margin: 8px 0;
+}
+
+.exadmin-models-filters[hidden] {
+  display: none;
+}
+
+.exadmin-models-filters input[type="search"] {
+  flex: 1 1 100%;
+}
+
+.exadmin-models-filters label {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.exadmin-models-filters label span {
+  opacity: 0.7;
+}
+
+.exadmin-models-filters input,
+.exadmin-models-filters select {
+  padding: 5px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.exadmin-models-filters select option {
+  background: var(--viewer-option-bg);
+}
+
+.exadmin-models-summary {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.exadmin-models-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exadmin-model {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-model[data-state="failed"] {
+  border-color: rgba(213, 70, 70, 0.5);
+}
+
+.exadmin-model .models-panel-item-thumb {
+  width: 56px;
+  height: 56px;
+}
+
+.exadmin-model-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.exadmin-model-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exadmin-model-meta {
+  font-size: 12px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
+.exadmin-model-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.exadmin-model-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.exadmin-model-tag[data-tone="error"] {
+  border-color: #d54646;
+  color: #d54646;
+}
+
+.exadmin-model-tag[data-tone="warning"] {
+  border-color: #eda100;
+  color: #c98500;
+}
+
+.exadmin-model-error {
+  font-size: 12px;
+  color: #d54646;
+  overflow-wrap: anywhere;
+}
+
+.exadmin-model .exadmin-report-actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
+.exadmin-models-more {
+  display: block;
+  margin: 12px auto 0;
+}
+
+.exadmin-models-more[hidden] {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .exadmin-model {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .exadmin-model .models-panel-item-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .exadmin-model .exadmin-report-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+/* How full the disk is (sections/stats.js diskMeter). */
+.exadmin-stats-disk {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 10px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-stats-disk[data-warning="true"] {
+  border-color: #eda100;
+}
+
+.exadmin-stats-disk-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-stats-disk-text span {
+  opacity: 0.75;
+}
+
+.exadmin-stats-disk-track {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--exadmin-stats-grid);
+}
+
+.exadmin-stats-disk-bar {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--exadmin-stats-series);
+}
+
+.exadmin-stats-disk[data-warning="true"] .exadmin-stats-disk-bar {
+  background: #eda100;
+}
+
+.exadmin-stats-disk-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--viewer-panel-text);
+  opacity: 0.5;
+}
+
+.exadmin-stats-disk-warning {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+/* What the administrators did (sections/history.js). */
+.exadmin-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exadmin-history-entry {
+  display: grid;
+  grid-template-columns: 9.5em minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--viewer-panel-border);
+}
+
+.exadmin-history-entry time {
+  font-size: 12px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-history-what {
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.exadmin-history-details {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+@media (max-width: 600px) {
+  .exadmin-history-entry {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* An administrator's second step (exadmin/two-factor.js). */
+.exadmin-two-factor {
+  width: min(560px, 100%);
+  margin: 24px auto;
+  padding: 18px 20px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 12px;
+  background: var(--viewer-panel-bg);
+}
+
+.exadmin-two-factor-verify {
+  width: min(380px, 100%);
+}
+
+.exadmin-two-factor h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.exadmin-two-factor p {
+  margin: 0 0 12px;
+}
+
+.exadmin-two-factor-scan {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin: 12px 0 16px;
+}
+
+.exadmin-qr {
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+  line-height: 0;
+}
+
+.exadmin-qr svg {
+  width: 100%;
+  height: auto;
+}
+
+.exadmin-two-factor-manual {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.exadmin-two-factor-manual p {
+  margin: 0;
+}
+
+.exadmin-two-factor-key {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 10%, transparent);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.exadmin-two-factor-account,
+.exadmin-two-factor-help {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.exadmin-two-factor-form {
+  display: grid;
+  gap: 10px;
+}
+
+.exadmin-two-factor-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.exadmin-code-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.exadmin-two-factor button,
+.exadmin-two-factor-open {
+  padding: 7px 14px;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.exadmin-two-factor .exadmin-two-factor-primary,
+.exadmin-two-factor-form button[type="submit"] {
+  background: var(--viewer-panel-text);
+  color: var(--viewer-page-bg);
+  font-weight: 600;
+}
+
+.exadmin-two-factor button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.exadmin-two-factor .exadmin-link-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+.exadmin-recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+  margin: 12px 0 16px;
+  padding: 12px 12px 12px 36px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--viewer-panel-text) 8%, transparent);
+  font-family: var(--font-code);
+  font-size: 14px;
+}
+
+.exadmin-two-factor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .exadmin-two-factor-scan {
+    grid-template-columns: 1fr;
+  }
+
+  .exadmin-qr {
+    width: 200px;
+  }
+
+  .exadmin-recovery-codes {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Inside the app (?app=1, ui/admin-panel.js): the safe areas of the phone. */
+.exadmin-header {
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+/* "Remember this device" under the code (exadmin/two-factor.js). */
+.exadmin-remember {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
 }

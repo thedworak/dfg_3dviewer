@@ -100,8 +100,11 @@
     flex-wrap: wrap;
   }
 
+  /* Beside the warning's icon and the close button, which stay on the
+     first line (a basis of the whole width less the button pushed the
+     button alone onto a line of its own); the actions below. */
   .viewer-hint_text {
-    flex-basis: calc(100% - 40px);
+    flex: 1 1 0;
   }
 
   .viewer-hint_actions {

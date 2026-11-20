@@ -5,7 +5,7 @@
 //   1. sections      - a plane sweeps in from the front, the cut glows
 //   2. annotations   - pins with labels, and a height measurement
 //   3. shading       - wipes through textures, PBR (glossy), raking light
-//   4. sun study     - the sun's real path over Wołpa on midsummer day, the
+//   4. sun study     - the sun's real path over the site on midsummer day, the
 //                      sun itself and its track in the sky, a compass on the
 //                      ground, shadows; the camera holds still meanwhile
 //   5. seasons       - spring petals, summer, autumn leaves, winter snow
@@ -15,11 +15,11 @@
 //   7. live          - cooperation mode: a phone with a second session of
 //                      the scene; a finger turns the model on the phone and
 //                      the screen follows, live
-//   8. time travel   - the 4D model's stages, 1730 to 1936: back to the
-//                      building's raw new timber, then year by year its
-//                      ageing and repairs, a warm front sweeping up the walls
+//   8. time travel   - the 4D model's stages (the pagoda: 1615 to 2025):
+//                      back to the building's new timber and fresh paint,
+//                      then year by year its ageing and repairs, a warm front sweeping up the walls
 //                      at each stage, the year on a timeline of dates
-//                      (textures from scripts/build-intro-time.mjs)
+//                      (textures from scripts/build-pagoda-examples.mjs)
 //   9. surroundings  - the camera rises and draws back: the viewer's
 //                      generated surroundings grow round the model through
 //                      all the periods they cover, 900 to 2025
@@ -221,10 +221,10 @@ const SHADING_LENGTH = 3.6;
 const SEASON_LENGTH = 2.2;
 const SEASONS_END = 4 * SEASON_LENGTH;
 
-// The sun study: Wołpa (Voŭpa, Belarus), midsummer day, local time (UTC+3).
-// The model's north is taken to be -Z (the viewer's default, AIM3DViewer
-// location.north = 0): the model's files do not say where north is.
-const DEFAULT_SITE = { latitude: 53.37, longitude: 24.37, utcOffset: 3, north: 0, month: 6, day: 21 };
+// The sun study without a scene's own site: Nara, midsummer day, local time
+// (UTC+9) - the pagoda's (intro-scene.js DEFAULT_SCENE). The model's north
+// is taken to be -Z (the viewer's default, AIM3DViewer location.north = 0).
+const DEFAULT_SITE = { latitude: 34.68, longitude: 135.83, utcOffset: 9, north: 0, month: 6, day: 21 };
 const SUN_LENGTH = 4.8;
 // The sun's track around the building's middle, this far out (intro units).
 const SUN_RADIUS = 2.5;
@@ -271,8 +271,10 @@ const window01 = (x, a, b, fade) => smooth((x - a) / fade) * (1 - smooth((x - b 
  *   toIntro     (x, y, z) in the model's units -> Vector3 in the intro's space
  *   heightLabel the measured height, formatted
  *   footprint   the model's footprint, its half-diagonal in metres
+ *   bounds      { min, max }: the model's box in the intro's space (the
+ *               section plane covers its front, a little beyond)
  */
-export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang, scene = {}, plan = tourPlan(), footprint = 20 }) {
+export function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, heightLabel, lang, scene = {}, plan = tourPlan(), footprint = 20, bounds = null }) {
   const u = reveal.uniforms;
   const group = new Group();
   const CHAPTERS = plan.chapters;
@@ -344,16 +346,17 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
 
   // --- Section plane ----------------------------------------------------------
   const planeMaterial = new ShaderMaterial({
-    uniforms: { uAlpha: { value: 0 } },
+    uniforms: { uAlpha: { value: 0 }, uCells: { value: new Vector2(14, 10) } },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
       void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
     `,
     fragmentShader: /* glsl */ `
       uniform float uAlpha;
+      uniform vec2 uCells;
       varying vec2 vUv;
       void main() {
-        vec2 g = abs(fract(vUv * vec2(14.0, 10.0)) - 0.5);
+        vec2 g = abs(fract(vUv * uCells) - 0.5);
         float grid = 1.0 - smoothstep(0.0, 0.03, min(g.x, g.y));
         float edge = 1.0 - smoothstep(0.0, 0.01, min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y)));
         vec3 color = vec3(0.35, 0.65, 1.0) * (0.05 + grid * 0.12 + edge * 0.7);
@@ -365,8 +368,18 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
     side: DoubleSide,
     blending: AdditiveBlending,
   });
-  // Facing +z, the front: the camera looks at it nearly head-on.
-  const plane = new Mesh(new PlaneGeometry(3.6, 1.95), planeMaterial);
+  // Facing +z, the front: the camera looks at it nearly head-on. As wide and
+  // as high as the model's box and a little more, from its foot to its top;
+  // it sweeps from just in front of the model to just behind its middle.
+  const box = bounds ?? { min: new Vector3(-1.8, -0.675, -1.75), max: new Vector3(1.8, 1.275, 1.75) };
+  const boxSize = box.max.clone().sub(box.min);
+  const plane = new Mesh(new PlaneGeometry(1, 1), planeMaterial);
+  plane.scale.set(boxSize.x * 1.12, boxSize.y * 1.08, 1);
+  // Square cells, 14 across.
+  planeMaterial.uniforms.uCells.value.set(14, Math.max(1, Math.round((14 * plane.scale.y) / plane.scale.x)));
+  const planeY = (box.min.y + box.max.y) / 2;
+  const cutFrom = box.max.z + 0.05;
+  const cutTo = (box.min.z + box.max.z) / 2 - boxSize.z * 0.06;
   plane.renderOrder = 5;
   group.add(plane);
 
@@ -848,15 +861,42 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
 
   // A badge while the surroundings show: they are a comparison, not this
   // place. Under the timeline (or the chapter's name).
+  // Short: its title and an "i"; the rest on hover, focus or a tap.
   const badge = document.createElement('div');
   badge.className = 'intro-badge';
-  badge.innerHTML = '<strong></strong><span></span>';
+  badge.tabIndex = 0;
+  badge.setAttribute('role', 'button');
+  badge.setAttribute('aria-expanded', 'false');
+  badge.innerHTML = '<span class="intro-badge-head"><strong></strong><span class="intro-badge-info" aria-hidden="true">i</span></span><span class="intro-badge-text"></span>';
+  const badgeTitle = badge.querySelector('strong');
+  const badgeText = badge.querySelector('.intro-badge-text');
+  const setBadgeOpen = (open) => {
+    badge.classList.toggle('is-open', open);
+    badge.setAttribute('aria-expanded', String(open));
+  };
+  badge.addEventListener('pointerenter', (event) => { if (event.pointerType === 'mouse') setBadgeOpen(true); });
+  badge.addEventListener('pointerleave', (event) => { if (event.pointerType === 'mouse') setBadgeOpen(false); });
+  badge.addEventListener('focus', () => setBadgeOpen(true));
+  badge.addEventListener('blur', () => setBadgeOpen(false));
+  // A tap (touch) opens and closes it; it does not turn the model.
+  badge.addEventListener('pointerdown', (event) => event.stopPropagation());
+  badge.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (event.pointerType !== 'mouse') setBadgeOpen(!badge.classList.contains('is-open'));
+  });
   root.appendChild(badge);
   function showBadge(title, text, visible, under) {
     badge.style.opacity = visible.toFixed(3);
-    if (visible <= 0) return;
-    if (badge.firstChild.textContent !== title) badge.firstChild.textContent = title;
-    if (badge.lastChild.textContent !== text) badge.lastChild.textContent = text;
+    badge.style.pointerEvents = visible > 0.5 ? 'auto' : 'none';
+    if (visible <= 0) {
+      if (badge.classList.contains('is-open') && document.activeElement !== badge) setBadgeOpen(false);
+      return;
+    }
+    if (badgeTitle.textContent !== title) badgeTitle.textContent = title;
+    if (badgeText.textContent !== text) {
+      badgeText.textContent = text;
+      badge.setAttribute('aria-label', `${title}. ${text}`);
+    }
     badge.style.top = `${(under + 8).toFixed(0)}px`;
   }
 
@@ -969,10 +1009,10 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       // it and the inside shows), through, and back out.
       const sectionOn = window01(tour, 0, 3.0, 0.35);
       const sweep = smooth(tour / 1.6) - smooth((tour - 1.9) / 1.0);
-      const cut = 1.75 - sweep * 1.95;
+      const cut = cutFrom + (cutTo - cutFrom) * sweep;
       u.uClip.value.set(0, 0, -1, cut);
       u.uClipActive.value = sectionOn;
-      plane.position.set(0, 0.3, cut);
+      plane.position.set(0, planeY, cut);
       planeMaterial.uniforms.uAlpha.value = sectionOn;
       plane.visible = sectionOn > 0.001;
 
@@ -1006,7 +1046,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
       u.uModeB.value = modeB;
       u.uWipe.value = wipe;
 
-      // 4. Sun: midsummer day at Wołpa, from just before sunrise to just
+      // 4. Sun: midsummer day at the site, from just before sunrise to just
       // after sunset, then night falls.
       const sunTime = (tour - START.sun) / SUN_LENGTH;
       let sunKey = '';
@@ -1119,7 +1159,7 @@ export function createFeatureTour({ reveal, camera, renderer, root, texts, toInt
         }
       } else {
         resetTime();
-        if (!timeTravel && !scene.custom && timeTime > 0 && timeTime < TIME_END - START.time) timeSub = '1730 → 1936';
+        if (!timeTravel && !scene.custom && timeTime > 0 && timeTime < TIME_END - START.time) timeSub = '1615 → 2025';
       }
       const timeLength = TIME_END - START.time;
       const timelineOn = timelineAt === null ? 0
