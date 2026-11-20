@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Toon shading (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Cieniowanie toon (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Toon-Shading (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -156,13 +156,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Non-photorealistic cel-shaded rendering with dark contours."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Komiksowe cieniowanie cel-shading z ciemnymi konturami."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Nicht-fotorealistisches Cel-Shading-Rendering mit dunklen Konturen."
     ]
   }
 }

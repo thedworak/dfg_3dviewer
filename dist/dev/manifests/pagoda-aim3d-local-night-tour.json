@@ -67,18 +67,39 @@
                   "Stone platform"
                 ],
                 "pl": [
-                  "Stone platform"
+                  "Kamienny podest"
                 ],
                 "de": [
-                  "Stone platform"
+                  "Steinplattform"
                 ]
               },
               "body": {
-                "type": "TextualBody",
-                "value": "Example annotation for the project’s own Pagoda model.",
-                "format": "text/plain",
-                "language": [
-                  "en"
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Stone platform with steps on four sides, elevating the wooden pagoda above the temple precinct.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Kamienny podest ze schodami z czterech stron, unoszący drewnianą pagodę ponad dziedziniec świątynny.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Steinplattform mit Stufen auf vier Seiten, die die Holzpagode über den Tempelbezirk anhebt.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
                 ]
               },
               "target": {
@@ -132,18 +153,39 @@
                   "Entrance"
                 ],
                 "pl": [
-                  "Entrance"
+                  "Wejście"
                 ],
                 "de": [
-                  "Entrance"
+                  "Eingang"
                 ]
               },
               "body": {
-                "type": "TextualBody",
-                "value": "Example annotation for the project’s own Pagoda model.",
-                "format": "text/plain",
-                "language": [
-                  "en"
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Studded double doors with bronze hardware in the middle bay of the ground storey.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Dwuskrzydłowe drzwi z ćwiekami i okuciami z brązu w środkowym przęśle parteru.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Beschlagene zweiflügelige Holztüren mit Bronzebeschlägen im mittleren Joch des Erdgeschosses.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
                 ]
               },
               "target": {
@@ -194,21 +236,42 @@
               ],
               "label": {
                 "en": [
-                  "Bracket sets"
+                  "Bracket sets (tokyō)"
                 ],
                 "pl": [
-                  "Bracket sets"
+                  "Zespoły wsporników (tokyō)"
                 ],
                 "de": [
-                  "Bracket sets"
+                  "Kragträgersätze (Tokyō)"
                 ]
               },
               "body": {
-                "type": "TextualBody",
-                "value": "Example annotation for the project’s own Pagoda model.",
-                "format": "text/plain",
-                "language": [
-                  "en"
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Three-step bracket complexes (mutesaki tokyō) transferring the weight of the deep tiled eaves to the pillars.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Trzystopniowe zespoły wspornikowe (mutesaki tokyō) przenoszące ciężar wysuniętych dachów na słupy nośne.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Dreistufige Kragträgergefüge (Mutesaki Tokyō), die die Last der weit ausladenden Ziegeldächer auf die Pfeiler leiten.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
                 ]
               },
               "target": {
@@ -262,18 +325,39 @@
                   "Tiered roofs"
                 ],
                 "pl": [
-                  "Tiered roofs"
+                  "Dachy kondygnacji"
                 ],
                 "de": [
-                  "Tiered roofs"
+                  "Geschossdächer"
                 ]
               },
               "body": {
-                "type": "TextualBody",
-                "value": "Example annotation for the project’s own Pagoda model.",
-                "format": "text/plain",
-                "language": [
-                  "en"
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Three tiers of curved hip roofs covered with traditional round and flat ceramic tiles (kawara).",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Trzy kondygnacje wygiętych dachów krytych tradycyjną ceramiczną dachówką (kawara).",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Drei Geschosse geschwungener Walmdächer, gedeckt mit traditionellen Ziegeln (Kawara).",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
                 ]
               },
               "target": {
@@ -324,21 +408,42 @@
               ],
               "label": {
                 "en": [
-                  "Finial"
+                  "Finial (sōrin)"
                 ],
                 "pl": [
-                  "Finial"
+                  "Zwieńczenie sōrin"
                 ],
                 "de": [
-                  "Finial"
+                  "Bekrönung (Sōrin)"
                 ]
               },
               "body": {
-                "type": "TextualBody",
-                "value": "Example annotation for the project’s own Pagoda model.",
-                "format": "text/plain",
-                "language": [
-                  "en"
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Bronze spire with dew basin, inverted bowl, nine sacred rings, water flames and jewel (hōju).",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Brązowa iglica z misą rosy, odwróconą czarą, dziewięcioma pierścieniami, płomieniem wody i klejnotem hōju.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Bronzene Spitze mit Tauschale, umgedrehter Schale, neun Ringen, Wasserflammen und Juwel (Hōju).",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
                 ]
               },
               "target": {
@@ -570,13 +675,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with a guided tour with annotations."
+      "A guided night tour of the Pagoda with architectural annotations."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: a guided tour with annotations."
+      "Nocna wycieczka z przewodnikiem po pagodzie z adnotacjami architektonicznymi."
     ],
     "de": [
-      "Die Pagode mit der Funktion „a guided tour with annotations“."
+      "Eine geführte nächtliche Tour um die Pagode mit Architektur-Anmerkungen."
     ]
   }
 }

@@ -174,8 +174,8 @@
       "style": "realistic",
       "water": true,
       "terrain": "real",
-      "latitude": 53.3647,
-      "longitude": 24.3711,
+      "latitude": 34.68,
+      "longitude": 135.83,
       "masonry": "stone",
       "region": "japanese",
       "open": true
@@ -184,13 +184,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with a generated Japanese temple precinct."
+      "A procedural Japanese temple precinct generated around the Pagoda."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: a generated Japanese temple precinct."
+      "Generowany proceduralnie japoński zespół świątynny wokół pagody."
     ],
     "de": [
-      "Die Pagode mit der Funktion „a generated Japanese temple precinct“."
+      "Ein prozedural generierter japanischer Tempelbezirk um die Pagode."
     ]
   }
 }

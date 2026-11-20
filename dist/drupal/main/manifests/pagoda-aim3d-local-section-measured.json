@@ -1,6 +1,6 @@
 {
   "@context": "http://iiif.io/api/presentation/4/context.json",
-  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest.json",
+  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-section-measured.json",
   "type": "Manifest",
   "label": {
     "en": [
@@ -15,13 +15,13 @@
   },
   "summary": {
     "en": [
-      "The Pagoda shown with measurements of the building."
+      "A section through the Pagoda with architectural measurements."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: measurements of the building."
+      "Przekrój przez pagodę wraz z pomiarami architektonicznymi."
     ],
     "de": [
-      "Die Pagode mit der Funktion „measurements of the building“."
+      "Ein Schnitt durch die Pagode mit architektonischen Messungen."
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -76,9 +76,9 @@
     "generatedAt": "2026-11-20T00:00:00.000Z",
     "camera": {
       "position": [
-        24,
-        9,
-        30
+        26,
+        9.5,
+        0
       ],
       "target": [
         0,
@@ -186,12 +186,12 @@
         "mode": "distance",
         "points": [
           [
-            7,
+            0,
             0,
             0
           ],
           [
-            7,
+            0,
             20.5,
             0
           ]
@@ -201,14 +201,14 @@
         "mode": "distance",
         "points": [
           [
-            -6.5,
-            1,
-            0
+            0,
+            1.1,
+            -5.4
           ],
           [
-            6.5,
-            1,
-            0
+            0,
+            1.1,
+            5.4
           ]
         ]
       },
@@ -217,13 +217,28 @@
         "points": [
           [
             0,
-            1,
-            -6.5
+            4.3,
+            -3.2
           ],
           [
             0,
-            1,
-            6.5
+            4.3,
+            3.2
+          ]
+        ]
+      },
+      {
+        "mode": "distance",
+        "points": [
+          [
+            0,
+            5.8,
+            -6.1
+          ],
+          [
+            0,
+            5.8,
+            6.1
           ]
         ]
       },
@@ -231,44 +246,19 @@
         "mode": "angle",
         "points": [
           [
-            -7,
-            12,
+            0,
+            13.5,
+            6
+          ],
+          [
+            0,
+            15.5,
             0
           ],
           [
             0,
-            15,
-            0
-          ],
-          [
-            7,
-            12,
-            0
-          ]
-        ]
-      },
-      {
-        "mode": "area",
-        "points": [
-          [
-            -6.5,
-            0,
-            -6.5
-          ],
-          [
-            6.5,
-            0,
-            -6.5
-          ],
-          [
-            6.5,
-            0,
-            6.5
-          ],
-          [
-            -6.5,
-            0,
-            6.5
+            13.5,
+            -6
           ]
         ]
       }

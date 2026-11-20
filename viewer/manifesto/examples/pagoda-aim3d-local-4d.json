@@ -4,7 +4,24 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda - 4D (AIM3D, localhost)"
+      "Pagoda — 4D: weathering and repairs 1615–2025 (AIM3D, localhost)"
+    ],
+    "pl": [
+      "Pagoda — 4D: starzenie i remonty 1615–2025 (AIM3D, localhost)"
+    ],
+    "de": [
+      "Pagode — 4D: Alterung und Instandsetzungen 1615–2025 (AIM3D, localhost)"
+    ]
+  },
+  "summary": {
+    "en": [
+      "The Pagoda shown with 4D time travel through weathering and repairs between 1615 and 2025."
+    ],
+    "pl": [
+      "Pagoda pokazana z funkcją osi czasu 4D prezentującą starzenie i remonty w latach 1615–2025."
+    ],
+    "de": [
+      "Die Pagode mit 4D-Zeitreise zu Alterung und Instandsetzungen zwischen 1615 und 2025."
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",

@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Autumn morning mist (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Jesienna poranna mgła (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Herbstlicher Morgennebel (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -113,23 +113,34 @@
           0,
           0
         ],
-        "color": "#404040",
+        "color": "#555555",
         "intensity": 1
       },
       {
         "type": "DirectionalLight",
         "position": [
-          15,
-          30,
-          20
+          10,
+          25,
+          15
         ],
         "target": [
           0,
           9.5,
           0
         ],
-        "color": "#ffffff",
+        "color": "#eeddcc",
         "intensity": 1
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          25,
+          0
+        ],
+        "color": "#ccddee",
+        "groundColor": "#444444",
+        "intensity": 0.6
       }
     ],
     "location": {
@@ -177,13 +188,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Morning autumn mist softening the pagoda silhouette."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Jesienna poranna mgła otulająca sylwetkę pagody."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Morgendlicher Herbstnebel, der die Silhouette der Pagode einhüllt."
     ]
   }
 }

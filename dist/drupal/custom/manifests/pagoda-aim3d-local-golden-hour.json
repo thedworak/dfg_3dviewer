@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Golden hour, ACES (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Złota godzina, ACES (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Goldene Stunde, ACES (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -113,14 +113,14 @@
           0,
           0
         ],
-        "color": "#404040",
-        "intensity": 1
+        "color": "#5a3a24",
+        "intensity": 0.5
       },
       {
         "type": "DirectionalLight",
         "position": [
-          15,
-          30,
+          -25,
+          10,
           20
         ],
         "target": [
@@ -128,8 +128,19 @@
           9.5,
           0
         ],
-        "color": "#ffffff",
-        "intensity": 1
+        "color": "#ffb36b",
+        "intensity": 2.8
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          25,
+          0
+        ],
+        "color": "#ffd9a8",
+        "groundColor": "#3b2414",
+        "intensity": 0.6
       }
     ],
     "modelTransform": {
@@ -156,13 +167,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "The Pagoda bathed in low-angle golden hour sunlight with ACES tone mapping."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Pagoda w niskim świetle złotej godziny z mapowaniem tonów ACES."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Die Pagode im tiefstehenden Licht der goldenen Stunde mit ACES-Tonemapping."
     ]
   }
 }

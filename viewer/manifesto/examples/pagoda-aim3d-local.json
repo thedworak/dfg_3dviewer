@@ -5,6 +5,23 @@
   "label": {
     "en": [
       "Pagoda (AIM3D, localhost)"
+    ],
+    "pl": [
+      "Pagoda (AIM3D, localhost)"
+    ],
+    "de": [
+      "Pagode (AIM3D, localhost)"
+    ]
+  },
+  "summary": {
+    "en": [
+      "An original three-storey pagoda in the Japanese manner, the project's own example model."
+    ],
+    "pl": [
+      "Trzykondygnacyjna pagoda w stylu japońskim, własny model przykładowy projektu."
+    ],
+    "de": [
+      "Eine dreigeschossige Pagode im japanischen Stil, das eigene Beispielmodell des Projekts."
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",

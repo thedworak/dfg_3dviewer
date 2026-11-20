@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Overcast, Lambert, Cineon (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Pochmurno, Lambert, Cineon (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Bewölkt, Lambert, Cineon (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -113,23 +113,34 @@
           0,
           0
         ],
-        "color": "#404040",
-        "intensity": 1
+        "color": "#708090",
+        "intensity": 1.1
       },
       {
         "type": "DirectionalLight",
         "position": [
-          15,
-          30,
-          20
+          5,
+          35,
+          10
         ],
         "target": [
           0,
           9.5,
           0
         ],
-        "color": "#ffffff",
-        "intensity": 1
+        "color": "#d0d8e0",
+        "intensity": 0.9
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          30,
+          0
+        ],
+        "color": "#b0c0d0",
+        "groundColor": "#505860",
+        "intensity": 0.7
       }
     ],
     "modelTransform": {
@@ -156,13 +167,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Diffuse daylight under an overcast sky, Lambert shading and Cineon tone mapping."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Rozproszone światło dzienne pod pochmurnym niebem, cieniowanie Lamberta i mapowanie Cineon."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Diffuses Tageslicht bei bedecktem Himmel, Lambert-Schattierung und Cineon-Tonemapping."
     ]
   }
 }

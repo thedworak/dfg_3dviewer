@@ -143,18 +143,18 @@
         "de": "Ansicht von oben"
       },
       "name": {
-        "en": "Pagoda — V (localhost)",
-        "pl": "Pagoda — W (localhost)",
-        "de": "Pagoda — A (localhost)"
+        "en": "Pagoda — View from above (localhost)",
+        "pl": "Pagoda — Widok z góry (localhost)",
+        "de": "Pagoda — Ansicht von oben (localhost)"
       }
     },
     {
       "url": "./manifests/pagoda-aim3d-local-measured.json",
       "excludeFromMobile": true,
       "name": {
-        "en": "Pagoda — M (localhost)",
-        "pl": "Pagoda — P (localhost)",
-        "de": "Pagoda — M (localhost)"
+        "en": "Pagoda — Measurements: height, roof and footprint (localhost)",
+        "pl": "Pagoda — Pomiary: wysokość, dach i obrys (localhost)",
+        "de": "Pagoda — Messungen: Höhe, Dach und Grundriss (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -167,9 +167,9 @@
       "url": "./manifests/pagoda-aim3d-local-section-measured.json",
       "excludeFromMobile": true,
       "name": {
-        "en": "Pagoda — S (localhost)",
-        "pl": "Pagoda — P (localhost)",
-        "de": "Pagoda — S (localhost)"
+        "en": "Pagoda — Section with measurements (localhost)",
+        "pl": "Pagoda — Przekrój z pomiarami (localhost)",
+        "de": "Pagoda — Schnitt mit Messungen (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -187,9 +187,9 @@
         "de": "Goldene Stunde, ACES"
       },
       "name": {
-        "en": "Pagoda — G (localhost)",
-        "pl": "Pagoda — Z (localhost)",
-        "de": "Pagoda — G (localhost)"
+        "en": "Pagoda — Golden hour, ACES (localhost)",
+        "pl": "Pagoda — Złota godzina, ACES (localhost)",
+        "de": "Pagoda — Goldene Stunde, ACES (localhost)"
       }
     },
     {
@@ -201,9 +201,9 @@
         "de": "Studio, AgX"
       },
       "name": {
-        "en": "Pagoda — S (localhost)",
-        "pl": "Pagoda — S (localhost)",
-        "de": "Pagoda — S (localhost)"
+        "en": "Pagoda — Studio, AgX (localhost)",
+        "pl": "Pagoda — Studio, AgX (localhost)",
+        "de": "Pagoda — Studio, AgX (localhost)"
       }
     },
     {
@@ -215,9 +215,9 @@
         "de": "Nächtliche Strahler, Reinhard"
       },
       "name": {
-        "en": "Pagoda — N (localhost)",
-        "pl": "Pagoda — N (localhost)",
-        "de": "Pagoda — N (localhost)"
+        "en": "Pagoda — Night spotlights, Reinhard (localhost)",
+        "pl": "Pagoda — Nocne reflektory, Reinhard (localhost)",
+        "de": "Pagoda — Nächtliche Strahler, Reinhard (localhost)"
       }
     },
     {
@@ -229,9 +229,9 @@
         "de": "Nacht, Anmerkungen und Führung"
       },
       "name": {
-        "en": "Pagoda — N (localhost)",
-        "pl": "Pagoda — N (localhost)",
-        "de": "Pagoda — N (localhost)"
+        "en": "Pagoda — Night, annotations and guided tour (localhost)",
+        "pl": "Pagoda — Noc, adnotacje i wycieczka (localhost)",
+        "de": "Pagoda — Nacht, Anmerkungen und Führung (localhost)"
       }
     },
     {
@@ -243,9 +243,9 @@
         "de": "Grad der Gewissheit"
       },
       "name": {
-        "en": "Pagoda — L (localhost)",
-        "pl": "Pagoda — P (localhost)",
-        "de": "Pagoda — G (localhost)"
+        "en": "Pagoda — Level of Certainty (localhost)",
+        "pl": "Pagoda — Poziom pewności (localhost)",
+        "de": "Pagoda — Grad der Gewissheit (localhost)"
       }
     },
     {
@@ -257,9 +257,9 @@
         "de": "Toon-Shading"
       },
       "name": {
-        "en": "Pagoda — T (localhost)",
-        "pl": "Pagoda — C (localhost)",
-        "de": "Pagoda — T (localhost)"
+        "en": "Pagoda — Toon shading (localhost)",
+        "pl": "Pagoda — Cieniowanie toon (localhost)",
+        "de": "Pagoda — Toon-Shading (localhost)"
       }
     },
     {
@@ -271,9 +271,9 @@
         "de": "Bewölkt, Lambert, Cineon"
       },
       "name": {
-        "en": "Pagoda — O (localhost)",
-        "pl": "Pagoda — P (localhost)",
-        "de": "Pagoda — B (localhost)"
+        "en": "Pagoda — Overcast, Lambert, Cineon (localhost)",
+        "pl": "Pagoda — Pochmurno, Lambert, Cineon (localhost)",
+        "de": "Pagoda — Bewölkt, Lambert, Cineon (localhost)"
       }
     },
     {
@@ -285,9 +285,9 @@
         "de": "Ton, Umgebungsverdeckung"
       },
       "name": {
-        "en": "Pagoda — C (localhost)",
-        "pl": "Pagoda — G (localhost)",
-        "de": "Pagoda — T (localhost)"
+        "en": "Pagoda — Clay, ambient occlusion (localhost)",
+        "pl": "Pagoda — Glina, okluzja otoczenia (localhost)",
+        "de": "Pagoda — Ton, Umgebungsverdeckung (localhost)"
       }
     },
     {
@@ -299,9 +299,9 @@
         "de": "Streiflicht, umlaufend, Ton"
       },
       "name": {
-        "en": "Pagoda — R (localhost)",
-        "pl": "Pagoda — Ś (localhost)",
-        "de": "Pagoda — S (localhost)"
+        "en": "Pagoda — Raking light, sweeping, clay (localhost)",
+        "pl": "Pagoda — Światło skośne, obracające się, glina (localhost)",
+        "de": "Pagoda — Streiflicht, umlaufend, Ton (localhost)"
       }
     },
     {
@@ -313,9 +313,9 @@
         "de": "Streiflicht auf den Texturen"
       },
       "name": {
-        "en": "Pagoda — R (localhost)",
-        "pl": "Pagoda — Ś (localhost)",
-        "de": "Pagoda — S (localhost)"
+        "en": "Pagoda — Raking light on the textures (localhost)",
+        "pl": "Pagoda — Światło skośne na teksturach (localhost)",
+        "de": "Pagoda — Streiflicht auf den Texturen (localhost)"
       }
     },
     {
@@ -327,9 +327,9 @@
         "de": "Matcap, Studio-Ton"
       },
       "name": {
-        "en": "Pagoda — M (localhost)",
-        "pl": "Pagoda — M (localhost)",
-        "de": "Pagoda — M (localhost)"
+        "en": "Pagoda — Matcap studio clay (localhost)",
+        "pl": "Pagoda — Matcap, glina studyjna (localhost)",
+        "de": "Pagoda — Matcap, Studio-Ton (localhost)"
       }
     },
     {
@@ -341,9 +341,9 @@
         "de": "Flache Schattierung, Flächen sichtbar"
       },
       "name": {
-        "en": "Pagoda — F (localhost)",
-        "pl": "Pagoda — P (localhost)",
-        "de": "Pagoda — F (localhost)"
+        "en": "Pagoda — Flat shading, faces shown (localhost)",
+        "pl": "Pagoda — Płaskie cieniowanie, widoczne ściany (localhost)",
+        "de": "Pagoda — Flache Schattierung, Flächen sichtbar (localhost)"
       }
     },
     {
@@ -355,9 +355,9 @@
         "de": "Oberflächennormalen"
       },
       "name": {
-        "en": "Pagoda — S (localhost)",
-        "pl": "Pagoda — N (localhost)",
-        "de": "Pagoda — O (localhost)"
+        "en": "Pagoda — Surface normals (localhost)",
+        "pl": "Pagoda — Normalne powierzchni (localhost)",
+        "de": "Pagoda — Oberflächennormalen (localhost)"
       }
     },
     {
@@ -369,17 +369,17 @@
         "de": "Eigener Shader: Höhenlinien"
       },
       "name": {
-        "en": "Pagoda — C (localhost)",
-        "pl": "Pagoda — W (localhost)",
-        "de": "Pagoda — E (localhost)"
+        "en": "Pagoda — Custom shader: contour lines (localhost)",
+        "pl": "Pagoda — Własny shader: warstwice (localhost)",
+        "de": "Pagoda — Eigener Shader: Höhenlinien (localhost)"
       }
     },
     {
       "url": "./manifests/pagoda-aim3d-local-winter.json",
       "name": {
-        "en": "Pagoda — W (localhost)",
-        "pl": "Pagoda — Z (localhost)",
-        "de": "Pagoda — W (localhost)"
+        "en": "Pagoda — Winter, snow on the roofs (localhost)",
+        "pl": "Pagoda — Zima, śnieg na dachach (localhost)",
+        "de": "Pagoda — Winter, Schnee auf den Dächern (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -391,9 +391,9 @@
     {
       "url": "./manifests/pagoda-aim3d-local-mist.json",
       "name": {
-        "en": "Pagoda — A (localhost)",
-        "pl": "Pagoda — J (localhost)",
-        "de": "Pagoda — H (localhost)"
+        "en": "Pagoda — Autumn morning mist (localhost)",
+        "pl": "Pagoda — Jesienna poranna mgła (localhost)",
+        "de": "Pagoda — Herbstlicher Morgennebel (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -405,23 +405,23 @@
     {
       "url": "./manifests/pagoda-aim3d-local-downpour.json",
       "name": {
-        "en": "Pagoda — D (localhost)",
-        "pl": "Pagoda — U (localhost)",
-        "de": "Pagoda — P (localhost)"
+        "en": "Pagoda — Downpour on the tiled roofs (localhost)",
+        "pl": "Pagoda — Ulewa na dachówkach (localhost)",
+        "de": "Pagoda — Platzregen auf den Ziegeldächern (localhost)"
       },
       "group": "pagoda",
       "variant": {
-        "en": "Downpour on the shingle roofs",
-        "pl": "Ulewa na gontowych dachach",
-        "de": "Platzregen auf den Schindeldächern"
+        "en": "Downpour on the tiled roofs",
+        "pl": "Ulewa na dachówkach",
+        "de": "Platzregen auf den Ziegeldächern"
       }
     },
     {
       "url": "./manifests/pagoda-aim3d-local-surroundings.json",
       "name": {
-        "en": "Pagoda — J (localhost)",
-        "pl": "Pagoda — J (localhost)",
-        "de": "Pagoda — J (localhost)"
+        "en": "Pagoda — Japanese temple precinct (localhost)",
+        "pl": "Pagoda — Japoński zespół świątynny (localhost)",
+        "de": "Pagoda — Japanischer Tempelbezirk (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -433,9 +433,9 @@
     {
       "url": "./manifests/pagoda-aim3d-local-scene-place.json",
       "name": {
-        "en": "Pagoda — S (localhost)",
-        "pl": "Pagoda — S (localhost)",
-        "de": "Pagoda — V (localhost)"
+        "en": "Pagoda — Suggested scene: Japanese temple precinct (localhost)",
+        "pl": "Pagoda — Sugerowana scena: japoński zespół świątynny (localhost)",
+        "de": "Pagoda — Vorgeschlagene Szene: japanischer Tempelbezirk (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -447,9 +447,9 @@
     {
       "url": "./manifests/pagoda-aim3d-local-scene-interior.json",
       "name": {
-        "en": "Pagoda — S (localhost)",
-        "pl": "Pagoda — S (localhost)",
-        "de": "Pagoda — V (localhost)"
+        "en": "Pagoda — Suggested scene: Pagoda interior (localhost)",
+        "pl": "Pagoda — Sugerowana scena: wnętrze pagody (localhost)",
+        "de": "Pagoda — Vorgeschlagene Szene: Pagodeninneres (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -461,9 +461,9 @@
     {
       "url": "./manifests/pagoda-aim3d-local-scene-documentation.json",
       "name": {
-        "en": "Pagoda — S (localhost)",
-        "pl": "Pagoda — S (localhost)",
-        "de": "Pagoda — V (localhost)"
+        "en": "Pagoda — Suggested scene: documentation (localhost)",
+        "pl": "Pagoda — Sugerowana scena: dokumentacja (localhost)",
+        "de": "Pagoda — Vorgeschlagene Szene: Dokumentation (localhost)"
       },
       "group": "pagoda",
       "variant": {
@@ -476,9 +476,9 @@
       "url": "./manifests/pagoda-aim3d-local-acoustics.json",
       "excludeFromMobile": true,
       "name": {
-        "en": "Pagoda — M (localhost)",
-        "pl": "Pagoda — A (localhost)",
-        "de": "Pagoda — M (localhost)"
+        "en": "Pagoda — Model acoustics (localhost)",
+        "pl": "Pagoda — Akustyka modelu (localhost)",
+        "de": "Pagoda — Modellakustik (localhost)"
       },
       "group": "pagoda",
       "variant": {

@@ -1,6 +1,6 @@
 {
   "@context": "http://iiif.io/api/presentation/4/context.json",
-  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest.json",
+  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-measured.json",
   "type": "Manifest",
   "label": {
     "en": [
@@ -15,13 +15,13 @@
   },
   "summary": {
     "en": [
-      "The Pagoda shown with measurements of the building."
+      "The Pagoda shown with measurements of its height, roof span and footprint."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: measurements of the building."
+      "Pagoda pokazana z pomiarami wysokości, rozpiętości dachu i obrysu cokołu."
     ],
     "de": [
-      "Die Pagode mit der Funktion „measurements of the building“."
+      "Die Pagode mit Messungen von Höhe, Dachtraufe und Grundriss."
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -183,13 +183,13 @@
         "mode": "distance",
         "points": [
           [
-            -6.5,
-            1,
+            -5.4,
+            1.1,
             0
           ],
           [
-            6.5,
-            1,
+            5.4,
+            1.1,
             0
           ]
         ]
@@ -199,13 +199,13 @@
         "points": [
           [
             0,
-            1,
-            -6.5
+            1.1,
+            -5.4
           ],
           [
             0,
-            1,
-            6.5
+            1.1,
+            5.4
           ]
         ]
       },
@@ -213,18 +213,18 @@
         "mode": "angle",
         "points": [
           [
-            -7,
-            12,
+            -6.1,
+            4.5,
             0
           ],
           [
             0,
-            15,
+            6,
             0
           ],
           [
-            7,
-            12,
+            6.1,
+            4.5,
             0
           ]
         ]
@@ -233,24 +233,24 @@
         "mode": "area",
         "points": [
           [
-            -6.5,
+            -5.4,
             0,
-            -6.5
+            -5.4
           ],
           [
-            6.5,
+            5.4,
             0,
-            -6.5
+            -5.4
           ],
           [
-            6.5,
+            5.4,
             0,
-            6.5
+            5.4
           ],
           [
-            -6.5,
+            -5.4,
             0,
-            6.5
+            5.4
           ]
         ]
       }

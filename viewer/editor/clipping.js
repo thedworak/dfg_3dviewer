@@ -230,6 +230,42 @@ export function attachClipping(Viewer) {
       Viewer.positionClippingPlanesFromFractions();
     },
 
+    // Clears all active cuts, resets fractions to margins, and disables clipping mode.
+    clearClippingPlanes() {
+      if (core.planeParams?.clippingMode) {
+        CLIPPING_AXES.forEach((axis) => {
+          core.planeParams.clippingMode[axis] = false;
+          const keys = PARAM_KEYS[axis];
+          if (core.planeParams[keys.group]) {
+            core.planeParams[keys.group].negated = false;
+            core.planeParams[keys.group][keys.helper] = false;
+          }
+          if (Viewer.clippingState?.fraction) {
+            Viewer.clippingState.fraction[axis] = DEFAULT_FRACTION;
+          }
+        });
+      }
+      if (core.planeParams?.outline) {
+        core.planeParams.outline.visible = false;
+      }
+      Viewer.clippingMode = false;
+      if (Viewer.clippingState) {
+        Viewer.clippingState.remembered = null;
+        Viewer.clippingState.drag = null;
+      }
+      if (Array.isArray(core.activeClippingPlanes)) {
+        core.activeClippingPlanes.length = 0;
+      }
+      if (Viewer.isClippingAvailable()) {
+        Viewer.placeIdleClippingPlanesAtMargins();
+        Viewer.applyClippingState();
+      } else {
+        updateActiveClippingPlanes();
+      }
+      Viewer.updateEditorToolbarLabels?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
     // Pushes the current state into materials, visuals, outline and UI.
     applyClippingState() {
       updateActiveClippingPlanes();

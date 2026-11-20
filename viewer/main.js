@@ -1670,9 +1670,8 @@ export const Viewer = {
     if (core.lightHelper) core.lightHelper.visible = false;
     Viewer.pickingMode = false;
     Viewer.RULER_MODE = false;
-    // Section planes stay as they are; refreshClippingForModel() fits them
-    // to the next model.
     Viewer.cancelClippingDrag();
+    Viewer.clearClippingPlanes?.();
     Viewer.updateEditorToolbarLabels();
     Viewer.updateEditorToolbarState();
 

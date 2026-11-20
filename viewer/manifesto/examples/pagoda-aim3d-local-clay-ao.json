@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Clay, ambient occlusion (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Glina, okluzja otoczenia (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Ton, Umgebungsverdeckung (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -158,13 +158,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Monochrome clay material with ambient occlusion highlighting the structure."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Monochromatyczny materiał gliny z okluzją otoczenia podkreślający strukturę."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Einfarbiges Tonmaterial mit Umgebungsverdeckung zur Hervorhebung der Struktur."
     ]
   }
 }

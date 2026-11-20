@@ -1,6 +1,6 @@
 {
   "@context": "http://iiif.io/api/presentation/4/context.json",
-  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-interior-scene.json",
+  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-scene-interior.json",
   "type": "Manifest",
   "label": {
     "en": [
@@ -65,13 +65,13 @@
     "generatedAt": "2026-11-20T00:00:00.000Z",
     "camera": {
       "position": [
-        24,
-        9,
-        30
+        0,
+        2,
+        2.2
       ],
       "target": [
         0,
-        9.5,
+        2.1,
         0
       ],
       "up": [
@@ -79,9 +79,9 @@
         1,
         0
       ],
-      "fov": 45,
+      "fov": 60,
       "zoom": 1,
-      "distance": 38.4,
+      "distance": 2.2,
       "perspectiveMode": "perspective",
       "aspect": 1.7277,
       "orientation": "landscape"
@@ -159,19 +159,20 @@
       "utcOffset": 9
     },
     "sceneSuggest": {
-      "open": true
+      "open": true,
+      "purpose": "presentation"
     }
   },
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with a suggested scene around the model."
+      "Suggested scene: interior view of the ground storey with its altar, pillars and coffered ceiling."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: a suggested scene around the model."
+      "Sugerowana scena: wnętrze parteru z ołtarzem, filarami i kasetonowym sufitem."
     ],
     "de": [
-      "Die Pagode mit der Funktion „a suggested scene around the model“."
+      "Vorgeschlagene Szene: Innenansicht des Erdgeschosses mit Altar, Pfeilern und Kassettendecke."
     ]
   }
 }

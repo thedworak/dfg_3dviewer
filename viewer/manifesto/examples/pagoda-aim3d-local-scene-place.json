@@ -1,6 +1,6 @@
 {
   "@context": "http://iiif.io/api/presentation/4/context.json",
-  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-place-scene.json",
+  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-scene-place.json",
   "type": "Manifest",
   "label": {
     "en": [
@@ -153,7 +153,8 @@
       "shadingMode": "standard"
     },
     "sceneSuggest": {
-      "open": true
+      "open": true,
+      "purpose": "presentation"
     },
     "location": {
       "latitude": 34.68,
@@ -165,13 +166,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with a suggested scene around the model."
+      "Suggested scene: a Japanese Buddhist temple precinct fitted to the model."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: a suggested scene around the model."
+      "Sugerowana scena: japoński buddyjski zespół świątynny dopasowany do modelu."
     ],
     "de": [
-      "Die Pagode mit der Funktion „a suggested scene around the model“."
+      "Vorgeschlagene Szene: ein an das Modell angepasster japanischer Tempelbezirk."
     ]
   }
 }

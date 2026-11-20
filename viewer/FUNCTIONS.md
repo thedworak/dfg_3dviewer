@@ -516,8 +516,8 @@ Section planes, one per world axis. State stays in `core.clippingPlanes` and `co
 - `Viewer.setClippingAxisEnabled(axis, enabled)` / `Viewer.setClippingAxisPosition(axis, worldPosition)` / `Viewer.setClippingAxisNegated(axis, negated)`
   - Control one plane. A plane keeps the part of the model below its position; negated keeps the part above.
 
-- `Viewer.setClippingFillVisible(visible)` / `Viewer.resetClippingPlanes()`
-  - Section fill (red interior) on/off; move all planes back to the centre.
+- `Viewer.setClippingFillVisible(visible)` / `Viewer.resetClippingPlanes()` / `Viewer.clearClippingPlanes()`
+  - Section fill (red interior) on/off; move all planes back to the centre (`resetClippingPlanes`) or disable all cuts and clear active planes on manifest/model switch (`clearClippingPlanes`).
 
 - `Viewer.refreshClippingForModel(object)`
   - Fit the planes to the model's bounds. Called after loading and after the model is transformed.

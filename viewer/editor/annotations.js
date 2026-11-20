@@ -1864,9 +1864,8 @@ export function attachAnnotations(Viewer) {
 
     apply3IFManifestClipping(clippingConfig) {
       if (!clippingConfig || typeof clippingConfig !== "object") {
-        // None in the manifest: the planes not cutting wait at the margins,
-        // not where the model before had them.
-        this.placeIdleClippingPlanesAtMargins?.();
+        // None in the manifest: clear any active section planes.
+        this.clearClippingPlanes?.();
         return false;
       }
 
@@ -1890,7 +1889,10 @@ export function attachAnnotations(Viewer) {
           }
         : null;
 
-      if (!constants && !mode && !negated && typeof outlineVisible !== "boolean") return false;
+      if (!constants && !mode && !negated && typeof outlineVisible !== "boolean") {
+        this.clearClippingPlanes?.();
+        return false;
+      }
 
       const previousUrlOptions = this.urlOptions;
       this.urlOptions = {
@@ -2191,7 +2193,9 @@ export function attachAnnotations(Viewer) {
         }
       }
 
-      this.apply3IFManifestClipping(viewerConfig.clipping);
+      if (viewerConfig.clipping) {
+        this.apply3IFManifestClipping(viewerConfig.clipping);
+      }
       this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState?.();
       this.updateEditorToolbarState?.();
@@ -2435,12 +2439,14 @@ export function attachAnnotations(Viewer) {
       if (want("sun")) this.setSunStudy?.(false);
       if (want("weather")) this.setWeather?.(false);
       if (want("surroundings")) this.setSurroundings?.(false);
+      const manifestClipping = aim3dConfig?.clipping ?? aim3dConfig?.viewer?.clipping;
+      if (want("clipping") && !manifestClipping) this.clearClippingPlanes?.();
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = want("camera") && this.apply3IFManifestCamera(aim3dConfig.camera);
         // The manifest's camera is a start view chosen (the renders' front).
         if (appliedCamera) this.markStartViewChosen?.();
         const appliedViewer = want("viewer") && this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
-        const appliedClipping = want("clipping") && this.apply3IFManifestClipping(aim3dConfig.clipping);
+        const appliedClipping = want("clipping") && manifestClipping ? this.apply3IFManifestClipping(manifestClipping) : false;
         const appliedIntegration = want("integration") && this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
         const appliedLights = want("lights") && this.apply3IFManifestLights(aim3dConfig.lights);
         const appliedModelTransform = want("modelTransform") && this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);

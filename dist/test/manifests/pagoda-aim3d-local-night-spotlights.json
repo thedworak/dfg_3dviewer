@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Night spotlights, Reinhard (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Nocne reflektory, Reinhard (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Nächtliche Strahler, Reinhard (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -237,13 +237,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Night architectural illumination with spotlights and Reinhard tone mapping."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Nocna iluminacja architektoniczna reflektorami z mapowaniem tonów Reinhard."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Nächtliche Architekturbeleuchtung mit Scheinwerfern und Reinhard-Tonemapping."
     ]
   }
 }

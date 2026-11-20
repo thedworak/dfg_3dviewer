@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Level of Certainty (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Poziom pewności (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Grad der Gewissheit (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -57,6 +57,166 @@
           "type": "AnnotationPage",
           "items": [
             {
+              "id": "./examples/pagoda/Pagoda-progressive.glb/scene/annotation/certainty-platform",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Stone platform"
+                ],
+                "pl": [
+                  "Kamienny podest"
+                ],
+                "de": [
+                  "Steinplattform"
+                ]
+              },
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "High certainty (A): the platform dimensions follow the square plan layout.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Wysoki poziom pewności (A): wymiary podestu wynikają z regularnego rzutu kwadratowego.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Hohe Gewissheit (A): Die Maße der Plattform folgen dem quadratischen Grundriss.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 0.5,
+                    "z": 5.5
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "m0:0",
+                "targetId": "m0:0",
+                "point": [
+                  0,
+                  0.5,
+                  5.5
+                ],
+                "certainty": {
+                  "value": 9,
+                  "code": "A",
+                  "scope": "object",
+                  "targetId": "m0:0"
+                }
+              }
+            },
+            {
+              "id": "./examples/pagoda/Pagoda-progressive.glb/scene/annotation/certainty-structure",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Storey structure"
+                ],
+                "pl": [
+                  "Konstrukcja kondygnacji"
+                ],
+                "de": [
+                  "Geschosskonstruktion"
+                ]
+              },
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Firm certainty (B): pillar layout and bracket spacing (tokyō) correspond to classical proportions.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Pewna ocena (B): układ słupów i rozstaw wsporników (tokyō) odpowiadają klasycznym proporcjom.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Gute Gewissheit (B): Pfeileranordnung und Kragträgerabstände (Tokyō) entsprechen klassischen Proportionen.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 4.5,
+                    "z": 3.4
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "m0:1",
+                "targetId": "m0:1",
+                "point": [
+                  0,
+                  4.5,
+                  3.4
+                ],
+                "certainty": {
+                  "value": 8,
+                  "code": "B",
+                  "scope": "object",
+                  "targetId": "m0:1"
+                }
+              }
+            },
+            {
               "id": "./examples/pagoda/Pagoda-progressive.glb/scene/annotation/certainty-roof",
               "type": "Annotation",
               "motivation": [
@@ -65,21 +225,42 @@
               ],
               "label": {
                 "en": [
-                  "Roof"
+                  "Upper roof"
                 ],
                 "pl": [
-                  "Roof"
+                  "Górny dach"
                 ],
                 "de": [
-                  "Roof"
+                  "Oberes Dach"
                 ]
               },
               "body": {
-                "type": "TextualBody",
-                "value": "Example annotation for the project’s own Pagoda model.",
-                "format": "text/plain",
-                "language": [
-                  "en"
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Interpretative certainty (C): hip roof curvature and tile course rhythm.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Ocena interpretacyjna (C): krzywizna połaci dachu czterospadowego i rytm ceramicznych dachówek.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Interpretierende Gewissheit (C): Krümmung des Walmdachs und Rhythmus der Ziegelreihen.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
                 ]
               },
               "target": {
@@ -100,8 +281,8 @@
               "AIM3DViewer": {
                 "groupId": "",
                 "key": "",
-                "object": "m0:0",
-                "targetId": "m0:0",
+                "object": "m0:6",
+                "targetId": "m0:6",
                 "point": [
                   0,
                   17,
@@ -111,7 +292,87 @@
                   "value": 7,
                   "code": "C",
                   "scope": "object",
-                  "targetId": "m0:0"
+                  "targetId": "m0:6"
+                }
+              }
+            },
+            {
+              "id": "./examples/pagoda/Pagoda-progressive.glb/scene/annotation/certainty-finial",
+              "type": "Annotation",
+              "motivation": [
+                "commenting",
+                "assessing"
+              ],
+              "label": {
+                "en": [
+                  "Finial (sōrin)"
+                ],
+                "pl": [
+                  "Zwieńczenie sōrin"
+                ],
+                "de": [
+                  "Bekrönung (Sōrin)"
+                ]
+              },
+              "body": {
+                "type": "Choice",
+                "items": [
+                  {
+                    "type": "TextualBody",
+                    "value": "Conjectural (D): bronze finial decorative details and sacred jewel form.",
+                    "format": "text/plain",
+                    "language": [
+                      "en"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Ocena hipotetyczna (D): detale dekoracyjne brązowej iglicy i forma świętego klejnotu.",
+                    "format": "text/plain",
+                    "language": [
+                      "pl"
+                    ]
+                  },
+                  {
+                    "type": "TextualBody",
+                    "value": "Hypothetisch (D): Dekorative Details der Bronze-Spitze und Form des heiligen Juwels.",
+                    "format": "text/plain",
+                    "language": [
+                      "de"
+                    ]
+                  }
+                ]
+              },
+              "target": {
+                "type": "SpecificResource",
+                "source": {
+                  "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
+                  "type": "Scene"
+                },
+                "selector": [
+                  {
+                    "type": "PointSelector",
+                    "x": 0,
+                    "y": 19.5,
+                    "z": 0
+                  }
+                ]
+              },
+              "AIM3DViewer": {
+                "groupId": "",
+                "key": "",
+                "object": "m0:8",
+                "targetId": "m0:8",
+                "point": [
+                  0,
+                  19.5,
+                  0
+                ],
+                "certainty": {
+                  "value": 6,
+                  "code": "D",
+                  "scope": "object",
+                  "targetId": "m0:8"
                 }
               }
             }
@@ -321,13 +582,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with Level of Certainty assessments."
+      "The Pagoda shown with Level of Certainty (LoC) assessments on its architectural elements."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: Level of Certainty assessments."
+      "Pagoda z oceną poziomu pewności (LoC) poszczególnych elementów architektonicznych."
     ],
     "de": [
-      "Die Pagode mit der Funktion „Level of Certainty assessments“."
+      "Die Pagode mit Bewertungen des Gewissheitsgrades (LoC) ihrer Bauteile."
     ]
   }
 }

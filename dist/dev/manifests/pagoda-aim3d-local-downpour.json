@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Downpour on the tiled roofs (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Ulewa na dachówkach (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Platzregen auf den Ziegeldächern (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -162,13 +162,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Heavy downpour and wet surfaces on the pagoda’s tiled roofs."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Ulewny deszcz i mokre powierzchnie ceramicznych dachów pagody."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Starker Platzregen und nasse Oberflächen auf den Ziegeldächern der Pagode."
     ]
   }
 }

@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Winter, snow on the roofs (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Zima, śnieg na dachach (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Winter, Schnee auf den Dächern (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -113,14 +113,14 @@
           0,
           0
         ],
-        "color": "#404040",
-        "intensity": 1
+        "color": "#455565",
+        "intensity": 0.9
       },
       {
         "type": "DirectionalLight",
         "position": [
-          15,
-          30,
+          -20,
+          25,
           20
         ],
         "target": [
@@ -128,8 +128,19 @@
           9.5,
           0
         ],
-        "color": "#ffffff",
-        "intensity": 1
+        "color": "#e0ecff",
+        "intensity": 1.4
+      },
+      {
+        "type": "HemisphereLight",
+        "position": [
+          0,
+          25,
+          0
+        ],
+        "color": "#d0e0f8",
+        "groundColor": "#303848",
+        "intensity": 0.5
       }
     ],
     "weather": {
@@ -162,13 +173,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Winter scene with falling snow and snow accumulation on the roofs."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Scena zimowa z padającym śniegiem i ośnieżeniem dachów."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Winterszene mit Schneefall und Schneebelag auf den Dächern."
     ]
   }
 }

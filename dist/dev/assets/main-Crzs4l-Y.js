@@ -9435,7 +9435,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-vjNLNuuZ.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-BnCWjD7y.js'),
+    import('./rendering-webgpu-DqT_NbG6.js'),
     import('./weather-webgpu-B6tOXV-8.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -10678,18 +10678,18 @@ var aim3d = [
 			de: "Ansicht von oben"
 		},
 		name: {
-			en: "Pagoda — V (localhost)",
-			pl: "Pagoda — W (localhost)",
-			de: "Pagoda — A (localhost)"
+			en: "Pagoda — View from above (localhost)",
+			pl: "Pagoda — Widok z góry (localhost)",
+			de: "Pagoda — Ansicht von oben (localhost)"
 		}
 	},
 	{
 		url: "./manifests/pagoda-aim3d-local-measured.json",
 		excludeFromMobile: true,
 		name: {
-			en: "Pagoda — M (localhost)",
-			pl: "Pagoda — P (localhost)",
-			de: "Pagoda — M (localhost)"
+			en: "Pagoda — Measurements: height, roof and footprint (localhost)",
+			pl: "Pagoda — Pomiary: wysokość, dach i obrys (localhost)",
+			de: "Pagoda — Messungen: Höhe, Dach und Grundriss (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -10702,9 +10702,9 @@ var aim3d = [
 		url: "./manifests/pagoda-aim3d-local-section-measured.json",
 		excludeFromMobile: true,
 		name: {
-			en: "Pagoda — S (localhost)",
-			pl: "Pagoda — P (localhost)",
-			de: "Pagoda — S (localhost)"
+			en: "Pagoda — Section with measurements (localhost)",
+			pl: "Pagoda — Przekrój z pomiarami (localhost)",
+			de: "Pagoda — Schnitt mit Messungen (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -10722,9 +10722,9 @@ var aim3d = [
 			de: "Goldene Stunde, ACES"
 		},
 		name: {
-			en: "Pagoda — G (localhost)",
-			pl: "Pagoda — Z (localhost)",
-			de: "Pagoda — G (localhost)"
+			en: "Pagoda — Golden hour, ACES (localhost)",
+			pl: "Pagoda — Złota godzina, ACES (localhost)",
+			de: "Pagoda — Goldene Stunde, ACES (localhost)"
 		}
 	},
 	{
@@ -10736,9 +10736,9 @@ var aim3d = [
 			de: "Studio, AgX"
 		},
 		name: {
-			en: "Pagoda — S (localhost)",
-			pl: "Pagoda — S (localhost)",
-			de: "Pagoda — S (localhost)"
+			en: "Pagoda — Studio, AgX (localhost)",
+			pl: "Pagoda — Studio, AgX (localhost)",
+			de: "Pagoda — Studio, AgX (localhost)"
 		}
 	},
 	{
@@ -10750,9 +10750,9 @@ var aim3d = [
 			de: "Nächtliche Strahler, Reinhard"
 		},
 		name: {
-			en: "Pagoda — N (localhost)",
-			pl: "Pagoda — N (localhost)",
-			de: "Pagoda — N (localhost)"
+			en: "Pagoda — Night spotlights, Reinhard (localhost)",
+			pl: "Pagoda — Nocne reflektory, Reinhard (localhost)",
+			de: "Pagoda — Nächtliche Strahler, Reinhard (localhost)"
 		}
 	},
 	{
@@ -10764,9 +10764,9 @@ var aim3d = [
 			de: "Nacht, Anmerkungen und Führung"
 		},
 		name: {
-			en: "Pagoda — N (localhost)",
-			pl: "Pagoda — N (localhost)",
-			de: "Pagoda — N (localhost)"
+			en: "Pagoda — Night, annotations and guided tour (localhost)",
+			pl: "Pagoda — Noc, adnotacje i wycieczka (localhost)",
+			de: "Pagoda — Nacht, Anmerkungen und Führung (localhost)"
 		}
 	},
 	{
@@ -10778,9 +10778,9 @@ var aim3d = [
 			de: "Grad der Gewissheit"
 		},
 		name: {
-			en: "Pagoda — L (localhost)",
-			pl: "Pagoda — P (localhost)",
-			de: "Pagoda — G (localhost)"
+			en: "Pagoda — Level of Certainty (localhost)",
+			pl: "Pagoda — Poziom pewności (localhost)",
+			de: "Pagoda — Grad der Gewissheit (localhost)"
 		}
 	},
 	{
@@ -10792,9 +10792,9 @@ var aim3d = [
 			de: "Toon-Shading"
 		},
 		name: {
-			en: "Pagoda — T (localhost)",
-			pl: "Pagoda — C (localhost)",
-			de: "Pagoda — T (localhost)"
+			en: "Pagoda — Toon shading (localhost)",
+			pl: "Pagoda — Cieniowanie toon (localhost)",
+			de: "Pagoda — Toon-Shading (localhost)"
 		}
 	},
 	{
@@ -10806,9 +10806,9 @@ var aim3d = [
 			de: "Bewölkt, Lambert, Cineon"
 		},
 		name: {
-			en: "Pagoda — O (localhost)",
-			pl: "Pagoda — P (localhost)",
-			de: "Pagoda — B (localhost)"
+			en: "Pagoda — Overcast, Lambert, Cineon (localhost)",
+			pl: "Pagoda — Pochmurno, Lambert, Cineon (localhost)",
+			de: "Pagoda — Bewölkt, Lambert, Cineon (localhost)"
 		}
 	},
 	{
@@ -10820,9 +10820,9 @@ var aim3d = [
 			de: "Ton, Umgebungsverdeckung"
 		},
 		name: {
-			en: "Pagoda — C (localhost)",
-			pl: "Pagoda — G (localhost)",
-			de: "Pagoda — T (localhost)"
+			en: "Pagoda — Clay, ambient occlusion (localhost)",
+			pl: "Pagoda — Glina, okluzja otoczenia (localhost)",
+			de: "Pagoda — Ton, Umgebungsverdeckung (localhost)"
 		}
 	},
 	{
@@ -10834,9 +10834,9 @@ var aim3d = [
 			de: "Streiflicht, umlaufend, Ton"
 		},
 		name: {
-			en: "Pagoda — R (localhost)",
-			pl: "Pagoda — Ś (localhost)",
-			de: "Pagoda — S (localhost)"
+			en: "Pagoda — Raking light, sweeping, clay (localhost)",
+			pl: "Pagoda — Światło skośne, obracające się, glina (localhost)",
+			de: "Pagoda — Streiflicht, umlaufend, Ton (localhost)"
 		}
 	},
 	{
@@ -10848,9 +10848,9 @@ var aim3d = [
 			de: "Streiflicht auf den Texturen"
 		},
 		name: {
-			en: "Pagoda — R (localhost)",
-			pl: "Pagoda — Ś (localhost)",
-			de: "Pagoda — S (localhost)"
+			en: "Pagoda — Raking light on the textures (localhost)",
+			pl: "Pagoda — Światło skośne na teksturach (localhost)",
+			de: "Pagoda — Streiflicht auf den Texturen (localhost)"
 		}
 	},
 	{
@@ -10862,9 +10862,9 @@ var aim3d = [
 			de: "Matcap, Studio-Ton"
 		},
 		name: {
-			en: "Pagoda — M (localhost)",
-			pl: "Pagoda — M (localhost)",
-			de: "Pagoda — M (localhost)"
+			en: "Pagoda — Matcap studio clay (localhost)",
+			pl: "Pagoda — Matcap, glina studyjna (localhost)",
+			de: "Pagoda — Matcap, Studio-Ton (localhost)"
 		}
 	},
 	{
@@ -10876,9 +10876,9 @@ var aim3d = [
 			de: "Flache Schattierung, Flächen sichtbar"
 		},
 		name: {
-			en: "Pagoda — F (localhost)",
-			pl: "Pagoda — P (localhost)",
-			de: "Pagoda — F (localhost)"
+			en: "Pagoda — Flat shading, faces shown (localhost)",
+			pl: "Pagoda — Płaskie cieniowanie, widoczne ściany (localhost)",
+			de: "Pagoda — Flache Schattierung, Flächen sichtbar (localhost)"
 		}
 	},
 	{
@@ -10890,9 +10890,9 @@ var aim3d = [
 			de: "Oberflächennormalen"
 		},
 		name: {
-			en: "Pagoda — S (localhost)",
-			pl: "Pagoda — N (localhost)",
-			de: "Pagoda — O (localhost)"
+			en: "Pagoda — Surface normals (localhost)",
+			pl: "Pagoda — Normalne powierzchni (localhost)",
+			de: "Pagoda — Oberflächennormalen (localhost)"
 		}
 	},
 	{
@@ -10904,17 +10904,17 @@ var aim3d = [
 			de: "Eigener Shader: Höhenlinien"
 		},
 		name: {
-			en: "Pagoda — C (localhost)",
-			pl: "Pagoda — W (localhost)",
-			de: "Pagoda — E (localhost)"
+			en: "Pagoda — Custom shader: contour lines (localhost)",
+			pl: "Pagoda — Własny shader: warstwice (localhost)",
+			de: "Pagoda — Eigener Shader: Höhenlinien (localhost)"
 		}
 	},
 	{
 		url: "./manifests/pagoda-aim3d-local-winter.json",
 		name: {
-			en: "Pagoda — W (localhost)",
-			pl: "Pagoda — Z (localhost)",
-			de: "Pagoda — W (localhost)"
+			en: "Pagoda — Winter, snow on the roofs (localhost)",
+			pl: "Pagoda — Zima, śnieg na dachach (localhost)",
+			de: "Pagoda — Winter, Schnee auf den Dächern (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -10926,9 +10926,9 @@ var aim3d = [
 	{
 		url: "./manifests/pagoda-aim3d-local-mist.json",
 		name: {
-			en: "Pagoda — A (localhost)",
-			pl: "Pagoda — J (localhost)",
-			de: "Pagoda — H (localhost)"
+			en: "Pagoda — Autumn morning mist (localhost)",
+			pl: "Pagoda — Jesienna poranna mgła (localhost)",
+			de: "Pagoda — Herbstlicher Morgennebel (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -10940,23 +10940,23 @@ var aim3d = [
 	{
 		url: "./manifests/pagoda-aim3d-local-downpour.json",
 		name: {
-			en: "Pagoda — D (localhost)",
-			pl: "Pagoda — U (localhost)",
-			de: "Pagoda — P (localhost)"
+			en: "Pagoda — Downpour on the tiled roofs (localhost)",
+			pl: "Pagoda — Ulewa na dachówkach (localhost)",
+			de: "Pagoda — Platzregen auf den Ziegeldächern (localhost)"
 		},
 		group: "pagoda",
 		variant: {
-			en: "Downpour on the shingle roofs",
-			pl: "Ulewa na gontowych dachach",
-			de: "Platzregen auf den Schindeldächern"
+			en: "Downpour on the tiled roofs",
+			pl: "Ulewa na dachówkach",
+			de: "Platzregen auf den Ziegeldächern"
 		}
 	},
 	{
 		url: "./manifests/pagoda-aim3d-local-surroundings.json",
 		name: {
-			en: "Pagoda — J (localhost)",
-			pl: "Pagoda — J (localhost)",
-			de: "Pagoda — J (localhost)"
+			en: "Pagoda — Japanese temple precinct (localhost)",
+			pl: "Pagoda — Japoński zespół świątynny (localhost)",
+			de: "Pagoda — Japanischer Tempelbezirk (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -10968,9 +10968,9 @@ var aim3d = [
 	{
 		url: "./manifests/pagoda-aim3d-local-scene-place.json",
 		name: {
-			en: "Pagoda — S (localhost)",
-			pl: "Pagoda — S (localhost)",
-			de: "Pagoda — V (localhost)"
+			en: "Pagoda — Suggested scene: Japanese temple precinct (localhost)",
+			pl: "Pagoda — Sugerowana scena: japoński zespół świątynny (localhost)",
+			de: "Pagoda — Vorgeschlagene Szene: japanischer Tempelbezirk (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -10982,9 +10982,9 @@ var aim3d = [
 	{
 		url: "./manifests/pagoda-aim3d-local-scene-interior.json",
 		name: {
-			en: "Pagoda — S (localhost)",
-			pl: "Pagoda — S (localhost)",
-			de: "Pagoda — V (localhost)"
+			en: "Pagoda — Suggested scene: Pagoda interior (localhost)",
+			pl: "Pagoda — Sugerowana scena: wnętrze pagody (localhost)",
+			de: "Pagoda — Vorgeschlagene Szene: Pagodeninneres (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -10996,9 +10996,9 @@ var aim3d = [
 	{
 		url: "./manifests/pagoda-aim3d-local-scene-documentation.json",
 		name: {
-			en: "Pagoda — S (localhost)",
-			pl: "Pagoda — S (localhost)",
-			de: "Pagoda — V (localhost)"
+			en: "Pagoda — Suggested scene: documentation (localhost)",
+			pl: "Pagoda — Sugerowana scena: dokumentacja (localhost)",
+			de: "Pagoda — Vorgeschlagene Szene: Dokumentation (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -11011,9 +11011,9 @@ var aim3d = [
 		url: "./manifests/pagoda-aim3d-local-acoustics.json",
 		excludeFromMobile: true,
 		name: {
-			en: "Pagoda — M (localhost)",
-			pl: "Pagoda — A (localhost)",
-			de: "Pagoda — M (localhost)"
+			en: "Pagoda — Model acoustics (localhost)",
+			pl: "Pagoda — Akustyka modelu (localhost)",
+			de: "Pagoda — Modellakustik (localhost)"
 		},
 		group: "pagoda",
 		variant: {
@@ -13595,7 +13595,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-CrqkPLxC.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-Bt6qs0M5.js');
+const loadTilesPlugins = () => import('./index.three-plugins-fkaVYwmN.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -13937,7 +13937,7 @@ function maybeShowFirstRunHints() {
 const loadDDSLoader = async () => (await import('./DDSLoader-CyqLLwpd.js')).DDSLoader;
 const loadMTLLoader = async () => (await import('./MTLLoader-MpJ8FbTb.js')).MTLLoader;
 const loadOBJLoader = async () => (await import('./OBJLoader-DpZpLQGw.js')).OBJLoader;
-const loadFBXLoader = async () => (await import('./FBXLoader-BpFry48h.js')).FBXLoader;
+const loadFBXLoader = async () => (await import('./FBXLoader-Dog8apk0.js')).FBXLoader;
 const loadPLYLoader = async () => (await import('./PLYLoader-3LwvdLeB.js')).PLYLoader;
 const loadColladaLoader = async () => (await import('./ColladaLoader-rakFlNHu.js')).ColladaLoader;
 const loadSTLLoader = async () => (await import('./STLLoader-BeEAOqnR.js')).STLLoader;
@@ -13948,26 +13948,26 @@ const loadGLTFLoader = async () => (await import('./GLTFLoader-BHzDItT9.js')).GL
 const loadDRACOLoader = async () => (await import('./DRACOLoader-CJJsHDAc.js')).DRACOLoader;
 const loadKTX2Loader = async () => (await import('./KTX2Loader-DH_brhHp.js')).KTX2Loader;
 const loadMeshoptDecoder = async () => (await import('./meshopt_decoder.module-ddw5RWcg.js')).MeshoptDecoder;
-const loadUSDLoader = async () => (await import('./USDLoader-d1g2Xoks.js')).USDLoader;
-const loadThreeMFLoader = async () => (await import('./3MFLoader-C57R9PEC.js')).ThreeMFLoader;
-const loadAMFLoader = async () => (await import('./AMFLoader-DeSzlmD0.js')).AMFLoader;
+const loadUSDLoader = async () => (await import('./USDLoader-OVQuoLzB.js')).USDLoader;
+const loadThreeMFLoader = async () => (await import('./3MFLoader-DDyHR-3Z.js')).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./AMFLoader-Bjvp7Hn3.js')).AMFLoader;
 const loadVRMLLoader = async () => (await import('./VRMLLoader-Db6Ya83a.js')).VRMLLoader;
-const loadKMZLoader = async () => (await import('./KMZLoader-BmF_RfSc.js')).KMZLoader;
+const loadKMZLoader = async () => (await import('./KMZLoader-Ba0e5I4x.js')).KMZLoader;
 const loadVOXLoader = async () => (await import('./VOXLoader-BmnzBQZZ.js')).VOXLoader;
 const loadVOXBuildMesh = async () => (await import('./VOXLoader-BmnzBQZZ.js')).buildMesh;
 const loadLWOLoader = async () => (await import('./LWOLoader-D_Qu1Hqd.js')).LWOLoader;
 const loadIFCLoader = async () => (await import('./IFCLoader-CA6zWYVj.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./RoomEnvironment-CwCPKJZW.js')).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-C3le0QFq.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-ZHD59abO.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-CMnTFQYk.js');
+const loadSplats = async () => import('./splats-C0f70evy.js');
 // Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
-const loadVolume = async () => import('./volume-BLxA82mV.js');
+const loadVolume = async () => import('./volume-JVpUBNyL.js');
 // Audio files: the player and the spectrogram landscape, with the first one.
-const loadAudio = async () => import('./audio-DERWMsz_.js');
+const loadAudio = async () => import('./audio-CgnNy5Pn.js');
 // 2D images, one or a set (image2d.js).
-const loadImage2D = async () => import('./image2d-Dpl2NrAb.js');
+const loadImage2D = async () => import('./image2d-CXSH6mAH.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -27397,7 +27397,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "8694cfa1" ;
+const BUILD_ID$2 = "2ef97741" ;
 const BUILD$1 = "dev" ;
 
 let initPromise = null;
@@ -27448,8 +27448,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "8694cfa1" ;
-const BUILD_TIME$1 = "2026-11-20T19:09:47.915Z" ;
+const BUILD_ID$1 = "2ef97741" ;
+const BUILD_TIME$1 = "2026-11-20T19:47:47.524Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -68936,9 +68936,8 @@ function attachAnnotations(Viewer) {
 
     apply3IFManifestClipping(clippingConfig) {
       if (!clippingConfig || typeof clippingConfig !== "object") {
-        // None in the manifest: the planes not cutting wait at the margins,
-        // not where the model before had them.
-        this.placeIdleClippingPlanesAtMargins?.();
+        // None in the manifest: clear any active section planes.
+        this.clearClippingPlanes?.();
         return false;
       }
 
@@ -68962,7 +68961,10 @@ function attachAnnotations(Viewer) {
           }
         : null;
 
-      if (!constants && !mode && !negated && typeof outlineVisible !== "boolean") return false;
+      if (!constants && !mode && !negated && typeof outlineVisible !== "boolean") {
+        this.clearClippingPlanes?.();
+        return false;
+      }
 
       const previousUrlOptions = this.urlOptions;
       this.urlOptions = {
@@ -69263,7 +69265,9 @@ function attachAnnotations(Viewer) {
         }
       }
 
-      this.apply3IFManifestClipping(viewerConfig.clipping);
+      if (viewerConfig.clipping) {
+        this.apply3IFManifestClipping(viewerConfig.clipping);
+      }
       this.updateShareMenuEntryState?.();
       this.updateEmbedMenuEntryState?.();
       this.updateEditorToolbarState?.();
@@ -69507,12 +69511,14 @@ function attachAnnotations(Viewer) {
       if (want("sun")) this.setSunStudy?.(false);
       if (want("weather")) this.setWeather?.(false);
       if (want("surroundings")) this.setSurroundings?.(false);
+      const manifestClipping = aim3dConfig?.clipping ?? aim3dConfig?.viewer?.clipping;
+      if (want("clipping") && !manifestClipping) this.clearClippingPlanes?.();
       if (aim3dConfig && typeof aim3dConfig === "object") {
         const appliedCamera = want("camera") && this.apply3IFManifestCamera(aim3dConfig.camera);
         // The manifest's camera is a start view chosen (the renders' front).
         if (appliedCamera) this.markStartViewChosen?.();
         const appliedViewer = want("viewer") && this.apply3IFManifestViewerConfig(aim3dConfig.viewer);
-        const appliedClipping = want("clipping") && this.apply3IFManifestClipping(aim3dConfig.clipping);
+        const appliedClipping = want("clipping") && manifestClipping ? this.apply3IFManifestClipping(manifestClipping) : false;
         const appliedIntegration = want("integration") && this.apply3IFManifestIntegrationConfig(aim3dConfig.integration);
         const appliedLights = want("lights") && this.apply3IFManifestLights(aim3dConfig.lights);
         const appliedModelTransform = want("modelTransform") && this.apply3IFManifestModelTransform(aim3dConfig.modelTransform);
@@ -75131,7 +75137,7 @@ function attachWeatherLazy(Viewer) {
 
   let loading = null;
   const load = () => {
-    loading ??= import('./weather-DR9vqhQN.js')
+    loading ??= import('./weather-CFU_L8ui.js')
       .then(({ attachWeather }) => {
         attachWeather(Viewer);
         Viewer.updateEditorToolbarState?.();
@@ -90597,6 +90603,42 @@ function attachClipping(Viewer) {
       Viewer.positionClippingPlanesFromFractions();
     },
 
+    // Clears all active cuts, resets fractions to margins, and disables clipping mode.
+    clearClippingPlanes() {
+      if (core.planeParams?.clippingMode) {
+        CLIPPING_AXES.forEach((axis) => {
+          core.planeParams.clippingMode[axis] = false;
+          const keys = PARAM_KEYS[axis];
+          if (core.planeParams[keys.group]) {
+            core.planeParams[keys.group].negated = false;
+            core.planeParams[keys.group][keys.helper] = false;
+          }
+          if (Viewer.clippingState?.fraction) {
+            Viewer.clippingState.fraction[axis] = DEFAULT_FRACTION;
+          }
+        });
+      }
+      if (core.planeParams?.outline) {
+        core.planeParams.outline.visible = false;
+      }
+      Viewer.clippingMode = false;
+      if (Viewer.clippingState) {
+        Viewer.clippingState.remembered = null;
+        Viewer.clippingState.drag = null;
+      }
+      if (Array.isArray(core.activeClippingPlanes)) {
+        core.activeClippingPlanes.length = 0;
+      }
+      if (Viewer.isClippingAvailable()) {
+        Viewer.placeIdleClippingPlanesAtMargins();
+        Viewer.applyClippingState();
+      } else {
+        updateActiveClippingPlanes();
+      }
+      Viewer.updateEditorToolbarLabels?.();
+      Viewer.updateEditorToolbarState?.();
+    },
+
     // Pushes the current state into materials, visuals, outline and UI.
     applyClippingState() {
       updateActiveClippingPlanes();
@@ -94754,7 +94796,7 @@ function attachVolumePanel(Viewer) {
       };
       Viewer.volumeState = state;
       // volume.js is loaded already (loaders.js); this only fetches the module.
-      import('./volume-BLxA82mV.js').then((api) => {
+      import('./volume-JVpUBNyL.js').then((api) => {
         if (Viewer.volumeState !== state) return;
         state.api = api;
         Viewer.createVolumePanel();
@@ -95194,7 +95236,7 @@ function attachAudioPanel(Viewer) {
       };
       Viewer.audioState = state;
       // audio.js is loaded already (loaders.js); this only fetches the module.
-      import('./audio-DERWMsz_.js').then((api) => {
+      import('./audio-CgnNy5Pn.js').then((api) => {
         if (Viewer.audioState !== state) return;
         state.api = api;
         state.player = api.getAudioState(root)?.player || null;
@@ -95401,7 +95443,7 @@ function attachAudioPanel(Viewer) {
       Object.entries(scene).forEach(([key, value]) => {
         if (key in state.root.userData.audio && typeof value === typeof state.root.userData.audio[key]) state.root.userData.audio[key] = value;
       });
-      import('./audio-DERWMsz_.js').then((api) => {
+      import('./audio-CgnNy5Pn.js').then((api) => {
         if (Viewer.audioState !== state) return;
         api.applyAudioSettings(state.root);
         const player = api.getAudioState(state.root)?.player;
@@ -100630,7 +100672,7 @@ function attachImagePanel(Viewer) {
       state.onKey = (event) => Viewer.handleImageKey(event);
       window.addEventListener("keydown", state.onKey);
       Viewer.attachImageSplitDrag(state);
-      import('./image2d-Dpl2NrAb.js').then((api) => {
+      import('./image2d-CXSH6mAH.js').then((api) => {
         if (Viewer.imageState !== state) return;
         state.api = api;
         // Settings a manifest gave before the module was there.
@@ -112827,8 +112869,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "8694cfa1" ;
-const BUILD_TIME = "2026-11-20T19:09:47.915Z" ;
+const BUILD_ID = "2ef97741" ;
+const BUILD_TIME = "2026-11-20T19:47:47.524Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -114523,11 +114565,11 @@ const Viewer$1 = {
       // Gaussian splats (splats.js) hold their own GPU textures.
       if (node.userData?.isGaussianSplats) node.dispose?.();
       // A volume's 3D textures (volume.js), by then loaded.
-      if (node.isMesh && node.userData?.isVolume) import('./volume-BLxA82mV.js').then(({ disposeVolume }) => disposeVolume(node));
+      if (node.isMesh && node.userData?.isVolume) import('./volume-JVpUBNyL.js').then(({ disposeVolume }) => disposeVolume(node));
       // An audio file's player and its blob: URL (audio.js).
-      if (node.userData?.isAudio) import('./audio-DERWMsz_.js').then(({ disposeAudio }) => disposeAudio(node));
+      if (node.userData?.isAudio) import('./audio-CgnNy5Pn.js').then(({ disposeAudio }) => disposeAudio(node));
       // A 2D image's texture and shader (image2d.js).
-      if (node.userData?.isImage2D) import('./image2d-Dpl2NrAb.js').then(({ disposeImage }) => disposeImage(node));
+      if (node.userData?.isImage2D) import('./image2d-CXSH6mAH.js').then(({ disposeImage }) => disposeImage(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -114628,9 +114670,8 @@ const Viewer$1 = {
     if (core.lightHelper) core.lightHelper.visible = false;
     Viewer$1.pickingMode = false;
     Viewer$1.RULER_MODE = false;
-    // Section planes stay as they are; refreshClippingForModel() fits them
-    // to the next model.
     Viewer$1.cancelClippingDrag();
+    Viewer$1.clearClippingPlanes?.();
     Viewer$1.updateEditorToolbarLabels();
     Viewer$1.updateEditorToolbarState();
 
@@ -117820,4 +117861,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AUDIO_MIME_TYPES as A, FullScreenQuad as F, PANEL_ICONS as P, Viewer$1 as V, WEATHER_DEFAULTS as W, core as a, readImageMetadata as b, canvasFont as c, AO_RADIUS as d, AO_THICKNESS as e, decompressSync as f, WEATHER_TYPES as g, refreshToolPanelChrome as h, isLightBackground as i, WEATHER_SEASONS as j, attachToolPanelChrome as k, getViewerSideStack as l, isPostProcessingActive as m, getRenderingSettings as n, unzlibSync$1 as o, expectWebGL as p, readAudioMetadata as r, sunDirection as s, unzipSync$1 as u };
-//# sourceMappingURL=main-D2W-hdOK.js.map
+//# sourceMappingURL=main-C41EEriJ.js.map

@@ -1,6 +1,6 @@
 {
   "@context": "http://iiif.io/api/presentation/4/context.json",
-  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest.json",
+  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-acoustics.json",
   "type": "Manifest",
   "label": {
     "en": [
@@ -15,13 +15,13 @@
   },
   "summary": {
     "en": [
-      "The Pagoda shown with room acoustics from the model."
+      "Model room acoustics: a temple bell toll reverberating in the timber structure."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: room acoustics from the model."
+      "Akustyka modelu: uderzenie dzwonu świątynnego z pogłosem drewnianej konstrukcji."
     ],
     "de": [
-      "Die Pagode mit der Funktion „room acoustics from the model“."
+      "Modellakustik: Klang einer Tempelglocke mit Nachhall in der Holzkonstruktion."
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -114,25 +114,7 @@
           "antialias": "msaa"
         }
       },
-      "performance": "high-performance",
-      "clipping": {
-        "mode": {
-          "x": true,
-          "y": false,
-          "z": false
-        },
-        "negated": {
-          "x": false,
-          "y": false,
-          "z": false
-        },
-        "constants": [
-          0,
-          0,
-          0
-        ],
-        "outlineVisible": true
-      }
+      "performance": "high-performance"
     },
     "lights": [
       {
@@ -185,16 +167,16 @@
       "autoplay": true,
       "sources": [
         {
-          "id": "call",
+          "id": "bell",
           "type": "point",
-          "src": "./examples/audio/shofar.ogg",
-          "label": "A horn call in the middle of the hall",
+          "src": "./examples/tempietto/sound/bell.ogg",
+          "label": "Temple bell toll in the pagoda precinct",
           "position": [
             0,
-            280,
-            -200
+            4,
+            0
           ],
-          "distance": 150,
+          "distance": 35,
           "volume": 0.9
         }
       ],
@@ -202,11 +184,11 @@
         "on": true,
         "position": [
           0,
-          270,
-          250
+          2,
+          0
         ],
         "material": "wood",
-        "floor": "pews"
+        "floor": "wood"
       }
     }
   },

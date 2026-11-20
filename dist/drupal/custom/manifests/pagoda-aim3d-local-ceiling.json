@@ -1,6 +1,6 @@
 {
   "@context": "http://iiif.io/api/presentation/4/context.json",
-  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest.json",
+  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-ceiling.json",
   "type": "Manifest",
   "label": {
     "en": [
@@ -159,10 +159,10 @@
       "The Pagoda shown with a view of the roofs from above."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: a view of the roofs from above."
+      "Pagoda pokazana w widoku z góry na dachy."
     ],
     "de": [
-      "Die Pagode mit der Funktion „a view of the roofs from above“."
+      "Die Pagode in einer Ansicht der Dächer von oben."
     ]
   }
 }

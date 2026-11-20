@@ -4,13 +4,13 @@
   "type": "Manifest",
   "label": {
     "en": [
-      "Pagoda — Viewer feature (AIM3D, localhost)"
+      "Pagoda — Flat shading, faces shown (AIM3D, localhost)"
     ],
     "pl": [
-      "Pagoda — Funkcja przeglądarki (AIM3D, localhost)"
+      "Pagoda — Płaskie cieniowanie, widoczne ściany (AIM3D, localhost)"
     ],
     "de": [
-      "Pagode — Viewer-Funktion (AIM3D, localhost)"
+      "Pagode — Flache Schattierung, Flächen sichtbar (AIM3D, localhost)"
     ]
   },
   "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
@@ -156,13 +156,13 @@
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with this viewer feature."
+      "Faceted flat shading revealing the polygonal mesh faces."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: this viewer feature."
+      "Płaskie cieniowanie uwidaczniające ścianki siatki wielokątów."
     ],
     "de": [
-      "Die Pagode mit der Funktion „this viewer feature“."
+      "Flache Schattierung, die die Facetten des Polygonnetzes sichtbar macht."
     ]
   }
 }

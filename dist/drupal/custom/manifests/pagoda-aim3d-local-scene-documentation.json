@@ -1,6 +1,6 @@
 {
   "@context": "http://iiif.io/api/presentation/4/context.json",
-  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-documentation-scene.json",
+  "id": "./examples/pagoda/Pagoda-progressive.glb/manifest-scene-documentation.json",
   "type": "Manifest",
   "label": {
     "en": [
@@ -159,19 +159,20 @@
       "utcOffset": 9
     },
     "sceneSuggest": {
-      "open": true
+      "open": true,
+      "purpose": "documentation"
     }
   },
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {
     "en": [
-      "The Pagoda shown with a suggested scene around the model."
+      "Suggested scene: neutral documentation lighting and environment for archival study."
     ],
     "pl": [
-      "Pagoda pokazana z użyciem funkcji: a suggested scene around the model."
+      "Sugerowana scena: neutralne oświetlenie dokumentacyjne do celów archiwalnych."
     ],
     "de": [
-      "Die Pagode mit der Funktion „a suggested scene around the model“."
+      "Vorgeschlagene Szene: neutrale Dokumentationsbeleuchtung für wissenschaftliche Studien."
     ]
   }
 }
