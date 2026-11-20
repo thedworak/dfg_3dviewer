@@ -1,5 +1,5 @@
 import { ColladaLoader } from './ColladaLoader-rakFlNHu.js';
-import { u as unzipSync } from './main-BVd0a2y1.js';
+import { u as unzipSync } from './main-DuXu11KQ.js';
 import { b6 as Loader, b7 as FileLoader, eN as LoadingManager, aM as Group } from './three-DQIwNvhE.js';
 import './feature-icons-EpM4BMWo.js';
 import './model-extension-BDXGpmfH.js';

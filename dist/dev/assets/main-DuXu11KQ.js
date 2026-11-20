@@ -9435,7 +9435,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-vjNLNuuZ.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-DLkRlbrm.js'),
+    import('./rendering-webgpu-DH3SwuEV.js'),
     import('./weather-webgpu-B6tOXV-8.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -13595,7 +13595,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-B-FFrMT3.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-pxBKSXDQ.js');
+const loadTilesPlugins = () => import('./index.three-plugins-U7FIl-pU.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -13937,7 +13937,7 @@ function maybeShowFirstRunHints() {
 const loadDDSLoader = async () => (await import('./DDSLoader-CyqLLwpd.js')).DDSLoader;
 const loadMTLLoader = async () => (await import('./MTLLoader-MpJ8FbTb.js')).MTLLoader;
 const loadOBJLoader = async () => (await import('./OBJLoader-DpZpLQGw.js')).OBJLoader;
-const loadFBXLoader = async () => (await import('./FBXLoader-DxSnJaRD.js')).FBXLoader;
+const loadFBXLoader = async () => (await import('./FBXLoader-BYW3WRSg.js')).FBXLoader;
 const loadPLYLoader = async () => (await import('./PLYLoader-3LwvdLeB.js')).PLYLoader;
 const loadColladaLoader = async () => (await import('./ColladaLoader-rakFlNHu.js')).ColladaLoader;
 const loadSTLLoader = async () => (await import('./STLLoader-BeEAOqnR.js')).STLLoader;
@@ -13948,26 +13948,26 @@ const loadGLTFLoader = async () => (await import('./GLTFLoader-AlTtFYlT.js')).GL
 const loadDRACOLoader = async () => (await import('./DRACOLoader-CJJsHDAc.js')).DRACOLoader;
 const loadKTX2Loader = async () => (await import('./KTX2Loader-DH_brhHp.js')).KTX2Loader;
 const loadMeshoptDecoder = async () => (await import('./meshopt_decoder.module-ddw5RWcg.js')).MeshoptDecoder;
-const loadUSDLoader = async () => (await import('./USDLoader-CNH23hpC.js')).USDLoader;
-const loadThreeMFLoader = async () => (await import('./3MFLoader-BMP3pV5x.js')).ThreeMFLoader;
-const loadAMFLoader = async () => (await import('./AMFLoader-Dgbg0YNe.js')).AMFLoader;
+const loadUSDLoader = async () => (await import('./USDLoader-Cm6Qq8_0.js')).USDLoader;
+const loadThreeMFLoader = async () => (await import('./3MFLoader-hTjuPtgI.js')).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./AMFLoader-GrJEg74o.js')).AMFLoader;
 const loadVRMLLoader = async () => (await import('./VRMLLoader-Db6Ya83a.js')).VRMLLoader;
-const loadKMZLoader = async () => (await import('./KMZLoader-R6ojmVue.js')).KMZLoader;
+const loadKMZLoader = async () => (await import('./KMZLoader-BKZd8iLC.js')).KMZLoader;
 const loadVOXLoader = async () => (await import('./VOXLoader-BmnzBQZZ.js')).VOXLoader;
 const loadVOXBuildMesh = async () => (await import('./VOXLoader-BmnzBQZZ.js')).buildMesh;
 const loadLWOLoader = async () => (await import('./LWOLoader-D_Qu1Hqd.js')).LWOLoader;
 const loadIFCLoader = async () => (await import('./IFCLoader-C-WidSC0.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./RoomEnvironment-CwCPKJZW.js')).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-I61oeyBu.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-Dfzryqp0.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-Dk1X4wuJ.js');
+const loadSplats = async () => import('./splats-8JB4RQVb.js');
 // Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
-const loadVolume = async () => import('./volume-C5IfLGAg.js');
+const loadVolume = async () => import('./volume-Z7HSkvUu.js');
 // Audio files: the player and the spectrogram landscape, with the first one.
-const loadAudio = async () => import('./audio-BPDwyQyj.js');
+const loadAudio = async () => import('./audio-C6iHVjs6.js');
 // 2D images, one or a set (image2d.js).
-const loadImage2D = async () => import('./image2d-BgYZW8aS.js');
+const loadImage2D = async () => import('./image2d-DpiFrxPv.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -19230,6 +19230,73 @@ function isToolPanelFolded(panel) {
   return Boolean(panel?.classList.contains("is-peek"));
 }
 
+// On a phone an open settings window can cover nearly all of the model.
+// While a range is being adjusted, temporarily fold the window down to that
+// one control.  This is installed here rather than in every individual
+// panel, so new panels get the same behaviour automatically.  The original
+// folded state is respected: a panel the user folded deliberately is never
+// unfolded by this helper.
+function installRangePeek(panel) {
+  if (panel.toolPanelRangePeek) return;
+  const state = panel.toolPanelRangePeek = { target: null, timer: 0, restore: false, pointerId: null };
+  const isPhone = () => window.matchMedia?.("(pointer: coarse)").matches === true;
+  const clearTimer = () => {
+    window.clearTimeout(state.timer);
+    state.timer = 0;
+  };
+  const finish = () => {
+    clearTimer();
+    if (!state.restore) return;
+    state.target?.removeAttribute("data-panel-peek");
+    state.target = null;
+    state.restore = false;
+    state.pointerId = null;
+    setToolPanelFolded(panel, false);
+  };
+  const finishSoon = () => {
+    clearTimer();
+    // Keeping the compact view briefly after lifting a finger makes the
+    // changed model visible before the rest of the window returns.
+    state.timer = window.setTimeout(finish, 360);
+  };
+  const begin = (input) => {
+    if (!isPhone() || panel.classList.contains("is-minimized") || isToolPanelFolded(panel)) return;
+    clearTimer();
+    const target = input.closest("label") || input;
+    if (!panel.contains(target)) return;
+    state.target?.removeAttribute("data-panel-peek");
+    state.target = target;
+    target.setAttribute("data-panel-peek", "");
+    state.restore = true;
+    setToolPanelFolded(panel, true);
+  };
+  const rangeFrom = (event) => event.target instanceof HTMLInputElement && event.target.type === "range" ? event.target : null;
+
+  panel.addEventListener("pointerdown", (event) => {
+    const input = rangeFrom(event);
+    if (!input || event.button > 0) return;
+    begin(input);
+    if (state.restore) state.pointerId = event.pointerId;
+  }, true);
+  // A finger may finish outside the slider, so listen on the window rather
+  // than relying on the range being the event target at pointer-up.
+  ["pointerup", "pointercancel"].forEach((type) => window.addEventListener(type, (event) => {
+    if (state.restore && event.pointerId === state.pointerId) finishSoon();
+  }, true));
+  // Keyboard changes have no pointer-up.  The short delay is reset on each
+  // input event, keeping the single field visible during repeated key presses.
+  panel.addEventListener("focusin", (event) => {
+    const input = rangeFrom(event);
+    if (input) begin(input);
+  });
+  panel.addEventListener("input", (event) => {
+    if (rangeFrom(event) && state.restore) finishSoon();
+  });
+  panel.addEventListener("focusout", (event) => {
+    if (rangeFrom(event) && state.restore) finishSoon();
+  });
+}
+
 // Rolls the panel up to its header and its [data-panel-peek] controls
 // (true), or shows all of it again.
 function setToolPanelFolded(panel, folded) {
@@ -19307,6 +19374,7 @@ function attachToolPanelChrome(panel, header, {
       close: onClose ? createClose(onClose) : null,
     };
     panel.classList.add("has-tool-chrome");
+    installRangePeek(panel);
     watchPanelVisibility(panel, visibilityRoot);
     // A modal window: Escape folds it; hidden or removed, its backdrop goes.
     panel.addEventListener("keydown", (event) => {
@@ -27329,7 +27397,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "73a8e7a8" ;
+const BUILD_ID$2 = "b9304eec" ;
 const BUILD$1 = "dev" ;
 
 let initPromise = null;
@@ -27380,8 +27448,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "73a8e7a8" ;
-const BUILD_TIME$1 = "2026-11-20T11:04:14.477Z" ;
+const BUILD_ID$1 = "b9304eec" ;
+const BUILD_TIME$1 = "2026-11-20T12:08:56.618Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -75063,7 +75131,7 @@ function attachWeatherLazy(Viewer) {
 
   let loading = null;
   const load = () => {
-    loading ??= import('./weather-DrmM5PLK.js')
+    loading ??= import('./weather-BQchfcUY.js')
       .then(({ attachWeather }) => {
         attachWeather(Viewer);
         Viewer.updateEditorToolbarState?.();
@@ -94686,7 +94754,7 @@ function attachVolumePanel(Viewer) {
       };
       Viewer.volumeState = state;
       // volume.js is loaded already (loaders.js); this only fetches the module.
-      import('./volume-C5IfLGAg.js').then((api) => {
+      import('./volume-Z7HSkvUu.js').then((api) => {
         if (Viewer.volumeState !== state) return;
         state.api = api;
         Viewer.createVolumePanel();
@@ -95126,7 +95194,7 @@ function attachAudioPanel(Viewer) {
       };
       Viewer.audioState = state;
       // audio.js is loaded already (loaders.js); this only fetches the module.
-      import('./audio-BPDwyQyj.js').then((api) => {
+      import('./audio-C6iHVjs6.js').then((api) => {
         if (Viewer.audioState !== state) return;
         state.api = api;
         state.player = api.getAudioState(root)?.player || null;
@@ -95333,7 +95401,7 @@ function attachAudioPanel(Viewer) {
       Object.entries(scene).forEach(([key, value]) => {
         if (key in state.root.userData.audio && typeof value === typeof state.root.userData.audio[key]) state.root.userData.audio[key] = value;
       });
-      import('./audio-BPDwyQyj.js').then((api) => {
+      import('./audio-C6iHVjs6.js').then((api) => {
         if (Viewer.audioState !== state) return;
         api.applyAudioSettings(state.root);
         const player = api.getAudioState(state.root)?.player;
@@ -100562,7 +100630,7 @@ function attachImagePanel(Viewer) {
       state.onKey = (event) => Viewer.handleImageKey(event);
       window.addEventListener("keydown", state.onKey);
       Viewer.attachImageSplitDrag(state);
-      import('./image2d-BgYZW8aS.js').then((api) => {
+      import('./image2d-DpiFrxPv.js').then((api) => {
         if (Viewer.imageState !== state) return;
         state.api = api;
         // Settings a manifest gave before the module was there.
@@ -112759,8 +112827,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "73a8e7a8" ;
-const BUILD_TIME = "2026-11-20T11:04:14.477Z" ;
+const BUILD_ID = "b9304eec" ;
+const BUILD_TIME = "2026-11-20T12:08:56.618Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -114443,11 +114511,11 @@ const Viewer$1 = {
       // Gaussian splats (splats.js) hold their own GPU textures.
       if (node.userData?.isGaussianSplats) node.dispose?.();
       // A volume's 3D textures (volume.js), by then loaded.
-      if (node.isMesh && node.userData?.isVolume) import('./volume-C5IfLGAg.js').then(({ disposeVolume }) => disposeVolume(node));
+      if (node.isMesh && node.userData?.isVolume) import('./volume-Z7HSkvUu.js').then(({ disposeVolume }) => disposeVolume(node));
       // An audio file's player and its blob: URL (audio.js).
-      if (node.userData?.isAudio) import('./audio-BPDwyQyj.js').then(({ disposeAudio }) => disposeAudio(node));
+      if (node.userData?.isAudio) import('./audio-C6iHVjs6.js').then(({ disposeAudio }) => disposeAudio(node));
       // A 2D image's texture and shader (image2d.js).
-      if (node.userData?.isImage2D) import('./image2d-BgYZW8aS.js').then(({ disposeImage }) => disposeImage(node));
+      if (node.userData?.isImage2D) import('./image2d-DpiFrxPv.js').then(({ disposeImage }) => disposeImage(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -117707,4 +117775,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AUDIO_MIME_TYPES as A, FullScreenQuad as F, PANEL_ICONS as P, Viewer$1 as V, WEATHER_DEFAULTS as W, core as a, readImageMetadata as b, canvasFont as c, AO_RADIUS as d, AO_THICKNESS as e, decompressSync as f, WEATHER_TYPES as g, refreshToolPanelChrome as h, isLightBackground as i, WEATHER_SEASONS as j, attachToolPanelChrome as k, getViewerSideStack as l, isPostProcessingActive as m, getRenderingSettings as n, unzlibSync$1 as o, expectWebGL as p, readAudioMetadata as r, sunDirection as s, unzipSync$1 as u };
-//# sourceMappingURL=main-C7I_G-2j.js.map
+//# sourceMappingURL=main-CBbO7Ca9.js.map

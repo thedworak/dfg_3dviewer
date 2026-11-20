@@ -329,6 +329,73 @@ export function isToolPanelFolded(panel) {
   return Boolean(panel?.classList.contains("is-peek"));
 }
 
+// On a phone an open settings window can cover nearly all of the model.
+// While a range is being adjusted, temporarily fold the window down to that
+// one control.  This is installed here rather than in every individual
+// panel, so new panels get the same behaviour automatically.  The original
+// folded state is respected: a panel the user folded deliberately is never
+// unfolded by this helper.
+function installRangePeek(panel) {
+  if (panel.toolPanelRangePeek) return;
+  const state = panel.toolPanelRangePeek = { target: null, timer: 0, restore: false, pointerId: null };
+  const isPhone = () => window.matchMedia?.("(pointer: coarse)").matches === true;
+  const clearTimer = () => {
+    window.clearTimeout(state.timer);
+    state.timer = 0;
+  };
+  const finish = () => {
+    clearTimer();
+    if (!state.restore) return;
+    state.target?.removeAttribute("data-panel-peek");
+    state.target = null;
+    state.restore = false;
+    state.pointerId = null;
+    setToolPanelFolded(panel, false);
+  };
+  const finishSoon = () => {
+    clearTimer();
+    // Keeping the compact view briefly after lifting a finger makes the
+    // changed model visible before the rest of the window returns.
+    state.timer = window.setTimeout(finish, 360);
+  };
+  const begin = (input) => {
+    if (!isPhone() || panel.classList.contains("is-minimized") || isToolPanelFolded(panel)) return;
+    clearTimer();
+    const target = input.closest("label") || input;
+    if (!panel.contains(target)) return;
+    state.target?.removeAttribute("data-panel-peek");
+    state.target = target;
+    target.setAttribute("data-panel-peek", "");
+    state.restore = true;
+    setToolPanelFolded(panel, true);
+  };
+  const rangeFrom = (event) => event.target instanceof HTMLInputElement && event.target.type === "range" ? event.target : null;
+
+  panel.addEventListener("pointerdown", (event) => {
+    const input = rangeFrom(event);
+    if (!input || event.button > 0) return;
+    begin(input);
+    if (state.restore) state.pointerId = event.pointerId;
+  }, true);
+  // A finger may finish outside the slider, so listen on the window rather
+  // than relying on the range being the event target at pointer-up.
+  ["pointerup", "pointercancel"].forEach((type) => window.addEventListener(type, (event) => {
+    if (state.restore && event.pointerId === state.pointerId) finishSoon();
+  }, true));
+  // Keyboard changes have no pointer-up.  The short delay is reset on each
+  // input event, keeping the single field visible during repeated key presses.
+  panel.addEventListener("focusin", (event) => {
+    const input = rangeFrom(event);
+    if (input) begin(input);
+  });
+  panel.addEventListener("input", (event) => {
+    if (rangeFrom(event) && state.restore) finishSoon();
+  });
+  panel.addEventListener("focusout", (event) => {
+    if (rangeFrom(event) && state.restore) finishSoon();
+  });
+}
+
 // Rolls the panel up to its header and its [data-panel-peek] controls
 // (true), or shows all of it again.
 export function setToolPanelFolded(panel, folded) {
@@ -406,6 +473,7 @@ export function attachToolPanelChrome(panel, header, {
       close: onClose ? createClose(onClose) : null,
     };
     panel.classList.add("has-tool-chrome");
+    installRangePeek(panel);
     watchPanelVisibility(panel, visibilityRoot);
     // A modal window: Escape folds it; hidden or removed, its backdrop goes.
     panel.addEventListener("keydown", (event) => {

@@ -1,4 +1,4 @@
-import { f as decompressSync } from './main-BVd0a2y1.js';
+import { f as decompressSync } from './main-DuXu11KQ.js';
 import './three-DQIwNvhE.js';
 import './feature-icons-EpM4BMWo.js';
 import './model-extension-BDXGpmfH.js';

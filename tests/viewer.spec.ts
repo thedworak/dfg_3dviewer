@@ -8353,6 +8353,16 @@ test('more of the scene on a phone: the page header as one button, a window fold
   await panel.locator('.tool-panel-chrome_fold').tap();
   await expect(panel.locator('select[name="kind"]')).toBeVisible();
 
+  // Adjusting a slider on touch devices temporarily keeps only that setting
+  // visible, so the model is not hidden by the rest of the window.
+  await panel.locator('input[name="year"]').focus();
+  await expect(panel).toHaveClass(/is-peek/);
+  await expect(panel.locator('input[name="year"]')).toBeVisible();
+  await expect(panel.locator('select[name="kind"]')).toBeHidden();
+  await page.keyboard.press('ArrowRight');
+  await expect(panel).not.toHaveClass(/is-peek/);
+  await expect(panel.locator('select[name="kind"]')).toBeVisible();
+
   // Minimized, the badge comes back: one line.
   await panel.locator('.tool-panel-chrome_minimize').tap();
   const badge = page.locator('#viewerSurroundingsBadge');

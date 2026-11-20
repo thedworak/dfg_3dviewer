@@ -1,4 +1,4 @@
-import { r as readAudioMetadata, A as AUDIO_MIME_TYPES, c as canvasFont } from './main-BVd0a2y1.js';
+import { r as readAudioMetadata, A as AUDIO_MIME_TYPES, c as canvasFont } from './main-DuXu11KQ.js';
 import { t as toDb, a as analyzeAudio } from './audio-analysis-BRwyCUP5.js';
 import { V as Vector3, aM as Group, du as Box3, aq as Plane, C as Color, bb as SRGBColorSpace, a1 as Matrix4, h as Mesh, b0 as MeshStandardMaterial, ai as DoubleSide, aW as MeshBasicMaterial, B as BoxGeometry, dB as CanvasTexture, fw as Sprite, bf as SpriteMaterial, am as BufferGeometry, a9 as BufferAttribute } from './three-DQIwNvhE.js';
 import './feature-icons-EpM4BMWo.js';
