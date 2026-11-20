@@ -1,4 +1,4 @@
-export { V as Viewer, p as expectWebGL } from './assets/main-VQNABpGG.js';
+export { V as Viewer, p as expectWebGL } from './assets/main-BbNHuZfm.js';
 import './assets/model-extension-BDXGpmfH.js';
 import './assets/intro-scene-B56HZfgO.js';
 import './assets/feature-icons-CL_uEPpa.js';
