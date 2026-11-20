@@ -1,6 +1,5 @@
 #browseModelsButton,
 #openLocalFileButton,
-#browseManifestsButton,
 #planButton {
   width: 30px;
   height: 30px;
@@ -40,11 +39,41 @@
 
 body[data-viewer-theme="dark"] #browseModelsButton,
 body[data-viewer-theme="dark"] #openLocalFileButton,
-body[data-viewer-theme="dark"] #browseManifestsButton,
 body[data-viewer-theme="dark"] #planButton {
   border-color: #444;
   background: #1a1714;
   color: #eee;
+}
+
+/* The scenes (example manifests), the main content: first in the row, a
+   labelled button in the accent colour rather than one more round icon.
+   Icon only where the row is tight (main.css, phones). */
+#browseManifestsButton {
+  height: 30px;
+  padding: 0 12px 0 9px;
+  gap: 6px;
+  border: 1px solid var(--viewer-brand-accent);
+  border-radius: 999px;
+  background: var(--viewer-brand-accent);
+  color: var(--viewer-on-accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  transition:
+    filter 0.2s ease,
+    transform 0.2s ease;
+}
+
+#browseManifestsButton:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 
 /* ExHUB, the repository: storage (a database cylinder) - the same icon in

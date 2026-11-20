@@ -7,7 +7,7 @@ import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 import { AIM3D_MANIFEST_VERSION, manifestVersionStatus } from '../viewer/manifesto/manifest-version.js';
 import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 import { findSceneCoordinates, findSceneYear, sceneProportions, suggestScene } from '../viewer/editor/scene-rules.js';
-import { findSurroundingsKind, layoutSurroundings, normalizeSurroundings, suggestSurroundings, surroundingsGrowth, surroundingsMasonry, surroundingsPeriod, surroundingsRegion, surroundingsSliderToYear, surroundingsTerrainHeight, surroundingsWaterDistance, surroundingsWaterLevel, surroundingsYearToSlider } from '../viewer/editor/surroundings-rules.js';
+import { findSurroundingsKind, layoutSurroundings, normalizeSurroundings, suggestSurroundings, surroundingsGrowth, surroundingsSnows, surroundingsMasonry, surroundingsPeriod, surroundingsRegion, surroundingsSliderToYear, surroundingsTerrainHeight, surroundingsWaterDistance, surroundingsWaterLevel, surroundingsYearToSlider } from '../viewer/editor/surroundings-rules.js';
 import { createMapWater, dateYear, filterByYear, mapGeoJsonToAnswer, mapProjector, mapWaterQuery, minimumRectangle, readMapLayout, readMapWater, waterGeoJsonToAnswer } from '../viewer/editor/surroundings-map.js';
 import { createHeightfield, decodeTerrarium, elevationZoom, metresPerPixel, worldPixel } from '../viewer/editor/surroundings-terrain.js';
 import sharp from 'sharp';
@@ -4442,7 +4442,7 @@ test('example model list: fetched from examples/index.json, so a new example nee
   const groups = list.models.map((entry) => entry.group).filter((group, index, all) => group && group !== all[index - 1]);
   await expect(select.locator('optgroup')).toHaveCount(groups.length);
   expect(await select.evaluate((element) => [...element.querySelectorAll('optgroup')].map((group) => group.label)))
-    .toEqual(['Tempietto', 'Gaussian splats', 'Wolpa Synagogue', 'Point clouds and animation', 'Amphora, micro-CT (volume)', 'Cells, 2 channels (microscopy volume)', 'Virus capsid, cryo-EM (volume)', 'Soundscape (audio)', 'Images (2D)', 'Test files (broken)']);
+    .toEqual(['Pagoda (own model)', 'Tempietto', 'Gaussian splats', 'Wolpa Synagogue', 'Point clouds and animation', 'Amphora, micro-CT (volume)', 'Cells, 2 channels (microscopy volume)', 'Virus capsid, cryo-EM (volume)', 'Soundscape (audio)', 'Images (2D)', 'Test files (broken)']);
   // Within a group, only what sets an example apart.
   await expect(select.locator('optgroup[data-example-group="amphora"] > option').first()).toHaveText('NIfTI');
   await expect(select.locator('option[value="./examples/WolpaSynagogue-progressive.glb"]')).toHaveText('GLB, progressive (Meshopt + KTX2)');
@@ -5973,7 +5973,7 @@ test('example manifests: one folded group per model, its manifests named by what
   });
   const panel = page.locator('#examplesPanel');
   const groups = panel.locator('details.examples-panel-group');
-  await expect(groups.locator('summary > span:first-child')).toHaveText(['Tempietto', 'Wolpa Synagogue', 'ExPlora4D showcase', 'Angel (Gaussian splats)']);
+  await expect(groups.locator('summary > span:first-child')).toHaveText(['Pagoda (own model)', 'Tempietto', 'Wolpa Synagogue', 'ExPlora4D showcase', 'Angel (Gaussian splats)']);
   await expect(panel.locator('details[data-group="aim3d:showcase"] .examples-panel-count')).toHaveText('15');
   // Folded at first; open, only the variants under the model's name.
   const wolpa = panel.locator('details[data-group="aim3d:wolpa"]');
@@ -7553,7 +7553,7 @@ test('generated surroundings rules: offered for a dated building of a known kind
   const why = (text, size = castleFacts.size) => item(suggestScene({ size, unitSource: 'file', text }, 'presentation')).reasons[0].key;
   expect(why('Zamek w Malborku')).toBe('surroundingsNoYear');
   expect(why('Castle, 9th century')).toBe('surroundingsOtherPeriod');
-  expect(why('Castle, 14th century. 35.0116, 135.7681')).toBe('surroundingsOtherRegion');
+  expect(why('Castle, 14th century. 40.7128, -74.0060')).toBe('surroundingsOtherRegion');
   expect(why('Bridge, 14th century')).toBe('surroundingsNoType');
   expect(why('Castle, 14th century', { x: 0.3, y: 0.2, z: 0.3 })).not.toBe('surroundingsType');
   // An unknown unit or region: offered, less surely.
@@ -8016,6 +8016,43 @@ test('generated surroundings on the real terrain: elevation tiles of the place, 
   expect(await page.evaluate(() => window.viewer.errors)).toEqual([]);
 });
 
+test('generated surroundings rules: Japan and West Africa, the same plan with the region\'s buildings and plants', () => {
+  expect(surroundingsRegion({ latitude: 35.01, longitude: 135.77 })).toBe('japanese');
+  expect(surroundingsRegion({ latitude: 12.64, longitude: -8.0 })).toBe('african');
+  expect(normalizeSurroundings({ region: 'japanese' }).region).toBe('japanese');
+  expect(surroundingsSnows('african')).toBe(false);
+  expect(surroundingsSnows('japanese')).toBe(true);
+  const kyoto = suggestSurroundings({ normalizedText: 'temple, village, 1700', year: { year: 1700 }, location: { latitude: 35.01, longitude: 135.77 }, sizeClass: 'building' });
+  expect(kyoto.value).toMatchObject({ enabled: true, region: 'japanese' });
+  expect(kyoto.reasons.map((reason) => reason.key)).toContain('surroundingsJapanese');
+
+  const params = { kind: 'village', year: 1700, seed: 7 };
+  const central = layoutSurroundings({ ...params, region: 'central' }, { radius: 10 });
+  const japan = layoutSurroundings({ ...params, region: 'japanese' }, { radius: 10 });
+  const sahel = layoutSurroundings({ ...params, region: 'african' }, { radius: 10 });
+  // The same plan: roads and lots as Central Europe's.
+  expect(japan.roads).toEqual(central.roads);
+  expect(sahel.blocks.map((block) => [block.x, block.z])).toEqual(central.blocks.map((block) => [block.x, block.z]));
+  // Japan: farmhouses under hipped roofs, the temple's hall and its pagoda,
+  // rice fields, maples and pines.
+  expect(japan.blocks.filter((block) => block.role === 'house').every((block) => block.roof === 'hip')).toBe(true);
+  expect(japan.blocks.some((block) => block.roof === 'pagoda' && block.tiers >= 3)).toBe(true);
+  expect(japan.blocks.some((block) => block.temple && block.roof === 'hip')).toBe(true);
+  expect(japan.fields.some((field) => field.paddy)).toBe(true);
+  expect(japan.trees.some((tree) => tree.kind === 'maple')).toBe(true);
+  // The Sahel: round houses under conical roofs, the mosque and its
+  // minaret flat-roofed, a thin savanna of acacias and baobabs.
+  const houses = sahel.blocks.filter((block) => block.role === 'house');
+  expect(houses.length).toBeGreaterThan(5);
+  expect(houses.every((block) => block.shape === 'round' && block.roof === 'cone' && block.w === block.d)).toBe(true);
+  expect(sahel.blocks.filter((block) => block.mosque).length).toBe(2);
+  expect(sahel.trees.length).toBeLessThan(central.trees.length * 0.6);
+  expect(new Set(sahel.trees.map((tree) => tree.kind))).toEqual(new Set(['acacia', 'baobab']));
+  // A town in the Sahel: flat mud roofs.
+  const town = layoutSurroundings({ kind: 'town', region: 'african', year: 1700, seed: 7 }, { radius: 10 });
+  expect(town.blocks.filter((block) => block.role === 'house').every((block) => block.roof === 'none')).toBe(true);
+});
+
 test('generated surroundings rules: more kinds, the Mediterranean, after 1945, the slider\'s milestones', () => {
   // The kind from the texts, the most particular first.
   expect(findSurroundingsKind('opactwo cystersow w wachocku, kosciol')).toBe('monastery');
@@ -8028,7 +8065,7 @@ test('generated surroundings rules: more kinds, the Mediterranean, after 1945, t
   // The region by the place: the Mediterranean's stone and low roofs.
   expect(surroundingsRegion({ latitude: 43.77, longitude: 11.25 })).toBe('mediterranean');
   expect(surroundingsRegion({ latitude: 52.23, longitude: 21.01 })).toBe('central');
-  expect(surroundingsRegion({ latitude: 35.68, longitude: 139.7 })).toBeNull();
+  expect(surroundingsRegion({ latitude: 40.71, longitude: -74.0 })).toBeNull();
   expect(surroundingsMasonry({ latitude: 43.77, longitude: 11.25 })).toBe('stone');
   const florence = suggestSurroundings({ normalizedText: 'chiesa, borgo, 1500', year: { year: 1500 }, location: { latitude: 43.77, longitude: 11.25 }, sizeClass: 'building' });
   expect(florence.value).toMatchObject({ enabled: true, kind: 'church', region: 'mediterranean', masonry: 'stone' });

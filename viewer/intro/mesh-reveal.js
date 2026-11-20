@@ -515,18 +515,18 @@ function revealMaterial(source, uniforms) {
               color = mix(color, vec3(0.42, 0.55, 0.7) * (0.85 + 0.15 * hatch), uClipActive * 0.9);
             }
           }
-          // Seen through the lens: the mesh in x-ray - dimmed, cold, its
+          // Seen through the lens: the mesh in x-ray - dimmed, amber, its
           // triangles' edges glowing; the lens's rim a ring of light.
           if (uLensOn > 0.01) {
             float inside = (1.0 - smoothstep(0.92, 1.0, lensCone)) * step(lensFar, lensAlong) * uLensOn;
             float hatchX = step(0.5, fract((vTourPos.x - vTourPos.y + vTourPos.z) * 36.0));
-            vec3 xray = color * vec3(0.25, 0.35, 0.5) + vec3(0.02, 0.06, 0.14)
-              + vec3(0.35, 0.68, 1.0) * line * 1.3
-              + (gl_FrontFacing ? vec3(0.0) : vec3(0.05, 0.1, 0.18) * hatchX);
+            vec3 xray = color * vec3(0.5, 0.34, 0.16) + vec3(0.13, 0.07, 0.01)
+              + vec3(1.0, 0.66, 0.2) * line * 1.3
+              + (gl_FrontFacing ? vec3(0.0) : vec3(0.18, 0.1, 0.02) * hatchX);
             color = mix(color, xray, inside * 0.9);
             float rim = exp(-abs(lensDistance - lensRadius) * 55.0)
               + exp(-abs(lensCone - 1.0) * 18.0) * step(lensAlong, lensFar);
-            color += vec3(0.4, 0.72, 1.0) * min(rim, 1.0) * uLensOn * 1.2;
+            color += vec3(1.0, 0.7, 0.28) * min(rim, 1.0) * uLensOn * 1.2;
           }
           gl_FragColor.rgb = color;
         }`);

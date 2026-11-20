@@ -1,6 +1,6 @@
-// Samples the Wolpa Synagogue model (viewer/examples/WolpaSynagogue.glb) into
-// the coloured point cloud the intro page (intro.html, viewer/intro/) puts
-// together: points spread over the surface by triangle area, each with the
+// Samples a model - by default the pagoda (viewer/examples/pagoda/Pagoda.glb,
+// scripts/build-pagoda-examples.mjs) - into the coloured point cloud the
+// intro page (intro.html, viewer/intro/) puts together: points spread over the surface by triangle area, each with the
 // colour of its texture (times the material's base colour).
 //
 //   node scripts/build-intro-points.mjs [count] [model.glb] [out.bin]
@@ -8,8 +8,10 @@
 // Another model for a deployment's intro (viewer.intro.scene, docs/intro.md):
 // its points into the client's folder, e.g.
 //   node scripts/build-intro-points.mjs 120000 model.glb clients/acme/brand/intro/points.bin
+// The Wołpa Synagogue's scene (viewer/intro/scenes/wolpa/):
+//   node scripts/build-intro-points.mjs 200000 viewer/examples/WolpaSynagogue.glb viewer/intro/synagogue-points.bin
 //
-// Writes viewer/intro/synagogue-points.bin by default (little-endian):
+// Writes viewer/intro/scenes/pagoda/points.bin by default (little-endian):
 //   char[4]   "E4DP"
 //   uint32    point count
 //   float32×3 bounding box min, float32×3 bounding box max
@@ -24,8 +26,8 @@ import fs from 'fs/promises';
 import path from 'path';
 
 const count = Number(process.argv[2]) || 200000;
-const modelPath = process.argv[3] || 'viewer/examples/WolpaSynagogue.glb';
-const outPath = process.argv[4] || 'viewer/intro/synagogue-points.bin';
+const modelPath = process.argv[3] || 'viewer/examples/pagoda/Pagoda.glb';
+const outPath = process.argv[4] || 'viewer/intro/scenes/pagoda/points.bin';
 
 // A small seeded generator: the same file on every run.
 let seed = 0x4d3a2f1;

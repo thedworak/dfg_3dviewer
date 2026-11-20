@@ -40,6 +40,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { hasNewShape, writeBlockShape } from '../editor/surroundings-shapes.js';
 import {
   SURROUNDINGS_ERAS,
   SURROUNDINGS_SLIDER_STEPS,
@@ -86,6 +87,12 @@ const REGION_LOOK = {
   nordic: { walls: [0x8e2a1e, 0xa0381f, 0xc89a3a, 0xe8e2d4], masonry: [0xe8e6e0], roofs: [0x3b3b38, 0x5a4a3a, 0x4f6a3a] },
   british: { walls: [0xb8ad98, 0xa89f8c, 0x9c5a40], masonry: [0xb3aa96, 0xa39a86], roofs: [0x4a4e57, 0x3f434b, 0xb89a5a] },
   eastern: { walls: [0x7a5a3a, 0x8a6a48, 0x6a4c30], masonry: [0xe6e0d4, 0xd8cfbe], roofs: [0xa8905a, 0x8f7a4a, 0x6f8a6a] },
+  // Japan: dark timber and white plaster, grey tiles or thatch; rice
+  // fields. West Africa: mud walls, thatch; the savanna, millet.
+  japanese: { walls: [0x5e4a36, 0xe6e1d6, 0x6e5a44], masonry: [0xe8e4da, 0xd9d4c8], roofs: [0x4a4f57, 0x55595f, 0x8e7b54],
+    realistic: { paddy: 0x7fae4a, conifer: 0x2c4a2e, broadleaf: 0x5a7a34 } },
+  african: { walls: [0xa8643c, 0xb87a4c, 0xc28c5c], masonry: [0xb47a4e, 0xa86c40], roofs: [0x9a8458, 0x8e7b54, 0xa8643c],
+    realistic: { ground: 0x9a8f52, fields: [0xc9a85a, 0xb08850, 0xd4b870, 0xa88a4a], road: 0xb0704a, conifer: 0x6f7a3e, broadleaf: 0x6f7a3e } },
 };
 const REALISTIC = {
   ground: 0x5f7d3e,
@@ -170,6 +177,15 @@ function writeBlock(writer, block, m, wall, roof) {
   const cos = Math.cos(block.angle);
   const sin = Math.sin(block.angle);
   const at = (lx, ly, lz) => m(block.x + lx * cos - lz * sin, ly, block.z + lx * sin + lz * cos);
+  // Japan's and West Africa's roofs, round houses (surroundings-shapes.js).
+  if (hasNewShape(block)) {
+    writeBlockShape((points, kind) => {
+      const corners = points.map((point) => at(point[0], point[1], point[2]));
+      const color = kind === 'wall' || kind === 'gable' ? wall : roof;
+      for (let index = 1; index < corners.length - 1; index += 1) writer.tri(corners[0], corners[index], corners[index + 1], color);
+    }, block);
+    return;
+  }
   const hw = block.w / 2;
   const hd = block.d / 2;
   const h = block.h;
@@ -635,7 +651,8 @@ export function createSurroundingsShowcase({ variants, seed = 3, radius, toIntro
       const walls = tones(look.walls);
       const masonry = tones(look.masonry);
       const roofs = tones(look.roofs);
-      const fields = tones(REALISTIC.fields);
+      const tone = { ...REALISTIC, ...(look.realistic || {}) };
+      const fields = tones(tone.fields);
       const builtWriter = createWriter();
       const flats = createWriter();
       const distanceOf = (x, z) => (Math.hypot(x, z) / REACH) * span;
@@ -655,11 +672,11 @@ export function createSurroundingsShowcase({ variants, seed = 3, radius, toIntro
           angle: Math.atan2(segment.bz - segment.az, segment.bx - segment.ax), roof: 'none',
         }, toIntro, masonry[0], masonry[0]);
       }
-      writeTrees(builtWriter, layout.trees, toIntro, distanceOf, colour(REALISTIC.conifer), colour(REALISTIC.broadleaf), colour(REALISTIC.trunk));
+      writeTrees(builtWriter, layout.trees, toIntro, distanceOf, colour(tone.conifer), colour(tone.broadleaf), colour(tone.trunk));
       for (const field of layout.fields) {
         if (field.polygon || Math.hypot(field.x, field.z) > REACH * 0.95) continue;
         flats.set({ distance: distanceOf(field.x, field.z) });
-        writeField(flats, field, toIntro, fields[field.tone % fields.length]);
+        writeField(flats, field, toIntro, field.paddy && tone.paddy ? colour(tone.paddy) : fields[field.tone % fields.length]);
       }
       const strip = (points, width, lift, tone) => {
         const near = points.filter(([x, z]) => Math.hypot(x, z) < REACH * 1.05);
@@ -667,11 +684,11 @@ export function createSurroundingsShowcase({ variants, seed = 3, radius, toIntro
         flats.set({ distance: distanceOf(...near[Math.floor(near.length / 2)]) });
         writeStrip(flats, near, width, lift, toIntro, tone);
       };
-      for (const way of layout.roads) strip(way.points, way.width, 0.3, colour(REALISTIC.road));
+      for (const way of layout.roads) strip(way.points, way.width, 0.3, colour(tone.road));
       if (layout.railway) strip(layout.railway.points, 4.2, 0.45, colour(REALISTIC.rail));
       if (layout.water.river) strip(layout.water.river.points, layout.water.river.width, 0.25, colour(REALISTIC.water));
-      const grass = colour(REALISTIC.ground);
-      const ground = groundGeometry({ layout, colourOf: () => grass, waterColour: colour(REALISTIC.water), toIntro, span });
+      const grass = colour(tone.ground);
+      const ground = groundGeometry({ layout, colourOf: () => grass, waterColour: colour(tone.water), toIntro, span });
       const uniforms = { uAt: { value: 0 }, uShow: { value: 0 }, uSpan: { value: span } };
       const variantGroup = new Group();
       variantGroup.visible = false;

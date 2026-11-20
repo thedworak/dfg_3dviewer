@@ -11,49 +11,56 @@
 // Paths in a scene file resolve against that file, paths in an inline
 // object against the intro page. Anything left out keeps a neutral default
 // (no pins, the measurement on the bounding box, no time travel); without a
-// scene the intro shows the Wołpa Synagogue (DEFAULT_SCENE).
+// scene the intro shows the pagoda (DEFAULT_SCENE). The Wołpa Synagogue is
+// a scene of its own (scenes/wolpa/scene.json).
 //
 // The intro page also takes the deployment's branding (the logo and the
 // name, ../branding.js) from the same file.
 
 export const DEFAULT_SCENE = Object.freeze({
   // E4DP point file (scripts/build-intro-points.mjs) and the model shown
-  // after it, in the same coordinates.
-  points: 'assets/intro/synagogue-points.bin',
-  model: 'examples/WolpaSynagogue-progressive.glb',
+  // after it, in the same coordinates: the pagoda, the project's own model
+  // (scripts/build-pagoda-examples.mjs).
+  points: 'assets/intro/scenes/pagoda/points.bin',
+  model: 'examples/pagoda/Pagoda-progressive.glb',
   // Where "Enter the viewer" leads (same site only).
-  next: './?model=./examples/WolpaSynagogue-progressive.glb',
-  // Metres per model unit (the synagogue is in centimetres).
-  unitInMeters: 0.01,
+  next: './?model=./examples/pagoda/Pagoda-progressive.glb',
+  // Metres per model unit.
+  unitInMeters: 1,
   // The camera's angle around the model at the landing (radians; 0: from +Z).
-  front: 0.3,
+  front: 0.35,
   // The model's ground (y, model units): sun study compass, snow, section.
   ground: 0,
   // Annotations (model units): "annotation" pins are bright, "poi" pins blue.
   pins: [
-    { key: 'roof', at: [300, 1361, -733], lift: 0.22, kind: 'annotation' },
-    { key: 'pavilion', at: [-943, 817, 645], lift: 0.42, kind: 'poi' },
+    // The front's bracket sets (the finial's label would sit under the
+    // chapter's name); the bell at the front's left corner, away from the
+    // height line (right).
+    { key: 'brackets', at: [0, 4.5, 3.4], lift: 0.3, kind: 'annotation' },
+    { key: 'bell', at: [-5.76, 8.6, 5.76], lift: 0.35, kind: 'poi' },
   ],
   // The height measurement: a vertical line at (x, z) from y = from to to.
-  measure: { x: 1340, z: 1111, from: 0, to: 1675 },
+  measure: { x: 7.0, z: 0, from: 0, to: 20.5 },
   // The sun study's place and day (local time = UTC + utcOffset; north: the
-  // model's north from -Z, degrees clockwise).
-  site: { latitude: 53.37, longitude: 24.37, utcOffset: 3, north: 0, month: 6, day: 21 },
+  // model's north from -Z, degrees clockwise). The pagoda stands nowhere;
+  // the sun is Nara's.
+  site: { latitude: 34.68, longitude: 135.83, utcOffset: 9, north: 0, month: 6, day: 21 },
   // The 4D time travel: a folder with time.json and the stages' textures
-  // (scripts/build-intro-time.mjs); false leaves the chapter out.
-  time: 'assets/intro/time/',
+  // (scripts/build-pagoda-examples.mjs); false leaves the chapter out.
+  time: 'assets/intro/scenes/pagoda/time/',
   // The surroundings through time (intro-surroundings.js): the viewer's
   // generated surroundings (docs/surroundings.md) of this kind of place and
   // region through these years (as the viewer covers them), then other kinds
   // of place in other regions (`showcase`, in colour, with their life);
   // false leaves the chapter out.
   surroundings: Object.freeze({
-    kind: 'shtetl', region: 'eastern', masonry: 'brick', seed: 7, years: Object.freeze([900, 2025]),
+    // The pagoda's own: a temple's precinct in Japan.
+    kind: 'monastery', region: 'japanese', masonry: 'stone', seed: 7, years: Object.freeze([900, 2025]),
     showcase: Object.freeze([
+      Object.freeze({ kind: 'town', region: 'japanese', year: 1850 }),
+      Object.freeze({ kind: 'village', region: 'african', year: 1920 }),
       Object.freeze({ kind: 'town', region: 'central', year: 1880 }),
       Object.freeze({ kind: 'port', region: 'mediterranean', year: 1700 }),
-      Object.freeze({ kind: 'village', region: 'nordic', year: 1850 }),
-      Object.freeze({ kind: 'monastery', region: 'british', year: 1500 }),
     ]),
   }),
   // Texts per language over the intro's own (intro.js TEXTS):
@@ -220,7 +227,7 @@ export function pickText(value, lang) {
   return value[lang] ?? value.en ?? Object.values(value).find((v) => typeof v === 'string') ?? null;
 }
 
-// The intro's texts for this scene: the built-in ones name the synagogue,
+// The intro's texts for this scene: the built-in ones name the pagoda,
 // so a custom scene starts from neutral ones (`generic`), then takes its own.
 export function sceneTexts(texts, generic, scene, lang) {
   if (!scene.custom) return texts;
@@ -230,7 +237,7 @@ export function sceneTexts(texts, generic, scene, lang) {
     const label = pickText(pin.label, lang);
     if (label) labels[pin.key] = label;
   }
-  // The synagogue's stage notes do not fit another model's years.
+  // The pagoda's stage notes do not fit another model's years.
   out = { ...out, tour: { ...out.tour, labels: { ...out.tour.labels, ...labels }, timeNotes: {} } };
   // The sun study's day (without a site it runs at the default place).
   const site = scene.site ?? DEFAULT_SCENE.site;

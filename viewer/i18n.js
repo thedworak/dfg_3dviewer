@@ -2005,6 +2005,8 @@ export const VIEWER_I18N = {
         surroundingsNordic: "the North: timber painted red and ochre, turf roofs, whitewashed churches, spruce and pine",
         surroundingsBritish: "the British Isles: stone and brick, thatch and slate, square church towers, fields in hedgerows",
         surroundingsEastern: "Eastern Europe: log houses under thatch, wooden churches with onion domes, birch and pine",
+        surroundingsJapanese: "Japan: timber houses under hipped roofs of grey tiles or thatch, temples and pagodas, rice fields, pines and maples",
+        surroundingsAfrican: "West Africa, the Sahel: round mud houses under conical thatch, flat-roofed mud towns, mud mosques with minarets, acacias and baobabs, no snow in the dry season",
       },
     },
     surroundings: {
@@ -2114,6 +2116,8 @@ export const VIEWER_I18N = {
         nordic: "The North",
         british: "British Isles",
         eastern: "Eastern Europe",
+        japanese: "Japan",
+        african: "West Africa (Sahel)",
       },
     },
     photos: {
@@ -4506,6 +4510,8 @@ export const VIEWER_I18N = {
         surroundingsNordic: "Północ: drewno malowane na czerwono i ochrę, dachy darniowe, bielone kościoły, świerki i sosny",
         surroundingsBritish: "Wyspy Brytyjskie: kamień i cegła, strzecha i łupek, kwadratowe wieże kościołów, pola w żywopłotach",
         surroundingsEastern: "Europa Wschodnia: chaty z bali pod strzechą, drewniane cerkwie z cebulastymi kopułami, brzozy i sosny",
+        surroundingsJapanese: "Japonia: drewniane domy pod czterospadowymi dachami z szarej dachówki lub strzechy, świątynie i pagody, pola ryżowe, sosny i klony",
+        surroundingsAfrican: "Afryka Zachodnia, Sahel: okrągłe gliniane chaty pod stożkową strzechą, płaskodachowe gliniane miasta, gliniane meczety z minaretami, akacje i baobaby, bez śniegu w porze suchej",
       },
     },
     surroundings: {
@@ -4615,6 +4621,8 @@ export const VIEWER_I18N = {
         nordic: "Północ",
         british: "Wyspy Brytyjskie",
         eastern: "Europa Wschodnia",
+        japanese: "Japonia",
+        african: "Afryka Zachodnia (Sahel)",
       },
     },
     photos: {
@@ -7006,6 +7014,8 @@ export const VIEWER_I18N = {
         surroundingsNordic: "der Norden: Holz in Falunrot und Ocker, Grasdächer, weiß gekalkte Kirchen, Fichten und Kiefern",
         surroundingsBritish: "Britische Inseln: Stein und Backstein, Reet und Schiefer, viereckige Kirchtürme, Felder mit Hecken",
         surroundingsEastern: "Osteuropa: Blockhäuser unter Stroh, Holzkirchen mit Zwiebelkuppeln, Birken und Kiefern",
+        surroundingsJapanese: "Japan: Holzhäuser unter Walmdächern aus grauen Ziegeln oder Stroh, Tempel und Pagoden, Reisfelder, Kiefern und Ahorne",
+        surroundingsAfrican: "Westafrika, der Sahel: runde Lehmhäuser unter kegelförmigem Stroh, Lehmstädte mit Flachdächern, Lehmmoscheen mit Minaretten, Akazien und Baobabs, kein Schnee in der Trockenzeit",
       },
     },
     surroundings: {
@@ -7115,6 +7125,8 @@ export const VIEWER_I18N = {
         nordic: "Der Norden",
         british: "Britische Inseln",
         eastern: "Osteuropa",
+        japanese: "Japan",
+        african: "Westafrika (Sahel)",
       },
     },
     photos: {

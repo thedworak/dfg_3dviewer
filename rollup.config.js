@@ -377,15 +377,19 @@ function copyBuildAssets() {
         copyDirectory(
           'viewer/intro',
           path.join(outDistDir, 'assets/intro'),
-          keepFiles('viewer/intro', ['intro.css', 'synagogue-points.bin'])
-        // The time travel's textures and stages (scripts/build-intro-time.mjs),
-        // after: both make assets/intro/.
-        ).then(() => Promise.all([
-          copyDirectory('viewer/intro/time', path.join(outDistDir, 'assets/intro/time')),
-          // Other models for the intro (viewer.intro.scene, docs/intro.md);
-          // an app build shows the synagogue only.
-          !appBuild && copyDirectory('viewer/intro/scenes', path.join(outDistDir, 'assets/intro/scenes')),
-        ])),
+          keepFiles('viewer/intro', appBuild ? ['intro.css'] : ['intro.css', 'synagogue-points.bin'])
+        // The scenes (the models, their points and time travel), after: both
+        // make assets/intro/. The default one is the pagoda
+        // (scenes/pagoda/, scripts/build-pagoda-examples.mjs); the others
+        // (viewer.intro.scene, docs/intro.md) - the Wołpa Synagogue with its
+        // points and time travel (scripts/build-intro-time.mjs) among them -
+        // stay out of an app build, which shows the pagoda only.
+        ).then(() => Promise.all(appBuild
+          ? [copyDirectory('viewer/intro/scenes/pagoda', path.join(outDistDir, 'assets/intro/scenes/pagoda'))]
+          : [
+            copyDirectory('viewer/intro/time', path.join(outDistDir, 'assets/intro/time')),
+            copyDirectory('viewer/intro/scenes', path.join(outDistDir, 'assets/intro/scenes')),
+          ])),
         copyDirectory('viewer/examples', path.join(outDistDir, 'examples'),
           extension.examplesFilter && ((source) => extension.examplesFilter(source, buildContext)))
           .then(() => convertGalleryToWebp(path.join(outDistDir, 'examples/gallery'))),
