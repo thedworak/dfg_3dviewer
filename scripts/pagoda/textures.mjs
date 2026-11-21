@@ -277,7 +277,7 @@ function bronzeTexture(age, size) {
 }
 
 // Door planks: grain along u (the long side of a leaf), four planks per
-// repeat across v.
+// repeat across v; studs in rows.
 function doorTexture(age, size) {
   const n = makeNoise2(51);
   const n2 = makeNoise2(52);
@@ -301,6 +301,22 @@ function doorTexture(age, size) {
       c = mix3(c, hex('#a29c90'), 0.15 * n(u, v, 3, 3, 4));
     }
     if (age === 'mid') c = mix3(c, hex('#3d2b1e'), 0.2 * smooth(0.5, 0.8, n2(u, v, 4, 4, 4)));
+    // The studs: domed bronze heads in rows (four a repeat along the grain)
+    // at the planks' middles - the leaves are mapped to fit them
+    // (scripts/pagoda/pagoda.mjs door); the bronze ages with the door.
+    const su = (fract(u * 4) - 0.5) / 0.034;
+    const sv = (fract(v * 4) - 0.5) / 0.042;
+    const r = Math.hypot(su, sv);
+    if (r < 1.45) {
+      const dome = Math.sqrt(Math.max(0, 1 - r * r));
+      const head = 1 - smooth(0.92, 1.0, r);
+      const metal = age === 'fresh' ? hex('#d8b26a') : age === 'mid' ? hex('#6e5236') : hex('#5c8f7c');
+      const lit = metal.map((x) => x * (0.55 + 0.75 * dome));
+      // A dark ring of shadow round each head.
+      c = c.map((x) => x * (1 - 0.45 * (1 - smooth(1.0, 1.45, r)) * (1 - head)));
+      c = mix3(c, lit, head);
+      h += dome * 1.6;
+    }
     return { c, h };
   }, 3);
 }

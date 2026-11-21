@@ -108,8 +108,8 @@ export async function createMeshReveal({ url, renderer, center, scale, transcode
     uEdgeGlow: { value: 1 },
     uExit: { value: 0 },
     // The feature tour (feature-tour.js): shading modes A and B with a
-    // wipe between them across the screen, a section plane, snow cover and
-    // a colour grade for the seasons.
+    // wipe between them rising up the model, a section plane, snow cover
+    // and a colour grade for the seasons.
     uModeA: { value: 0 },
     uModeB: { value: 0 },
     uWipe: { value: 0 },
@@ -424,15 +424,17 @@ function revealMaterial(source, uniforms) {
         varying vec3 vBary;
         varying vec3 vTourPos;
         varying vec3 vTourNormal;
-        // The viewer's shading modes that keep the textures, in brief:
-        // 0 textures, 1 PBR (glossy, reflecting), 2 raking light.
+        // The viewer's shading and lighting modes, in brief:
+        // 0 textures, 1 PBR (glossy, reflecting), 2 raking light, 3 golden
+        // hour, 4 night (lit from below), 5 clay (the shape only), 6 normals,
+        // 7 toon (cel shading).
         vec3 introShade(float mode, vec3 base, vec3 albedo, vec3 soft, vec3 n, vec3 viewNormal) {
           if (mode < 0.5) return base;
           vec3 tone = pow(albedo, vec3(1.0 / 2.2));
+          vec3 V = normalize(cameraPosition - vTourPos);
           if (mode < 1.5) {
             // PBR: the same textures as glossy, physically based materials -
             // a sky reflected by Fresnel, a sharp highlight from the sun.
-            vec3 V = normalize(cameraPosition - vTourPos);
             vec3 L = normalize(vec3(0.5, 0.8, 0.3));
             vec3 H = normalize(L + V);
             float NdL = max(dot(n, L), 0.0);
@@ -444,16 +446,61 @@ function revealMaterial(source, uniforms) {
             vec3 R = reflect(-V, n);
             vec3 sky = mix(vec3(0.95, 0.78, 0.62), vec3(0.42, 0.6, 0.95), smoothstep(-0.05, 0.7, R.y));
             sky = mix(vec3(0.08, 0.07, 0.07), sky, smoothstep(-0.25, 0.0, R.y));
-            vec3 tone = pow(albedo, vec3(1.0 / 2.2));
             vec3 diffuseLit = tone * (0.28 + 0.85 * NdL);
             vec3 specular = vec3(1.0, 0.96, 0.88) * ggx * fresnel * NdL * 0.9;
             return clamp(mix(diffuseLit, sky, fresnel * 0.85) + specular, 0.0, 1.0);
           }
-          // Raking light on the textures: a low light circling.
-          float a = uTourTime * 1.8;
-          vec3 graze = normalize(vec3(cos(a), 0.38, sin(a)));
-          float l = max(dot(n, graze), 0.0);
-          return clamp(tone * (0.12 + pow(l, 1.15) * 1.45), 0.0, 1.0);
+          if (mode < 2.5) {
+            // Raking light on the textures: a low light circling.
+            float a = uTourTime * 1.8;
+            vec3 graze = normalize(vec3(cos(a), 0.38, sin(a)));
+            float l = max(dot(n, graze), 0.0);
+            return clamp(tone * (0.12 + pow(l, 1.15) * 1.45), 0.0, 1.0);
+          }
+          if (mode < 3.5) {
+            // Golden hour: a low warm sun from the side, the shade blue
+            // from the sky, a warm rim where the light grazes.
+            vec3 L = normalize(vec3(-0.85, 0.28, 0.45));
+            float NdL = max(dot(n, L), 0.0);
+            float skyLight = 0.5 + 0.5 * n.y;
+            float rim = pow(1.0 - max(dot(n, V), 0.0), 3.0) * NdL;
+            vec3 lit = tone * (vec3(1.25, 0.78, 0.42) * NdL * 1.35 + vec3(0.2, 0.27, 0.42) * skyLight)
+              + vec3(1.0, 0.6, 0.25) * rim * 0.6;
+            return clamp(lit, 0.0, 1.0);
+          }
+          float height = (vTourPos.y - uHeight.x) / uHeight.y;
+          if (mode < 4.5) {
+            // Night: floodlights at the foot throw warm light up the walls,
+            // fading with height; the eaves' undersides catch it, the rest
+            // is in the blue of the night sky.
+            float up = 1.0 - smoothstep(-0.15, 1.05, height);
+            vec3 out2 = normalize(vec3(vTourPos.x, 0.0, vTourPos.z) + vec3(1e-4));
+            float facing = max(dot(n, out2), 0.0) * 0.8 + max(-n.y, 0.0) * 1.1 + 0.18;
+            float flicker = 0.94 + 0.06 * sin(uTourTime * 9.0 + vTourPos.x * 3.0);
+            vec3 flood = vec3(1.0, 0.7, 0.38) * up * facing * 2.6 * flicker;
+            vec3 moon = vec3(0.1, 0.14, 0.26) * (0.45 + 0.55 * max(n.y, 0.0));
+            return clamp(tone * (flood + moon) + vec3(0.02, 0.025, 0.05), 0.0, 1.0);
+          }
+          if (mode < 5.5) {
+            // Clay: no textures, the shape alone - a soft sky and a sun over
+            // a white model.
+            vec3 L = normalize(vec3(0.4, 0.85, 0.35));
+            float NdL = max(dot(n, L), 0.0);
+            float sky = 0.55 + 0.45 * n.y;
+            return clamp(vec3(0.9, 0.88, 0.84) * (0.42 * sky + 0.62 * NdL) + 0.07, 0.0, 1.0);
+          }
+          if (mode < 6.5) {
+            // Normals: each surface's direction as a colour.
+            return clamp(n * 0.5 + 0.5, 0.0, 1.0) * 0.92;
+          }
+          // Toon: the light in three flat bands, the textures' colours
+          // flattened, a dark line round the silhouette.
+          vec3 L = normalize(vec3(0.45, 0.8, 0.4));
+          float NdL = dot(n, L);
+          float band = NdL > 0.55 ? 1.0 : NdL > 0.1 ? 0.68 : 0.4;
+          vec3 flat2 = floor(pow(soft, vec3(1.0 / 2.2)) * 5.0 + 0.5) / 5.0;
+          float outline = smoothstep(0.32, 0.18, max(dot(n, V), 0.0));
+          return clamp(mix(flat2 * band * 1.1, vec3(0.06, 0.05, 0.08), outline), 0.0, 1.0);
         }`)
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
         if (vReveal <= 0.001 || uExit >= 0.999) discard;
@@ -493,11 +540,14 @@ function revealMaterial(source, uniforms) {
           #ifdef USE_MAP
             soft = texture2D(map, vMapUv, 4.0).rgb * diffuse;
           #endif
-          float sx = gl_FragCoord.x / uResolution.x;
-          vec3 color = mix(introShade(uModeA, base, diffuseColor.rgb, soft, n, viewNormal), introShade(uModeB, base, diffuseColor.rgb, soft, n, viewNormal), step(sx, uWipe));
-          // The wipe's edge: a thin line of light.
+          // The wipe rises from the model's foot to its top (over the
+          // height, a little beyond both ends): below it mode B.
+          float wipeHeight = (vTourPos.y - uHeight.x) / uHeight.y;
+          float wipeFront = uWipe * 1.1 - 0.05;
+          vec3 color = mix(introShade(uModeA, base, diffuseColor.rgb, soft, n, viewNormal), introShade(uModeB, base, diffuseColor.rgb, soft, n, viewNormal), step(wipeHeight, wipeFront));
+          // The wipe's edge: a thin amber line of light.
           float wiping = step(0.001, uWipe) * step(uWipe, 0.999);
-          color += vec3(0.45, 0.72, 1.0) * exp(-abs(sx - uWipe) * uResolution.x * 0.12) * wiping;
+          color += vec3(1.0, 0.66, 0.26) * exp(-abs(wipeHeight - wipeFront) * 110.0) * wiping * 1.3;
           // Snow on what faces up.
           float up = smoothstep(0.3, 0.75, n.y);
           float grain = fract(sin(dot(floor(vTourPos.xz * 90.0), vec2(12.9898, 78.233))) * 43758.5453);
@@ -509,10 +559,10 @@ function revealMaterial(source, uniforms) {
           // The section: the cut glows, what is seen inside the walls is
           // filled like a drawing's section.
           if (uClipActive > 0.0) {
-            color += vec3(0.3, 0.62, 1.0) * exp(-abs(sectionDistance) * 70.0) * uClipActive * 1.4;
+            color += vec3(1.0, 0.64, 0.24) * exp(-abs(sectionDistance) * 70.0) * uClipActive * 1.4;
             if (!gl_FrontFacing) {
               float hatch = step(0.5, fract((vTourPos.x + vTourPos.y + vTourPos.z) * 40.0));
-              color = mix(color, vec3(0.42, 0.55, 0.7) * (0.85 + 0.15 * hatch), uClipActive * 0.9);
+              color = mix(color, vec3(0.62, 0.42, 0.18) * (0.82 + 0.18 * hatch), uClipActive * 0.9);
             }
           }
           // Seen through the lens: the mesh in x-ray - dimmed, amber, its

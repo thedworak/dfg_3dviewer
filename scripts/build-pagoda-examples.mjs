@@ -36,18 +36,19 @@ const GENERATOR = 'ExPlora4D - scripts/build-pagoda-examples.mjs';
 export const TIME_PARTS = { paint: 'paint', plaster: 'plaster', roof: 'roof', bronze: 'bronze', door: 'door' };
 
 // The pagoda's (made up) history: when its parts were new again. Every
-// stage gives each part's age; 2025 is the model as it is ("old").
+// stage gives each part's age; 2025 is the model as it is ("old"). Every
+// stage has a short note (the intro shows it under its timeline, one line).
 const STAGES = [
-  { year: 1615, en: 'c. 1615 - built: new timber, fresh vermilion, gilt bronze', pl: 'ok. 1615 – budowa: nowe drewno, świeża cynobrowa farba, złocony brąz', de: 'um 1615 - Bau: neues Holz, frisches Zinnoberrot, vergoldete Bronze', parts: { paint: 'fresh', plaster: 'fresh', roof: 'fresh', bronze: 'fresh', door: 'fresh' } },
+  { year: 1615, en: 'c. 1615 - built: new timber, fresh vermilion', pl: 'ok. 1615 – budowa: nowe drewno, świeży cynober', de: 'um 1615 - Bau: neues Holz, frisches Zinnoberrot', parts: { paint: 'fresh', plaster: 'fresh', roof: 'fresh', bronze: 'fresh', door: 'fresh' } },
   { year: 1640, en: '1640 - the vermilion darkens', pl: '1640 – cynober ciemnieje', de: '1640 - das Zinnoberrot dunkelt nach', parts: { paint: 'mid', plaster: 'fresh', roof: 'fresh', bronze: 'fresh', door: 'fresh' } },
-  { year: 1685, en: '1685 - paint worn, the bronze turns brown', pl: '1685 – farba starta, brąz brązowieje', de: '1685 - Farbe abgerieben, die Bronze wird braun', parts: { paint: 'old', plaster: 'mid', roof: 'mid', bronze: 'mid', door: 'mid' } },
-  { year: 1702, en: '1702 - first repair: repainted, walls limed', pl: '1702 – pierwszy remont: nowa farba, bielone ściany', de: '1702 - erste Instandsetzung: neu gestrichen, Wände gekalkt', parts: { paint: 'fresh', plaster: 'fresh', roof: 'mid', bronze: 'mid', door: 'mid' } },
-  { year: 1765, en: '1765 - moss in the roof tiles', pl: '1765 – mech w dachówkach', de: '1765 - Moos zwischen den Ziegeln', parts: { paint: 'mid', plaster: 'mid', roof: 'old', bronze: 'mid', door: 'old' } },
-  { year: 1830, en: '1830 - re-tiled, new doors; verdigris on the finial', pl: '1830 – nowe dachówki i drzwi; patyna na iglicy', de: '1830 - neu gedeckt, neue Türen; Grünspan am Aufsatz', parts: { paint: 'old', plaster: 'old', roof: 'fresh', bronze: 'old', door: 'fresh' } },
-  { year: 1897, en: '1897 - restoration: paint and plaster renewed', pl: '1897 – restauracja: odnowiona farba i tynk', de: '1897 - Restaurierung: Farbe und Putz erneuert', parts: { paint: 'fresh', plaster: 'fresh', roof: 'mid', bronze: 'old', door: 'mid' } },
-  { year: 1935, en: '1935', pl: '1935', de: '1935', parts: { paint: 'mid', plaster: 'mid', roof: 'old', bronze: 'old', door: 'mid' } },
-  { year: 1952, en: '1952 - post-war restoration, the roof re-laid', pl: '1952 – powojenna restauracja, dach przełożony', de: '1952 - Restaurierung nach dem Krieg, Dach neu verlegt', parts: { paint: 'fresh', plaster: 'fresh', roof: 'fresh', bronze: 'old', door: 'old' } },
-  { year: 1990, en: '1990', pl: '1990', de: '1990', parts: { paint: 'mid', plaster: 'mid', roof: 'mid', bronze: 'old', door: 'old' } },
+  { year: 1685, en: '1685 - paint worn, the bronze browns', pl: '1685 – farba starta, brąz ciemnieje', de: '1685 - Farbe abgerieben, Bronze wird braun', parts: { paint: 'old', plaster: 'mid', roof: 'mid', bronze: 'mid', door: 'mid' } },
+  { year: 1702, en: '1702 - first repair: repainted', pl: '1702 – pierwszy remont: nowa farba', de: '1702 - erste Instandsetzung: neu gestrichen', parts: { paint: 'fresh', plaster: 'fresh', roof: 'mid', bronze: 'mid', door: 'mid' } },
+  { year: 1765, en: '1765 - moss in the roof tiles', pl: '1765 – mech na dachówkach', de: '1765 - Moos auf den Ziegeln', parts: { paint: 'mid', plaster: 'mid', roof: 'old', bronze: 'mid', door: 'old' } },
+  { year: 1830, en: '1830 - new tiles and doors', pl: '1830 – nowe dachówki i drzwi', de: '1830 - neue Ziegel und Türen', parts: { paint: 'old', plaster: 'old', roof: 'fresh', bronze: 'old', door: 'fresh' } },
+  { year: 1897, en: '1897 - restoration: paint and plaster', pl: '1897 – restauracja: farba i tynk', de: '1897 - Restaurierung: Farbe und Putz', parts: { paint: 'fresh', plaster: 'fresh', roof: 'mid', bronze: 'old', door: 'mid' } },
+  { year: 1935, en: '1935 - the paint fades again', pl: '1935 – farba znów blednie', de: '1935 - die Farbe verblasst wieder', parts: { paint: 'mid', plaster: 'mid', roof: 'old', bronze: 'old', door: 'mid' } },
+  { year: 1952, en: '1952 - post-war restoration', pl: '1952 – powojenna restauracja', de: '1952 - Restaurierung nach dem Krieg', parts: { paint: 'fresh', plaster: 'fresh', roof: 'fresh', bronze: 'old', door: 'old' } },
+  { year: 1990, en: '1990 - weathered again', pl: '1990 – znów zwietrzała', de: '1990 - wieder verwittert', parts: { paint: 'mid', plaster: 'mid', roof: 'mid', bronze: 'old', door: 'old' } },
   { year: 2025, en: '2025 - today', pl: '2025 – dziś', de: '2025 - heute', parts: { paint: 'old', plaster: 'old', roof: 'old', bronze: 'old', door: 'old' } },
 ];
 

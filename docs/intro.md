@@ -1,7 +1,7 @@
 # Intro page
 
 `intro.html` (built to `<build>/intro.html`) is a promo/landing page for the
-viewer, about 90 seconds long:
+viewer, about 100 seconds long:
 
 1. A chaotic cloud of 200 000 points drifts in the dark (1.5 seconds alone)
    and then, like atoms, gathers into the pagoda - the project's own model
@@ -23,12 +23,15 @@ viewer, about 90 seconds long:
    counter shows vertices and faces.
 
 4. An express tour of the viewer's features (`viewer/intro/feature-tour.js`,
-   about 72 seconds), each chapter named under the title:
-   **sections** (a plane as wide and high as the model sweeps from its front to its middle; the cut glows, the
+   about 84 seconds), each chapter named under the title:
+   **sections** (an amber plane as wide and high as the model sweeps from its front to its middle; the cut glows, the
    walls' insides are filled like a drawing's section), **annotations and
    POIs** (pins with labels, the model's height measured), **shading**
-   (wipes across the screen between the modes that keep the textures:
-   textures, PBR - gloss and reflections, raking light), **sun study** (the sun's real path over
+   (wipes rising up the model from its foot, an amber line at their front,
+   through the viewer's shading and lighting modes: textures, PBR - gloss
+   and reflections, raking light, golden hour, night floodlighting from
+   below, clay - the shape alone, normals, toon - and back to the
+   textures), **sun study** (the sun's real path over
    Nara on 21 June, local time from sunrise to sunset: the sun itself, its
    day's track in the sky, a compass on the ground and the shadows; the
    camera holds still meanwhile) and
@@ -38,17 +41,22 @@ viewer, about 90 seconds long:
    where they look, named; the one before the front turns gold and its view
    opens in a frame beside the model), **cooperation mode** (a phone with a
    second session of the scene comes in, "LIVE" on its screen; a finger
-   swipes on it and the big picture turns with it - the phone shows the same
-   view, live) and **time travel (4D)**: the 4D model's stages,
+   swipes on it and the big picture turns with it, two fingers zoom in and
+   out again, then the phone's display settings slide up and a tap on one -
+   clay, night, textures - changes the big picture with a wipe - the phone
+   shows the same view, live) and **time travel (4D)**: the 4D model's stages,
    1615 to 2025 - back to the pagoda's new timber, fresh vermilion and gilt
    bronze, then stage by stage the paint wearing off, the plaster streaking,
    moss in the roof tiles and the bronze turning brown and then green, the
    repairs (repainted in 1702, 1897 and 1952, re-tiled in 1830 and 1952), a warm front sweeping up the walls at each
-   stage, each stage's year and description under the chapter's name, and a timeline
-   of the stages' dates under it with the year running along; each step as
-   long as the years it spans (at least 0.4 s), 9 seconds in all; and last
+   stage, each stage's year under the chapter's name (one line, so nothing
+   under it moves), a timeline of the stages' dates under it with the year
+   running along and the stage's short note under the dates; the first
+   stage held a moment (1.6 s) to be read, then each step as long as the
+   years it spans (at least 0.5 s), 11 seconds in all; and last
    **surroundings through time** (`viewer/intro/intro-surroundings.js`, about
-   30 seconds): the camera rises and draws back, and the viewer's generated
+   30 seconds): the camera rises and draws back (on a narrow screen further
+   and from higher above, so the place round the model is in view), and the viewer's generated
    surroundings ([surroundings.md](surroundings.md) - the same rules and
    seed) grow round the pagoda through all the periods they cover, 900 to
    2025, each period the same time (as on the viewer's year slider) - a
@@ -73,7 +81,8 @@ only (`tourCameraPath` in `feature-tour.js`), not of the frames drawn - every
 run, on every screen, shows the same: it comes round to the front for the
 sections and holds still while the plane cuts, turns slowly on through the
 annotations and the shading, holds still for the sun study, follows the
-phone's finger in cooperation mode (a turn one way, a shorter one back), and for the time
+phone's finger in cooperation mode (a turn one way, a shorter one back,
+in and out with the pinch), and for the time
 travel starts at the front's right and goes round in an arc towards the
 entrance, a little closer; for the surroundings it rises and draws back over
 the settlement, and comes down again at the end. A drag hands the camera to the visitor.
@@ -114,7 +123,7 @@ By default (`viewer.intro` in `viewer-settings.json`, see [viewer-settings](view
 | `embedded` | `1`: inside the viewer page; the buttons tell it instead of leaving (set by `intro-overlay.js`, in the hash) |
 | `insets` | `top,right,bottom,left` in CSS pixels: the viewer page's safe area (set by `intro-overlay.js`, in the hash) |
 | `resume` | starts at that second (set by the language switch, then taken out of the address) |
-| `at` | Holds the intro at that second (the progress bar then moves the held moment), e.g. `?at=4` (points gathering), `?at=7.5` (the last point), `?at=15` (edges and faces), `?at=21.6` (section), `?at=25.5` (annotations), `?at=27.7` (PBR), `?at=32.3` (noon), `?at=42.4` (winter), `?at=46.8` (a scene camera's view), `?at=50.2` (cooperation mode), `?at=53.8` (1615), `?at=56` (1702), `?at=66` (the surroundings, 1423), `?at=70` (1866), `?at=79` (a town in Japan), `?at=82.5` (a village in West Africa), `?at=85.5` (a town in Central Europe), `?at=88` (a port on the Mediterranean) - for stills and screen recordings |
+| `at` | Holds the intro at that second (the progress bar then moves the held moment), e.g. `?at=4` (points gathering), `?at=7.5` (the last point), `?at=15` (edges and faces), `?at=21.6` (section), `?at=25.5` (annotations), `?at=27.7` (PBR), `?at=29.6` (golden hour), `?at=30.8` (night), `?at=33.1` (normals), `?at=37.9` (noon), `?at=48` (winter), `?at=52.4` (a scene camera's view), `?at=55.8` (cooperation mode), `?at=61.5` (the phone's display settings: night), `?at=64.2` (1615), `?at=67.2` (1702), `?at=78.4` (the surroundings, 1423), `?at=82.4` (1866), `?at=91.4` (a town in Japan), `?at=94.9` (a village in West Africa), `?at=97.9` (a town in Central Europe), `?at=100.4` (a port on the Mediterranean) - for stills and screen recordings |
 
 ## Files
 
@@ -210,12 +219,19 @@ pagoda in the Japanese manner - not a reconstruction of any real building -
 made entirely by `scripts/build-pagoda-examples.mjs` (geometry in
 `scripts/pagoda/pagoda.mjs`, textures from noise in
 `scripts/pagoda/textures.mjs`; no outside models or images, CC0). About
-160 000 triangles, 20.5 m high, in metres, its front (south) towards +Z:
+113 000 triangles, 20.5 m high, in metres, its front (south) towards +Z:
 a stone platform with steps, three storeys of round pillars, plaster walls,
 studded doors and slatted windows, three-step bracket sets, two layers of
 rafters, curved tiled roofs with upturned corners and wind bells, balconies,
 the bronze finial (sōrin), and inside the ground storey an altar with four
 gilded stupas under a coffered ceiling.
+
+What a texture can carry is not modelled: the doors' studs are in the door
+texture (rows of domed heads, the leaves mapped to fit them), the roof tiles'
+courses in the roof's normal map (the geometry keeps the round tiles'
+profile across, with only as many rows up the slope as the curve needs), and
+faces hidden in what they touch (the eaves tiles' backs, the rafters' tops
+and ends) are left out - about 30% fewer triangles than modelling them.
 
 ```bash
 node scripts/build-pagoda-examples.mjs          # or: pnpm run examples:pagoda (--quick: 256 px textures)
@@ -223,7 +239,7 @@ node scripts/build-intro-points.mjs             # the intro's points from it
 ```
 
 It writes `viewer/examples/pagoda/` - `Pagoda.glb` (JPEG textures, 2048 px,
-7 MB), `Pagoda-progressive.glb` (Meshopt + WebP, what the intro and the
+6 MB), `Pagoda-progressive.glb` (Meshopt + WebP, what the intro and the
 viewer open) and its `.preview.glb`, `4D/Pagoda_4D.glb` (the stages
 1615-2025, one node per stage sharing the geometry, the timeline in the
 scene's extras) - and the intro's `viewer/intro/scenes/pagoda/time/`. The

@@ -144,8 +144,15 @@ const TEXTS = {
         regions: { central: 'Europa Środkowa', mediterranean: 'Morze Śródziemne', nordic: 'Północ', british: 'Wyspy Brytyjskie', eastern: 'Europa Wschodnia', japanese: 'Japonia', african: 'Afryka Zachodnia' },
       },
       cameras: { names: ['Kamera 1', 'Kamera 2 · front', 'Kamera 3 · z góry'], chosen: 'widok z kamery 2', view: 'Kamera 2' },
-      live: { badge: 'LIVE', phone: 'Telefon · druga sesja', screen: 'Na żywo · 2 urządzenia', sub: 'telefon steruje ekranem' },
-      shading: { textures: 'tekstury', pbr: 'PBR: połysk i odbicia', raking: 'światło boczne' },
+      live: {
+        badge: 'LIVE', phone: 'Telefon · druga sesja', screen: 'Na żywo · 2 urządzenia', sub: 'telefon steruje ekranem',
+        zoom: 'dwa palce: przybliżenie', settings: 'ustawienia wyświetlania', settingsTitle: 'Widok',
+        modes: { clay: 'Glina', night: 'Noc', textures: 'Tekstury' },
+      },
+      shading: {
+        textures: 'tekstury', pbr: 'PBR: połysk i odbicia', raking: 'światło boczne', golden: 'złota godzina',
+        night: 'nocne podświetlenie', clay: 'glina: sam kształt', normals: 'mapa normalnych', toon: 'cel shading',
+      },
       sun: { night: 'noc' },
       sunDate: 'Nara, 21 czerwca',
       compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
@@ -202,17 +209,27 @@ const TEXTS = {
         regions: { central: 'Central Europe', mediterranean: 'the Mediterranean', nordic: 'the North', british: 'the British Isles', eastern: 'Eastern Europe', japanese: 'Japan', african: 'West Africa' },
       },
       cameras: { names: ['Camera 1', 'Camera 2 · front', 'Camera 3 · from above'], chosen: 'the view from camera 2', view: 'Camera 2' },
-      live: { badge: 'LIVE', phone: 'Phone · second session', screen: 'Live · 2 devices', sub: 'the phone steers the screen' },
-      shading: { textures: 'textures', pbr: 'PBR: gloss and reflections', raking: 'raking light' },
+      live: {
+        badge: 'LIVE', phone: 'Phone · second session', screen: 'Live · 2 devices', sub: 'the phone steers the screen',
+        zoom: 'two fingers: zoom', settings: 'display settings', settingsTitle: 'View',
+        modes: { clay: 'Clay', night: 'Night', textures: 'Textures' },
+      },
+      shading: {
+        textures: 'textures', pbr: 'PBR: gloss and reflections', raking: 'raking light', golden: 'golden hour',
+        night: 'night floodlighting', clay: 'clay: the shape alone', normals: 'normals', toon: 'toon (cel shading)',
+      },
+      // The time travel's stages (scripts/build-pagoda-examples.mjs STAGES).
       timeNotes: {
-        1615: 'built: new timber, fresh vermilion, gilt bronze',
+        1615: 'built: new timber, fresh vermilion',
         1640: 'the vermilion darkens',
-        1685: 'paint worn, the bronze turns brown',
-        1702: 'first repair: repainted, walls limed',
+        1685: 'paint worn, the bronze browns',
+        1702: 'first repair: repainted',
         1765: 'moss in the roof tiles',
-        1830: 're-tiled, new doors; verdigris on the finial',
-        1897: 'restoration: paint and plaster renewed',
-        1952: 'post-war restoration, the roof re-laid',
+        1830: 'new tiles and doors',
+        1897: 'restoration: paint and plaster',
+        1935: 'the paint fades again',
+        1952: 'post-war restoration',
+        1990: 'weathered again',
         2025: 'today',
       },
       sun: { night: 'night' },
@@ -271,17 +288,26 @@ const TEXTS = {
         regions: { central: 'Mitteleuropa', mediterranean: 'Mittelmeerraum', nordic: 'Norden', british: 'Britische Inseln', eastern: 'Osteuropa', japanese: 'Japan', african: 'Westafrika' },
       },
       cameras: { names: ['Kamera 1', 'Kamera 2 · Front', 'Kamera 3 · von oben'], chosen: 'Blick aus Kamera 2', view: 'Kamera 2' },
-      live: { badge: 'LIVE', phone: 'Handy · zweite Sitzung', screen: 'Live · 2 Geräte', sub: 'das Handy steuert den Bildschirm' },
-      shading: { textures: 'Texturen', pbr: 'PBR: Glanz und Spiegelung', raking: 'Streiflicht' },
+      live: {
+        badge: 'LIVE', phone: 'Handy · zweite Sitzung', screen: 'Live · 2 Geräte', sub: 'das Handy steuert den Bildschirm',
+        zoom: 'zwei Finger: Zoom', settings: 'Anzeigeeinstellungen', settingsTitle: 'Ansicht',
+        modes: { clay: 'Ton', night: 'Nacht', textures: 'Texturen' },
+      },
+      shading: {
+        textures: 'Texturen', pbr: 'PBR: Glanz und Spiegelung', raking: 'Streiflicht', golden: 'goldene Stunde',
+        night: 'nächtliche Anstrahlung', clay: 'Ton: nur die Form', normals: 'Normalen', toon: 'Toon (Cel-Shading)',
+      },
       timeNotes: {
-        1615: 'Bau: neues Holz, frisches Zinnoberrot, vergoldete Bronze',
+        1615: 'Bau: neues Holz, frisches Zinnoberrot',
         1640: 'das Zinnoberrot dunkelt nach',
-        1685: 'Farbe abgerieben, die Bronze wird braun',
-        1702: 'erste Instandsetzung: neu gestrichen, Wände gekalkt',
-        1765: 'Moos zwischen den Ziegeln',
-        1830: 'neu gedeckt, neue Türen; Grünspan am Aufsatz',
-        1897: 'Restaurierung: Farbe und Putz erneuert',
-        1952: 'Restaurierung nach dem Krieg, Dach neu verlegt',
+        1685: 'Farbe abgerieben, Bronze wird braun',
+        1702: 'erste Instandsetzung: neu gestrichen',
+        1765: 'Moos auf den Ziegeln',
+        1830: 'neue Ziegel und Türen',
+        1897: 'Restaurierung: Farbe und Putz',
+        1935: 'die Farbe verblasst wieder',
+        1952: 'Restaurierung nach dem Krieg',
+        1990: 'wieder verwittert',
         2025: 'heute',
       },
       sun: { night: 'Nacht' },
@@ -1380,6 +1406,10 @@ const orbit = new Spherical();
 // The surroundings' overview: the camera's polar angle there, and its own
 // before it rose (null: not rising).
 const OVERVIEW_PHI = 0.86;
+// A narrow (portrait) screen: from higher above, and this much further back.
+const OVERVIEW_PHI_NARROW = 0.5;
+const OVERVIEW_BACK_NARROW = 0.9;
+let overviewPhi = OVERVIEW_PHI;
 let freePhi = null;
 const orbitOffset = new Vector3();
 
@@ -1562,9 +1592,15 @@ function frame() {
       // The model's act; without the model (yet), from the landing.
       let sunStudy;
       ({ theta, dolly, tilt, sun: sunStudy } = cameraPath(meshReveal ? stage : T - LANDING));
+      const narrow = 1 - Math.min(1, Math.max(0, (camera.aspect - 0.6) / 0.7));
       // A narrow screen: back a little for the sun study, so the sun's way
       // from sunrise to sunset stays in the picture.
-      dolly *= 1 + sunStudy * 0.3 * (1 - Math.min(1, Math.max(0, (camera.aspect - 0.6) / 0.7)));
+      dolly *= 1 + sunStudy * 0.3 * narrow;
+      // And for the surroundings: it sees little to the sides, so further
+      // back (OVERVIEW_PHI_NARROW: and more from above, its height showing
+      // the place's depth) - the houses growing round the model in view.
+      dolly *= 1 + tilt * OVERVIEW_BACK_NARROW * narrow;
+      overviewPhi = OVERVIEW_PHI + (OVERVIEW_PHI_NARROW - OVERVIEW_PHI) * narrow;
     }
     const radius = cameraRadius * dolly;
     // Drawing back over the surroundings: further than a visitor may zoom.
@@ -1574,7 +1610,7 @@ function frame() {
     // (as it was when it began) towards OVERVIEW_PHI.
     if (tilt > 0.0005) {
       freePhi ??= orbit.phi;
-      orbit.phi = freePhi + (OVERVIEW_PHI - freePhi) * tilt;
+      orbit.phi = freePhi + (overviewPhi - freePhi) * tilt;
     } else if (freePhi !== null) {
       orbit.phi = freePhi;
       freePhi = null;

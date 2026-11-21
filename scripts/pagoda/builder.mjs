@@ -177,6 +177,8 @@ export class Builder {
   }
 
   // A cylinder (prism) round an axis from a to b, radius r (or [r0, r1]).
+  // caps: true (both ends), false, 'start' (at a) or 'end' (at b) - a cap
+  // hidden in what the cylinder stands in is left out.
   cylinder(material, a, b, r, segments = 12, caps = true) {
     const [r0, r1] = Array.isArray(r) ? r : [r, r];
     const axis = v3.norm(v3.sub(b, a));
@@ -206,6 +208,7 @@ export class Builder {
     if (caps) {
       for (const [centre, radius, sign] of [[a, r0, -1], [b, r1, 1]]) {
         if (radius <= 0) continue;
+        if ((caps === 'start' && sign > 0) || (caps === 'end' && sign < 0)) continue;
         const cp = [centre];
         const cn = [v3.scale(axis, sign)];
         const cu = [[0, 0]];

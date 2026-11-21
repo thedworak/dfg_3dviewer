@@ -517,6 +517,7 @@ html, body {
    screen is left clear, intro.js draws the scene into it. */
 .intro-phone {
   --in: 0;
+  --panel: 0;
   position: absolute;
   z-index: 1;
   left: calc(var(--intro-safe-left) + max(16px, 6vw));
@@ -594,6 +595,50 @@ html, body {
   opacity: 0;
 }
 .intro-phone.is-touching .intro-phone-finger { transform: translate(-50%, -50%) scale(0.9); }
+.intro-phone-finger { z-index: 2; }
+/* The phone's display settings (feature-tour.js LIVE_SETTINGS): a panel
+   sliding up from the screen's foot, a row each; the chosen one amber. */
+.intro-phone-panel {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 4%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 6px 7px;
+  border-radius: 10px;
+  background: rgba(10, 13, 22, 0.86);
+  border: 1px solid rgba(214, 224, 242, 0.25);
+  transform: translateY(calc((1 - var(--panel)) * 120%));
+  opacity: var(--panel);
+}
+.intro-phone-panel-title {
+  color: var(--intro-muted);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.intro-phone-setting {
+  display: block;
+  padding: 2px 4px;
+  border-radius: 5px;
+  border: 1px solid rgba(214, 224, 242, 0.22);
+  color: #e6ebf5;
+  font-size: 9px;
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.intro-phone-setting.is-on {
+  border-color: rgba(245, 165, 36, 0.9);
+  background: rgba(245, 165, 36, 0.22);
+  color: #ffd08a;
+}
 /* Waves from the phone towards the screen. */
 .intro-phone-signal {
   position: absolute;
@@ -805,6 +850,17 @@ html, body {
   text-align: center;
 }
 .intro-timeline.has-note .intro-timeline-note { display: block; }
+/* The time travel's stage under its dates: one line, always there (empty or
+   not), so the box never changes its height. */
+.intro-timeline.is-noted .intro-timeline-note {
+  min-height: 1.35em;
+  margin-top: 6px;
+  color: #f6dcae;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 #intro.is-leaving .intro-inset,
 #intro.is-leaving .intro-phone,
 #intro.is-leaving .intro-live-badge,

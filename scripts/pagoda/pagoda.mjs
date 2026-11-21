@@ -35,6 +35,8 @@ export const MATERIALS = {
 };
 
 export const PLATFORM = { half: 5.4, height: 1.1 };
+// Rows of studs a repeat of the door's texture (textures.mjs doorTexture).
+export const DOOR_ROWS = 4;
 const TILE_PERIOD = 0.3;
 
 // Storeys from the bottom. c: half the core's width; wall: pillar height;
@@ -172,18 +174,23 @@ function door(b, x0, x1, y0, y1, z) {
   b.box('paint', [x0, y1 - frame, z - 0.07], [x1, y1, z + 0.07]);
   b.box('paint', [x0, y0, z - 0.07], [x1, y0 + 0.12, z + 0.07]);
   const mid = (x0 + x1) / 2;
+  // The studs are in the door's texture (scripts/pagoda/textures.mjs
+  // doorTexture: a row of three per course, at the planks' middles): the
+  // leaves' faces are mapped so that each leaf is three planks wide and has
+  // a whole number of rows - some 8 000 triangles fewer than modelled ones.
+  const rows = Math.max(3, Math.round((y1 - y0) / 0.4));
+  const size = MATERIALS.door.size;
   for (const [a, c] of [[x0 + frame, mid - 0.005], [mid + 0.005, x1 - frame]]) {
-    b.box('door', [a, y0 + 0.12, z - 0.03], [c, y1 - frame, z + 0.03]);
-    // Rows of studs.
-    const rows = Math.max(3, Math.round((y1 - y0) / 0.4));
-    const cols = 3;
-    for (let r = 0; r < rows; r += 1) {
-      const y = y0 + 0.12 + ((r + 0.5) / rows) * (y1 - frame - y0 - 0.12);
-      for (let k = 0; k < cols; k += 1) {
-        const x = a + ((k + 0.5) / cols) * (c - a);
-        b.cylinder('bronze', [x, y, z + 0.03], [x, y, z + 0.06], [0.03, 0.018], 6);
-      }
-    }
+    const ya = y0 + 0.12;
+    const yb = y1 - frame;
+    b.box('door', [a, ya, z - 0.03], [c, yb, z + 0.03], ['+x', '-x', '+y', '-y']);
+    // u up the leaf (the grain), DOOR_ROWS rows a repeat; v across it,
+    // three of the four planks of a repeat. In metres, as the builder takes.
+    const uv = (x, y) => [((y - ya) / (yb - ya)) * (rows / DOOR_ROWS) * size, ((x - a) / (c - a)) * 0.75 * size];
+    const front = [[a, ya], [c, ya], [c, yb], [a, yb]];
+    b.raw('door', front.map(([x, y]) => [x, y, z + 0.03]), front.map(() => [0, 0, 1]), front.map(([x, y]) => uv(x, y)), [0, 1, 2, 0, 2, 3]);
+    const back = [[c, ya], [a, ya], [a, yb], [c, yb]];
+    b.raw('door', back.map(([x, y]) => [x, y, z - 0.03]), back.map(() => [0, 0, -1]), back.map(([x, y]) => uv(x, y)), [0, 1, 2, 0, 2, 3]);
     // A ring pull.
     const px = a === x0 + frame ? c - 0.12 : a + 0.12;
     b.cylinder('bronze', [px, (y0 + y1) * 0.48, z + 0.03], [px, (y0 + y1) * 0.48, z + 0.05], 0.06, 10);
@@ -327,8 +334,11 @@ function roofParts(b, s, roof) {
   const vLower = 0.3; // lower rafters stop here, the upper ones start
   b.fourSides(() => {
     // Tiles.
+    // Four columns a tile across (the round tiles' profile); up the slope
+    // only as many rows as its curve needs - the courses are in the
+    // texture's normal map.
     const N = Math.round((2 * (s.E + s.P)) / TILE_PERIOD) * 4;
-    const nv = s.last ? 26 : 16;
+    const nv = s.last ? 16 : 10;
     const slope = Math.hypot(s.E - s.Rw, s.rise);
     b.surface('roof', (u, v) => roof.tiles(u * 2 - 1, v), N, nv, (u, v) => [roof.tiles(u * 2 - 1, v)[0], v * slope], false);
     // Soffit from the eaves to the wall line.
@@ -354,7 +364,8 @@ function roofParts(b, s, roof) {
         const u = Math.abs((sx * x) / roof.hw(0));
         if (u > 0.9) continue;
         const y = p[1] + 0.075 * 0.6;
-        b.cylinder('roof', [p[0], y, p[2] - 0.05], [p[0], y, p[2] + 0.04], 0.075, 10);
+        // Its back is in the roof: only the face towards the eaves.
+        b.cylinder('roof', [p[0], y, p[2] - 0.05], [p[0], y, p[2] + 0.04], 0.075, 8, 'end');
       }
     }
     // Upper rafters (square) from the eaves in, lower ones (round) from
@@ -366,12 +377,14 @@ function roofParts(b, s, roof) {
       const a = roof.at(x, 0, ROOF_T + 0.06);
       a[2] += 0.04;
       const e = roof.at(x, v1, ROOF_T + 0.06);
-      if (Math.abs(x) / roof.hw(0) < 0.97) b.beam('paint', a, e, 0.1, 0.11);
+      // Their tops touch the soffit: not drawn.
+      if (Math.abs(x) / roof.hw(0) < 0.97) b.beam('paint', a, e, 0.1, 0.11, [0, 1, 0], ['-y', '+z', '-z', '-x', '+x']);
       if (vEnd > vLower) {
         const v2 = Math.min(roof.vWall, vEnd);
         const la = roof.at(x, vLower - 0.06, ROOF_T + 0.17);
         const le = roof.at(x, v2, ROOF_T + 0.17);
-        b.cylinder('paint', la, le, 0.06, 7, true);
+        // Both ends are hidden (the layers' beam, the wall).
+        b.cylinder('paint', la, le, 0.06, 7, false);
       }
     }
     // The beam where the layers meet.
