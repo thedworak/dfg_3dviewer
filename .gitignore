@@ -70,3 +70,7 @@ __pycache__/
 
 # macOS Finder metadata
 .DS_Store
+
+# scripts/bluegreen.sh: the live colour and its lock
+/.bluegreen-active
+/.bluegreen.lock

@@ -61,7 +61,7 @@ scripts/docker.py --help
    viewer-sandbox  http://localhost:3002
 ```
 
-Default ports: `viewer-test` 3000, `viewer-dev` 3001, `viewer-sandbox` 3002, `worker` 8080.
+Default ports: `viewer-test` 3000, `viewer-dev` 3001, `viewer-sandbox` 3002, `worker` 8080. `.env` can move them (`VIEWER_TEST_PORT`, `VIEWER_DEV_PORT`, `VIEWER_SANDBOX_PORT`, `WORKER_PORT`, each `[address:]port`); `.env.example` puts them at 47290-47298 on `127.0.0.1`, out of the way of other projects' 3000/8080.
 
 **Examples**
 
@@ -77,6 +77,41 @@ scripts/docker.py prune                  # free disk space, asks first
 - The profile is passed to `docker-compose.yml` as the `VIEWER_PROFILE` variable (`${VIEWER_PROFILE:-<default>}` in each service's build args); the compose file itself is never rewritten. A `VIEWER_PROFILE` already exported in your shell therefore also affects plain `docker compose build`.
 - Compose variables such as `WORKER_AUTH_MODE` or `WORKER_ADMIN_USER` come from a `.env` file next to `docker-compose.yml` (git-ignored). After editing it, run `scripts/docker.py rebuild --up`.
 - Existing settings volumes keep their old `viewer-settings.json`; see the volume note under "Docker profiles" above.
+
+## Blue/green deployment
+
+`scripts/bluegreen.sh` replaces the stack without a gap: two copies of it, *blue* and *green*, run as two compose projects (`<project>-blue`, `<project>-green`) on their own host ports and share the data volumes (`docker/bluegreen.yml`: converted models, accounts, the viewers' settings). One colour is live; a deploy builds and starts the other one, checks that it answers (the worker's `/healthz`, each viewer's `/`), points the host nginx at it, and stops the old one after a short drain. A failed build or check leaves the live colour as it was.
+
+```bash
+scripts/bluegreen.sh deploy            # build the idle colour, check it, switch to it
+scripts/bluegreen.sh status            # which colour is live, what runs, the ports
+scripts/bluegreen.sh rollback          # back to the other colour (no build)
+scripts/bluegreen.sh switch green      # to that colour (no build)
+scripts/bluegreen.sh stop blue         # stop the idle colour
+```
+
+A stopped colour keeps its containers and images, so a rollback to the previous release only starts them again; once it is live, the colour you left keeps running until `stop` (or the next deploy).
+
+**Ports** (`.env`): `BLUEGREEN_BLUE_PORT` (47300) and `BLUEGREEN_GREEN_PORT` (47310) are each colour's first port: +0 `viewer-test`, +1 `viewer-dev`, +2 `viewer-sandbox`, +8 `worker`, published on `BLUEGREEN_BIND` (127.0.0.1). They take the place of `VIEWER_*_PORT`/`WORKER_PORT` - do not remap ports in `docker-compose.override.yml` as well. A second checkout on the same machine (another branch) needs other ranges, and gets its own project name from its directory.
+
+**The switch**: the host nginx proxies to upstreams instead of fixed ports, and `BLUEGREEN_NGINX_CONF` names the file that defines them. The script rewrites it and runs `BLUEGREEN_NGINX_RELOAD` (default `sudo -n nginx -t && sudo -n systemctl reload nginx`); when the check fails the previous file is put back. Without `BLUEGREEN_NGINX_CONF` nothing is switched and the live colour's ports are printed (a machine without a host nginx). `scripts/bluegreen.sh upstreams green` prints the file a colour would get.
+
+Setting it up on a server, once:
+
+1. `.env`: the `BLUEGREEN_*` lines from `.env.example`, with `BLUEGREEN_NGINX_CONF=/etc/nginx/conf.d/<project>-upstreams.conf` (`<project>`: the directory's name).
+2. The file writable by the user that deploys, and the reload allowed without a password:
+   ```bash
+   sudo install -m 644 -o "$USER" /dev/null /etc/nginx/conf.d/<project>-upstreams.conf
+   scripts/bluegreen.sh upstreams blue > /etc/nginx/conf.d/<project>-upstreams.conf
+   echo "$USER ALL=(root) NOPASSWD: /usr/sbin/nginx -t, /usr/bin/systemctl reload nginx" | sudo tee /etc/sudoers.d/bluegreen
+   ```
+   (a file in `conf.d/` is included in nginx's `http` block on Debian/Ubuntu; elsewhere `include` it there.)
+3. In the host nginx's sites (`docker/host-nginx.example.conf`), `proxy_pass http://<prefix>_viewer_test;` (`_viewer_dev`, `_viewer_sandbox`, `_worker`) instead of `http://127.0.0.1:3000;` - `<prefix>` is `BLUEGREEN_UPSTREAM_PREFIX`, by default the project name with `-` as `_`.
+4. `scripts/bluegreen.sh deploy`. The first deploy goes to blue; a stack started before with plain `docker compose up` keeps its volumes (blue/green uses the same names) and is stopped once blue is live - `docker compose down` removes its containers afterwards.
+
+**Notes**
+- The two workers share the jobs volume for the few seconds of the switch and the drain (`BLUEGREEN_DRAIN_SECONDS`, 30). A conversion still running in the old worker when it stops is interrupted, as on any restart: raise the drain on a server with long conversions.
+- The optional Overpass service (below) is not started per colour; with blue/green the viewers use the public server.
 
 ## Your own Overpass (water of the generated surroundings)
 

@@ -21,8 +21,10 @@ services:
       # Code only - "FROM worker-base" resolves to the service above.
       additional_contexts:
         worker-base: service:worker-base
+    # Host ports: [address:]port from .env (WORKER_PORT, VIEWER_*_PORT);
+    # scripts/bluegreen.sh sets them per colour.
     ports:
-      - "8080:8080"
+      - "${WORKER_PORT:-8080}:8080"
     volumes:
       - worker-jobs:/data/jobs
     environment:
@@ -155,7 +157,7 @@ services:
         # A client profile, clients/<BRAND>/ (docs/branding.md).
         BRAND: ${BRAND:-}
     ports:
-      - "3000:3000"
+      - "${VIEWER_TEST_PORT:-3000}:3000"
     volumes:
       # Named volumes can only be mounted as directories, not onto a single
       # file - docker/viewer-entrypoint.d/10-persist-viewer-settings.sh
@@ -178,7 +180,7 @@ services:
         # A client profile, clients/<BRAND>/ (docs/branding.md).
         BRAND: ${BRAND:-}
     ports:
-      - "3001:3000"
+      - "${VIEWER_DEV_PORT:-3001}:3000"
     volumes:
       - viewer-dev-settings:/data/viewer-config
     depends_on:
@@ -200,7 +202,7 @@ services:
         # A client profile, clients/<BRAND>/ (docs/branding.md).
         BRAND: ${BRAND:-}
     ports:
-      - "3002:3000"
+      - "${VIEWER_SANDBOX_PORT:-3002}:3000"
     volumes:
       - viewer-sandbox-settings:/data/viewer-config
     depends_on:

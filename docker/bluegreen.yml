@@ -1,0 +1,24 @@
+# Blue/green overlay for docker-compose.yml - added by scripts/bluegreen.sh,
+# not meant to be used by hand (docs/docker.md, "Blue/green deployment").
+#
+# The two colours run as two compose projects (<project>-blue and
+# <project>-green), and compose names volumes after the project. Here they
+# are the same, external volumes for both colours instead: converted models,
+# accounts and the viewers' settings survive a switch. The names are those a
+# plain `docker compose up` in this directory gave them
+# (<project>_worker-jobs, ...), so a stack started before blue/green keeps
+# its data. scripts/bluegreen.sh creates them when they are missing.
+
+volumes:
+  worker-jobs:
+    external: true
+    name: ${BLUEGREEN_DATA_PREFIX:?set by scripts/bluegreen.sh}_worker-jobs
+  viewer-test-settings:
+    external: true
+    name: ${BLUEGREEN_DATA_PREFIX:?set by scripts/bluegreen.sh}_viewer-test-settings
+  viewer-dev-settings:
+    external: true
+    name: ${BLUEGREEN_DATA_PREFIX:?set by scripts/bluegreen.sh}_viewer-dev-settings
+  viewer-sandbox-settings:
+    external: true
+    name: ${BLUEGREEN_DATA_PREFIX:?set by scripts/bluegreen.sh}_viewer-sandbox-settings

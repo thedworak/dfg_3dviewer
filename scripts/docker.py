@@ -177,7 +177,13 @@ def service_port(svc: str) -> str:
     container_port = "8080" if svc == "worker" else "3000"
     result = compose("port", svc, container_port, capture=True)
     first = result.stdout.splitlines()[0] if result.returncode == 0 and result.stdout.strip() else ""
-    return first.rpartition(":")[2] or SERVICE_DEFAULTS[svc]
+    if first:
+        return first.rpartition(":")[2]
+    # Not running: the port from .env (WORKER_PORT, VIEWER_TEST_PORT, ...,
+    # "[address:]port"), else the docker-compose.yml default.
+    var = "WORKER_PORT" if svc == "worker" else svc.upper().replace("-", "_") + "_PORT"
+    configured = os.environ.get(var) or (get_env_value(var) if ENV_FILE.is_file() else "")
+    return configured.rpartition(":")[2] or SERVICE_DEFAULTS[svc]
 
 
 def print_availability(state: str, profile: str = "") -> None:

@@ -45,7 +45,7 @@ Open `http://localhost:1234` - viewer only, no conversion pipeline.
 The topics below used to live in this file; they now have their own page in [`docs/`](docs/):
 
 - [Minimal local setup, npm scripts, build/packaging, Tauri app](docs/development.md)
-- [Standalone Docker setup](docs/docker.md) - profiles, `scripts/docker.py`, static export, uploads/accounts
+- [Standalone Docker setup](docs/docker.md) - profiles, `scripts/docker.py`, static export, uploads/accounts, blue/green deployment (`scripts/bluegreen.sh`)
 - [Admin panel setup](docs/admin-panel.md)
 - [Server-side conversion and rendering](docs/conversion-pipeline.md) - pipeline, supported conversion inputs, script flags/env vars
 - [`viewer-settings.json` explained](docs/viewer-settings.md)
