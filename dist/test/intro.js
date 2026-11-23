@@ -3821,11 +3821,17 @@ try {
   // no storage: the page's default
 }
 
+// The button shows what is heard, not what is remembered: wanted but not
+// yet started (the browser waits for a click or key press - after a reload,
+// a language switch, "Skip intro") it shows off, with a pulse that says a
+// click turns it on.
 function showSoundState() {
-  ui.sound.setAttribute('aria-pressed', String(soundWanted));
-  ui.sound.title = soundWanted ? t.soundOn : t.soundOff;
+  const playing = soundWanted && sound.enabled;
+  ui.sound.setAttribute('aria-pressed', String(playing));
+  ui.sound.title = playing ? t.soundOn : t.soundOff;
   ui.sound.setAttribute('aria-label', ui.sound.title);
-  ui.sound.classList.toggle('is-on', soundWanted);
+  ui.sound.classList.toggle('is-on', playing);
+  ui.sound.classList.toggle('is-waiting', soundWanted && !sound.enabled);
 }
 
 function setSound(on, remember) {
@@ -3838,7 +3844,8 @@ function setSound(on, remember) {
 }
 
 showSoundState();
-ui.sound.addEventListener('click', () => setSound(!soundWanted, true));
+// A click turns it on unless it is heard (wanted and waiting: on now).
+ui.sound.addEventListener('click', () => setSound(!(soundWanted && sound.enabled), true));
 // Wanted from the start: on with the first gesture the browser allows it for.
 if (soundWanted) {
   const start = (event) => {
@@ -3889,6 +3896,9 @@ try {
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(38, 1, 0.01, 100);
+// What the camera looks at: the model's middle (the surroundings' overview
+// moves it aside, frame()).
+const TARGET = new Vector3(0, 0.12, 0);
 // Seconds since the page opened; ?at=<seconds> holds the intro at that
 // moment (for stills and screen recordings).
 // Held: ?at=, or reduced motion (the end, everything shown). The progress
@@ -3955,7 +3965,7 @@ if (renderer) {
   controls.maxPolarAngle = 1.62;
   // The camera's path turns it (frame()), not the controls.
   controls.autoRotate = false;
-  controls.target.set(0, 0.12, 0);
+  controls.target.copy(TARGET);
   cameraRadius = camera.position.distanceTo(controls.target);
   controls.addEventListener('start', () => {
     userTouched = true;
@@ -4624,11 +4634,16 @@ const cameraPath = tourCameraPath({ plan: PLAN, front: FRONT_THETA, rate: LANDIN
 const orbit = new Spherical();
 // The surroundings' overview: the camera's polar angle there, and its own
 // before it rose (null: not rising).
-const OVERVIEW_PHI = 0.86;
+// A wide screen: low over the place (its fields and the land beyond in
+// view), looking past the model to its right (OVERVIEW_SIDE of the
+// distance) - the model need not be in the middle.
+const OVERVIEW_PHI = 1.1;
+const OVERVIEW_SIDE = 0.2;
 // A narrow (portrait) screen: from higher above, and this much further back.
 const OVERVIEW_PHI_NARROW = 0.5;
 const OVERVIEW_BACK_NARROW = 0.9;
 let overviewPhi = OVERVIEW_PHI;
+let overviewSide = 0;
 let freePhi = null;
 const orbitOffset = new Vector3();
 
@@ -4820,6 +4835,7 @@ function frame() {
       // the place's depth) - the houses growing round the model in view.
       dolly *= 1 + tilt * OVERVIEW_BACK_NARROW * narrow;
       overviewPhi = OVERVIEW_PHI + (OVERVIEW_PHI_NARROW - OVERVIEW_PHI) * narrow;
+      overviewSide = OVERVIEW_SIDE * (1 - narrow) * tilt;
     }
     const radius = cameraRadius * dolly;
     // Drawing back over the surroundings: further than a visitor may zoom.
@@ -4844,6 +4860,10 @@ function frame() {
     const offRadius = (orbit.radius - from.radius) * ease;
     orbit.theta = theta + offTheta;
     orbit.radius = radius + offRadius;
+    // Over the surroundings: the point looked at moves to the camera's
+    // right (the model drifts left), and back again.
+    const side = before > 0 ? 0 : overviewSide * orbit.radius;
+    controls.target.set(TARGET.x + Math.cos(orbit.theta) * side, TARGET.y, TARGET.z - Math.sin(orbit.theta) * side);
     camera.position.setFromSpherical(orbit).add(controls.target);
     pathLast = pathLast ? Object.assign(pathLast, { theta, radius }) : { theta, radius };
   } else {
@@ -4914,6 +4934,7 @@ ui.skip.addEventListener('click', (event) => {
   if (!embedded) return;
   event.preventDefault();
   sound.setEnabled(false);
+  showSoundState();
   tellViewer('done');
 });
 
@@ -5008,4 +5029,4 @@ if (embedded) {
   });
   document.documentElement.classList.add('is-embedded');
 }
-//# sourceMappingURL=intro-B-NKGlwE.js.map
+//# sourceMappingURL=intro-DbLo45A_.js.map

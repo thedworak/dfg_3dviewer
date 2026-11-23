@@ -28,7 +28,13 @@ function replaceText(value) {
     .replaceAll('Wolpa Synagogue', 'Pagoda')
     .replaceAll('Volpa Synagogue', 'Pagoda')
     .replaceAll('Synagoga w Wołpie', 'Pagoda')
-    .replaceAll('Synagoge Wolpa', 'Pagode');
+    .replaceAll('Synagoge Wolpa', 'Pagode')
+    // The contours' shader counts in model units: the synagogue's are
+    // centimetres (a line every metre), the pagoda's metres.
+    .replaceAll('A dark line every 100 units', 'A dark line every metre')
+    .replaceAll('vHeight / 100.0', 'vHeight / 1.0')
+    // The colour from the foot to the top: the synagogue's 15 m, the pagoda's 20.5.
+    .replaceAll('vHeight / 1500.0', 'vHeight / 20.5');
   if (Array.isArray(value)) return value.map(replaceText);
   if (value && typeof value === 'object') return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [key, replaceText(item)]),
@@ -246,7 +252,11 @@ function tourAnnotation(id, labels, bodyTexts, point, view) {
   };
 }
 
-function certaintyAnnotation(id, labels, bodyTexts, point, targetId, certaintyValue, certaintyCode) {
+// An assessment as the viewer reads one (as the synagogue's): pinned to a
+// face of a mesh (faceTarget, its face 0: where the badge sits) and painting
+// paintTarget - the mesh, or the part (a group) it belongs to. A point
+// annotation (PointSelector) carries no assessment.
+function certaintyAnnotation(id, labels, bodyTexts, faceTarget, paintTarget, certaintyValue, certaintyCode) {
   const scene = `${MODEL}/scene`;
   return {
     id: `${scene}/annotation/${id}`,
@@ -261,18 +271,15 @@ function certaintyAnnotation(id, labels, bodyTexts, point, targetId, certaintyVa
         { type: 'TextualBody', value: bodyTexts.de, format: 'text/plain', language: ['de'] },
       ],
     },
-    target: {
-      type: 'SpecificResource',
-      source: { id: scene, type: 'Scene' },
-      selector: [{ type: 'PointSelector', x: point[0], y: point[1], z: point[2] }],
-    },
+    target: { id: scene, type: 'Scene' },
     AIM3DViewer: {
       groupId: '',
-      key: '',
-      object: targetId,
-      targetId,
-      point,
-      certainty: { value: certaintyValue, code: certaintyCode, scope: 'object', targetId },
+      key: `${faceTarget}:0`,
+      object: faceTarget,
+      targetId: faceTarget,
+      faceIndex: 0,
+      faceNumbers: [0],
+      certainty: { value: certaintyValue, code: certaintyCode, scope: 'object', targetId: paintTarget },
     },
   };
 }
@@ -430,6 +437,9 @@ function tailor(manifest, suffix) {
   }
 
   const annotations = page(manifest);
+  // Targets: the model's scene, its root node (0), then the part's index
+  // under it - 0 Platform, 1 Storey 1, 2 Roof 1 ... 6 Roof 3, 7 Interior,
+  // 8 Finial (the order scripts/pagoda/pagoda.mjs builds them in).
   if (annotations && suffix === '-certainty') {
     annotations.items = [
       certaintyAnnotation(
@@ -440,7 +450,7 @@ function tailor(manifest, suffix) {
           pl: 'Wysoki poziom pewności (A): wymiary podestu wynikają z regularnego rzutu kwadratowego.',
           de: 'Hohe Gewissheit (A): Die Maße der Plattform folgen dem quadratischen Grundriss.',
         },
-        [0, 0.5, 5.5], 'm0:0', 9, 'A',
+        'm0:0.0', 'm0:0.0', 10, 'A',
       ),
       certaintyAnnotation(
         'certainty-structure',
@@ -450,7 +460,7 @@ function tailor(manifest, suffix) {
           pl: 'Pewna ocena (B): układ słupów i rozstaw wsporników (tokyō) odpowiadają klasycznym proporcjom.',
           de: 'Gute Gewissheit (B): Pfeileranordnung und Kragträgerabstände (Tokyō) entsprechen klassischen Proportionen.',
         },
-        [0, 4.5, 3.4], 'm0:1', 8, 'B',
+        'm0:0.1.0', 'm0:0.1', 8, 'B',
       ),
       certaintyAnnotation(
         'certainty-roof',
@@ -460,7 +470,7 @@ function tailor(manifest, suffix) {
           pl: 'Ocena interpretacyjna (C): krzywizna połaci dachu czterospadowego i rytm ceramicznych dachówek.',
           de: 'Interpretierende Gewissheit (C): Krümmung des Walmdachs und Rhythmus der Ziegelreihen.',
         },
-        [0, 17.0, 0], 'm0:6', 7, 'C',
+        'm0:0.6.0', 'm0:0.6', 6, 'C',
       ),
       certaintyAnnotation(
         'certainty-finial',
@@ -470,7 +480,7 @@ function tailor(manifest, suffix) {
           pl: 'Ocena hipotetyczna (D): detale dekoracyjne brązowej iglicy i forma świętego klejnotu.',
           de: 'Hypothetisch (D): Dekorative Details der Bronze-Spitze und Form des heiligen Juwels.',
         },
-        [0, 19.5, 0], 'm0:8', 6, 'D',
+        'm0:0.8', 'm0:0.8', 4, 'D',
       ),
     ];
   }
