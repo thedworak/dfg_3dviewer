@@ -16,10 +16,13 @@ import DEFAULT_LIST from "./examples/index.json";
 // list's "groups": { id: name } (a string or { en, de, pl }; else the id).
 // app: false - not offered in the app (test files, and models the app has a
 // lighter version of; the app build leaves them out of its bundle).
+// testing: true - only in the testing build (BUILD=test: build:test and the
+// dev server), e.g. the broken files for checking the error messages.
 //
 // The app has the models of the list it was built with. Any other "./" entry
 // is a model added since: it is loaded from the list's site, online only.
 const IS_MOBILE_BUILD = typeof __BUILD__ !== "undefined" && __BUILD__ === "mobile";
+const IS_TESTING_BUILD = typeof __BUILD__ !== "undefined" && __BUILD__ === "test";
 // The web viewer serves the list itself; the app fetches it from the site.
 const DEFAULT_URL = IS_MOBILE_BUILD ? "https://explora4d.eu/viewer/examples/index.json" : "./examples/index.json";
 
@@ -34,6 +37,7 @@ function normalizeList(data) {
   return data.models
     .filter((entry) => entry && typeof entry.url === "string" && entry.url.trim())
     .filter((entry) => !(IS_MOBILE_BUILD && entry.app === false))
+    .filter((entry) => IS_TESTING_BUILD || entry.testing !== true)
     .map((entry) => (typeof entry.group === "string" && groups[entry.group] ? { ...entry, groupName: groups[entry.group] } : entry))
     .flatMap((entry) => {
       if (!isRelativeUrl(entry.url)) return [{ ...entry, online: true }];

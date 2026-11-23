@@ -60,7 +60,7 @@
     {"url": "./examples/images/inscription.png", "group": "images", "name": {"en": "Worn inscription (PNG, 300 dpi)", "pl": "Zatarta inskrypcja (PNG, 300 dpi)", "de": "Verwitterte Inschrift (PNG, 300 dpi)"}, "app": false},
     {"url": "./examples/images/rock-art.jpg", "group": "images", "name": {"en": "Faded rock art (JPEG, EXIF)", "pl": "Wyblakłe malowidło naskalne (JPEG, EXIF)", "de": "Verblasste Felsmalerei (JPEG, EXIF)"}, "app": false},
     {"url": "./examples/images/images-set.zip", "group": "images", "name": {"en": "A set of three (ZIP)", "pl": "Zestaw trzech (ZIP)", "de": "Ein Satz aus drei (ZIP)"}, "app": false},
-    {"url": "./examples/box-missing-mtl.obj", "group": "broken", "name": "OBJ (missing MTL)", "app": false},
-    {"url": "./examples/broken.glb", "group": "broken", "name": {"en": "GLB (unreadable)", "pl": "GLB (nieczytelny)", "de": "GLB (unlesbar)"}, "app": false}
+    {"url": "./examples/box-missing-mtl.obj", "group": "broken", "name": "OBJ (missing MTL)", "app": false, "testing": true},
+    {"url": "./examples/broken.glb", "group": "broken", "name": {"en": "GLB (unreadable)", "pl": "GLB (nieczytelny)", "de": "GLB (unlesbar)"}, "app": false, "testing": true}
   ]
 }
