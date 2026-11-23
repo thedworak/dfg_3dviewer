@@ -234,13 +234,18 @@ faces hidden in what they touch (the eaves tiles' backs, the rafters' tops
 and ends) are left out - about 30% fewer triangles than modelling them.
 
 ```bash
-node scripts/build-pagoda-examples.mjs          # or: pnpm run examples:pagoda (--quick: 256 px textures)
+node scripts/build-pagoda-examples.mjs          # or: pnpm run examples:pagoda (--quick: 256 px textures, --webp: see below)
 node scripts/build-intro-points.mjs             # the intro's points from it
 ```
 
 It writes `viewer/examples/pagoda/` - `Pagoda.glb` (JPEG textures, 2048 px,
-6 MB), `Pagoda-progressive.glb` (Meshopt + WebP, what the intro and the
-viewer open) and its `.preview.glb`, `4D/Pagoda_4D.glb` (the stages
+6 MB), `Pagoda-progressive.glb` (what the intro and the viewer open) and
+its `.preview.glb` - with a native gltfpack on the `PATH` (or in
+`GLTFPACK_BIN`; [meshoptimizer's releases](https://github.com/zeux/meshoptimizer/releases),
+the npm one has no BasisU) made as the Wolpa Synagogue's, as the worker
+makes them (`worker/optimize.py`: Meshopt, KTX2 textures, a preview of a
+tenth of the triangles with 512 px textures), else with gltf-transform
+(Meshopt, WebP textures; `--webp` asks for these anyway) - `4D/Pagoda_4D.glb` (the stages
 1615-2025, one node per stage sharing the geometry, the timeline in the
 scene's extras) - and the intro's `viewer/intro/scenes/pagoda/time/`. The
 time travel changes five parts (paint, plaster, roof, bronze, door), each

@@ -3,19 +3,23 @@
 // outside sources) - and everything the viewer and the intro take from it:
 //
 //   viewer/examples/pagoda/Pagoda.glb               the model (JPEG textures, 2048 px)
-//   viewer/examples/pagoda/Pagoda-progressive.glb   Meshopt + WebP (what the intro and the viewer open)
+//   viewer/examples/pagoda/Pagoda-progressive.glb   Meshopt + KTX2 with a native gltfpack, as the
+//                                                   Wolpa Synagogue's, else Meshopt + WebP
+//                                                   (what the intro and the viewer open)
 //   viewer/examples/pagoda/Pagoda-progressive.preview.glb  simplified, small textures
 //   viewer/examples/pagoda/4D/Pagoda_4D.glb         the stages 1615-2025 (textures change)
 //   viewer/intro/scenes/pagoda/time/                the intro's time travel: time.json and
 //                                                   the fresh and mid textures (WebP, 1024 px)
 //
-//   node scripts/build-pagoda-examples.mjs [--quick]
+//   node scripts/build-pagoda-examples.mjs [--quick] [--webp]
+//   GLTFPACK_BIN=/path/to/gltfpack node scripts/build-pagoda-examples.mjs
 //
 // --quick: 256 px textures, for looking at the geometry. The intro's points
 // come after it: node scripts/build-intro-points.mjs 200000
 // viewer/examples/pagoda/Pagoda.glb viewer/intro/scenes/pagoda/points.bin
 //
 // Geometry: scripts/pagoda/pagoda.mjs; textures: scripts/pagoda/textures.mjs.
+import { spawnSync } from 'node:child_process';
 import { mkdir, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -28,6 +32,11 @@ import { MATERIALS, buildPagoda } from './pagoda/pagoda.mjs';
 import { AGES, TEXTURES, makeTexture } from './pagoda/textures.mjs';
 
 const QUICK = process.argv.includes('--quick');
+// --webp: the progressive model with WebP textures even with gltfpack there.
+const WEBP = process.argv.includes('--webp');
+// A native gltfpack (https://github.com/zeux/meshoptimizer/releases), as the
+// worker's WORKER_GLTFPACK_BIN.
+const GLTFPACK = process.env.GLTFPACK_BIN || 'gltfpack';
 const OUT = 'viewer/examples/pagoda';
 const TIME_OUT = 'viewer/intro/scenes/pagoda/time';
 const GENERATOR = 'ExPlora4D - scripts/build-pagoda-examples.mjs';
@@ -222,27 +231,52 @@ const modelPath = path.join(OUT, 'Pagoda.glb');
 await io.write(modelPath, model);
 await report(modelPath);
 
-// Progressive: Meshopt geometry, WebP textures (the viewer and the intro).
-const progressive = await io.read(modelPath);
-await progressive.transform(
-  textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 82 }),
-  meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
-);
+// Progressive (what the viewer and the intro open) and its preview. As the
+// Wolpa Synagogue's: gltfpack, as the worker runs it (worker/optimize.py) -
+// Meshopt geometry, KTX2 (BasisU) textures - when a native gltfpack is
+// there (the npm one has no BasisU); else gltf-transform, WebP textures.
 const progressivePath = path.join(OUT, 'Pagoda-progressive.glb');
-await io.write(progressivePath, progressive);
-await report(progressivePath);
-
-// Its preview: fewer triangles, 512 px textures.
-const preview = await io.read(modelPath);
-await preview.transform(
-  weld(),
-  simplify({ simplifier: MeshoptSimplifier, ratio: 0.25, error: 0.01, lockBorder: false }),
-  textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 70, resize: [512, 512] }),
-  prune(),
-  meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
-);
 const previewPath = path.join(OUT, 'Pagoda-progressive.preview.glb');
-await io.write(previewPath, preview);
+// worker/optimize.py BASE_FLAGS and its preview's (WORKER_PREVIEW_* defaults).
+const GLTFPACK_FLAGS = ['-cc', '-kn', '-km', '-ke', '-vpf', '-vtf', '-tc'];
+const GLTFPACK_PREVIEW = ['-si', '0.1', '-se', '0.05', '-tl', '512'];
+function gltfpack(args) {
+  const result = spawnSync(GLTFPACK, args, { encoding: 'utf8' });
+  if (result.error || result.status !== 0) {
+    throw new Error((result.error?.message || result.stderr || result.stdout || `exit ${result.status}`).trim());
+  }
+}
+let packed = false;
+if (!WEBP) {
+  try {
+    gltfpack(['-i', modelPath, '-o', progressivePath, ...GLTFPACK_FLAGS]);
+    gltfpack(['-i', modelPath, '-o', previewPath, ...GLTFPACK_FLAGS, ...GLTFPACK_PREVIEW]);
+    packed = true;
+    console.log(`progressive: ${GLTFPACK} (Meshopt + KTX2)`);
+  } catch (error) {
+    console.log(`progressive: no gltfpack with BasisU (${GLTFPACK}: ${error.message.split('\n')[0]}) - Meshopt + WebP instead`);
+  }
+}
+if (!packed) {
+  const progressive = await io.read(modelPath);
+  await progressive.transform(
+    textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 82 }),
+    meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
+  );
+  await io.write(progressivePath, progressive);
+
+  // Its preview: fewer triangles, 512 px textures.
+  const preview = await io.read(modelPath);
+  await preview.transform(
+    weld(),
+    simplify({ simplifier: MeshoptSimplifier, ratio: 0.25, error: 0.01, lockBorder: false }),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 70, resize: [512, 512] }),
+    prune(),
+    meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
+  );
+  await io.write(previewPath, preview);
+}
+await report(progressivePath);
 await report(previewPath);
 
 // 4D, textures as WebP at 1024 px.
