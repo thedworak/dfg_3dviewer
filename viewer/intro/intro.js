@@ -1420,9 +1420,11 @@ const orbit = new Spherical();
 // distance) - the model need not be in the middle.
 const OVERVIEW_PHI = 1.1;
 const OVERVIEW_SIDE = 0.2;
-// A narrow (portrait) screen: from higher above, and this much further back.
-const OVERVIEW_PHI_NARROW = 0.5;
-const OVERVIEW_BACK_NARROW = 0.9;
+// A narrow (portrait) screen: low over the place too (its height shows the
+// land in depth, beyond the model), and this much further back - it sees
+// little to the sides.
+const OVERVIEW_PHI_NARROW = 1.0;
+const OVERVIEW_BACK_NARROW = 0.45;
 let overviewPhi = OVERVIEW_PHI;
 let overviewSide = 0;
 let freePhi = null;
@@ -1612,8 +1614,8 @@ function frame() {
       // from sunrise to sunset stays in the picture.
       dolly *= 1 + sunStudy * 0.3 * narrow;
       // And for the surroundings: it sees little to the sides, so further
-      // back (OVERVIEW_PHI_NARROW: and more from above, its height showing
-      // the place's depth) - the houses growing round the model in view.
+      // back (OVERVIEW_BACK_NARROW) - the houses growing round the model in
+      // view.
       dolly *= 1 + tilt * OVERVIEW_BACK_NARROW * narrow;
       overviewPhi = OVERVIEW_PHI + (OVERVIEW_PHI_NARROW - OVERVIEW_PHI) * narrow;
       overviewSide = OVERVIEW_SIDE * (1 - narrow) * tilt;

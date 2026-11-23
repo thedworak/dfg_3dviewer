@@ -55,8 +55,9 @@ viewer, about 100 seconds long:
    stage held a moment (1.6 s) to be read, then each step as long as the
    years it spans (at least 0.5 s), 11 seconds in all; and last
    **surroundings through time** (`viewer/intro/intro-surroundings.js`, about
-   30 seconds): the camera rises and draws back (on a narrow screen further
-   and from higher above, so the place round the model is in view), and the viewer's generated
+   30 seconds): the camera rises and draws back, low over the place (on a
+   wide screen looking past the model to its right, on a narrow one further
+   back), and the viewer's generated
    surroundings ([surroundings.md](surroundings.md) - the same rules and
    seed) grow round the pagoda through all the periods they cover, 900 to
    2025, each period the same time (as on the viewer's year slider) - a
