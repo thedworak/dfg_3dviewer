@@ -92,8 +92,8 @@ async function createMeshReveal({ url, renderer, center, scale, transcoderPath }
     uEdgeGlow: { value: 1 },
     uExit: { value: 0 },
     // The feature tour (feature-tour.js): shading modes A and B with a
-    // wipe between them across the screen, a section plane, snow cover and
-    // a colour grade for the seasons.
+    // wipe between them rising up the model, a section plane, snow cover
+    // and a colour grade for the seasons.
     uModeA: { value: 0 },
     uModeB: { value: 0 },
     uWipe: { value: 0 },
@@ -408,15 +408,17 @@ function revealMaterial(source, uniforms) {
         varying vec3 vBary;
         varying vec3 vTourPos;
         varying vec3 vTourNormal;
-        // The viewer's shading modes that keep the textures, in brief:
-        // 0 textures, 1 PBR (glossy, reflecting), 2 raking light.
+        // The viewer's shading and lighting modes, in brief:
+        // 0 textures, 1 PBR (glossy, reflecting), 2 raking light, 3 golden
+        // hour, 4 night (lit from below), 5 clay (the shape only), 6 normals,
+        // 7 toon (cel shading).
         vec3 introShade(float mode, vec3 base, vec3 albedo, vec3 soft, vec3 n, vec3 viewNormal) {
           if (mode < 0.5) return base;
           vec3 tone = pow(albedo, vec3(1.0 / 2.2));
+          vec3 V = normalize(cameraPosition - vTourPos);
           if (mode < 1.5) {
             // PBR: the same textures as glossy, physically based materials -
             // a sky reflected by Fresnel, a sharp highlight from the sun.
-            vec3 V = normalize(cameraPosition - vTourPos);
             vec3 L = normalize(vec3(0.5, 0.8, 0.3));
             vec3 H = normalize(L + V);
             float NdL = max(dot(n, L), 0.0);
@@ -428,16 +430,61 @@ function revealMaterial(source, uniforms) {
             vec3 R = reflect(-V, n);
             vec3 sky = mix(vec3(0.95, 0.78, 0.62), vec3(0.42, 0.6, 0.95), smoothstep(-0.05, 0.7, R.y));
             sky = mix(vec3(0.08, 0.07, 0.07), sky, smoothstep(-0.25, 0.0, R.y));
-            vec3 tone = pow(albedo, vec3(1.0 / 2.2));
             vec3 diffuseLit = tone * (0.28 + 0.85 * NdL);
             vec3 specular = vec3(1.0, 0.96, 0.88) * ggx * fresnel * NdL * 0.9;
             return clamp(mix(diffuseLit, sky, fresnel * 0.85) + specular, 0.0, 1.0);
           }
-          // Raking light on the textures: a low light circling.
-          float a = uTourTime * 1.8;
-          vec3 graze = normalize(vec3(cos(a), 0.38, sin(a)));
-          float l = max(dot(n, graze), 0.0);
-          return clamp(tone * (0.12 + pow(l, 1.15) * 1.45), 0.0, 1.0);
+          if (mode < 2.5) {
+            // Raking light on the textures: a low light circling.
+            float a = uTourTime * 1.8;
+            vec3 graze = normalize(vec3(cos(a), 0.38, sin(a)));
+            float l = max(dot(n, graze), 0.0);
+            return clamp(tone * (0.12 + pow(l, 1.15) * 1.45), 0.0, 1.0);
+          }
+          if (mode < 3.5) {
+            // Golden hour: a low warm sun from the side, the shade blue
+            // from the sky, a warm rim where the light grazes.
+            vec3 L = normalize(vec3(-0.85, 0.28, 0.45));
+            float NdL = max(dot(n, L), 0.0);
+            float skyLight = 0.5 + 0.5 * n.y;
+            float rim = pow(1.0 - max(dot(n, V), 0.0), 3.0) * NdL;
+            vec3 lit = tone * (vec3(1.25, 0.78, 0.42) * NdL * 1.35 + vec3(0.2, 0.27, 0.42) * skyLight)
+              + vec3(1.0, 0.6, 0.25) * rim * 0.6;
+            return clamp(lit, 0.0, 1.0);
+          }
+          float height = (vTourPos.y - uHeight.x) / uHeight.y;
+          if (mode < 4.5) {
+            // Night: floodlights at the foot throw warm light up the walls,
+            // fading with height; the eaves' undersides catch it, the rest
+            // is in the blue of the night sky.
+            float up = 1.0 - smoothstep(-0.15, 1.05, height);
+            vec3 out2 = normalize(vec3(vTourPos.x, 0.0, vTourPos.z) + vec3(1e-4));
+            float facing = max(dot(n, out2), 0.0) * 0.8 + max(-n.y, 0.0) * 1.1 + 0.18;
+            float flicker = 0.94 + 0.06 * sin(uTourTime * 9.0 + vTourPos.x * 3.0);
+            vec3 flood = vec3(1.0, 0.7, 0.38) * up * facing * 2.6 * flicker;
+            vec3 moon = vec3(0.1, 0.14, 0.26) * (0.45 + 0.55 * max(n.y, 0.0));
+            return clamp(tone * (flood + moon) + vec3(0.02, 0.025, 0.05), 0.0, 1.0);
+          }
+          if (mode < 5.5) {
+            // Clay: no textures, the shape alone - a soft sky and a sun over
+            // a white model.
+            vec3 L = normalize(vec3(0.4, 0.85, 0.35));
+            float NdL = max(dot(n, L), 0.0);
+            float sky = 0.55 + 0.45 * n.y;
+            return clamp(vec3(0.9, 0.88, 0.84) * (0.42 * sky + 0.62 * NdL) + 0.07, 0.0, 1.0);
+          }
+          if (mode < 6.5) {
+            // Normals: each surface's direction as a colour.
+            return clamp(n * 0.5 + 0.5, 0.0, 1.0) * 0.92;
+          }
+          // Toon: the light in three flat bands, the textures' colours
+          // flattened, a dark line round the silhouette.
+          vec3 L = normalize(vec3(0.45, 0.8, 0.4));
+          float NdL = dot(n, L);
+          float band = NdL > 0.55 ? 1.0 : NdL > 0.1 ? 0.68 : 0.4;
+          vec3 flat2 = floor(pow(soft, vec3(1.0 / 2.2)) * 5.0 + 0.5) / 5.0;
+          float outline = smoothstep(0.32, 0.18, max(dot(n, V), 0.0));
+          return clamp(mix(flat2 * band * 1.1, vec3(0.06, 0.05, 0.08), outline), 0.0, 1.0);
         }`)
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
         if (vReveal <= 0.001 || uExit >= 0.999) discard;
@@ -477,11 +524,14 @@ function revealMaterial(source, uniforms) {
           #ifdef USE_MAP
             soft = texture2D(map, vMapUv, 4.0).rgb * diffuse;
           #endif
-          float sx = gl_FragCoord.x / uResolution.x;
-          vec3 color = mix(introShade(uModeA, base, diffuseColor.rgb, soft, n, viewNormal), introShade(uModeB, base, diffuseColor.rgb, soft, n, viewNormal), step(sx, uWipe));
-          // The wipe's edge: a thin line of light.
+          // The wipe rises from the model's foot to its top (over the
+          // height, a little beyond both ends): below it mode B.
+          float wipeHeight = (vTourPos.y - uHeight.x) / uHeight.y;
+          float wipeFront = uWipe * 1.1 - 0.05;
+          vec3 color = mix(introShade(uModeA, base, diffuseColor.rgb, soft, n, viewNormal), introShade(uModeB, base, diffuseColor.rgb, soft, n, viewNormal), step(wipeHeight, wipeFront));
+          // The wipe's edge: a thin amber line of light.
           float wiping = step(0.001, uWipe) * step(uWipe, 0.999);
-          color += vec3(0.45, 0.72, 1.0) * exp(-abs(sx - uWipe) * uResolution.x * 0.12) * wiping;
+          color += vec3(1.0, 0.66, 0.26) * exp(-abs(wipeHeight - wipeFront) * 110.0) * wiping * 1.3;
           // Snow on what faces up.
           float up = smoothstep(0.3, 0.75, n.y);
           float grain = fract(sin(dot(floor(vTourPos.xz * 90.0), vec2(12.9898, 78.233))) * 43758.5453);
@@ -493,10 +543,10 @@ function revealMaterial(source, uniforms) {
           // The section: the cut glows, what is seen inside the walls is
           // filled like a drawing's section.
           if (uClipActive > 0.0) {
-            color += vec3(0.3, 0.62, 1.0) * exp(-abs(sectionDistance) * 70.0) * uClipActive * 1.4;
+            color += vec3(1.0, 0.64, 0.24) * exp(-abs(sectionDistance) * 70.0) * uClipActive * 1.4;
             if (!gl_FrontFacing) {
               float hatch = step(0.5, fract((vTourPos.x + vTourPos.y + vTourPos.z) * 40.0));
-              color = mix(color, vec3(0.42, 0.55, 0.7) * (0.85 + 0.15 * hatch), uClipActive * 0.9);
+              color = mix(color, vec3(0.62, 0.42, 0.18) * (0.82 + 0.18 * hatch), uClipActive * 0.9);
             }
           }
           // Seen through the lens: the mesh in x-ray - dimmed, amber, its
@@ -1751,9 +1801,12 @@ function createSurroundingsShowcase({ variants, seed = 3, radius, toIntro }) {
 // express tour of what the viewer does with it, each chapter a few seconds
 // with its name under the title:
 //
-//   1. sections      - a plane sweeps in from the front, the cut glows
+//   1. sections      - an amber plane sweeps in from the front, the cut glows
 //   2. annotations   - pins with labels, and a height measurement
-//   3. shading       - wipes through textures, PBR (glossy), raking light
+//   3. shading       - wipes rising up the model, an amber line at their
+//                      front: textures, PBR (glossy), raking light, golden
+//                      hour, night (floodlit from below), clay, normals,
+//                      toon - and the textures again
 //   4. sun study     - the sun's real path over the site on midsummer day, the
 //                      sun itself and its track in the sky, a compass on the
 //                      ground, shadows; the camera holds still meanwhile
@@ -1763,10 +1816,14 @@ function createSurroundingsShowcase({ variants, seed = 3, radius, toIntro }) {
 //                      view opens in a frame beside the model
 //   7. live          - cooperation mode: a phone with a second session of
 //                      the scene; a finger turns the model on the phone and
-//                      the screen follows, live
+//                      the screen follows, live; two fingers zoom in and out
+//                      again; then the phone's display settings: a tap on
+//                      one (night, x-ray... see LIVE_SETTINGS) and the big
+//                      picture changes with it
 //   8. time travel   - the 4D model's stages (the pagoda: 1615 to 2025):
-//                      back to the building's new timber and fresh paint,
-//                      then year by year its ageing and repairs, a warm front sweeping up the walls
+//                      back to the building's new timber and fresh paint
+//                      (held there a moment, to read it), then year by year
+//                      its ageing and repairs, a warm front sweeping up the walls
 //                      at each stage, the year on a timeline of dates
 //                      (textures from scripts/build-pagoda-examples.mjs)
 //   9. surroundings  - the camera rises and draws back: the viewer's
@@ -1787,13 +1844,13 @@ function createSurroundingsShowcase({ variants, seed = 3, radius, toIntro }) {
 const ALL_CHAPTERS = [
   { key: 'section', from: 0, to: 3.0 },
   { key: 'annotations', from: 3.0, to: 6.4 },
-  { key: 'shading', from: 6.4, to: 10.0 },
-  { key: 'sun', from: 10.0, to: 14.8 },
-  { key: 'seasons', from: 14.8, to: 24.0 },
-  { key: 'cameras', from: 24.0, to: 27.8 },
-  { key: 'live', from: 27.8, to: 32.6 },
-  { key: 'time', from: 32.6, to: 41.6 },
-  { key: 'surroundings', from: 41.6, to: 71.0 },
+  { key: 'shading', from: 6.4, to: 15.6 },
+  { key: 'sun', from: 15.6, to: 20.4 },
+  { key: 'seasons', from: 20.4, to: 29.6 },
+  { key: 'cameras', from: 29.6, to: 33.4 },
+  { key: 'live', from: 33.4, to: 42.6 },
+  { key: 'time', from: 42.6, to: 54.0 },
+  { key: 'surroundings', from: 54.0, to: 83.4 },
 ];
 const TAIL = 0.6; // after the last chapter, before 'end'
 
@@ -1855,6 +1912,26 @@ const LIVE_SWIPES = [
   { from: 0.7, to: 1.9, turn: 0.7 },
   { from: 2.3, to: 3.3, turn: -0.4 },
 ];
+// Then two fingers zoom in (spreading) and out again (pinching): seconds
+// into the chapter, and the camera's distance at the closest.
+const LIVE_PINCH = { from: 3.7, to: 4.6, back: 5.1, end: 6.0, dolly: 0.66 };
+// Then the phone's display settings open, and a tap on one changes the big
+// picture (a wipe up the model, as the shading's): the shading mode
+// (mesh-reveal.js introShade) and its key (texts.tour.live.modes).
+const LIVE_PANEL = { from: 6.0, to: 9.0 };
+const LIVE_SETTINGS = [
+  { at: 6.5, mode: 5, key: 'clay' },
+  { at: 7.4, mode: 4, key: 'night' },
+  { at: 8.3, mode: 0, key: 'textures' },
+];
+const LIVE_WIPE = 0.55;
+// The pinch's zoom at t seconds into the chapter: 1, down to
+// LIVE_PINCH.dolly, back to 1.
+function livePinchDolly(t) {
+  const p = LIVE_PINCH;
+  const k = smooth((t - p.from) / (p.to - p.from)) * (1 - smooth((t - p.back) / (p.end - p.back)));
+  return 1 - (1 - p.dolly) * k;
+}
 
 /**
  * @param {object} options
@@ -1916,9 +1993,11 @@ function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }) {
   const overview = (s) => (surroundings ? window01(s - tourStart, surroundings.from + 0.1, surroundings.to - 0.2, SURROUNDINGS_MOVE) : 0);
   // The sun study (a narrow screen draws back a little for it).
   const sunWindow = (s) => (sun ? window01(s - tourStart, sun.from, sun.from + SUN_LENGTH, 0.8) : 0);
+  // Cooperation mode: the phone's two fingers zoom in and out again.
+  const pinch = (s) => (live ? livePinchDolly(s - tourStart - live.from) : 1);
   const dollyAt = (s) => {
     const o = overview(s);
-    return timeDolly(s) * (1 - o) + SURROUNDINGS_DOLLY * o;
+    return timeDolly(s) * pinch(s) * (1 - o) + SURROUNDINGS_DOLLY * o;
   };
   return (s) => {
     let theta;
@@ -1939,10 +2018,12 @@ function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }) {
   };
 }
 
-// Shading: [from, to] modes, each step a wipe (see mesh-reveal.js introShade).
-const SHADING_STEPS = [[0, 1], [1, 2], [2, 0]];
-const SHADING_KEYS = ['textures', 'pbr', 'raking'];
-const SHADING_LENGTH = 3.6;
+// Shading: the modes in turn (see mesh-reveal.js introShade), each step a
+// wipe up the model from the last, and back to the textures at the end.
+const SHADING_KEYS = ['textures', 'pbr', 'raking', 'golden', 'night', 'clay', 'normals', 'toon'];
+const SHADING_ORDER = [1, 2, 3, 4, 5, 6, 7, 0];
+const SHADING_STEPS = SHADING_ORDER.map((mode, index) => [index ? SHADING_ORDER[index - 1] : 0, mode]);
+const SHADING_LENGTH = 9.2;
 // Seasons: each this long, then back to the textures' own colours.
 const SEASON_LENGTH = 2.2;
 const SEASONS_END = 4 * SEASON_LENGTH;
@@ -1960,13 +2041,14 @@ const SEASON_KEYS = ['spring', 'summer', 'autumn', 'winter'];
 
 // Time travel: the 4D model's stages (viewer/intro/time/time.json).
 const DEFAULT_TIME_URL = 'assets/intro/time/';
-// Back from today to the first stage, then each stage in turn, each step as
-// long as the years it spans (at least TIME_MIN_STEP: a repair a year later
-// still shows), all of them TIME_STEPS seconds; most of each step is the
-// change itself.
+// Back from today to the first stage, held there a moment (its note can be
+// read), then each stage in turn, each step as long as the years it spans
+// (at least TIME_MIN_STEP: a repair a year later still shows), all of them
+// TIME_STEPS seconds; most of each step is the change itself.
 const TIME_REWIND = 1.0;
-const TIME_STEPS = 7.2;
-const TIME_MIN_STEP = 0.4;
+const TIME_HOLD = 1.6;
+const TIME_STEPS = 8.0;
+const TIME_MIN_STEP = 0.5;
 const TIME_SWEEP = 0.75;
 // The steps for the stages: [{ start, length }] for step i (stage i - 1 to
 // stage i, i >= 1), seconds after the rewind.
@@ -2085,7 +2167,8 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
         vec2 g = abs(fract(vUv * uCells) - 0.5);
         float grid = 1.0 - smoothstep(0.0, 0.03, min(g.x, g.y));
         float edge = 1.0 - smoothstep(0.0, 0.01, min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y)));
-        vec3 color = vec3(0.35, 0.65, 1.0) * (0.05 + grid * 0.12 + edge * 0.7);
+        // Amber, as the shading's wipes and the x-ray lens.
+        vec3 color = vec3(1.0, 0.66, 0.26) * (0.05 + grid * 0.12 + edge * 0.7);
         gl_FragColor = vec4(color * uAlpha, 1.0);
       }
     `,
@@ -2506,10 +2589,31 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
   // finger swipes on it and the big picture turns with it.
   const phone = document.createElement('div');
   phone.className = 'intro-phone';
-  phone.innerHTML = '<div class="intro-phone-screen"><span class="intro-phone-live"></span><span class="intro-phone-finger"></span></div><span class="intro-phone-signal" aria-hidden="true"><i></i><i></i><i></i></span><span class="intro-phone-name"></span>';
+  phone.innerHTML = '<div class="intro-phone-screen"><span class="intro-phone-live"></span><div class="intro-phone-panel"><span class="intro-phone-panel-title"></span></div><span class="intro-phone-finger"></span><span class="intro-phone-finger"></span></div><span class="intro-phone-signal" aria-hidden="true"><i></i><i></i><i></i></span><span class="intro-phone-name"></span>';
   root.appendChild(phone);
   const phoneScreen = phone.querySelector('.intro-phone-screen');
-  const phoneFinger = phone.querySelector('.intro-phone-finger');
+  const phoneFingers = [...phone.querySelectorAll('.intro-phone-finger')];
+  // The display settings: a panel at the screen's foot, one row each.
+  const phonePanel = phone.querySelector('.intro-phone-panel');
+  phonePanel.firstChild.textContent = tx.live?.settingsTitle ?? '';
+  const settingRows = LIVE_SETTINGS.map((setting) => {
+    const row = document.createElement('span');
+    row.className = 'intro-phone-setting';
+    row.textContent = tx.live?.modes?.[setting.key] ?? setting.key;
+    phonePanel.append(row);
+    return row;
+  });
+  // Where a row is on the screen (0-1 across and down it, the panel open),
+  // for the finger's tap.
+  const settingAt = (index) => {
+    const row = settingRows[index];
+    const height = Math.max(1, phoneScreen.clientHeight);
+    const width = Math.max(1, phoneScreen.clientWidth);
+    return {
+      x: (phonePanel.offsetLeft + row.offsetLeft + row.offsetWidth * 0.62) / width,
+      y: (phonePanel.offsetTop + row.offsetTop + row.offsetHeight / 2) / height,
+    };
+  };
   phone.querySelector('.intro-phone-live').textContent = tx.live?.badge ?? 'LIVE';
   phone.querySelector('.intro-phone-name').textContent = tx.live?.phone ?? '';
   const phoneCamera = new PerspectiveCamera(camera.fov, 0.5, camera.near, camera.far);
@@ -2566,6 +2670,12 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
           track.insertBefore(tick, fill);
           return { tick, year };
         });
+      },
+      // A note under the dates (the time travel's stage), the line kept
+      // whether there is one or not: the box keeps its height.
+      setNote(text) {
+        element.classList.add('has-note', 'is-noted');
+        if (note.textContent !== text) note.textContent = text;
       },
       // share: where the marker is (0-1; by default the year's own).
       show(year, visible, share = span ? span(year) : 0) {
@@ -2680,12 +2790,12 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
   }
 
   let lastCue = '';
-  // A stage's caption: the 4D model's own label (Polish), or the year with
-  // the page's translation of it.
-  function timeLabel(stage) {
-    if (lang === 'pl') return stage.label;
-    const note = tx.timeNotes?.[stage.year];
-    return note ? `${stage.year} – ${note}` : String(stage.year);
+  // A stage's note: the 4D model's label (Polish) without its date, or the
+  // page's translation for its year. The chapter's name shows only the year, so
+  // it keeps one height; the note goes under the timeline.
+  function timeNote(stage) {
+    if (lang !== 'pl') return tx.timeNotes?.[stage.year] ?? '';
+    return String(stage.label ?? '').replace(/^\D*\d{3,4}\s*[–-]\s*/, '').replace(/^\d{3,4}$/, '');
   }
   const size = new Vector2();
 
@@ -2865,24 +2975,35 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
       if (timeTravel && timeTime > 0 && timeTime < TIME_END - START.time && exit <= 0) {
         const { stages } = timeTravel;
         const glowOf = (f) => Math.sin(Math.PI * clamp01(f)) * 1.4;
+        let noteStage = null;
         if (timeTime < TIME_REWIND) {
           const f = smooth(timeTime / TIME_REWIND);
           setTime(TODAY, stages[0], f * 1.1 - 0.05, glowOf(f));
           timeSub = `${stages.at(-1).year} → ${stages[0].year}`;
           timeStep = 'rewind';
           timelineAt = stages.at(-1).year + (stages[0].year - stages.at(-1).year) * f;
+          if (f > 0.5) noteStage = stages[0];
+        } else if (timeTime < TIME_REWIND + TIME_HOLD) {
+          // The first stage, a moment to read it.
+          setTime(stages[0], stages[0], 1, 0);
+          timeSub = String(stages[0].year);
+          timeStep = String(stages[0].year);
+          timelineAt = stages[0].year;
+          noteStage = stages[0];
         } else {
-          const after = timeTime - TIME_REWIND;
+          const after = timeTime - TIME_REWIND - TIME_HOLD;
           const { steps } = timeTravel;
           let index = 1;
           while (index < stages.length - 1 && after >= steps[index + 1].start) index++;
           const f = smooth((after - steps[index].start) / (steps[index].length * TIME_SWEEP));
           setTime(stages[index - 1], stages[index], f * 1.1 - 0.05, glowOf(f));
           const shown = stages[f > 0.5 ? index : index - 1];
-          timeSub = timeLabel(shown);
+          timeSub = String(shown.year);
           timeStep = String(shown.year);
           timelineAt = stages[index - 1].year + (stages[index].year - stages[index - 1].year) * f;
+          noteStage = shown;
         }
+        timeline.setNote(noteStage ? timeNote(noteStage) : '');
       } else {
         resetTime();
         if (!timeTravel && !scene.custom && timeTime > 0 && timeTime < TIME_END - START.time) timeSub = '1615 → 2025';
@@ -2993,19 +3114,60 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
       phone.style.opacity = liveOn.toFixed(3);
       phone.style.setProperty('--in', liveOn.toFixed(3));
       liveBadge.style.opacity = (liveOn * smooth((liveTime - 0.5) / 0.3)).toFixed(3);
-      let fingerX = null;
-      let fingerOn = 0;
+      // The fingers: [{ x, y, on }] (0-1 across and down the screen).
+      const fingers = [];
+      let liveStep = '';
       for (const swipe of LIVE_SWIPES) {
         const local = (liveTime - swipe.from) / (swipe.to - swipe.from);
         if (local > -0.25 && local < 1.25) {
           const a = swipe.turn > 0 ? 0.25 : 0.72;
           const b = swipe.turn > 0 ? 0.75 : 0.42;
-          fingerX = a + (b - a) * smooth(local);
-          fingerOn = smooth((local + 0.25) / 0.25) * (1 - smooth((local - 1) / 0.25));
+          fingers.push({ x: a + (b - a) * smooth(local), y: 0.64, on: smooth((local + 0.25) / 0.25) * (1 - smooth((local - 1) / 0.25)) });
+          if (local > 0 && local < 1) liveStep = 'swipe';
         }
       }
-      phoneFinger.style.opacity = (fingerOn * liveOn).toFixed(3);
-      if (fingerX !== null) phoneFinger.style.left = `${(fingerX * 100).toFixed(1)}%`;
+      // The pinch: two fingers apart (in), then together (out).
+      for (const [from, to, open] of [[LIVE_PINCH.from, LIVE_PINCH.to, true], [LIVE_PINCH.back, LIVE_PINCH.end, false]]) {
+        const local = (liveTime - from) / (to - from);
+        if (local > -0.25 && local < 1.25) {
+          const spread = open ? smooth(local) : 1 - smooth(local);
+          const on = smooth((local + 0.25) / 0.25) * (1 - smooth((local - 1) / 0.25));
+          const d = 0.08 + 0.2 * spread;
+          fingers.push({ x: 0.5 - d, y: 0.46 - d * 0.7, on }, { x: 0.5 + d, y: 0.46 + d * 0.7, on });
+          if (local > -0.1 && local < 1.1) liveStep = 'zoom';
+        }
+      }
+      // The settings: the panel slides up, a finger taps a row, the
+      // picture wipes to its mode.
+      const panelOn = smooth((liveTime - LIVE_PANEL.from) / 0.35) * (1 - smooth((liveTime - LIVE_PANEL.to) / 0.3));
+      phone.style.setProperty('--panel', panelOn.toFixed(3));
+      let chosen = -1;
+      LIVE_SETTINGS.forEach((setting, index) => {
+        const local = liveTime - setting.at;
+        if (local >= 0) chosen = index;
+        if (local > -0.35 && local < 0.3) {
+          fingers.push({ ...settingAt(index), on: smooth((local + 0.35) / 0.2) * (1 - smooth((local - 0.1) / 0.2)) });
+        }
+      });
+      settingRows.forEach((row, index) => row.classList.toggle('is-on', index === chosen));
+      if (chosen >= 0 && liveOn > 0) {
+        const setting = LIVE_SETTINGS[chosen];
+        u.uModeA.value = chosen > 0 ? LIVE_SETTINGS[chosen - 1].mode : 0;
+        u.uModeB.value = setting.mode;
+        u.uWipe.value = smooth((liveTime - setting.at) / LIVE_WIPE);
+        liveStep = setting.key;
+      } else if (panelOn > 0.5) {
+        liveStep = 'settings';
+      }
+      phoneFingers.forEach((finger, index) => {
+        const f = fingers[index];
+        finger.style.opacity = f ? (f.on * liveOn).toFixed(3) : '0';
+        if (f) {
+          finger.style.left = `${(f.x * 100).toFixed(1)}%`;
+          finger.style.top = `${(f.y * 100).toFixed(1)}%`;
+        }
+      });
+      const fingerOn = fingers.reduce((max, f) => Math.max(max, f.on), 0);
       phone.classList.toggle('is-touching', fingerOn > 0.5);
       if (liveOn > 0.02) {
         const rect = rectOf(phoneScreen);
@@ -3054,7 +3216,14 @@ function createFeatureTour({ reveal, camera, renderer, root, texts, toIntro, hei
       else if (current.key === 'seasons' && seasonKey) { sub = tx.seasons[seasonKey]; step = seasonKey; }
       else if (current.key === 'time') { sub = timeSub; step = timeStep; }
       else if (current.key === 'cameras') { sub = chosenOn > 0.5 ? tx.cameras?.chosen ?? '' : ''; step = chosenOn > 0.5 ? 'chosen' : ''; }
-      else if (current.key === 'live') { sub = tx.live?.sub ?? ''; step = fingerOn > 0.5 ? 'swipe' : ''; }
+      else if (current.key === 'live') {
+        // What the phone does: turns, zooms, then the settings (by name).
+        const lx = tx.live || {};
+        sub = liveStep === 'zoom' ? lx.zoom ?? ''
+          : LIVE_SETTINGS.some((v) => v.key === liveStep) ? `${lx.settings ?? ''}: ${lx.modes?.[liveStep] ?? liveStep}`
+            : liveStep === 'settings' ? lx.settings ?? '' : lx.sub ?? '';
+        step = liveStep;
+      }
       else if (current.key === 'surroundings') { sub = surroundingsSub; step = surroundingsStep; }
       chapterIndex.textContent = `${number} / ${CHAPTERS.length}`;
       chapterTitle.textContent = tx.chapters[current.key];
@@ -3196,8 +3365,15 @@ const TEXTS = {
         regions: { central: 'Europa Środkowa', mediterranean: 'Morze Śródziemne', nordic: 'Północ', british: 'Wyspy Brytyjskie', eastern: 'Europa Wschodnia', japanese: 'Japonia', african: 'Afryka Zachodnia' },
       },
       cameras: { names: ['Kamera 1', 'Kamera 2 · front', 'Kamera 3 · z góry'], chosen: 'widok z kamery 2', view: 'Kamera 2' },
-      live: { badge: 'LIVE', phone: 'Telefon · druga sesja', screen: 'Na żywo · 2 urządzenia', sub: 'telefon steruje ekranem' },
-      shading: { textures: 'tekstury', pbr: 'PBR: połysk i odbicia', raking: 'światło boczne' },
+      live: {
+        badge: 'LIVE', phone: 'Telefon · druga sesja', screen: 'Na żywo · 2 urządzenia', sub: 'telefon steruje ekranem',
+        zoom: 'dwa palce: przybliżenie', settings: 'ustawienia wyświetlania', settingsTitle: 'Widok',
+        modes: { clay: 'Glina', night: 'Noc', textures: 'Tekstury' },
+      },
+      shading: {
+        textures: 'tekstury', pbr: 'PBR: połysk i odbicia', raking: 'światło boczne', golden: 'złota godzina',
+        night: 'nocne podświetlenie', clay: 'glina: sam kształt', normals: 'mapa normalnych', toon: 'cel shading',
+      },
       sun: { night: 'noc' },
       sunDate: 'Nara, 21 czerwca',
       compass: { N: 'N', E: 'E', S: 'S', W: 'W' },
@@ -3254,17 +3430,27 @@ const TEXTS = {
         regions: { central: 'Central Europe', mediterranean: 'the Mediterranean', nordic: 'the North', british: 'the British Isles', eastern: 'Eastern Europe', japanese: 'Japan', african: 'West Africa' },
       },
       cameras: { names: ['Camera 1', 'Camera 2 · front', 'Camera 3 · from above'], chosen: 'the view from camera 2', view: 'Camera 2' },
-      live: { badge: 'LIVE', phone: 'Phone · second session', screen: 'Live · 2 devices', sub: 'the phone steers the screen' },
-      shading: { textures: 'textures', pbr: 'PBR: gloss and reflections', raking: 'raking light' },
+      live: {
+        badge: 'LIVE', phone: 'Phone · second session', screen: 'Live · 2 devices', sub: 'the phone steers the screen',
+        zoom: 'two fingers: zoom', settings: 'display settings', settingsTitle: 'View',
+        modes: { clay: 'Clay', night: 'Night', textures: 'Textures' },
+      },
+      shading: {
+        textures: 'textures', pbr: 'PBR: gloss and reflections', raking: 'raking light', golden: 'golden hour',
+        night: 'night floodlighting', clay: 'clay: the shape alone', normals: 'normals', toon: 'toon (cel shading)',
+      },
+      // The time travel's stages (scripts/build-pagoda-examples.mjs STAGES).
       timeNotes: {
-        1615: 'built: new timber, fresh vermilion, gilt bronze',
+        1615: 'built: new timber, fresh vermilion',
         1640: 'the vermilion darkens',
-        1685: 'paint worn, the bronze turns brown',
-        1702: 'first repair: repainted, walls limed',
+        1685: 'paint worn, the bronze browns',
+        1702: 'first repair: repainted',
         1765: 'moss in the roof tiles',
-        1830: 're-tiled, new doors; verdigris on the finial',
-        1897: 'restoration: paint and plaster renewed',
-        1952: 'post-war restoration, the roof re-laid',
+        1830: 'new tiles and doors',
+        1897: 'restoration: paint and plaster',
+        1935: 'the paint fades again',
+        1952: 'post-war restoration',
+        1990: 'weathered again',
         2025: 'today',
       },
       sun: { night: 'night' },
@@ -3323,17 +3509,26 @@ const TEXTS = {
         regions: { central: 'Mitteleuropa', mediterranean: 'Mittelmeerraum', nordic: 'Norden', british: 'Britische Inseln', eastern: 'Osteuropa', japanese: 'Japan', african: 'Westafrika' },
       },
       cameras: { names: ['Kamera 1', 'Kamera 2 · Front', 'Kamera 3 · von oben'], chosen: 'Blick aus Kamera 2', view: 'Kamera 2' },
-      live: { badge: 'LIVE', phone: 'Handy · zweite Sitzung', screen: 'Live · 2 Geräte', sub: 'das Handy steuert den Bildschirm' },
-      shading: { textures: 'Texturen', pbr: 'PBR: Glanz und Spiegelung', raking: 'Streiflicht' },
+      live: {
+        badge: 'LIVE', phone: 'Handy · zweite Sitzung', screen: 'Live · 2 Geräte', sub: 'das Handy steuert den Bildschirm',
+        zoom: 'zwei Finger: Zoom', settings: 'Anzeigeeinstellungen', settingsTitle: 'Ansicht',
+        modes: { clay: 'Ton', night: 'Nacht', textures: 'Texturen' },
+      },
+      shading: {
+        textures: 'Texturen', pbr: 'PBR: Glanz und Spiegelung', raking: 'Streiflicht', golden: 'goldene Stunde',
+        night: 'nächtliche Anstrahlung', clay: 'Ton: nur die Form', normals: 'Normalen', toon: 'Toon (Cel-Shading)',
+      },
       timeNotes: {
-        1615: 'Bau: neues Holz, frisches Zinnoberrot, vergoldete Bronze',
+        1615: 'Bau: neues Holz, frisches Zinnoberrot',
         1640: 'das Zinnoberrot dunkelt nach',
-        1685: 'Farbe abgerieben, die Bronze wird braun',
-        1702: 'erste Instandsetzung: neu gestrichen, Wände gekalkt',
-        1765: 'Moos zwischen den Ziegeln',
-        1830: 'neu gedeckt, neue Türen; Grünspan am Aufsatz',
-        1897: 'Restaurierung: Farbe und Putz erneuert',
-        1952: 'Restaurierung nach dem Krieg, Dach neu verlegt',
+        1685: 'Farbe abgerieben, Bronze wird braun',
+        1702: 'erste Instandsetzung: neu gestrichen',
+        1765: 'Moos auf den Ziegeln',
+        1830: 'neue Ziegel und Türen',
+        1897: 'Restaurierung: Farbe und Putz',
+        1935: 'die Farbe verblasst wieder',
+        1952: 'Restaurierung nach dem Krieg',
+        1990: 'wieder verwittert',
         2025: 'heute',
       },
       sun: { night: 'Nacht' },
@@ -4430,6 +4625,10 @@ const orbit = new Spherical();
 // The surroundings' overview: the camera's polar angle there, and its own
 // before it rose (null: not rising).
 const OVERVIEW_PHI = 0.86;
+// A narrow (portrait) screen: from higher above, and this much further back.
+const OVERVIEW_PHI_NARROW = 0.5;
+const OVERVIEW_BACK_NARROW = 0.9;
+let overviewPhi = OVERVIEW_PHI;
 let freePhi = null;
 const orbitOffset = new Vector3();
 
@@ -4612,9 +4811,15 @@ function frame() {
       // The model's act; without the model (yet), from the landing.
       let sunStudy;
       ({ theta, dolly, tilt, sun: sunStudy } = cameraPath(meshReveal ? stage : T - LANDING));
+      const narrow = 1 - Math.min(1, Math.max(0, (camera.aspect - 0.6) / 0.7));
       // A narrow screen: back a little for the sun study, so the sun's way
       // from sunrise to sunset stays in the picture.
-      dolly *= 1 + sunStudy * 0.3 * (1 - Math.min(1, Math.max(0, (camera.aspect - 0.6) / 0.7)));
+      dolly *= 1 + sunStudy * 0.3 * narrow;
+      // And for the surroundings: it sees little to the sides, so further
+      // back (OVERVIEW_PHI_NARROW: and more from above, its height showing
+      // the place's depth) - the houses growing round the model in view.
+      dolly *= 1 + tilt * OVERVIEW_BACK_NARROW * narrow;
+      overviewPhi = OVERVIEW_PHI + (OVERVIEW_PHI_NARROW - OVERVIEW_PHI) * narrow;
     }
     const radius = cameraRadius * dolly;
     // Drawing back over the surroundings: further than a visitor may zoom.
@@ -4624,7 +4829,7 @@ function frame() {
     // (as it was when it began) towards OVERVIEW_PHI.
     if (tilt > 0.0005) {
       freePhi ??= orbit.phi;
-      orbit.phi = freePhi + (OVERVIEW_PHI - freePhi) * tilt;
+      orbit.phi = freePhi + (overviewPhi - freePhi) * tilt;
     } else if (freePhi !== null) {
       orbit.phi = freePhi;
       freePhi = null;
@@ -4803,4 +5008,4 @@ if (embedded) {
   });
   document.documentElement.classList.add('is-embedded');
 }
-//# sourceMappingURL=intro-FMQ2d-bz.js.map
+//# sourceMappingURL=intro-B-NKGlwE.js.map

@@ -14,7 +14,7 @@
     "broken": {"en": "Test files (broken)", "pl": "Pliki testowe (uszkodzone)", "de": "Testdateien (fehlerhaft)"}
   },
   "models": [
-    {"url": "./examples/pagoda/Pagoda-progressive.glb", "group": "pagoda", "name": "GLB, progressive (Meshopt + WebP)"},
+    {"url": "./examples/pagoda/Pagoda-progressive.glb", "group": "pagoda", "name": "GLB, progressive (Meshopt + KTX2)"},
     {"url": "./examples/pagoda/Pagoda.glb", "group": "pagoda", "name": "GLB", "app": false},
     {"url": "./examples/pagoda/4D/Pagoda_4D.glb", "group": "pagoda", "name": {"en": "4D: stages 1615-2025", "pl": "4D: etapy 1615-2025", "de": "4D: Stadien 1615-2025"}, "app": false},
     {"url": "./examples/tempietto/Tempietto.dae", "group": "tempietto", "name": "DAE"},
