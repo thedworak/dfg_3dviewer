@@ -675,8 +675,7 @@ try {
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(38, 1, 0.01, 100);
-// What the camera looks at: the model's middle (the surroundings' overview
-// moves it aside, frame()).
+// What the camera circles: the building's middle, low down.
 const TARGET = new Vector3(0, 0.12, 0);
 // Seconds since the page opened; ?at=<seconds> holds the intro at that
 // moment (for stills and screen recordings).
@@ -1415,18 +1414,10 @@ const cameraPath = tourCameraPath({ plan: PLAN, front: FRONT_THETA, rate: LANDIN
 const orbit = new Spherical();
 // The surroundings' overview: the camera's polar angle there, and its own
 // before it rose (null: not rising).
-// A wide screen: low over the place (its fields and the land beyond in
-// view), looking past the model to its right (OVERVIEW_SIDE of the
-// distance) - the model need not be in the middle.
-const OVERVIEW_PHI = 1.1;
-const OVERVIEW_SIDE = 0.2;
-// A narrow (portrait) screen: low over the place too (its height shows the
-// land in depth, beyond the model), and this much further back - it sees
-// little to the sides.
-const OVERVIEW_PHI_NARROW = 1.0;
-const OVERVIEW_BACK_NARROW = 0.45;
-let overviewPhi = OVERVIEW_PHI;
-let overviewSide = 0;
+const OVERVIEW_PHI = 1.36;
+// Where it looks meanwhile: past the building and to the right (metres of
+// the intro, seen from the camera), so the settlement fills the picture.
+const OVERVIEW_SHIFT = { right: 1.2, ahead: 1.0 };
 let freePhi = null;
 const orbitOffset = new Vector3();
 
@@ -1613,12 +1604,6 @@ function frame() {
       // A narrow screen: back a little for the sun study, so the sun's way
       // from sunrise to sunset stays in the picture.
       dolly *= 1 + sunStudy * 0.3 * narrow;
-      // And for the surroundings: it sees little to the sides, so further
-      // back (OVERVIEW_BACK_NARROW) - the houses growing round the model in
-      // view.
-      dolly *= 1 + tilt * OVERVIEW_BACK_NARROW * narrow;
-      overviewPhi = OVERVIEW_PHI + (OVERVIEW_PHI_NARROW - OVERVIEW_PHI) * narrow;
-      overviewSide = OVERVIEW_SIDE * (1 - narrow) * tilt;
     }
     const radius = cameraRadius * dolly;
     // Drawing back over the surroundings: further than a visitor may zoom.
@@ -1628,7 +1613,7 @@ function frame() {
     // (as it was when it began) towards OVERVIEW_PHI.
     if (tilt > 0.0005) {
       freePhi ??= orbit.phi;
-      orbit.phi = freePhi + (overviewPhi - freePhi) * tilt;
+      orbit.phi = freePhi + (OVERVIEW_PHI - freePhi) * tilt;
     } else if (freePhi !== null) {
       orbit.phi = freePhi;
       freePhi = null;
@@ -1643,10 +1628,14 @@ function frame() {
     const offRadius = (orbit.radius - from.radius) * ease;
     orbit.theta = theta + offTheta;
     orbit.radius = radius + offRadius;
-    // Over the surroundings: the point looked at moves to the camera's
-    // right (the model drifts left), and back again.
-    const side = before > 0 ? 0 : overviewSide * orbit.radius;
-    controls.target.set(TARGET.x + Math.cos(orbit.theta) * side, TARGET.y, TARGET.z - Math.sin(orbit.theta) * side);
+    // The overview's point of view moves with its tilt (back home after it).
+    const shiftRight = OVERVIEW_SHIFT.right * tilt;
+    const shiftAhead = OVERVIEW_SHIFT.ahead * tilt;
+    controls.target.set(
+      TARGET.x + Math.cos(orbit.theta) * shiftRight - Math.sin(orbit.theta) * shiftAhead,
+      TARGET.y,
+      TARGET.z - Math.sin(orbit.theta) * shiftRight - Math.cos(orbit.theta) * shiftAhead,
+    );
     camera.position.setFromSpherical(orbit).add(controls.target);
     pathLast = pathLast ? Object.assign(pathLast, { theta, radius }) : { theta, radius };
   } else {

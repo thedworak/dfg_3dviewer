@@ -114,10 +114,11 @@ const TIME_TO_THETA = 0.08;
 // The time travel's distance, of the camera's own.
 const TIME_DOLLY = 0.84;
 // The surroundings: how far out the camera draws back (of its own
-// distance), how long it takes, and how far it turns meanwhile.
-const SURROUNDINGS_DOLLY = 4.4;
+// distance), how long it takes, and the angle it holds meanwhile (still,
+// from the front's left: the settlement behind the building, to the right).
+const SURROUNDINGS_DOLLY = 2.6;
 const SURROUNDINGS_MOVE = 1.8;
-const SURROUNDINGS_TURN = 1.3;
+const SURROUNDINGS_THETA = -0.45;
 // Their chapter, seconds into it: rising out of the ground, the periods
 // running (each the same time), a moment at the end, then the other places
 // (each so long, overlapping the next by SHOWCASE_SWAP), sinking at the end.
@@ -207,8 +208,9 @@ export function tourCameraPath({ plan = tourPlan(), front = 0, rate, tourStart }
     keys.push([tourStart + time.from, base + TIME_FROM_THETA, 0], [tourStart + time.to, base + TIME_TO_THETA, -rate]);
   }
   if (surroundings) {
-    // Turning on slowly while it draws back over the settlement.
-    keys.push([tourStart + surroundings.to, keys.at(-1)[1] - SURROUNDINGS_TURN, -rate]);
+    // Turning to its angle while it draws back, then holding still.
+    const theta = base + SURROUNDINGS_THETA;
+    keys.push([tourStart + surroundings.from + SURROUNDINGS_MOVE, theta, 0], [tourStart + surroundings.to, theta, 0]);
   } else if (!time) {
     keys.push([tourStart + last.to, keys.at(-1)[1] + 0.6, rate]);
   }
