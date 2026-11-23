@@ -391,12 +391,6 @@ html, body {
 .intro-sound .intro-sound-waves { display: none; }
 .intro-sound.is-on .intro-sound-waves { display: inline; }
 .intro-sound.is-on .intro-sound-off { display: none; }
-/* Wanted, waiting for a click (intro.js showSoundState): a soft amber pulse. */
-.intro-sound.is-waiting { border-color: rgba(240, 194, 122, 0.45); animation: intro-sound-wait 1.8s ease-in-out infinite; }
-@keyframes intro-sound-wait {
-  50% { box-shadow: 0 0 0 4px rgba(240, 194, 122, 0.18); color: var(--intro-accent-strong); }
-}
-@media (prefers-reduced-motion: reduce) { .intro-sound.is-waiting { animation: none; } }
 #intro.is-fallback .intro-sound { display: none; }
 /* Pause and play: beside the sound (under it on a phone). Paused: the
    play triangle, in the accent's colour. */
