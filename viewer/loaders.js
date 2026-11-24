@@ -1197,6 +1197,9 @@ export async function loadModel() {
               });
               window.Viewer?.applyPointCloudSettingsToTile?.(scene);
             },
+            // And when shown: one loaded before the point cloud panel was set
+            // up is only in the group (which the panel goes through) once shown.
+            onShow: (scene) => window.Viewer?.applyPointCloudSettingsToTile?.(scene),
             onProgress: (value) => updateLoadingStage("loadingLog.loadingModel", value),
           });
           await afterLoad({ object });

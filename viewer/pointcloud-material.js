@@ -247,6 +247,22 @@ export function estimatePointSpacing(geometry) {
   return Math.sqrt((occupied.size * cell * cell) / count);
 }
 
+// The world size of a streamed 3D Tiles tile's points. The PNTS loader gives
+// every tile a size of one model unit - a centimetre in one cloud, a metre
+// in another (points a metre wide) - so it is the tile's own point spacing
+// instead, in world units (the tile's scale applied: PointCloudMaterial sizes
+// in view space): a coarse tile's points, further apart, are drawn larger
+// than a fine one's, and any cloud closes its gaps whatever its unit.
+// Without a spacing (one point), or in pixels, the loader's size stays.
+export function tilePointSize(points) {
+  const size = points.material?.size ?? 1;
+  if (points.material?.sizeAttenuation === false) return size;
+  const spacing = points.userData.pointSpacing ??= estimatePointSpacing(points.geometry);
+  if (!(spacing > 0)) return size;
+  points.updateWorldMatrix(true, false);
+  return spacing * ADAPTIVE_SPACING_FACTOR * points.matrixWorld.getMaxScaleOnAxis();
+}
+
 // sizeMode "adaptive": world size from the point spacing (in the cloud's own
 // units; the object's scale applies on top), never under 1 px; "fixed":
 // pixels.

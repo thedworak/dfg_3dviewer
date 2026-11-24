@@ -8,7 +8,7 @@ import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 import { setPointRaycastSkipped } from "../pointcloud-picking.js";
 import { attachPointCloudTools } from "./point-cloud-tools.js";
 import {
-  COLOR_MODES, addColorModes, createColorUniforms, preparePointCloudMaterial, setPointColorMode, setPointEdl, setPointSize,
+  COLOR_MODES, addColorModes, createColorUniforms, preparePointCloudMaterial, setPointColorMode, setPointEdl, setPointSize, tilePointSize,
 } from "../pointcloud-material.js";
 
 // Point cloud display controls, shown when the loaded model is a point cloud:
@@ -108,8 +108,10 @@ export function attachPointCloudPanel(Viewer) {
       };
       Viewer.pointCloudState = state;
 
+      // 3D Tiles: from each tile's point spacing (tilePointSize); Potree
+      // sizes its points itself.
       points.forEach((object) => {
-        object.userData.baseMaterialSize ??= object.material.size;
+        object.userData.baseMaterialSize ??= isTiled && !potree ? tilePointSize(object) : object.material.size;
       });
       if (!isTiled) {
         const pixels = finiteOr(config.pointSize, 2);
@@ -213,16 +215,26 @@ export function attachPointCloudPanel(Viewer) {
     // Tiles loaded after the panel was set up get the current size. 3D Tiles
     // point clouds also get their level in the tile tree as the "tile" id the
     // plugin's debug colours use (the Potree plugin sets its own).
+    // Also called when a tile is shown (loaders.js onShow), and before the
+    // panel is set up: 3D Tiles points get their size from the start.
     applyPointCloudSettingsToTile(scene) {
       const state = Viewer.pointCloudState;
-      if (!state || state.kind !== "tiles") return;
+      if (!state || state.kind !== "tiles") {
+        if (core.tiledModel?.format === "potree") return;
+        scene.traverse((child) => {
+          if (!child.isPoints) return;
+          child.userData.baseMaterialSize ??= tilePointSize(child);
+          child.material.size = child.userData.baseMaterialSize;
+        });
+        return;
+      }
       scene.traverse((child) => {
         if (!child.isPoints) return;
         if (child.material?.isPointCloudMaterial) {
           addColorModes(child.material, state.colorUniforms);
           setPointRaycastSkipped(child);
         }
-        child.userData.baseMaterialSize ??= child.material.size;
+        child.userData.baseMaterialSize ??= state.potree ? child.material.size : tilePointSize(child);
         child.material.size = child.userData.baseMaterialSize * state.size;
         const tileId = child.material.uniforms?.uTileId;
         if (!state.potree && tileId && Number.isFinite(child.userData.tileDepth)) {

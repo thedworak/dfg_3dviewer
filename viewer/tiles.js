@@ -179,8 +179,11 @@ function orientLocalTileset(tiles) {
 
 // Creates the renderer for a tileset or Potree cloud, waits for the first
 // batch of tiles and resolves with its group (the model root). onModel is
-// called for every tile model loaded now or later (material setup).
-export async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onProgress }) {
+// called for every tile model loaded now or later (material setup), onShow
+// each time one is shown: a tile is loaded long before it is shown, and only
+// a shown one is in the group - settings applied to the group (the point
+// cloud panel's, once it is set up) miss the tiles loaded but not shown yet.
+export async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onShow, onProgress }) {
   disposeTiles();
   const [{ TilesRenderer }, plugins] = await Promise.all([loadTilesModule(), loadTilesPlugins()]);
   const options = getTilesOptions();
@@ -219,6 +222,9 @@ export async function loadTiledModel({ url, format, configureGLTFLoader, onModel
     const depth = tile?.internal?.depth;
     if (Number.isFinite(depth)) scene.traverse((child) => { child.userData.tileDepth = depth; });
     onModel?.(scene);
+  });
+  tiles.addEventListener("tile-visibility-change", ({ scene, visible }) => {
+    if (visible && scene) onShow?.(scene);
   });
 
   activeTiles = tiles;
