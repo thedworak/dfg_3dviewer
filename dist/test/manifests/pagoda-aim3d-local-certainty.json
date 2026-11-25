@@ -104,35 +104,23 @@
                 ]
               },
               "target": {
-                "type": "SpecificResource",
-                "source": {
-                  "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
-                  "type": "Scene"
-                },
-                "selector": [
-                  {
-                    "type": "PointSelector",
-                    "x": 0,
-                    "y": 0.5,
-                    "z": 5.5
-                  }
-                ]
+                "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
+                "type": "Scene"
               },
               "AIM3DViewer": {
                 "groupId": "",
-                "key": "",
-                "object": "m0:0",
-                "targetId": "m0:0",
-                "point": [
-                  0,
-                  0.5,
-                  5.5
+                "key": "m0:0.0:0",
+                "object": "m0:0.0",
+                "targetId": "m0:0.0",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
                 ],
                 "certainty": {
-                  "value": 9,
+                  "value": 10,
                   "code": "A",
                   "scope": "object",
-                  "targetId": "m0:0"
+                  "targetId": "m0:0.0"
                 }
               }
             },
@@ -184,35 +172,23 @@
                 ]
               },
               "target": {
-                "type": "SpecificResource",
-                "source": {
-                  "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
-                  "type": "Scene"
-                },
-                "selector": [
-                  {
-                    "type": "PointSelector",
-                    "x": 0,
-                    "y": 4.5,
-                    "z": 3.4
-                  }
-                ]
+                "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
+                "type": "Scene"
               },
               "AIM3DViewer": {
                 "groupId": "",
-                "key": "",
-                "object": "m0:1",
-                "targetId": "m0:1",
-                "point": [
-                  0,
-                  4.5,
-                  3.4
+                "key": "m0:0.1.0:0",
+                "object": "m0:0.1.0",
+                "targetId": "m0:0.1.0",
+                "faceIndex": 0,
+                "faceNumbers": [
+                  0
                 ],
                 "certainty": {
                   "value": 8,
                   "code": "B",
                   "scope": "object",
-                  "targetId": "m0:1"
+                  "targetId": "m0:0.1"
                 }
               }
             },
@@ -264,35 +240,23 @@
                 ]
               },
               "target": {
-                "type": "SpecificResource",
-                "source": {
-                  "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
-                  "type": "Scene"
-                },
-                "selector": [
-                  {
-                    "type": "PointSelector",
-                    "x": 0,
-                    "y": 17,
-                    "z": 0
-                  }
-                ]
+                "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
+                "type": "Scene"
               },
               "AIM3DViewer": {
                 "groupId": "",
-                "key": "",
-                "object": "m0:6",
-                "targetId": "m0:6",
-                "point": [
-                  0,
-                  17,
+                "key": "m0:0.6.0:0",
+                "object": "m0:0.6.0",
+                "targetId": "m0:0.6.0",
+                "faceIndex": 0,
+                "faceNumbers": [
                   0
                 ],
                 "certainty": {
-                  "value": 7,
+                  "value": 6,
                   "code": "C",
                   "scope": "object",
-                  "targetId": "m0:6"
+                  "targetId": "m0:0.6"
                 }
               }
             },
@@ -344,35 +308,23 @@
                 ]
               },
               "target": {
-                "type": "SpecificResource",
-                "source": {
-                  "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
-                  "type": "Scene"
-                },
-                "selector": [
-                  {
-                    "type": "PointSelector",
-                    "x": 0,
-                    "y": 19.5,
-                    "z": 0
-                  }
-                ]
+                "id": "./examples/pagoda/Pagoda-progressive.glb/scene",
+                "type": "Scene"
               },
               "AIM3DViewer": {
                 "groupId": "",
-                "key": "",
-                "object": "m0:8",
-                "targetId": "m0:8",
-                "point": [
-                  0,
-                  19.5,
+                "key": "m0:0.8:0",
+                "object": "m0:0.8",
+                "targetId": "m0:0.8",
+                "faceIndex": 0,
+                "faceNumbers": [
                   0
                 ],
                 "certainty": {
-                  "value": 6,
+                  "value": 4,
                   "code": "D",
                   "scope": "object",
-                  "targetId": "m0:8"
+                  "targetId": "m0:0.8"
                 }
               }
             }

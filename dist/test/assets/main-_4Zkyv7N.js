@@ -9446,7 +9446,7 @@ async function createWebGPURenderer(options) {
   dropIdentitySwizzle();
   const [webgpu, webgpuRendering, weatherWebGPU] = await Promise.all([
     import('./three-webgpu-vjNLNuuZ.js').then(function (n) { return n.a0; }),
-    import('./rendering-webgpu-i8Vnl4SK.js'),
+    import('./rendering-webgpu-D-mEcaVN.js'),
     import('./weather-webgpu-B6tOXV-8.js'),
   ]);
   const forceWebGL = forcesWebGL2Backend();
@@ -13606,7 +13606,7 @@ function displayManifestInForm(manifestJson) {
 // features (annotations, area selection) are not available for it.
 
 const loadTilesModule = () => import('./index.three-CrqkPLxC.js').then(function (n) { return n.i; });
-const loadTilesPlugins = () => import('./index.three-plugins-CEd7_S5d.js');
+const loadTilesPlugins = () => import('./index.three-plugins-hJwLRPT3.js');
 
 let activeTiles = null;
 let disposeDecoders = null;
@@ -13770,8 +13770,11 @@ function orientLocalTileset(tiles) {
 
 // Creates the renderer for a tileset or Potree cloud, waits for the first
 // batch of tiles and resolves with its group (the model root). onModel is
-// called for every tile model loaded now or later (material setup).
-async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onProgress }) {
+// called for every tile model loaded now or later (material setup), onShow
+// each time one is shown: a tile is loaded long before it is shown, and only
+// a shown one is in the group - settings applied to the group (the point
+// cloud panel's, once it is set up) miss the tiles loaded but not shown yet.
+async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onShow, onProgress }) {
   disposeTiles();
   const [{ TilesRenderer }, plugins] = await Promise.all([loadTilesModule(), loadTilesPlugins()]);
   const options = getTilesOptions();
@@ -13810,6 +13813,9 @@ async function loadTiledModel({ url, format, configureGLTFLoader, onModel, onPro
     const depth = tile?.internal?.depth;
     if (Number.isFinite(depth)) scene.traverse((child) => { child.userData.tileDepth = depth; });
     onModel?.(scene);
+  });
+  tiles.addEventListener("tile-visibility-change", ({ scene, visible }) => {
+    if (visible && scene) onShow?.(scene);
   });
 
   activeTiles = tiles;
@@ -13948,7 +13954,7 @@ function maybeShowFirstRunHints() {
 const loadDDSLoader = async () => (await import('./DDSLoader-CyqLLwpd.js')).DDSLoader;
 const loadMTLLoader = async () => (await import('./MTLLoader-MpJ8FbTb.js')).MTLLoader;
 const loadOBJLoader = async () => (await import('./OBJLoader-DpZpLQGw.js')).OBJLoader;
-const loadFBXLoader = async () => (await import('./FBXLoader-Bpu4vL4i.js')).FBXLoader;
+const loadFBXLoader = async () => (await import('./FBXLoader-CnA0IWAU.js')).FBXLoader;
 const loadPLYLoader = async () => (await import('./PLYLoader-3LwvdLeB.js')).PLYLoader;
 const loadColladaLoader = async () => (await import('./ColladaLoader-rakFlNHu.js')).ColladaLoader;
 const loadSTLLoader = async () => (await import('./STLLoader-BeEAOqnR.js')).STLLoader;
@@ -13959,26 +13965,26 @@ const loadGLTFLoader = async () => (await import('./GLTFLoader-BHzDItT9.js')).GL
 const loadDRACOLoader = async () => (await import('./DRACOLoader-CJJsHDAc.js')).DRACOLoader;
 const loadKTX2Loader = async () => (await import('./KTX2Loader-DH_brhHp.js')).KTX2Loader;
 const loadMeshoptDecoder = async () => (await import('./meshopt_decoder.module-ddw5RWcg.js')).MeshoptDecoder;
-const loadUSDLoader = async () => (await import('./USDLoader-CfUNYiFd.js')).USDLoader;
-const loadThreeMFLoader = async () => (await import('./3MFLoader-B9VwWAgV.js')).ThreeMFLoader;
-const loadAMFLoader = async () => (await import('./AMFLoader-CKTCm63S.js')).AMFLoader;
+const loadUSDLoader = async () => (await import('./USDLoader-vP_5Uud7.js')).USDLoader;
+const loadThreeMFLoader = async () => (await import('./3MFLoader-CaB4CFK7.js')).ThreeMFLoader;
+const loadAMFLoader = async () => (await import('./AMFLoader-DiVXvC89.js')).AMFLoader;
 const loadVRMLLoader = async () => (await import('./VRMLLoader-Db6Ya83a.js')).VRMLLoader;
-const loadKMZLoader = async () => (await import('./KMZLoader-BJzUxrDW.js')).KMZLoader;
+const loadKMZLoader = async () => (await import('./KMZLoader-S8VNhdKj.js')).KMZLoader;
 const loadVOXLoader = async () => (await import('./VOXLoader-BmnzBQZZ.js')).VOXLoader;
 const loadVOXBuildMesh = async () => (await import('./VOXLoader-BmnzBQZZ.js')).buildMesh;
 const loadLWOLoader = async () => (await import('./LWOLoader-D_Qu1Hqd.js')).LWOLoader;
 const loadIFCLoader = async () => (await import('./IFCLoader-CA6zWYVj.js')).IFCLoader;
 const loadRoomEnvironment = async () => (await import('./RoomEnvironment-CwCPKJZW.js')).RoomEnvironment;
 // LAS/LAZ parsing (loaders.gl + laz-perf, in a Web Worker) only downloads with the first such file.
-const loadLasPointCloud = async () => (await import('./pointcloud-las-tK14y1Zg.js')).loadLasPointCloud;
+const loadLasPointCloud = async () => (await import('./pointcloud-las-CODuWvo-.js')).loadLasPointCloud;
 // Gaussian splats (Spark) likewise only download with the first splat file.
-const loadSplats = async () => import('./splats-BlvnYffa.js');
+const loadSplats = async () => import('./splats-B126A9wS.js');
 // Volumes (microscope image stacks, worker/lif.py) likewise with the first one.
-const loadVolume = async () => import('./volume-DNc6a5we.js');
+const loadVolume = async () => import('./volume-CjcSGtKS.js');
 // Audio files: the player and the spectrogram landscape, with the first one.
-const loadAudio = async () => import('./audio-DDtJlUyq.js');
+const loadAudio = async () => import('./audio-BGEjbQKB.js');
 // 2D images, one or a set (image2d.js).
-const loadImage2D = async () => import('./image2d-CJft9p4J.js');
+const loadImage2D = async () => import('./image2d-Co8PSjaf.js');
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -15094,6 +15100,9 @@ async function loadModel() {
               });
               window.Viewer?.applyPointCloudSettingsToTile?.(scene);
             },
+            // And when shown: one loaded before the point cloud panel was set
+            // up is only in the group (which the panel goes through) once shown.
+            onShow: (scene) => window.Viewer?.applyPointCloudSettingsToTile?.(scene),
             onProgress: (value) => updateLoadingStage("loadingLog.loadingModel", value),
           });
           await afterLoad({ object });
@@ -27408,7 +27417,7 @@ function attachUpAxisEditor(Viewer) {
 //   "viewer": { "errorTracking": { "dsn": "https://<key>@glitchtip.example.org/<id>" } }
 // The SDK is loaded only then, as its own chunk.
 
-const BUILD_ID$2 = "e81d7a2e" ;
+const BUILD_ID$2 = "76e775ac" ;
 const BUILD$1 = "test" ;
 
 let initPromise = null;
@@ -27428,7 +27437,7 @@ function initErrorTracking() {
   const config = getErrorTrackingConfig();
   if (!config.dsn) return Promise.resolve(null);
 
-  initPromise = import('./error-tracking-sdk-CdH4tQj6.js')
+  initPromise = import('./error-tracking-sdk-BXP7kVoj.js')
     .then((Sentry) => {
       // autoCapture: false sends only what users report with the bug button,
       // not every uncaught error.
@@ -27459,8 +27468,8 @@ function initErrorTracking() {
 // url (issue tracker fallback) gets ?title=...&body=... appended.
 
 const DEFAULT_REPORT_URL = "https://github.com/thedworak/dfg_3dviewer/issues/new";
-const BUILD_ID$1 = "e81d7a2e" ;
-const BUILD_TIME$1 = "2026-11-23T11:19:01.245Z" ;
+const BUILD_ID$1 = "76e775ac" ;
+const BUILD_TIME$1 = "2026-11-25T09:32:34.331Z" ;
 const MAX_RECENT_ERRORS = 5;
 // Issue trackers reject very long URLs.
 const MAX_BODY_LENGTH = 6000;
@@ -75148,7 +75157,7 @@ function attachWeatherLazy(Viewer) {
 
   let loading = null;
   const load = () => {
-    loading ??= import('./weather-Cc6KSh1W.js')
+    loading ??= import('./weather-9TukKgi7.js')
       .then(({ attachWeather }) => {
         attachWeather(Viewer);
         Viewer.updateEditorToolbarState?.();
@@ -91908,6 +91917,22 @@ function estimatePointSpacing(geometry) {
   return Math.sqrt((occupied.size * cell * cell) / count);
 }
 
+// The world size of a streamed 3D Tiles tile's points. The PNTS loader gives
+// every tile a size of one model unit - a centimetre in one cloud, a metre
+// in another (points a metre wide) - so it is the tile's own point spacing
+// instead, in world units (the tile's scale applied: PointCloudMaterial sizes
+// in view space): a coarse tile's points, further apart, are drawn larger
+// than a fine one's, and any cloud closes its gaps whatever its unit.
+// Without a spacing (one point), or in pixels, the loader's size stays.
+function tilePointSize(points) {
+  const size = points.material?.size ?? 1;
+  if (points.material?.sizeAttenuation === false) return size;
+  const spacing = points.userData.pointSpacing ??= estimatePointSpacing(points.geometry);
+  if (!(spacing > 0)) return size;
+  points.updateWorldMatrix(true, false);
+  return spacing * ADAPTIVE_SPACING_FACTOR * points.matrixWorld.getMaxScaleOnAxis();
+}
+
 // sizeMode "adaptive": world size from the point spacing (in the cloud's own
 // units; the object's scale applies on top), never under 1 px; "fixed":
 // pixels.
@@ -94373,8 +94398,10 @@ function attachPointCloudPanel(Viewer) {
       };
       Viewer.pointCloudState = state;
 
+      // 3D Tiles: from each tile's point spacing (tilePointSize); Potree
+      // sizes its points itself.
       points.forEach((object) => {
-        object.userData.baseMaterialSize ??= object.material.size;
+        object.userData.baseMaterialSize ??= isTiled && !potree ? tilePointSize(object) : object.material.size;
       });
       if (!isTiled) {
         const pixels = finiteOr(config.pointSize, 2);
@@ -94478,16 +94505,26 @@ function attachPointCloudPanel(Viewer) {
     // Tiles loaded after the panel was set up get the current size. 3D Tiles
     // point clouds also get their level in the tile tree as the "tile" id the
     // plugin's debug colours use (the Potree plugin sets its own).
+    // Also called when a tile is shown (loaders.js onShow), and before the
+    // panel is set up: 3D Tiles points get their size from the start.
     applyPointCloudSettingsToTile(scene) {
       const state = Viewer.pointCloudState;
-      if (!state || state.kind !== "tiles") return;
+      if (!state || state.kind !== "tiles") {
+        if (core.tiledModel?.format === "potree") return;
+        scene.traverse((child) => {
+          if (!child.isPoints) return;
+          child.userData.baseMaterialSize ??= tilePointSize(child);
+          child.material.size = child.userData.baseMaterialSize;
+        });
+        return;
+      }
       scene.traverse((child) => {
         if (!child.isPoints) return;
         if (child.material?.isPointCloudMaterial) {
           addColorModes(child.material, state.colorUniforms);
           setPointRaycastSkipped(child);
         }
-        child.userData.baseMaterialSize ??= child.material.size;
+        child.userData.baseMaterialSize ??= state.potree ? child.material.size : tilePointSize(child);
         child.material.size = child.userData.baseMaterialSize * state.size;
         const tileId = child.material.uniforms?.uTileId;
         if (!state.potree && tileId && Number.isFinite(child.userData.tileDepth)) {
@@ -94807,7 +94844,7 @@ function attachVolumePanel(Viewer) {
       };
       Viewer.volumeState = state;
       // volume.js is loaded already (loaders.js); this only fetches the module.
-      import('./volume-DNc6a5we.js').then((api) => {
+      import('./volume-CjcSGtKS.js').then((api) => {
         if (Viewer.volumeState !== state) return;
         state.api = api;
         Viewer.createVolumePanel();
@@ -95247,7 +95284,7 @@ function attachAudioPanel(Viewer) {
       };
       Viewer.audioState = state;
       // audio.js is loaded already (loaders.js); this only fetches the module.
-      import('./audio-DDtJlUyq.js').then((api) => {
+      import('./audio-BGEjbQKB.js').then((api) => {
         if (Viewer.audioState !== state) return;
         state.api = api;
         state.player = api.getAudioState(root)?.player || null;
@@ -95454,7 +95491,7 @@ function attachAudioPanel(Viewer) {
       Object.entries(scene).forEach(([key, value]) => {
         if (key in state.root.userData.audio && typeof value === typeof state.root.userData.audio[key]) state.root.userData.audio[key] = value;
       });
-      import('./audio-DDtJlUyq.js').then((api) => {
+      import('./audio-BGEjbQKB.js').then((api) => {
         if (Viewer.audioState !== state) return;
         api.applyAudioSettings(state.root);
         const player = api.getAudioState(state.root)?.player;
@@ -100683,7 +100720,7 @@ function attachImagePanel(Viewer) {
       state.onKey = (event) => Viewer.handleImageKey(event);
       window.addEventListener("keydown", state.onKey);
       Viewer.attachImageSplitDrag(state);
-      import('./image2d-CJft9p4J.js').then((api) => {
+      import('./image2d-Co8PSjaf.js').then((api) => {
         if (Viewer.imageState !== state) return;
         state.api = api;
         // Settings a manifest gave before the module was there.
@@ -112880,8 +112917,8 @@ function unzipSync(data, opts) {
     return files;
 }
 
-const BUILD_ID = "e81d7a2e" ;
-const BUILD_TIME = "2026-11-23T11:19:01.245Z" ;
+const BUILD_ID = "76e775ac" ;
+const BUILD_TIME = "2026-11-25T09:32:34.331Z" ;
 
 // "2026-10-02 10:45" in the viewer's local time, or "" without a valid time.
 function formatBuildTime(iso) {
@@ -114576,11 +114613,11 @@ const Viewer$1 = {
       // Gaussian splats (splats.js) hold their own GPU textures.
       if (node.userData?.isGaussianSplats) node.dispose?.();
       // A volume's 3D textures (volume.js), by then loaded.
-      if (node.isMesh && node.userData?.isVolume) import('./volume-DNc6a5we.js').then(({ disposeVolume }) => disposeVolume(node));
+      if (node.isMesh && node.userData?.isVolume) import('./volume-CjcSGtKS.js').then(({ disposeVolume }) => disposeVolume(node));
       // An audio file's player and its blob: URL (audio.js).
-      if (node.userData?.isAudio) import('./audio-DDtJlUyq.js').then(({ disposeAudio }) => disposeAudio(node));
+      if (node.userData?.isAudio) import('./audio-BGEjbQKB.js').then(({ disposeAudio }) => disposeAudio(node));
       // A 2D image's texture and shader (image2d.js).
-      if (node.userData?.isImage2D) import('./image2d-CJft9p4J.js').then(({ disposeImage }) => disposeImage(node));
+      if (node.userData?.isImage2D) import('./image2d-Co8PSjaf.js').then(({ disposeImage }) => disposeImage(node));
       // Under a shading mode (editor/shading.js) the loader's materials are
       // kept aside, not on the mesh.
       const originals = node.userData?.__shadingBaseMaterials;
@@ -117872,4 +117909,4 @@ window.Viewer = Viewer$1;
 })();
 
 export { AUDIO_MIME_TYPES as A, FullScreenQuad as F, PANEL_ICONS as P, Viewer$1 as V, WEATHER_DEFAULTS as W, core as a, readImageMetadata as b, canvasFont as c, AO_RADIUS as d, AO_THICKNESS as e, decompressSync as f, WEATHER_TYPES as g, refreshToolPanelChrome as h, isLightBackground as i, WEATHER_SEASONS as j, attachToolPanelChrome as k, getViewerSideStack as l, isPostProcessingActive as m, getRenderingSettings as n, unzlibSync$1 as o, expectWebGL as p, readAudioMetadata as r, sunDirection as s, unzipSync$1 as u };
-//# sourceMappingURL=main-Ci2YI-_g.js.map
+//# sourceMappingURL=main-CTrwjYHr.js.map

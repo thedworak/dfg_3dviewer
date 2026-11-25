@@ -11,7 +11,7 @@ const DEBUG_BUILD$2 = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG_
 const GLOBAL_OBJ = globalThis;
 
 // src/utils/version.ts
-const SDK_VERSION = "11.16.0";
+const SDK_VERSION = "11.17.0";
 
 // src/carrier.ts
 /**
@@ -28,8 +28,8 @@ function getMainCarrier() {
 /** Will either get the existing sentry carrier, or create a new one. */
 function getSentryCarrier(carrier) {
 	const __SENTRY__ = carrier.__SENTRY__ = carrier.__SENTRY__ || {};
-	__SENTRY__.version = __SENTRY__.version || "11.16.0";
-	return __SENTRY__[SDK_VERSION] = __SENTRY__["11.16.0"] || {};
+	__SENTRY__.version = __SENTRY__.version || "11.17.0";
+	return __SENTRY__[SDK_VERSION] = __SENTRY__["11.17.0"] || {};
 }
 /**
 * Returns a global singleton contained in the global `__SENTRY__[]` object.
@@ -44,7 +44,7 @@ function getSentryCarrier(carrier) {
 */
 function getGlobalSingleton(name, creator, obj = GLOBAL_OBJ) {
 	const __SENTRY__ = obj.__SENTRY__ = obj.__SENTRY__ || {};
-	const carrier = __SENTRY__[SDK_VERSION] = __SENTRY__["11.16.0"] || {};
+	const carrier = __SENTRY__[SDK_VERSION] = __SENTRY__["11.17.0"] || {};
 	return carrier[name] || (carrier[name] = creator());
 }
 
@@ -2034,7 +2034,7 @@ const SPAN_STATUS_TYPES = [
 	"data_loss"
 ];
 
-const wa="culture.calendar",Ra="culture.locale",Na="culture.timezone",Fr="gen_ai.conversation.id",cl="http.request.header",Hm="sentry.exclusive_time",ib="sentry.is_localhost",fb="sentry.op",vb="sentry.origin",Eb="sentry.profile_id",Mb="sentry.segment.name.source",my="url.full",Ey="user_agent.original";
+const Aa="culture.calendar",Ra="culture.locale",Na="culture.timezone",Fr="gen_ai.conversation.id",dl="http.request.header",db="sentry.exclusive_time",fb="sentry.is_localhost",Ub="sentry.op",Gb="sentry.origin",Wb="sentry.profile_id",og="sentry.segment.name.source",Uy="url.full",Qy="user_agent.original";
 
 function isStatusErrorMessageValid(message) {
 	return message !== "ok" && SPAN_STATUS_TYPES.includes(message);
@@ -2343,8 +2343,8 @@ function spanToStaticSpanJSON(span) {
 			start_timestamp: spanTimeInputToSeconds(startTime),
 			timestamp: spanTimeInputToSeconds(endTime) || void 0,
 			status: getStatusMessage(status),
-			op: attributes[fb],
-			origin: attributes[vb],
+			op: attributes[Ub],
+			origin: attributes[Gb],
 			links: convertSpanLinksForEnvelope(links)
 		};
 	}
@@ -2586,8 +2586,14 @@ function setupIntegration(client, integration, integrationIndex) {
 * Define an integration function that can be used to create an integration instance.
 * Note that this by design hides the implementation details of the integration, as they are considered internal.
 */
+/*#__NO_SIDE_EFFECTS__*/
 function defineIntegration(fn) {
-	return fn;
+	return (...args) => {
+		const options = isPlainObject(args[0]) ? { ...args[0] } : args[0];
+		const integration = fn(...args);
+		integration._options = options;
+		return integration;
+	};
 }
 
 // src/constants.ts
@@ -2670,12 +2676,15 @@ function getDynamicSamplingContextFromSpan(span) {
 	const dscOnTraceState = traceStateDsc && baggageHeaderToDynamicSamplingContext(traceStateDsc);
 	if (dscOnTraceState) return applyLocalSampleRateToDsc(dscOnTraceState);
 	const dsc = getDynamicSamplingContextFromClient(span.spanContext().traceId, client);
-	const source = rootSpanAttributes[Mb];
+	const source = rootSpanAttributes[og];
 	const name = rootSpanJson.description;
 	if (source !== "url" && name) dsc.transaction = name;
 	if (hasSpansEnabled()) {
-		dsc.sampled = String(spanIsSampled(rootSpan));
-		dsc.sample_rand = traceState?.get("sentry.sample_rand") ?? getCapturedScopesOnSpan(rootSpan).scope?.getPropagationContext().sampleRand.toString();
+		const propagationContext = getCapturedScopesOnSpan(rootSpan).scope?.getPropagationContext();
+		const sampled = spanIsSampled(rootSpan);
+		dsc.sampled = String(sampled);
+		dsc.sample_rand = traceState?.get("sentry.sample_rand") ?? propagationContext?.sampleRand.toString();
+		if (rootSpanSampleRate == null && typeof propagationContext?.sampled === "boolean") dsc.sample_rate = sampled ? "1" : "0";
 	}
 	applyLocalSampleRateToDsc(dsc);
 	client.emit("createDsc", dsc, rootSpan);
@@ -4021,8 +4030,8 @@ function convertTransactionEventToSpanJson(event) {
 		trace_id: trace_id ?? "",
 		origin,
 		links,
-		profile_id: data?.[Eb],
-		exclusive_time: data?.[Hm],
+		profile_id: data?.[Wb],
+		exclusive_time: data?.[db],
 		measurements: event.measurements,
 		is_segment: true
 	};
@@ -4046,8 +4055,8 @@ function convertSpanJsonToTransactionEvent(span) {
 			links: span.links,
 			data: {
 				...span.data,
-				...span.profile_id && { [Eb]: span.profile_id },
-				...span.exclusive_time && { [Hm]: span.exclusive_time }
+				...span.profile_id && { [Wb]: span.profile_id },
+				...span.exclusive_time && { [db]: span.exclusive_time }
 			}
 		} },
 		measurements: span.measurements
@@ -4156,9 +4165,8 @@ const INTERNAL_ERROR_SYMBOL = Symbol.for("SentryInternalError");
 const DO_NOT_SEND_EVENT_SYMBOL = Symbol.for("SentryDoNotSendEventError");
 const CLOSED_CLIENT_SYMBOL = Symbol.for("SentryClosedClient");
 /**
-* Whether `close()` was called on the given client.
-*
-* @hidden
+* Whether `close()` was called on the given client. This is also `true` while
+* the client is still flushing in `close()`.
 */
 function isClientClosed(client) {
 	return CLOSED_CLIENT_SYMBOL in client;
@@ -4850,22 +4858,11 @@ function initAndBind(clientClass, options) {
 	return client;
 }
 /**
-* Returns the client bound to the current scope, unless it is closed.
-*
-* @hidden
-*/
-function getActiveClient() {
-	const client = getClient();
-	return client && !isClientClosed(client) ? client : void 0;
-}
-/**
-* Warns when `init()` runs while a client is still bound. The new client
-* replaces it, but the old client stays alive, so the two can mix state.
-*
-* @hidden
+* Logs a warning when a client that is not closed is bound to the current scope.
 */
 function warnIfClientIsActive() {
-	if (getActiveClient()) consoleSandbox(() => {
+	const client = getClient();
+	if (client && !isClientClosed(client)) consoleSandbox(() => {
 		console.warn("[Sentry] `Sentry.init()` was called more than once. The new client replaces the active client, but the active client is not closed, so state from both can mix. Call `Sentry.init()` only once, or call `await Sentry.close()` before you call it again.");
 	});
 }
@@ -4878,41 +4875,67 @@ function setCurrentClient(client) {
 
 // src/utils/data-collection/filterQueryParams.ts
 /**
+* Filters a single `key=value` (or bare `key`) query pair according to a `CollectBehavior`.
+*
+* The key is decoded for filtering, while the pair keeps its original encoding.
+*/
+function filterQueryPair(pair, behavior) {
+	const separatorIndex = pair.indexOf("=");
+	const encodedKey = separatorIndex === -1 ? pair : pair.slice(0, separatorIndex);
+	const key = new URLSearchParams(`${encodedKey}=`).keys().next().value;
+	return key !== void 0 && shouldFilterDataKey(key, behavior) ? `${encodedKey}=${FILTERED_VALUE}` : pair;
+}
+/**
 * Filters a query parameter string according to a `CollectBehavior`.
 *
 * Parameter names are decoded for filtering, while the original encoding, order, and duplicate keys are preserved.
 */
 function filterQueryParams(queryString, behavior) {
 	if (!queryString || behavior === false) return;
-	return queryString.split("&").map((pair) => {
-		const separatorIndex = pair.indexOf("=");
-		const encodedKey = separatorIndex === -1 ? pair : pair.slice(0, separatorIndex);
-		const key = new URLSearchParams(`${encodedKey}=`).keys().next().value;
-		return key !== void 0 && shouldFilterDataKey(key, behavior) ? `${encodedKey}=${FILTERED_VALUE}` : pair;
-	}).join("&");
+	return queryString.split("&").map((pair) => filterQueryPair(pair, behavior)).join("&");
+}
+
+// src/utils/data-collection/filterUrlFragment.ts
+/**
+* Filters a URL fragment (without the leading `#`) according to a `CollectBehavior`.
+*
+* Fragments can carry the same secrets as query strings, e.g. OAuth implicit-flow redirects
+* (`#access_token=...`) or hash-based routing (`#/callback?token=...`). `key=value` pairs are filtered like
+* query params: after the first `?` if there is one, across the whole fragment otherwise. Segments without
+* a `=`, such as an anchor (`details`) or a hash route path (`/settings`), are kept as-is so they stay useful
+* for debugging.
+*
+* Returns `undefined` when the fragment must not be collected at all.
+*/
+function filterUrlFragment(fragment, behavior) {
+	if (!fragment || behavior === false) return;
+	const queryStart = fragment.indexOf("?");
+	return `${queryStart === -1 ? "" : fragment.slice(0, queryStart + 1)}${(queryStart === -1 ? fragment : fragment.slice(queryStart + 1)).split("&").map((segment) => segment.includes("=") ? filterQueryPair(segment, behavior) : segment).join("&")}`;
 }
 
 // src/utils/data-collection/filterUrlQuery.ts
 /**
-* Applies a `CollectBehavior` to the query string of a full URL, leaving every other URL component
-* (scheme, host, path, fragment) untouched.
+* Applies a `CollectBehavior` to the query string and fragment of a full URL, leaving every other URL
+* component (scheme, host, path) untouched.
 *
-* The query is located by string offsets rather than by parsing, so the URL is returned byte-for-byte
-* apart from the query itself. This keeps relative URLs, non-HTTP schemes and unusual encodings intact,
-* none of which survive a `URL` round-trip.
+* The query and fragment are located by string offsets rather than by parsing, so the URL is returned
+* byte-for-byte apart from those two parts. This keeps relative URLs, non-HTTP schemes and unusual encodings
+* intact, none of which survive a `URL` round-trip.
 *
-* Returns the URL with its query filtered, or with the query removed entirely when collection is off.
+* Returns the URL with its query and fragment filtered, or with both removed entirely when collection is off.
 */
 function filterUrlQuery(url, behavior) {
 	const fragmentStart = url.indexOf("#");
-	const queryEnd = fragmentStart === -1 ? url.length : fragmentStart;
-	const queryStart = url.indexOf("?");
-	if (queryStart === -1 || queryStart > queryEnd) return url;
-	const prefix = url.slice(0, queryStart);
-	const query = url.slice(queryStart + 1, queryEnd);
-	const suffix = url.slice(queryEnd);
-	const filtered = filterQueryParams(query, behavior);
-	return filtered ? `${prefix}?${filtered}${suffix}` : `${prefix}${suffix}`;
+	const beforeFragment = fragmentStart === -1 ? url : url.slice(0, fragmentStart);
+	const fragment = fragmentStart === -1 ? void 0 : url.slice(fragmentStart + 1);
+	const queryStart = beforeFragment.indexOf("?");
+	let filteredUrl = beforeFragment;
+	if (queryStart !== -1) {
+		const filteredQuery = filterQueryParams(beforeFragment.slice(queryStart + 1), behavior);
+		filteredUrl = `${beforeFragment.slice(0, queryStart)}${filteredQuery ? `?${filteredQuery}` : ""}`;
+	}
+	const filteredFragment = fragment === void 0 ? void 0 : filterUrlFragment(fragment, behavior);
+	return filteredFragment ? `${filteredUrl}#${filteredFragment}` : filteredUrl;
 }
 
 // src/utils/data-collection/filterCollectedUrl.ts
@@ -5050,6 +5073,17 @@ function addAutoIpAddressToSession(session) {
 	} else if (session.ipAddress === void 0) session.ipAddress = "{{auto}}";
 }
 
+// src/utils/array.ts
+/**
+* Return a new array with duplicate values removed, preserving first-occurrence order.
+*
+* @param input the array to deduplicate
+* @returns a new array containing each distinct value once, in the order it first appeared
+*/
+function uniq(input) {
+	return Array.from(new Set(input));
+}
+
 // src/utils/sdkMetadata.ts
 /**
 * Preserve user-provided option keys before SDK wrappers add defaults.
@@ -5057,12 +5091,31 @@ function addAutoIpAddressToSession(session) {
 */
 function captureOptionsSetByUser(options) {
 	if (options._metadata?.optionsSetByUser) return options;
+	const { integrations } = options;
+	const metadata = {
+		...options._metadata,
+		optionsSetByUser: Object.keys(options).filter((key) => key !== "_metadata").sort()
+	};
+	if (Array.isArray(integrations)) metadata.integrationsSetByUser = uniq(integrations.map((integration) => integration.name));
 	return {
 		...options,
-		_metadata: {
-			...options._metadata,
-			optionsSetByUser: Object.keys(options).filter((key) => key !== "_metadata").sort()
-		}
+		_metadata: metadata,
+		...typeof integrations === "function" && { integrations: (defaults) => {
+			const passedIn = new Set(defaults);
+			const result = integrations(defaults);
+			const resolved = Array.isArray(result) ? result : [result];
+			const resolvedNames = /* @__PURE__ */ new Set();
+			const setByUser = /* @__PURE__ */ new Set();
+			for (const integration of resolved) {
+				resolvedNames.add(integration.name);
+				if (!passedIn.has(integration) && !integration.isDefaultInstance) setByUser.add(integration.name);
+			}
+			const removed = /* @__PURE__ */ new Set();
+			for (const integration of passedIn) if (!resolvedNames.has(integration.name)) removed.add(integration.name);
+			metadata.integrationsSetByUser = Array.from(setByUser);
+			if (removed.size) metadata.removedDefaultIntegrations = Array.from(removed).sort();
+			return resolved;
+		} }
 	};
 }
 /**
@@ -5161,7 +5214,7 @@ const _functionToStringIntegration = (() => {
 * });
 * ```
 */
-const functionToStringIntegration = defineIntegration(_functionToStringIntegration);
+const functionToStringIntegration = /* @__PURE__ */ defineIntegration(_functionToStringIntegration);
 
 // src/integrations/eventFilters.ts
 const DEFAULT_IGNORE_ERRORS = [
@@ -5192,7 +5245,7 @@ const INTEGRATION_NAME$8 = "EventFilters";
 *
 * Events filtered by this integration will not be sent to Sentry.
 */
-const eventFiltersIntegration = defineIntegration((options = {}) => {
+const eventFiltersIntegration = /* @__PURE__ */ defineIntegration((options = {}) => {
 	let mergedOptions;
 	return {
 		name: INTEGRATION_NAME$8,
@@ -5473,7 +5526,7 @@ const _dedupeIntegration = (() => {
 * A repeated `captureException` of the same error object is dropped by the client, also without
 * this integration (see `checkOrSetAlreadyCaught`).
 */
-const dedupeIntegration = defineIntegration(_dedupeIntegration);
+const dedupeIntegration = /* @__PURE__ */ defineIntegration(_dedupeIntegration);
 /** only exported for tests. */
 function _shouldDropEvent(currentEvent, previousEvent) {
 	if (!previousEvent) return false;
@@ -5543,7 +5596,7 @@ const INTEGRATION_NAME$6 = "Console";
 * });
 * ```
 */
-const consoleIntegration = defineIntegration((options = {}) => {
+const consoleIntegration = /* @__PURE__ */ defineIntegration((options = {}) => {
 	const levels = new Set(options.levels || CONSOLE_LEVELS);
 	return {
 		name: INTEGRATION_NAME$6,
@@ -5617,7 +5670,7 @@ const _conversationIdIntegration = (() => {
 * and applies it to spans when they start. This ensures the conversation ID is
 * available for all AI-related operations.
 */
-const conversationIdIntegration = defineIntegration(_conversationIdIntegration);
+const conversationIdIntegration = /* @__PURE__ */ defineIntegration(_conversationIdIntegration);
 
 // src/utils/supports.ts
 const WINDOW$2 = GLOBAL_OBJ;
@@ -7326,7 +7379,7 @@ const _cultureContextIntegration = (() => {
 			if (culture) safeSetSpanJSONAttributes(span, {
 				[Ra]: culture.locale,
 				[Na]: culture.timezone,
-				[wa]: culture.calendar
+				[Aa]: culture.calendar
 			});
 		}
 	};
@@ -7508,11 +7561,11 @@ const httpContextIntegration = defineIntegration(() => {
 			const referer = headers["Referer"];
 			const { hostname, protocol } = WINDOW.location || {};
 			safeSetSpanJSONAttributes(span, {
-				[Ey]: headers["User-Agent"],
-				[ib]: protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || !!hostname?.endsWith(".localhost"),
+				[Qy]: headers["User-Agent"],
+				[fb]: protocol === "file:" || hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || !!hostname?.endsWith(".localhost"),
 				...span.is_segment && {
-					[my]: span.attributes?.[fb] !== "http.client" ? filterCollectedUrl(reqData.url) : void 0,
-					[`${cl}.referer`]: referer ? [referer] : void 0
+					[Uy]: span.attributes?.[Ub] !== "http.client" ? filterCollectedUrl(reqData.url) : void 0,
+					[`${dl}.referer`]: referer ? [referer] : void 0
 				}
 			});
 		}
@@ -7679,4 +7732,4 @@ function init(userOptions = {}) {
 }
 
 export { captureMessage, flush, init, setTag };
-//# sourceMappingURL=error-tracking-sdk-GQs_Xlkd.js.map
+//# sourceMappingURL=error-tracking-sdk-BSraxYK9.js.map

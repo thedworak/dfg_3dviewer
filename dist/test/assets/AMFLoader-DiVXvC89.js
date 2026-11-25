@@ -1,5 +1,5 @@
 import { b6 as Loader, b7 as FileLoader, aM as Group, a_ as MeshPhongMaterial, an as Float32BufferAttribute, C as Color, am as BufferGeometry, h as Mesh } from './three-DQIwNvhE.js';
-import { u as unzipSync } from './main-HgW4fIQT.js';
+import { u as unzipSync } from './main-_4Zkyv7N.js';
 import './feature-icons-BoIXET1l.js';
 import './model-extension-BDXGpmfH.js';
 import './intro-scene-D_WhMe6N.js';

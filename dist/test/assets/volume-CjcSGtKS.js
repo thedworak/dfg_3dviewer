@@ -1,4 +1,4 @@
-import { i as isLightBackground } from './main-HgW4fIQT.js';
+import { i as isLightBackground } from './main-_4Zkyv7N.js';
 import { h as Mesh, B as BoxGeometry, aM as Group, dW as Data3DTexture, aw as RedFormat, aP as UnsignedByteType, j as LinearFilter, al as ClampToEdgeWrapping, fj as ShaderMaterial, V as Vector3, f as BackSide, ed as GLSL3, Y as Vector4, Q as Vector2, C as Color, a1 as Matrix4, aq as Plane } from './three-DQIwNvhE.js';
 import './feature-icons-BoIXET1l.js';
 import './model-extension-BDXGpmfH.js';
