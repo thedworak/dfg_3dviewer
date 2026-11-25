@@ -1451,7 +1451,8 @@
   bottom: 0;
   width: 100% !important;
   max-width: none;
-  max-height: var(--tool-sheet-height, 46%);
+  /* Over the side stack's own limit (fitPanelToViewer, inline). */
+  max-height: var(--tool-sheet-height, 46%) !important;
   overflow-y: auto;
   box-sizing: border-box;
   border-radius: 14px 14px 0 0;
@@ -1463,7 +1464,7 @@
 }
 
 .has-tool-chrome.is-modal-open.is-sheet-dragging {
-  max-height: none;
+  max-height: none !important;
   transition: none;
 }
 
@@ -1479,19 +1480,17 @@
 }
 
 /* A phone on its side: the sheet down the right, the whole height. */
-@media (orientation: landscape) and (max-height: 520px) {
-  .has-tool-chrome.is-modal-open {
-    left: auto !important;
-    top: 0 !important;
-    width: min(360px, 46%) !important;
-    max-height: none;
-    border-radius: 14px 0 0 14px;
-    animation-name: tool-sheet-slide;
-  }
+.has-tool-chrome.is-modal-open.is-side-sheet {
+  left: auto !important;
+  top: 0 !important;
+  width: min(360px, 46%) !important;
+  max-height: none !important;
+  border-radius: 14px 0 0 14px;
+  animation-name: tool-sheet-slide;
+}
 
-  .has-tool-chrome.is-modal-open .tool-panel-chrome_grabber {
-    display: none !important;
-  }
+.has-tool-chrome.is-side-sheet .tool-panel-chrome_grabber {
+  display: none !important;
 }
 
 @keyframes tool-sheet-slide {

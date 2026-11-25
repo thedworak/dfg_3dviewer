@@ -7,8 +7,8 @@ import { setSceneInset } from "../scene-inset.js";
 // timeline) get a grip in their header to drag the panel anywhere over the
 // viewer (double tap: back to the side stack), a button that minimizes it to
 // a small round icon (tap: restore, drag: move) and, for panels without one
-// of their own, a close button. A `modal` panel (phones: its settings take
-// the screen) restores as a sheet along the foot of the viewer, the model
+// of their own, a close button. On a phone a panel (unless `modal: false`)
+// is a sheet along the foot of the viewer, the model
 // moved to the middle of what is left above it; dragged down, Escape or its
 // minimize button folds it back to its icon. A fold button rolls a panel up to its header and the
 // controls marked [data-panel-peek] (the surroundings' year, say): on a
@@ -228,10 +228,62 @@ function createPip(panel) {
   return pip;
 }
 
+// A phone's layout: the menus' own ("bar" upright, "rail" on its side,
+// ui/menu-toolbar.js), so the windows change with them; the classic toolbar
+// by the same query as editor-toolbar.js's PHONE_TOOLBAR_QUERY.
+const PHONE_QUERY = "(max-width: 640px), (max-height: 520px) and (pointer: coarse)";
+
+function menusMode() {
+  const toolbar = core.editorToolbar;
+  return toolbar?.classList.contains("viewer-menus") ? toolbar.dataset.mode || null : null;
+}
+
+export function isPhoneLayout() {
+  const mode = menusMode();
+  if (mode) return mode === "bar" || mode === "rail";
+  return window.matchMedia?.(PHONE_QUERY).matches === true;
+}
+
+// `modal` left out: a sheet on a phone (every settings window); false for
+// the panels that stay small over the scene (a player bar, a legend).
 function isModal(panel) {
   const modal = panel.toolPanelChrome?.options?.modal;
+  if (modal === undefined) return isPhoneLayout();
   return Boolean(typeof modal === "function" ? modal() : modal);
 }
+
+const chromePanels = new Set();
+
+// Shown and not minimized, a panel is a sheet exactly when it should be one
+// now: as it appears, and again when the layout changes (turned, resized).
+function syncSheet(panel) {
+  const chrome = panel.toolPanelChrome;
+  if (!chrome?.options) return;
+  if (!panel.isConnected) {
+    chromePanels.delete(panel);
+    if (panel.classList.contains("is-modal-open")) closeModal(panel);
+    return;
+  }
+  const root = chrome.visibilityRoot || panel;
+  const shown = !panel.hidden && !root.hidden;
+  const want = shown && !panel.classList.contains("is-minimized") && isModal(panel);
+  const open = panel.classList.contains("is-modal-open");
+  if (want && !open) openModal(panel);
+  else if (!want && open) closeModal(panel);
+  else if (open) {
+    panel.classList.toggle("is-side-sheet", isSideSheet());
+    updateSheetInset(panel);
+  }
+}
+
+let layoutFrame = 0;
+const syncAllSheets = () => {
+  cancelAnimationFrame(layoutFrame);
+  // After the menus have taken their own layout for the new size.
+  layoutFrame = requestAnimationFrame(() => [...chromePanels].forEach(syncSheet));
+};
+window.addEventListener("resize", syncAllSheets);
+window.addEventListener("orientationchange", syncAllSheets);
 
 // A `modal` panel restored on a phone is a sheet: along the foot of the
 // viewer (in landscape, its right side), with no backdrop - the model stays
@@ -242,13 +294,18 @@ function isModal(panel) {
 const SHEET_SNAPS = [0.46, 0.88];
 const SHEET_MINIMIZE_BELOW = 0.22;
 
-const isSideSheet = () => window.matchMedia?.("(orientation: landscape) and (max-height: 520px)").matches === true;
+const isSideSheet = () => {
+  const mode = menusMode();
+  if (mode) return mode === "rail";
+  return window.matchMedia?.("(orientation: landscape) and (max-height: 520px)").matches === true;
+};
 
 function sheetInset(panel) {
   const canvas = core.mainCanvas || core.container;
   if (!canvas || !panel.classList.contains("is-modal-open") || panel.classList.contains("is-minimized")) return null;
   const view = canvas.getBoundingClientRect();
   const rect = panel.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
   if (isSideSheet()) return { right: Math.max(0, view.right - rect.left) };
   return { bottom: Math.max(0, view.bottom - rect.top) };
 }
@@ -339,7 +396,6 @@ function createGrabber() {
 }
 
 const openSheets = new Set();
-window.addEventListener("resize", () => openSheets.forEach((panel) => updateSheetInset(panel)));
 
 // Restored as a sheet, in the viewer container; where it was (the side
 // stack, or where its icon was dragged) is kept for minimizing again.
@@ -353,9 +409,10 @@ function openModal(panel) {
   }
   container.append(panel);
   panel.classList.add("is-modal-open");
+  panel.classList.toggle("is-side-sheet", isSideSheet());
   panel.setAttribute("role", "dialog");
   setSheetSnap(panel, chrome.sheetSnap ?? 0);
-  chrome.sheetObserver ||= new ResizeObserver(() => updateSheetInset(panel));
+  chrome.sheetObserver ||= new ResizeObserver(() => (panel.isConnected ? updateSheetInset(panel) : syncSheet(panel)));
   chrome.sheetObserver.observe(panel);
   openSheets.add(panel);
   updateSheetInset(panel);
@@ -364,12 +421,14 @@ function openModal(panel) {
 function closeModal(panel) {
   const chrome = panel.toolPanelChrome;
   if (!chrome || !panel.classList.contains("is-modal-open")) return;
-  panel.classList.remove("is-modal-open", "is-sheet-full", "is-sheet-dragging");
+  panel.classList.remove("is-modal-open", "is-side-sheet", "is-sheet-full", "is-sheet-dragging");
   panel.style.removeProperty("height");
   chrome.sheetObserver?.disconnect();
   openSheets.delete(panel);
   setSceneInset(panel, null);
-  if (chrome.modalMark?.isConnected) chrome.modalMark.replaceWith(panel);
+  // Removed by its owner (closed for good): not put back.
+  if (!panel.isConnected) chrome.modalMark?.remove();
+  else if (chrome.modalMark?.isConnected) chrome.modalMark.replaceWith(panel);
   else chrome.modalMark?.remove();
   chrome.modalMark = null;
 }
@@ -569,8 +628,8 @@ function syncPip(panel, pip, icon, label) {
 // [data-panel-peek] controls only, see setToolPanelFolded).
 // `movable: false` for dialogs that already drag by their header;
 // `visibilityRoot`: the element whose `hidden` shows and hides the panel,
-// when that is not the panel itself. `modal` (or a function, asked at each
-// restore): restored as a modal window (setMinimized). Safe to call again on
+// when that is not the panel itself. `modal` (or a function, asked each
+// time): a sheet; left out, a sheet on a phone (isModal). Safe to call again on
 // every render:
 // panels that rebuild their contents get the same buttons put back.
 export function attachToolPanelChrome(panel, header, {
@@ -582,7 +641,7 @@ export function attachToolPanelChrome(panel, header, {
   icon = WINDOW_ICON,
   label = null,
   onClose = null,
-  modal = false,
+  modal = undefined,
 } = {}) {
   if (!panel || !header) return;
   if (!panel.toolPanelChrome) {
@@ -601,14 +660,16 @@ export function attachToolPanelChrome(panel, header, {
     panel.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && panel.classList.contains("is-modal-open")) setMinimized(panel, true);
     });
-    new MutationObserver(() => {
-      if ((panel.hidden || visibilityRoot.hidden) && panel.classList.contains("is-modal-open")) closeModal(panel);
-    }).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+    const sheetObserver = new MutationObserver(() => syncSheet(panel));
+    [...new Set([panel, visibilityRoot])].forEach((element) => {
+      sheetObserver.observe(element, { attributes: true, attributeFilter: ["hidden"] });
+    });
+    chromePanels.add(panel);
   }
-  Object.assign(panel.toolPanelChrome, { header, options: { before, icon, label, modal } });
+  Object.assign(panel.toolPanelChrome, { header, visibilityRoot, options: { before, icon, label, modal } });
   const { grip, fold, minimize, pip, close, grabber } = panel.toolPanelChrome;
   header.classList.add("tool-panel-chrome");
-  if (modal) {
+  if (modal !== false) {
     const grabLabel = t("toolPanel.resizeSheet", "Drag to resize, tap: taller or lower");
     grabber.title = grabLabel;
     grabber.setAttribute("aria-label", grabLabel);
@@ -642,6 +703,8 @@ export function attachToolPanelChrome(panel, header, {
     syncPip(panel, pip, icon, label);
     if (pip.parentNode !== panel) panel.append(pip);
   }
+  // After its caller has put it in place (the side stack).
+  queueMicrotask(() => syncSheet(panel));
 }
 
 // How far a panel's playback has come (tour, timeline, animation), as a ring

@@ -2,8 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
-import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 
 // Audio controls, shown when the loaded model is an audio file (audio.js):
 //
@@ -27,7 +26,8 @@ import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 // modal window. The toolbar's audio button toggles it. Its canvases are
 // drawn each frame (updateAudio, from main.js animate) while it is open.
 
-const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// The menus' phone layout (bar or rail), as the sheets go by.
+const isPhone = () => isPhoneLayout();
 // The mini player's back and forward step, in seconds.
 const MINI_STEP = 5;
 const MINI_GAP = 8;

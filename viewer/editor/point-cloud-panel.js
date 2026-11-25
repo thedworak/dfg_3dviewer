@@ -2,9 +2,8 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { getActiveTiles, getPointCloudPlugin, getPotreeAttributes, getTiledModelBox } from "../tiles.js";
-import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
 import { setPointRaycastSkipped } from "../pointcloud-picking.js";
 import { attachPointCloudTools } from "./point-cloud-tools.js";
 import {
@@ -33,7 +32,8 @@ import {
 // beside it. The toolbar's point cloud button, shown while a point cloud is
 // loaded, opens and closes it (on phones: opens or folds the window).
 
-const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// The menus' phone layout (bar or rail), as the sheets go by.
+const isPhone = () => isPhoneLayout();
 
 const SIZE_MIN = 0.25;
 const SIZE_MAX = 4;

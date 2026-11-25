@@ -1,8 +1,7 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
-import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { toastHelper } from "../viewer-utils.js";
 
 // Volume display controls, shown when the loaded model is a volume (image
@@ -44,7 +43,8 @@ const CT_WINDOWS = [
 ];
 
 const percent = (value) => `${Math.round(value * 100)}%`;
-const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// The menus' phone layout (bar or rail), as the sheets go by.
+const isPhone = () => isPhoneLayout();
 
 export function attachVolumePanel(Viewer) {
   Object.assign(Viewer, {

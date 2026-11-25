@@ -315,6 +315,8 @@ export function attachAnimations(Viewer) {
       attachToolPanelChrome(bar, bar, {
         icon: PANEL_ICONS.animation,
         label: () => t("animation.player", "Animation player"),
+        // Small over the scene, not a sheet on a phone.
+        modal: false,
         onClose: () => {
           Viewer.pauseAnimation();
           bar.hidden = true;

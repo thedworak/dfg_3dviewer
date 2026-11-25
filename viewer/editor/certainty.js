@@ -398,6 +398,8 @@ export function attachCertainty(Viewer) {
       attachToolPanelChrome(legend, legend.querySelector(".certainty-legend__header"), {
         before: legend.querySelector(".certainty-legend__close"),
         icon: PANEL_ICONS.certainty,
+        // Small over the scene, not a sheet on a phone.
+        modal: false,
       });
     },
 

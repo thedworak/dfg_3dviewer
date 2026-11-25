@@ -3,8 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { canvasFont, paintCanvasText } from "../ui/canvas-font.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
-import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { getUpAxisPivot } from "../up-axis.js";
 import {
   dataAlert,
@@ -54,7 +53,8 @@ const LABEL_HEIGHT = 0.03;
 const LABEL_CANVAS = [512, 112];
 const MAX_TABLE_ROWS = 300;
 const NO_COLOR = "#8a8a8a";
-const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// The menus' phone layout (bar or rail), as the sheets go by.
+const isPhone = () => isPhoneLayout();
 const ease = (x) => (x < 0.5 ? 2 * x * x : 1 - ((-2 * x + 2) ** 2) / 2);
 
 function modelRoots() {

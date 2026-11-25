@@ -2,8 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
-import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { loadedModelsBox } from "../viewer-utils.js";
 import { soundInRoom } from "./scene-acoustics.js";
 
@@ -47,7 +46,8 @@ const FADE_SECONDS = 0.6;
 const DUCKED = 0.35;
 const MARKER_SIZE = 0.055;
 const GOLD = "#f5a524";
-const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// The menus' phone layout (bar or rail), as the sheets go by.
+const isPhone = () => isPhoneLayout();
 const round = (value, digits = 4) => Math.round(value * 10 ** digits) / 10 ** digits;
 
 function toVector(value) {

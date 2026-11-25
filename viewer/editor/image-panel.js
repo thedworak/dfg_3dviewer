@@ -2,8 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
-import { PHONE_TOOLBAR_QUERY } from "../editor-toolbar.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { toastHelper } from "../viewer-utils.js";
 
 // A 2D image (image2d.js): the window to enhance it, and - for a set - the
@@ -25,7 +24,8 @@ import { toastHelper } from "../viewer-utils.js";
 // the wheel zooms; the ground is hidden. Comparing, the divider is dragged
 // across the image with the cursor (or a finger) as well as by its slider.
 
-const isPhone = () => window.matchMedia(PHONE_TOOLBAR_QUERY).matches;
+// The menus' phone layout (bar or rail), as the sheets go by.
+const isPhone = () => isPhoneLayout();
 // How near the comparison's divider (CSS pixels) a press takes it; twice
 // that for a finger.
 const SPLIT_GRAB_PX = 10;

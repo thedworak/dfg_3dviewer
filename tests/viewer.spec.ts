@@ -4637,6 +4637,38 @@ test('point cloud settings on a phone: minimized to their icon, opened as a shee
   await context.close();
 });
 
+test('settings windows as sheets wherever the menus take their phone layout: the materials at 641 px, without touch', async ({ browser }) => {
+  // Wider than 640 px, narrower than the menus' 700: the tab bar along the
+  // bottom, and the windows go with it.
+  const context = await browser.newContext({ viewport: { width: 641, height: 1213 } });
+  const page = await context.newPage();
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  await expect(page.locator('#viewerEditorToolbar')).toHaveAttribute('data-mode', 'bar');
+  await page.evaluate(() => window.Viewer.toggleMaterialsPanel(true));
+  const panel = page.locator('#viewerMaterials');
+  await expect(panel).toHaveClass(/is-modal-open/);
+  await expect(panel.locator('.tool-panel-chrome_grabber')).toBeVisible();
+  const viewer = await panel.evaluate((el) => el.offsetParent.getBoundingClientRect().toJSON());
+  const box = await panel.boundingBox();
+  expect(Math.abs(box.y + box.height - (viewer.y + viewer.height))).toBeLessThan(2);
+  expect(box.width).toBeGreaterThan(viewer.width - 2);
+  expect(box.height).toBeLessThanOrEqual(viewer.height * 0.47 + 1);
+  await expect.poll(() => page.evaluate(() => window.Viewer.camera?.view?.enabled ? window.Viewer.camera.view.offsetY : 0)).toBeGreaterThan(50);
+
+  // Wider, a desktop again: back in the side stack, the picture as it was.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(panel).not.toHaveClass(/is-modal-open/);
+  await expect.poll(() => page.evaluate(() => window.Viewer.camera?.view?.enabled ? window.Viewer.camera.view.offsetY : 0)).toBe(0);
+  // Closed (the panel removed), the picture is not left moved.
+  await page.setViewportSize({ width: 641, height: 1213 });
+  await expect(panel).toHaveClass(/is-modal-open/);
+  await page.evaluate(() => window.Viewer.toggleMaterialsPanel(false));
+  await expect(panel).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.Viewer.camera?.view?.enabled ? window.Viewer.camera.view.offsetY : 0)).toBe(0);
+  await context.close();
+});
+
 test('volume settings on a desktop: open in the side stack, not modal', async ({ page }) => {
   await openViewer(page, '/examples/volumes/capsid.mrc');
   await waitForModel(page, 40_000);
@@ -8402,16 +8434,24 @@ test('more of the scene on a phone: the page header as one button, a window fold
   await expect(panel.locator('input[name="year"]')).toBeVisible();
   await expect(panel.locator('select[name="kind"]')).toBeHidden();
   expect((await panel.boundingBox()).height).toBeLessThan(full / 2);
-  // The window clear of the header's button.
+  // A sheet along the foot of the viewer: clear of the header's button.
+  await expect(panel).toHaveClass(/is-modal-open/);
   const [panelBox, toggleBox] = await Promise.all([panel.boundingBox(), toggle.boundingBox()]);
-  expect(panelBox.x).toBeGreaterThanOrEqual(toggleBox.x + toggleBox.width);
+  expect(panelBox.y).toBeGreaterThanOrEqual(toggleBox.y + toggleBox.height);
   await panel.locator('.tool-panel-chrome_fold').tap();
   await expect(panel.locator('select[name="kind"]')).toBeVisible();
 
-  // Adjusting a slider on touch devices temporarily keeps only that setting
-  // visible, so the model is not hidden by the rest of the window: the
-  // slider where it was.
+  // Adjusting a slider: at half height the sheet stays (the model is in
+  // view above it); taller, it keeps only that setting visible, the slider
+  // where it was.
   const yearTop = () => panel.locator('input[name="year"]').evaluate((el) => el.getBoundingClientRect().top);
+  await panel.locator('input[name="year"]').focus();
+  await page.waitForTimeout(100);
+  await expect(panel).not.toHaveClass(/is-peek/);
+  await panel.locator('input[name="year"]').blur();
+  await panel.locator('.tool-panel-chrome_grabber').tap();
+  await expect(panel).toHaveClass(/is-sheet-full/);
+  await page.waitForTimeout(300);
   const topBefore = await yearTop();
   await panel.locator('input[name="year"]').focus();
   await expect(panel).toHaveClass(/is-peek/);
