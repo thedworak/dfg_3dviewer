@@ -4516,40 +4516,52 @@ test('volumes in a .zip by URL: opened in the browser when the repository has no
   }
 });
 
-test('volume settings on a phone: minimized to their icon, opened as a modal window, folded by a tap beside it', async ({ browser }) => {
+test('volume settings on a phone: minimized to their icon, opened as a sheet along the foot of the viewer, the model above it', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const phone = await context.newPage();
   await openViewer(phone, '/examples/volumes/capsid.mrc');
   await waitForModel(phone, 40_000);
   const panel = phone.locator('#viewerVolumePanel');
   const pip = panel.locator('.tool-panel-chrome_pip');
-  const backdrop = phone.locator('.tool-panel-chrome_backdrop');
   const toolButton = phone.locator('button[data-tool="volume"]');
   // There, but only as its icon.
   await expect(panel).toHaveClass(/is-minimized/);
   await expect(pip).toBeVisible();
   await expect(panel.locator('.viewer-pointcloud-panel_body')).toBeHidden();
-  await expect(backdrop).toHaveCount(0);
   await expect(toolButton).toHaveAttribute('aria-pressed', 'false');
   const place = () => panel.evaluate((el) => el.parentElement?.className || el.parentElement?.id);
   const docked = await place();
+  const viewOffset = () => phone.evaluate(() => {
+    const view = window.Viewer.camera?.view ?? null;
+    return view?.enabled ? view.offsetY : 0;
+  });
 
-  // A tap: a window over the viewer, on a backdrop.
+  // A tap: a sheet along the foot of the viewer, no backdrop; the picture
+  // slides up to the middle of what is left above it.
   await pip.click();
   await expect(panel).toHaveClass(/is-modal-open/);
-  await expect(panel).toHaveAttribute('aria-modal', 'true');
-  await expect(backdrop).toBeVisible();
+  await expect(phone.locator('.tool-panel-chrome_backdrop')).toHaveCount(0);
   await expect(toolButton).toHaveAttribute('aria-pressed', 'true');
+  const viewer = await panel.evaluate((el) => el.offsetParent.getBoundingClientRect().toJSON());
+  const canvas = await phone.locator('#MainCanvas').boundingBox();
   const box = await panel.boundingBox();
-  expect(Math.abs(box.x + box.width / 2 - 195)).toBeLessThan(4);
-  expect(box.width).toBeLessThanOrEqual(380);
+  expect(Math.abs(box.y + box.height - (viewer.y + viewer.height))).toBeLessThan(2);
+  expect(box.width).toBeGreaterThan(380);
+  expect(box.height).toBeLessThanOrEqual(viewer.height * 0.47 + 1);
+  await expect.poll(viewOffset).toBeCloseTo((canvas.y + canvas.height - box.y) / 2, 0);
 
-  // A tap beside it: back to its icon, where it was.
-  await backdrop.click({ position: { x: 20, y: 20 } });
+  // The grabber: a tap makes it taller, a drag down minimizes it.
+  await panel.locator('.tool-panel-chrome_grabber').click();
+  await expect(panel).toHaveClass(/is-sheet-full/);
+  const grabber = await panel.locator('.tool-panel-chrome_grabber').boundingBox();
+  await phone.mouse.move(grabber.x + grabber.width / 2, grabber.y + grabber.height / 2);
+  await phone.mouse.down();
+  await phone.mouse.move(grabber.x + grabber.width / 2, viewer.y + viewer.height - 20, { steps: 8 });
+  await phone.mouse.up();
   await expect(panel).toHaveClass(/is-minimized/);
   await expect(panel).not.toHaveClass(/is-modal-open/);
-  await expect(backdrop).toHaveCount(0);
   expect(await place()).toBe(docked);
+  await expect.poll(viewOffset).toBe(0);
 
   // The toolbar's button opens it and folds it; Escape folds it too.
   await phone.evaluate(() => window.Viewer.toggleVolumePanel());
@@ -4562,7 +4574,7 @@ test('volume settings on a phone: minimized to their icon, opened as a modal win
   await context.close();
 });
 
-test('point cloud settings on a phone: minimized to their icon, opened as a modal window, folded by a tap beside it', async ({ browser }) => {
+test('point cloud settings on a phone: minimized to their icon, opened as a sheet, a slider adjusted with the model in view', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const phone = await context.newPage();
   await openViewer(phone, '/examples/points.laz');
@@ -4579,14 +4591,34 @@ test('point cloud settings on a phone: minimized to their icon, opened as a moda
 
   await pip.click();
   await expect(panel).toHaveClass(/is-modal-open/);
-  await expect(backdrop).toBeVisible();
+  await expect(backdrop).toHaveCount(0);
   await expect(panel.locator('.viewer-pointcloud-panel_body')).toBeVisible();
   await expect(toolButton).toHaveAttribute('aria-pressed', 'true');
   // The settings work in the window.
   await panel.locator('select').nth(2).selectOption('height');
   expect(await phone.evaluate(() => window.Viewer.pointCloudState.colorMode)).toBe('height');
 
-  await backdrop.click({ position: { x: 20, y: 20 } });
+  // A slider adjusted: at half height the sheet stays as it is (the cloud
+  // is in view above it); at full height it folds to that slider, the slider
+  // staying where it was, then all of it comes back.
+  const range = panel.locator('input[type="range"]').first();
+  const rangeTop = () => range.evaluate((el) => el.getBoundingClientRect().top);
+  await range.focus();
+  await phone.waitForTimeout(100);
+  await expect(panel).not.toHaveClass(/is-peek/);
+  await range.blur();
+  await panel.locator('.tool-panel-chrome_grabber').click();
+  await expect(panel).toHaveClass(/is-sheet-full/);
+  await phone.waitForTimeout(300);
+  const topBefore = await rangeTop();
+  await range.focus();
+  await expect(panel).toHaveClass(/is-peek/);
+  expect(Math.abs((await rangeTop()) - topBefore)).toBeLessThan(2);
+  await phone.keyboard.press('ArrowRight');
+  await expect(panel).not.toHaveClass(/is-peek/);
+  expect(Math.abs((await rangeTop()) - topBefore)).toBeLessThan(2);
+
+  await panel.locator('.tool-panel-chrome_minimize').click();
   await expect(panel).toHaveClass(/is-minimized/);
   await expect(backdrop).toHaveCount(0);
   expect(await panel.evaluate((el) => el.parentElement?.className || el.parentElement?.id)).toBe(docked);
@@ -8377,14 +8409,19 @@ test('more of the scene on a phone: the page header as one button, a window fold
   await expect(panel.locator('select[name="kind"]')).toBeVisible();
 
   // Adjusting a slider on touch devices temporarily keeps only that setting
-  // visible, so the model is not hidden by the rest of the window.
+  // visible, so the model is not hidden by the rest of the window: the
+  // slider where it was.
+  const yearTop = () => panel.locator('input[name="year"]').evaluate((el) => el.getBoundingClientRect().top);
+  const topBefore = await yearTop();
   await panel.locator('input[name="year"]').focus();
   await expect(panel).toHaveClass(/is-peek/);
   await expect(panel.locator('input[name="year"]')).toBeVisible();
   await expect(panel.locator('select[name="kind"]')).toBeHidden();
+  expect(Math.abs((await yearTop()) - topBefore)).toBeLessThan(2);
   await page.keyboard.press('ArrowRight');
   await expect(panel).not.toHaveClass(/is-peek/);
   await expect(panel.locator('select[name="kind"]')).toBeVisible();
+  expect(Math.abs((await yearTop()) - topBefore)).toBeLessThan(2);
 
   // Minimized, the badge comes back: one line.
   await panel.locator('.tool-panel-chrome_minimize').tap();

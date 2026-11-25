@@ -1,15 +1,16 @@
 import { core } from "../core.js";
 import { isAppBuild } from "../remote.js";
 import { t } from "../i18n-utils.js";
+import { setSceneInset } from "../scene-inset.js";
 
 // Floating tool panels (section planes, measurements, point cloud, tour, sun,
 // timeline) get a grip in their header to drag the panel anywhere over the
 // viewer (double tap: back to the side stack), a button that minimizes it to
 // a small round icon (tap: restore, drag: move) and, for panels without one
 // of their own, a close button. A `modal` panel (phones: its settings take
-// the screen) restores as a window centred over the viewer, on a dimmed
-// backdrop; a tap on the backdrop, Escape or its minimize button folds it
-// back to its icon. A fold button rolls a panel up to its header and the
+// the screen) restores as a sheet along the foot of the viewer, the model
+// moved to the middle of what is left above it; dragged down, Escape or its
+// minimize button folds it back to its icon. A fold button rolls a panel up to its header and the
 // controls marked [data-panel-peek] (the surroundings' year, say): on a
 // phone the scene stays in view while the one setting that matters is
 // changed.
@@ -232,19 +233,116 @@ function isModal(panel) {
   return Boolean(typeof modal === "function" ? modal() : modal);
 }
 
-function createBackdrop(panel) {
-  const backdrop = document.createElement("div");
-  backdrop.className = "tool-panel-chrome_backdrop";
-  ["pointerdown", "pointerup", "wheel", "touchstart"].forEach((type) => {
-    backdrop.addEventListener(type, (event) => event.stopPropagation(), { passive: type !== "pointerdown" });
-  });
-  backdrop.addEventListener("click", () => setMinimized(panel, true));
-  return backdrop;
+// A `modal` panel restored on a phone is a sheet: along the foot of the
+// viewer (in landscape, its right side), with no backdrop - the model stays
+// in view above it and can be turned while the settings change; the
+// picture slides to the middle of what the sheet leaves (scene-inset.js).
+// Its grabber (or header) drags it between half and nearly all of the
+// viewer's height; dragged down past half that, it minimizes.
+const SHEET_SNAPS = [0.46, 0.88];
+const SHEET_MINIMIZE_BELOW = 0.22;
+
+const isSideSheet = () => window.matchMedia?.("(orientation: landscape) and (max-height: 520px)").matches === true;
+
+function sheetInset(panel) {
+  const canvas = core.mainCanvas || core.container;
+  if (!canvas || !panel.classList.contains("is-modal-open") || panel.classList.contains("is-minimized")) return null;
+  const view = canvas.getBoundingClientRect();
+  const rect = panel.getBoundingClientRect();
+  if (isSideSheet()) return { right: Math.max(0, view.right - rect.left) };
+  return { bottom: Math.max(0, view.bottom - rect.top) };
 }
 
-// Restored as a modal window: in the viewer container, above a backdrop;
-// where it was (the side stack, or where its icon was dragged) is kept for
-// minimizing again.
+function updateSheetInset(panel) {
+  // A sheet folded to a slider being adjusted: the picture keeps where it
+  // was rather than jumping under the finger.
+  if (panel.classList.contains("is-range-peek")) return;
+  setSceneInset(panel, sheetInset(panel));
+}
+
+function setSheetSnap(panel, index) {
+  const chrome = panel.toolPanelChrome;
+  chrome.sheetSnap = Math.min(Math.max(index, 0), SHEET_SNAPS.length - 1);
+  panel.style.setProperty("--tool-sheet-height", `${SHEET_SNAPS[chrome.sheetSnap] * 100}%`);
+  panel.classList.toggle("is-sheet-full", chrome.sheetSnap === SHEET_SNAPS.length - 1);
+}
+
+const isSheetControl = (target) => target instanceof Element
+  && Boolean(target.closest("button:not(.tool-panel-chrome_grabber), input, select, textarea, a, [contenteditable]"));
+
+// The grabber and the header drag the sheet up and down; a tap on the
+// grabber goes to the other height.
+function bindSheetDrag(panel, header) {
+  const chrome = panel.toolPanelChrome;
+  if (chrome.sheetDragHeader === header) return;
+  chrome.sheetDragHeader = header;
+  header.addEventListener("pointerdown", (event) => {
+    if (!panel.classList.contains("is-modal-open") || isSideSheet() || event.button > 0 || isSheetControl(event.target)) return;
+    const container = core.container;
+    if (!container) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    const startY = event.clientY;
+    const startHeight = panel.getBoundingClientRect().height;
+    const full = container.clientHeight;
+    let moved = false;
+    const onMove = (moveEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      const dy = moveEvent.clientY - startY;
+      if (!moved && Math.abs(dy) < TAP_SLOP_PX) return;
+      moved = true;
+      panel.classList.add("is-sheet-dragging");
+      panel.style.height = `${Math.min(Math.max(startHeight - dy, 48), full * 0.94)}px`;
+      updateSheetInset(panel);
+    };
+    const onEnd = (endEvent) => {
+      if (endEvent.pointerId !== pointerId) return;
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onEnd, true);
+      window.removeEventListener("pointercancel", onEnd, true);
+      panel.classList.remove("is-sheet-dragging");
+      if (!moved) {
+        if (endEvent.type !== "pointercancel" && event.target.closest?.(".tool-panel-chrome_grabber")) {
+          setSheetSnap(panel, chrome.sheetSnap === 0 ? 1 : 0);
+        }
+        return;
+      }
+      const height = panel.getBoundingClientRect().height / full;
+      panel.style.removeProperty("height");
+      if (height < SHEET_MINIMIZE_BELOW) {
+        setMinimized(panel, true, { focus: false });
+        return;
+      }
+      // The nearest height, or the next one in the direction it was flung.
+      const dy = endEvent.clientY - startY;
+      let index = SHEET_SNAPS.reduce((best, snap, i) => (Math.abs(snap - height) < Math.abs(SHEET_SNAPS[best] - height) ? i : best), 0);
+      if (Math.abs(dy) > full * 0.08) index = dy < 0 ? Math.max(index, chrome.sheetSnap + 1) : Math.min(index, chrome.sheetSnap - 1);
+      if (index < 0) {
+        setMinimized(panel, true, { focus: false });
+        return;
+      }
+      setSheetSnap(panel, index);
+      updateSheetInset(panel);
+    };
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onEnd, true);
+    window.addEventListener("pointercancel", onEnd, true);
+  });
+}
+
+function createGrabber() {
+  const grabber = document.createElement("button");
+  grabber.type = "button";
+  grabber.className = "tool-panel-chrome_grabber";
+  return grabber;
+}
+
+const openSheets = new Set();
+window.addEventListener("resize", () => openSheets.forEach((panel) => updateSheetInset(panel)));
+
+// Restored as a sheet, in the viewer container; where it was (the side
+// stack, or where its icon was dragged) is kept for minimizing again.
 function openModal(panel) {
   const chrome = panel.toolPanelChrome;
   const container = core.container;
@@ -253,20 +351,24 @@ function openModal(panel) {
     chrome.modalMark = document.createComment("modal tool panel");
     panel.before(chrome.modalMark);
   }
-  chrome.backdrop ||= createBackdrop(panel);
-  chrome.backdrop.setAttribute("aria-label", t("toolPanel.minimize", "Minimize panel"));
-  container.append(chrome.backdrop, panel);
+  container.append(panel);
   panel.classList.add("is-modal-open");
   panel.setAttribute("role", "dialog");
-  panel.setAttribute("aria-modal", "true");
+  setSheetSnap(panel, chrome.sheetSnap ?? 0);
+  chrome.sheetObserver ||= new ResizeObserver(() => updateSheetInset(panel));
+  chrome.sheetObserver.observe(panel);
+  openSheets.add(panel);
+  updateSheetInset(panel);
 }
 
 function closeModal(panel) {
   const chrome = panel.toolPanelChrome;
   if (!chrome || !panel.classList.contains("is-modal-open")) return;
-  panel.classList.remove("is-modal-open");
-  panel.removeAttribute("aria-modal");
-  chrome.backdrop?.remove();
+  panel.classList.remove("is-modal-open", "is-sheet-full", "is-sheet-dragging");
+  panel.style.removeProperty("height");
+  chrome.sheetObserver?.disconnect();
+  openSheets.delete(panel);
+  setSceneInset(panel, null);
   if (chrome.modalMark?.isConnected) chrome.modalMark.replaceWith(panel);
   else chrome.modalMark?.remove();
   chrome.modalMark = null;
@@ -350,7 +452,9 @@ function installRangePeek(panel) {
     state.target = null;
     state.restore = false;
     state.pointerId = null;
+    setRangePeekLook(panel, false);
     setToolPanelFolded(panel, false);
+    panel.scrollTop = state.scrollTop || 0;
   };
   const finishSoon = () => {
     clearTimer();
@@ -360,6 +464,8 @@ function installRangePeek(panel) {
   };
   const begin = (input) => {
     if (!isPhone() || panel.classList.contains("is-minimized") || isToolPanelFolded(panel)) return;
+    // A sheet at half height leaves the model in view: nothing to fold.
+    if (panel.classList.contains("is-modal-open") && !panel.classList.contains("is-sheet-full") && !isSideSheet()) return;
     clearTimer();
     const target = input.closest("label") || input;
     if (!panel.contains(target)) return;
@@ -367,7 +473,14 @@ function installRangePeek(panel) {
     state.target = target;
     target.setAttribute("data-panel-peek", "");
     state.restore = true;
+    // The slider stays under the finger: where it was before folding, the
+    // folded window shifted to it (a centred modal window would otherwise
+    // shrink around its middle and take the slider up with it).
+    state.scrollTop = panel.scrollTop;
+    const before = target.getBoundingClientRect().top;
     setToolPanelFolded(panel, true);
+    const after = target.getBoundingClientRect().top;
+    setRangePeekLook(panel, true, before - after);
   };
   const rangeFrom = (event) => event.target instanceof HTMLInputElement && event.target.type === "range" ? event.target : null;
 
@@ -394,6 +507,14 @@ function installRangePeek(panel) {
   panel.addEventListener("focusout", (event) => {
     if (rangeFrom(event) && state.restore) finishSoon();
   });
+}
+
+// While a slider is adjusted: the folded window moved by `shift` px to keep
+// the slider in place.
+function setRangePeekLook(panel, on, shift = 0) {
+  panel.classList.toggle("is-range-peek", on);
+  panel.style.translate = on && shift ? `0 ${Math.round(shift)}px` : "";
+  if (!on && panel.classList.contains("is-modal-open")) updateSheetInset(panel);
 }
 
 // Rolls the panel up to its header and its [data-panel-peek] controls
@@ -471,11 +592,12 @@ export function attachToolPanelChrome(panel, header, {
       minimize: minimizable ? createMinimize(panel) : null,
       pip: minimizable ? createPip(panel) : null,
       close: onClose ? createClose(onClose) : null,
+      grabber: createGrabber(),
     };
     panel.classList.add("has-tool-chrome");
     installRangePeek(panel);
     watchPanelVisibility(panel, visibilityRoot);
-    // A modal window: Escape folds it; hidden or removed, its backdrop goes.
+    // A sheet: Escape folds it; hidden, it gives the scene back.
     panel.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && panel.classList.contains("is-modal-open")) setMinimized(panel, true);
     });
@@ -484,13 +606,21 @@ export function attachToolPanelChrome(panel, header, {
     }).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
   }
   Object.assign(panel.toolPanelChrome, { header, options: { before, icon, label, modal } });
-  const { grip, fold, minimize, pip, close } = panel.toolPanelChrome;
+  const { grip, fold, minimize, pip, close, grabber } = panel.toolPanelChrome;
   header.classList.add("tool-panel-chrome");
+  if (modal) {
+    const grabLabel = t("toolPanel.resizeSheet", "Drag to resize, tap: taller or lower");
+    grabber.title = grabLabel;
+    grabber.setAttribute("aria-label", grabLabel);
+    if (header.firstChild !== grabber) header.prepend(grabber);
+    bindSheetDrag(panel, header);
+  }
   if (grip) {
     const moveLabel = t("toolPanel.move", "Move panel (double tap: dock)");
     grip.title = moveLabel;
     grip.setAttribute("aria-label", moveLabel);
-    if (header.firstChild !== grip) header.prepend(grip);
+    const first = header.firstChild === grabber ? grabber.nextSibling : header.firstChild;
+    if (first !== grip) header.insertBefore(grip, first);
   }
   if (close) {
     const closeLabel = t("toolPanel.close", "Close panel");

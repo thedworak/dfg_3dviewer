@@ -225,6 +225,7 @@ import { imageSet, loadDroppedArchive } from "./extract-helper.js";
 import { loadDroppedModel, createCreditsElement } from "./sandbox.js";
 import { initErrorTracking } from "./error-tracking.js";
 import { isToolPanelChromeEnabled } from "./ui/tool-panel-chrome.js";
+import { applySceneInset } from "./scene-inset.js";
 import { anchorPanelUnder, makePanelWindow } from "./ui/panel-window.js";
 import { bindHoverOpen } from "./ui/hover-open.js";
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
@@ -2776,6 +2777,8 @@ export const Viewer = {
     }
     updateGround();
 
+    // The model in the middle of what a phone's settings sheet leaves seen.
+    applySceneInset(delta);
     // The comparison view (editor/compare.js) draws its two sides itself.
     if (!Viewer.renderCompareFrame(renderFrame)) renderFrame();
     Viewer.renderViewHelper(delta);

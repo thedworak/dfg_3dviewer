@@ -40,6 +40,7 @@ export const VIEWER_I18N = {
     toolPanel: {
       move: "Move panel (double tap: dock)",
       minimize: "Minimize panel",
+      resizeSheet: "Drag to resize, tap: taller or lower",
       restore: "Restore panel",
       close: "Close panel",
       fold: "Fold panel (keep its main setting)",
@@ -3254,6 +3255,7 @@ export const VIEWER_I18N = {
     toolPanel: {
       move: "Przesuń panel (podwójne dotknięcie: przypnij z powrotem)",
       minimize: "Zminimalizuj panel",
+      resizeSheet: "Przeciągnij, aby zmienić wysokość; dotknij: wyżej lub niżej",
       restore: "Rozwiń panel",
       close: "Zamknij panel",
       fold: "Zwiń panel (zostaje główne ustawienie)",
@@ -5364,6 +5366,7 @@ export const VIEWER_I18N = {
     toolPanel: {
       move: "Panel verschieben (Doppeltipp: andocken)",
       minimize: "Panel minimieren",
+      resizeSheet: "Ziehen ändert die Höhe, Tippen: höher oder niedriger",
       restore: "Panel wiederherstellen",
       close: "Panel schließen",
       fold: "Panel einklappen (die wichtigste Einstellung bleibt)",

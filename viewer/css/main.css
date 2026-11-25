@@ -2150,10 +2150,7 @@ body.presentation-mode {
   }
 
   /* The scene alone (menu-toolbar.js): the button goes with the menus. */
-  /* Also while a window is open as a modal (ui/tool-panel-chrome.js): a
-     tap beside it folds it, and must not land on the button. */
-  body.viewer-page-header-folds.viewer-scene-only > #viewer-page-header,
-  body.viewer-page-header-folds:has(.tool-panel-chrome_backdrop) > #viewer-page-header {
+  body.viewer-page-header-folds.viewer-scene-only > #viewer-page-header {
     display: none;
   }
 
