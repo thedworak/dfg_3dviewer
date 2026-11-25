@@ -9,6 +9,9 @@ const WOLPA = 'wolpa-synagogue-aim3d-local';
 const PAGODA = 'pagoda-aim3d-local';
 const MODEL = './examples/pagoda/Pagoda-progressive.glb';
 const MODEL_4D = './examples/pagoda/4D/Pagoda_4D.glb';
+// The pagoda's metadata manifest (synthetic data), shared by every Pagoda
+// manifest - the two hand-authored ones too (AIM3DViewer.metadata).
+const METADATA = './examples/pagoda/metadata.json';
 
 const camera = {
   position: [24, 9, 30], target: [0, 9.5, 0], up: [0, 1, 0], fov: 45,
@@ -352,6 +355,7 @@ function tailor(manifest, suffix) {
   manifest.AIM3DViewer.camera = structuredClone(camera);
   manifest.AIM3DViewer.lights = getLights(suffix);
   manifest.AIM3DViewer.generatedAt = '2026-11-20T00:00:00.000Z';
+  manifest.AIM3DViewer.metadata = METADATA;
   manifest.modified = '2026-11-20T00:00:00.000Z';
 
   if (manifest.AIM3DViewer.location) {
@@ -431,7 +435,8 @@ function tailor(manifest, suffix) {
         on: true,
         position: [0, 2.0, 0],
         material: 'wood',
-        floor: 'wood',
+        // The floors as the walls, wood (FLOOR_COVERS in room-acoustics.js).
+        floor: 'material',
       },
     };
   }
@@ -539,6 +544,88 @@ function tailor(manifest, suffix) {
     ];
   }
 }
+
+// The metadata manifest every Pagoda manifest links to
+// (viewer/manifesto/manifest-metadata.js). All of it is invented - the
+// pagoda is the project's own model - and says so (synthetic).
+const L = languageMap;
+const pair = (label, value) => ({ label: L(...label), value: L(...value) });
+const metadataManifest = {
+  '@context': 'http://iiif.io/api/presentation/4/context.json',
+  id: './examples/pagoda/metadata.json',
+  type: 'AIM3DMetadata',
+  version: '1.0',
+  synthetic: {
+    note: L(
+      'Synthetic example data: the pagoda, its history, place and dates are invented to show what the viewer can display. Nothing here describes a real building.',
+      'Dane syntetyczne: pagoda, jej historia, miejsce i daty są wymyślone, aby pokazać możliwości przeglądarki. Nic tu nie opisuje rzeczywistego budynku.',
+      'Synthetische Beispieldaten: Die Pagode, ihre Geschichte, ihr Ort und ihre Daten sind erfunden, um zu zeigen, was der Viewer darstellen kann. Nichts davon beschreibt ein reales Gebäude.',
+    ),
+  },
+  label: L('Pagoda (synthetic example)', 'Pagoda (przykład syntetyczny)', 'Pagode (synthetisches Beispiel)'),
+  summary: L(
+    'A three-storey timber pagoda in the Japanese manner on a stone platform, crowned by a bronze finial. A procedurally generated model, the project\'s own showcase.',
+    'Trzykondygnacyjna drewniana pagoda w stylu japońskim na kamiennym podeście, zwieńczona brązową iglicą. Model wygenerowany proceduralnie, własny model pokazowy projektu.',
+    'Eine dreigeschossige Holzpagode im japanischen Stil auf einer Steinplattform, bekrönt von einer Bronzespitze. Ein prozedural erzeugtes Modell, das eigene Vorzeigemodell des Projekts.',
+  ),
+  metadata: [
+    pair(['Data status', 'Status danych', 'Datenstatus'],
+      ['Synthetic - invented for demonstration', 'Syntetyczne - wymyślone do celów pokazowych', 'Synthetisch - zu Demonstrationszwecken erfunden']),
+    pair(['Object type', 'Typ obiektu', 'Objekttyp'],
+      ['Building: three-storey pagoda (sanjū-no-tō)', 'Budynek: pagoda trzykondygnacyjna (sanjū-no-tō)', 'Gebäude: dreigeschossige Pagode (Sanjū-no-tō)']),
+    pair(['Style', 'Styl', 'Stil'],
+      ['Japanese Buddhist temple architecture, early Edo manner', 'Japońska buddyjska architektura świątynna, styl wczesnego okresu Edo', 'Japanische buddhistische Tempelarchitektur, frühe Edo-Zeit']),
+    pair(['Place (fictional)', 'Miejsce (fikcyjne)', 'Ort (fiktiv)'],
+      ['A temple precinct, placed at 34.68° N, 135.83° E for the sun and surroundings', 'Zespół świątynny, umieszczony na 34,68° N, 135,83° E dla słońca i otoczenia', 'Ein Tempelbezirk, für Sonne und Umgebung bei 34,68° N, 135,83° O verortet']),
+    pair(['Dating (fictional)', 'Datowanie (fikcyjne)', 'Datierung (fiktiv)'],
+      ['Built c. 1615; repaired 1702 and 1830; restored 1897 and 1952', 'Zbudowana ok. 1615; remonty 1702 i 1830; restauracje 1897 i 1952', 'Erbaut um 1615; instandgesetzt 1702 und 1830; restauriert 1897 und 1952']),
+    pair(['Dimensions', 'Wymiary', 'Abmessungen'],
+      ['Height 20.5 m; platform 10.8 × 10.8 × 1.1 m; ground storey 6.4 × 6.4 m', 'Wysokość 20,5 m; podest 10,8 × 10,8 × 1,1 m; parter 6,4 × 6,4 m', 'Höhe 20,5 m; Plattform 10,8 × 10,8 × 1,1 m; Erdgeschoss 6,4 × 6,4 m']),
+    pair(['Structure', 'Konstrukcja', 'Konstruktion'],
+      ['Three storeys, each with a curved hip roof on three-step bracket sets (mitesaki tokyō); central pillar (shinbashira)', 'Trzy kondygnacje, każda z wygiętym dachem czterospadowym na trzystopniowych wspornikach (mitesaki tokyō); słup centralny (shinbashira)', 'Drei Geschosse, jedes mit geschwungenem Walmdach auf dreistufigen Kragträgern (Mitesaki Tokyō); Mittelpfeiler (Shinbashira)']),
+    pair(['Materials', 'Materiały', 'Materialien'],
+      ['Hinoki timber with vermilion paint, lime plaster, ceramic roof tiles (kawara), granite platform, bronze finial; lacquered, gilded and painted interior', 'Drewno hinoki malowane cynobrem, tynk wapienny, dachówka ceramiczna (kawara), granitowy podest, brązowa iglica; wnętrze lakierowane, złocone i malowane', 'Hinoki-Holz mit Zinnoberanstrich, Kalkputz, Keramikziegel (Kawara), Granitplattform, Bronzespitze; lackiertes, vergoldetes und bemaltes Inneres']),
+    pair(['Creator', 'Twórca', 'Urheber'],
+      ['ExPlora4D project (synthetic author)', 'Projekt ExPlora4D (autor syntetyczny)', 'Projekt ExPlora4D (synthetischer Urheber)']),
+    pair(['Creation method', 'Metoda wykonania', 'Erstellungsmethode'],
+      ['Procedural modelling of geometry and textures; no survey, scan or photographs', 'Proceduralne modelowanie geometrii i tekstur; bez pomiarów, skanów i zdjęć', 'Prozedurale Modellierung von Geometrie und Texturen; ohne Aufmaß, Scan oder Fotos']),
+    pair(['Software', 'Oprogramowanie', 'Software'],
+      ['Node.js, glTF Transform, meshoptimizer (gltfpack), sharp', 'Node.js, glTF Transform, meshoptimizer (gltfpack), sharp', 'Node.js, glTF Transform, meshoptimizer (gltfpack), sharp']),
+    pair(['File format', 'Format pliku', 'Dateiformat'],
+      ['glTF 2.0 binary (GLB), Meshopt compression, KTX2 textures, low-detail preview', 'glTF 2.0 binarny (GLB), kompresja Meshopt, tekstury KTX2, podgląd o niskiej szczegółowości', 'glTF 2.0 binär (GLB), Meshopt-Kompression, KTX2-Texturen, Vorschau mit geringer Detailstufe']),
+    pair(['Model unit', 'Jednostka modelu', 'Modelleinheit'],
+      ['metre (1 unit = 1 m), Y up', 'metr (1 jednostka = 1 m), oś Y w górę', 'Meter (1 Einheit = 1 m), Y nach oben']),
+    pair(['Textures', 'Tekstury', 'Texturen'],
+      ['11 materials, 2048 px, generated; weathering stages for 4D', '11 materiałów, 2048 px, generowane; etapy starzenia dla 4D', '11 Materialien, 2048 px, generiert; Alterungsstufen für 4D']),
+    pair(['4D stages', 'Etapy 4D', '4D-Stadien'],
+      ['1615-2025: construction, weathering, repairs and restorations', '1615-2025: budowa, starzenie, remonty i restauracje', '1615-2025: Bau, Verwitterung, Instandsetzungen und Restaurierungen']),
+    pair(['Certainty (paradata)', 'Pewność (paradane)', 'Gewissheit (Paradaten)'],
+      ['Level of Certainty A-D: platform A, storey structure B, upper roof C, finial D', 'Poziom pewności A-D: podest A, konstrukcja kondygnacji B, górny dach C, iglica D', 'Grad der Gewissheit A-D: Plattform A, Geschosskonstruktion B, oberes Dach C, Spitze D']),
+    pair(['Sources', 'Źródła', 'Quellen'],
+      ['None - general knowledge of the building type only', 'Brak - wyłącznie ogólna wiedza o typie budowli', 'Keine - nur allgemeines Wissen über den Bautyp']),
+    pair(['Keywords', 'Słowa kluczowe', 'Schlagwörter'],
+      ['pagoda; Buddhist architecture; timber construction; Japan; 3D reconstruction; synthetic data', 'pagoda; architektura buddyjska; konstrukcja drewniana; Japonia; rekonstrukcja 3D; dane syntetyczne', 'Pagode; buddhistische Architektur; Holzbau; Japan; 3D-Rekonstruktion; synthetische Daten']),
+    pair(['Identifier', 'Identyfikator', 'Kennung'],
+      ['urn:explora4d:example:pagoda', 'urn:explora4d:example:pagoda', 'urn:explora4d:example:pagoda']),
+    pair(['Model created', 'Model utworzony', 'Modell erstellt'],
+      ['2026-11-19', '2026-11-19', '2026-11-19']),
+  ],
+  requiredStatement: pair(
+    ['Attribution', 'Uznanie autorstwa', 'Namensnennung'],
+    ['Pagoda - synthetic example model of the ExPlora4D viewer (CC0)', 'Pagoda - syntetyczny model przykładowy przeglądarki ExPlora4D (CC0)', 'Pagode - synthetisches Beispielmodell des ExPlora4D-Viewers (CC0)'],
+  ),
+  rights: 'https://creativecommons.org/publicdomain/zero/1.0/',
+  provider: [
+    {
+      id: 'https://explora4d.eu/',
+      type: 'Agent',
+      label: L('ExPlora4D', 'ExPlora4D', 'ExPlora4D'),
+      homepage: [{ id: 'https://explora4d.eu/', type: 'Text', format: 'text/html', label: L('ExPlora4D', 'ExPlora4D', 'ExPlora4D') }],
+    },
+  ],
+  navDate: '1615-01-01T00:00:00Z',
+};
+fs.writeFileSync(path.join('viewer', METADATA.replace(/^\.\//, '')), `${JSON.stringify(metadataManifest, null, 2)}\n`);
 
 const wolpaFiles = fs.readdirSync(ROOT).filter((file) => file.startsWith(WOLPA) && file.endsWith('.json'));
 for (const file of wolpaFiles) {

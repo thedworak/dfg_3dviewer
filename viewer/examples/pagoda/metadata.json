@@ -1,0 +1,584 @@
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/pagoda/metadata.json",
+  "type": "AIM3DMetadata",
+  "version": "1.0",
+  "synthetic": {
+    "note": {
+      "en": [
+        "Synthetic example data: the pagoda, its history, place and dates are invented to show what the viewer can display. Nothing here describes a real building."
+      ],
+      "pl": [
+        "Dane syntetyczne: pagoda, jej historia, miejsce i daty są wymyślone, aby pokazać możliwości przeglądarki. Nic tu nie opisuje rzeczywistego budynku."
+      ],
+      "de": [
+        "Synthetische Beispieldaten: Die Pagode, ihre Geschichte, ihr Ort und ihre Daten sind erfunden, um zu zeigen, was der Viewer darstellen kann. Nichts davon beschreibt ein reales Gebäude."
+      ]
+    }
+  },
+  "label": {
+    "en": [
+      "Pagoda (synthetic example)"
+    ],
+    "pl": [
+      "Pagoda (przykład syntetyczny)"
+    ],
+    "de": [
+      "Pagode (synthetisches Beispiel)"
+    ]
+  },
+  "summary": {
+    "en": [
+      "A three-storey timber pagoda in the Japanese manner on a stone platform, crowned by a bronze finial. A procedurally generated model, the project's own showcase."
+    ],
+    "pl": [
+      "Trzykondygnacyjna drewniana pagoda w stylu japońskim na kamiennym podeście, zwieńczona brązową iglicą. Model wygenerowany proceduralnie, własny model pokazowy projektu."
+    ],
+    "de": [
+      "Eine dreigeschossige Holzpagode im japanischen Stil auf einer Steinplattform, bekrönt von einer Bronzespitze. Ein prozedural erzeugtes Modell, das eigene Vorzeigemodell des Projekts."
+    ]
+  },
+  "metadata": [
+    {
+      "label": {
+        "en": [
+          "Data status"
+        ],
+        "pl": [
+          "Status danych"
+        ],
+        "de": [
+          "Datenstatus"
+        ]
+      },
+      "value": {
+        "en": [
+          "Synthetic - invented for demonstration"
+        ],
+        "pl": [
+          "Syntetyczne - wymyślone do celów pokazowych"
+        ],
+        "de": [
+          "Synthetisch - zu Demonstrationszwecken erfunden"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Object type"
+        ],
+        "pl": [
+          "Typ obiektu"
+        ],
+        "de": [
+          "Objekttyp"
+        ]
+      },
+      "value": {
+        "en": [
+          "Building: three-storey pagoda (sanjū-no-tō)"
+        ],
+        "pl": [
+          "Budynek: pagoda trzykondygnacyjna (sanjū-no-tō)"
+        ],
+        "de": [
+          "Gebäude: dreigeschossige Pagode (Sanjū-no-tō)"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Style"
+        ],
+        "pl": [
+          "Styl"
+        ],
+        "de": [
+          "Stil"
+        ]
+      },
+      "value": {
+        "en": [
+          "Japanese Buddhist temple architecture, early Edo manner"
+        ],
+        "pl": [
+          "Japońska buddyjska architektura świątynna, styl wczesnego okresu Edo"
+        ],
+        "de": [
+          "Japanische buddhistische Tempelarchitektur, frühe Edo-Zeit"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Place (fictional)"
+        ],
+        "pl": [
+          "Miejsce (fikcyjne)"
+        ],
+        "de": [
+          "Ort (fiktiv)"
+        ]
+      },
+      "value": {
+        "en": [
+          "A temple precinct, placed at 34.68° N, 135.83° E for the sun and surroundings"
+        ],
+        "pl": [
+          "Zespół świątynny, umieszczony na 34,68° N, 135,83° E dla słońca i otoczenia"
+        ],
+        "de": [
+          "Ein Tempelbezirk, für Sonne und Umgebung bei 34,68° N, 135,83° O verortet"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Dating (fictional)"
+        ],
+        "pl": [
+          "Datowanie (fikcyjne)"
+        ],
+        "de": [
+          "Datierung (fiktiv)"
+        ]
+      },
+      "value": {
+        "en": [
+          "Built c. 1615; repaired 1702 and 1830; restored 1897 and 1952"
+        ],
+        "pl": [
+          "Zbudowana ok. 1615; remonty 1702 i 1830; restauracje 1897 i 1952"
+        ],
+        "de": [
+          "Erbaut um 1615; instandgesetzt 1702 und 1830; restauriert 1897 und 1952"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Dimensions"
+        ],
+        "pl": [
+          "Wymiary"
+        ],
+        "de": [
+          "Abmessungen"
+        ]
+      },
+      "value": {
+        "en": [
+          "Height 20.5 m; platform 10.8 × 10.8 × 1.1 m; ground storey 6.4 × 6.4 m"
+        ],
+        "pl": [
+          "Wysokość 20,5 m; podest 10,8 × 10,8 × 1,1 m; parter 6,4 × 6,4 m"
+        ],
+        "de": [
+          "Höhe 20,5 m; Plattform 10,8 × 10,8 × 1,1 m; Erdgeschoss 6,4 × 6,4 m"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Structure"
+        ],
+        "pl": [
+          "Konstrukcja"
+        ],
+        "de": [
+          "Konstruktion"
+        ]
+      },
+      "value": {
+        "en": [
+          "Three storeys, each with a curved hip roof on three-step bracket sets (mitesaki tokyō); central pillar (shinbashira)"
+        ],
+        "pl": [
+          "Trzy kondygnacje, każda z wygiętym dachem czterospadowym na trzystopniowych wspornikach (mitesaki tokyō); słup centralny (shinbashira)"
+        ],
+        "de": [
+          "Drei Geschosse, jedes mit geschwungenem Walmdach auf dreistufigen Kragträgern (Mitesaki Tokyō); Mittelpfeiler (Shinbashira)"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Materials"
+        ],
+        "pl": [
+          "Materiały"
+        ],
+        "de": [
+          "Materialien"
+        ]
+      },
+      "value": {
+        "en": [
+          "Hinoki timber with vermilion paint, lime plaster, ceramic roof tiles (kawara), granite platform, bronze finial; lacquered, gilded and painted interior"
+        ],
+        "pl": [
+          "Drewno hinoki malowane cynobrem, tynk wapienny, dachówka ceramiczna (kawara), granitowy podest, brązowa iglica; wnętrze lakierowane, złocone i malowane"
+        ],
+        "de": [
+          "Hinoki-Holz mit Zinnoberanstrich, Kalkputz, Keramikziegel (Kawara), Granitplattform, Bronzespitze; lackiertes, vergoldetes und bemaltes Inneres"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Creator"
+        ],
+        "pl": [
+          "Twórca"
+        ],
+        "de": [
+          "Urheber"
+        ]
+      },
+      "value": {
+        "en": [
+          "ExPlora4D project (synthetic author)"
+        ],
+        "pl": [
+          "Projekt ExPlora4D (autor syntetyczny)"
+        ],
+        "de": [
+          "Projekt ExPlora4D (synthetischer Urheber)"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Creation method"
+        ],
+        "pl": [
+          "Metoda wykonania"
+        ],
+        "de": [
+          "Erstellungsmethode"
+        ]
+      },
+      "value": {
+        "en": [
+          "Procedural modelling of geometry and textures; no survey, scan or photographs"
+        ],
+        "pl": [
+          "Proceduralne modelowanie geometrii i tekstur; bez pomiarów, skanów i zdjęć"
+        ],
+        "de": [
+          "Prozedurale Modellierung von Geometrie und Texturen; ohne Aufmaß, Scan oder Fotos"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Software"
+        ],
+        "pl": [
+          "Oprogramowanie"
+        ],
+        "de": [
+          "Software"
+        ]
+      },
+      "value": {
+        "en": [
+          "Node.js, glTF Transform, meshoptimizer (gltfpack), sharp"
+        ],
+        "pl": [
+          "Node.js, glTF Transform, meshoptimizer (gltfpack), sharp"
+        ],
+        "de": [
+          "Node.js, glTF Transform, meshoptimizer (gltfpack), sharp"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "File format"
+        ],
+        "pl": [
+          "Format pliku"
+        ],
+        "de": [
+          "Dateiformat"
+        ]
+      },
+      "value": {
+        "en": [
+          "glTF 2.0 binary (GLB), Meshopt compression, KTX2 textures, low-detail preview"
+        ],
+        "pl": [
+          "glTF 2.0 binarny (GLB), kompresja Meshopt, tekstury KTX2, podgląd o niskiej szczegółowości"
+        ],
+        "de": [
+          "glTF 2.0 binär (GLB), Meshopt-Kompression, KTX2-Texturen, Vorschau mit geringer Detailstufe"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Model unit"
+        ],
+        "pl": [
+          "Jednostka modelu"
+        ],
+        "de": [
+          "Modelleinheit"
+        ]
+      },
+      "value": {
+        "en": [
+          "metre (1 unit = 1 m), Y up"
+        ],
+        "pl": [
+          "metr (1 jednostka = 1 m), oś Y w górę"
+        ],
+        "de": [
+          "Meter (1 Einheit = 1 m), Y nach oben"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Textures"
+        ],
+        "pl": [
+          "Tekstury"
+        ],
+        "de": [
+          "Texturen"
+        ]
+      },
+      "value": {
+        "en": [
+          "11 materials, 2048 px, generated; weathering stages for 4D"
+        ],
+        "pl": [
+          "11 materiałów, 2048 px, generowane; etapy starzenia dla 4D"
+        ],
+        "de": [
+          "11 Materialien, 2048 px, generiert; Alterungsstufen für 4D"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "4D stages"
+        ],
+        "pl": [
+          "Etapy 4D"
+        ],
+        "de": [
+          "4D-Stadien"
+        ]
+      },
+      "value": {
+        "en": [
+          "1615-2025: construction, weathering, repairs and restorations"
+        ],
+        "pl": [
+          "1615-2025: budowa, starzenie, remonty i restauracje"
+        ],
+        "de": [
+          "1615-2025: Bau, Verwitterung, Instandsetzungen und Restaurierungen"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Certainty (paradata)"
+        ],
+        "pl": [
+          "Pewność (paradane)"
+        ],
+        "de": [
+          "Gewissheit (Paradaten)"
+        ]
+      },
+      "value": {
+        "en": [
+          "Level of Certainty A-D: platform A, storey structure B, upper roof C, finial D"
+        ],
+        "pl": [
+          "Poziom pewności A-D: podest A, konstrukcja kondygnacji B, górny dach C, iglica D"
+        ],
+        "de": [
+          "Grad der Gewissheit A-D: Plattform A, Geschosskonstruktion B, oberes Dach C, Spitze D"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Sources"
+        ],
+        "pl": [
+          "Źródła"
+        ],
+        "de": [
+          "Quellen"
+        ]
+      },
+      "value": {
+        "en": [
+          "None - general knowledge of the building type only"
+        ],
+        "pl": [
+          "Brak - wyłącznie ogólna wiedza o typie budowli"
+        ],
+        "de": [
+          "Keine - nur allgemeines Wissen über den Bautyp"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Keywords"
+        ],
+        "pl": [
+          "Słowa kluczowe"
+        ],
+        "de": [
+          "Schlagwörter"
+        ]
+      },
+      "value": {
+        "en": [
+          "pagoda; Buddhist architecture; timber construction; Japan; 3D reconstruction; synthetic data"
+        ],
+        "pl": [
+          "pagoda; architektura buddyjska; konstrukcja drewniana; Japonia; rekonstrukcja 3D; dane syntetyczne"
+        ],
+        "de": [
+          "Pagode; buddhistische Architektur; Holzbau; Japan; 3D-Rekonstruktion; synthetische Daten"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Identifier"
+        ],
+        "pl": [
+          "Identyfikator"
+        ],
+        "de": [
+          "Kennung"
+        ]
+      },
+      "value": {
+        "en": [
+          "urn:explora4d:example:pagoda"
+        ],
+        "pl": [
+          "urn:explora4d:example:pagoda"
+        ],
+        "de": [
+          "urn:explora4d:example:pagoda"
+        ]
+      }
+    },
+    {
+      "label": {
+        "en": [
+          "Model created"
+        ],
+        "pl": [
+          "Model utworzony"
+        ],
+        "de": [
+          "Modell erstellt"
+        ]
+      },
+      "value": {
+        "en": [
+          "2026-11-19"
+        ],
+        "pl": [
+          "2026-11-19"
+        ],
+        "de": [
+          "2026-11-19"
+        ]
+      }
+    }
+  ],
+  "requiredStatement": {
+    "label": {
+      "en": [
+        "Attribution"
+      ],
+      "pl": [
+        "Uznanie autorstwa"
+      ],
+      "de": [
+        "Namensnennung"
+      ]
+    },
+    "value": {
+      "en": [
+        "Pagoda - synthetic example model of the ExPlora4D viewer (CC0)"
+      ],
+      "pl": [
+        "Pagoda - syntetyczny model przykładowy przeglądarki ExPlora4D (CC0)"
+      ],
+      "de": [
+        "Pagode - synthetisches Beispielmodell des ExPlora4D-Viewers (CC0)"
+      ]
+    }
+  },
+  "rights": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "provider": [
+    {
+      "id": "https://explora4d.eu/",
+      "type": "Agent",
+      "label": {
+        "en": [
+          "ExPlora4D"
+        ],
+        "pl": [
+          "ExPlora4D"
+        ],
+        "de": [
+          "ExPlora4D"
+        ]
+      },
+      "homepage": [
+        {
+          "id": "https://explora4d.eu/",
+          "type": "Text",
+          "format": "text/html",
+          "label": {
+            "en": [
+              "ExPlora4D"
+            ],
+            "pl": [
+              "ExPlora4D"
+            ],
+            "de": [
+              "ExPlora4D"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "navDate": "1615-01-01T00:00:00Z"
+}

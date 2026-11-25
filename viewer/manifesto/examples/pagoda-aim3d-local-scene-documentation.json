@@ -161,7 +161,8 @@
     "sceneSuggest": {
       "open": true,
       "purpose": "documentation"
-    }
+    },
+    "metadata": "./examples/pagoda/metadata.json"
   },
   "modified": "2026-11-20T00:00:00.000Z",
   "summary": {

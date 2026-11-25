@@ -162,7 +162,136 @@
       ],
       "wireframe": false,
       "shadingMode": "standard"
-    }
+    },
+    "thumbnails": [
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side0.png",
+        "label": {
+          "en": [
+            "Front"
+          ],
+          "pl": [
+            "Przód"
+          ],
+          "de": [
+            "Vorderseite"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side45.png",
+        "label": {
+          "en": [
+            "Front corner, 45°"
+          ],
+          "pl": [
+            "Narożnik od frontu, 45°"
+          ],
+          "de": [
+            "Vordere Ecke, 45°"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side90.png",
+        "label": {
+          "en": [
+            "Side, 90°"
+          ],
+          "pl": [
+            "Bok, 90°"
+          ],
+          "de": [
+            "Seite, 90°"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side135.png",
+        "label": {
+          "en": [
+            "Rear corner, 135°"
+          ],
+          "pl": [
+            "Narożnik od tyłu, 135°"
+          ],
+          "de": [
+            "Hintere Ecke, 135°"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side180.png",
+        "label": {
+          "en": [
+            "Back"
+          ],
+          "pl": [
+            "Tył"
+          ],
+          "de": [
+            "Rückseite"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side225.png",
+        "label": {
+          "en": [
+            "Rear corner, 225°"
+          ],
+          "pl": [
+            "Narożnik od tyłu, 225°"
+          ],
+          "de": [
+            "Hintere Ecke, 225°"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side270.png",
+        "label": {
+          "en": [
+            "Side, 270°"
+          ],
+          "pl": [
+            "Bok, 270°"
+          ],
+          "de": [
+            "Seite, 270°"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_side315.png",
+        "label": {
+          "en": [
+            "Front corner, 315°"
+          ],
+          "pl": [
+            "Narożnik od frontu, 315°"
+          ],
+          "de": [
+            "Vordere Ecke, 315°"
+          ]
+        }
+      },
+      {
+        "src": "./examples/gallery/pagoda/Pagoda-progressive_top.png",
+        "label": {
+          "en": [
+            "Top view"
+          ],
+          "pl": [
+            "Widok z góry"
+          ],
+          "de": [
+            "Draufsicht"
+          ]
+        }
+      }
+    ],
+    "metadata": "./examples/pagoda/metadata.json"
   },
   "modified": "2026-11-19T00:00:00.000Z"
 }

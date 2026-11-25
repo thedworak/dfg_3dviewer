@@ -3,6 +3,7 @@ import {
   certaintyScaleErrors,
   normalizeCertaintyScale,
 } from "./certainty-scale.js";
+import { metadataFieldErrors } from "./manifest-metadata.js";
 
 // Keep in sync with TONE_MAPPING_MODES / ANTIALIAS_MODES in viewer/rendering.js
 // (not imported: this module also runs in Node without three.js).
@@ -936,6 +937,10 @@ function validateAIM3DViewerBlock(block, path, errors) {
   if (block.materials !== undefined) validateMaterials(block.materials, `${path}.materials`, errors);
   if (block.measurements !== undefined) validateMeasurements(block.measurements, `${path}.measurements`, errors);
   if (block.thumbnails !== undefined) validateThumbnails(block.thumbnails, `${path}.thumbnails`, errors);
+  // The metadata manifest, embedded or referenced (manifest-metadata.js).
+  if (block.metadata !== undefined) {
+    metadataFieldErrors(block.metadata, `${path}.metadata`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
+  }
   if (block.certainty !== undefined) {
     certaintyScaleErrors(block.certainty, `${path}.certainty`).forEach(([errorPath, message]) => pushError(errors, errorPath, message));
   }

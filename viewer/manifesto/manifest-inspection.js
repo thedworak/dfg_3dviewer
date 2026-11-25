@@ -642,6 +642,8 @@ const AIM3D_BLOCK = obj({
     customShader: obj({ vertexShader: TEXT, fragmentShader: TEXT }),
   })),
   clipping: CLIPPING,
+  // The metadata manifest: embedded, or its URL (manifest-metadata.js).
+  metadata: tag("metadata", alt({ string: FILE_URL, object: () => METADATA_MANIFEST })),
 });
 
 // IIIF Presentation 3/4. Linking and descriptive properties every resource
@@ -669,6 +671,16 @@ const DESCRIPTIVE = {
   created: DATE,
   modified: DATE,
 };
+
+// A metadata manifest (type "AIM3DMetadata"), embedded in AIM3DViewer.metadata.
+const METADATA_MANIFEST = obj({
+  "@context": alt({ string: URL_, array: arr(alt({ string: URL_, object: ANY })) }),
+  id: URL_,
+  type: leaf(oneOf(["AIM3DMetadata"])),
+  version: TEXT,
+  synthetic: alt({ boolean: BOOL, object: obj({ note: LANG }) }),
+  ...DESCRIPTIVE,
+});
 
 const QUANTITY = obj({ type: leaf(oneOf(["Quantity"], "warning")), quantityValue: NUM, unit: TEXT }, { expect: [["quantityValue", "error"]] });
 const POINT = obj({ type: TEXT, x: NUM, y: NUM, z: NUM, id: URL_ });

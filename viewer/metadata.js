@@ -6,6 +6,7 @@ import { parseFloatParam } from "./viewer-param-utils.js";
 import { clearIfcProperties } from "./ifc-properties.js";
 import { workerSettingsUrl } from "./worker-model.js";
 import { attachManifestTreeEditor } from "./manifesto/manifest-tree-editor.js";
+import { isSynthetic, metadataRows, syntheticNote } from "./manifesto/manifest-metadata.js";
 import { exampleManifestOption, getExampleManifests, groupExampleOptions, refreshExampleManifests } from "./example-manifests.js";
 
 // Below this distance (px) from its default glued corner, drag movement is
@@ -782,6 +783,81 @@ async function fetchEntityMetadata() {
   }
 }
 
+// Labels of the IIIF properties shown in the metadata window; a metadata
+// pair brings its own label.
+const MANIFEST_FIELD_KEYS = ["label", "summary", "requiredStatement", "rights", "provider", "homepage", "navDate"];
+
+// IIIF values may hold a little HTML (<a>, <b>, <br>...): shown as text.
+function plainText(value) {
+  const text = String(value ?? "");
+  if (!/<[a-z/][^>]*>/i.test(text) || typeof DOMParser === "undefined") return text;
+  return new DOMParser().parseFromString(text, "text/html").body.textContent || "";
+}
+
+// Fills #metadata-manifest with the metadata of the manifest on screen, in
+// the viewer's language: a "synthetic data" notice first when the metadata
+// manifest says so. Run again on a language change (Viewer.updateMetadataCounts).
+let manifestMetadataRender = 0;
+export async function renderManifestMetadata() {
+  const section = document.getElementById("metadata-manifest");
+  if (!section) return;
+  const manifest = window.Viewer?.currentManifest;
+  const render = ++manifestMetadataRender;
+  let resolved = null;
+  try {
+    resolved = await (manifest?.descriptive ?? null);
+  } catch (_error) {
+    resolved = null;
+  }
+  // Another model, or a newer render, in the meantime.
+  if (render !== manifestMetadataRender || !section.isConnected || window.Viewer?.currentManifest !== manifest) return;
+
+  section.textContent = "";
+  const record = resolved?.record || null;
+  section.dataset.source = record ? resolved.kind : "";
+  const language = core.currentLanguage || "en";
+  if (isSynthetic(record)) {
+    const notice = document.createElement("div");
+    notice.className = "metadata-synthetic";
+    notice.setAttribute("role", "note");
+    const badge = document.createElement("span");
+    badge.className = "metadata-synthetic-badge";
+    badge.textContent = t("metadata.synthetic", "Synthetic data");
+    const note = document.createElement("span");
+    note.className = "metadata-synthetic-note";
+    note.textContent = syntheticNote(record, language)
+      || t("metadata.syntheticNote", "This metadata is invented example data.");
+    notice.append(badge, note);
+    section.appendChild(notice);
+  }
+  metadataRows(record, language).forEach((row) => {
+    const element = document.createElement("div");
+    element.className = "metadata-row";
+    element.dataset.field = row.key;
+    const label = document.createElement("span");
+    label.className = "metadata-label";
+    label.textContent = MANIFEST_FIELD_KEYS.includes(row.key) && !(row.key === "requiredStatement" && row.label !== "Attribution")
+      ? t(`metadata.fields.${row.key}`, row.label)
+      : row.label;
+    const value = document.createElement("span");
+    value.className = "metadata-value";
+    if (row.href && /^https?:\/\//i.test(row.href)) {
+      const link = document.createElement("a");
+      link.href = row.href;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = plainText(row.value);
+      value.appendChild(link);
+    } else {
+      value.textContent = plainText(row.value);
+    }
+    element.append(label, value);
+    section.appendChild(element);
+  });
+  section.hidden = section.childElementCount === 0;
+  requestAnimationFrame(updateMetadataOverflow);
+}
+
 export function fetchMetadata(_object, _type) {
   if (!_object?.geometry) return 0;
 
@@ -909,6 +985,9 @@ export async function handleMetadataResponse(
           statTile("vertices", "Vertices") +
           statTile("faces", "Faces") +
         '</div>' +
+        // The manifest's metadata (a shared metadata manifest, embedded or
+        // linked, or the manifest's own), filled in once resolved.
+        '<div id="metadata-manifest" class="metadata-manifest" hidden></div>' +
         // A repository model's name, type, author... (ui/model-metadata.js),
         // filled in once fetched.
         '<div id="metadata-repository" class="metadata-repository" hidden></div>';
@@ -959,6 +1038,7 @@ export async function handleMetadataResponse(
       '</div>' +  // #metadata-content
     '</div>';  // #metadata-window
   appendMetadata(metadataContent);
+  renderManifestMetadata();
   window.Viewer?.renderRepositoryMetadata?.();
   bindMetadataInteractions();
   initializeMetadataDragAndResize();

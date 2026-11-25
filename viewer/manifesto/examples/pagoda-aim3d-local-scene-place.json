@@ -156,6 +156,7 @@
       "open": true,
       "purpose": "presentation"
     },
+    "metadata": "./examples/pagoda/metadata.json",
     "location": {
       "latitude": 34.68,
       "longitude": 135.83,

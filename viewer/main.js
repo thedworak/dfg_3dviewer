@@ -128,7 +128,8 @@ import { loadModel, outlineClipping, getModuleAssetBasePath, syncSceneEnvironmen
 import { getGroundPreset, normalizeGroundPreset, setGroundPreset, updateGround } from "./ground.js";
 import { attachBrandLogo } from "./ui/brand-logo.js";
 import { applyBranding } from "./branding.js";
-import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, displayManifestInForm, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
+import { createIIIFDropdown, createManifestUI, createManifestSourceSwitch, createAIM3IFDropdown, displayManifestInForm, renderManifestMetadata, resetModelSettings, updateMetadataCounts as updateMetadataCardCounts } from "./metadata.js";
+import { resolveManifestMetadata } from "./manifesto/manifest-metadata.js";
 import { initRendering, applyRenderingSettings, getRenderingSettings, isAmbientOcclusionActive, isPostProcessingActive, renderFrame } from "./rendering.js";
 import { UltraLoader } from "./ultra-loader.js";
 import { StatusPoller } from "./status-poller.js";
@@ -3553,6 +3554,13 @@ export const Viewer = {
     // The manifest shown (after the reset, which forgets it): its scenes,
     // cameras and descriptive properties, for switching and exporting.
     Viewer.currentManifest = { source: newUrlOrJson, type, manifestType, json: manifestJson, baseUrl };
+    // Its descriptive metadata - embedded, a shared metadata manifest it
+    // links to, or its own properties (manifesto/manifest-metadata.js) -
+    // fetched while the model loads, for the metadata window.
+    Viewer.currentManifest.descriptive = resolveManifestMetadata(manifestJson).then((resolved) => {
+      if (resolved?.error) console.warn(`Manifest metadata skipped (${resolved.url || resolved.kind}): ${resolved.error}`);
+      return resolved;
+    });
     // The size of a scene unit (Scene.spatialScale), for measurements.
     Viewer.manifestUnitMeters = readSpatialScale(manifestJson, shownScene);
     // A previous AIM3D manifest may have left the camera in orthographic mode.
@@ -3699,9 +3707,11 @@ export const Viewer = {
     }));
   },
 
-  // The metadata card's counts in the viewer's language.
+  // The metadata card's counts in the viewer's language, and the
+  // manifest's metadata rows (language maps) with them.
   updateMetadataCounts(root) {
     updateMetadataCardCounts(root);
+    renderManifestMetadata();
   },
 
   // Shows another Scene of the manifest loaded last.

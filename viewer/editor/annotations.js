@@ -1821,6 +1821,10 @@ export function attachAnnotations(Viewer) {
         MANIFEST_DESCRIPTIVE_PROPERTIES.forEach((key) => {
           if (source[key] !== undefined) manifest[key] = structuredClone(source[key]);
         });
+        // Its metadata manifest, embedded or linked (manifesto/manifest-metadata.js).
+        if (source.AIM3DViewer?.metadata !== undefined) {
+          manifest.AIM3DViewer.metadata = structuredClone(source.AIM3DViewer.metadata);
+        }
         const sourceScenes = (source.items || []).filter((item) => item?.type === "Scene");
         const sourceScene = sourceScenes[sceneIndexOf(source, core.activeScene)];
         const exportedScene = manifest.items[0];

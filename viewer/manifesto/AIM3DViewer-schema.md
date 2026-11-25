@@ -16,6 +16,7 @@ The machine-readable schema lives in [AIM3DViewer-schema.json](./AIM3DViewer-sch
     "rakingLight": {},
     "timeline": {},
     "thumbnails": [],
+    "metadata": "./examples/pagoda/metadata.json",
     "modelTransform": {}
   }
 }
@@ -833,6 +834,53 @@ optional `label` (a string or a language map, used as the image's alt text).
 - An image that fails to load is replaced by a generic placeholder.
 
 See [tempietto-aim3d-thumbnails.json](./examples/tempietto-aim3d-thumbnails.json).
+
+## `AIM3DViewer.metadata`
+
+The object's descriptive metadata, written once and shared by all of its
+manifests (every lighting, shading, 4D or certainty view of one model). The
+value is either
+
+- the **metadata manifest embedded** as an object, or
+- a **reference**: its URL, or a path (`./...`) resolved like the manifest's
+  model URLs.
+
+```json
+"AIM3DViewer": { "metadata": "./examples/pagoda/metadata.json" }
+```
+
+A metadata manifest (`"type": "AIM3DMetadata"`) holds the IIIF descriptive
+and rights properties of the object: `label`, `summary`, `metadata` (label /
+value pairs, language maps), `requiredStatement`, `rights`, `provider`,
+`homepage`, `navDate`, `thumbnail`, `seeAlso`. `synthetic` (`true`, or
+`{ "note": <language map> }`) marks invented example data; the metadata
+window says so above the rows.
+
+```json
+{
+  "@context": "http://iiif.io/api/presentation/4/context.json",
+  "id": "./examples/pagoda/metadata.json",
+  "type": "AIM3DMetadata",
+  "version": "1.0",
+  "synthetic": { "note": { "en": ["Invented example data."] } },
+  "label": { "en": ["Pagoda"] },
+  "metadata": [{ "label": { "en": ["Height"] }, "value": { "en": ["20.5 m"] } }],
+  "rights": "https://creativecommons.org/publicdomain/zero/1.0/"
+}
+```
+
+- The metadata window (Model details) shows the metadata manifest's rows in
+  the viewer's language, under the vertex and face counts.
+- The manifest's own `label` and `summary` describe its view; the metadata
+  manifest describes the object.
+- Without `AIM3DViewer.metadata`, the manifest's own descriptive properties
+  are shown - older manifests and IIIF manifests stay as they are.
+- A reference that cannot be fetched, or that is not a metadata manifest,
+  is skipped with a console warning; the manifest still opens. Each URL is
+  fetched once per page.
+
+See [pagoda-aim3d-local.json](./examples/pagoda-aim3d-local.json) and
+`viewer/examples/pagoda/metadata.json`.
 
 ## `AIM3DViewer.certainty`
 

@@ -576,6 +576,13 @@
             ]
           }
         },
+        "metadata": {
+          "description": "The object's descriptive metadata, kept once for all its manifests: a metadata manifest embedded here, or its URL or relative path (\"./...\", resolved like the model URLs). Without it the manifest's own descriptive properties are the metadata.",
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "$ref": "#/$defs/metadataManifest" }
+          ]
+        },
         "modelTransform": {
           "type": "object",
           "properties": {
@@ -645,6 +652,55 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "metadataManifest": {
+      "description": "A metadata manifest (manifesto/manifest-metadata.js): the IIIF descriptive and rights properties of the object, shared by its manifests. synthetic marks invented example data.",
+      "type": "object",
+      "properties": {
+        "@context": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": ["string", "object"] } }
+          ]
+        },
+        "id": { "type": "string" },
+        "type": { "const": "AIM3DMetadata" },
+        "version": { "type": "string" },
+        "label": { "$ref": "#/$defs/languageMap" },
+        "summary": { "$ref": "#/$defs/languageMap" },
+        "metadata": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "value"],
+            "properties": {
+              "label": { "$ref": "#/$defs/languageMap" },
+              "value": { "$ref": "#/$defs/languageMap" }
+            }
+          }
+        },
+        "requiredStatement": {
+          "type": "object",
+          "required": ["label", "value"],
+          "properties": {
+            "label": { "$ref": "#/$defs/languageMap" },
+            "value": { "$ref": "#/$defs/languageMap" }
+          }
+        },
+        "rights": { "type": "string" },
+        "provider": { "type": "array" },
+        "homepage": { "type": "array" },
+        "navDate": { "type": "string" },
+        "thumbnail": { "type": "array" },
+        "seeAlso": { "type": "array" },
+        "synthetic": {
+          "anyOf": [
+            { "type": "boolean" },
+            { "type": "object", "properties": { "note": { "$ref": "#/$defs/languageMap" } }, "additionalProperties": true }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
     "languageMap": {
       "description": "A IIIF language map ({\"pl\": [\"...\"]}) or a plain string.",
       "anyOf": [

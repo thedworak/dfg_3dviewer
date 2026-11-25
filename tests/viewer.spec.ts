@@ -5,6 +5,7 @@ import { validateAIM3DManifest } from '../viewer/manifesto/aim3dviewer-validatio
 import { inspectAIM3DManifest, manifestFeatureIcons } from '../viewer/manifesto/manifest-inspection.js';
 import { retargetManifest } from '../viewer/manifesto/retarget-manifest.js';
 import { AIM3D_MANIFEST_VERSION, manifestVersionStatus } from '../viewer/manifesto/manifest-version.js';
+import { clearMetadataCache, metadataManifestErrors, metadataRows, metadataSource, resolveManifestMetadata, rightsLabel, syntheticNote } from '../viewer/manifesto/manifest-metadata.js';
 import { buildIfcSummary, runIfcFilter } from '../viewer/ai/ifc-filter.js';
 import { findSceneCoordinates, findSceneYear, sceneProportions, suggestScene } from '../viewer/editor/scene-rules.js';
 import { findSurroundingsKind, layoutSurroundings, normalizeSurroundings, suggestSurroundings, surroundingsGrowth, surroundingsSnows, surroundingsMasonry, surroundingsPeriod, surroundingsRegion, surroundingsSliderToYear, surroundingsTerrainHeight, surroundingsWaterDistance, surroundingsWaterLevel, surroundingsYearToSlider } from '../viewer/editor/surroundings-rules.js';
@@ -10062,4 +10063,142 @@ test('the lightweight viewer lights the model with the small environment map', a
   await waitForModel(page);
   await expect.poll(() => maps).toContain('/assets/maps/lite/neutral.hdr');
   expect(maps.filter((path) => !path.includes('/maps/lite/'))).toEqual([]);
+});
+
+test('manifest metadata: embedded or referenced, shared by every Pagoda manifest, older manifests as they were', async () => {
+  const shared = JSON.parse(fs.readFileSync('viewer/examples/pagoda/metadata.json', 'utf8'));
+  expect(metadataManifestErrors(shared)).toEqual([]);
+  expect(shared.type).toBe('AIM3DMetadata');
+  expect(syntheticNote(shared, 'pl')).toContain('syntetyczne');
+
+  // Every Pagoda manifest links to the one metadata manifest.
+  const dir = 'viewer/manifesto/examples';
+  const pagoda = fs.readdirSync(dir).filter((name) => name.startsWith('pagoda-') && name.endsWith('.json'));
+  expect(pagoda.length).toBeGreaterThan(20);
+  for (const name of pagoda) {
+    const manifest = JSON.parse(fs.readFileSync(`${dir}/${name}`, 'utf8'));
+    expect(metadataSource(manifest), name).toEqual({ kind: 'reference', url: './examples/pagoda/metadata.json' });
+  }
+
+  const base = { type: 'Manifest', items: [], label: { en: ['View'] }, rights: 'https://creativecommons.org/licenses/by-sa/4.0/' };
+  // A reference: fetched once for every manifest pointing at it.
+  clearMetadataCache();
+  const fetched: string[] = [];
+  const fetchJson = async (url) => { fetched.push(url); return shared; };
+  const referencing = { ...base, AIM3DViewer: { metadata: './examples/pagoda/metadata.json' } };
+  const options = { baseUrl: 'http://localhost:1234/', fetchJson };
+  const [first, second] = await Promise.all([
+    resolveManifestMetadata(referencing, options),
+    resolveManifestMetadata(structuredClone(referencing), options),
+  ]);
+  expect(fetched).toEqual(['http://localhost:1234/examples/pagoda/metadata.json']);
+  expect(first).toMatchObject({ kind: 'reference', url: 'http://localhost:1234/examples/pagoda/metadata.json' });
+  expect(first.record).toBe(shared);
+  expect(second.record).toBe(shared);
+
+  // Embedded: the same metadata, nothing fetched.
+  const embedded = await resolveManifestMetadata({ ...base, AIM3DViewer: { metadata: shared } }, options);
+  expect(embedded).toMatchObject({ kind: 'embedded', record: shared });
+  expect(fetched).toHaveLength(1);
+
+  // The rows in the viewer's language: the object's title, not the view's.
+  const rows = metadataRows(embedded.record, 'de');
+  expect(rows[0]).toMatchObject({ key: 'label', value: 'Pagode (synthetisches Beispiel)' });
+  expect(rows.find((row) => row.label === 'Abmessungen')?.value).toContain('20,5 m');
+  expect(rows.find((row) => row.key === 'rights')).toMatchObject({ value: 'CC0 1.0', href: shared.rights });
+  expect(rows.find((row) => row.key === 'provider')).toMatchObject({ value: 'ExPlora4D', href: 'https://explora4d.eu/' });
+  expect(rightsLabel('https://creativecommons.org/licenses/by-nc-sa/4.0/')).toBe('CC BY-NC-SA 4.0');
+
+  // Without AIM3DViewer.metadata: the manifest's own properties, as before.
+  expect(await resolveManifestMetadata(base, options)).toMatchObject({ kind: 'manifest', record: { label: base.label, rights: base.rights } });
+  expect(await resolveManifestMetadata({ type: 'Manifest', items: [] }, options)).toBeNull();
+
+  // A reference that fails, or is no metadata manifest: skipped, with the reason.
+  const failing = await resolveManifestMetadata({ ...base, AIM3DViewer: { metadata: './missing.json' } }, {
+    ...options, fetchJson: async () => { throw new Error('HTTP 404'); },
+  });
+  expect(failing).toMatchObject({ kind: 'reference', record: null, error: 'HTTP 404' });
+  const wrong = await resolveManifestMetadata({ ...base, AIM3DViewer: { metadata: './wrong.json' } }, {
+    ...options, fetchJson: async () => ({ type: 'Manifest', metadata: {} }),
+  });
+  expect(wrong.record).toBeNull();
+  expect(wrong.error).toContain('AIM3DMetadata');
+
+  // The validator: a URL or a metadata manifest; nothing else.
+  const valid = (metadata) => validateAIM3DManifest({ ...base, AIM3DViewer: { metadata } }).errors.map((error) => error.path);
+  expect(valid('./examples/pagoda/metadata.json')).toEqual([]);
+  expect(valid(shared)).toEqual([]);
+  expect(valid('')).toEqual(['$.AIM3DViewer.metadata']);
+  expect(valid(42)).toEqual(['$.AIM3DViewer.metadata']);
+  expect(valid({ type: 'AIM3DMetadata', metadata: [{ label: { en: ['Height'] } }] })).toEqual(['$.AIM3DViewer.metadata.metadata[0].value']);
+  // ...and the inspection knows the attribute.
+  const inspection = inspectAIM3DManifest({ ...base, id: 'https://example.org/m.json', AIM3DViewer: { metadata: shared } });
+  expect(inspection.attributes.filter((entry) => entry.path.startsWith('AIM3DViewer.metadata') && !entry.known)).toEqual([]);
+});
+
+test('model details: the Pagoda shows its shared, synthetic metadata in the viewer\'s language', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/examples/pagoda/metadata.json')) requests.push(request.url());
+  });
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  const open = (url) => page.evaluate(async (manifest) => {
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(manifest, 'url', 'aim3if');
+  }, url);
+
+  await open('/manifests/pagoda-aim3d-local.json');
+  await waitForModel(page, 60_000);
+  await page.locator('#metadata-collapse').click();
+  const section = page.locator('#metadata-manifest');
+  await expect(section).toBeVisible();
+  await expect(section).toHaveAttribute('data-source', 'reference');
+  // Said to be invented, before anything else.
+  await expect(section.locator('.metadata-synthetic-badge')).toHaveText('Synthetic data');
+  await expect(section.locator('.metadata-synthetic-note')).toContainText('invented');
+  // The counts stay, the object's metadata follows.
+  await expect(page.locator('.metadata-stat')).toHaveCount(2);
+  await expect(section.locator('.metadata-row[data-field="label"] .metadata-value')).toHaveText('Pagoda (synthetic example)');
+  const dimensions = section.locator('.metadata-row', { hasText: 'Dimensions' });
+  await expect(dimensions.locator('.metadata-value')).toContainText('Height 20.5 m');
+  expect(await section.locator('.metadata-row[data-field="metadata"]').count()).toBeGreaterThan(15);
+  await expect(section.locator('.metadata-row[data-field="rights"] a')).toHaveAttribute('href', 'https://creativecommons.org/publicdomain/zero/1.0/');
+  await expect(section.locator('.metadata-row[data-field="rights"] a')).toHaveText('CC0 1.0');
+  // Exported again, the view still links to it.
+  expect(await page.evaluate(() => window.Viewer.build3IFManifest().AIM3DViewer.metadata)).toBe('./examples/pagoda/metadata.json');
+
+  // In Polish: the rows and the notice too.
+  await page.evaluate(() => {
+    document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
+    document.querySelector<HTMLElement>('.language-dropdown-item-polish')?.click();
+  });
+  await expect(section.locator('.metadata-synthetic-badge')).toHaveText('Dane syntetyczne');
+  await expect(section.locator('.metadata-row', { hasText: 'Wymiary' }).locator('.metadata-value')).toContainText('20,5 m');
+  await expect(section.locator('.metadata-row[data-field="rights"] .metadata-label')).toHaveText('Licencja');
+
+  // Another view of the Pagoda: the same metadata, not fetched again.
+  await open('/manifests/pagoda-aim3d-local-toon.json');
+  await waitForModel(page, 60_000);
+  // (Its viewer.language, English, applies with it.)
+  await expect(page.locator('#metadata-manifest .metadata-row[data-field="label"] .metadata-value')).toHaveText('Pagoda (synthetic example)');
+  expect(requests).toHaveLength(1);
+
+  // Embedded in the manifest: shown the same, nothing fetched.
+  await page.evaluate(async () => {
+    const manifest = await (await fetch('/manifests/box-aim3d-local.json')).json();
+    manifest.AIM3DViewer.metadata = {
+      type: 'AIM3DMetadata',
+      label: { en: ['Embedded box'], pl: ['Wbudowane pudełko'] },
+      metadata: [{ label: { en: ['Material'], pl: ['Materiał'] }, value: { en: ['Cardboard'], pl: ['Tektura'] } }],
+    };
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  });
+  await waitForModel(page);
+  const embedded = page.locator('#metadata-manifest');
+  await expect(embedded).toHaveAttribute('data-source', 'embedded');
+  await expect(embedded.locator('.metadata-row', { hasText: 'Material' }).locator('.metadata-value')).toHaveText('Cardboard');
+  await expect(embedded.locator('.metadata-synthetic')).toHaveCount(0);
+  expect(requests).toHaveLength(1);
 });
