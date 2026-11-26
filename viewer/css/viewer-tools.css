@@ -1552,6 +1552,16 @@
     var(--tool-panel-header-solid, #16130f);
 }
 
+/* A sheet is not moved about: no window grip (makePanelWindow's, on touch
+   screens) beside its grabber. */
+.has-tool-chrome.is-modal-open .panel-window-handle {
+  cursor: default;
+}
+
+.has-tool-chrome.is-modal-open .panel-window-handle::before {
+  content: none;
+}
+
 /* Room above the header's row for the sheet's grabber. */
 .has-tool-chrome.is-modal-open > .tool-panel-chrome {
   padding-top: 16px;

@@ -103,6 +103,8 @@ export function makeDraggable(Viewer, panel, handle) {
 
   on(handle, "pointerdown", (event) => {
     if (event.button !== 0 || event.target.closest("button, input, select, textarea, a")) return;
+    // A phone's sheet (ui/tool-panel-chrome.js) drags up and down itself.
+    if (panel.classList.contains("is-modal-open")) return;
     pinPanel(panel);
     // A panel dropped down from the header (anchorPanelUnder) moves within
     // the window, the others within the viewer.

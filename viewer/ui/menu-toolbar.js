@@ -364,20 +364,42 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(syncSceneInset).observe(panel);
 
   // A setting changed in a tall sheet (an environment map, a shading, a
-  // slider let go): the sheet settles lower, so the change is seen on the
-  // model; what was touched stays in view. Opening a submenu does not count.
+  // slider as soon as it is touched): the sheet settles lower, so the change
+  // is seen on the model; what was touched stays in view. Opening a submenu
+  // does not count. `keep` (a slider under the finger): it stays where it
+  // was on the screen as far as the lower sheet allows - its body scrolls -
+  // or else just under the sheet's header. It keeps the pointer it was
+  // pressed with, and its value follows the finger across, so the drag goes
+  // on.
   const SHEET_SETTLED = 0.42;
-  function settleSheet(target) {
+  function settleSheet(target, { keep = false } = {}) {
     if (state.mode !== "bar" || !state.open || sheet.start) return;
     const settled = Math.max(SHEET_MIN, host.getBoundingClientRect().height * SHEET_SETTLED);
     if (panel.getBoundingClientRect().height <= settled + 8) return;
+    const before = target?.getBoundingClientRect?.().top;
     state.sheetHeight = settled;
     showSheetHeight();
+    if (keep && before !== undefined) {
+      body.scrollTop += target.getBoundingClientRect().top - before;
+      const bodyTop = body.getBoundingClientRect().top;
+      const top = target.getBoundingClientRect().top;
+      if (top < bodyTop + 4) body.scrollTop -= bodyTop + 4 - top;
+      return;
+    }
     const row = target?.closest?.(".viewer-editor-tool, label") || target;
     requestAnimationFrame(() => row?.scrollIntoView?.({ block: "nearest" }));
   }
+  // A slider: at once, under the finger, so the model moves with it.
+  viewer.bindEventListener(body, "pointerdown", (event) => {
+    if (event.button > 0 || !(event.target instanceof HTMLInputElement) || event.target.type !== "range") return;
+    settleSheet(event.target, { keep: true });
+  }, true);
   // Capturing: the menus' own buttons stop their clicks from bubbling.
-  viewer.bindEventListener(body, "change", (event) => settleSheet(event.target), true);
+  viewer.bindEventListener(body, "change", (event) => {
+    // A slider settled the sheet when it was touched; let go, it stays put.
+    if (event.target instanceof HTMLInputElement && event.target.type === "range") return;
+    settleSheet(event.target);
+  }, true);
   viewer.bindEventListener(body, "click", (event) => {
     const tool = event.target.closest?.("button, .viewer-editor-tool");
     if (!tool || !body.contains(tool)) return;

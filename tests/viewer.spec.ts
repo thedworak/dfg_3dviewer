@@ -4704,6 +4704,36 @@ test('menus on a phone: the model in view above the open menu, a tall sheet sett
   await expect.poll(async () => (await sheet.boundingBox()).height).toBeLessThan(host * 0.45);
   await expect(studio).toBeInViewport();
 
+  // Tall again, a slider pressed: the sheet lowers at once (the picture
+  // with it), the slider still in view and still dragged; let go, nothing
+  // jumps.
+  const grip2 = await toolbar.locator('.viewer-menus_sheet-grip').boundingBox();
+  await page.mouse.move(grip2.x + grip2.width / 2, grip2.y + grip2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip2.x + grip2.width / 2, 80, { steps: 8 });
+  await page.mouse.up();
+  const tall = (await sheet.boundingBox()).height;
+  expect(tall).toBeGreaterThan(host * 0.6);
+  const slider = sheet.locator('input[type="range"]').first();
+  await slider.scrollIntoViewIfNeeded();
+  const sliderBox = await slider.boundingBox();
+  const valueBefore = Number(await slider.inputValue());
+  const offsetBefore = await offsetY();
+  await page.mouse.move(sliderBox.x + sliderBox.width * 0.1, sliderBox.y + sliderBox.height / 2);
+  await page.mouse.down();
+  const pressed = (await sheet.boundingBox()).height;
+  expect(pressed).toBeLessThan(host * 0.45);
+  await expect(slider).toBeInViewport();
+  const sheetTop = (await sheet.boundingBox()).y;
+  expect((await slider.boundingBox()).y).toBeGreaterThan(sheetTop);
+  // Less covered: the picture comes down with the sheet.
+  await expect.poll(offsetY).toBeLessThan(offsetBefore - 10);
+  await page.mouse.move(sliderBox.x + sliderBox.width * 0.9, sliderBox.y + sliderBox.height / 2, { steps: 6 });
+  await page.mouse.up();
+  expect(Number(await slider.inputValue())).not.toBe(valueBefore);
+  await page.waitForTimeout(100);
+  expect(Math.abs((await sheet.boundingBox()).height - pressed)).toBeLessThan(2);
+
   // Closed: the picture as it was.
   await toolbar.locator('.viewer-menus_close').click();
   await expect.poll(offsetY).toBe(0);
@@ -4716,6 +4746,8 @@ test('menus on a phone: the model in view above the open menu, a tall sheet sett
   const groundBox = await ground.boundingBox();
   expect(Math.abs(groundBox.x)).toBeLessThan(2);
   expect(groundBox.width).toBeGreaterThan(380);
+  // No window grip in its header: the sheet's grabber drags it.
+  expect(await ground.locator('.upload-panel-header').evaluate((el) => getComputedStyle(el, '::before').content)).toBe('none');
   await page.evaluate(() => window.Viewer.closeGroundPanel());
 
   // On its side: the menu's panel beside the rail moves the picture right.
