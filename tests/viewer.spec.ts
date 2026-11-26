@@ -305,6 +305,37 @@ test('sandbox notice updates after language changes', async ({ page }) => {
   await expect(notice.locator('.sandbox-formats-title')).toContainText('Obsługiwane formaty');
 });
 
+test('sandbox notice looks up a format and switches language and theme', async ({ page }) => {
+  await openSandboxViewer(page);
+
+  const notice = page.locator('#viewerStatusNotice[data-variant="sandbox"]');
+  const search = notice.locator('.sandbox-formats-search input');
+  const result = notice.locator('.sandbox-formats-result');
+
+  await search.fill('us');
+  await expect(notice.locator('.sandbox-formats-chip.is-match')).toHaveText(['USD', 'USDA', 'USDC', 'USDZ']);
+  await search.fill('scan.LAZ');
+  await expect(result).toHaveAttribute('data-kind', 'browser');
+  await expect(notice.locator('.sandbox-formats-group[data-group="points"]')).toHaveAttribute('open', '');
+  await expect(notice.locator('.sandbox-formats-chip.is-exact')).toHaveText('LAZ');
+  await search.fill('ply');
+  for (const group of ['mesh', 'points', 'splat']) {
+    await expect(notice.locator(`.sandbox-formats-group[data-group="${group}"]`)).toHaveAttribute('open', '');
+  }
+  await search.fill('e57');
+  await expect(result).toHaveAttribute('data-kind', 'server');
+  await search.fill('qqq');
+  await expect(result).toHaveAttribute('data-kind', 'none');
+
+  await notice.locator('[data-sandbox-lang="pl"]').click();
+  await expect(notice.locator('.sandbox-open-file')).toHaveText('Wczytaj z dysku');
+  await expect(search).toHaveValue('qqq');
+
+  const before = await page.evaluate(() => document.documentElement.getAttribute('data-viewer-theme'));
+  await notice.locator('[data-sandbox-action="theme"]').click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-viewer-theme', before ?? '');
+});
+
 test('sandbox notice opens a file picked from the disk', async ({ page }) => {
   await openSandboxViewer(page);
 

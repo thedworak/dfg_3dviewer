@@ -423,21 +423,60 @@ canvas {
   opacity: 0.9;
 }
 
-/* The sandbox notice's button and format groups (ui/sandbox-formats.js). */
+/* The sandbox notice's button, format groups, search and switches
+   (ui/sandbox-formats.js). Opaque enough to read over any model background;
+   a light variant follows the viewer's theme. */
 .viewer-notice-status[data-variant="sandbox"]:has(.sandbox-formats) {
+  --sbx-bg: rgba(24, 21, 18, 0.94);
+  --sbx-text: #f7f2ea;
+  --sbx-muted: rgba(247, 242, 234, 0.72);
+  --sbx-line: rgba(255, 255, 255, 0.16);
+  --sbx-card: rgba(255, 255, 255, 0.06);
+  --sbx-card-hover: rgba(255, 255, 255, 0.1);
+  --sbx-chip: rgba(255, 255, 255, 0.14);
+  --sbx-chip-text: #fff;
+  --sbx-accent: var(--viewer-brand-glow, #ffb300);
+  --sbx-accent-text: #1b1610;
+  --sbx-ok: #7ee2a8;
+  --sbx-warn: #ffd27a;
+  --sbx-bad: #ff9f9f;
   box-sizing: border-box;
-  width: min(560px, calc(100vw - 32px));
+  width: min(580px, calc(100vw - 32px));
   /* Centred: keeps clear of the logo above and the axes below. */
   max-height: calc(100vh - 240px);
+  padding: 46px 20px 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
   pointer-events: auto;
   scrollbar-width: thin;
+  background: var(--sbx-bg);
+  color: var(--sbx-text);
+  border-color: color-mix(in srgb, var(--sbx-accent) 35%, transparent);
+}
+
+[data-viewer-theme="light"] .viewer-notice-status[data-variant="sandbox"]:has(.sandbox-formats) {
+  --sbx-bg: rgba(255, 252, 247, 0.97);
+  --sbx-text: #1f1a14;
+  --sbx-muted: rgba(31, 26, 20, 0.68);
+  --sbx-line: rgba(31, 26, 20, 0.14);
+  --sbx-card: rgba(31, 26, 20, 0.035);
+  --sbx-card-hover: rgba(31, 26, 20, 0.07);
+  --sbx-chip: rgba(31, 26, 20, 0.09);
+  --sbx-chip-text: #2a231b;
+  --sbx-ok: #17784a;
+  --sbx-warn: #8a5a00;
+  --sbx-bad: #b42318;
+}
+
+.viewer-notice-status[data-variant="sandbox"]:has(.sandbox-formats) .viewer-notice-message {
+  font-size: 16px;
+  font-weight: 650;
+  padding-bottom: 4px;
 }
 
 .viewer-notice-status[data-variant="sandbox"] .viewer-notice-detail:has(.sandbox-formats) {
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 12.5px;
+  line-height: 1.4;
   opacity: 1;
 }
 
@@ -445,8 +484,65 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 10px;
   text-align: left;
+}
+
+.sandbox-formats-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+/* Language and theme, top right. */
+.sandbox-prefs {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sandbox-prefs-lang {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--sbx-line);
+  border-radius: 999px;
+}
+
+.sandbox-prefs button {
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sbx-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.sandbox-prefs button:hover {
+  color: var(--sbx-text);
+  background: var(--sbx-card-hover);
+}
+
+.sandbox-prefs-lang button[aria-pressed="true"] {
+  background: var(--sbx-accent);
+  color: var(--sbx-accent-text);
+}
+
+.sandbox-prefs-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  padding: 0 !important;
+  border: 1px solid var(--sbx-line) !important;
 }
 
 .sandbox-open-file {
@@ -454,17 +550,18 @@ canvas {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 6px 18px;
-  border: 1px solid color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 70%, transparent);
+  min-height: 40px;
+  padding: 8px 22px;
+  border: 1px solid var(--sbx-accent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 88%, transparent);
-  color: #1b1610;
+  background: var(--sbx-accent);
+  color: var(--sbx-accent-text);
   font: inherit;
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--sbx-accent) 70%, transparent);
   transition: filter 0.15s ease, transform 0.15s ease;
 }
 
@@ -476,16 +573,15 @@ canvas {
   transform: scale(0.98);
 }
 
-.sandbox-open-file:focus-visible,
-.sandbox-formats-group > summary:focus-visible {
-  outline: 2px solid var(--viewer-brand-glow, #ffb300);
+.sandbox-formats :focus-visible {
+  outline: 2px solid var(--sbx-accent);
   outline-offset: 2px;
 }
 
 .sandbox-formats-local {
   text-align: center;
-  font-size: 11px;
-  opacity: 0.75;
+  font-size: 12px;
+  color: var(--sbx-muted);
 }
 
 .sandbox-formats-title {
@@ -494,48 +590,105 @@ canvas {
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 4px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  font-size: 11px;
-  font-weight: 700;
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sbx-line);
+}
+
+.sandbox-formats-heading {
+  font-size: 13px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
+  color: var(--sbx-accent);
+}
+
+[data-viewer-theme="light"] .sandbox-formats-heading {
+  color: var(--sbx-text);
 }
 
 .sandbox-formats-hint {
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-  opacity: 0.65;
+  font-size: 11.5px;
+  color: var(--sbx-muted);
 }
+
+/* "Is my format supported?" */
+.sandbox-formats-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--sbx-line);
+  border-radius: 10px;
+  background: var(--sbx-card);
+  color: var(--sbx-muted);
+  cursor: text;
+}
+
+.sandbox-formats-search:focus-within {
+  border-color: var(--sbx-accent);
+  color: var(--sbx-text);
+}
+
+.sandbox-formats-search input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--sbx-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.sandbox-formats-search input:focus-visible {
+  outline: none;
+}
+
+.sandbox-formats-search input::placeholder {
+  color: var(--sbx-muted);
+}
+
+.sandbox-formats-result:empty {
+  display: none;
+}
+
+.sandbox-formats-result {
+  font-weight: 650;
+}
+
+.sandbox-formats-result[data-kind="browser"] { color: var(--sbx-ok); }
+.sandbox-formats-result[data-kind="server"] { color: var(--sbx-warn); }
+.sandbox-formats-result[data-kind="none"] { color: var(--sbx-bad); }
 
 .sandbox-formats-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .sandbox-formats-group {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--sbx-line);
+  border-radius: 10px;
+  background: var(--sbx-card);
+  transition: opacity 0.15s ease, border-color 0.15s ease;
 }
 
 .sandbox-formats-group[open] {
   grid-column: 1 / -1;
-  background: rgba(255, 255, 255, 0.09);
-  border-color: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 50%, transparent);
+  background: var(--sbx-card-hover);
+  border-color: color-mix(in srgb, var(--sbx-accent) 60%, transparent);
 }
 
 .sandbox-formats-group > summary {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 8px 10px;
   list-style: none;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .sandbox-formats-group > summary::-webkit-details-marker {
@@ -543,14 +696,23 @@ canvas {
 }
 
 .sandbox-formats-group > summary:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--sbx-card-hover);
 }
 
 .sandbox-formats-name {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 650;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.sandbox-formats-name .sandbox-formats-icon {
+  color: var(--sbx-accent);
+}
+
+[data-viewer-theme="light"] .sandbox-formats-name .sandbox-formats-icon {
+  color: color-mix(in srgb, var(--sbx-accent) 55%, #5a3b00);
 }
 
 .sandbox-formats-name::after {
@@ -572,32 +734,69 @@ canvas {
 .sandbox-formats-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
 }
 
 .sandbox-formats-chip {
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.12);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--sbx-chip);
+  color: var(--sbx-chip-text);
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.5;
   letter-spacing: 0.02em;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+/* Searching: the matching labels light up, the rest step back. */
+.sandbox-formats.is-searching .sandbox-formats-group:not(.is-match),
+.sandbox-formats.is-searching .sandbox-formats-server-only:not(.is-match) {
+  opacity: 0.4;
+}
+
+/* ...and the groups with a match come first. */
+.sandbox-formats.is-searching .sandbox-formats-group.is-match {
+  order: -1;
+}
+
+.sandbox-formats.is-searching .sandbox-formats-chip:not(.is-match) {
+  opacity: 0.55;
+}
+
+.sandbox-formats-chip.is-match {
+  background: color-mix(in srgb, var(--sbx-accent) 45%, transparent);
+  color: var(--sbx-text);
+}
+
+.sandbox-formats-chip.is-exact {
+  background: var(--sbx-accent);
+  color: var(--sbx-accent-text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sbx-accent) 40%, transparent);
 }
 
 .sandbox-formats-flow {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 4px 10px;
+  gap: 6px 12px;
   margin: 0;
-  padding: 2px 8px 8px;
+  padding: 4px 10px 10px;
 }
 
 .sandbox-formats-flow dt {
-  font-weight: 650;
-  font-size: 11px;
-  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 11.5px;
   white-space: nowrap;
+}
+
+.sandbox-formats-flow dt .sandbox-formats-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--sbx-accent);
 }
 
 .sandbox-formats-flow dd {
@@ -609,20 +808,26 @@ canvas {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 6px;
-  font-size: 11px;
-  opacity: 0.8;
+  padding-top: 10px;
+  border-top: 1px solid var(--sbx-line);
+  font-size: 11.5px;
+  color: var(--sbx-muted);
+  transition: opacity 0.15s ease;
 }
 
 .sandbox-formats-server-only .sandbox-formats-chip {
   background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border: 1px dashed var(--sbx-line);
+  color: var(--sbx-text);
+}
+
+.sandbox-formats-server-only .sandbox-formats-chip.is-match {
+  border-style: solid;
+  border-color: var(--sbx-accent);
 }
 
 @media (max-width: 520px) {
-  .sandbox-formats-groups {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
+  .sandbox-formats-groups,
   .sandbox-formats-flow {
     grid-template-columns: minmax(0, 1fr);
   }
