@@ -710,11 +710,11 @@ function createMinimize(panel) {
   return button;
 }
 
-// The minimize button: a window going into its corner (its icon), not a
-// dash - a dash reads as "less of the window" (a panel's own fold, say).
+// The minimize button: an arrow into the round icon the panel becomes,
+// not a dash - a dash reads as "less of the window" (a panel's own fold).
 const MINIMIZE_ICON = `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-  <path d="M8.5 2.5h-5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h5"/>
-  <path d="M7.5 6.5l6 6M13.5 8.5v4h-4"/>
+  <circle cx="12" cy="4" r="2.5" fill="currentColor" stroke="none"/>
+  <path d="M2.5 13.5 8 8M4 8h4v4"/>
 </svg>`;
 
 function syncMinimize(panel, button) {
