@@ -1460,6 +1460,9 @@
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
   transition: max-height 0.22s ease;
+  /* Not a panel's own placing (the ground window's translateX(-50%)); the
+     sheet slides in by `translate`, apart from it. */
+  transform: none !important;
   animation: tool-sheet-rise 0.2s ease-out;
 }
 
@@ -1469,7 +1472,7 @@
 }
 
 @keyframes tool-sheet-rise {
-  from { transform: translateY(40%); opacity: 0; }
+  from { translate: 0 40%; opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1494,7 +1497,7 @@
 }
 
 @keyframes tool-sheet-slide {
-  from { transform: translateX(40%); opacity: 0; }
+  from { translate: 40% 0; opacity: 0; }
 }
 
 /* The grabber: a pill at the top of the sheet's header, which drags it. */

@@ -1,6 +1,7 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { TOOL_PANEL_OPEN_EVENT } from "./tool-panel-chrome.js";
+import { setSceneInset } from "../scene-inset.js";
 // Called at run time only, so the import cycle is harmless.
 import { setStoredToolbarPosition, syncNoticeAboveToolbar } from "../editor-toolbar.js";
 import { bindHoverOpen } from "./hover-open.js";
@@ -291,6 +292,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
       showSheetHeight();
       body.scrollTop = 0;
     }
+    syncSceneInset();
     syncNoticeAboveToolbar();
     // Again once the panel has slid in.
     setTimeout(syncNoticeAboveToolbar, 320);
@@ -345,6 +347,50 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     panel.style.height = `${Math.round(Math.min(Math.max(state.sheetHeight, SHEET_MIN), sheetMax()))}px`;
     panel.style.maxHeight = "none";
   }
+  // On a phone the model stays in view beside the open menu: the picture
+  // slides to the middle of what the sheet (bar) or the panel (rail)
+  // leaves (scene-inset.js), as it does for the settings sheets.
+  function syncSceneInset() {
+    const canvas = core.mainCanvas;
+    const rect = panel.getBoundingClientRect();
+    if (!canvas || !state.open || panel.hidden || state.mode === "desktop" || !rect.width || !rect.height) {
+      setSceneInset(panel, null);
+      return;
+    }
+    const view = canvas.getBoundingClientRect();
+    if (state.mode === "bar") setSceneInset(panel, { bottom: Math.max(0, view.bottom - rect.top) });
+    else setSceneInset(panel, { left: Math.max(0, rect.right - view.left) });
+  }
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(syncSceneInset).observe(panel);
+
+  // A setting changed in a tall sheet (an environment map, a shading, a
+  // slider let go): the sheet settles lower, so the change is seen on the
+  // model; what was touched stays in view. Opening a submenu does not count.
+  const SHEET_SETTLED = 0.42;
+  function settleSheet(target) {
+    if (state.mode !== "bar" || !state.open || sheet.start) return;
+    const settled = Math.max(SHEET_MIN, host.getBoundingClientRect().height * SHEET_SETTLED);
+    if (panel.getBoundingClientRect().height <= settled + 8) return;
+    state.sheetHeight = settled;
+    showSheetHeight();
+    const row = target?.closest?.(".viewer-editor-tool, label") || target;
+    requestAnimationFrame(() => row?.scrollIntoView?.({ block: "nearest" }));
+  }
+  // Capturing: the menus' own buttons stop their clicks from bubbling.
+  viewer.bindEventListener(body, "change", (event) => settleSheet(event.target), true);
+  viewer.bindEventListener(body, "click", (event) => {
+    const tool = event.target.closest?.("button, .viewer-editor-tool");
+    if (!tool || !body.contains(tool)) return;
+    // A row's own submenu opening or closing.
+    const row = event.target.closest(".has-submenu");
+    if (row && !row.querySelector(":scope > .viewer-editor-tool_submenu")?.contains(event.target)) return;
+    // Text, numbers and ranges settle when let go (change), not on a tap.
+    if (event.target.closest("input, select, textarea")) return;
+    // After the click has done its work (a submenu row may toggle on it).
+    const target = event.target;
+    requestAnimationFrame(() => settleSheet(target));
+  }, true);
+
   const sheet = { start: null };
   viewer.bindEventListener(panel, "pointerdown", (event) => {
     if (state.mode !== "bar" || event.button !== 0) return;
@@ -425,6 +471,7 @@ export function buildMenuToolbar(viewer, toolbar, host, buttons) {
     placePanel();
     showSheetHeight();
     if (before) turnTabs(before, previous, mode);
+    syncSceneInset();
     if (mode === "desktop") requestAnimationFrame(() => keepInside());
     viewer.menuToolbar.syncHandle?.();
     syncNoticeAboveToolbar();

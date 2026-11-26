@@ -4670,6 +4670,62 @@ test('settings windows as sheets wherever the menus take their phone layout: the
   await context.close();
 });
 
+test('menus on a phone: the model in view above the open menu, a tall sheet settles once a setting changes; the ground window a sheet too', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await waitForModel(page);
+  const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
+  await expect(toolbar).toHaveAttribute('data-mode', 'bar');
+  const offsetY = () => page.evaluate(() => window.Viewer.camera?.view?.enabled ? window.Viewer.camera.view.offsetY : 0);
+  const offsetX = () => page.evaluate(() => window.Viewer.camera?.view?.enabled ? window.Viewer.camera.view.offsetX : 0);
+
+  // The Look menu open: the picture slides up above its sheet.
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').tap();
+  const sheet = toolbar.locator('.viewer-menus_panel');
+  await expect(sheet).toBeVisible();
+  await expect.poll(offsetY).toBeGreaterThan(50);
+
+  // Dragged tall, then an environment map picked: the sheet settles lower,
+  // the picked one still in view.
+  const grip = await toolbar.locator('.viewer-menus_sheet-grip').boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2, 80, { steps: 8 });
+  await page.mouse.up();
+  const host = await page.locator('#MainCanvas').evaluate((el) => el.closest('#DFG_3DViewer, .viewer-wrapper')?.getBoundingClientRect().height ?? window.innerHeight);
+  expect((await sheet.boundingBox()).height).toBeGreaterThan(host * 0.6);
+  await sheet.locator('.has-submenu:has([data-tool="environmentMapStyleStudio"])').first().click();
+  const studio = sheet.locator('[data-tool="environmentMapStyleStudio"]');
+  await expect(studio).toBeVisible();
+  // Opening the submenu alone leaves the sheet as it is.
+  expect((await sheet.boundingBox()).height).toBeGreaterThan(host * 0.6);
+  await studio.click();
+  await expect.poll(async () => (await sheet.boundingBox()).height).toBeLessThan(host * 0.45);
+  await expect(studio).toBeInViewport();
+
+  // Closed: the picture as it was.
+  await toolbar.locator('.viewer-menus_close').click();
+  await expect.poll(offsetY).toBe(0);
+
+  // The ground window: a sheet across the whole width, not moved by its own
+  // centring.
+  await page.evaluate(() => window.Viewer.toggleGroundPanel());
+  const ground = page.locator('#groundPanel');
+  await expect(ground).toHaveClass(/is-modal-open/);
+  const groundBox = await ground.boundingBox();
+  expect(Math.abs(groundBox.x)).toBeLessThan(2);
+  expect(groundBox.width).toBeGreaterThan(380);
+  await page.evaluate(() => window.Viewer.closeGroundPanel());
+
+  // On its side: the menu's panel beside the rail moves the picture right.
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(toolbar).toHaveAttribute('data-mode', 'rail');
+  await toolbar.locator('.viewer-menus_tab[data-menu="look"]').tap();
+  await expect.poll(offsetX).toBeLessThan(-50);
+  await context.close();
+});
+
 test('volume settings on a desktop: open in the side stack, not modal', async ({ page }) => {
   await openViewer(page, '/examples/volumes/capsid.mrc');
   await waitForModel(page, 40_000);
