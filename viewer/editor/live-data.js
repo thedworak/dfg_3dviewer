@@ -3,7 +3,7 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { canvasFont, paintCanvasText } from "../ui/canvas-font.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized, undockToolPanel } from "../ui/tool-panel-chrome.js";
 import { getUpAxisPivot } from "../up-axis.js";
 import {
   dataAlert,
@@ -176,6 +176,8 @@ export function attachLiveData(Viewer) {
         active: false,
         open: false,
         collapsed: false,
+        // Opened once as a window of its own (floatLiveDataPanel).
+        floated: false,
         // The window's folding parts the user opened or closed.
         sections: {},
         ui: null,
@@ -906,6 +908,19 @@ export function attachLiveData(Viewer) {
       Viewer.updateEditorToolbarState?.();
     },
 
+    // The window opens as a window of its own over the viewer (once: docked
+    // again by a double tap on its grip, it stays docked): moved by its grip,
+    // resized by its corner (what it gains goes to the table,
+    // viewer-tools.css), minimized to its icon.
+    floatLiveDataPanel() {
+      const state = Viewer.liveDataState;
+      const root = state?.ui?.root;
+      if (!root || state.floated || !state.open || isPhone()) return false;
+      if (!undockToolPanel(root)) return false;
+      state.floated = true;
+      return true;
+    },
+
     createLiveDataPanel() {
       const state = Viewer.getLiveDataState();
       const stack = getViewerSideStack();
@@ -948,6 +963,8 @@ export function attachLiveData(Viewer) {
       const ui = state?.ui;
       if (!ui) return;
       const { config } = state;
+      // Laid out only now (a manifest opens the window before its model).
+      if (!state.floated && state.open && !isPhone()) queueMicrotask(() => Viewer.floatLiveDataPanel());
       ui.body.replaceChildren();
       ui.labels = [];
       const labels = ui.labels;

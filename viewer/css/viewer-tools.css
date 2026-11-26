@@ -2263,6 +2263,43 @@
   width: 340px;
 }
 
+/* Floating (editor/live-data.js floatLiveDataPanel): resized by its corner,
+   and what it gains goes to the table. Minimized, folded or with its
+   settings hidden it is as tall as what it shows (the shared rules above). */
+.viewer-livedata-panel.is-undocked:not(.is-minimized):not(.is-modal-open):not(.is-peek) {
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  min-height: 140px;
+  max-height: calc(100% - 16px);
+  overflow: hidden;
+  resize: both;
+}
+
+.viewer-livedata-panel.is-undocked:not(.is-peek):has(> .viewer-pointcloud-panel_body[hidden]) {
+  height: auto !important;
+  min-height: 0;
+  resize: none;
+}
+
+.viewer-livedata-panel.is-undocked > .viewer-pointcloud-panel_body:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.viewer-livedata-panel.is-undocked .viewer-livedata-panel_table {
+  flex: 1 0 120px;
+  max-height: none;
+}
+
+/* Docked again (a double tap on its grip): as tall as its content. */
+.viewer-livedata-panel:not(.is-undocked) {
+  height: auto !important;
+}
+
 .viewer-livedata-panel_status {
   display: flex;
   align-items: baseline;

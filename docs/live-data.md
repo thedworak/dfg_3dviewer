@@ -53,7 +53,11 @@ At most 5000 rows are read; the window lists the first 300.
 
 ## Where the table comes from
 
-**Analysis > Live data** opens the window.
+**Analysis > Live data** opens the window. It opens as a window of its own
+over the viewer: its grip moves it (a double tap docks it at the side), its
+corner resizes it - the table gets what the window gains - and its buttons
+fold it to its header or minimize it to an icon. On a phone it is a sheet
+along the foot of the viewer.
 
 | Source | How it stays live |
 | --- | --- |

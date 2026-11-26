@@ -445,6 +445,17 @@ function setMinimized(panel, minimized, { focus = true } = {}) {
   if (panel.classList.contains("is-undocked")) clampPanel(panel);
 }
 
+// Floats a panel over the viewer where it stands in the side stack, as if
+// dragged out of it (a double tap on its grip docks it again). Not for a
+// hidden, minimized or sheet panel. Returns whether it floats.
+export function undockToolPanel(panel) {
+  if (!panel?.toolPanelChrome || !panel.isConnected || panel.hidden) return false;
+  if (panel.classList.contains("is-minimized") || panel.classList.contains("is-modal-open")) return false;
+  undockPanel(panel);
+  clampPanel(panel);
+  return true;
+}
+
 // Minimizes (true) or restores a panel with this chrome - a modal one as its
 // window. focus: false leaves the focus where it is (a panel minimized as
 // it appears).

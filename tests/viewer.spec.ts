@@ -5323,6 +5323,9 @@ test('live data: a table generated from the model, a row for each part, ready to
   await waitForModel(page);
   await page.evaluate(() => window.Viewer.toggleLiveDataPanel(true));
   const panel = page.locator('#viewerLiveDataPanel');
+  // A window of its own over the viewer: moved, resized, minimized.
+  await expect(panel).toHaveClass(/is-undocked/);
+  expect(await panel.evaluate((element) => getComputedStyle(element).resize)).toBe('both');
   await panel.locator('.viewer-livedata-panel_generate').click();
   // The parts, without the model's root that holds them all.
   const parts = ['Platform', 'Storey 1', 'Roof 1', 'Storey 2', 'Roof 2', 'Storey 3', 'Roof 3', 'Interior', 'Finial'];
