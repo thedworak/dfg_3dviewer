@@ -241,6 +241,21 @@ async function stampCssImports(file) {
   );
 }
 
+// stampCssImports on each stylesheet in `dir` and below.
+async function stampCssImportsIn(dir) {
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  await Promise.all(entries.map((entry) => {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) return stampCssImportsIn(file);
+    return entry.name.endsWith('.css') ? stampCssImports(file) : null;
+  }));
+}
+
 // Production builds (IS_PROD=true) minify the stylesheets they copy, file by
 // file: the @import chain stays (Drupal loads viewer.css, which imports the
 // rest), so do this after stampCssImports. Already minified files (*.min.css)
@@ -407,9 +422,11 @@ function copyBuildAssets() {
         // copy admin panel (but we'll remove any local sqlite DB afterwards)
         !appBuild && copyDirectory('viewer/admin', path.join(outDistDir, 'admin')),
       ]);
-      await stampCssImports(path.join(outDistDir, 'assets/css/viewer.css'));
-      await stampCssImports(path.join(outDistDir, 'assets/css/exadmin.css'));
-      await stampCssImports(path.join(outDistDir, 'assets/intro/intro.css'));
+      // Every stylesheet, not only the entry ones: main.css (index.html's,
+      // stamped there) @imports viewer-tools.css, menu-toolbar.css...; left
+      // without the build id, those were cached for a week (nginx.conf) and
+      // a phone ran this build's scripts on an older build's styles.
+      await Promise.all(['assets/css', 'assets/intro'].map((dir) => stampCssImportsIn(path.join(outDistDir, dir))));
       if (production) {
         await Promise.all(['assets/css', 'assets/intro', 'brand'].map((dir) => minifyCssTree(path.join(outDistDir, dir))));
       }
