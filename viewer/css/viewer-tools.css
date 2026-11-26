@@ -1234,8 +1234,9 @@
 
 .viewer-clipping-panel_row {
   --axis-color: #e53935;
+  --cut: 0%;
   display: grid;
-  grid-template-columns: 30px 1fr 40px 30px;
+  grid-template-columns: 30px 1fr 68px 30px;
   align-items: center;
   gap: 8px;
   padding: 3px 0;
@@ -1269,31 +1270,118 @@
   color: #fff !important;
 }
 
+/* The slider drawn here: a thin track filled in the axis colour up to how
+   much is cut (--cut, clipping.js), a round thumb in the same colour - the
+   browser's own range loses its thumb against the dark panel. */
 .viewer-clipping-panel_slider {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   min-width: 0;
-  accent-color: var(--axis-color);
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.viewer-clipping-panel_slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--axis-color) var(--cut), color-mix(in srgb, currentColor 22%, transparent) var(--cut));
+}
+
+.viewer-clipping-panel_slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.viewer-clipping-panel_slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--axis-color);
+}
+
+.viewer-clipping-panel_slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 2px solid var(--viewer-panel-bg, #1a1714);
+  border-radius: 50%;
+  background: var(--axis-color);
+  box-shadow: 0 0 0 1px var(--axis-color);
+}
+
+.viewer-clipping-panel_slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--viewer-panel-bg, #1a1714);
+  border-radius: 50%;
+  background: var(--axis-color);
+  box-shadow: 0 0 0 1px var(--axis-color);
 }
 
 .viewer-clipping-panel_row:not(.is-enabled) .viewer-clipping-panel_slider,
 .viewer-clipping-panel_row:not(.is-enabled) .viewer-clipping-panel_value,
 .viewer-clipping-panel_row:not(.is-enabled) .viewer-clipping-panel_flip {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
+.viewer-clipping-panel_row:not(.is-enabled) .viewer-clipping-panel_slider {
+  --axis-color: color-mix(in srgb, currentColor 55%, transparent);
+}
+
+/* Where the plane stands, in metres: text until tapped, then typed in. */
 .viewer-clipping-panel_value {
-  text-align: right;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
-.viewer-clipping-panel_flip[aria-pressed="true"] {
-  background: var(--viewer-gui-widget-focus-bg, #4a3d2c) !important;
-  color: #fff;
+.viewer-clipping-panel_value:hover:not(:disabled) {
+  border-color: var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-clipping-panel_value:focus {
+  outline: none;
+  border-color: var(--axis-color);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.viewer-clipping-panel_flip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* The kept half filled; flipped, it is the other half. */
+.viewer-clipping-panel_flip svg {
+  transition: transform 0.18s ease;
+}
+
+.viewer-clipping-panel_flip-kept {
+  fill: currentColor;
+  opacity: 0.55;
+}
+
+.viewer-clipping-panel_flip[aria-pressed="true"] svg {
+  transform: scaleX(-1);
 }
 
 .viewer-clipping-panel_actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
   margin-top: 8px;
@@ -1301,15 +1389,71 @@
   border-top: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
 }
 
-.viewer-clipping-panel_actions button {
+.viewer-clipping-panel_actions .viewer-clipping-panel_reset {
+  flex: none;
   padding: 0 10px;
 }
 
-.viewer-clipping-panel_fill {
+.viewer-clipping-panel_options {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Switches: the fill, its colour (under it), the ghost. */
+.viewer-clipping-panel_option {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
+}
+
+.viewer-clipping-panel_option.is-sub {
+  padding-left: 14px;
+}
+
+.viewer-clipping-panel_option.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.viewer-clipping-panel_option input {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 28px;
+  height: 16px;
+  margin: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 22%, transparent);
+  cursor: inherit;
+  transition: background 0.15s ease;
+}
+
+.viewer-clipping-panel_option input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.viewer-clipping-panel_option input:checked {
+  background: var(--viewer-brand-accent, #f5a524);
+}
+
+.viewer-clipping-panel_option input:checked::after {
+  transform: translateX(12px);
+}
+
+.viewer-clipping-panel_option input:focus-visible {
+  outline: 2px solid var(--viewer-brand-accent, #f5a524);
+  outline-offset: 2px;
 }
 
 /* Grip and minimize button in floating tool panel headers, on touch devices

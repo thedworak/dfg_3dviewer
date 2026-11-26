@@ -162,7 +162,9 @@ Stores runtime viewer options.
     },
     "negated": { "x": false, "y": false, "z": false },
     "constants": [1, 1, 1],
-    "outlineVisible": false
+    "outlineVisible": false,
+    "fillColor": "neutral",
+    "ghost": false
   }
 }
 ```
@@ -193,7 +195,7 @@ Notes:
 - `window` stores the movable viewer host geometry in viewport pixels
 - `editorToolbar` is the canonical editor toolbar runtime state used by the current viewer
 - `viewer.clipping` is the canonical location for clipping state
-  - `mode`: which axes cut; `constants`: each plane's constant in world units (for a flipped plane, minus the cut's position); `negated`: the planes flipped to keep the side above the cut instead of below; `outlineVisible`: the cut faces filled
+  - `mode`: which axes cut; `constants`: each plane's constant in world units (for a flipped plane, minus the cut's position); `negated`: the planes flipped to keep the side above the cut instead of below; `outlineVisible`: the cut faces filled; `fillColor`: `"neutral"` (dark, the default) or `"plane"` (in the cutting plane's colour); `ghost`: the part cut away shown faint
 
 ### Deployment settings (formerly only in `viewer-settings.json`)
 

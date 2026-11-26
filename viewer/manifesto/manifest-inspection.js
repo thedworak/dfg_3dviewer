@@ -308,6 +308,9 @@ const CLIPPING = tag("clipping", obj({
   constants: VEC3,
   outlineVisible: BOOL,
   outline: BOOL,
+  // The cut faces' colour and the part cut away as a ghost (editor/clipping.js).
+  fillColor: leaf(oneOf(["neutral", "plane"])),
+  ghost: BOOL,
 }));
 
 const VIEWER = obj({

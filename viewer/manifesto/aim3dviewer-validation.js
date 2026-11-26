@@ -211,6 +211,8 @@ function validateClipping(clipping, path, errors) {
   }
   if (clipping.constants !== undefined) validateVector(clipping.constants, `${path}.constants`, errors, 3);
   if (clipping.outlineVisible !== undefined) validateBoolean(clipping.outlineVisible, `${path}.outlineVisible`, errors);
+  if (clipping.fillColor !== undefined) validateEnum(clipping.fillColor, ["neutral", "plane"], `${path}.fillColor`, errors);
+  if (clipping.ghost !== undefined) validateBoolean(clipping.ghost, `${path}.ghost`, errors);
   if (clipping.outline !== undefined) validateBoolean(clipping.outline, `${path}.outline`, errors);
 }
 

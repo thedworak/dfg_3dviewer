@@ -209,7 +209,15 @@
                   "additionalProperties": true
                 },
                 "constants": { "$ref": "#/$defs/vector3" },
-                "outlineVisible": { "type": "boolean" }
+                "outlineVisible": { "type": "boolean" },
+                "fillColor": {
+                  "description": "The cut faces: neutral (dark) or in the cutting plane's colour (default: neutral).",
+                  "enum": ["neutral", "plane"]
+                },
+                "ghost": {
+                  "description": "The part cut away shown as a faint ghost (default: false).",
+                  "type": "boolean"
+                }
               },
               "additionalProperties": true
             }
@@ -641,7 +649,9 @@
               "additionalProperties": true
             },
             "constants": { "$ref": "#/$defs/vector3" },
-            "outlineVisible": { "type": "boolean" }
+            "outlineVisible": { "type": "boolean" },
+            "fillColor": { "enum": ["neutral", "plane"] },
+            "ghost": { "type": "boolean" }
           },
           "additionalProperties": true
         }

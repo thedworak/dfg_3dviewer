@@ -371,6 +371,15 @@ export const Viewer = {
           return core.scene;
         },
 
+        // The section fill and the planes cutting now (editor/clipping.js).
+        get outlineClipping() {
+          return core.outlineClipping;
+        },
+
+        get activeClippingPlanes() {
+          return core.activeClippingPlanes;
+        },
+
         get renderer() {
           return core.renderer;
         },

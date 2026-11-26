@@ -16,6 +16,12 @@ import { attachToolPanelChrome, PANEL_ICONS } from "../ui/tool-panel-chrome.js";
 // Planes are moved by dragging their coloured quad in the scene or with the
 // sliders in the clipping panel. A plane keeps the part of the model on its
 // "negative" side (x <= position); flipping keeps the other side.
+//
+// A plane is drawn as an outline in its axis colour with a light grid (in
+// metres, from the model's edge); its faint face shows while it is moved or
+// pointed at and fades a moment later, leaving the cut to be seen. The cut
+// faces are filled dark and neutral, or in the plane's colour; the part cut
+// away can be kept as a faint ghost.
 
 export const CLIPPING_AXES = ["x", "y", "z"];
 const AXIS_INDEX = { x: 0, y: 1, z: 2 };
@@ -32,8 +38,17 @@ const PARAM_KEYS = {
 };
 // Planes can be dragged a little past the model so it can be fully shown.
 const OVERSHOOT = 0.05;
-const QUAD_MARGIN = 1.15;
-const QUAD_OPACITY = { idle: 0.1, hover: 0.22, drag: 0.28 };
+// The quad just larger than the model's box on its two sides.
+const QUAD_MARGIN = 1.06;
+// "active": moved a moment ago; "rest": a while after, the face nearly gone.
+const QUAD_OPACITY = { rest: 0.03, active: 0.12, hover: 0.2, drag: 0.24 };
+const GRID_OPACITY = { rest: { minor: 0.1, major: 0.2 }, active: { minor: 0.2, major: 0.38 } };
+const BORDER_OPACITY = { rest: 0.55, active: 0.95 };
+const REST_AFTER_MS = 1400;
+// The cut faces (loaders.js builds their material): neutral, or the plane's.
+const FILL_NEUTRAL = 0x2f3034;
+const GHOST_COLOR = 0xaab2bd;
+const GHOST_OPACITY = 0.1;
 const SLIDER_STEPS = 1000;
 // A new or reset cut stands just past the model's far end, which keeps the
 // whole model (planes keep the side below the cut, until flipped): 0% cut.
@@ -73,12 +88,40 @@ function createAxisVisual(axis) {
   );
   border.renderOrder = 998;
 
+  // The grid: minor lines and every fifth one stronger, rebuilt when the
+  // model's box changes (updateClippingGrid).
+  const gridMaterial = (opacity) => new THREE.LineBasicMaterial({ color: AXIS_COLORS[axis], transparent: true, opacity, depthWrite: false });
+  const minor = new THREE.LineSegments(new THREE.BufferGeometry(), gridMaterial(GRID_OPACITY.rest.minor));
+  const major = new THREE.LineSegments(new THREE.BufferGeometry(), gridMaterial(GRID_OPACITY.rest.major));
+  minor.renderOrder = 997;
+  major.renderOrder = 997;
+  // Not something to pick or drag: the quad is.
+  minor.raycast = () => {};
+  major.raycast = () => {};
+  border.raycast = () => {};
+
   // PlaneGeometry lies in XY; turn it so its normal points along the axis.
   if (axis === "x") group.rotation.y = Math.PI / 2;
   if (axis === "y") group.rotation.x = -Math.PI / 2;
 
-  group.add(quad, border);
-  return { group, quad, border };
+  group.add(quad, minor, major, border);
+  return { group, quad, border, grid: { minor, major, key: "" } };
+}
+
+// The quad's local x and y, as world axes and their sign after the group's
+// turn (createAxisVisual): x-plane (-z, y), y-plane (x, -z), z-plane (x, y).
+const QUAD_AXES = {
+  x: [["z", -1], ["y", 1]],
+  y: [["x", 1], ["z", -1]],
+  z: [["x", 1], ["y", 1]],
+};
+
+// 1, 2 or 5 times a power of ten: the step for about `count` lines.
+function niceStep(span, count) {
+  const raw = span / count;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const unit = raw / power;
+  return (unit < 1.5 ? 1 : unit < 3.5 ? 2 : unit < 7.5 ? 5 : 10) * power;
 }
 
 export function attachClipping(Viewer) {
@@ -93,6 +136,17 @@ export function attachClipping(Viewer) {
       drag: null,
       panel: null,
       interactionBound: false,
+      // "neutral" or "plane" (the cut faces in the cutting plane's colour).
+      fillColor: "neutral",
+      // The part cut away kept as a faint ghost.
+      ghost: false,
+      ghostObject: null,
+      ghostSource: null,
+      ghostPlanes: [],
+      // The axis moved or turned on last: its colour fills the cut faces.
+      lastAxis: "x",
+      touchedAt: 0,
+      restTimer: 0,
     },
 
     isClippingAvailable() {
@@ -157,9 +211,21 @@ export function attachClipping(Viewer) {
       const keys = PARAM_KEYS[axis];
       if (core.planeParams?.[keys.group]) core.planeParams[keys.group][keys.constant] = plane.constant;
 
+      Viewer.clippingState.lastAxis = axis;
+      Viewer.touchClippingPlanes();
       Viewer.updateClippingVisual(axis);
+      Viewer.syncClippingGhost();
+      Viewer.applyClippingFillStyle();
       Viewer.updateClippingGui();
       Viewer.updateClippingPanel();
+    },
+
+    // The planes' faces show while they are moved, then fade (updateClippingVisual).
+    touchClippingPlanes() {
+      const state = Viewer.clippingState;
+      state.touchedAt = performance.now();
+      window.clearTimeout(state.restTimer);
+      state.restTimer = window.setTimeout(() => CLIPPING_AXES.forEach((axis) => Viewer.updateClippingVisual(axis)), REST_AFTER_MS + 20);
     },
 
     setClippingAxisNegated(axis, negated) {
@@ -173,6 +239,8 @@ export function attachClipping(Viewer) {
       if (!Viewer.isClippingAvailable() || !core.planeParams?.clippingMode) return;
       const active = enabled === true;
       core.planeParams.clippingMode[axis] = active;
+      if (active) Viewer.clippingState.lastAxis = axis;
+      Viewer.touchClippingPlanes();
       const keys = PARAM_KEYS[axis];
       if (core.planeParams[keys.group]) core.planeParams[keys.group][keys.helper] = active;
       if (active && !Viewer.clippingMode) {
@@ -196,6 +264,87 @@ export function attachClipping(Viewer) {
       if (!core.planeParams?.outline) return;
       core.planeParams.outline.visible = visible === true;
       Viewer.applyClippingState();
+    },
+
+    // The cut faces: "neutral" (dark) or "plane" (the colour of the plane
+    // moved last, when several cut).
+    setClippingFillColor(mode) {
+      Viewer.clippingState.fillColor = mode === "plane" ? "plane" : "neutral";
+      Viewer.applyClippingFillStyle();
+      Viewer.updateClippingPanel();
+    },
+
+    applyClippingFillStyle() {
+      const material = core.outlineClipping?.userData?.fillMaterial;
+      if (!material) return;
+      const state = Viewer.clippingState;
+      let axis = state.lastAxis;
+      if (!Viewer.isClippingAxisEnabled(axis)) axis = CLIPPING_AXES.find((entry) => Viewer.isClippingAxisEnabled(entry)) || axis;
+      if (state.fillColor === "plane") material.color.setHex(AXIS_COLORS[axis]).multiplyScalar(0.82);
+      else material.color.setHex(FILL_NEUTRAL);
+    },
+
+    setClippingGhostVisible(visible) {
+      Viewer.clippingState.ghost = visible === true;
+      Viewer.syncClippingGhost();
+      Viewer.updateClippingPanel();
+    },
+
+    // The part cut away, faint: a copy of the section fill's geometry (shared,
+    // not copied) clipped the other way - the union of what each plane
+    // removes (inverted planes, clipIntersection).
+    syncClippingGhost() {
+      const state = Viewer.clippingState;
+      const source = core.outlineClipping;
+      if (state.ghostObject && state.ghostSource !== source) {
+        // The geometry is the model's: only the copy and its material go.
+        state.ghostObject.removeFromParent();
+        state.ghostObject = null;
+        state.ghostSource = null;
+      }
+      const wanted = state.ghost && Viewer.clippingMode && Viewer.hasActiveClipping() && !Viewer.animationState;
+      if (!wanted && !state.ghostObject) return;
+      if (!state.ghostObject && source && core.scene) {
+        state.ghostMaterial ||= new THREE.MeshBasicMaterial({
+          color: GHOST_COLOR,
+          transparent: true,
+          opacity: GHOST_OPACITY,
+          depthWrite: false,
+          side: THREE.FrontSide,
+          clipIntersection: true,
+          clippingPlanes: state.ghostPlanes,
+        });
+        const ghost = source.clone(true);
+        ghost.name = "ClippingGhost";
+        // updateActiveClippingPlanes (viewer-utils.js) leaves it be: it has its
+        // own, inverted planes.
+        ghost.userData = { noClipping: true };
+        ghost.traverse((child) => {
+          if (child.isMesh) child.material = state.ghostMaterial;
+          child.raycast = () => {};
+          child.renderOrder = 996;
+        });
+        core.scene.add(ghost);
+        state.ghostObject = ghost;
+        state.ghostSource = source;
+      }
+      const ghost = state.ghostObject;
+      if (!ghost) return;
+      ghost.position.copy(source.position);
+      ghost.quaternion.copy(source.quaternion);
+      ghost.scale.copy(source.scale);
+      // The cutting planes, each turned to keep what it removes.
+      const active = core.activeClippingPlanes || [];
+      const planes = state.ghostPlanes;
+      const countChanged = planes.length !== active.length;
+      while (planes.length < active.length) planes.push(new THREE.Plane());
+      planes.length = active.length;
+      active.forEach((plane, index) => planes[index].copy(plane).negate());
+      if (countChanged && state.ghostMaterial) state.ghostMaterial.needsUpdate = true;
+      if (core.rendererBackend === "webgpu") {
+        Object.assign(ghost, { isClippingGroup: true, enabled: true, clipIntersection: true, clipShadows: false, clippingPlanes: planes });
+      }
+      ghost.visible = wanted && planes.length > 0;
     },
 
     // The clipping tool: turning it off removes all cuts, turning it back on
@@ -277,6 +426,8 @@ export function attachClipping(Viewer) {
         Viewer.updateClippingVisual(axis);
       });
       Viewer.updateClippingOutlineVisibility();
+      Viewer.applyClippingFillStyle();
+      Viewer.syncClippingGhost();
       Viewer.updateClippingPlanesControllerLabel?.();
       Viewer.refreshClippingHintVisibility?.();
       Viewer.updateClippingGui();
@@ -391,9 +542,56 @@ export function attachClipping(Viewer) {
         1
       );
 
-      const mode = state.drag?.axis === axis ? "drag" : state.hoverAxis === axis ? "hover" : "idle";
+      Viewer.updateClippingGrid(axis, visual);
+
+      const resting = performance.now() - state.touchedAt > REST_AFTER_MS;
+      const mode = state.drag?.axis === axis ? "drag" : state.hoverAxis === axis ? "hover" : resting ? "rest" : "active";
+      const level = mode === "rest" ? "rest" : "active";
       visual.quad.material.opacity = QUAD_OPACITY[mode];
-      visual.border.material.opacity = mode === "idle" ? 0.6 : 1;
+      visual.border.material.opacity = BORDER_OPACITY[level];
+      visual.grid.minor.material.opacity = GRID_OPACITY[level].minor;
+      visual.grid.major.material.opacity = GRID_OPACITY[level].major;
+    },
+
+    // The grid on a plane: a line every 1, 2 or 5 (times a power of ten)
+    // metres - about a dozen across - counted from the model's edge, every
+    // fifth stronger. In the quad's own (unit) coordinates: the group's scale
+    // stretches it to the model.
+    updateClippingGrid(axis, visual) {
+      const bounds = Viewer.clippingState.bounds;
+      if (!bounds) return;
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      const metersPerUnit = Viewer.resolveModelUnit?.().meters || 1;
+      const sides = QUAD_AXES[axis].map(([world]) => size[world]);
+      const minSpan = Math.max(size.x, size.y, size.z) * 0.05;
+      const extents = sides.map((side) => Math.max(side, minSpan) * QUAD_MARGIN);
+      const step = niceStep(Math.max(...sides) * metersPerUnit, 12) / metersPerUnit;
+      const key = [axis, step, ...extents, bounds.min.x, bounds.min.y, bounds.min.z].map((value) => (typeof value === "number" ? value.toPrecision(6) : value)).join("|");
+      if (visual.grid.key === key) return;
+      visual.grid.key = key;
+      const minor = [];
+      const major = [];
+      QUAD_AXES[axis].forEach(([world, sign], index) => {
+        const extent = extents[index];
+        const half = extent / 2;
+        const first = Math.ceil((center[world] - half - bounds.min[world]) / step);
+        const last = Math.floor((center[world] + half - bounds.min[world]) / step);
+        if (last - first > 400) return;
+        for (let k = first; k <= last; k += 1) {
+          const local = (sign * (bounds.min[world] + k * step - center[world])) / extent;
+          const target = k % 5 === 0 ? major : minor;
+          // A line across the quad at `local` along its x (index 0) or y.
+          if (index === 0) target.push(local, -0.5, 0, local, 0.5, 0);
+          else target.push(-0.5, local, 0, 0.5, local, 0);
+        }
+      });
+      [["minor", minor], ["major", major]].forEach(([name, points]) => {
+        const lines = visual.grid[name];
+        lines.geometry.dispose();
+        lines.geometry = new THREE.BufferGeometry();
+        lines.geometry.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
+      });
     },
 
     disposeClippingVisuals() {
@@ -401,6 +599,9 @@ export function attachClipping(Viewer) {
       if (!visuals) return;
       CLIPPING_AXES.forEach((axis) => Viewer.removeAndDisposeFromScene(visuals[axis].group));
       Viewer.clippingState.visuals = null;
+      Viewer.clippingState.ghostObject?.removeFromParent();
+      Viewer.clippingState.ghostObject = null;
+      Viewer.clippingState.ghostSource = null;
     },
 
     // ---- Dragging planes in the scene -------------------------------------
@@ -633,13 +834,38 @@ export function attachClipping(Viewer) {
           Viewer.setClippingAxisPosition(axis, Viewer.clippingCutToPosition(axis, Number(slider.value) / SLIDER_STEPS));
         });
 
-        const value = document.createElement("span");
+        // Where the plane stands, from the model's edge, in metres (or the
+        // unit set for measuring): typed in, it goes there.
+        const value = document.createElement("input");
+        value.type = "text";
+        value.inputMode = "decimal";
+        value.spellcheck = false;
         value.className = "viewer-clipping-panel_value";
+        value.addEventListener("focus", () => value.select());
+        value.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") value.blur();
+          if (event.key === "Escape") {
+            value.dataset.cancel = "true";
+            value.blur();
+          }
+        });
+        value.addEventListener("change", () => {
+          if (value.dataset.cancel === "true") return;
+          const position = Viewer.parseClippingLength(axis, value.value);
+          if (position === null) return;
+          if (!Viewer.isClippingAxisEnabled(axis)) Viewer.setClippingAxisEnabled(axis, true, { silent: true });
+          Viewer.setClippingAxisPosition(axis, position);
+        });
+        value.addEventListener("blur", () => {
+          delete value.dataset.cancel;
+          Viewer.updateClippingPanel();
+        });
 
+        // Which side is kept: the filled half, the plane down the middle.
         const flip = document.createElement("button");
         flip.type = "button";
         flip.className = "viewer-clipping-panel_flip";
-        flip.textContent = "⇄";
+        flip.innerHTML = '<svg viewBox="0 0 20 16" width="20" height="16" aria-hidden="true" focusable="false"><rect class="viewer-clipping-panel_flip-kept" x="2" y="3" width="8" height="10" rx="1.5"/><rect x="10" y="3" width="8" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.6" opacity=".7"/><path d="M10 1v14" stroke="var(--axis-color)" stroke-width="2" stroke-linecap="round"/></svg>';
         flip.addEventListener("click", () => Viewer.setClippingAxisNegated(axis, !Viewer.isClippingAxisNegated(axis)));
 
         row.append(toggle, slider, value, flip);
@@ -647,23 +873,42 @@ export function attachClipping(Viewer) {
         rows[axis] = { row, toggle, slider, value, flip };
       });
 
+      // The look of the cut: filled, in the plane's colour, the part cut
+      // away as a ghost - switches in a row, Reset beside them.
       const actions = document.createElement("div");
       actions.className = "viewer-clipping-panel_actions";
-      const fill = document.createElement("label");
-      fill.className = "viewer-clipping-panel_fill";
-      const fillInput = document.createElement("input");
-      fillInput.type = "checkbox";
-      fillInput.addEventListener("change", () => Viewer.setClippingFillVisible(fillInput.checked));
-      const fillText = document.createElement("span");
-      fill.append(fillInput, fillText);
+      const options = document.createElement("div");
+      options.className = "viewer-clipping-panel_options";
+      const toggle = (onChange) => {
+        const label = document.createElement("label");
+        label.className = "viewer-clipping-panel_option";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.setAttribute("role", "switch");
+        input.addEventListener("change", () => onChange(input.checked));
+        const text = document.createElement("span");
+        label.append(input, text);
+        options.appendChild(label);
+        return { label, input, text };
+      };
+      const fill = toggle((checked) => Viewer.setClippingFillVisible(checked));
+      const planeColor = toggle((checked) => Viewer.setClippingFillColor(checked ? "plane" : "neutral"));
+      planeColor.label.classList.add("is-sub");
+      const ghost = toggle((checked) => Viewer.setClippingGhostVisible(checked));
       const reset = document.createElement("button");
       reset.type = "button";
+      reset.className = "viewer-clipping-panel_reset";
       reset.addEventListener("click", () => Viewer.resetClippingPlanes());
-      actions.append(fill, reset);
+      actions.append(options, reset);
       root.appendChild(actions);
 
       stack.appendChild(root);
-      state.panel = { root, title, rows, fillInput, fillText, reset };
+      state.panel = {
+        root, title, rows, reset,
+        fillInput: fill.input, fillText: fill.text,
+        planeColorInput: planeColor.input, planeColorText: planeColor.text, planeColorLabel: planeColor.label,
+        ghostInput: ghost.input, ghostText: ghost.text,
+      };
       return state.panel;
     },
 
@@ -700,17 +945,59 @@ export function attachClipping(Viewer) {
         const range = Viewer.getClippingAxisRange(axis);
         if (!range) return;
         const position = Viewer.getClippingAxisPosition(axis);
+        const sliderCut = THREE.MathUtils.clamp(Viewer.clippingPositionToCut(axis, position), 0, 1);
         if (document.activeElement !== slider) {
-          slider.value = String(Math.round(Viewer.clippingPositionToCut(axis, position) * SLIDER_STEPS));
+          slider.value = String(Math.round(sliderCut * SLIDER_STEPS));
         }
-        // How much of the model the cut removes.
+        row.style.setProperty("--cut", `${(sliderCut * 100).toFixed(2)}%`);
+        // Where it stands from the model's edge; how much it removes, on hover.
         const cut = negated ? (position - range.min) / range.size : (range.max - position) / range.size;
-        value.textContent = `${Math.round(THREE.MathUtils.clamp(cut, 0, 1) * 100)}%`;
+        const percent = Math.round(THREE.MathUtils.clamp(cut, 0, 1) * 100);
+        if (document.activeElement !== value) value.value = Viewer.formatClippingLength(position - range.min);
+        const valueLabel = Viewer.tFormat?.("clipping.valueTitle", { axis: axis.toUpperCase(), percent }, "{axis}: from the model's edge ({percent}% cut away) - type a value")
+          || `${axis.toUpperCase()}`;
+        value.title = valueLabel;
+        value.setAttribute("aria-label", valueLabel);
+        value.disabled = !enabled;
       });
-      panel.fillInput.checked = core.planeParams?.outline?.visible === true;
+      const filled = core.planeParams?.outline?.visible === true;
+      panel.fillInput.checked = filled;
       panel.fillInput.disabled = Boolean(Viewer.animationState);
       panel.fillText.textContent = t("clipping.fill", "Section fill");
+      panel.planeColorInput.checked = Viewer.clippingState.fillColor === "plane";
+      panel.planeColorInput.disabled = !filled || Boolean(Viewer.animationState);
+      panel.planeColorLabel.classList.toggle("is-disabled", panel.planeColorInput.disabled);
+      panel.planeColorText.textContent = t("clipping.planeColor", "In the plane's colour");
+      panel.ghostInput.checked = Viewer.clippingState.ghost === true;
+      panel.ghostInput.disabled = Boolean(Viewer.animationState);
+      panel.ghostText.textContent = t("clipping.ghost", "Show the part cut away");
       panel.reset.textContent = t("clipping.reset", "Reset");
+    },
+
+    // A length along an axis for the panel: in the unit set for measuring
+    // (editor/model-units.js), from the model's edge.
+    formatClippingLength(sceneUnits) {
+      return Viewer.formatLength ? Viewer.formatLength(sceneUnits).text : sceneUnits.toFixed(2);
+    },
+
+    // What was typed into an axis' value - "4.5", "4,5 m", "120 cm", "3 ft" -
+    // as a plane position (scene units), or null. A number alone is in the
+    // unit shown there before.
+    parseClippingLength(axis, text) {
+      const range = Viewer.getClippingAxisRange(axis);
+      const match = String(text).trim().replace(",", ".").match(/^(-?\d*\.?\d+)\s*(km|m|cm|mm|µm|um|ft|in|mi)?$/i);
+      if (!range || !match) return null;
+      const number = Number(match[1]);
+      if (!Number.isFinite(number)) return null;
+      const METERS = { km: 1000, m: 1, cm: 0.01, mm: 0.001, "µm": 1e-6, um: 1e-6, ft: 0.3048, in: 0.0254, mi: 1609.344 };
+      let unit = match[2]?.toLowerCase();
+      if (!unit) {
+        const shown = Viewer.formatClippingLength(Viewer.getClippingAxisPosition(axis) - range.min).match(/(km|m|cm|mm|µm|ft|in|mi)$/);
+        unit = shown?.[1];
+      }
+      const metersPerUnit = Viewer.resolveModelUnit?.().meters || 1;
+      const meters = unit && METERS[unit] ? number * METERS[unit] : number * metersPerUnit;
+      return range.min + meters / metersPerUnit;
     },
 
     // ---- Share links and manifests ----------------------------------------
@@ -763,6 +1050,8 @@ export function attachClipping(Viewer) {
         negated: Viewer.getClippingNegatedState(),
         fraction: Object.fromEntries(CLIPPING_AXES.map((axis) => [axis, round(Viewer.clippingState.fraction[axis])])),
         outlineVisible: core.planeParams?.outline?.visible === true,
+        fillColor: Viewer.clippingState.fillColor,
+        ghost: Viewer.clippingState.ghost === true,
       };
     },
 
@@ -785,6 +1074,8 @@ export function attachClipping(Viewer) {
       if (typeof saved.outlineVisible === "boolean" && core.planeParams.outline) {
         core.planeParams.outline.visible = saved.outlineVisible;
       }
+      if (saved.fillColor === "plane" || saved.fillColor === "neutral") state.fillColor = saved.fillColor;
+      if (typeof saved.ghost === "boolean") state.ghost = saved.ghost;
       Viewer.clippingMode = Viewer.hasActiveClipping();
       state.remembered = null;
       if (state.bounds) {

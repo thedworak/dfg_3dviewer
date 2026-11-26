@@ -2280,6 +2280,9 @@ export const VIEWER_I18N = {
       position: "{axis} position",
       flip: "Flip the kept side",
       fill: "Section fill",
+      planeColor: "In the plane's colour",
+      ghost: "Show the part cut away",
+      valueTitle: "{axis}: from the model's edge ({percent}% cut away) - type a value",
       reset: "Reset",
     },
     contextMenu: {
@@ -4797,6 +4800,9 @@ export const VIEWER_I18N = {
       position: "Położenie {axis}",
       flip: "Odwróć zachowaną stronę",
       fill: "Wypełnienie przekroju",
+      planeColor: "W kolorze płaszczyzny",
+      ghost: "Pokaż odciętą część",
+      valueTitle: "{axis}: od krawędzi modelu ({percent}% odcięte) - wpisz wartość",
       reset: "Resetuj",
     },
     contextMenu: {
@@ -7313,6 +7319,9 @@ export const VIEWER_I18N = {
       position: "Position {axis}",
       flip: "Behaltene Seite umkehren",
       fill: "Schnittfüllung",
+      planeColor: "In der Farbe der Ebene",
+      ghost: "Weggeschnittenen Teil zeigen",
+      valueTitle: "{axis}: vom Rand des Modells ({percent} % weggeschnitten) - Wert eingeben",
       reset: "Zurücksetzen",
     },
     contextMenu: {

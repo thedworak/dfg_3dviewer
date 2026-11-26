@@ -9428,6 +9428,91 @@ test('materials window: lists the materials, applies a type, edits, resets, pick
   expect(await meshState()).toMatchObject({ original: true });
 });
 
+test('section planes look the part: a grid in metres on each plane, its face fading at rest, a neutral or plane-coloured fill, the part cut away as a ghost, values in metres typed in', async ({ page }) => {
+  await openViewer(page, '/examples/box.glb');
+  await waitForCameraIdle(page);
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.toggleClippingPlanesPanel();
+    const range = viewer.getClippingAxisRange('x');
+    viewer.setClippingAxisPosition('x', range.min + range.size / 2);
+    viewer.setClippingFillVisible(true);
+  });
+  const visual = () => page.evaluate(() => {
+    const { quad, border, grid } = window.Viewer.clippingState.visuals.x;
+    return {
+      quad: quad.material.opacity,
+      border: border.material.opacity,
+      minor: grid.minor.geometry.getAttribute('position')?.count ?? 0,
+      major: grid.major.geometry.getAttribute('position')?.count ?? 0,
+    };
+  });
+  // A grid on the plane, its face showing just after the move...
+  const moved = await visual();
+  expect(moved.minor + moved.major).toBeGreaterThan(8);
+  expect(moved.quad).toBeGreaterThan(0.1);
+  // ...and nearly gone a moment later: the outline and the grid stay.
+  await expect.poll(async () => (await visual()).quad, { timeout: 4000 }).toBeLessThan(0.05);
+  expect((await visual()).border).toBeGreaterThan(0.4);
+
+  // The fill: neutral and dark, or in the plane's colour.
+  const fill = () => page.evaluate(() => window.viewer.outlineClipping?.userData?.fillMaterial?.color.getHexString());
+  expect(await fill()).toBe('2f3034');
+  const panel = page.locator('#viewerClippingPanel');
+  const planeColor = panel.locator('.viewer-clipping-panel_option').nth(1).locator('input');
+  await planeColor.check();
+  expect(await fill()).not.toBe('2f3034');
+  expect(await page.evaluate(() => {
+    const color = window.viewer.outlineClipping.userData.fillMaterial.color;
+    return color.r > color.g * 2 && color.r > color.b * 2;
+  })).toBe(true);
+
+  // The part cut away as a ghost: the other side of the plane.
+  const ghost = panel.locator('.viewer-clipping-panel_option').nth(2).locator('input');
+  await ghost.check();
+  const ghostState = await page.evaluate(() => {
+    let found = null;
+    window.viewer.scene.traverse((object) => { if (object.name === 'ClippingGhost') found = object; });
+    const material = window.Viewer.clippingState.ghostMaterial;
+    const active = window.viewer.activeClippingPlanes[0];
+    const inverted = material.clippingPlanes[0];
+    return {
+      visible: found?.visible === true,
+      intersection: material.clipIntersection,
+      planes: material.clippingPlanes.length,
+      opposite: inverted.normal.dot(active.normal) < -0.99 && Math.abs(inverted.constant + active.constant) < 1e-6,
+    };
+  });
+  expect(ghostState).toEqual({ visible: true, intersection: true, planes: 1, opposite: true });
+  await ghost.uncheck();
+  expect(await page.evaluate(() => {
+    let visible = false;
+    window.viewer.scene.traverse((object) => { if (object.name === 'ClippingGhost' && object.visible) visible = true; });
+    return visible;
+  })).toBe(false);
+
+  // The value: from the model's edge, in metres; typed in, the plane goes there.
+  const value = panel.locator('.viewer-clipping-panel_row[data-axis="x"] .viewer-clipping-panel_value');
+  await expect(value).toHaveValue(/\d (m|cm|mm)$/);
+  await value.fill('25 cm');
+  await value.press('Enter');
+  const placed = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const range = viewer.getClippingAxisRange('x');
+    return (viewer.getClippingAxisPosition('x') - range.min) * viewer.resolveModelUnit().meters;
+  });
+  expect(placed).toBeCloseTo(0.25, 4);
+  await expect(value).toHaveValue('25.0 cm');
+
+  // Saved with the settings and the manifest, valid there.
+  await ghost.check();
+  const saved = await page.evaluate(() => window.Viewer.getClippingForPersistence());
+  expect(saved).toMatchObject({ fillColor: 'plane', ghost: true });
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.viewer.clipping).toMatchObject({ fillColor: 'plane', ghost: true });
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+});
+
 test('section cuts and measurements are saved with the settings and the manifest, and come back on the model', async ({ page }) => {
   await openViewer(page, '/examples/box.glb');
   await waitForCameraIdle(page);

@@ -370,8 +370,11 @@ function prepareOutlineClipping(_object) {
     else if (child.isMesh && child.userData?.isVolume) extras.push(child);
   });
   extras.forEach((child) => child.removeFromParent());
+  // The cut faces: a neutral dark fill (an architect's poché) by default,
+  // the cutting plane's colour on request (editor/clipping.js, which finds
+  // this material in userData.fillMaterial).
   var gutsMaterial = new THREE.MeshBasicMaterial({
-    color: "crimson",
+    color: 0x2f3034,
     side: THREE.BackSide,
     clippingPlanes: core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []),
     clipShadows: true,
@@ -385,7 +388,9 @@ function prepareOutlineClipping(_object) {
       child.material = gutsMaterial;
     }
   });
+  core.outlineClipping.userData.fillMaterial = gutsMaterial;
   core.outlineClipping.visible = false;
+  window.Viewer?.applyClippingFillStyle?.();
   return core.outlineClipping;
 }
 

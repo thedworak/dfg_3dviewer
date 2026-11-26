@@ -1655,6 +1655,8 @@ export function attachAnnotations(Viewer) {
                 Number(core.clippingPlanes?.[2]?.constant ?? core.planeParams?.planeZ?.constantZ ?? 0),
               ],
               outlineVisible: core.planeParams?.outline?.visible === true,
+              fillColor: this.clippingState?.fillColor || "neutral",
+              ghost: this.clippingState?.ghost === true,
               negated: this.getClippingNegatedState?.(),
             }
           },
@@ -1913,6 +1915,12 @@ export function attachAnnotations(Viewer) {
         this.applyClippingOverridesFromUrl?.();
       } finally {
         this.urlOptions = previousUrlOptions;
+      }
+      // How the cut looks (editor/clipping.js): the fill's colour, the ghost.
+      if (this.clippingState) {
+        this.clippingState.fillColor = clippingConfig.fillColor === "plane" ? "plane" : "neutral";
+        this.clippingState.ghost = clippingConfig.ghost === true;
+        this.applyClippingState?.();
       }
 
       return true;
