@@ -770,6 +770,91 @@ body[data-viewer-theme="dark"] #planButton {
   margin-left: 6px;
 }
 
+/* Search and feature filter (examples-panel.js): the field, then the
+   features found in the manifests as toggle buttons with their icons. */
+.examples-panel-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.examples-panel-search {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: var(--viewer-panel-bg);
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+.examples-panel-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.examples-panel-features[hidden],
+.examples-panel-feature-clear[hidden] {
+  display: none;
+}
+
+.examples-panel-feature {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--viewer-panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  opacity: 0.65;
+  cursor: pointer;
+}
+
+.examples-panel-feature svg {
+  width: 16px;
+  height: 16px;
+}
+
+.examples-panel-feature:hover {
+  opacity: 1;
+}
+
+.examples-panel-feature[aria-pressed="true"] {
+  opacity: 1;
+  border-color: var(--viewer-brand-accent);
+  background: color-mix(in srgb, var(--viewer-brand-accent) 22%, transparent);
+  color: var(--viewer-brand-accent);
+}
+
+.examples-panel-feature-clear {
+  border: 0;
+  background: transparent;
+  color: var(--viewer-panel-text);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  opacity: 0.75;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.examples-panel-empty {
+  margin: 8px 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.examples-panel-list [hidden] {
+  display: none !important;
+}
+
 /* Next to the close button, not centered between title and close. */
 #examplesPanelRefresh {
   margin-left: auto;
