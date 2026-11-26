@@ -53,6 +53,15 @@ Parameters:
 - `autorotate` - `1` turns the model slowly
 - `bg` - the page's background, a CSS color (e.g. `%23202020` for `#202020`, `transparent`); default the viewer's grey gradient
 
+In an iframe, `ultra.html` tells the embedding page how loading goes, with `postMessage`: `{ source: "e4d-ultra", state, progress }`, where `state` is `"loading"`, `"loaded"` or `"error"` and `progress` is the model's download, 0 to 1 (left out when the server sends no length). The page can show its own loading bar with it:
+
+```js
+window.addEventListener("message", (e) => {
+  if (e.origin !== "https://your.domain.com" || e.data?.source !== "e4d-ultra") return
+  // e.data.state, e.data.progress
+})
+```
+
 Other formats (OBJ, PLY, STL, IFC, point clouds, volumes, 3D Tiles...) and everything `embed.html` takes beyond these three need the full viewer.
 
 ```html

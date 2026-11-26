@@ -41,9 +41,22 @@ const bar = document.getElementById("progress");
 const assets = new URL("assets/", import.meta.url).href;
 
 // document.body.dataset.state: "loading", then "loaded" or "error" (for
-// the page that embeds this one, and the tests).
+// the page that embeds this one, and the tests). In an iframe the state and
+// the download's progress also go to the embedding page, which cannot read
+// this page across origins:
+//   { source: "e4d-ultra", state: "loading" | "loaded" | "error", progress: 0..1 }
+let lastState = "loading";
+function tell(state, progress) {
+  if (window.parent === window) return;
+  try {
+    window.parent.postMessage({ source: "e4d-ultra", state, progress }, "*");
+  } catch {}
+}
+
 function setState(state) {
+  lastState = state;
   document.body.dataset.state = state;
+  tell(state, state === "loaded" ? 1 : undefined);
 }
 
 function fail(message) {
@@ -217,6 +230,7 @@ function start() {
     (event) => {
       if (event.lengthComputable && event.total) {
         bar.style.transform = `scaleX(${event.loaded / event.total})`;
+        tell(lastState, event.loaded / event.total);
       }
     },
     (error) => fail(`The model could not be loaded: ${error?.message || error}`)
