@@ -5323,9 +5323,29 @@ test('live data: a table generated from the model, a row for each part, ready to
   await waitForModel(page);
   await page.evaluate(() => window.Viewer.toggleLiveDataPanel(true));
   const panel = page.locator('#viewerLiveDataPanel');
-  // A window of its own over the viewer: moved, resized, minimized.
+  // A window of its own over the viewer: moved, resized by its corner,
+  // minimized to its icon in the viewer's corner and restored where it was.
   await expect(panel).toHaveClass(/is-undocked/);
-  expect(await panel.evaluate((element) => getComputedStyle(element).resize)).toBe('both');
+  const corner = panel.locator('.tool-panel-chrome_resize');
+  await expect(corner).toBeVisible();
+  const before = await panel.boundingBox();
+  const grip = await corner.boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x - 40, grip.y - 30, { steps: 4 });
+  await page.mouse.up();
+  const resized = await panel.boundingBox();
+  expect(resized.width).toBeLessThan(before.width - 20);
+  expect(resized.height).toBeLessThan(before.height - 10);
+  const left = await panel.evaluate((element) => element.style.left);
+  await panel.locator('.tool-panel-chrome_minimize').click();
+  await expect(panel).toHaveClass(/is-minimized/);
+  // 12 px from the viewer's right edge.
+  const gap = await panel.evaluate((element) => element.offsetParent.getBoundingClientRect().right - element.getBoundingClientRect().right);
+  expect(Math.abs(gap - 12)).toBeLessThan(2);
+  await panel.locator('.tool-panel-chrome_pip').click();
+  await expect(panel).not.toHaveClass(/is-minimized/);
+  expect(await panel.evaluate((element) => element.style.left)).toBe(left);
   await panel.locator('.viewer-livedata-panel_generate').click();
   // The parts, without the model's root that holds them all.
   const parts = ['Platform', 'Storey 1', 'Roof 1', 'Storey 2', 'Roof 2', 'Storey 3', 'Roof 3', 'Interior', 'Finial'];

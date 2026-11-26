@@ -1502,8 +1502,6 @@ export const VIEWER_I18N = {
     liveData: {
       title: "Live data",
       toggle: "Live data on the model",
-      expand: "Show settings",
-      collapse: "Hide settings",
       url: "Table URL (CSV, JSON)",
       refresh: "Read again",
       refreshOff: "once",
@@ -4071,8 +4069,6 @@ export const VIEWER_I18N = {
     liveData: {
       title: "Żywe dane",
       toggle: "Żywe dane na modelu",
-      expand: "Pokaż ustawienia",
-      collapse: "Ukryj ustawienia",
       url: "Adres tabeli (CSV, JSON)",
       refresh: "Czytaj ponownie",
       refreshOff: "raz",
@@ -6639,8 +6635,6 @@ export const VIEWER_I18N = {
     liveData: {
       title: "Live-Daten",
       toggle: "Live-Daten am Modell",
-      expand: "Einstellungen zeigen",
-      collapse: "Einstellungen ausblenden",
       url: "Adresse der Tabelle (CSV, JSON)",
       refresh: "Erneut lesen",
       refreshOff: "einmal",

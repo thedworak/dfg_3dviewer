@@ -175,7 +175,6 @@ export function attachLiveData(Viewer) {
         boxClock: 0,
         active: false,
         open: false,
-        collapsed: false,
         // Opened once as a window of its own (floatLiveDataPanel).
         floated: false,
         // The window's folding parts the user opened or closed.
@@ -933,26 +932,23 @@ export function attachLiveData(Viewer) {
       });
       const header = document.createElement("div");
       header.className = "viewer-pointcloud-panel_header";
+      // No "hide settings" button of its own: the shared fold button rolls
+      // the window up to its header, minimize turns it into its icon.
       const title = document.createElement("strong");
-      const collapse = document.createElement("button");
-      collapse.type = "button";
-      collapse.className = "viewer-pointcloud-panel_collapse";
-      collapse.addEventListener("click", () => {
-        state.collapsed = !state.collapsed;
-        Viewer.syncLiveDataPanel();
-      });
-      header.append(title, collapse);
+      header.append(title);
       attachToolPanelChrome(root, header, {
         icon: PANEL_ICONS.liveData,
         label: () => t("liveData.title", "Live data"),
         modal: isPhone,
+        resizable: true,
+        minimizeToCorner: true,
         onClose: () => Viewer.toggleLiveDataPanel(false),
       });
       const body = document.createElement("div");
       body.className = "viewer-pointcloud-panel_body";
       root.append(header, body);
       stack.appendChild(root);
-      state.ui = { root, title, collapse, body };
+      state.ui = { root, title, body };
       new MutationObserver(() => Viewer.updateEditorToolbarState?.()).observe(root, { attributes: true, attributeFilter: ["class"] });
     },
 
@@ -1339,11 +1335,6 @@ export function attachLiveData(Viewer) {
       ui.root.setAttribute("aria-label", title);
       ui.title.textContent = title;
       ui.root.hidden = !state.open;
-      ui.body.hidden = state.collapsed && !isPhone();
-      ui.collapse.textContent = state.collapsed ? "+" : "–";
-      const collapseLabel = state.collapsed ? t("liveData.expand", "Show settings") : t("liveData.collapse", "Hide settings");
-      ui.collapse.title = collapseLabel;
-      ui.collapse.setAttribute("aria-label", collapseLabel);
 
       if (ui.status) {
         const { source } = state;

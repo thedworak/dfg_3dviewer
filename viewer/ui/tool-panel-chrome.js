@@ -100,8 +100,17 @@ function dockPanel(panel) {
 }
 
 window.addEventListener("resize", () => undockedPanels.forEach((panel) => {
-  if (panel.isConnected) clampPanel(panel);
-  else undockedPanels.delete(panel);
+  if (!panel.isConnected) {
+    undockedPanels.delete(panel);
+    return;
+  }
+  // An icon in the corner stays in the corner.
+  const spot = panel.dataset.chromeCorner && panel.classList.contains("is-minimized") ? cornerSpot(panel) : null;
+  if (spot) {
+    panel.style.left = `${spot.left}px`;
+    panel.style.top = `${spot.top}px`;
+  }
+  clampPanel(panel);
 }));
 
 // Dragging `handle` moves the panel out of the side stack; a tap (no drag)
@@ -157,6 +166,48 @@ function bindDrag(panel, handle, onTap) {
   handle.addEventListener("click", (event) => {
     if (event.detail === 0) onTap?.(Infinity);
   });
+}
+
+// The corner that resizes a floating panel (attachToolPanelChrome's
+// `resizable`): drawn, unlike the browser's own `resize` grip, which a
+// rounded dark window hides. Kept within the viewer and above the panel's
+// min-width / min-height.
+function createResize(panel) {
+  const handle = document.createElement("div");
+  handle.className = "tool-panel-chrome_resize";
+  handle.setAttribute("aria-hidden", "true");
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const start = panel.getBoundingClientRect();
+    const style = getComputedStyle(panel);
+    const minWidth = parseFloat(style.minWidth) || 200;
+    const minHeight = parseFloat(style.minHeight) || 120;
+    const bounds = core.container?.getBoundingClientRect();
+    const { clientX: x0, clientY: y0, pointerId } = event;
+    panel.classList.add("is-resizing");
+    const onMove = (moveEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      const maxWidth = bounds ? bounds.right - start.left - 4 : Infinity;
+      const maxHeight = bounds ? bounds.bottom - start.top - 4 : Infinity;
+      const width = Math.max(minWidth, Math.min(maxWidth, start.width + moveEvent.clientX - x0));
+      const height = Math.max(minHeight, Math.min(maxHeight, start.height + moveEvent.clientY - y0));
+      panel.style.width = `${Math.round(width)}px`;
+      panel.style.height = `${Math.round(height)}px`;
+    };
+    const onEnd = (endEvent) => {
+      if (endEvent.pointerId !== pointerId) return;
+      panel.classList.remove("is-resizing");
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onEnd, true);
+      window.removeEventListener("pointercancel", onEnd, true);
+    };
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onEnd, true);
+    window.addEventListener("pointercancel", onEnd, true);
+  });
+  return handle;
 }
 
 function createGrip(panel) {
@@ -433,9 +484,60 @@ function closeModal(panel) {
   chrome.modalMark = null;
 }
 
+// Where a floating panel's icon goes (attachToolPanelChrome's
+// `minimizeToCorner`): the viewer's top right corner, below the icons
+// already there - the window shrinks into it and grows out of it again,
+// back where it was.
+const CORNER_MARGIN = 12;
+const CORNER_STEP = 52;
+
+function cornerSpot(panel) {
+  const parent = panel.offsetParent;
+  const container = core.container;
+  if (!parent || !container) return null;
+  const parentRect = parent.getBoundingClientRect();
+  const bounds = container.getBoundingClientRect();
+  const taken = [...chromePanels].filter((other) => other !== panel && other.isConnected && other.dataset.chromeCorner && other.classList.contains("is-minimized")).length;
+  return {
+    left: bounds.right - parentRect.left - panel.offsetWidth - CORNER_MARGIN,
+    top: bounds.top - parentRect.top + CORNER_MARGIN + taken * CORNER_STEP,
+  };
+}
+
+// The icon, or the window, growing from the corner's side (top right).
+function growFromCorner(panel) {
+  if (typeof panel.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  panel.animate([
+    { transform: "scale(0.15)", transformOrigin: "top right", opacity: 0 },
+    { transform: "scale(1)", transformOrigin: "top right", opacity: 1 },
+  ], { duration: 180, easing: "ease-out" });
+}
+
 function setMinimized(panel, minimized, { focus = true } = {}) {
   if (minimized) closeModal(panel);
   else if (isModal(panel)) openModal(panel);
+  const chrome = panel.toolPanelChrome;
+  const toCorner = chrome?.options?.minimizeToCorner && panel.classList.contains("is-undocked") && !panel.classList.contains("is-modal-open");
+  if (toCorner && minimized && !panel.classList.contains("is-minimized")) {
+    chrome.restoreAt = { left: panel.style.left, top: panel.style.top };
+    panel.classList.add("is-minimized");
+    const spot = cornerSpot(panel);
+    if (spot) {
+      panel.style.left = `${spot.left}px`;
+      panel.style.top = `${spot.top}px`;
+    }
+    panel.dataset.chromeCorner = "top-right";
+    growFromCorner(panel);
+  } else if (!minimized && panel.dataset.chromeCorner) {
+    delete panel.dataset.chromeCorner;
+    panel.classList.remove("is-minimized");
+    if (chrome?.restoreAt) {
+      panel.style.left = chrome.restoreAt.left;
+      panel.style.top = chrome.restoreAt.top;
+      chrome.restoreAt = null;
+    }
+    growFromCorner(panel);
+  }
   panel.classList.toggle("is-minimized", minimized);
   const { minimize, pip } = panel.toolPanelChrome || {};
   if (minimize) syncMinimize(panel, minimize);
@@ -608,10 +710,20 @@ function createMinimize(panel) {
   return button;
 }
 
+// The minimize button: a window going into its corner (its icon), not a
+// dash - a dash reads as "less of the window" (a panel's own fold, say).
+const MINIMIZE_ICON = `<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <path d="M8.5 2.5h-5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h5"/>
+  <path d="M7.5 6.5l6 6M13.5 8.5v4h-4"/>
+</svg>`;
+
 function syncMinimize(panel, button) {
   const minimized = panel.classList.contains("is-minimized");
   const label = minimized ? t("toolPanel.restore", "Restore panel") : t("toolPanel.minimize", "Minimize panel");
-  button.textContent = "–";
+  if (button.chromeIcon !== MINIMIZE_ICON) {
+    button.innerHTML = MINIMIZE_ICON;
+    button.chromeIcon = MINIMIZE_ICON;
+  }
   button.title = label;
   button.setAttribute("aria-label", label);
   button.setAttribute("aria-expanded", String(!minimized));
@@ -640,7 +752,10 @@ function syncPip(panel, pip, icon, label) {
 // `movable: false` for dialogs that already drag by their header;
 // `visibilityRoot`: the element whose `hidden` shows and hides the panel,
 // when that is not the panel itself. `modal` (or a function, asked each
-// time): a sheet; left out, a sheet on a phone (isModal). Safe to call again on
+// time): a sheet; left out, a sheet on a phone (isModal). `resizable`: a
+// corner that resizes the panel while it floats; `minimizeToCorner`: a
+// floating panel minimizes to its icon in the viewer's top right corner
+// and is restored where it was. Safe to call again on
 // every render:
 // panels that rebuild their contents get the same buttons put back.
 export function attachToolPanelChrome(panel, header, {
@@ -653,6 +768,8 @@ export function attachToolPanelChrome(panel, header, {
   label = null,
   onClose = null,
   modal = undefined,
+  resizable = false,
+  minimizeToCorner = false,
 } = {}) {
   if (!panel || !header) return;
   if (!panel.toolPanelChrome) {
@@ -663,6 +780,7 @@ export function attachToolPanelChrome(panel, header, {
       pip: minimizable ? createPip(panel) : null,
       close: onClose ? createClose(onClose) : null,
       grabber: createGrabber(),
+      resize: resizable ? createResize(panel) : null,
     };
     panel.classList.add("has-tool-chrome");
     installRangePeek(panel);
@@ -677,7 +795,9 @@ export function attachToolPanelChrome(panel, header, {
     });
     chromePanels.add(panel);
   }
-  Object.assign(panel.toolPanelChrome, { header, visibilityRoot, options: { before, icon, label, modal } });
+  Object.assign(panel.toolPanelChrome, { header, visibilityRoot, options: { before, icon, label, modal, minimizeToCorner } });
+  const { resize } = panel.toolPanelChrome;
+  if (resize && panel.lastChild !== resize) panel.append(resize);
   const { grip, fold, minimize, pip, close, grabber } = panel.toolPanelChrome;
   header.classList.add("tool-panel-chrome");
   if (modal !== false) {
