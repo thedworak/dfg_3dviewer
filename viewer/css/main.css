@@ -222,7 +222,8 @@ canvas {
 #viewerNoticeContainer.viewer-notice-container--sandbox {
   top: 50%;
   bottom: auto;
-  max-width: min(520px, calc(100% - 32px));
+  /* The format groups (ui/sandbox-formats.js) use the width they get. */
+  max-width: calc(100% - 32px);
   transform: translate(-50%, -50%);
 }
 
@@ -441,10 +442,11 @@ canvas {
   --sbx-warn: #ffd27a;
   --sbx-bad: #ff9f9f;
   box-sizing: border-box;
-  width: min(580px, calc(100vw - 32px));
+  /* A share of the screen, so more of the groups fit without scrolling. */
+  width: min(1120px, 78vw, calc(100vw - 32px));
   /* Centred: keeps clear of the logo above and the axes below. */
-  max-height: calc(100vh - 240px);
-  padding: 46px 20px 16px;
+  max-height: calc(100vh - 220px);
+  padding: 40px 20px 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
   pointer-events: auto;
@@ -484,7 +486,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 8px;
   text-align: left;
 }
 
@@ -584,11 +586,12 @@ canvas {
   color: var(--sbx-muted);
 }
 
+/* Heading, search and hint in one row, wrapping on a narrow screen. */
 .sandbox-formats-title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 8px 14px;
   flex-wrap: wrap;
   margin-top: 2px;
   padding-top: 12px;
@@ -614,6 +617,8 @@ canvas {
 
 /* "Is my format supported?" */
 .sandbox-formats-search {
+  flex: 1 1 280px;
+  max-width: 520px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -633,7 +638,7 @@ canvas {
 .sandbox-formats-search input {
   flex: 1;
   min-width: 0;
-  height: 36px;
+  height: 34px;
   border: 0;
   outline: none;
   background: transparent;
@@ -664,7 +669,7 @@ canvas {
 
 .sandbox-formats-groups {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 8px;
 }
 
@@ -826,8 +831,14 @@ canvas {
   border-color: var(--sbx-accent);
 }
 
+/* A phone or a small tablet: the whole width, less the margins. */
+@media (max-width: 720px) {
+  .viewer-notice-status[data-variant="sandbox"]:has(.sandbox-formats) {
+    width: calc(100vw - 32px);
+  }
+}
+
 @media (max-width: 520px) {
-  .sandbox-formats-groups,
   .sandbox-formats-flow {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -127,11 +127,11 @@ export function sandboxDropDetailHtml() {
     `<span class="open-local-file-icon" aria-hidden="true"></span>${escapeHtml(tr("openFile", "Load from disk"))}</button>` +
     `<span class="sandbox-formats-local">${escapeHtml(tr("local", "Your file stays on this device — nothing is sent to a server."))}</span>` +
     `<span class="sandbox-formats-title"><span class="sandbox-formats-heading">${escapeHtml(tr("title", "Supported formats"))}</span>` +
-    `<span class="sandbox-formats-hint">${escapeHtml(tr("hint", "Click a group for details."))}</span></span>` +
     `<label class="sandbox-formats-search">${icon("search")}` +
     `<input type="search" autocomplete="off" spellcheck="false" ` +
     `placeholder="${escapeHtml(tr("searchPlaceholder", "Is my format supported? e.g. e57 or model.las"))}" ` +
     `aria-label="${escapeHtml(tr("searchLabel", "Look up a format"))}" value="${escapeHtml(searchQuery)}"></label>` +
+    `<span class="sandbox-formats-hint">${escapeHtml(tr("hint", "Click a group for details."))}</span></span>` +
     `<span class="sandbox-formats-result" role="status" aria-live="polite"></span>` +
     `<span class="sandbox-formats-groups">${groups}</span>` +
     `<span class="sandbox-formats-server-only">${icon("server")}<strong>${escapeHtml(tr("serverOnly", "Only after an upload to the server"))}:</strong> ` +
