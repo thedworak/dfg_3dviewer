@@ -139,7 +139,15 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
     text = String(message);
   }
 
-  if (detailI18nKey) {
+  // detailRenderer: HTML rebuilt on every language change (the sandbox
+  // notice's format groups, ui/sandbox-formats.js); onRender: called with the
+  // notice element after each render, to bind its buttons.
+  const detailRenderer = typeof options.detailRenderer === "function" ? options.detailRenderer : null;
+  const onRender = typeof options.onRender === "function" ? options.onRender : null;
+
+  if (detailRenderer) {
+    detail = detailRenderer();
+  } else if (detailI18nKey) {
     detail = t(detailI18nKey, detailI18nVars);
   } else if (options.detail != null) {
     detail = String(options.detail);
@@ -160,7 +168,7 @@ export const showToast = (message, toneOrOptions, maybeOptions) => {
   const enqueueStatusNotice = core.enqueueStatusNotice;
 
   if (typeof enqueueStatusNotice === "function") {
-    enqueueStatusNotice({ message: text, detail, tone, duration, key, replace, persistent, variant, i18nKey, i18nVars, detailI18nKey, detailI18nVars });
+    enqueueStatusNotice({ message: text, detail, tone, duration, key, replace, persistent, variant, i18nKey, i18nVars, detailI18nKey, detailI18nVars, detailRenderer, onRender });
     return;
   }
 

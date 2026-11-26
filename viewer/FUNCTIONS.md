@@ -74,6 +74,7 @@ It is intended as a quick reference for the current `viewer/` module exports and
 - Viewer support utilities:
   - `Viewer.getSupportedFormatsText()`
   - `Viewer.getSupportedArchiveFormatsText()`
+  - `Viewer.openDroppedFiles(files)` (a drop, or files picked in the sandbox notice: ui/sandbox-formats.js)
   - `Viewer.getDistanceMeasurementScaleMeters()`
   - `Viewer.formatMeasuredDistance(rawDistanceInModelUnits)`
   - `Viewer.toggleAutoRotateByKeyboard()`

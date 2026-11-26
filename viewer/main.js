@@ -104,6 +104,7 @@ import { attachCamerasPanel } from "./editor/cameras-panel.js";
 import { attachCameraMarkers } from "./editor/camera-markers.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
+import { sandboxDropDetailHtml, bindSandboxDropNotice } from "./ui/sandbox-formats.js";
 import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
 import { attachContextMenu } from "./editor/context-menu.js";
@@ -2822,14 +2823,19 @@ export const Viewer = {
       return;
     }
 
-    // Several images at once: a set to browse (image2d.js).
+    await Viewer.openDroppedFiles([...files]);
+  },
+
+  // Files dropped on the viewer or picked in the sandbox notice
+  // (ui/sandbox-formats.js): several images at once are a set to browse
+  // (image2d.js), anything else opens its first file.
+  async openDroppedFiles(files) {
+    if (!files?.length) return false;
     const images = imageSet([...files]);
     if (files.length > 1 && images.length === files.length) {
-      await Viewer.openImageSet(images);
-      return;
+      return Viewer.openImageSet(images);
     }
-
-    await Viewer.openLocalFile(files[0]);
+    return Viewer.openLocalFile(files[0]);
   },
 
   // Images from the device as one set, in natural name order (dropped
@@ -3128,9 +3134,8 @@ export const Viewer = {
     }
 
     toastHelper("sandboxDropModel", "info", {
-      formats: this.getSupportedFormatsText(),
-      archives: this.getSupportedArchiveFormatsText(),
-      detailI18nKey: "toasts.supportedFormats",
+      detailRenderer: sandboxDropDetailHtml,
+      onRender: (node) => bindSandboxDropNotice(Viewer, node),
       key: "sandbox-drop-model",
       replace: true,
       persistent: true,

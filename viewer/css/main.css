@@ -423,6 +423,211 @@ canvas {
   opacity: 0.9;
 }
 
+/* The sandbox notice's button and format groups (ui/sandbox-formats.js). */
+.viewer-notice-status[data-variant="sandbox"]:has(.sandbox-formats) {
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  /* Centred: keeps clear of the logo above and the axes below. */
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  scrollbar-width: thin;
+}
+
+.viewer-notice-status[data-variant="sandbox"] .viewer-notice-detail:has(.sandbox-formats) {
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 1;
+}
+
+.sandbox-formats {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  text-align: left;
+}
+
+.sandbox-open-file {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 18px;
+  border: 1px solid color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 88%, transparent);
+  color: #1b1610;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.sandbox-open-file:hover {
+  filter: brightness(1.08);
+}
+
+.sandbox-open-file:active {
+  transform: scale(0.98);
+}
+
+.sandbox-open-file:focus-visible,
+.sandbox-formats-group > summary:focus-visible {
+  outline: 2px solid var(--viewer-brand-glow, #ffb300);
+  outline-offset: 2px;
+}
+
+.sandbox-formats-local {
+  text-align: center;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.sandbox-formats-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sandbox-formats-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.65;
+}
+
+.sandbox-formats-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sandbox-formats-group {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sandbox-formats-group[open] {
+  grid-column: 1 / -1;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 50%, transparent);
+}
+
+.sandbox-formats-group > summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.sandbox-formats-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sandbox-formats-group > summary:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sandbox-formats-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.sandbox-formats-name::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+
+.sandbox-formats-group[open] .sandbox-formats-name::after {
+  transform: rotate(225deg) translateY(-2px);
+}
+
+.sandbox-formats-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.sandbox-formats-chip {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.sandbox-formats-flow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 2px 8px 8px;
+}
+
+.sandbox-formats-flow dt {
+  font-weight: 650;
+  font-size: 11px;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.sandbox-formats-flow dd {
+  margin: 0;
+}
+
+.sandbox-formats-server-only {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.sandbox-formats-server-only .sandbox-formats-chip {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 520px) {
+  .sandbox-formats-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sandbox-formats-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @keyframes sandbox-outline {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--viewer-brand-glow, #ffb300) 0%, transparent),

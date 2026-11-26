@@ -285,20 +285,34 @@ test('sandbox notice updates after language changes', async ({ page }) => {
 
   const notice = page.locator('#viewerStatusNotice[data-variant="sandbox"]');
   await expect(notice.locator('.viewer-notice-message')).toHaveText(sandboxDropMessage);
-  // details are rendered as separate lines/spans: label, formats list, archives
-  await expect(notice.locator('.viewer-notice-detail').nth(0)).toContainText('Supported formats');
-  await expect(notice.locator('.viewer-notice-detail').nth(1)).toHaveText(supportedFormatsText);
-  await expect(notice.locator('.viewer-notice-detail').nth(2)).toContainText('archive formats');
+  // The formats, grouped by kind (ui/sandbox-formats.js), with a button to
+  // pick a file from the device.
+  await expect(notice.locator('.sandbox-open-file')).toHaveText('Load from disk');
+  await expect(notice.locator('.sandbox-formats-title')).toContainText('Supported formats');
+  await expect(notice.locator('.sandbox-formats-group[data-group="gltf"] .sandbox-formats-chip')).toHaveText(['GLB', 'GLTF']);
+  await expect(notice.locator('.sandbox-formats-group[data-group="archive"] .sandbox-formats-chip')).toHaveText(['ZIP', 'RAR', 'TAR', 'XZ', 'GZ']);
+  const shown = await notice.locator('.sandbox-formats-groups .sandbox-formats-chip').allTextContents();
+  expect(shown.join(', ')).toContain('LAS, LAZ');
+  for (const ext of supportedFormatsText.split(', ')) expect(shown).toContain(ext);
 
   await page.evaluate(() => {
     document.querySelector<HTMLElement>('#viewerLanguageMode')?.click();
     document.querySelector<HTMLElement>('.language-dropdown-item-polish')?.click();
   });
 
-  await expect(notice.locator('.viewer-notice-message')).toHaveText("Przeciągnij i upuść model 3D w oknie viewer'a.");
-  await expect(notice.locator('.viewer-notice-detail').nth(0)).toContainText('formaty');
-  await expect(notice.locator('.viewer-notice-detail').nth(1)).toHaveText(supportedFormatsText);
-  await expect(notice.locator('.viewer-notice-detail').nth(2)).toContainText('archiwa');
+  await expect(notice.locator('.viewer-notice-message')).toHaveText("Przeciągnij i upuść model 3D lub manifest w oknie viewer'a.");
+  await expect(notice.locator('.sandbox-open-file')).toHaveText('Wczytaj z dysku');
+  await expect(notice.locator('.sandbox-formats-title')).toContainText('Obsługiwane formaty');
+});
+
+test('sandbox notice opens a file picked from the disk', async ({ page }) => {
+  await openSandboxViewer(page);
+
+  const chooser = page.waitForEvent('filechooser');
+  await page.locator('#viewerStatusNotice .sandbox-open-file').click();
+  await (await chooser).setFiles('viewer/examples/box.glb');
+  await waitForModel(page);
+  await expect(page.locator('#viewerStatusNotice[data-variant="sandbox"]')).toHaveCount(0);
 });
 
 for (const manifest of [

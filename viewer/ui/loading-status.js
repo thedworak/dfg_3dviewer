@@ -228,7 +228,9 @@ export function attachLoadingStatus(viewer) {
       return {
         ...notice,
         message: i18nKey ? t(i18nKey, notice.i18nVars || {}, notice.message) : notice.message,
-        detail: detailI18nKey ? t(detailI18nKey, notice.detailI18nVars || {}, notice.detail) : notice.detail,
+        detail: typeof notice.detailRenderer === "function"
+          ? notice.detailRenderer()
+          : detailI18nKey ? t(detailI18nKey, notice.detailI18nVars || {}, notice.detail) : notice.detail,
       };
     },
 
@@ -268,6 +270,8 @@ export function attachLoadingStatus(viewer) {
         });
         this.statusNotice.appendChild(closeButton);
       }
+
+      if (typeof notice.onRender === "function") notice.onRender(this.statusNotice);
     },
 
     getStatusNoticeText(notice) {
@@ -391,6 +395,8 @@ export function attachLoadingStatus(viewer) {
       detail = "",
       detailI18nKey = "",
       detailI18nVars = {},
+      detailRenderer = null,
+      onRender = null,
     } = {}) {
       const text = String(message ?? "");
       if (!text) return;
@@ -408,6 +414,8 @@ export function attachLoadingStatus(viewer) {
         detail: String(detail || ""),
         detailI18nKey: String(detailI18nKey || ""),
         detailI18nVars: detailI18nVars && typeof detailI18nVars === "object" ? { ...detailI18nVars } : {},
+        detailRenderer: typeof detailRenderer === "function" ? detailRenderer : null,
+        onRender: typeof onRender === "function" ? onRender : null,
       };
 
       if (
