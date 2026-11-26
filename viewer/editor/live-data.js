@@ -93,6 +93,42 @@ function indexModel() {
   return index;
 }
 
+// The model's parts a table can name, in the Hierarchy's order: every named
+// object, without the wrappers that hold all the others (a file's scene, the
+// model's root) and without the pieces a loader split an object into. A
+// glTF's nodes keep the file's name in `userData.name` (`object.name` is
+// tidied, and the meshes' primitives are named `mesh_1_2`): where the model
+// has such names, only they count.
+function modelPartNames(limit = 5000) {
+  const objects = [];
+  modelRoots().forEach((root) => {
+    (getUpAxisPivot(root) ?? root).traverse((object) => {
+      if (isOverlay(object) || object.userData?.isHelper || object.isLight || object.isCamera) return;
+      objects.push(object);
+    });
+  });
+  const fileNames = objects.some((object) => typeof object.userData?.name === "string" && object.userData.name.trim());
+  const nameOf = (object) => String((fileNames ? object.userData?.name : object.name || object.userData?.name) ?? "").trim();
+  const found = [];
+  const seen = new Set();
+  objects.forEach((object) => {
+    const name = nameOf(object);
+    const id = normalizeDataKey(name);
+    if (!id || seen.has(id)) return;
+    // `Roof_1`, `Roof_2` under `Roof`: one object, split.
+    const parent = object.parent && nameOf(object.parent);
+    if (parent && normalizeDataKey(name.replace(/[_.\s-]*\d+$/, "")) === normalizeDataKey(parent)) return;
+    seen.add(id);
+    found.push(object);
+  });
+  const inside = (object, ancestor) => {
+    for (let current = object.parent; current; current = current.parent) if (current === ancestor) return true;
+    return false;
+  };
+  while (found.length > 1 && found.slice(1).every((object) => inside(object, found[0]))) found.shift();
+  return found.slice(0, limit).map(nameOf);
+}
+
 function depthOf(object) {
   let depth = 0;
   for (let current = object; current.parent; current = current.parent) depth += 1;
@@ -296,6 +332,32 @@ export function attachLiveData(Viewer) {
       }
       Viewer.syncLiveDataPanel();
       return changed.size > 0;
+    },
+
+    // A table to fill in: a row for each part of the model (modelPartNames),
+    // its name in the key column. A table already there keeps its rows and
+    // columns and gets the parts it does not name yet. The table is then the
+    // window's own: a URL or a file is no longer followed. Returns how many
+    // rows were added.
+    generateLiveDataTable({ columns: fresh = ["part", "value", "note"] } = {}) {
+      const state = Viewer.getLiveDataState();
+      const names = modelPartNames();
+      if (!names.length) return 0;
+      const keyColumn = state.config.key && state.columns.includes(state.config.key) ? state.config.key : state.columns.length ? "part" : fresh[0];
+      const columns = state.columns.length ? [...state.columns] : [...fresh];
+      if (!columns.includes(keyColumn)) columns.unshift(keyColumn);
+      const blank = Object.fromEntries(columns.map((column) => [column, ""]));
+      const named = new Set(state.rows.map((row) => normalizeDataKey(row[keyColumn])));
+      const added = names.filter((name) => !named.has(normalizeDataKey(name))).map((name) => ({ ...blank, [keyColumn]: name }));
+      if (!added.length) return 0;
+      Viewer.stopLiveDataSource();
+      Object.assign(state.source, { kind: "inline", name: "", lastText: null, error: null, edited: true });
+      state.config.src = null;
+      state.config.key = keyColumn;
+      Viewer.applyLiveDataTable(columns, [...state.rows.map((row) => ({ ...blank, ...row })), ...added], { quiet: true });
+      Viewer.renderLiveDataPanel();
+      Viewer.updateEditorToolbarState?.();
+      return added.length;
     },
 
     // ---- the sources ----
@@ -989,7 +1051,13 @@ export function attachLiveData(Viewer) {
       const save = button("viewer-livedata-panel_save", () => Viewer.downloadLiveDataTable());
       save.disabled = !state.rows.length;
       labels.push([save, () => t("liveData.saveCsv", "Save as CSV")]);
-      actions.append(open, save, fileInput);
+      const generate = button("viewer-livedata-panel_generate", () => Viewer.generateLiveDataTable());
+      generate.disabled = !modelRoots().length;
+      labels.push([generate, () => t("liveData.generate", "Generate from the model")]);
+      generate.addEventListener("pointerenter", () => {
+        generate.title = t("liveData.generateHint", "A row for each part of the model, ready to fill in. A table already open gets the parts it does not name yet.");
+      });
+      actions.append(generate, open, save, fileInput);
       source.appendChild(actions);
       if (typeof window.showOpenFilePicker !== "function") {
         const note = el("p", "viewer-pointcloud-panel_note");

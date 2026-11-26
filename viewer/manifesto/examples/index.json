@@ -135,6 +135,20 @@
       }
     },
     {
+      "url": "./manifests/pagoda-aim3d-local-live-data.json",
+      "name": {
+        "en": "Pagoda - live data: timber moisture on each storey (localhost)",
+        "pl": "Pagoda - żywe dane: wilgotność drewna na kondygnacjach (localhost)",
+        "de": "Pagode - Live-Daten: Holzfeuchte je Geschoss (localhost)"
+      },
+      "group": "pagoda",
+      "variant": {
+        "en": "Live data: timber moisture on each storey",
+        "pl": "Żywe dane: wilgotność drewna na kondygnacjach",
+        "de": "Live-Daten: Holzfeuchte je Geschoss"
+      }
+    },
+    {
       "url": "./manifests/pagoda-aim3d-local-ceiling.json",
       "group": "pagoda",
       "variant": {

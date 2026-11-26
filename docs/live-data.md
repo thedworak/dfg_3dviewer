@@ -60,6 +60,7 @@ At most 5000 rows are read; the window lists the first 300.
 | A URL | Read again every 1, 2, 5, 15 or 60 seconds (any number of seconds in a manifest). An unchanged answer changes nothing. Not read while the page is in a background tab |
 | A file from the device | In Chrome and Edge the file stays connected (File System Access API): save it in the spreadsheet or the editor and the model follows within a second. Other browsers read it once |
 | The window's own table | A cell changed there changes the model at once. Arrow up and down nudge a number by 1, with Shift by 10 |
+| The model | **Generate from the model** writes a table to fill in: a row for each named part, as the Hierarchy lists them (without the root that holds them all), with the columns `part`, `value` and `note`. A table already open keeps its rows and columns and gets the parts it does not name yet. The table is then the window's own; **Save as CSV** keeps it |
 | The page | `Viewer.updateLiveDataRow(key, values)`, `Viewer.setLiveDataRows(rows)`, or a message to an embedded viewer (below) |
 
 A URL on another site needs that site's permission to be read from a page

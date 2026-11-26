@@ -5318,6 +5318,33 @@ test('live data: a table drives the model - read again when it changes, edited i
   })).toEqual([0, undefined]);
 });
 
+test('live data: a table generated from the model, a row for each part, ready to fill in', async ({ page }) => {
+  await openViewer(page, '/examples/pagoda/Pagoda.glb');
+  await waitForModel(page);
+  await page.evaluate(() => window.Viewer.toggleLiveDataPanel(true));
+  const panel = page.locator('#viewerLiveDataPanel');
+  await panel.locator('.viewer-livedata-panel_generate').click();
+  // The parts, without the model's root that holds them all.
+  const parts = ['Platform', 'Storey 1', 'Roof 1', 'Storey 2', 'Roof 2', 'Storey 3', 'Roof 3', 'Interior', 'Finial'];
+  expect(await page.evaluate(() => {
+    const { columns, rows, config, source } = window.Viewer.getLiveDataState();
+    return { columns, keys: rows.map((row) => row.part), key: config.key, kind: source.kind };
+  })).toEqual({ columns: ['part', 'value', 'note'], keys: parts, key: 'part', kind: 'inline' });
+  await expect(panel.locator('tbody tr')).toHaveCount(9);
+  await expect(panel.locator('.viewer-livedata-panel_matched')).toHaveText('9 of 9 rows found in the model.');
+
+  // Filled in, then generated again: the rows stay, a part not named yet comes.
+  await page.evaluate(() => {
+    window.Viewer.setLiveDataRows([{ part: 'Roof 1', moisture: 26 }]);
+  });
+  expect(await page.evaluate(() => window.Viewer.generateLiveDataTable())).toBe(8);
+  expect(await page.evaluate(() => {
+    const { columns, rows } = window.Viewer.getLiveDataState();
+    return { columns, first: rows[0], count: rows.length };
+  })).toEqual({ columns: ['part', 'moisture'], first: { part: 'Roof 1', moisture: 26 }, count: 9 });
+  expect(await page.evaluate(() => window.Viewer.generateLiveDataTable())).toBe(0);
+});
+
 test('live link: what changed between two manifests, a session\'s ids and cameras', () => {
   const manifest = JSON.parse(fs.readFileSync('viewer/manifesto/examples/tempietto-aim3d-live-data.json', 'utf8'));
   expect(manifestModels(manifest)).toEqual([['Model:./examples/tempietto/Tempietto.glb']]);

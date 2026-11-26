@@ -1,0 +1,10 @@
+part,moisture,temperature,condition,inspected
+Platform,24.5,11.0,fair,2026-11-02
+Storey 1,19.0,12.5,fair,2026-11-02
+Roof 1,26.5,9.5,poor,2026-11-04
+Storey 2,15.5,13.0,good,2026-11-04
+Roof 2,21.0,9.0,fair,2026-11-06
+Storey 3,13.0,13.5,good,2026-11-06
+Roof 3,17.5,8.5,good,2026-11-09
+Interior,11.5,16.0,good,2026-11-09
+Finial,9.0,7.5,good,2026-11-09
