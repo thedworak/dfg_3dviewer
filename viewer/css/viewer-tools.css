@@ -1234,7 +1234,8 @@
 
 .viewer-clipping-panel_row {
   --axis-color: #e53935;
-  --cut: 0%;
+  --from: 0%;
+  --to: 0%;
   display: grid;
   grid-template-columns: 30px 1fr 68px 30px;
   align-items: center;
@@ -1244,6 +1245,87 @@
 
 .viewer-clipping-panel_row[data-axis="y"] { --axis-color: #43a047; }
 .viewer-clipping-panel_row[data-axis="z"] { --axis-color: #1e88e5; }
+
+/* "2.70–10.82 m": a wider value with the section box. */
+.viewer-clipping-panel_row.is-box {
+  grid-template-columns: 30px 1fr 92px 30px;
+}
+.viewer-clipping-panel_row[data-axis="face"] { --axis-color: var(--viewer-brand-accent, #f5a524); }
+
+.viewer-clipping-panel_row[hidden] {
+  display: none;
+}
+
+/* One slider, or with the section box two on one track (the low side's
+   under the other's): only their thumbs take the pointer then. */
+.viewer-clipping-panel_track {
+  position: relative;
+  height: 22px;
+  min-width: 0;
+}
+
+.viewer-clipping-panel_track > .viewer-clipping-panel_slider {
+  position: absolute;
+  inset: 0;
+}
+
+.viewer-clipping-panel_track.is-box > .viewer-clipping-panel_slider {
+  pointer-events: none;
+}
+
+.viewer-clipping-panel_track.is-box > .viewer-clipping-panel_slider::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+
+.viewer-clipping-panel_track.is-box > .viewer-clipping-panel_slider::-moz-range-thumb {
+  pointer-events: auto;
+}
+
+.viewer-clipping-panel_track > .viewer-clipping-panel_slider:not(.viewer-clipping-panel_slider--low)::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.viewer-clipping-panel_track > .viewer-clipping-panel_slider:not(.viewer-clipping-panel_slider--low)::-moz-range-track {
+  background: transparent;
+}
+
+.viewer-clipping-panel_track:not(.is-box) > .viewer-clipping-panel_slider--low {
+  display: block !important;
+  pointer-events: none;
+}
+
+.viewer-clipping-panel_track:not(.is-box) > .viewer-clipping-panel_slider--low::-webkit-slider-thumb {
+  visibility: hidden;
+}
+
+.viewer-clipping-panel_track:not(.is-box) > .viewer-clipping-panel_slider--low::-moz-range-thumb {
+  visibility: hidden;
+}
+
+/* The section box, a plane put to a face, the drawing. */
+.viewer-clipping-panel_tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.viewer-clipping-panel button.viewer-clipping-panel_tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.viewer-clipping-panel_tool-icon {
+  display: inline-flex;
+}
+
+.viewer-clipping-panel button.viewer-clipping-panel_tool[aria-pressed="true"] {
+  border-color: var(--viewer-brand-accent, #f5a524);
+  background: color-mix(in srgb, var(--viewer-brand-accent, #f5a524) 22%, transparent);
+}
 
 .viewer-clipping-panel button {
   height: 26px;
@@ -1284,22 +1366,23 @@
   cursor: pointer;
 }
 
+/* Filled in the axis colour between --from and --to (0 and the cut, or
+   the section box's two sides). Drawn on the low slider, which is under the
+   other; the other's own track is clear. */
 .viewer-clipping-panel_slider::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(to right, var(--axis-color) var(--cut), color-mix(in srgb, currentColor 22%, transparent) var(--cut));
+  background: linear-gradient(to right,
+    color-mix(in srgb, currentColor 22%, transparent) var(--from), var(--axis-color) var(--from),
+    var(--axis-color) var(--to), color-mix(in srgb, currentColor 22%, transparent) var(--to));
 }
 
 .viewer-clipping-panel_slider::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: color-mix(in srgb, currentColor 22%, transparent);
-}
-
-.viewer-clipping-panel_slider::-moz-range-progress {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--axis-color);
+  background: linear-gradient(to right,
+    color-mix(in srgb, currentColor 22%, transparent) var(--from), var(--axis-color) var(--from),
+    var(--axis-color) var(--to), color-mix(in srgb, currentColor 22%, transparent) var(--to));
 }
 
 .viewer-clipping-panel_slider::-webkit-slider-thumb {
@@ -1377,6 +1460,11 @@
 
 .viewer-clipping-panel_flip[aria-pressed="true"] svg {
   transform: scaleX(-1);
+}
+
+.viewer-clipping-panel button.viewer-clipping-panel_flip:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .viewer-clipping-panel_actions {

@@ -310,7 +310,11 @@ const CLIPPING = tag("clipping", obj({
   outline: BOOL,
   // The cut faces' colour and the part cut away as a ghost (editor/clipping.js).
   fillColor: leaf(oneOf(["neutral", "plane"])),
+  fillPattern: leaf(oneOf(["solid", "hatch"])),
   ghost: BOOL,
+  // The section box (each axis' other side) and a plane put to a face.
+  box: obj({ enabled: BOOL, low: obj({ x: NUM, y: NUM, z: NUM }) }),
+  face: obj({ point: TRIPLE, normal: TRIPLE, depth: NUM, negated: BOOL }),
 }));
 
 const VIEWER = obj({

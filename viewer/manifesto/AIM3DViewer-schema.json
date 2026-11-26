@@ -217,6 +217,34 @@
                 "ghost": {
                   "description": "The part cut away shown as a faint ghost (default: false).",
                   "type": "boolean"
+                },
+                "fillPattern": {
+                  "description": "The cut faces solid or hatched with thin diagonal lines (default: solid).",
+                  "enum": ["solid", "hatch"]
+                },
+                "box": {
+                  "description": "The section box: every axis cut from both sides; low: where each axis' other side stands, as a fraction of the model's box.",
+                  "type": "object",
+                  "properties": {
+                    "enabled": { "type": "boolean" },
+                    "low": {
+                      "type": "object",
+                      "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                "face": {
+                  "description": "A section plane put to a face: point (as fractions of the model's box), normal (into the model), depth (how far it went in, as a fraction of the model's largest side), negated.",
+                  "type": "object",
+                  "properties": {
+                    "point": { "$ref": "#/$defs/vector3" },
+                    "normal": { "$ref": "#/$defs/vector3" },
+                    "depth": { "type": "number" },
+                    "negated": { "type": "boolean" }
+                  },
+                  "additionalProperties": true
                 }
               },
               "additionalProperties": true
@@ -651,7 +679,10 @@
             "constants": { "$ref": "#/$defs/vector3" },
             "outlineVisible": { "type": "boolean" },
             "fillColor": { "enum": ["neutral", "plane"] },
-            "ghost": { "type": "boolean" }
+            "fillPattern": { "enum": ["solid", "hatch"] },
+            "ghost": { "type": "boolean" },
+            "box": { "type": "object", "additionalProperties": true },
+            "face": { "type": "object", "additionalProperties": true }
           },
           "additionalProperties": true
         }

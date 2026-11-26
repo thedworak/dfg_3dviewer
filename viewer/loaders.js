@@ -1,4 +1,5 @@
 import THREE from "./init.js";
+import { createSectionFillMaterial } from "./editor/section-fill.js";
 import { DIRECT_SPECULAR_SCALE } from "./renderer-backend.js";
 export const loadDDSLoader = async () => (await import("three/examples/jsm/loaders/DDSLoader.js")).DDSLoader;
 export const loadMTLLoader = async () => (await import("three/examples/jsm/loaders/MTLLoader.js")).MTLLoader;
@@ -373,7 +374,7 @@ function prepareOutlineClipping(_object) {
   // The cut faces: a neutral dark fill (an architect's poché) by default,
   // the cutting plane's colour on request (editor/clipping.js, which finds
   // this material in userData.fillMaterial).
-  var gutsMaterial = new THREE.MeshBasicMaterial({
+  var gutsMaterial = createSectionFillMaterial({
     color: 0x2f3034,
     side: THREE.BackSide,
     clippingPlanes: core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []),

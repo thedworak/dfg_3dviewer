@@ -213,6 +213,19 @@ function validateClipping(clipping, path, errors) {
   if (clipping.outlineVisible !== undefined) validateBoolean(clipping.outlineVisible, `${path}.outlineVisible`, errors);
   if (clipping.fillColor !== undefined) validateEnum(clipping.fillColor, ["neutral", "plane"], `${path}.fillColor`, errors);
   if (clipping.ghost !== undefined) validateBoolean(clipping.ghost, `${path}.ghost`, errors);
+  if (clipping.fillPattern !== undefined) validateEnum(clipping.fillPattern, ["solid", "hatch"], `${path}.fillPattern`, errors);
+  if (clipping.box !== undefined) {
+    if (!isPlainObject(clipping.box)) pushError(errors, `${path}.box`, "must be an object");
+    else if (clipping.box.enabled !== undefined) validateBoolean(clipping.box.enabled, `${path}.box.enabled`, errors);
+  }
+  if (clipping.face !== undefined) {
+    if (!isPlainObject(clipping.face)) {
+      pushError(errors, `${path}.face`, "must be an object");
+    } else {
+      validateVector(clipping.face.point, `${path}.face.point`, errors, 3);
+      validateVector(clipping.face.normal, `${path}.face.normal`, errors, 3);
+    }
+  }
   if (clipping.outline !== undefined) validateBoolean(clipping.outline, `${path}.outline`, errors);
 }
 

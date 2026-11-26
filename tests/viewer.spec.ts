@@ -9468,7 +9468,7 @@ test('section planes look the part: a grid in metres on each plane, its face fad
   })).toBe(true);
 
   // The part cut away as a ghost: the other side of the plane.
-  const ghost = panel.locator('.viewer-clipping-panel_option').nth(2).locator('input');
+  const ghost = panel.locator('.viewer-clipping-panel_option').nth(3).locator('input');
   await ghost.check();
   const ghostState = await page.evaluate(() => {
     let found = null;
@@ -9511,6 +9511,150 @@ test('section planes look the part: a grid in metres on each plane, its face fad
   const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
   expect(manifest.AIM3DViewer.viewer.clipping).toMatchObject({ fillColor: 'plane', ghost: true });
   expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+});
+
+test('section planes, pro: a hatched fill, a handle with its length on each plane, the section box, a plane put to a face, the section as an SVG drawing; all saved', async ({ page }) => {
+  test.setTimeout(60_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForCameraIdle(page);
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.toggleClippingPlanesPanel();
+    const range = viewer.getClippingAxisRange('x');
+    viewer.setClippingAxisPosition('x', range.min + range.size * 0.6);
+    viewer.setClippingFillVisible(true);
+  });
+  const panel = page.locator('#viewerClippingPanel');
+
+  // Hatched: the fill's hatch switched on, no new shader.
+  await panel.locator('.viewer-clipping-panel_option').nth(2).locator('input').check();
+  expect(await page.evaluate(() => window.viewer.outlineClipping.userData.fillMaterial.userData.hatch.uHatch.value)).toBe(1);
+  expect(await page.evaluate(() => window.Viewer.getClippingForPersistence().fillPattern)).toBe('hatch');
+
+  // The handle: an arrow at the plane's corner, a label with where it is.
+  const label = await page.evaluate(() => window.Viewer.clippingState.visuals.x.label.text);
+  expect(label).toMatch(/^X \d/);
+  // Dragged by its arrow, the plane moves.
+  const handleScreen = await page.evaluate(() => {
+    const visual = window.Viewer.clippingState.visuals.x;
+    visual.group.updateMatrixWorld(true);
+    const point = visual.arrow.position.clone().applyMatrix4(visual.handle.matrixWorld);
+    point.project(window.viewer.camera);
+    const rect = window.viewer.renderer.domElement.getBoundingClientRect();
+    return { x: rect.left + (point.x + 1) / 2 * rect.width, y: rect.top + (1 - point.y) / 2 * rect.height };
+  });
+  const before = await page.evaluate(() => window.Viewer.getClippingAxisPosition('x'));
+  expect(await page.evaluate(({ x, y }) => window.Viewer.pickClippingAxis({ clientX: x, clientY: y }), handleScreen)).toBe('x');
+  await page.mouse.move(handleScreen.x, handleScreen.y);
+  await page.mouse.down();
+  await page.mouse.move(handleScreen.x - 80, handleScreen.y, { steps: 6 });
+  await page.mouse.up();
+  expect(await page.evaluate(() => window.Viewer.getClippingAxisPosition('x'))).not.toBeCloseTo(before, 3);
+
+  // The section box: all three axes from both sides - six planes; a second
+  // slider on each row, the value "from – to".
+  await panel.locator('.viewer-clipping-panel_tool').nth(0).click();
+  expect(await page.evaluate(() => window.viewer.activeClippingPlanes.length)).toBe(6);
+  const xRow = panel.locator('.viewer-clipping-panel_row[data-axis="x"]');
+  await expect(xRow.locator('.viewer-clipping-panel_track')).toHaveClass(/is-box/);
+  await expect(xRow.locator('.viewer-clipping-panel_value')).toHaveValue(/–/);
+  await xRow.locator('.viewer-clipping-panel_value').fill('10 – 60 cm');
+  await xRow.locator('.viewer-clipping-panel_value').press('Enter');
+  const boxSides = await page.evaluate(() => {
+    const viewer = window.Viewer;
+    const range = viewer.getClippingAxisRange('x');
+    const meters = viewer.resolveModelUnit().meters;
+    return [(viewer.getClippingBoxLow('x') - range.min) * meters, (viewer.getClippingAxisPosition('x') - range.min) * meters];
+  });
+  expect(boxSides[0]).toBeCloseTo(0.1, 4);
+  expect(boxSides[1]).toBeCloseTo(0.6, 4);
+  await panel.locator('.viewer-clipping-panel_tool').nth(0).click();
+  expect(await page.evaluate(() => window.viewer.activeClippingPlanes.length)).toBe(3);
+
+  // A plane put to a face: the tool, then a tap on the model.
+  await page.evaluate(() => {
+    window.Viewer.setClippingAxisEnabled('y', false, { silent: true });
+    window.Viewer.setClippingAxisEnabled('z', false, { silent: true });
+  });
+  await panel.locator('.viewer-clipping-panel_tool').nth(1).click();
+  const canvas = page.locator('#MainCanvas');
+  const box = await canvas.boundingBox();
+  // Left of the middle: on the part the X cut keeps.
+  await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);
+  const face = await page.evaluate(() => ({
+    enabled: window.Viewer.clippingState.face.enabled,
+    planes: window.viewer.activeClippingPlanes.length,
+    picking: window.Viewer.clippingState.facePicking,
+  }));
+  expect(face).toEqual({ enabled: true, planes: 2, picking: false });
+  const faceRow = panel.locator('.viewer-clipping-panel_row[data-axis="face"]');
+  await expect(faceRow).toBeVisible();
+  await page.evaluate(() => {
+    const range = window.Viewer.getClippingFaceRange();
+    window.Viewer.setClippingFaceOffset(range.min + range.size * 0.3);
+  });
+  await expect(faceRow.locator('.viewer-clipping-panel_value')).not.toHaveValue(/^0/);
+
+  // Saved, and back.
+  const saved = await page.evaluate(() => window.Viewer.getClippingForPersistence());
+  expect(saved.face.normal).toHaveLength(3);
+  const restored = await page.evaluate((state) => {
+    const viewer = window.Viewer;
+    viewer.removeClippingFace();
+    viewer.applySavedClipping(state);
+    return { enabled: viewer.clippingState.face.enabled, planes: window.viewer.activeClippingPlanes.length };
+  }, saved);
+  expect(restored).toEqual({ enabled: true, planes: 2 });
+  const manifest = await page.evaluate(() => window.Viewer.build3IFManifest());
+  expect(manifest.AIM3DViewer.viewer.clipping.face).toBeTruthy();
+  expect(manifest.AIM3DViewer.viewer.clipping.fillPattern).toBe('hatch');
+  expect(validateAIM3DManifest(manifest).errors).toEqual([]);
+
+  // The drawing: the section along the plane moved last (the face plane),
+  // its lines and a scale bar, downloaded.
+  // (X off: moved by its arrow it may have cut away all the face plane keeps.)
+  await page.evaluate(() => {
+    window.Viewer.setClippingAxisEnabled('x', false, { silent: true });
+    const range = window.Viewer.getClippingFaceRange();
+    window.Viewer.setClippingFaceOffset(range.min + range.size * 0.4);
+  });
+  const download = page.waitForEvent('download');
+  await panel.locator('.viewer-clipping-panel_tool').nth(2).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toMatch(/^section-face.*\.svg$/);
+  const drawing = await page.evaluate(() => window.Viewer.exportClippingSection());
+  expect(drawing.segments).toBeGreaterThan(3);
+  expect(drawing.svg).toContain('<path d="M');
+  expect(drawing.svg).toMatch(/<text[^>]*>(\d+(\.\d+)? (cm|m|mm))<\/text>/);
+});
+
+test('section planes under the WebGPU renderer: the hatch as a colour node, the ghost as a clipping group', async ({ page }) => {
+  test.setTimeout(60_000);
+  await openViewer(page, '/examples/box.glb', 'renderer=webgpu&webgpuBackend=webgl2');
+  await waitForCameraIdle(page);
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const state = await page.evaluate(async () => {
+    const viewer = window.Viewer;
+    viewer.toggleClippingPlanesPanel();
+    const range = viewer.getClippingAxisRange('x');
+    viewer.setClippingAxisPosition('x', range.min + range.size * 0.5);
+    viewer.setClippingFillVisible(true);
+    viewer.setClippingFillPattern('hatch');
+    viewer.setClippingGhostVisible(true);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const material = window.viewer.outlineClipping.userData.fillMaterial;
+    let ghost = null;
+    window.viewer.scene.traverse((object) => { if (object.name === 'ClippingGhost') ghost = object; });
+    return {
+      backend: window.viewer.rendererBackend,
+      node: material.isNodeMaterial === true && Boolean(material.colorNode),
+      hatch: material.userData.hatch.uHatch.value,
+      ghost: ghost?.visible === true && ghost.isClippingGroup === true && ghost.clipIntersection === true,
+    };
+  });
+  expect(state).toEqual({ backend: 'webgpu', node: true, hatch: 1, ghost: true });
+  expect(errors).toEqual([]);
 });
 
 test('section cuts and measurements are saved with the settings and the manifest, and come back on the model', async ({ page }) => {

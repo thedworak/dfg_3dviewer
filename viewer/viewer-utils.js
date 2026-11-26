@@ -40,6 +40,8 @@ export const updateActiveClippingPlanes = () => {
   if (mode.x && core.clippingPlanes?.[0]) activePlanes.push(core.clippingPlanes[0]);
   if (mode.y && core.clippingPlanes?.[1]) activePlanes.push(core.clippingPlanes[1]);
   if (mode.z && core.clippingPlanes?.[2]) activePlanes.push(core.clippingPlanes[2]);
+  // The section box's other sides and the plane put to a face (editor/clipping.js).
+  if (Array.isArray(core.extraClippingPlanes)) activePlanes.push(...core.extraClippingPlanes);
 
   core.activeClippingPlanes.length = 0;
   core.activeClippingPlanes.push(...activePlanes);

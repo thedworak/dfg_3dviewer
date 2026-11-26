@@ -1656,7 +1656,9 @@ export function attachAnnotations(Viewer) {
               ],
               outlineVisible: core.planeParams?.outline?.visible === true,
               fillColor: this.clippingState?.fillColor || "neutral",
+              fillPattern: this.clippingState?.fillPattern || "solid",
               ghost: this.clippingState?.ghost === true,
+              ...(this.getClippingExtrasForPersistence?.() || {}),
               negated: this.getClippingNegatedState?.(),
             }
           },
@@ -1919,7 +1921,11 @@ export function attachAnnotations(Viewer) {
       // How the cut looks (editor/clipping.js): the fill's colour, the ghost.
       if (this.clippingState) {
         this.clippingState.fillColor = clippingConfig.fillColor === "plane" ? "plane" : "neutral";
+        this.clippingState.fillPattern = clippingConfig.fillPattern === "hatch" ? "hatch" : "solid";
         this.clippingState.ghost = clippingConfig.ghost === true;
+        // The section box and the plane put to a face.
+        this.applyClippingExtras?.(clippingConfig);
+        if (this.hasActiveClipping?.()) this.clippingMode = true;
         this.applyClippingState?.();
       }
 
