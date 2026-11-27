@@ -348,7 +348,8 @@ JOB_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 THUMBNAIL_VIEWS = {f"side{angle}" for angle in range(0, 360, 45)} | {"top"}
 LIMITS = Limits(JOBS_DIR, JOB_ID_RE, MAX_CONCURRENT_CONVERSIONS)
 # Shared live sessions between viewers (in memory).
-LIVE_SESSIONS = live_sessions.LiveSessions()
+# A signed-in host's rooms are kept for their history (never the states).
+LIVE_SESSIONS = live_sessions.LiveSessions(store=live_sessions.LiveSessionStore(JOBS_DIR / ".live" / "sessions.json"))
 # Plans of an app (see the entitlements import above); off without it.
 ENTITLEMENTS = Entitlements() if Entitlements else None
 # Testing only: without a verification key, accept the plan the app reports
@@ -1840,22 +1841,48 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _handle_live_session(self, room: str, publish: bool) -> None:
-        """Shared live sessions (live_sessions.py): POST publishes a
-        viewer's state, GET waits for the next one."""
+    def _handle_live_session(self, room: str, action: str) -> None:
+        """Shared live sessions (live_sessions.py): "join" comes in under a
+        nickname, "publish" posts a viewer's state, "wait" waits for the
+        next one, "manage" is the host's, "mine" a signed-in host's rooms."""
         try:
-            if publish:
-                body = self._read_json_body(live_sessions.MAX_STATE_BYTES)
-                result = LIVE_SESSIONS.publish(room, str(body.get("client") or ""), body.get("state"))
-            else:
+            user = (self._current_user() or {}).get("username") if AUTH.enabled else None
+            if action == "mine":
+                if not AUTH.enabled:
+                    self._send_json(200, {"sessions": [], "accounts": False})
+                    return
+                if not user:
+                    self._send_json(401, {"error": "Login required"})
+                    return
+                self._send_json(200, {"sessions": LIVE_SESSIONS.owned(user), "accounts": True})
+                return
+            if action == "wait":
                 query = parse_qs(urlparse(self.path).query)
                 first = lambda name, default: (query.get(name) or [default])[0]
                 try:
-                    since, wait = int(first("since", "0")), float(first("wait", "20"))
+                    since, wait, roster = int(first("since", "0")), float(first("wait", "20")), int(first("roster", "-1"))
                 except ValueError:
-                    raise live_sessions.LiveError(400, "since and wait must be numbers")
-                result = LIVE_SESSIONS.wait(room, first("client", ""), since, wait)
-        except (live_sessions.LiveError, AuthError) as error:
+                    raise live_sessions.LiveError(400, "since, roster and wait must be numbers")
+                result = LIVE_SESSIONS.wait(room, first("client", ""), since, wait, roster)
+            else:
+                body = self._read_json_body(live_sessions.MAX_STATE_BYTES if action == "publish" else 4096)
+                client = str(body.get("client") or "")
+                if action == "publish":
+                    result = LIVE_SESSIONS.publish(room, client, body.get("state"))
+                elif action == "join":
+                    result = LIVE_SESSIONS.join(room, client, body.get("nick"), user=user,
+                                                host_key=body.get("hostKey"), title=body.get("title"),
+                                                passcode=body.get("passcode"), ip=self._client_ip())
+                else:
+                    result = LIVE_SESSIONS.manage(room, str(body.get("action") or ""), user=user,
+                                                  host_key=body.get("hostKey"), client=client or None,
+                                                  target=body.get("target"), approval=body.get("approval"),
+                                                  value=body.get("value"))
+        except live_sessions.LiveError as error:
+            retry = error.extra.get("retryAfter")
+            self._send_json(error.status, error.payload(), headers={"Retry-After": str(retry)} if retry else None)
+            return
+        except AuthError as error:
             self._send_json(error.status, {"error": error.message})
             return
         self._send_json(200, result)
@@ -1869,9 +1896,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {"status": "ok"})
             return
 
+        if path == "/api/live/mine":
+            self._handle_live_session("", "mine")
+            return
         match = re.fullmatch(r"/api/live/([^/]+)", path)
         if match:
-            self._handle_live_session(match.group(1), publish=False)
+            self._handle_live_session(match.group(1), "wait")
             return
 
         match = re.fullmatch(r"/api/model/status/([A-Za-z0-9_-]+)", path)
@@ -2062,9 +2092,9 @@ class Handler(BaseHTTPRequestHandler):
         if match:
             self._handle_two_factor(match.group(1))
             return
-        match = re.fullmatch(r"/api/live/([^/]+)", path)
+        match = re.fullmatch(r"/api/live/([^/]+?)(?:/(join|manage))?", path)
         if match:
-            self._handle_live_session(match.group(1), publish=True)
+            self._handle_live_session(match.group(1), match.group(2) or "publish")
             return
         if path == "/api/model/create":
             self._handle_create()

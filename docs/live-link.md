@@ -36,12 +36,60 @@ turn the model on the phone.
 
 - **Start a session** makes the link (`…?session=<id>`). Copy it, send it, or
   open it on another device.
+- **A nickname** comes first: the name the others see in the list of who
+  is there. Signed in, it is the account's name (it can be changed for the
+  session). The browser keeps the one used last, so a link opened again
+  joins at once; a link opened with no name known asks for one. Two people
+  under one name are told apart: the later one is "Anna (2)".
+- A session's link skips the intro (`?intro=1` still shows it) and the
+  hint with the hand: the scene comes as the others show it. Neither does
+  the model's fly-in after loading take back the view the others gave.
 - A viewer that joins takes the session's view. If the others show another
   model or manifest (one that has a URL), it opens that one first.
 - **The others see what I do** and **I see what the others do** switch the
   two directions. With the first off you only watch; with the second off
   you only lead.
 - Everyone can lead. When two people move at once, the last one wins.
+
+### Who is in
+
+The window counts who is active in the session and names them. Whoever
+started the session is its **host** (signed in: the account, on any device;
+otherwise this browser, which keeps the session's key). The host:
+
+- chooses whether new people come in at once (**Let new people in at
+  once**, the default) or wait in the list until they are let in (**Let
+  in**) or not (**Refuse**). Switched back on, those waiting come in.
+- can let someone go (**Remove**): they are out and cannot come back with
+  that viewer. If new people came in at once, from then on they wait to be
+  let in: otherwise the one removed would come straight back.
+- makes it a **presentation** (**Only I lead**): the others watch - what
+  they do stays with them - and the host can let someone lead too (**Let
+  lead**) or not any more.
+- asks for a **passcode** at the door (4 to 64 characters, handed on apart
+  from the link; **No passcode** takes it away). Who is already in is not
+  asked again. Wrong passcodes are limited per address.
+- **closes the session**: nobody new comes in and nothing is shared; those
+  in it stay and see that it is closed. **Resume the session** goes on
+  where it stopped.
+
+Someone waiting is announced to the host also with the window closed: a
+notice, and their number on the toolbar's Live link button. The window
+also names who leads - who moved the scene last, for a few seconds.
+
+### My sessions
+
+Signed in, the window lists the sessions you started (the last 100): when,
+how long it went on, whether open or closed (a presentation, a passcode),
+how many are active now, how many took part and how many were in at once.
+Each can be closed, resumed, joined again, renamed or removed from the list
+(whoever is in it stays; it is no longer yours) - also after the worker
+started again. The worker keeps for this only
+the session's id, its title (the scene's name), dates, settings and counts,
+never a state or a nickname.
+
+Between the tabs of one browser (no worker) there is no host: everyone is
+in, and the window lists them.
 
 Not shared: what belongs to each viewer (its language, its theme, its
 toolbars, which windows are open), whether a sound plays, and what is still
@@ -56,8 +104,9 @@ theirs.
 The states travel through the worker (`worker/live_sessions.py`,
 [`worker/README.md`](../worker/README.md)): each viewer posts its state to
 `/api/live/<id>` and waits there for the next one, which arrives as soon as
-someone posts. Nothing is stored; a session is forgotten two hours after its
-last use. The id is the session's key - whoever has the link can join and
+someone posts. The states are not stored; a session is forgotten two hours
+after its last use (a signed-in host's session is kept in their history,
+see above). The id is the session's key - whoever has the link can join and
 lead - so it is 14 random characters. A state holds numbers and settings
 only, and a viewer applies it through the same checks as a manifest.
 
@@ -106,7 +155,16 @@ added or removed in front of them they may point at a neighbour.
 ## From a page
 
 ```js
-await Viewer.startLiveSession();          // -> the session's id
+await Viewer.startLiveSession(undefined, { nick: "Anna" }); // -> the session's id
+Viewer.getLiveLink().session.members;     // [{ id, nick, status, host }]
+await Viewer.manageLiveSession("approval", { approval: "manual" }); // the host's
+await Viewer.manageLiveSession("approve", { target: id });
+await Viewer.manageLiveSession("close");  // "reopen" resumes it
+await Viewer.manageLiveSession("lead", { value: "host" });     // a presentation
+await Viewer.manageLiveSession("grant", { target: id, value: true });
+await Viewer.manageLiveSession("passcode", { value: "4711" }); // "" takes it away
+await Viewer.startLiveSession(id, { nick: "Bea", passcode: "4711" });
+await Viewer.loadLiveSessionHistory();    // a signed-in host's sessions
 Viewer.getLiveLink().session.link;        // the link to hand on
 Viewer.setLiveSessionOptions({ send: false });
 Viewer.leaveLiveSession();
@@ -116,6 +174,6 @@ await Viewer.applyLiveManifest(manifest); // a newer version, from anywhere
 Viewer.followLiveModel({ interval: 2 });
 ```
 
-The code is `viewer/editor/live-link.js` and `viewer/live-link-rules.js`
+The code is `viewer/editor/live-link.js`, `viewer/editor/live-session-people.js` (the people) and `viewer/live-link-rules.js`
 (what changed between two manifests, a session's ids and cameras; no DOM);
 see [`viewer/FUNCTIONS.md`](../viewer/FUNCTIONS.md).

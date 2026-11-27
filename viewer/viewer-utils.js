@@ -741,6 +741,9 @@ export function markViewerUsed() {
   if (window.__E2E__) return;
   if (window.Viewer?.isEmbedMode?.()) return;
   if (window.Viewer?.urlOptions?.cameraPosition || window.Viewer?.urlOptions?.cameraTarget) return;
+  // In a shared session (editor/live-link.js) the camera is the others' too:
+  // the hint's sway would go to everyone.
+  if (window.Viewer?.liveLinkState?.session || new URLSearchParams(window.location.search).get('session')) return;
   //if (localStorage.getItem("viewerHintSeen")) return;
 
   if (core.GESTURE == null) return;
