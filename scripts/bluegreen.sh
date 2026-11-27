@@ -285,6 +285,10 @@ cmd_deploy() {
     compose "$target" config --quiet
     ensure_volumes
     check_ports_free "$target"
+    # viewer-test first, on its own: a minified viewer build with source
+    # maps takes about 4 GB, two at once more than a small server has
+    # (viewer-sandbox reuses its build from the cache).
+    compose "$target" build viewer-test
     compose "$target" build
     compose "$target" up -d --remove-orphans
     health "$target"
