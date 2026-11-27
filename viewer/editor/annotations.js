@@ -18,7 +18,6 @@ import { DEFAULT_UP_AXIS, getUpAxis, normalizeUpAxis } from "../up-axis.js";
 import { applyRenderingSettings, getRenderingSettings } from "../rendering.js";
 import { getGroundPreset, normalizeGroundPreset, setGroundPreset } from "../ground.js";
 import { DIM_FACTOR as RAKING_DIM_FACTOR } from "./raking-light.js";
-import { EnvironmentNode } from "three/src/nodes/Nodes.js";
 import {
   formatAIM3DManifestValidationErrors,
   normalizeAIM3DManifest,

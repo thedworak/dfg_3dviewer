@@ -2,10 +2,8 @@ import THREE from "./init.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { SMAAPass } from "three/examples/jsm/postprocessing/SMAAPass.js";
 import { FXAAPass } from "three/examples/jsm/postprocessing/FXAAPass.js";
 import { core, setCore } from "./core.js";
-import { ModelGTAOPass } from "./rendering-ao.js";
 
 // Tone mapping and the optional post-processing chain of the main canvas.
 //
@@ -16,6 +14,10 @@ import { ModelGTAOPass } from "./rendering-ao.js";
 //
 // Ambient occlusion (ao) needs the chain: switching it on runs the chain even
 // with post-processing itself off (rendering-ao.js).
+//
+// SMAA (its pass carries its lookup textures) and ambient occlusion are
+// downloaded the first time they are switched on: until then the chain runs
+// without them, and is rebuilt with them once they are there.
 //
 // Without post-processing the renderer tone maps while drawing to the canvas.
 // With it the scene is drawn into a linear half-float target and OutputPass
@@ -49,6 +51,33 @@ export const RENDERING_DEFAULTS = Object.freeze({
 const MSAA_SAMPLES = 4;
 // Strength of the ambient occlusion, 0 (none) to AO_INTENSITY_MAX.
 export const AO_INTENSITY_MAX = 2;
+
+// The passes downloaded on first use: { SMAAPass } and { ModelGTAOPass }.
+const lazyPasses = {
+  smaa: { load: () => import("three/examples/jsm/postprocessing/SMAAPass.js"), module: null, loading: null },
+  ao: { load: () => import("./rendering-ao.js"), module: null, loading: null },
+};
+
+// The pass's module, or null while it is downloading (the settings are
+// applied again once it is there).
+function lazyPass(name) {
+  const entry = lazyPasses[name];
+  if (entry.module) return entry.module;
+  entry.loading ??= entry.load()
+    .then((module) => {
+      entry.module = module;
+      // Rebuilt with the pass, if it is still wanted.
+      composerAntialias = null;
+      composerAo = null;
+      applyRenderingSettings();
+    })
+    .catch((error) => {
+      // Offline or a failed download: tried again the next time.
+      entry.loading = null;
+      console.error(`Rendering: the ${name} pass failed to load`, error);
+    });
+  return null;
+}
 
 let composer = null;
 let renderPass = null;
@@ -131,17 +160,21 @@ function buildComposer(renderer, antialias, ao) {
   composer = new EffectComposer(renderer, renderTarget);
   renderPass = new RenderPass(core.scene, core.camera);
   composer.addPass(renderPass);
-  if (ao) {
-    aoPass = new ModelGTAOPass(core.scene, core.camera);
+  const aoModule = ao ? lazyPass("ao") : null;
+  if (aoModule) {
+    aoPass = new aoModule.ModelGTAOPass(core.scene, core.camera);
     composer.addPass(aoPass);
   }
   // SMAA works on linear colors (before OutputPass), FXAA on the final
   // sRGB image (after it).
-  if (antialias === "smaa") composer.addPass(new SMAAPass());
+  const smaaModule = antialias === "smaa" ? lazyPass("smaa") : null;
+  if (smaaModule) composer.addPass(new smaaModule.SMAAPass());
   composer.addPass(new OutputPass());
   if (antialias === "fxaa") composer.addPass(new FXAAPass());
-  composerAntialias = antialias;
-  composerAo = ao;
+  // A pass still downloading: null, so that the settings applied once it is
+  // there build the chain again.
+  composerAntialias = antialias === "smaa" && !smaaModule ? null : antialias;
+  composerAo = ao && !aoModule ? null : ao;
   syncComposerSize(renderer);
 }
 

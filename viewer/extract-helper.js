@@ -1,4 +1,3 @@
-import { unzipSync } from 'fflate';
 import { loadDroppedModel } from "./sandbox.js";
 import { core } from "./core.js";
 import { toastHelper } from './viewer-utils.js';
@@ -12,6 +11,8 @@ let archiveFileMap = {};
 async function extractZip (archiveFile) {
   const buffer = await archiveFile.arrayBuffer();
 
+  // Downloaded the first time a .zip is opened.
+  const { unzipSync } = await import("fflate");
   const unzipped = unzipSync(new Uint8Array(buffer));
 
   const files = [];

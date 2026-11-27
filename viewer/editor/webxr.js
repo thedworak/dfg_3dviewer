@@ -1,7 +1,6 @@
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import THREE from "../init.js";
-import { USDZExporter } from "three/examples/jsm/exporters/USDZExporter.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { toastHelper } from "../viewer-utils.js";
 
@@ -396,6 +395,8 @@ export function attachWebXR(Viewer) {
         const center = box.getCenter(new THREE.Vector3());
         group.position.set(-center.x, -box.min.y, -center.z);
       }
+      // Downloaded the first time a model is shown in AR Quick Look.
+      const { USDZExporter } = await import("three/examples/jsm/exporters/USDZExporter.js");
       const exporter = new USDZExporter();
       const data = await exporter.parseAsync(group, { quickLookCompatible: true });
       return new Blob([data], { type: "model/vnd.usdz+zip" });

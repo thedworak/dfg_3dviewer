@@ -156,6 +156,8 @@ This copies each GLB and its renders and writes an AIM3D manifest per model (vie
 
 ## Compression (Brotli) and Cloudflare
 
+Every image's code is minified (terser, and lightningcss for the stylesheets), whatever its target: `Dockerfile.viewer` builds with `MINIFY=true`, test and dev builds included, which keep their own settings and their source maps (`--build-arg MINIFY=false` for readable code). For the code the viewer loads at start this is about 630 KB instead of 1050 KB with Brotli. Outside Docker only `build:prod` minifies, so the Playwright run in CI tests readable code.
+
 The image's code comes compressed already: after the build, `scripts/precompress.mjs` (`pnpm precompress dist/<build>`) writes a Brotli (`.br`) and a gzip (`.gz`) copy of every script, stylesheet, WebAssembly file and SVG image, at the strongest settings - about 18 MB of code becomes 3.8 MB with Brotli and 5.0 MB with gzip. `docker/nginx.conf` serves the `.br` copy to a client whose `Accept-Encoding` has `br`, the `.gz` copy to the others (`gzip_static`), with the same `Cache-Control` as the file itself; no nginx module is needed. HTML pages, `viewer-settings.json`, `manifests/` and the models are not precompressed (they are edited on the server, or binary): nginx gzips the text ones on the fly as before. For the ultralight viewer (`ultra.html`) this is about 130 KB of code instead of 160 KB.
 
 Behind Cloudflare, check what visitors get:

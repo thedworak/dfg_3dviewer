@@ -50,6 +50,10 @@ ENV BUILD_ID=${BUILD_ID}
 # (docs/branding.md). Empty: the viewer's own look.
 ARG BRAND=
 ENV BRAND=${BRAND}
+# Minified code and stylesheets for every target, test and dev too (they
+# keep their source maps); MINIFY=false for readable code in the image.
+ARG MINIFY=true
+ENV MINIFY=${MINIFY}
 RUN pnpm run build:${BUILD_TARGET}
 # Brotli and gzip copies of the code (.br, .gz next to each file), made once
 # at the strongest settings; docker/nginx.conf serves them instead of

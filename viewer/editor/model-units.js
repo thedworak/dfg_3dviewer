@@ -1,7 +1,6 @@
 import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
-import { unzipSync } from "three/examples/jsm/libs/fflate.module.js";
 
 // The size of one scene unit, in meters, for measurements. Taken from, in
 // this order:
@@ -78,6 +77,8 @@ function writeStorage(key, value) {
 async function read3MFUnit(url) {
   const response = await fetch(url);
   if (!response.ok) return null;
+  // The unzipper the 3MF loader uses, downloaded with it.
+  const { unzipSync } = await import("three/examples/jsm/libs/fflate.module.js");
   const files = unzipSync(new Uint8Array(await response.arrayBuffer()), {
     filter: (file) => /\.model$/i.test(file.name),
   });

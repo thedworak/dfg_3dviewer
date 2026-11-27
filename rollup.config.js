@@ -30,6 +30,11 @@ const envBuild = process.env.BUILD ?? "test";
 const customModulesEnv = process.env.MODULE_CUSTOM ?? "";
 let customModules = customModulesEnv;
 const production = process.env.IS_PROD === 'true';
+// Minified code and stylesheets: production builds, and any build with
+// MINIFY=true (the Docker images, Dockerfile.viewer - test and dev builds
+// too, which keep their own settings and source maps). Without it, as for
+// the Playwright run in CI, the code stays readable.
+const minify = production || process.env.MINIFY === 'true';
 // VIEWER_BUILD_EXTENSION: a module (path from the repository root) that adds
 // to the builds - rollup plugins, files, settings - without changing this
 // file. It may also claim an app build (isAppBuild(envBuild)): one served
@@ -256,10 +261,11 @@ async function stampCssImportsIn(dir) {
   }));
 }
 
-// Production builds (IS_PROD=true) minify the stylesheets they copy, file by
-// file: the @import chain stays (Drupal loads viewer.css, which imports the
-// rest), so do this after stampCssImports. Already minified files (*.min.css)
-// are left alone; one lightningcss cannot parse is copied as it is.
+// Minified builds (IS_PROD=true or MINIFY=true) minify the stylesheets
+// they copy, file by file: the @import chain stays (Drupal loads
+// viewer.css, which imports the rest), so do this after stampCssImports.
+// Already minified files (*.min.css) are left alone; one lightningcss
+// cannot parse is copied as it is.
 async function minifyCssTree(dir) {
   let entries;
   try {
@@ -427,7 +433,7 @@ function copyBuildAssets() {
       // without the build id, those were cached for a week (nginx.conf) and
       // a phone ran this build's scripts on an older build's styles.
       await Promise.all(['assets/css', 'assets/intro'].map((dir) => stampCssImportsIn(path.join(outDistDir, dir))));
-      if (production) {
+      if (minify) {
         await Promise.all(['assets/css', 'assets/intro', 'brand'].map((dir) => minifyCssTree(path.join(outDistDir, dir))));
       }
 
@@ -603,7 +609,7 @@ const viewerConfig = {
     copyBuildAssets(),
     removeStaleChunks(),
 
-    production && terser(),
+    minify && terser(),
 
   ].filter(Boolean),
 
@@ -665,7 +671,7 @@ const ultraConfig = {
   treeshake: viewerConfig.treeshake,
   plugins: [
     resolve({ browser: true, preferBuiltins: false, dedupe: ['three'] }),
-    production && terser(),
+    minify && terser(),
   ].filter(Boolean),
   output: {
     dir: outDistDir,
