@@ -2593,6 +2593,171 @@
   display: none;
 }
 
+/* The people of a session (editor/live-session-people.js): the nickname,
+   who is in and who waits, the host's switches, the host's sessions. */
+.viewer-livelink-panel_nick {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.viewer-livelink-panel_nick-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--viewer-gui-widget-border, rgba(255, 255, 255, 0.18));
+  border-radius: 6px;
+  background: var(--viewer-gui-widget-bg, rgba(0, 0, 0, 0.25));
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.viewer-livelink-panel_nick-input[aria-invalid="true"] {
+  border-color: #ff5a4f;
+}
+
+.viewer-livelink-panel_notice {
+  color: #f5a524;
+}
+
+.viewer-livedata-panel_status.is-waiting .viewer-livedata-panel_dot {
+  background: #f5a524;
+  opacity: 1;
+}
+
+.viewer-livelink-panel_you {
+  margin: 0;
+}
+
+.viewer-livelink-panel_people,
+.viewer-livelink-panel_history {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.viewer-livelink-panel_people[hidden],
+.viewer-livelink-panel_history[hidden] {
+  display: none;
+}
+
+.viewer-livelink-panel_people-head {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.viewer-livelink-panel_person {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.viewer-livelink-panel_person::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3ddc84;
+}
+
+.viewer-livelink-panel_person.is-pending::before {
+  background: #f5a524;
+}
+
+.viewer-livelink-panel_person.is-leading .viewer-livelink-panel_person-name {
+  font-weight: 600;
+}
+
+.viewer-livelink-panel_person.is-leading::before {
+  box-shadow: 0 0 0 3px rgba(61, 220, 132, 0.3);
+}
+
+/* How many wait to be let in, on the toolbar's Live link button. */
+.viewer-livelink-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: #f5a524;
+  color: #1d1d1d;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.viewer-livelink-panel_person-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-livelink-panel_person .viewer-pointcloud-panel_button {
+  flex: none;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.viewer-livelink-panel_host[hidden] {
+  display: none;
+}
+
+.viewer-livelink-panel_host {
+  display: grid;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--viewer-gui-widget-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-livelink-panel_history-item {
+  display: grid;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--viewer-gui-widget-border, rgba(255, 255, 255, 0.12));
+}
+
+.viewer-livelink-panel_history-item strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-livelink-panel_history-when,
+.viewer-livelink-panel_history-stats {
+  opacity: 0.75;
+}
+
+.viewer-livelink-panel_history-item.is-closed strong {
+  opacity: 0.6;
+}
+
+.viewer-livelink-panel_history-item.is-current strong::after {
+  content: " ●";
+  color: #3ddc84;
+}
+
+.viewer-livelink-panel_history-status[hidden] {
+  display: none;
+}
+
 /* The old model's last frame, over the canvas while the new one loads. */
 .viewer-livelink-veil {
   position: absolute;

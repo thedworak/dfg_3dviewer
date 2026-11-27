@@ -13,7 +13,8 @@
 //     }
 //   }
 //
-// ?intro=1 shows it whatever the settings say, ?intro=0 never. The intro runs
+// ?intro=1 shows it whatever the settings say, ?intro=0 never; a shared
+// session's link (?session=) does not show it either. The intro runs
 // in a full-window iframe over the page while the viewer starts and loads its
 // model underneath; "Enter the viewer" fades it away (it tells this page via
 // postMessage, same origin only), "Skip intro" and Escape close it at once.
@@ -57,8 +58,12 @@ function storage(kind) {
 }
 
 function wanted(settings) {
-  const fromUrl = parseBoolean(new URLSearchParams(window.location.search).get('intro'));
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = parseBoolean(params.get('intro'));
   if (fromUrl !== undefined) return fromUrl;
+  // A shared session's link (?session=, editor/live-link.js) goes straight
+  // to the scene the others show: no intro over it, and not its model.
+  if (params.get('session')) return false;
   if (parseBoolean(settings?.enabled) === false) return false;
   const show = String(settings?.show || 'once');
   if (show === 'always') return true;

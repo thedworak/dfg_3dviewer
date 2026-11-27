@@ -3,10 +3,11 @@ import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
-import { apiUrl, appRequestHeaders } from "../remote.js";
+import { apiUrl, appRequestHeaders, hasRemote } from "../remote.js";
 import { stopCameraIntro } from "../IIIF/presentation4.js";
 import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
 import { liveSessionParts } from "./live-session-parts.js";
+import { attachLiveSessionPeople } from "./live-session-people.js";
 import {
   changedManifestBlocks,
   changedSessionLook,
@@ -90,6 +91,7 @@ function readCamera() {
 }
 
 export function attachLiveLink(Viewer) {
+  attachLiveSessionPeople(Viewer);
   Object.assign(Viewer, {
     liveLinkState: null,
 
@@ -116,6 +118,12 @@ export function attachLiveLink(Viewer) {
         sections: {},
         ui: null,
         joinChecked: false,
+        // A session the link names, waiting for a nickname.
+        joining: null,
+        // Why the last session ended here (closed, not let in).
+        notice: null,
+        // A signed-in host's sessions (live-session-people.js).
+        history: null,
       };
       return Viewer.liveLinkState;
     },
@@ -139,6 +147,13 @@ export function attachLiveLink(Viewer) {
           id: state.session.id,
           mode: state.session.mode,
           peers: state.session.peers,
+          pending: state.session.waiting,
+          nick: state.session.nick,
+          status: state.session.status,
+          host: state.session.host,
+          closed: state.session.closed,
+          approval: state.session.approval,
+          members: state.session.members,
           send: state.session.send,
           receive: state.session.receive,
           link: Viewer.liveSessionLink(),
@@ -695,14 +710,36 @@ export function attachLiveLink(Viewer) {
       return blocks;
     },
 
-    // Starts a session (a new one, or the one named `id`) and joins it.
-    async startLiveSession(id) {
+    // Starts a session (a new one, or the one named `id`) and joins it
+    // under a nickname: `nick`, the account's, or the one used last here;
+    // without one the window asks for it (and null is returned).
+    async startLiveSession(id, { nick } = {}) {
       const state = Viewer.getLiveLinkState();
       const room = typeof id === "string" && SESSION_ID_PATTERN.test(id) ? id : newSessionId();
+      const name = Viewer.liveSessionNick(nick);
+      if (!name) {
+        Viewer.askLiveSessionNick(typeof id === "string" && SESSION_ID_PATTERN.test(id) ? id : null);
+        return null;
+      }
+      Viewer.rememberLiveSessionNick(name);
       Viewer.leaveLiveSession();
+      state.joining = null;
+      state.notice = null;
       const session = {
         id: room,
         mode: "server",
+        nick: name,
+        // The people (live-session-people.js): this viewer's place
+        // ("active", "pending"), whether it is the host, the public id the
+        // others know it by, how many are in and wait, who they are.
+        status: "active",
+        host: false,
+        you: state.client,
+        members: [],
+        waiting: 0,
+        roster: -1,
+        closed: false,
+        approval: "auto",
         peers: 1,
         send: true,
         receive: true,
@@ -734,11 +771,18 @@ export function attachLiveLink(Viewer) {
       // The worker relays; without one, the tabs of this browser share.
       let first = null;
       try {
+        await Viewer.joinLiveSessionServer(session);
         const response = await fetch(apiUrl(`/api/live/${room}?since=0&wait=0&client=${state.client}`), { headers: appRequestHeaders(), signal: session.abort.signal, cache: "no-store" });
         if (!response.ok || !/json/.test(response.headers.get("Content-Type") || "")) throw new Error(`HTTP ${response.status}`);
         first = await response.json();
         if (typeof first?.version !== "number") throw new Error("no relay");
-      } catch {
+      } catch (error) {
+        if (error?.refused && state.session === session) {
+          Viewer.endLiveSession(error.closed
+            ? t("liveLink.session.closedJoin", "This session is closed. It can be joined again once its host resumes it.")
+            : error.rejected ? t("liveLink.session.rejected", "The host did not let you in.") : error.message);
+          return null;
+        }
         first = null;
       }
       if (state.session !== session) return null;
@@ -754,7 +798,7 @@ export function attachLiveLink(Viewer) {
         channel.addEventListener("message", (event) => {
           const message = event.data;
           if (state.session !== session || !message || message.client === state.client) return;
-          session.seen.set(message.client, Date.now());
+          session.seen.set(message.client, { at: Date.now(), nick: message.nick || "" });
           if (message.hello) {
             // Someone joined: they get the scene as it is.
             if (session.last && session.send) channel.postMessage({ client: state.client, state: session.last });
@@ -762,9 +806,9 @@ export function attachLiveLink(Viewer) {
           if (message.state) Viewer.receiveLiveSession({ state: message.state, sender: message.client });
           Viewer.countLiveSessionPeers();
         });
-        channel.postMessage({ client: state.client, hello: true });
+        channel.postMessage({ client: state.client, nick: session.nick, hello: true });
         session.heartbeat = setInterval(() => {
-          channel.postMessage({ client: state.client, beat: true });
+          channel.postMessage({ client: state.client, nick: session.nick, beat: true });
           Viewer.countLiveSessionPeers();
         }, 4000);
       }
@@ -777,35 +821,54 @@ export function attachLiveLink(Viewer) {
     },
 
     countLiveSessionPeers() {
-      const session = Viewer.liveLinkState?.session;
+      const state = Viewer.liveLinkState;
+      const session = state?.session;
       if (!session?.seen) return;
       const now = Date.now();
       session.seen.forEach((seen, client) => {
-        if (now - seen > 10000) session.seen.delete(client);
+        if (now - seen.at > 10000) session.seen.delete(client);
       });
-      const peers = session.seen.size + 1;
-      if (peers !== session.peers) {
-        session.peers = peers;
-        Viewer.syncLiveLinkPanel();
-      }
+      // The tabs of one browser: everyone is in, nobody is host.
+      Viewer.applyLiveSessionPeople(session, {
+        peers: session.seen.size + 1,
+        members: [
+          { id: state.client, nick: session.nick, status: "active", host: false },
+          ...[...session.seen].map(([client, seen]) => ({ id: client, nick: seen.nick, status: "active", host: false })),
+        ],
+      });
     },
 
     async pollLiveSession(session) {
       const state = Viewer.getLiveLinkState();
       while (state.session === session) {
         try {
-          const response = await fetch(apiUrl(`/api/live/${session.id}?since=${session.version}&wait=${POLL_WAIT_S}&client=${state.client}`), {
+          const response = await fetch(apiUrl(`/api/live/${session.id}?since=${session.version}&roster=${session.roster}&wait=${POLL_WAIT_S}&client=${state.client}`), {
             headers: appRequestHeaders(),
             signal: session.abort.signal,
             cache: "no-store",
           });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          if (!response.ok) {
+            const refusal = await response.json().catch(() => null);
+            // The worker forgot the room (it started again, or the room
+            // was idle): in again, under the same name.
+            if (refusal?.rejoin) {
+              await Viewer.joinLiveSessionServer(session);
+              continue;
+            }
+            throw new Error(refusal?.error || `HTTP ${response.status}`);
+          }
           const answer = await response.json();
           if (state.session !== session) return;
           session.error = null;
           Viewer.receiveLiveSession(answer);
         } catch (error) {
           if (state.session !== session) return;
+          if (error?.refused) {
+            Viewer.endLiveSession(error.closed
+              ? t("liveLink.session.closedJoin", "This session is closed. It can be joined again once its host resumes it.")
+              : error.rejected ? t("liveLink.session.rejected", "The host did not let you in.") : error.message);
+            return;
+          }
           session.error = error?.message || String(error);
           Viewer.syncLiveLinkPanel();
           await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -819,13 +882,13 @@ export function attachLiveLink(Viewer) {
       const state = Viewer.getLiveLinkState();
       const session = state.session;
       if (!session || !answer) return;
-      if (typeof answer.version === "number") session.version = Math.max(session.version, answer.version);
-      if (typeof answer.peers === "number" && answer.peers !== session.peers) {
-        session.peers = answer.peers;
-        Viewer.syncLiveLinkPanel();
-      }
+      Viewer.applyLiveSessionPeople(session, answer);
+      if (state.session !== session) return;
+      // Waiting to be let in: the states come once in, from the first.
+      if (typeof answer.version === "number" && session.status === "active") session.version = Math.max(session.version, answer.version);
       const remote = answer.state;
-      if (!remote || typeof remote !== "object" || answer.sender === state.client) return;
+      if (!remote || typeof remote !== "object" || answer.sender === session.you || answer.sender === state.client) return;
+      Viewer.noteLiveSessionLeader(session, answer.sender);
       if (!session.receive) return;
       session.received += 1;
       const { known } = session;
@@ -880,6 +943,11 @@ export function attachLiveLink(Viewer) {
           Viewer.setCameraProjection?.(camera.projection);
         }
         Viewer.glideLiveCamera(camera, 0.22, { fromSession: true });
+        // The view the others gave: a load's fly-in that starts after it
+        // must not take it back (stepLiveSession). Each fly-in has its own
+        // token; the glide stopped the one before.
+        session.remoteCamera = camera;
+        session.remoteCameraToken = core.cameraTweenToken;
       }
       if (Number.isFinite(remote.year) && remote.year !== known.year && Viewer.hasTimeline?.()) {
         known.year = remote.year;
@@ -990,7 +1058,18 @@ export function attachLiveLink(Viewer) {
       const state = Viewer.liveLinkState;
       const session = state?.session;
       if (!session || !session.ready || session.loading || state.busy || !modelLoaded()) return;
+      // Not let in yet, or closed: nothing goes out.
+      if (session.status !== "active" || session.closed) return;
       const { known } = session;
+
+      // The model's fly-in starts at the end of loading - after a viewer
+      // that joined took the session's view: back to that view, instead of
+      // sending the fly-in's to everyone.
+      if (session.remoteCamera && core.cameraTweenToken !== session.remoteCameraToken && window.viewer?.isCameraAnimating?.()) {
+        Viewer.glideLiveCamera(session.remoteCamera, 0.22, { fromSession: true });
+        session.remoteCameraToken = core.cameraTweenToken;
+        return;
+      }
       let changed = false;
 
       // The camera: while it is this viewer's hand that moves it.
@@ -1069,6 +1148,7 @@ export function attachLiveLink(Viewer) {
       };
       session.last = message;
       session.sent += 1;
+      Viewer.noteLiveSessionLeader(session, session.you);
       if (session.mode === "browser") {
         session.channel?.postMessage({ client: state.client, state: message });
         return;
@@ -1088,13 +1168,10 @@ export function attachLiveLink(Viewer) {
               body: JSON.stringify({ client: state.client, state: body }),
               signal: session.abort.signal,
             });
-            if (response.ok) {
-              const answer = await response.json();
-              if (typeof answer.peers === "number" && answer.peers !== session.peers) {
-                session.peers = answer.peers;
-                Viewer.syncLiveLinkPanel();
-              }
-            }
+            const answer = await response.json().catch(() => null);
+            if (response.ok) Viewer.applyLiveSessionPeople(session, answer);
+            else if (answer?.closed) Viewer.applyLiveSessionPeople(session, { closed: true });
+            else if (answer?.rejoin) await Viewer.joinLiveSessionServer(session);
           } catch {
             // The next state is sent with the next change.
           }
@@ -1118,9 +1195,11 @@ export function attachLiveLink(Viewer) {
       state.session = null;
       session.abort.abort();
       clearInterval(session.heartbeat);
+      clearTimeout(session.leaderTimer);
       session.channel?.close();
       Viewer.renderLiveLinkPanel();
       Viewer.updateEditorToolbarState?.();
+      Viewer.updateLiveSessionBadge();
     },
 
     // ---- the frame, the scene's end ----
@@ -1130,6 +1209,10 @@ export function attachLiveLink(Viewer) {
       if (!state) {
         // A link with ?session=...: joined once the model is there.
         if (Viewer.liveLinkJoinChecked || !modelLoaded()) return;
+        // Signed in, the account's name is the nickname: a moment for the
+        // account to be known.
+        Viewer.liveLinkJoinWait ??= performance.now();
+        if (Viewer.authState === undefined && hasRemote() && performance.now() - Viewer.liveLinkJoinWait < 3000) return;
         Viewer.liveLinkJoinChecked = true;
         const id = new URLSearchParams(window.location.search).get("session");
         if (id && SESSION_ID_PATTERN.test(id)) Viewer.startLiveSession(id);
@@ -1149,6 +1232,8 @@ export function attachLiveLink(Viewer) {
       Viewer.stopLiveManifest();
       Viewer.stopLiveModel();
       if (state.session) {
+        // A scene opened here: its own fly-in is this viewer's to share.
+        state.session.remoteCamera = null;
         state.session.absorb = true;
         state.session.absorbCamera = true;
       }
@@ -1272,6 +1357,17 @@ export function attachLiveLink(Viewer) {
         row.append(...children);
         return row;
       };
+      const check = (text, checked, onChange) => {
+        const label = el("label", "viewer-audio-panel_check");
+        const input = el("input");
+        input.type = "checkbox";
+        input.checked = checked;
+        input.addEventListener("change", () => onChange(input.checked));
+        const span = el("span");
+        label.append(input, span);
+        labels.push([span, text]);
+        return label;
+      };
       const hasPicker = typeof window.showOpenFilePicker === "function";
       const fileInput = (accept, onFile) => {
         const input = el("input");
@@ -1311,18 +1407,8 @@ export function attachLiveLink(Viewer) {
         });
         labels[labels.length - 1][1] = () => (copy.dataset.done ? t("liveLink.session.copied", "Copied") : t("liveLink.session.copy", "Copy the link"));
         const leave = button("viewer-livelink-panel_leave", () => t("liveLink.session.leave", "Leave"), () => Viewer.leaveLiveSession());
-        const check = (text, checked, onChange) => {
-          const label = el("label", "viewer-audio-panel_check");
-          const input = el("input");
-          input.type = "checkbox";
-          input.checked = checked;
-          input.addEventListener("change", () => onChange(input.checked));
-          const span = el("span");
-          label.append(input, span);
-          labels.push([span, text]);
-          return label;
-        };
         sessionChildren.push(
+          ...Viewer.buildLiveSessionPeople({ el, labels, button, actions, check }),
           link,
           actions(copy, leave),
           check(() => t("liveLink.session.send", "The others see what I do"), session.send, (on) => Viewer.setLiveSessionOptions({ send: on })),
@@ -1334,11 +1420,14 @@ export function attachLiveLink(Viewer) {
           : t("liveLink.session.hint", "Open the link on another screen or a phone: the camera, the year, the section and the weather move together."))]);
         sessionChildren.push(note);
       } else {
-        const note = el("p", "viewer-pointcloud-panel_note");
-        labels.push([note, () => t("liveLink.session.intro", "Everyone who opens the session's link sees this scene as you move it. A phone becomes the remote control of a screen.")]);
-        sessionChildren.push(note, actions(button("viewer-livelink-panel_start", () => t("liveLink.session.start", "Start a session"), () => Viewer.startLiveSession())));
+        sessionChildren.push(...Viewer.buildLiveSessionStart({ el, labels, button, actions }));
       }
       section("session", () => t("liveLink.session.title", "Cooperation mode"), true, sessionChildren);
+
+      // A signed-in host's sessions: closed, resumed, joined again.
+      if (Viewer.authState?.user && hasRemote()) {
+        section("history", () => t("liveLink.history.title", "My sessions"), false, Viewer.buildLiveSessionHistory({ el, labels, button, actions }));
+      }
 
       // The manifest.
       const manifest = state.manifest;
@@ -1436,14 +1525,15 @@ export function attachLiveLink(Viewer) {
       follow(ui.modelStatus, state.model, t("liveLink.model.idle", "Not followed."));
       if (ui.sessionStatus) {
         const session = state.session;
-        ui.sessionStatus.line.classList.toggle("is-live", Boolean(session) && !session.error);
+        ui.sessionStatus.line.classList.toggle("is-live", Boolean(session) && !session.error && session.status === "active" && !session.closed);
         ui.sessionStatus.line.classList.toggle("is-error", Boolean(session?.error));
+        ui.sessionStatus.line.classList.toggle("is-waiting", Boolean(session) && (session.status === "pending" || session.closed));
         ui.sessionStatus.text.textContent = !session
-          ? t("liveLink.session.idle", "No session.")
-          : session.error
-            ? t("liveLink.status.error", { error: session.error }, "Could not read it: {error}")
-            : t("liveLink.session.status", { count: session.peers }, "In the session: {count}");
+          ? state.joining ? t("liveLink.session.joinIdle", "Not in the session yet.") : t("liveLink.session.idle", "No session.")
+          : Viewer.liveSessionStatusText(session);
       }
+      Viewer.syncLiveSessionPeople();
+      Viewer.syncLiveSessionHistory();
       (ui.labels || []).forEach(([element, text]) => {
         if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) element.setAttribute("aria-label", text());
         else element.textContent = text();

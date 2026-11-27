@@ -5467,11 +5467,16 @@ const cameraAt = (page) => page.evaluate(() => window.viewer.camera.position.toA
 async function sessionPair(page, { model = '/examples/tempietto/Tempietto.glb' } = {}) {
   await openViewer(page, model);
   await waitForModel(page);
-  const id = await page.evaluate(() => window.Viewer.startLiveSession());
+  // The model's fly-in over first: a camera set while it flies is taken back.
+  await waitForCameraIdle(page);
+  const id = await page.evaluate(() => window.Viewer.startLiveSession(undefined, { nick: 'Anna' }));
   const other = await page.context().newPage();
+  // The nickname used last in this browser: the link joins at once.
+  await other.addInitScript(() => window.localStorage.setItem('aim3d-live-nick', 'Bea'));
   await openViewer(other, model, `session=${id}`);
   await waitForModel(other);
   await other.waitForFunction(() => window.Viewer.getLiveLink()?.session?.peers === 2, null, { timeout: 20_000 });
+  await waitForCameraIdle(other);
   await page.waitForFunction(() => window.Viewer.getLiveLink().session.peers === 2, null, { timeout: 20_000 });
   return { id, other };
 }
@@ -5515,6 +5520,9 @@ test('live link: a shared session - the camera, the raking light and the scene g
   const panel = page.locator('#viewerLiveLinkPanel');
   await expect(panel.locator('.viewer-livelink-panel_link')).toHaveValue(new RegExp(`session=${id}`));
   await expect(panel.locator('details[data-section="session"] .viewer-livedata-panel_status')).toHaveText('In the session: 2');
+  await expect(panel.locator('.viewer-livelink-panel_you')).toHaveText('You: Anna');
+  await expect(panel.locator('.viewer-livelink-panel_person-name')).toHaveText(['Anna (you)', 'Bea']);
+  expect(await other.evaluate(() => window.Viewer.getLiveLink().session.nick)).toBe('Bea');
 
   // Another model opened by the first: the others open it too.
   await page.evaluate(async () => {
@@ -5526,6 +5534,46 @@ test('live link: a shared session - the camera, the raking light and the scene g
   await panel.locator('.viewer-livelink-panel_leave').click();
   expect(await page.evaluate(() => window.Viewer.getLiveLink().session)).toBeNull();
   await other.close();
+});
+
+test('live link: a session asks for a nickname before it is started or joined', async ({ page }) => {
+  test.setTimeout(90_000);
+  await openViewer(page, '/examples/tempietto/Tempietto.glb');
+  await waitForModel(page);
+  await page.evaluate(() => window.localStorage.removeItem('aim3d-live-nick'));
+  // Without a name nothing starts: the window asks for one.
+  expect(await page.evaluate(() => window.Viewer.startLiveSession())).toBeNull();
+  const panel = page.locator('#viewerLiveLinkPanel');
+  const nick = panel.locator('.viewer-livelink-panel_nick-input');
+  await expect(nick).toBeVisible();
+  await expect(nick).toHaveValue('');
+  await panel.locator('.viewer-livelink-panel_start').click();
+  await expect(nick).toHaveAttribute('aria-invalid', 'true');
+  expect(await page.evaluate(() => window.Viewer.getLiveLink()?.session ?? null)).toBeNull();
+  await nick.fill('  Anna   Nowak ');
+  await panel.locator('.viewer-livelink-panel_start').click();
+  await page.waitForFunction(() => window.Viewer.getLiveLink()?.session?.nick === 'Anna Nowak');
+  const id = await page.evaluate(() => window.Viewer.getLiveLink().session.id);
+
+  // A link opened with no name known: asked, then joined.
+  const other = await page.context().newPage();
+  await other.addInitScript(() => window.localStorage.removeItem('aim3d-live-nick'));
+  await openViewer(other, '/examples/tempietto/Tempietto.glb', `session=${id}`);
+  await waitForModel(other);
+  const otherPanel = other.locator('#viewerLiveLinkPanel');
+  await expect(otherPanel.locator('.viewer-livelink-panel_join')).toBeVisible({ timeout: 20_000 });
+  expect(await other.evaluate(() => window.Viewer.getLiveLink()?.session ?? null)).toBeNull();
+  await otherPanel.locator('.viewer-livelink-panel_nick-input').fill('Bea');
+  await otherPanel.locator('.viewer-livelink-panel_join').click();
+  await other.waitForFunction((room) => window.Viewer.getLiveLink()?.session?.id === room, id);
+  await page.waitForFunction(() => window.Viewer.getLiveLink().session.peers === 2, null, { timeout: 20_000 });
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  await expect(panel.locator('.viewer-livelink-panel_person-name')).toHaveText(['Anna Nowak (you)', 'Bea'], { timeout: 20_000 });
+  await expect(otherPanel.locator('.viewer-livelink-panel_person-name')).toHaveText(['Bea (you)', 'Anna Nowak']);
+  // The tabs of one browser have no host: nobody to let in, nothing to close.
+  await expect(panel.locator('.viewer-livelink-panel_close')).toHaveCount(0);
+  await other.close();
+  await page.evaluate(() => window.Viewer.leaveLiveSession());
 });
 
 test('live link: a shared session - the lights, the measurements, the ground, the projection and the materials', async ({ page }) => {
@@ -5740,45 +5788,203 @@ test('live link: a shared session - a point cloud\'s, an image\'s, a volume\'s a
   await other.close();
 });
 
-test('live link: a session through the worker\'s relay', async ({ page }) => {
-  test.setTimeout(120_000);
-  // The relay (worker/live_sessions.py), answered at once here.
+test('live link: a session through the worker\'s relay - who is in, who waits, closed and resumed', async ({ page }) => {
+  test.setTimeout(150_000);
+  // The relay (worker/live_sessions.py), in short, answered at once here.
   const rooms = new Map();
-  await page.context().route('**/api/live/*', async (route) => {
+  const summary = (room, member) => {
+    const people = [...room.members.values()];
+    const answer = {
+      version: room.version, roster: room.roster, closed: room.closed, approval: room.approval,
+      peers: people.filter((item) => item.status === 'active').length,
+      pending: people.filter((item) => item.status === 'pending').length,
+    };
+    if (member) {
+      Object.assign(answer, { status: member.status, host: member.host, you: member.id, nick: member.nick });
+      if (member.status === 'active') answer.members = people.filter((item) => item.status === 'active' || (member.host && item.status === 'pending')).map(({ id, nick, status, host }) => ({ id, nick, status, host }));
+    }
+    return answer;
+  };
+  await page.context().route('**/api/live/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    const name = url.pathname.split('/').pop();
-    const room = rooms.get(name) || { version: 0, state: null, sender: '', peers: new Set() };
-    rooms.set(name, room);
+    const [, , , name, action] = url.pathname.split('/');
+    let room = rooms.get(name);
+    const body = request.method() === 'POST' ? request.postDataJSON() : {};
+    if (action === 'join') {
+      if (!room) {
+        room = { version: 0, state: null, sender: '', roster: 1, closed: false, approval: 'auto', key: `key-${name}`, members: new Map() };
+        rooms.set(name, room);
+      }
+      const host = room.members.size === 0 || body.hostKey === room.key;
+      if (room.closed && !host) return route.fulfill({ status: 410, json: { error: 'The session is closed', closed: true } });
+      const member = room.members.get(body.client) || { id: `p-${body.client}`, status: 'pending' };
+      const taken = [...room.members].filter(([key, item]) => key !== body.client && item.status !== 'rejected').map(([, item]) => item.nick);
+      Object.assign(member, { nick: taken.includes(body.nick) ? `${body.nick} (2)` : body.nick, host });
+      if (host || room.approval === 'auto') member.status = 'active';
+      room.members.set(body.client, member);
+      room.roster += 1;
+      return route.fulfill({ json: { ...summary(room, member), ...(room.members.size === 1 ? { hostKey: room.key } : {}) } });
+    }
+    if (action === 'manage') {
+      if (body.hostKey !== room.key) return route.fulfill({ status: 403, json: { error: 'Only the session\'s host can do this' } });
+      const target = [...room.members.values()].find((item) => item.id === body.target);
+      if (body.action === 'approve') target.status = 'active';
+      if (body.action === 'reject') {
+        target.status = 'rejected';
+        room.approval = 'manual';
+      }
+      if (body.action === 'close') room.closed = true;
+      if (body.action === 'reopen') room.closed = false;
+      if (body.action === 'approval') room.approval = body.approval;
+      room.roster += 1;
+      return route.fulfill({ json: summary(room, room.members.get(body.client)) });
+    }
+    const client = body.client || url.searchParams.get('client');
+    const member = room?.members.get(client);
+    if (!member) return route.fulfill({ status: 403, json: { error: 'Join the session first', rejoin: true } });
     if (request.method() === 'POST') {
-      const body = request.postDataJSON();
+      if (room.closed) return route.fulfill({ status: 410, json: { error: 'The session is closed', closed: true } });
       room.version += 1;
       room.state = body.state;
-      room.sender = body.client;
-      room.peers.add(body.client);
-      return route.fulfill({ json: { version: room.version, peers: room.peers.size } });
+      room.sender = member.id;
+      return route.fulfill({ json: summary(room, member) });
     }
-    room.peers.add(url.searchParams.get('client'));
     const since = Number(url.searchParams.get('since'));
-    if (room.version <= since) await new Promise((resolve) => setTimeout(resolve, 250));
-    return route.fulfill({
-      json: room.version > since && room.state
-        ? { version: room.version, state: room.state, sender: room.sender, peers: room.peers.size }
-        : { version: room.version, peers: room.peers.size },
-    });
+    const roster = Number(url.searchParams.get('roster'));
+    const fresh = () => (member.status === 'active' && room.version > since) || roster < room.roster;
+    if (!fresh()) await new Promise((resolve) => setTimeout(resolve, 250));
+    const answer = summary(room, member);
+    if (member.status === 'active' && room.version > since && room.state) Object.assign(answer, { state: room.state, sender: room.sender });
+    return route.fulfill({ json: answer });
+  });
+  // Another device: it does not have the host's key.
+  await page.context().addInitScript(() => {
+    if (new URLSearchParams(window.location.search).has('session')) Object.keys(window.localStorage).filter((key) => key.startsWith('aim3d-live-host:')).forEach((key) => window.localStorage.removeItem(key));
   });
   const { id, other } = await sessionPair(page);
-  expect(await other.evaluate(() => window.Viewer.getLiveLink().session.mode)).toBe('server');
+  expect(await other.evaluate(() => window.Viewer.getLiveLink().session)).toMatchObject({ mode: 'server', host: false, nick: 'Bea' });
+  expect(await page.evaluate(() => window.Viewer.getLiveLink().session)).toMatchObject({ mode: 'server', host: true, nick: 'Anna' });
   await page.evaluate(() => window.viewer.camera.position.set(2, 7, 11));
   await expect.poll(() => cameraAt(other), { timeout: 20_000 }).toEqual([2, 7, 11]);
-  // Who joins later gets the scene as it is.
+
+  // Who moved it leads, for a few seconds.
+  await other.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  await expect(other.locator('#viewerLiveLinkPanel details[data-section="session"] .viewer-livedata-panel_status')).toContainText('Anna leads');
+  await expect(other.locator('.viewer-livelink-panel_person.is-leading .viewer-livelink-panel_person-name')).toHaveText('Anna (host, leading)');
+  await other.evaluate(() => window.Viewer.toggleLiveLinkPanel(false));
+
+  // The host lets the next one in by hand.
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  const panel = page.locator('#viewerLiveLinkPanel');
+  const auto = panel.locator('.viewer-livelink-panel_auto input');
+  await expect(auto).toBeChecked();
+  await auto.uncheck();
+  await expect.poll(() => rooms.get(id).approval).toBe('manual');
+  // With the window closed the host still hears who knocks.
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(false));
   const late = await page.context().newPage();
+  await late.addInitScript(() => window.localStorage.setItem('aim3d-live-nick', 'Cem'));
   await openViewer(late, '/examples/tempietto/Tempietto.glb', `session=${id}`);
   await waitForModel(late);
+  await late.waitForFunction(() => window.Viewer.getLiveLink()?.session?.status === 'pending', null, { timeout: 20_000 });
+  await expect(page.locator('#viewerStatusNotice')).toContainText('Cem is waiting to be let into the session.', { timeout: 20_000 });
+  await expect(page.locator('.viewer-livelink-badge')).toHaveText('1');
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  await expect(panel.locator('.viewer-livelink-panel_person.is-pending .viewer-livelink-panel_person-name')).toHaveText('Cem', { timeout: 20_000 });
+  await expect(panel.locator('details[data-section="session"] .viewer-livedata-panel_status')).toHaveText('In the session: 2 · waiting: 1');
+  // Waiting: the scene does not come yet.
+  await late.waitForTimeout(1000);
+  expect(await cameraAt(late)).not.toEqual([2, 7, 11]);
+  await panel.locator('.viewer-livelink-panel_approve').click();
+  // Who joins later gets the scene as it is.
   await expect.poll(() => cameraAt(late), { timeout: 20_000 }).toEqual([2, 7, 11]);
-  expect(rooms.get(id).peers.size).toBe(3);
+  await expect(panel.locator('details[data-section="session"] .viewer-livedata-panel_status')).toHaveText(/^In the session: 3/, { timeout: 20_000 });
+  await expect(page.locator('.viewer-livelink-badge')).toHaveCount(0);
+
+  // Closed: nothing is shared, the others see it; resumed, it goes on.
+  await panel.locator('.viewer-livelink-panel_close').click();
+  await other.waitForFunction(() => window.Viewer.getLiveLink().session.closed === true, null, { timeout: 20_000 });
+  await expect(panel.locator('.viewer-livelink-panel_close')).toHaveText('Resume the session');
+  await other.evaluate(() => window.viewer.camera.position.set(-5, 4, 9));
+  await page.waitForTimeout(1500);
+  expect(await cameraAt(page)).toEqual([2, 7, 11]);
+  await panel.locator('.viewer-livelink-panel_close').click();
+  await other.waitForFunction(() => window.Viewer.getLiveLink().session.closed === false, null, { timeout: 20_000 });
+  await other.evaluate(() => window.viewer.camera.position.set(-6, 4, 9));
+  await expect.poll(() => cameraAt(page), { timeout: 20_000 }).toEqual([-6, 4, 9]);
+
+  // The same name twice: the later one is told apart.
+  await auto.check();
+  await expect.poll(() => rooms.get(id).approval).toBe('auto');
+  const twin = await page.context().newPage();
+  await twin.addInitScript(() => window.localStorage.setItem('aim3d-live-nick', 'Bea'));
+  await openViewer(twin, '/examples/tempietto/Tempietto.glb', `session=${id}`);
+  await waitForModel(twin);
+  await twin.waitForFunction(() => window.Viewer.getLiveLink()?.session?.nick === 'Bea (2)', null, { timeout: 20_000 });
+  // Removed: and new people wait from now on, so they cannot come straight back.
+  const twinRow = panel.locator('.viewer-livelink-panel_person').filter({ hasText: 'Bea (2)' });
+  await twinRow.locator('.viewer-livelink-panel_reject').click();
+  await expect(auto).not.toBeChecked();
+  await expect(panel.locator('.viewer-livelink-panel_host .viewer-livelink-panel_notice')).toContainText('cannot come straight back');
+  await twin.waitForFunction(() => window.Viewer.getLiveLink()?.session === null, null, { timeout: 20_000 });
+  await twin.close();
   await late.close();
   await other.close();
+});
+
+test('live link: signed in - the account\'s name, and my sessions closed, resumed and joined again', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.route('**/api/auth/config', (route) => route.fulfill({ json: { mode: 'required', registration: 'open', maxUploadBytes: 104857600 } }));
+  await page.route('**/api/auth/me', (route) => route.fulfill({ json: { user: 'anna', role: 'user' } }));
+  const sessions = [
+    { id: 'tempietto-2025a', title: 'Tempietto', createdAt: 1767000000, lastActiveAt: 1767003600, closed: false, approval: 'auto', participants: 7, peak: 4, active: 3, pending: 1 },
+    { id: 'columns-2025bb', title: '', createdAt: 1766000000, lastActiveAt: 1766003600, closed: true, approval: 'manual', participants: 2, peak: 2, active: 0, pending: 0 },
+  ];
+  const managed = [];
+  await page.route('**/api/live/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/live/mine') return route.fulfill({ json: { sessions, accounts: true } });
+    const [, , , room, action] = url.pathname.split('/');
+    if (action === 'manage') {
+      const body = route.request().postDataJSON();
+      managed.push([room, body.action]);
+      sessions.find((item) => item.id === room).closed = body.action === 'close';
+      return route.fulfill({ json: { version: 0, roster: 2, closed: body.action === 'close', approval: 'auto', peers: 0, pending: 0 } });
+    }
+    // No relay for the session itself: the tabs of this browser.
+    return route.fulfill({ status: 404, body: 'not here' });
+  });
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => window.localStorage.removeItem('aim3d-live-nick'));
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  const panel = page.locator('#viewerLiveLinkPanel');
+  // The nickname is the account's.
+  await expect(panel.locator('.viewer-livelink-panel_nick-input')).toHaveValue('anna');
+
+  const history = panel.locator('details[data-section="history"]');
+  await history.locator('summary').click();
+  const items = history.locator('.viewer-livelink-panel_history-item');
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0).locator('strong')).toHaveText('Tempietto');
+  await expect(items.nth(0).locator('.viewer-livelink-panel_history-stats')).toHaveText('active now: 3 · took part: 7 · at most at once: 4 · waiting: 1');
+  await expect(items.nth(1).locator('strong')).toHaveText('columns-2025bb');
+  await expect(items.nth(1)).toHaveClass(/is-closed/);
+
+  // Closed and resumed from the list.
+  await items.nth(0).locator('.viewer-livelink-panel_history-close').click();
+  await expect(items.nth(0).locator('.viewer-livelink-panel_history-reopen')).toBeVisible();
+  await items.nth(1).locator('.viewer-livelink-panel_history-reopen').click();
+  await expect(items.nth(1)).not.toHaveClass(/is-closed/);
+  expect(managed).toEqual([['tempietto-2025a', 'close'], ['columns-2025bb', 'reopen']]);
+
+  // Joined again, under the account's name.
+  await items.nth(1).locator('.viewer-livelink-panel_history-join').click();
+  await page.waitForFunction(() => window.Viewer.getLiveLink()?.session?.id === 'columns-2025bb');
+  expect(await page.evaluate(() => window.Viewer.getLiveLink().session.nick)).toBe('anna');
+  await expect(history.locator('.viewer-livelink-panel_history-item.is-current')).toHaveCount(1);
+  await page.evaluate(() => window.Viewer.leaveLiveSession());
 });
 
 test('live link: the manifest followed - only what changed is applied, the model stays', async ({ page }) => {
