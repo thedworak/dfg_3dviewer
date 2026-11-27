@@ -3035,6 +3035,46 @@ test('Gaussian splats: .splat files and PLYs of splats are drawn by Spark, uprig
   await expect.poll(() => splatPixelShare(page)).toBeGreaterThan(0.005);
 });
 
+// Spark leaves out three.js's clipping planes: splats.js turns the planes
+// cutting now into a Spark edit (plane SDFs taking the opacity away).
+test('Gaussian splats: section planes cut them, and the tools that need a surface are off', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/tempietto/Tempietto.splat');
+  await waitForCameraIdle(page);
+  await expect.poll(() => splatPixelShare(page), { timeout: 45_000 }).toBeGreaterThan(0.02);
+  const whole = await splatPixelShare(page);
+
+  await page.evaluate(() => {
+    const viewer = window.Viewer;
+    viewer.toggleClippingPlanesPanel();
+    viewer.setClippingAxisEnabled('x', true, { silent: true });
+    const range = viewer.getClippingAxisRange('x');
+    viewer.setClippingAxisPosition('x', range.min + range.size / 2);
+  });
+  const clip = () => page.evaluate(() => {
+    const edit = window.viewer.scene.getObjectByName('spark-renderer')?.userData.clipEdit;
+    return edit ? { planes: edit.sdfs.length, visible: edit.visible } : null;
+  });
+  await expect.poll(clip).toEqual({ planes: 1, visible: true });
+  // Half of the temple cut away.
+  await expect.poll(() => splatPixelShare(page), { timeout: 30_000 }).toBeLessThan(whole * 0.8);
+  expect(await splatPixelShare(page)).toBeGreaterThan(whole * 0.15);
+
+  // No surface: no fill (and no second, cloned splat model for it), drawing
+  // or plane put to a face.
+  expect(await page.evaluate(() => window.viewer.outlineClipping?.children.length)).toBe(0);
+  const panel = page.locator('#viewerClippingPanel');
+  await expect(panel.locator('.viewer-clipping-panel_tool').nth(1)).toBeDisabled();
+  await expect(panel.locator('.viewer-clipping-panel_tool').nth(2)).toBeDisabled();
+  await expect(panel.locator('.viewer-clipping-panel_option').first().locator('input')).toBeDisabled();
+  expect(await page.evaluate(() => window.Viewer.exportClippingSection())).toBeNull();
+
+  // The plane off: the whole capture back.
+  await page.evaluate(() => window.Viewer.setClippingAxisEnabled('x', false, { silent: true }));
+  await expect.poll(clip).toEqual({ planes: 0, visible: false });
+  await expect.poll(() => splatPixelShare(page), { timeout: 30_000 }).toBeGreaterThan(whole * 0.9);
+});
+
 // Tempietto-lod.rad: Tempietto.splat through Spark's build-lod (--rad), as
 // the worker does with uploaded splats (worker/splats.py).
 test('Gaussian splats: a .rad on the server is paged by range requests, loaded whole without them', async ({ page }) => {

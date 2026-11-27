@@ -1,6 +1,16 @@
 import THREE from "./init.js";
 import { core } from "./core.js";
-import { PackedSplats, SparkRenderer, SplatFileType, SplatMesh, isMobile } from "@sparkjsdev/spark";
+import {
+  PackedSplats,
+  SparkRenderer,
+  SplatEdit,
+  SplatEditRgbaBlendMode,
+  SplatEditSdf,
+  SplatEditSdfType,
+  SplatFileType,
+  SplatMesh,
+  isMobile,
+} from "@sparkjsdev/spark";
 import { attachSplatLighting } from "./splat-lighting.js";
 
 // Gaussian splats (3D Gaussian Splatting captures: .ply, .spz, .splat,
@@ -41,6 +51,15 @@ import { attachSplatLighting } from "./splat-lighting.js";
 // Both are lit by the scene's lights when Lights > Gaussian splats is on
 // (splat-lighting.js), with the surface volume the worker builds next to
 // an upload (<model>.light) when volumeUrl names one.
+//
+// Section planes: Spark's shader leaves out three.js's clipping planes, so
+// the planes cutting now (core.activeClippingPlanes: the axes, the section
+// box, the plane put to a face) become one Spark edit, a plane SDF each,
+// that takes a splat's opacity away on the side a plane cuts off. Spark
+// evaluates edits in world space at each splat's centre, so a splat across
+// a plane stays whole on the kept side. The edit hangs under the Spark
+// renderer (no SplatMesh above it, so it applies to every splat model) and
+// follows the planes before each frame, as they are dragged.
 
 const LOD_ABOVE = 300_000;
 // Share of Spark's default per-platform budget (2.5M splats on desktop,
@@ -49,6 +68,35 @@ const LOD_SPLAT_SCALE = 0.5;
 // Smallest LoD splat, in pixels; up to ~5 hardly shows.
 const LOD_RENDER_SCALE = 2;
 const MOBILE_MAX_SH = 1;
+
+const PLANE_Z = new THREE.Vector3(0, 0, 1);
+
+// The section planes as a Spark edit (see above), kept on the renderer.
+// The SDFs are listed on the edit, not added under it, so their matrices
+// are their own transforms: a plane SDF's distance is its local z, the
+// plane's signed distance once it stands on the plane, facing its normal.
+// A negative distance (the side three.js clips away) gets opacity 0.
+export function syncSplatClipping(spark) {
+  const planes = core.PRESENTATION_MODE ? [] : (core.activeClippingPlanes || []);
+  let clip = spark.userData.clipEdit;
+  if (!clip) {
+    clip = new SplatEdit({ name: "section-planes", rgbaBlendMode: SplatEditRgbaBlendMode.MULTIPLY, sdfs: [] });
+    clip.userData = { noClipping: true, sdfs: [] };
+    spark.userData.clipEdit = clip;
+    spark.add(clip);
+  }
+  const pool = clip.userData.sdfs;
+  while (pool.length < planes.length) pool.push(new SplatEditSdf({ type: SplatEditSdfType.PLANE, opacity: 0 }));
+  planes.forEach((plane, index) => {
+    const sdf = pool[index];
+    plane.coplanarPoint(sdf.position);
+    sdf.quaternion.setFromUnitVectors(PLANE_Z, plane.normal);
+  });
+  if (clip.sdfs.length !== planes.length) clip.sdfs = pool.slice(0, planes.length);
+  // Hidden with no plane: Spark gathers visible edits only.
+  clip.visible = planes.length > 0;
+  return planes.length;
+}
 
 function ensureSparkRenderer() {
   const renderer = core.renderer;
@@ -59,6 +107,12 @@ function ensureSparkRenderer() {
     spark = new SparkRenderer({ renderer, lodSplatScale: LOD_SPLAT_SCALE, lodRenderScale: LOD_RENDER_SCALE });
     spark.name = "spark-renderer";
     spark.userData.isSparkRenderer = true;
+    const render = spark.onBeforeRender.bind(spark);
+    spark.onBeforeRender = (...args) => {
+      syncSplatClipping(spark);
+      render(...args);
+    };
+    syncSplatClipping(spark);
     core.sparkRenderer = spark;
   }
   if (spark.parent !== core.scene) core.scene.add(spark);

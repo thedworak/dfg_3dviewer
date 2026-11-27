@@ -718,7 +718,9 @@ export async function loadModel() {
       updateLoadingStage("loadingLog.settingUpMaterials", 99);
       // A streamed (tiled) model's meshes change with the level of detail;
       // a cloned section outline would only show the tiles loaded now.
-      core.outlineClipping = object.userData?.isTiledModel
+      // Gaussian splats have no surface to fill (and a cloned SplatMesh
+      // would be an empty second one): splats.js cuts them itself.
+      core.outlineClipping = object.userData?.isTiledModel || object.userData?.isGaussianSplats
         ? new THREE.Group()
         : prepareOutlineClipping(object);
       if (Array.isArray(object)) {

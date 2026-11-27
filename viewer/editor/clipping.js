@@ -247,6 +247,12 @@ export function attachClipping(Viewer) {
       return core.planeParams?.clippingMode?.[axis] === true;
     },
 
+    // Gaussian splats (splats.js) are cut splat by splat, with no surface:
+    // nothing to fill, draw, pick a face of or show as a ghost.
+    isClippingSplats() {
+      return Viewer.getClippingRoots(Viewer.clippingState?.root).some((root) => root.userData?.isGaussianSplats === true);
+    },
+
     hasActiveClipping() {
       return CLIPPING_AXES.some((axis) => Viewer.isClippingAxisEnabled(axis)) || Viewer.clippingState?.face?.enabled === true;
     },
@@ -755,6 +761,7 @@ export function attachClipping(Viewer) {
     // to it, keeping what is behind it - then moved in with its slider.
     startClippingFacePick() {
       const state = Viewer.clippingState;
+      if (!state.facePicking && Viewer.isClippingSplats()) return;
       state.facePicking = !state.facePicking;
       const canvas = core.renderer?.domElement;
       if (canvas) canvas.style.cursor = state.facePicking ? "crosshair" : "";
@@ -1505,9 +1512,17 @@ export function attachClipping(Viewer) {
       toolText(panel.exportTool, "clipping.export", "Drawing (SVG)");
       panel.exportTool.button.title = t("clipping.exportTitle", "Download the section along the plane moved last as a drawing, with a scale bar");
 
-      const filled = core.planeParams?.outline?.visible === true;
+      const splats = Viewer.isClippingSplats();
+      const splatsTitle = splats ? t("clipping.splatsOnly", "Gaussian splats have no surface: they are cut, without a fill, a drawing or a plane put to a face") : "";
+      [panel.faceTool, panel.exportTool].forEach((entry) => {
+        entry.button.disabled = splats;
+        if (splats) entry.button.title = splatsTitle;
+      });
+      panel.root.classList.toggle("is-splats", splats);
+
+      const filled = core.planeParams?.outline?.visible === true && !splats;
       panel.fillInput.checked = filled;
-      panel.fillInput.disabled = Boolean(Viewer.animationState);
+      panel.fillInput.disabled = Boolean(Viewer.animationState) || splats;
       panel.fillText.textContent = t("clipping.fill", "Section fill");
       panel.planeColorInput.checked = state.fillColor === "plane";
       panel.planeColorInput.disabled = !filled || Boolean(Viewer.animationState);
@@ -1517,8 +1532,12 @@ export function attachClipping(Viewer) {
       panel.hatchInput.disabled = panel.planeColorInput.disabled;
       panel.hatchLabel.classList.toggle("is-disabled", panel.hatchInput.disabled);
       panel.hatchText.textContent = t("clipping.hatch", "Hatched");
-      panel.ghostInput.checked = state.ghost === true;
-      panel.ghostInput.disabled = Boolean(Viewer.animationState);
+      panel.ghostInput.checked = state.ghost === true && !splats;
+      panel.ghostInput.disabled = Boolean(Viewer.animationState) || splats;
+      [panel.fillInput, panel.ghostInput].forEach((input) => {
+        input.closest("label")?.classList.toggle("is-disabled", splats);
+        input.closest("label")?.setAttribute("title", splatsTitle);
+      });
       panel.ghostText.textContent = t("clipping.ghost", "Show the part cut away");
       panel.reset.textContent = t("clipping.reset", "Reset");
     },
@@ -1583,6 +1602,7 @@ export function attachClipping(Viewer) {
     // SVG drawing (section-export.js), downloaded.
     exportClippingSection() {
       const state = Viewer.clippingState;
+      if (Viewer.isClippingSplats()) return null;
       const planeOf = (key) => {
         if (key === "face") return state.face.enabled ? state.extraPlanes?.face : null;
         if (key?.length > 1) return state.box.enabled && Viewer.isClippingAxisEnabled(key.charAt(0)) ? state.extraPlanes?.[key.charAt(0)] : null;
