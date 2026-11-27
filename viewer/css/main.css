@@ -219,12 +219,21 @@ canvas {
   transition: top 300ms ease;
 }
 
+/* Centred by the flex box over the whole viewer, not by translate(-50%):
+   half of the panel's size often falls between pixels, and the text blurs. */
 #viewerNoticeContainer.viewer-notice-container--sandbox {
-  top: 50%;
-  bottom: auto;
+  inset: 0;
   /* The format groups (ui/sandbox-formats.js) use the width they get. */
-  max-width: calc(100% - 32px);
-  transform: translate(-50%, -50%);
+  max-width: none;
+  padding: 0 16px;
+  justify-content: center;
+  transform: none;
+}
+
+/* At rest, no 3D transform: it keeps the panel on a GPU layer drawn as a
+   bitmap, so its small text loses its sharpness. */
+.viewer-notice-status[data-variant="sandbox"].is-visible {
+  transform: none;
 }
 
 #viewerNoticeContainer.viewer-notice-container--shortcuts {

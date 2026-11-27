@@ -67,16 +67,6 @@ export function newSessionId(length = 14) {
   return Array.from(bytes, (byte) => ID_LETTERS[byte % ID_LETTERS.length]).join("");
 }
 
-export const SESSION_NICK_LENGTH = 40;
-
-// The name someone comes into a session under, as the others see it: one
-// line, no control characters, trimmed (the worker does the same).
-export function normalizeSessionNick(value) {
-  if (typeof value !== "string") return "";
-  const text = value.normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").replace(/\s+/g, " ").trim();
-  return Array.from(text).slice(0, SESSION_NICK_LENGTH).join("").trim();
-}
-
 const triple = (value) => {
   const list = Array.isArray(value) ? value : value && typeof value === "object" ? [value.x, value.y, value.z] : null;
   if (!list || list.length < 3) return null;

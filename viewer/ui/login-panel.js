@@ -192,11 +192,6 @@ export function attachLoginPanel(Viewer) {
       if (this.isUploadPanelOpen?.()) this.refreshUploadLimits?.();
       this.renderLoginPanel();
       this.updateLoginMenuEntryState();
-      // The live link's nickname and its host's sessions follow the account.
-      if (this.liveLinkState) {
-        this.liveLinkState.history = null;
-        this.renderLiveLinkPanel?.();
-      }
       this.updateAdminMenuEntryState?.();
       // A manifest's thumbnails are for admins, a model's for its owner.
       this.refreshThumbnailAccess?.();
