@@ -155,6 +155,78 @@ class LiveSessionsTest(unittest.TestCase):
         # Back with a new viewer: waits.
         self.assertEqual(sessions.join(ROOM, C, "Guest")["status"], "pending")
 
+    def test_a_presentation(self):
+        sessions = live_sessions.LiveSessions()
+        key = sessions.join(ROOM, A, "Host")["hostKey"]
+        guest = sessions.join(ROOM, B, "Guest")
+        self.assertTrue(guest["canLead"])
+        sessions.manage(ROOM, "lead", host_key=key, value="host")
+        # Only the host leads: the guest watches.
+        with self.assertRaises(live_sessions.LiveError) as caught:
+            sessions.publish(ROOM, B, {"n": 1})
+        self.assertEqual((caught.exception.status, caught.exception.extra), (403, {"lead": "host"}))
+        self.assertEqual(sessions.publish(ROOM, A, {"n": 1})["version"], 1)
+        got = sessions.wait(ROOM, B, 0, 0)
+        self.assertEqual((got["lead"], got["canLead"], got["state"]), ("host", False, {"n": 1}))
+        # The host lets the guest lead too, and takes it back.
+        sessions.manage(ROOM, "grant", host_key=key, target=guest["you"], value=True)
+        self.assertEqual(sessions.publish(ROOM, B, {"n": 2})["version"], 2)
+        self.assertEqual([item["lead"] for item in sessions.wait(ROOM, A, 2, 0)["members"]], [True, True])
+        sessions.manage(ROOM, "grant", host_key=key, target=guest["you"], value=False)
+        with self.assertRaises(live_sessions.LiveError):
+            sessions.publish(ROOM, B, {"n": 3})
+        with self.assertRaises(live_sessions.LiveError):
+            sessions.manage(ROOM, "lead", host_key=key, value="nobody")
+
+    def test_a_passcode(self):
+        sessions = live_sessions.LiveSessions()
+        key = sessions.join(ROOM, A, "Host")["hostKey"]
+        with self.assertRaises(live_sessions.LiveError):
+            sessions.manage(ROOM, "passcode", host_key=key, value="123")
+        self.assertTrue(sessions.manage(ROOM, "passcode", host_key=key, value="4711", client=A)["passcode"])
+        for given, wrong in [(None, False), ("0000", True)]:
+            with self.assertRaises(live_sessions.LiveError) as caught:
+                sessions.join(ROOM, B, "Guest", passcode=given, ip="1.2.3.4")
+            self.assertEqual(caught.exception.status, 401)
+            self.assertEqual(caught.exception.extra.get("wrong", False), wrong)
+        self.assertEqual(sessions.join(ROOM, B, "Guest", passcode="4711", ip="1.2.3.4")["status"], "active")
+        # In: back without it. The host never needs it.
+        self.assertEqual(sessions.join(ROOM, B, "Guest", ip="1.2.3.4")["status"], "active")
+        self.assertTrue(sessions.join(ROOM, "client-host2", "Host", host_key=key)["host"])
+        # Guessing is stopped.
+        for _ in range(live_sessions.PASSCODE_LIMIT[0]):
+            with self.assertRaises(live_sessions.LiveError):
+                sessions.join(ROOM, C, "Guesser", passcode="nope", ip="6.6.6.6")
+        with self.assertRaises(live_sessions.LiveError) as caught:
+            sessions.join(ROOM, C, "Guesser", passcode="4711", ip="6.6.6.6")
+        self.assertEqual(caught.exception.status, 429)
+        # Removed: open to all again.
+        sessions.manage(ROOM, "passcode", host_key=key, value="")
+        self.assertEqual(sessions.join(ROOM, "client-dddd", "Open", ip="7.7.7.7")["status"], "active")
+
+    def test_joining_is_limited(self):
+        now = [0.0]
+        sessions = live_sessions.LiveSessions(clock=lambda: now[0])
+        for index in range(live_sessions.JOIN_LIMIT[0]):
+            sessions.join(f"room-many-{index:04d}", A, "Anna", ip="9.9.9.9")
+        with self.assertRaises(live_sessions.LiveError) as caught:
+            sessions.join(ROOM, A, "Anna", ip="9.9.9.9")
+        self.assertEqual(caught.exception.status, 429)
+        # Another address, or a minute later: fine.
+        sessions.join(ROOM, A, "Anna", ip="8.8.8.8")
+        now[0] += live_sessions.JOIN_LIMIT[1] + 1
+        sessions.join(ROOM, B, "Bea", ip="9.9.9.9")
+
+    def test_waiting_is_limited(self):
+        sessions = live_sessions.LiveSessions()
+        key = sessions.join(ROOM, A, "Host")["hostKey"]
+        sessions.manage(ROOM, "approval", host_key=key, approval="manual")
+        for index in range(live_sessions.MAX_PENDING):
+            sessions.join(ROOM, f"client-wait{index:04d}", f"W{index}", ip=f"10.0.{index}.1")
+        with self.assertRaises(live_sessions.LiveError) as caught:
+            sessions.join(ROOM, "client-toomany", "Late", ip="10.1.0.1")
+        self.assertEqual(caught.exception.status, 429)
+
     def test_wait_is_answered_when_the_people_change(self):
         sessions = live_sessions.LiveSessions()
         host = sessions.join(ROOM, A, "Host")
@@ -212,6 +284,15 @@ class LiveSessionsTest(unittest.TestCase):
         self.assertFalse(sessions.join(ROOM, B, "Bea")["host"])
         self.assertEqual(sessions.owned("anna")[0]["participants"], 3)
         self.assertNotIn("Bea", path.read_text())
+        # Renamed, then forgotten: out of the history, the room goes on.
+        sessions.manage(ROOM, "title", user="anna", value="  Lecture  ")
+        self.assertEqual(sessions.owned("anna")[0]["title"], "Lecture")
+        with self.assertRaises(live_sessions.LiveError):
+            sessions.manage(ROOM, "forget", host_key="whatever")
+        self.assertEqual(sessions.manage(ROOM, "forget", user="anna"), {"forgotten": True})
+        self.assertEqual(sessions.owned("anna"), [])
+        self.assertNotIn(ROOM, path.read_text())
+        self.assertEqual(sessions.publish(ROOM, B, {"n": 1})["version"], 1)
 
 
 class LiveEndpointTest(unittest.TestCase):

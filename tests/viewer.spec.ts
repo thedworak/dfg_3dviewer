@@ -5788,24 +5788,26 @@ test('live link: a shared session - a point cloud\'s, an image\'s, a volume\'s a
   await other.close();
 });
 
-test('live link: a session through the worker\'s relay - who is in, who waits, closed and resumed', async ({ page }) => {
-  test.setTimeout(150_000);
-  // The relay (worker/live_sessions.py), in short, answered at once here.
+// The relay (worker/live_sessions.py), in short, answered at once here:
+// people, the host's approval, closing, a presentation, a passcode.
+async function routeLiveRelay(context) {
   const rooms = new Map();
+  const canLead = (room, member) => member.host || room.lead === 'all' || Boolean(member.lead);
   const summary = (room, member) => {
     const people = [...room.members.values()];
     const answer = {
-      version: room.version, roster: room.roster, closed: room.closed, approval: room.approval,
+      version: room.version, roster: room.roster, closed: room.closed, approval: room.approval, lead: room.lead,
       peers: people.filter((item) => item.status === 'active').length,
       pending: people.filter((item) => item.status === 'pending').length,
     };
     if (member) {
-      Object.assign(answer, { status: member.status, host: member.host, you: member.id, nick: member.nick });
-      if (member.status === 'active') answer.members = people.filter((item) => item.status === 'active' || (member.host && item.status === 'pending')).map(({ id, nick, status, host }) => ({ id, nick, status, host }));
+      Object.assign(answer, { status: member.status, host: member.host, you: member.id, nick: member.nick, canLead: canLead(room, member) });
+      if (member.host) answer.passcode = Boolean(room.passcode);
+      if (member.status === 'active') answer.members = people.filter((item) => item.status === 'active' || (member.host && item.status === 'pending')).map((item) => ({ id: item.id, nick: item.nick, status: item.status, host: item.host, lead: canLead(room, item) }));
     }
     return answer;
   };
-  await page.context().route('**/api/live/**', async (route) => {
+  await context.route('**/api/live/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const [, , , name, action] = url.pathname.split('/');
@@ -5813,12 +5815,17 @@ test('live link: a session through the worker\'s relay - who is in, who waits, c
     const body = request.method() === 'POST' ? request.postDataJSON() : {};
     if (action === 'join') {
       if (!room) {
-        room = { version: 0, state: null, sender: '', roster: 1, closed: false, approval: 'auto', key: `key-${name}`, members: new Map() };
+        room = { version: 0, state: null, sender: '', roster: 1, closed: false, approval: 'auto', lead: 'all', passcode: '', key: `key-${name}`, members: new Map() };
         rooms.set(name, room);
       }
       const host = room.members.size === 0 || body.hostKey === room.key;
       if (room.closed && !host) return route.fulfill({ status: 410, json: { error: 'The session is closed', closed: true } });
-      const member = room.members.get(body.client) || { id: `p-${body.client}`, status: 'pending' };
+      const known = room.members.get(body.client);
+      if (room.passcode && !host && known?.status !== 'active') {
+        if (!body.passcode) return route.fulfill({ status: 401, json: { error: 'This session asks for a passcode', passcode: true } });
+        if (body.passcode !== room.passcode) return route.fulfill({ status: 401, json: { error: 'Wrong passcode', passcode: true, wrong: true } });
+      }
+      const member = known || { id: `p-${body.client}`, status: 'pending' };
       const taken = [...room.members].filter(([key, item]) => key !== body.client && item.status !== 'rejected').map(([, item]) => item.nick);
       Object.assign(member, { nick: taken.includes(body.nick) ? `${body.nick} (2)` : body.nick, host });
       if (host || room.approval === 'auto') member.status = 'active';
@@ -5834,9 +5841,12 @@ test('live link: a session through the worker\'s relay - who is in, who waits, c
         target.status = 'rejected';
         room.approval = 'manual';
       }
+      if (body.action === 'grant') target.lead = Boolean(body.value);
       if (body.action === 'close') room.closed = true;
       if (body.action === 'reopen') room.closed = false;
       if (body.action === 'approval') room.approval = body.approval;
+      if (body.action === 'lead') room.lead = body.value;
+      if (body.action === 'passcode') room.passcode = body.value || '';
       room.roster += 1;
       return route.fulfill({ json: summary(room, room.members.get(body.client)) });
     }
@@ -5845,6 +5855,7 @@ test('live link: a session through the worker\'s relay - who is in, who waits, c
     if (!member) return route.fulfill({ status: 403, json: { error: 'Join the session first', rejoin: true } });
     if (request.method() === 'POST') {
       if (room.closed) return route.fulfill({ status: 410, json: { error: 'The session is closed', closed: true } });
+      if (!canLead(room, member)) return route.fulfill({ status: 403, json: { error: 'Only the host leads now', lead: room.lead } });
       room.version += 1;
       room.state = body.state;
       room.sender = member.id;
@@ -5858,6 +5869,12 @@ test('live link: a session through the worker\'s relay - who is in, who waits, c
     if (member.status === 'active' && room.version > since && room.state) Object.assign(answer, { state: room.state, sender: room.sender });
     return route.fulfill({ json: answer });
   });
+  return rooms;
+}
+
+test('live link: a session through the worker\'s relay - who is in, who waits, closed and resumed', async ({ page }) => {
+  test.setTimeout(150_000);
+  const rooms = await routeLiveRelay(page.context());
   // Another device: it does not have the host's key.
   await page.context().addInitScript(() => {
     if (new URLSearchParams(window.location.search).has('session')) Object.keys(window.localStorage).filter((key) => key.startsWith('aim3d-live-host:')).forEach((key) => window.localStorage.removeItem(key));
@@ -5933,6 +5950,62 @@ test('live link: a session through the worker\'s relay - who is in, who waits, c
   await other.close();
 });
 
+test('live link: a presentation and a passcode', async ({ page }) => {
+  test.setTimeout(150_000);
+  const rooms = await routeLiveRelay(page.context());
+  await page.context().addInitScript(() => {
+    if (new URLSearchParams(window.location.search).has('session')) Object.keys(window.localStorage).filter((key) => key.startsWith('aim3d-live-host:')).forEach((key) => window.localStorage.removeItem(key));
+  });
+  const { id, other } = await sessionPair(page);
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  const panel = page.locator('#viewerLiveLinkPanel');
+  const status = (target) => target.locator('#viewerLiveLinkPanel details[data-section="session"] .viewer-livedata-panel_status');
+
+  // A presentation: the host leads, the others watch.
+  await panel.locator('.viewer-livelink-panel_present input').check();
+  await expect.poll(() => rooms.get(id).lead).toBe('host');
+  await other.waitForFunction(() => window.Viewer.getLiveLinkState().session.canLead === false, null, { timeout: 20_000 });
+  await other.evaluate(() => window.Viewer.toggleLiveLinkPanel(true));
+  await expect(status(other)).toContainText('a presentation: you watch');
+  const version = rooms.get(id).version;
+  await other.evaluate(() => window.viewer.camera.position.set(-7, 2, 8));
+  await other.waitForTimeout(1500);
+  expect(rooms.get(id).version).toBe(version);
+  await page.evaluate(() => window.viewer.camera.position.set(4, 6, 9));
+  await expect.poll(() => cameraAt(other), { timeout: 20_000 }).toEqual([4, 6, 9]);
+  // Let Bea lead too.
+  const bea = panel.locator('.viewer-livelink-panel_person').filter({ hasText: 'Bea' });
+  await bea.locator('.viewer-livelink-panel_grant').click();
+  await expect(bea.locator('.viewer-livelink-panel_grant')).toHaveText('Stop leading', { timeout: 20_000 });
+  await other.waitForFunction(() => window.Viewer.getLiveLinkState().session.canLead === true, null, { timeout: 20_000 });
+  await other.evaluate(() => window.viewer.camera.position.set(-7, 2, 8));
+  await expect.poll(() => cameraAt(page), { timeout: 20_000 }).toEqual([-7, 2, 8]);
+  await panel.locator('.viewer-livelink-panel_present input').uncheck();
+  await expect.poll(() => rooms.get(id).lead).toBe('all');
+
+  // A passcode at the door.
+  await panel.locator('.viewer-livelink-panel_passcode-set').fill('4711');
+  await panel.locator('.viewer-livelink-panel_passcode-save').click();
+  await expect(panel.locator('.viewer-livelink-panel_passcode-note')).toContainText('New people give the passcode', { timeout: 20_000 });
+  const late = await page.context().newPage();
+  await late.addInitScript(() => window.localStorage.setItem('aim3d-live-nick', 'Cem'));
+  await openViewer(late, '/examples/tempietto/Tempietto.glb', `session=${id}`);
+  await waitForModel(late);
+  const latePanel = late.locator('#viewerLiveLinkPanel');
+  const code = latePanel.locator('.viewer-livelink-panel_passcode-input');
+  await expect(code).toBeVisible({ timeout: 20_000 });
+  await expect(latePanel.locator('.viewer-livelink-panel_notice')).toContainText('asks for a passcode');
+  await code.fill('1234');
+  await latePanel.locator('.viewer-livelink-panel_join').click();
+  await expect(latePanel.locator('.viewer-livelink-panel_notice')).toContainText('Wrong passcode', { timeout: 20_000 });
+  await latePanel.locator('.viewer-livelink-panel_passcode-input').fill('4711');
+  await latePanel.locator('.viewer-livelink-panel_join').click();
+  await late.waitForFunction((room) => window.Viewer.getLiveLink()?.session?.id === room, id, { timeout: 20_000 });
+  await expect.poll(() => cameraAt(late), { timeout: 20_000 }).toEqual([-7, 2, 8]);
+  await late.close();
+  await other.close();
+});
+
 test('live link: signed in - the account\'s name, and my sessions closed, resumed and joined again', async ({ page }) => {
   test.setTimeout(90_000);
   await page.route('**/api/auth/config', (route) => route.fulfill({ json: { mode: 'required', registration: 'open', maxUploadBytes: 104857600 } }));
@@ -5949,8 +6022,14 @@ test('live link: signed in - the account\'s name, and my sessions closed, resume
     if (action === 'manage') {
       const body = route.request().postDataJSON();
       managed.push([room, body.action]);
-      sessions.find((item) => item.id === room).closed = body.action === 'close';
-      return route.fulfill({ json: { version: 0, roster: 2, closed: body.action === 'close', approval: 'auto', peers: 0, pending: 0 } });
+      const item = sessions.find((entry) => entry.id === room);
+      if (body.action === 'forget') {
+        sessions.splice(sessions.indexOf(item), 1);
+        return route.fulfill({ json: { forgotten: true } });
+      }
+      if (body.action === 'title') item.title = body.value;
+      else item.closed = body.action === 'close';
+      return route.fulfill({ json: { version: 0, roster: 2, closed: item.closed, approval: 'auto', peers: 0, pending: 0 } });
     }
     // No relay for the session itself: the tabs of this browser.
     return route.fulfill({ status: 404, body: 'not here' });
@@ -5969,6 +6048,8 @@ test('live link: signed in - the account\'s name, and my sessions closed, resume
   await expect(items).toHaveCount(2);
   await expect(items.nth(0).locator('strong')).toHaveText('Tempietto');
   await expect(items.nth(0).locator('.viewer-livelink-panel_history-stats')).toHaveText('active now: 3 · took part: 7 · at most at once: 4 · waiting: 1');
+  // How long it went on (from its start to its last use).
+  await expect(items.nth(0).locator('.viewer-livelink-panel_history-when')).toContainText('1 h 0 min · open');
   await expect(items.nth(1).locator('strong')).toHaveText('columns-2025bb');
   await expect(items.nth(1)).toHaveClass(/is-closed/);
 
@@ -5979,8 +6060,18 @@ test('live link: signed in - the account\'s name, and my sessions closed, resume
   await expect(items.nth(1)).not.toHaveClass(/is-closed/);
   expect(managed).toEqual([['tempietto-2025a', 'close'], ['columns-2025bb', 'reopen']]);
 
+  // Renamed, and one removed from the list.
+  page.once('dialog', (dialog) => dialog.accept('Lecture'));
+  await items.nth(0).locator('.viewer-livelink-panel_history-rename').click();
+  await expect(items.nth(0).locator('strong')).toHaveText('Lecture');
+  page.once('dialog', (dialog) => dialog.accept());
+  await items.nth(0).locator('.viewer-livelink-panel_history-forget').click();
+  await expect(items).toHaveCount(1);
+  await expect(items.nth(0).locator('strong')).toHaveText('columns-2025bb');
+  expect(managed.slice(2)).toEqual([['tempietto-2025a', 'title'], ['tempietto-2025a', 'forget']]);
+
   // Joined again, under the account's name.
-  await items.nth(1).locator('.viewer-livelink-panel_history-join').click();
+  await items.nth(0).locator('.viewer-livelink-panel_history-join').click();
   await page.waitForFunction(() => window.Viewer.getLiveLink()?.session?.id === 'columns-2025bb');
   expect(await page.evaluate(() => window.Viewer.getLiveLink().session.nick)).toBe('anna');
   await expect(history.locator('.viewer-livelink-panel_history-item.is-current')).toHaveCount(1);

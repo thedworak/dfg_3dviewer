@@ -2758,6 +2758,18 @@
   display: none;
 }
 
+.viewer-livelink-panel_host [hidden] {
+  display: none;
+}
+
+.viewer-livelink-panel_passcode-set[aria-invalid="true"] {
+  border-color: #ff5a4f;
+}
+
+.viewer-livelink-panel_history-item .viewer-livedata-panel_actions {
+  flex-wrap: wrap;
+}
+
 /* The old model's last frame, over the canvas while the new one loads. */
 .viewer-livelink-veil {
   position: absolute;

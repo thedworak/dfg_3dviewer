@@ -1871,13 +1871,16 @@ class Handler(BaseHTTPRequestHandler):
                     result = LIVE_SESSIONS.publish(room, client, body.get("state"))
                 elif action == "join":
                     result = LIVE_SESSIONS.join(room, client, body.get("nick"), user=user,
-                                                host_key=body.get("hostKey"), title=body.get("title"))
+                                                host_key=body.get("hostKey"), title=body.get("title"),
+                                                passcode=body.get("passcode"), ip=self._client_ip())
                 else:
                     result = LIVE_SESSIONS.manage(room, str(body.get("action") or ""), user=user,
                                                   host_key=body.get("hostKey"), client=client or None,
-                                                  target=body.get("target"), approval=body.get("approval"))
+                                                  target=body.get("target"), approval=body.get("approval"),
+                                                  value=body.get("value"))
         except live_sessions.LiveError as error:
-            self._send_json(error.status, error.payload())
+            retry = error.extra.get("retryAfter")
+            self._send_json(error.status, error.payload(), headers={"Retry-After": str(retry)} if retry else None)
             return
         except AuthError as error:
             self._send_json(error.status, {"error": error.message})

@@ -713,7 +713,7 @@ export function attachLiveLink(Viewer) {
     // Starts a session (a new one, or the one named `id`) and joins it
     // under a nickname: `nick`, the account's, or the one used last here;
     // without one the window asks for it (and null is returned).
-    async startLiveSession(id, { nick } = {}) {
+    async startLiveSession(id, { nick, passcode } = {}) {
       const state = Viewer.getLiveLinkState();
       const room = typeof id === "string" && SESSION_ID_PATTERN.test(id) ? id : newSessionId();
       const name = Viewer.liveSessionNick(nick);
@@ -724,11 +724,14 @@ export function attachLiveLink(Viewer) {
       Viewer.rememberLiveSessionNick(name);
       Viewer.leaveLiveSession();
       state.joining = null;
+      state.needPasscode = false;
       state.notice = null;
       const session = {
         id: room,
         mode: "server",
         nick: name,
+        // Given at the door; kept for coming in again (the worker forgot).
+        passcode: passcode || null,
         // The people (live-session-people.js): this viewer's place
         // ("active", "pending"), whether it is the host, the public id the
         // others know it by, how many are in and wait, who they are.
@@ -777,6 +780,19 @@ export function attachLiveLink(Viewer) {
         first = await response.json();
         if (typeof first?.version !== "number") throw new Error("no relay");
       } catch (error) {
+        if (error?.refused && error.passcode && state.session === session) {
+          // The door asks for a passcode: the window asks for it.
+          Viewer.endLiveSession(error.wrong
+            ? t("liveLink.session.passcodeWrong", "Wrong passcode. Ask the host for it again.")
+            : t("liveLink.session.passcodeAsked", "This session asks for a passcode: the host hands it on."));
+          state.joining = room;
+          state.needPasscode = true;
+          state.sections.session = true;
+          Viewer.toggleLiveLinkPanel(true);
+          Viewer.renderLiveLinkPanel();
+          requestAnimationFrame(() => state.ui?.passcodeInput?.focus());
+          return null;
+        }
         if (error?.refused && state.session === session) {
           Viewer.endLiveSession(error.closed
             ? t("liveLink.session.closedJoin", "This session is closed. It can be joined again once its host resumes it.")
@@ -1070,6 +1086,8 @@ export function attachLiveLink(Viewer) {
         session.remoteCameraToken = core.cameraTweenToken;
         return;
       }
+      // A presentation: whoever may not lead watches - nothing goes out.
+      if (session.canLead === false) return;
       let changed = false;
 
       // The camera: while it is this viewer's hand that moves it.
@@ -1171,6 +1189,7 @@ export function attachLiveLink(Viewer) {
             const answer = await response.json().catch(() => null);
             if (response.ok) Viewer.applyLiveSessionPeople(session, answer);
             else if (answer?.closed) Viewer.applyLiveSessionPeople(session, { closed: true });
+            else if (answer?.lead) Viewer.applyLiveSessionPeople(session, { lead: answer.lead, canLead: false });
             else if (answer?.rejoin) await Viewer.joinLiveSessionServer(session);
           } catch {
             // The next state is sent with the next change.

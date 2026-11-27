@@ -19,6 +19,10 @@ import { normalizeSessionNick } from "../live-link-rules.js";
 //   who leads    whoever sent the last state, named for a few seconds.
 //   who knocks   the host hears of someone waiting also with the window
 //                closed: a notice, and a count on the toolbar's button.
+//   presentation the host can lead alone (and let others lead too); the
+//                others watch.
+//   passcode     the host can ask for one at the door; the link does not
+//                carry it.
 
 const NICK_KEY = "aim3d-live-nick";
 // Who sent the last state leads for this long after it.
@@ -43,6 +47,16 @@ const storage = {
   },
 };
 
+// How long a session went on: from its start to its last use.
+const duration = (from, to) => {
+  const minutes = Math.round(((Number(to) || 0) - (Number(from) || 0)) / 60);
+  if (!(minutes >= 1)) return "";
+  const hours = Math.floor(minutes / 60);
+  return hours
+    ? t("liveLink.history.durationHours", { hours, minutes: minutes % 60 }, "{hours} h {minutes} min")
+    : t("liveLink.history.durationMinutes", { minutes }, "{minutes} min");
+};
+
 const dateTime = (seconds) => (Number.isFinite(seconds) && seconds > 0
   ? new Date(seconds * 1000).toLocaleString(core.currentLanguage || "en", { dateStyle: "medium", timeStyle: "short" })
   : "");
@@ -65,7 +79,7 @@ async function liveRequest(path, { body, signal } = {}) {
     const error = new Error(data?.error || `HTTP ${response.status}`);
     error.status = response.status;
     error.refused = Boolean(data?.error) && response.status !== 404 && response.status < 500;
-    Object.assign(error, { rejoin: data?.rejoin, closed: data?.closed, rejected: data?.rejected });
+    Object.assign(error, { rejoin: data?.rejoin, closed: data?.closed, rejected: data?.rejected, passcode: data?.passcode, wrong: data?.wrong, lead: data?.lead });
     throw error;
   }
   if (!data) throw new Error("no relay");
@@ -120,6 +134,7 @@ export function attachLiveSessionPeople(Viewer) {
         body: {
           client: state.client,
           nick: session.nick,
+          passcode: session.passcode || undefined,
           hostKey: Viewer.liveSessionHostKey(session.id) || undefined,
           title: Viewer.liveSessionTitle?.() || undefined,
         },
@@ -153,7 +168,8 @@ export function attachLiveSessionPeople(Viewer) {
       // An answer older than what is known (a long poll overtaken by a
       // host's change): its people are not the latest.
       if (typeof answer.roster === "number" && answer.roster < session.roster) return false;
-      const before = JSON.stringify([session.peers, session.waiting, session.status, session.host, session.closed, session.approval, session.members, session.nick]);
+      const look = () => JSON.stringify([session.peers, session.waiting, session.status, session.host, session.closed, session.approval, session.members, session.nick, session.lead, session.canLead, session.hasPasscode]);
+      const before = look();
       // The worker may have made the name unique ("Anna (2)").
       if (typeof answer.nick === "string" && answer.nick) session.nick = answer.nick;
       if (typeof answer.peers === "number") session.peers = answer.peers;
@@ -168,7 +184,10 @@ export function attachLiveSessionPeople(Viewer) {
       if ((answer.approval === "auto" || answer.approval === "manual") && !session.approvalWanted) session.approval = answer.approval;
       if (Array.isArray(answer.members)) session.members = answer.members.filter((item) => item && typeof item.id === "string");
       else if (session.status !== "active") session.members = [];
-      const changed = before !== JSON.stringify([session.peers, session.waiting, session.status, session.host, session.closed, session.approval, session.members, session.nick]);
+      if ((answer.lead === "all" || answer.lead === "host") && !session.leadWanted) session.lead = answer.lead;
+      if (typeof answer.canLead === "boolean") session.canLead = answer.canLead;
+      if (typeof answer.passcode === "boolean") session.hasPasscode = answer.passcode;
+      const changed = before !== look();
       if (changed) {
         Viewer.announceLiveSessionKnocks(session);
         Viewer.updateLiveSessionBadge();
@@ -244,8 +263,11 @@ export function attachLiveSessionPeople(Viewer) {
 
     // The host's say (the session shown, or - by `room` - one from the
     // history): "approve" / "reject" someone (`target`: their public id),
-    // "close", "reopen", "approval" ("auto" or "manual").
-    async manageLiveSession(action, { target, approval, room } = {}) {
+    // "close", "reopen", "approval" ("auto" or "manual"), "lead" (`value`:
+    // "all", or "host" - a presentation), "grant" (`target` may lead too:
+    // `value` true or false), "passcode" (`value`; "" takes it away); signed
+    // in, "title" (`value`) and "forget" (out of the history).
+    async manageLiveSession(action, { target, approval, room, value } = {}) {
       const state = Viewer.getLiveLinkState();
       const session = state.session;
       const id = room || session?.id;
@@ -254,11 +276,12 @@ export function attachLiveSessionPeople(Viewer) {
       if (own && session.mode === "browser") return null;
       try {
         const answer = await liveRequest(`/api/live/${id}/manage`, {
-          body: { action, target, approval, client: own ? state.client : undefined, hostKey: Viewer.liveSessionHostKey(id) || undefined },
+          body: { action, target, approval, value, client: own ? state.client : undefined, hostKey: Viewer.liveSessionHostKey(id) || undefined },
         });
         if (own && state.session === session) {
           const wasAuto = session.approval !== "manual";
           if (action === "approval") session.approvalWanted = null;
+          if (action === "lead") session.leadWanted = null;
           Viewer.applyLiveSessionPeople(session, answer);
           // Someone sent away: from now on the host lets people in.
           session.hostNote = action === "reject" && wasAuto && answer.approval === "manual"
@@ -271,6 +294,7 @@ export function attachLiveSessionPeople(Viewer) {
       } catch (error) {
         if (own) {
           if (action === "approval") session.approvalWanted = null;
+          if (action === "lead") session.leadWanted = null;
           session.error = error.message;
           Viewer.syncLiveLinkPanel();
         } else if (state.history) {
@@ -332,6 +356,23 @@ export function attachLiveSessionPeople(Viewer) {
       input.placeholder = t("liveLink.session.nickPlaceholder", "e.g. Anna");
       label.append(caption, input);
       state.ui.nickInput = input;
+      // The session the link names asks for a passcode.
+      let passcode = null;
+      if (state.joining && state.needPasscode) {
+        const box = el("label", "viewer-livelink-panel_nick");
+        const text = el("span");
+        labels.push([text, () => t("liveLink.session.passcode", "Passcode")]);
+        passcode = el("input", "viewer-livelink-panel_nick-input viewer-livelink-panel_passcode-input");
+        passcode.type = "password";
+        passcode.autocomplete = "off";
+        passcode.maxLength = 64;
+        labels.push([passcode, () => t("liveLink.session.passcode", "Passcode")]);
+        passcode.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") go();
+        });
+        box.append(text, passcode);
+        state.ui.passcodeInput = passcode;
+      }
       const go = () => {
         const nick = normalizeSessionNick(input.value);
         if (!nick) {
@@ -339,9 +380,14 @@ export function attachLiveSessionPeople(Viewer) {
           input.focus();
           return;
         }
+        if (passcode && !passcode.value.trim()) {
+          passcode.setAttribute("aria-invalid", "true");
+          passcode.focus();
+          return;
+        }
         state.nickDraft = undefined;
         state.notice = null;
-        Viewer.startLiveSession(state.joining || undefined, { nick });
+        Viewer.startLiveSession(state.joining || undefined, { nick, passcode: passcode?.value.trim() || undefined });
       };
       input.addEventListener("input", () => {
         state.nickDraft = input.value;
@@ -351,6 +397,7 @@ export function attachLiveSessionPeople(Viewer) {
         if (event.key === "Enter") go();
       });
       children.push(label);
+      if (passcode) children.push(passcode.parentElement);
       if (Viewer.authState?.user) {
         const signed = el("p", "viewer-pointcloud-panel_note");
         labels.push([signed, () => t("liveLink.session.nickSignedIn", { user: Viewer.authState.user }, "Signed in as {user}: the name is the account's, change it here for this session.")]);
@@ -410,7 +457,39 @@ export function attachLiveSessionPeople(Viewer) {
         const hostNote = el("p", "viewer-pointcloud-panel_note viewer-livelink-panel_notice");
         hostNote.setAttribute("role", "status");
         ui.hostNote = hostNote;
-        hostBox.append(auto, hint, hostNote, actions(close));
+        const present = check(() => t("liveLink.session.presentation", "Only I lead (a presentation)"), session.lead === "host", (on) => {
+          session.lead = on ? "host" : "all";
+          session.leadWanted = session.lead;
+          Viewer.manageLiveSession("lead", { value: session.lead });
+        });
+        present.classList.add("viewer-livelink-panel_present");
+        ui.presentInput = present.querySelector("input");
+        const presentHint = el("p", "viewer-pointcloud-panel_note");
+        labels.push([presentHint, () => (session.lead === "host"
+          ? t("liveLink.session.presentationHint", "The others watch; let someone lead too from the list.")
+          : t("liveLink.session.everyoneLeads", "Everyone can move the scene."))]);
+        // The passcode at the door: set here, handed on apart from the link.
+        const code = el("input", "viewer-livelink-panel_nick-input viewer-livelink-panel_passcode-set");
+        code.type = "text";
+        code.autocomplete = "off";
+        code.maxLength = 64;
+        code.placeholder = t("liveLink.session.passcodeNew", "New passcode (4 or more characters)");
+        labels.push([code, () => t("liveLink.session.passcodeNew", "New passcode (4 or more characters)")]);
+        const setCode = button("viewer-livelink-panel_passcode-save", () => t("liveLink.session.passcodeSet", "Ask for it"), async () => {
+          const value = code.value.trim();
+          if (value.length < 4) {
+            code.setAttribute("aria-invalid", "true");
+            code.focus();
+            return;
+          }
+          code.removeAttribute("aria-invalid");
+          if (await Viewer.manageLiveSession("passcode", { value })) code.value = "";
+        });
+        const clearCode = button("viewer-livelink-panel_passcode-clear", () => t("liveLink.session.passcodeClear", "No passcode"), () => Viewer.manageLiveSession("passcode", { value: "" }));
+        ui.passcodeClear = clearCode;
+        const codeNote = el("p", "viewer-pointcloud-panel_note viewer-livelink-panel_passcode-note");
+        ui.passcodeNote = codeNote;
+        hostBox.append(auto, hint, hostNote, present, presentHint, code, actions(setCode, clearCode), codeNote, actions(close));
         children.push(hostBox);
       }
       return children;
@@ -429,6 +508,13 @@ export function attachLiveSessionPeople(Viewer) {
       }
       if (ui.hostBox) ui.hostBox.hidden = !session.host;
       if (ui.autoInput) ui.autoInput.checked = session.approval !== "manual";
+      if (ui.presentInput) ui.presentInput.checked = session.lead === "host";
+      if (ui.passcodeNote) {
+        ui.passcodeNote.textContent = session.hasPasscode
+          ? t("liveLink.session.passcodeOn", "New people give the passcode. Hand it on apart from the link.")
+          : t("liveLink.session.passcodeOff", "No passcode: the link is enough.");
+      }
+      if (ui.passcodeClear) ui.passcodeClear.hidden = !session.hasPasscode;
       if (session.approval !== "manual") session.hostNote = null;
       if (ui.hostNote) {
         ui.hostNote.textContent = session.hostNote || "";
@@ -439,7 +525,7 @@ export function attachLiveSessionPeople(Viewer) {
       }
       const members = session.members || [];
       const leader = Viewer.liveSessionLeader(session);
-      const key = JSON.stringify([members, session.host, session.status, leader?.id, core.currentLanguage]);
+      const key = JSON.stringify([members, session.host, session.status, session.lead, leader?.id, core.currentLanguage]);
       if (!ui.people || ui.peopleKey === key) return;
       ui.peopleKey = key;
       const rows = [];
@@ -452,6 +538,7 @@ export function attachLiveSessionPeople(Viewer) {
         if (item.id === session.you) tags.push(t("liveLink.session.youTag", "you"));
         if (item.host) tags.push(t("liveLink.session.hostBadge", "host"));
         if (item.id === leader?.id) tags.push(t("liveLink.session.leadingTag", "leading"));
+        else if (session.lead === "host" && item.lead && !item.host) tags.push(t("liveLink.session.mayLeadTag", "may lead"));
         name.textContent = item.nick + (tags.length ? ` (${tags.join(", ")})` : "");
         li.appendChild(name);
         if (session.host && !item.host && item.id !== session.you) {
@@ -464,6 +551,14 @@ export function attachLiveSessionPeople(Viewer) {
             return element;
           };
           if (item.status === "pending") li.append(act("viewer-livelink-panel_approve", t("liveLink.session.approve", "Let in"), "approve"));
+          if (item.status === "active" && session.lead === "host") {
+            const grant = document.createElement("button");
+            grant.type = "button";
+            grant.className = "viewer-pointcloud-panel_button viewer-livelink-panel_grant";
+            grant.textContent = item.lead ? t("liveLink.session.stopLead", "Stop leading") : t("liveLink.session.letLead", "Let lead");
+            grant.addEventListener("click", () => Viewer.manageLiveSession("grant", { target: item.id, value: !item.lead }));
+            li.append(grant);
+          }
           li.append(act("viewer-livelink-panel_reject", item.status === "pending" ? t("liveLink.session.refuse", "Refuse") : t("liveLink.session.remove", "Remove"), "reject"));
         }
         return li;
@@ -499,6 +594,7 @@ export function attachLiveSessionPeople(Viewer) {
       if (session.host && session.waiting) parts.push(t("liveLink.session.pendingCount", { count: session.waiting }, "waiting: {count}"));
       const leader = Viewer.liveSessionLeader(session);
       if (leader) parts.push(leader.you ? t("liveLink.session.youLead", "you lead") : t("liveLink.session.leads", { nick: leader.nick }, "{nick} leads"));
+      if (session.canLead === false) parts.push(t("liveLink.session.watching", "a presentation: you watch"));
       return parts.join(" · ");
     },
 
@@ -540,7 +636,13 @@ export function attachLiveSessionPeople(Viewer) {
         title.textContent = item.title || item.id;
         const when = document.createElement("span");
         when.className = "viewer-livelink-panel_history-when";
-        when.textContent = [dateTime(item.createdAt), item.closed ? t("liveLink.history.closed", "closed") : t("liveLink.history.open", "open")].filter(Boolean).join(" · ");
+        when.textContent = [
+          dateTime(item.createdAt),
+          duration(item.createdAt, item.lastActiveAt),
+          item.closed ? t("liveLink.history.closed", "closed") : t("liveLink.history.open", "open"),
+          ...(item.lead === "host" ? [t("liveLink.history.presentation", "presentation")] : []),
+          ...(item.passcode ? [t("liveLink.history.passcode", "passcode")] : []),
+        ].filter(Boolean).join(" · ");
         const stats = document.createElement("span");
         stats.className = "viewer-livelink-panel_history-stats";
         stats.textContent = [
@@ -565,6 +667,17 @@ export function attachLiveSessionPeople(Viewer) {
         row.append(item.closed
           ? act("viewer-livelink-panel_history-reopen", t("liveLink.session.reopen", "Resume the session"), () => Viewer.manageLiveSession("reopen", { room: item.id }))
           : act("viewer-livelink-panel_history-close", t("liveLink.session.close", "Close the session"), () => Viewer.manageLiveSession("close", { room: item.id })));
+        row.append(
+          act("viewer-livelink-panel_history-rename", t("liveLink.history.rename", "Rename"), () => {
+            const value = window.prompt(t("liveLink.history.renamePrompt", "The session's name in your list"), item.title || "");
+            if (value !== null) Viewer.manageLiveSession("title", { room: item.id, value });
+          }),
+          act("viewer-livelink-panel_history-forget", t("liveLink.history.forget", "Remove from the list"), () => {
+            if (window.confirm(t("liveLink.history.forgetConfirm", "Remove this session from your list? Whoever is in it stays; it is no longer yours to close or resume."))) {
+              Viewer.manageLiveSession("forget", { room: item.id });
+            }
+          }),
+        );
         li.append(title, when, stats, row);
         return li;
       }));

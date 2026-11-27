@@ -22,6 +22,11 @@ read), and the people in it.
   GET  /api/live/mine           a signed-in host's rooms, with how many took
                                 part and how many are there now.
 
+The host can also make it a presentation (only the host leads, and those
+the host lets lead), ask for a passcode at the door, and - signed in -
+rename a room in the history or forget it. Joining is limited per address
+(and a wrong passcode more so), and so is the number of people waiting.
+
 The states are not stored: rooms live in memory and are dropped after an
 idle while. What a signed-in host's history needs is kept on disk (the
 room's id, title, dates, settings and counts; never a state, never a
@@ -58,7 +63,15 @@ MAX_PEOPLE = 2000
 # How often a kept room's last use is written (not with every state).
 TOUCH_INTERVAL = 60
 APPROVALS = ("auto", "manual")
-ACTIONS = ("approve", "reject", "close", "reopen", "approval")
+LEADS = ("all", "host")
+ACTIONS = ("approve", "reject", "close", "reopen", "approval", "lead", "grant", "passcode", "title", "forget")
+# Joins one address may make (a class behind one router counts as one),
+# and wrong passcodes it may give to one room,
+# in a window of seconds; people waiting in one room at most.
+JOIN_LIMIT = (120, 60)
+PASSCODE_LIMIT = (20, 600)
+MAX_PENDING = 50
+MIN_PASSCODE, MAX_PASSCODE = 4, 64
 
 
 class LiveError(Exception):
@@ -83,6 +96,10 @@ def normalize_nick(value, limit: int = MAX_NICK) -> str:
 
 def _hash_key(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def _hash_passcode(room: str, passcode: str) -> str:
+    return hashlib.pbkdf2_hmac("sha256", passcode.encode("utf-8"), f"live:{room}".encode("utf-8"), 120_000).hex()
 
 
 def public_id(room: str, client: str) -> str:
@@ -141,6 +158,11 @@ class LiveSessionStore:
                 del records[name]
             self._save()
 
+    def forget(self, room: str) -> None:
+        with self._lock:
+            if self._load().pop(room, None) is not None:
+                self._save()
+
     def owned(self, owner: str) -> dict:
         with self._lock:
             return {name: dict(item) for name, item in self._load().items() if item.get("owner") == owner}
@@ -153,6 +175,8 @@ class LiveSessions:
         self._store = store if store is not None else LiveSessionStore()
         self._changed = threading.Condition()
         self._rooms = {}
+        # (kind, key) -> times of recent attempts (join, wrong passcode).
+        self._attempts = {}
 
     # ---- rooms ----
 
@@ -170,6 +194,10 @@ class LiveSessions:
             # given an older roster is answered at once.
             "roster": 1,
             "approval": record.get("approval") if record.get("approval") in APPROVALS else "auto",
+            # "host": a presentation - only the host leads (and those it
+            # lets lead: a member's "lead").
+            "lead": record.get("lead") if record.get("lead") in LEADS else "all",
+            "passcode": record.get("passcode") or "",
             "closed": bool(record.get("closed")),
             "owner": record.get("owner"),
             "hostKey": record.get("hostKey") or "",
@@ -216,6 +244,8 @@ class LiveSessions:
             "hostKey": room["hostKey"],
             "title": room["title"],
             "approval": room["approval"],
+            "lead": room["lead"],
+            "passcode": room["passcode"],
             "closed": room["closed"],
             "createdAt": room["createdAt"],
             "lastActiveAt": self._wall(),
@@ -235,7 +265,29 @@ class LiveSessions:
         room["written"] = now
         self._store.put(room["id"], self._record(room))
 
+    # ---- limits ----
+
+    def _limited(self, kind: str, key: str, limit) -> bool:
+        """True when `key` made `limit[0]` attempts of `kind` in the last
+        `limit[1]` seconds (the attempts are not counted here)."""
+        now = self._clock()
+        times = [at for at in self._attempts.get((kind, key), []) if now - at < limit[1]]
+        if times:
+            self._attempts[(kind, key)] = times
+        else:
+            self._attempts.pop((kind, key), None)
+        return len(times) >= limit[0]
+
+    def _attempt(self, kind: str, key: str) -> None:
+        if len(self._attempts) > 20000:
+            self._attempts.clear()
+        self._attempts.setdefault((kind, key), []).append(self._clock())
+
     # ---- people ----
+
+    @staticmethod
+    def _can_lead(room: dict, member: dict) -> bool:
+        return member["host"] or room["lead"] == "all" or bool(member.get("lead"))
 
     @staticmethod
     def _client(client: str) -> str:
@@ -297,6 +349,7 @@ class LiveSessions:
             "peers": active,
             "pending": pending,
             "approval": room["approval"],
+            "lead": room["lead"],
             "closed": room["closed"],
         }
         if member is not None:
@@ -304,10 +357,14 @@ class LiveSessions:
             out["host"] = member["host"]
             out["you"] = member["id"]
             out["nick"] = member["nick"]
+            out["canLead"] = self._can_lead(room, member)
+            if member["host"]:
+                out["passcode"] = bool(room["passcode"])
             if member["status"] == "active":
                 # Everyone in sees who is there; the host also who waits.
                 out["members"] = [
-                    {"id": item["id"], "nick": item["nick"], "status": item["status"], "host": item["host"]}
+                    {"id": item["id"], "nick": item["nick"], "status": item["status"], "host": item["host"],
+                     "lead": self._can_lead(room, item)}
                     for item in self._present(room, now)
                     if item["status"] == "active" or (member["host"] and item["status"] == "pending")
                 ]
@@ -329,13 +386,17 @@ class LiveSessions:
 
     # ---- the calls ----
 
-    def join(self, room: str, client: str, nick, user=None, host_key=None, title=None) -> dict:
-        """A viewer comes in under a nickname: let in, or waiting for the host."""
+    def join(self, room: str, client: str, nick, user=None, host_key=None, title=None, passcode=None, ip="") -> dict:
+        """A viewer comes in under a nickname (and the passcode, when the
+        host set one): let in, or waiting for the host."""
         client = self._client(client)
         nick = normalize_nick(nick)
         if not nick:
             raise LiveError(400, "A nickname is needed")
         with self._changed:
+            if self._limited("join", ip, JOIN_LIMIT):
+                raise LiveError(429, "Too many attempts to join: wait a minute", retryAfter=JOIN_LIMIT[1])
+            self._attempt("join", ip)
             existed = self._room(room) is not None or self._store.get(room) is not None
             found = self._room_or_record(room, create=True)
             created_key = None
@@ -349,7 +410,20 @@ class LiveSessions:
             member = found["members"].get(client)
             if member is not None and member["status"] == "rejected" and not is_host:
                 raise LiveError(403, "The host did not let you in", rejected=True)
+            # The passcode: asked of whoever is not in yet (a member let in
+            # comes back without it, the host never needs it).
+            if found["passcode"] and not is_host and (member is None or member["status"] != "active"):
+                if self._limited("passcode", f"{ip}:{room}", PASSCODE_LIMIT):
+                    raise LiveError(429, "Too many wrong passcodes: wait a few minutes", retryAfter=PASSCODE_LIMIT[1])
+                given = str(passcode or "")
+                if not given:
+                    raise LiveError(401, "This session asks for a passcode", passcode=True)
+                if not secrets.compare_digest(_hash_passcode(room, given[:MAX_PASSCODE]), found["passcode"]):
+                    self._attempt("passcode", f"{ip}:{room}")
+                    raise LiveError(401, "Wrong passcode", passcode=True, wrong=True)
             if member is None:
+                if not is_host and found["approval"] == "manual" and self._count(found, self._clock())[1] >= MAX_PENDING:
+                    raise LiveError(429, "Too many people are waiting to be let in")
                 self._drop_gone(found, self._clock())
                 member = found["members"][client] = {"id": public_id(room, client), "status": "pending", "seen": 0.0}
             nick = self._unique_nick(found, client, nick)
@@ -382,6 +456,8 @@ class LiveSessions:
                 raise LiveError(403, "Not let in yet", member=member["status"])
             if found["closed"]:
                 raise LiveError(410, "The session is closed", closed=True)
+            if not self._can_lead(found, member):
+                raise LiveError(403, "Only the host leads now", lead=found["lead"])
             found["version"] += 1
             found["state"] = state
             found["sender"] = member["id"]
@@ -426,9 +502,10 @@ class LiveSessions:
                 answer["sender"] = found["sender"]
             return answer
 
-    def manage(self, room: str, action: str, user=None, host_key=None, client=None, target=None, approval=None) -> dict:
+    def manage(self, room: str, action: str, user=None, host_key=None, client=None, target=None, approval=None, value=None) -> dict:
         """The host's say: let someone in or not, close or open the room
-        again, new people in at once or after a yes."""
+        again, new people in at once or after a yes, a presentation (who
+        leads), the passcode; signed in, the title and forgetting it."""
         if action not in ACTIONS:
             raise LiveError(400, "Unknown action")
         with self._changed:
@@ -437,12 +514,21 @@ class LiveSessions:
                 raise LiveError(404, "No such session")
             if not self._is_host(found, user, host_key):
                 raise LiveError(403, "Only the session's host can do this")
-            if action in ("approve", "reject"):
+            if action == "forget":
+                # Out of the history; the room itself goes on, nobody's.
+                if not (user and user == found["owner"]):
+                    raise LiveError(403, "Only the signed-in owner can forget a session")
+                self._store.forget(room)
+                found["owner"] = None
+                return {"forgotten": True}
+            if action in ("approve", "reject", "grant"):
                 match = [(key, item) for key, item in found["members"].items() if item["id"] == target]
                 if not match or match[0][1]["host"]:
                     raise LiveError(404, "No such person")
                 key, member = match[0]
-                if action == "approve":
+                if action == "grant":
+                    member["lead"] = bool(value)
+                elif action == "approve":
                     self._admit(found, key, member)
                 else:
                     member["status"] = "rejected"
@@ -464,6 +550,17 @@ class LiveSessions:
                     for key, member in found["members"].items():
                         if member["status"] == "pending":
                             self._admit(found, key, member)
+            elif action == "lead":
+                if value not in LEADS:
+                    raise LiveError(400, "lead must be all or host")
+                found["lead"] = value
+            elif action == "passcode":
+                code = str(value or "").strip()
+                if code and not MIN_PASSCODE <= len(code) <= MAX_PASSCODE:
+                    raise LiveError(400, f"A passcode has {MIN_PASSCODE} to {MAX_PASSCODE} characters")
+                found["passcode"] = _hash_passcode(room, code) if code else ""
+            elif action == "title":
+                found["title"] = normalize_nick(value, MAX_TITLE)
             found["roster"] += 1
             self._keep(found)
             self._changed.notify_all()
@@ -486,6 +583,8 @@ class LiveSessions:
                     "closed": found["closed"] if found else bool(record.get("closed")),
                     "closedAt": (found or record).get("closedAt"),
                     "approval": found["approval"] if found else record.get("approval") or "auto",
+                    "lead": found["lead"] if found else record.get("lead") or "all",
+                    "passcode": bool(found["passcode"] if found else record.get("passcode")),
                     "participants": found["participantCount"] if found else int(record.get("participants") or 0),
                     "peak": found["peak"] if found else int(record.get("peak") or 0),
                     "active": active,

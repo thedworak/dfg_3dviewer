@@ -63,6 +63,12 @@ otherwise this browser, which keeps the session's key). The host:
 - can let someone go (**Remove**): they are out and cannot come back with
   that viewer. If new people came in at once, from then on they wait to be
   let in: otherwise the one removed would come straight back.
+- makes it a **presentation** (**Only I lead**): the others watch - what
+  they do stays with them - and the host can let someone lead too (**Let
+  lead**) or not any more.
+- asks for a **passcode** at the door (4 to 64 characters, handed on apart
+  from the link; **No passcode** takes it away). Who is already in is not
+  asked again. Wrong passcodes are limited per address.
 - **closes the session**: nobody new comes in and nothing is shared; those
   in it stay and see that it is closed. **Resume the session** goes on
   where it stopped.
@@ -74,9 +80,11 @@ also names who leads - who moved the scene last, for a few seconds.
 ### My sessions
 
 Signed in, the window lists the sessions you started (the last 100): when,
-whether open or closed, how many are active now, how many took part and
-how many were in at once. Each can be closed, resumed or joined again from
-there - also after the worker started again. The worker keeps for this only
+how long it went on, whether open or closed (a presentation, a passcode),
+how many are active now, how many took part and how many were in at once.
+Each can be closed, resumed, joined again, renamed or removed from the list
+(whoever is in it stays; it is no longer yours) - also after the worker
+started again. The worker keeps for this only
 the session's id, its title (the scene's name), dates, settings and counts,
 never a state or a nickname.
 
@@ -152,6 +160,10 @@ Viewer.getLiveLink().session.members;     // [{ id, nick, status, host }]
 await Viewer.manageLiveSession("approval", { approval: "manual" }); // the host's
 await Viewer.manageLiveSession("approve", { target: id });
 await Viewer.manageLiveSession("close");  // "reopen" resumes it
+await Viewer.manageLiveSession("lead", { value: "host" });     // a presentation
+await Viewer.manageLiveSession("grant", { target: id, value: true });
+await Viewer.manageLiveSession("passcode", { value: "4711" }); // "" takes it away
+await Viewer.startLiveSession(id, { nick: "Bea", passcode: "4711" });
 await Viewer.loadLiveSessionHistory();    // a signed-in host's sessions
 Viewer.getLiveLink().session.link;        // the link to hand on
 Viewer.setLiveSessionOptions({ send: false });

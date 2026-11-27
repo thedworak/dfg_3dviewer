@@ -250,7 +250,7 @@ needing the tag.
   `POST /api/live/<session>/manage` and `GET /api/live/mine` - shared live
   sessions between viewers (`worker/live_sessions.py`, the viewer's File >
   Live link).
-  - **join** `{"client": "<id>", "nick": "<name>", "hostKey"?, "title"?}`:
+  - **join** `{"client": "<id>", "nick": "<name>", "hostKey"?, "title"?, "passcode"?}`:
     a viewer comes in under a nickname (required, at most 40 characters).
     The first one in a session that does not exist starts it and is its
     host: the answer carries the session's `hostKey` (kept by that browser);
@@ -258,10 +258,14 @@ needing the tag.
     someone present gets a number ("Anna (2)"). Answered with `{"status":
     "active" | "pending", "host", "you" (the public id the others know this
     viewer by), "nick" (as the others see it), "peers", "pending", "approval", "closed", "roster",
-    "members"}`; `410` when the session is closed, `403` for someone the host
-    did not let in.
+    "members", "lead", "canLead"}`; `410` when the session is closed, `403`
+    for someone the host did not let in, `401` with `"passcode": true`
+    (`"wrong": true`) when the host asks for a passcode, `429` (with
+    `Retry-After`) after 120 joins a minute from one address, 20 wrong
+    passcodes in 10 minutes for one session, or with 50 people waiting.
   - **publish** `{"client", "state": {...}}` (at most 64 KB; the worker does
-    not read the state): active members only, not while closed.
+    not read the state): active members only, not while closed, and in a
+    presentation only those who may lead (`403` with `"lead": "host"`).
   - **wait** (the GET) is a long poll, answered as soon as a state newer than
     `since` is there (with `state` and `sender`), the people changed since
     `roster`, or after `wait` seconds (at most 25). A member who is let in
@@ -269,13 +273,19 @@ needing the tag.
     host also those waiting. `403` with `"rejoin": true` when the worker
     does not know the viewer (it started again): the viewer joins again.
   - **manage** `{"action": "approve" | "reject" | "close" | "reopen" |
-    "approval", "target"?, "approval"?: "auto" | "manual", "hostKey"?}`: the
+    "approval" | "lead" | "grant" | "passcode" | "title" | "forget",
+    "target"?, "approval"?: "auto" | "manual", "value"?, "hostKey"?}`: the
     host's (the key, or the signed-in owner). In `manual` mode new people
     wait until they are let in; back to `auto`, those waiting come in.
     `reject` in `auto` mode turns it to `manual` (the one sent away would
-    otherwise come straight back with a new viewer).
+    otherwise come straight back with a new viewer). `lead` `"host"` makes a
+    presentation (`"all"` ends it), `grant` lets `target` lead too (`value`
+    true/false), `passcode` sets one (`value`, 4-64 characters, kept as a
+    PBKDF2 hash; `""` removes it). `title` and `forget` (out of the history,
+    the room goes on with nobody's name on it) are the signed-in owner's.
   - **mine**: a signed-in host's sessions, the one used last first: `id`,
-    `title`, `createdAt`, `lastActiveAt`, `closed`, `approval`,
+    `title`, `createdAt`, `lastActiveAt`, `closed`, `approval`, `lead`,
+    `passcode` (whether one is asked),
     `participants` (everyone let in so far), `peak` (most at once), `active`
     and `pending` now. `401` signed out; `{"sessions": [], "accounts": false}`
     with accounts off.
