@@ -2,7 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelBusy, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { apiUrl, appRequestHeaders, hasRemote } from "../remote.js";
 import { stopCameraIntro } from "../IIIF/presentation4.js";
 import { isAIM3DManifest } from "../manifesto/aim3dviewer-validation.js";
@@ -1317,6 +1317,7 @@ export function attachLiveLink(Viewer) {
       const state = Viewer.liveLinkState;
       const ui = state?.ui;
       if (!ui) return;
+      setToolPanelBusy(ui.root, Viewer.isLiveLinkActive());
       ui.body.replaceChildren();
       ui.labels = [];
       const labels = ui.labels;
@@ -1513,6 +1514,7 @@ export function attachLiveLink(Viewer) {
       const state = Viewer.liveLinkState;
       const ui = state?.ui;
       if (!ui) return;
+      setToolPanelBusy(ui.root, Viewer.isLiveLinkActive());
       const title = t("liveLink.title", "Live link");
       ui.root.setAttribute("aria-label", title);
       ui.title.textContent = title;

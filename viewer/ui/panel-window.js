@@ -42,9 +42,12 @@ export function hasOpenPanelWindow() {
 
 // A click on the background leaves a minimized window (tool-panel-chrome.js)
 // as it is.
+// A panel in the dock (ui/panel-dock.js) stays: the dock shows one at a
+// time and keeps the others out of sight, open.
 function closeWindows(except, { keepMinimized = false } = {}) {
   windows.forEach((close, panel) => {
     if (keepMinimized && panel.classList.contains("is-minimized")) return;
+    if (panel.classList.contains("is-docked")) return;
     if (panel !== except && !panel.hidden) close();
   });
 }

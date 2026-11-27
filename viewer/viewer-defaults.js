@@ -295,7 +295,8 @@ export const VIEWER_DEFAULTS = {
   shiftSnapActive: false,
   keyboardTweenDurationMs: 150,
   lastKeyboardHintAt: 0,
-  keyboardHintCooldownMs: 45000,
+  // Visits on which the controls hint shows by itself (maybeShowKeyboardHint).
+  keyboardHintAutoLimit: 2,
   keyboardHintAfterFocusDelayMs: 1800,
   keyboardHintShownOnce: false,
   keyboardHintFirstDurationMs: 14000,

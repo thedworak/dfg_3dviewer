@@ -21,6 +21,8 @@ const BUILD = (typeof __BUILD__ !== 'undefined') ? __BUILD__ : "";
 const IS_PROD = (typeof __IS_PROD__ !== 'undefined') ? __IS_PROD__ === true : false;
 const isE2E = (typeof __IS_PROD__ !== 'undefined') ? window.__E2E__ === true : false;
 const envSubDir = (typeof __ENV_SUBDIR__ !== 'undefined') ? __ENV_SUBDIR__ : "main";
+// How many visits have had the controls hint shown by itself.
+const KEYBOARD_HINT_COUNT_KEY = "viewerControlsHintAutoCount";
 // The example list is fetched again when the select opens, at most this often.
 const EXAMPLE_MODELS_REFRESH_MS = 60_000;
 
@@ -104,6 +106,7 @@ import { attachCamerasPanel } from "./editor/cameras-panel.js";
 import { attachCameraMarkers } from "./editor/camera-markers.js";
 import { updateTiles, disposeTiles } from "./tiles.js";
 import { attachViewHelper } from "./ui/view-helper.js";
+import { installPanelDock, isPanelDockEnabled } from "./ui/panel-dock.js";
 import { sandboxDropDetailHtml, bindSandboxDropNotice } from "./ui/sandbox-formats.js";
 import { attachClipping } from "./editor/clipping.js";
 import { attachPicking } from "./editor/picking.js";
@@ -1240,10 +1243,21 @@ export const Viewer = {
 
   },
 
+  // Shown by itself (the pointer coming over the scene) at most once a
+  // visit and on the first few visits only (keyboardHintAutoLimit, counted
+  // in localStorage); after that only from the help button.
   maybeShowKeyboardHint() {
     // The app shows it from the help button only (first-run-hints.js
     // points at the buttons instead).
     if (isAppBuild()) return;
+    if (this.keyboardHintShownOnce) return;
+    let shownBefore = 0;
+    try {
+      shownBefore = Number(window.localStorage.getItem(KEYBOARD_HINT_COUNT_KEY)) || 0;
+    } catch (_err) {
+      // No storage: once a visit.
+    }
+    if (shownBefore >= this.keyboardHintAutoLimit) return;
     try {
       if (window.localStorage.getItem("viewerHintSeen") !== "1") return;
     } catch (_err) {
@@ -1256,8 +1270,12 @@ export const Viewer = {
     const clippingMode = this.planeParams?.clippingMode || {};
     if (clippingMode.x || clippingMode.y || clippingMode.z) return;
     if (!core.handHint?.hidden || core.GESTURE?.active) return;
-    if (now - this.lastKeyboardHintAt < this.keyboardHintCooldownMs) return;
     this.showKeyboardShortcutsHint();
+    try {
+      window.localStorage.setItem(KEYBOARD_HINT_COUNT_KEY, String(shownBefore + 1));
+    } catch (_err) {
+      // No storage: once a visit.
+    }
   },
 
   isInteractiveTextInput(element) {
@@ -1503,7 +1521,6 @@ export const Viewer = {
     }
 
     if (handled) {
-      Viewer.maybeShowKeyboardHint();
       event.preventDefault();
       event.stopPropagation();
     }
@@ -4382,6 +4399,7 @@ export const Viewer = {
       Viewer.controls.update();
       setCore('controls', Viewer.controls);
       Viewer.initViewHelper();
+      if (isPanelDockEnabled(Viewer)) installPanelDock();
       setCore('GESTURE', Viewer.GESTURE);
       setCore('lastTime', Viewer.lastTime);
       setCore('helperObjects', Viewer.helperObjects);

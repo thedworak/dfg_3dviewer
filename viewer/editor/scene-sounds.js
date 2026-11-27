@@ -2,7 +2,7 @@ import THREE from "../init.js";
 import { core } from "../core.js";
 import { t } from "../i18n-utils.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
-import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
+import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelBusy, setToolPanelMinimized } from "../ui/tool-panel-chrome.js";
 import { loadedModelsBox } from "../viewer-utils.js";
 import { soundInRoom } from "./scene-acoustics.js";
 
@@ -932,6 +932,7 @@ export function attachSceneSounds(Viewer) {
       ui.root.setAttribute("aria-label", title);
       ui.title.textContent = title;
       ui.root.hidden = !state.open;
+      setToolPanelBusy(ui.root, state.playing);
       ui.body.hidden = state.collapsed && !isPhone();
       ui.collapse.textContent = state.collapsed ? "+" : "–";
       const collapseLabel = state.collapsed ? t("sounds.expand", "Show settings") : t("sounds.collapse", "Hide settings");

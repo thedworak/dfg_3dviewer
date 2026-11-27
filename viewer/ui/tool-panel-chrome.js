@@ -755,7 +755,9 @@ function syncPip(panel, pip, icon, label) {
 // time): a sheet; left out, a sheet on a phone (isModal). `resizable`: a
 // corner that resizes the panel while it floats; `minimizeToCorner`: a
 // floating panel minimizes to its icon in the viewer's top right corner
-// and is restored where it was. Safe to call again on
+// and is restored where it was. `dockable: false`: the panel stays over the
+// scene beside the panel dock (ui/panel-dock.js) - a player whose buttons
+// must stay at hand while the other panels change. Safe to call again on
 // every render:
 // panels that rebuild their contents get the same buttons put back.
 export function attachToolPanelChrome(panel, header, {
@@ -770,6 +772,7 @@ export function attachToolPanelChrome(panel, header, {
   modal = undefined,
   resizable = false,
   minimizeToCorner = false,
+  dockable = true,
 } = {}) {
   if (!panel || !header) return;
   if (!panel.toolPanelChrome) {
@@ -795,7 +798,7 @@ export function attachToolPanelChrome(panel, header, {
     });
     chromePanels.add(panel);
   }
-  Object.assign(panel.toolPanelChrome, { header, visibilityRoot, options: { before, icon, label, modal, minimizeToCorner } });
+  Object.assign(panel.toolPanelChrome, { header, visibilityRoot, options: { before, icon, label, modal, minimizeToCorner, dockable } });
   const { resize } = panel.toolPanelChrome;
   if (resize && panel.lastChild !== resize) panel.append(resize);
   const { grip, fold, minimize, pip, close, grabber } = panel.toolPanelChrome;
@@ -838,6 +841,15 @@ export function attachToolPanelChrome(panel, header, {
   queueMicrotask(() => syncSheet(panel));
 }
 
+// Something of the panel goes on while it is out of sight (a live link
+// session, sounds playing, a tour running): a dot on its icon in the panel
+// dock (ui/panel-dock.js).
+export function setToolPanelBusy(panel, busy) {
+  if (!panel) return;
+  const value = busy ? "1" : "";
+  if ((panel.dataset.panelBusy || "") !== value) panel.dataset.panelBusy = value;
+}
+
 // How far a panel's playback has come (tour, timeline, animation), as a ring
 // around its icon while it is minimized: `value` 0..1, null for none.
 export function setToolPanelProgress(panel, value) {
@@ -845,6 +857,7 @@ export function setToolPanelProgress(panel, value) {
   if (!pip) return;
   const shown = Number.isFinite(value);
   pip.classList.toggle("has-progress", shown);
+  setToolPanelBusy(panel, shown);
   if (shown) pip.style.setProperty("--tool-panel-progress", String(Math.min(Math.max(value, 0), 1)));
   else pip.style.removeProperty("--tool-panel-progress");
 }

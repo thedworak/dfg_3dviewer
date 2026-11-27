@@ -5,6 +5,7 @@ import { UltraLoader } from "../ultra-loader.js";
 import { relocalizeManifestTree } from "../manifesto/manifest-tree-editor.js";
 import { relocalizeExampleManifestDropdowns } from "../metadata.js";
 import { normalizeLanguage } from "../viewer-param-utils.js";
+import { refreshPanelDock } from "./panel-dock.js";
 
 export function attachLocalizationTheme(viewer) {
   Object.assign(viewer, {
@@ -215,6 +216,7 @@ export function attachLocalizationTheme(viewer) {
       relocalizeManifestTree();
       // Example names given per language, and the groups' names.
       relocalizeExampleManifestDropdowns();
+      refreshPanelDock();
     },
 
     updateMetadataPanelLabels() {

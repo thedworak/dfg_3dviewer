@@ -2304,7 +2304,7 @@
 /* Floating (editor/live-data.js floatLiveDataPanel): resized by its corner
    (.tool-panel-chrome_resize), and what it gains goes to the table.
    Minimized or folded it is as tall as what it shows (the shared rules). */
-.viewer-livedata-panel.is-undocked:not(.is-minimized):not(.is-modal-open):not(.is-peek) {
+.viewer-livedata-panel.is-undocked:not(.is-minimized):not(.is-modal-open):not(.is-peek):not([hidden]) {
   display: flex;
   flex-direction: column;
   min-width: 300px;
@@ -5074,4 +5074,161 @@
 .viewer-surroundings-panel_sub {
   margin-left: 24px;
   font-size: 12px;
+}
+
+/* The panel dock (ui/panel-dock.js): a rail of the open panels' icons
+   down the right edge, one panel shown beside it; on a narrow viewer the
+   shown panel is a sheet with the others as tabs. */
+.viewer-panel-dock-rail {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10001;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 14px;
+  border: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  background: var(--viewer-panel-bg, rgba(22, 19, 16, 0.82));
+  box-shadow: var(--viewer-panel-shadow, 0 12px 30px rgba(12, 10, 8, 0.28));
+  backdrop-filter: blur(10px);
+}
+
+.viewer-panel-dock.has-panel-dock:not(.is-panel-dock-narrow) > .viewer-panel-dock-rail {
+  display: flex;
+}
+
+.viewer-panel-dock-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--viewer-panel-text, rgba(255, 255, 255, 0.94));
+  opacity: 0.72;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.viewer-panel-dock-button:hover,
+.viewer-panel-dock-button:focus-visible {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.viewer-panel-dock-button.is-active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.viewer-panel-dock-icon,
+.viewer-panel-dock-icon svg {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+}
+
+/* Out of sight, something of it goes on (setToolPanelBusy). */
+.viewer-panel-dock-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f0a63a;
+  display: none;
+}
+
+.viewer-panel-dock-button.is-busy > .viewer-panel-dock-dot {
+  display: block;
+}
+
+.viewer-panel-dock .has-tool-chrome.is-dock-hidden {
+  display: none !important;
+}
+
+/* The dock places the panels: nothing to drag, minimize or fold. */
+.viewer-panel-dock:not(.is-panel-dock-narrow) .has-tool-chrome .tool-panel-chrome_grip,
+.viewer-panel-dock:not(.is-panel-dock-narrow) .has-tool-chrome .tool-panel-chrome_minimize,
+.viewer-panel-dock:not(.is-panel-dock-narrow) .has-tool-chrome .tool-panel-chrome_fold,
+.viewer-panel-dock:not(.is-panel-dock-narrow) .has-tool-chrome .tool-panel-chrome_pip {
+  display: none !important;
+}
+
+.viewer-panel-dock:not(.is-panel-dock-narrow) > .viewer-side-stack {
+  top: 12px;
+  right: 68px;
+  bottom: 12px;
+  width: min(360px, calc(100% - 140px));
+  max-width: none;
+  align-items: stretch;
+}
+
+.viewer-panel-dock:not(.is-panel-dock-narrow) > .viewer-side-stack > .has-tool-chrome {
+  /* A window that floated over the scene (the ground panel) sits in the
+     drawer like the others. */
+  position: relative !important;
+  inset: auto !important;
+  transform: none !important;
+  margin: 0;
+  resize: none;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: auto !important;
+  max-width: none !important;
+  max-height: 100% !important;
+  overflow-y: auto;
+}
+
+/* Narrow, not a phone's own sheet: the stack is the sheet. */
+.viewer-panel-dock.is-panel-dock-narrow > .viewer-side-stack {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: none;
+  align-items: stretch;
+}
+
+.viewer-panel-dock.is-panel-dock-narrow > .viewer-side-stack > .has-tool-chrome:not(.is-modal-open) {
+  width: auto !important;
+  max-width: none !important;
+  max-height: 48vh !important;
+  overflow-y: auto;
+  border-radius: 14px 14px 0 0;
+}
+
+.viewer-panel-dock-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+  margin: -4px -4px 8px;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--viewer-panel-border, rgba(255, 255, 255, 0.12));
+  background: inherit;
+}
+
+.viewer-panel-dock-tabs .viewer-panel-dock-button {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 12px 0 8px;
+}
+
+.viewer-panel-dock-tabs .viewer-panel-dock-dot {
+  top: 5px;
+  right: 4px;
 }

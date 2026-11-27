@@ -4,6 +4,7 @@ import { t } from "../i18n-utils.js";
 import { canvasFont, paintCanvasText } from "../ui/canvas-font.js";
 import { getViewerSideStack } from "../ui/side-stack.js";
 import { attachToolPanelChrome, isToolPanelMinimized, PANEL_ICONS, isPhoneLayout, setToolPanelMinimized, undockToolPanel } from "../ui/tool-panel-chrome.js";
+import { isPanelDockActive } from "../ui/panel-dock.js";
 import { getUpAxisPivot } from "../up-axis.js";
 import {
   dataAlert,
@@ -914,7 +915,8 @@ export function attachLiveData(Viewer) {
     floatLiveDataPanel() {
       const state = Viewer.liveDataState;
       const root = state?.ui?.root;
-      if (!root || state.floated || !state.open || isPhone()) return false;
+      // In the panel dock it is one of the panels there.
+      if (!root || state.floated || !state.open || isPhone() || isPanelDockActive()) return false;
       if (!undockToolPanel(root)) return false;
       state.floated = true;
       return true;

@@ -594,7 +594,8 @@ test('guided tour steps through annotations and keeps saved views', async ({ pag
 });
 
 test('tool panels: a ring counts down the tour step, panels move, minimize to an icon and close', async ({ page }) => {
-  await openViewer(page);
+  // Floating windows: the panel dock off.
+  await openViewer(page, defaultModel, 'dock=0');
   await waitForModel(page);
   await page.evaluate(() => {
     const viewer = window.Viewer;
@@ -659,6 +660,54 @@ test('tool panels: a ring counts down the tour step, panels move, minimize to an
   await sun.locator('.tool-panel-chrome_pip').click();
   await sun.locator('.viewer-sun_icon').click();
   await expect.poll(() => page.evaluate(() => window.Viewer.sunStudy.enabled)).toBe(false);
+});
+
+test('panel dock: one panel at a time, the others an icon each, still open; a click on the scene closes none', async ({ page }) => {
+  await openViewer(page);
+  await waitForModel(page);
+  await page.evaluate(() => {
+    window.Viewer.toggleLiveLinkPanel(true);
+    window.Viewer.toggleSoundsPanel(true);
+    window.Viewer.toggleGroundPanel();
+  });
+  const buttons = page.locator('.viewer-panel-dock-rail .viewer-panel-dock-button');
+  await expect(buttons).toHaveCount(3);
+  // The last one opened is the one shown: the ground window, in the drawer.
+  const ground = page.locator('.viewer-side-stack > #groundPanel');
+  await expect(ground).toBeVisible();
+  const shown = page.locator('.is-docked:not(.is-dock-hidden)');
+  await expect(shown).toHaveCount(1);
+  // No grip, no minimize: the dock places the panels.
+  await expect(page.locator('.is-docked .tool-panel-chrome_grip:visible')).toHaveCount(0);
+  await expect(page.locator('.is-docked .tool-panel-chrome_minimize:visible')).toHaveCount(0);
+
+  // Another icon switches; the panel before stays open, out of sight.
+  await buttons.nth(0).click();
+  const liveLink = page.locator('.viewer-livelink-panel');
+  await expect(liveLink).toBeVisible();
+  await expect(ground).toBeHidden();
+  await expect(buttons).toHaveCount(3);
+
+  // Busy out of sight: a dot on its icon.
+  await page.evaluate(() => { document.querySelector('.viewer-sounds-panel').dataset.panelBusy = '1'; });
+  await expect(buttons.nth(1)).toHaveClass(/is-busy/);
+
+  // A click on the scene closes nothing.
+  const canvas = await page.locator('#MainCanvas').boundingBox();
+  await page.mouse.click(canvas.x + 40, canvas.y + canvas.height / 2);
+  await expect(buttons).toHaveCount(3);
+  await expect(liveLink).toBeVisible();
+
+  // The shown panel's icon folds the drawer away, again brings it back.
+  await buttons.nth(0).click();
+  await expect(shown).toHaveCount(0);
+  await buttons.nth(0).click();
+  await expect(liveLink).toBeVisible();
+
+  // Closed by its own close: its icon goes, the one shown before comes back.
+  await page.evaluate(() => window.Viewer.toggleLiveLinkPanel(false));
+  await expect(buttons).toHaveCount(2);
+  await expect(shown).toHaveCount(1);
 });
 
 test('tool panels on a phone: a tap on the icon restores the panel, the same tap does not close it', async ({ browser }) => {
@@ -2235,7 +2284,7 @@ test('Level of Certainty: objects and groups get see-through colour overlays by 
 });
 
 test('shading modes: the original materials come back untouched, switched-out ones are released, scan views and manifests', { tag: '@smoke' }, async ({ page }) => {
-  await openViewer(page, '/examples/compressed.glb');
+  await openViewer(page, '/examples/compressed.glb', 'dock=0');
   await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 20_000 });
 
   // A textured part of the model, with its loader material.
@@ -4758,7 +4807,7 @@ test('settings windows as sheets wherever the menus take their phone layout: the
 test('menus on a phone: the model in view above the open menu, a tall sheet settles once a setting changes; the ground window a sheet too', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
-  await openViewer(page, '/examples/box.glb', 'ui=menus');
+  await openViewer(page, '/examples/box.glb', 'ui=menus&dock=0');
   await waitForModel(page);
   const toolbar = page.locator('#viewerEditorToolbar.viewer-menus');
   await expect(toolbar).toHaveAttribute('data-mode', 'bar');
@@ -5359,7 +5408,7 @@ test('live data: a table drives the model - read again when it changes, edited i
 });
 
 test('live data: a table generated from the model, a row for each part, ready to fill in', async ({ page }) => {
-  await openViewer(page, '/examples/pagoda/Pagoda.glb');
+  await openViewer(page, '/examples/pagoda/Pagoda.glb', 'dock=0');
   await waitForModel(page);
   await page.evaluate(() => window.Viewer.toggleLiveDataPanel(true));
   const panel = page.locator('#viewerLiveDataPanel');

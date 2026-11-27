@@ -506,6 +506,8 @@ export function attachTour(Viewer) {
         before: closeButton,
         icon: PANEL_ICONS.tour,
         label: () => t("tour.panel", "Guided tour"),
+        // The tour's player: at hand while the other panels change.
+        dockable: false,
       });
 
       const body = document.createElement("div");

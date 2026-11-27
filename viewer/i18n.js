@@ -37,6 +37,11 @@ export const VIEWER_I18N = {
       switchToEnglish: "Switch to English",
       switchToGerman: "Switch to German",
     },
+    panelDock: {
+      title: "Open panels",
+      fold: "tap to fold away",
+      busy: "running",
+    },
     toolPanel: {
       move: "Move panel (double tap: dock)",
       minimize: "Minimize panel",
@@ -3403,6 +3408,11 @@ export const VIEWER_I18N = {
         manifest: "Czy identyfikatory, typy i struktura IIIF są poprawne?",
       },
     },
+    panelDock: {
+      title: "Otwarte panele",
+      fold: "dotknij, by schować",
+      busy: "działa",
+    },
     toolPanel: {
       move: "Przesuń panel (podwójne dotknięcie: przypnij z powrotem)",
       minimize: "Zminimalizuj panel",
@@ -5643,6 +5653,11 @@ export const VIEWER_I18N = {
       loadExampleModel: "Modelle",
       noExampleModel: "Modell wählen",
       currentScene: "Szene: {name}",
+    },
+    panelDock: {
+      title: "Offene Panels",
+      fold: "tippen zum Einklappen",
+      busy: "läuft",
     },
     toolPanel: {
       move: "Panel verschieben (Doppeltipp: andocken)",
