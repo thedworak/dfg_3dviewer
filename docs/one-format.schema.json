@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "one-format.schema.json",
+  "title": "The One (.one4d) manifest, one.json - draft 0.1",
+  "description": "The first entry of a .one4d container (docs/one-format.md). Unknown fields are allowed: a reader skips them.",
+  "type": "object",
+  "required": ["format", "version", "parts"],
+  "properties": {
+    "format": { "const": "one" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+$", "examples": ["0.1"] },
+    "generator": { "type": "string" },
+    "created": { "type": "string", "format": "date-time" },
+    "title": { "type": "string" },
+    "units": { "type": "string", "default": "m", "examples": ["m", "cm", "mm"] },
+    "upAxis": { "enum": ["Y", "Z"], "default": "Y" },
+    "preview": { "$ref": "#/$defs/path", "description": "An image shown before any 3D data." },
+    "scene": { "$ref": "#/$defs/path", "description": "An AIM3D manifest (viewer/manifesto/AIM3DViewer-schema.json) applied over the parts." },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "parts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/part" }
+    },
+    "timeline": { "$ref": "#/$defs/timeline" },
+    "certainty": {
+      "type": "object",
+      "description": "The Level of Certainty scale: the same object as AIM3DViewer.certainty.",
+      "properties": {
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["value", "code", "color"],
+            "properties": {
+              "value": { "type": "number" },
+              "code": { "type": "string" },
+              "symbol": { "type": "string" },
+              "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+              "label": { "$ref": "#/$defs/text" },
+              "description": { "$ref": "#/$defs/text" }
+            }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "description": "Written by the packer: every entry but one.json.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["size", "sha256"],
+        "properties": {
+          "size": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "mediaType": { "type": "string" },
+          "offset": { "type": "integer", "minimum": 0, "description": "Where the file's data starts (bytes from the start of the container)." },
+          "length": { "type": "integer", "minimum": 0, "description": "The stored length, when deflated (else size)." },
+          "compression": { "enum": ["deflate"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "path": {
+      "type": "string",
+      "description": "A file in the container: relative, '/'-separated, no '..'.",
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
+    },
+    "text": {
+      "description": "A string, or a language map as in IIIF ({ \"en\": [\"...\"] }).",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+      ]
+    },
+    "level": {
+      "oneOf": [
+        { "$ref": "#/$defs/path" },
+        {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "$ref": "#/$defs/path" },
+            "triangles": { "type": "integer", "minimum": 0 },
+            "points": { "type": "integer", "minimum": 0 },
+            "geometricError": { "type": "number", "minimum": 0, "description": "In units, as in 3D Tiles." },
+            "screenSize": { "type": "number", "minimum": 0, "description": "The share of the view's height the part's bounding sphere covers from which this level is used." }
+          }
+        }
+      ]
+    },
+    "part": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "kind": { "type": "string", "description": "mesh, points, splats; reserved: image, audio, data. Unknown kinds are skipped.", "examples": ["mesh", "points", "splats"] },
+        "role": { "enum": ["primary"] },
+        "label": { "$ref": "#/$defs/text" },
+        "path": { "$ref": "#/$defs/path" },
+        "lods": {
+          "type": "array",
+          "minItems": 1,
+          "description": "From the coarsest to the finest.",
+          "items": { "$ref": "#/$defs/level" }
+        },
+        "certainty": { "type": ["string", "number"], "description": "A level of the certainty scale (its code or value)." },
+        "transform": { "type": "array", "items": { "type": "number" }, "minItems": 16, "maxItems": 16 },
+        "hidden": { "type": "boolean" },
+        "properties": { "$ref": "#/$defs/path", "description": "A building's element properties (<name>_ifc.json)." },
+        "lighting": { "$ref": "#/$defs/path", "description": "Splats: their lighting volume (<name>.light)." },
+        "metadata": { "type": "object" }
+      },
+      "anyOf": [{ "required": ["path"] }, { "required": ["lods"] }]
+    },
+    "timeline": {
+      "type": "object",
+      "description": "AIM3DViewer.timeline, whose stages may name parts.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "startYear": { "type": "number" },
+        "endYear": { "type": "number" },
+        "initialYear": { "type": "number" },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["year"],
+            "properties": {
+              "year": { "type": "number" },
+              "yearLabel": { "type": "string" },
+              "approximate": { "type": "boolean" },
+              "type": { "enum": ["documented", "modelled"] },
+              "label": { "$ref": "#/$defs/text" },
+              "description": { "$ref": "#/$defs/text" },
+              "source": {},
+              "parts": { "type": "array", "items": { "type": "string" } },
+              "nodes": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "playback": { "type": "object" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "creator": { "$ref": "#/$defs/text" },
+        "rights": { "type": "string" },
+        "record": { "$ref": "#/$defs/path", "description": "A JSON-LD record in the container (e.g. CIDOC-CRM)." },
+        "provenance": {
+          "type": "array",
+          "description": "The steps from capture to this file (paradata).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "activity": { "type": "string" },
+              "agent": { "type": "string" },
+              "software": { "type": "string" },
+              "date": { "type": "string" },
+              "method": { "type": "string" },
+              "parameters": { "type": "object" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

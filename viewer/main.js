@@ -4867,6 +4867,24 @@ attachTour(Viewer);
 attachAnnotationSpread(Viewer);
 attachAnnotationStack(Viewer);
 attachCertainty(Viewer);
+// "Save as .one4d" (one/one-export.js, loaded on first use). `save: false`
+// returns the container without downloading it.
+Viewer.exportOneContainer = async function exportOneContainer({ save = true } = {}) {
+  toastHelper("oneExportStarted", "info", { key: "one-export", replace: true });
+  try {
+    const { exportOneContainer: run } = await import("./one/one-export.js");
+    const result = await run(Viewer, { save });
+    toastHelper(result.linked.length ? "oneExportedWithLinks" : "oneExported", result.linked.length ? "warning" : "success", {
+      key: "one-export", replace: true, duration: 8000,
+      fileName: result.fileName, parts: result.manifest.parts.length, embedded: result.embedded.length, linked: result.linked.length,
+    });
+    return result;
+  } catch (error) {
+    if (error?.extension) toastHelper("oneExportUnsupported", "warning", { key: "one-export", replace: true, extension: error.extension });
+    else reportViewerError(error, { context: "Saving as .one4d failed" });
+    return null;
+  }
+};
 attachRakingLight(Viewer);
 attachSceneLights(Viewer);
 attachLightsPanel(Viewer);

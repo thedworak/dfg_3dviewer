@@ -35,6 +35,8 @@ export const loadVolume = async () => import("./volume.js");
 export const loadAudio = async () => import("./audio.js");
 // 2D images, one or a set (image2d.js).
 export const loadImage2D = async () => import("./image2d.js");
+// The One (.one4d) containers (one/one-viewer.js), with the first one.
+export const loadOne = async () => import("./one/one-viewer.js");
 // The surface volume the worker builds next to an uploaded splat model
 // (worker/splat_volume.py); none for a model opened from a File.
 const splatVolumeUrl = (modelPath) => (modelPath.startsWith("blob:") ? null : `${new URL(modelPath, window.location.href).href}.light`);
@@ -864,12 +866,85 @@ export async function loadModel() {
     }
   }
 
+  // A .one4d's levels of detail following the camera (one/one-viewer.js
+  // createOneLod): checked twice a second while the camera has moved and
+  // stands still, a root with the levels wanted built behind the one shown
+  // and swapped in. The first check, once the camera's intro flight is
+  // over, ends the progressive load (badge, fullModelLoaded).
+  function startOneLevels(one, lod, firstRoot) {
+    let shownRoot = firstRoot;
+    let busy = false;
+    let first = true;
+    let lastView = "";
+    let lastSample = "";
+    const viewKey = () => {
+      const camera = core.camera;
+      if (!camera) return "";
+      return [...camera.position.toArray(), ...camera.quaternion.toArray(), camera.zoom, camera.fov, core.renderer?.domElement?.clientHeight]
+        .map((value) => Number(value || 0).toFixed(3)).join(",");
+    };
+    const finishFirst = () => {
+      if (!first) return;
+      first = false;
+      if (core.progressiveLoad) {
+        core.progressiveLoad = null;
+        hideProgressiveBadge();
+      }
+      window.viewer.fullModelLoaded = true;
+    };
+    const step = async () => {
+      if (core.oneContainer !== one || !core.mainObject.includes(shownRoot)) {
+        clearInterval(timer);
+        return;
+      }
+      if (busy || core.cameraTween?.isPlaying?.()) return;
+      // Acted on once the camera stands still (two equal samples).
+      const key = viewKey();
+      if (!first) {
+        if (key !== lastSample) {
+          lastSample = key;
+          return;
+        }
+        if (key === lastView) return;
+      }
+      lastSample = key;
+      lastView = key;
+      const wanted = lod.wanted(core.camera, core.renderer?.domElement?.clientHeight || window.innerHeight);
+      if (!lod.differs(wanted)) {
+        finishFirst();
+        return;
+      }
+      busy = true;
+      if (first) showProgressiveBadge(NaN);
+      try {
+        const next = await lod.rootFor(wanted);
+        if (core.oneContainer !== one || !(await swapInFullModel(shownRoot, next))) {
+          window.Viewer?.disposeObjectResources?.(next);
+          clearInterval(timer);
+          return;
+        }
+        shownRoot = next;
+        lod.commit(next);
+        if (first) toastHelper("fullModelLoaded", "success");
+      } catch (error) {
+        reportLoadError(error, `Failed to load a level of detail of ${core.fileObject.filename}`);
+        clearInterval(timer);
+      } finally {
+        busy = false;
+        finishFirst();
+      }
+    };
+    const timer = setInterval(step, 500);
+    step();
+  }
+
   // Background half of progressive loading: fetch the full model while the
-  // preview is on screen, then swap it in.
-  async function loadFullModelBehindPreview(previewRoot, url) {
-    showProgressiveBadge(0);
+  // preview is on screen, then swap it in. `source`: the full model's URL,
+  // or a function building it (a .one4d's finest levels).
+  async function loadFullModelBehindPreview(previewRoot, source) {
+    showProgressiveBadge(typeof source === "function" ? NaN : 0);
     try {
-      const fullRoot = await loadGLTFModel(url, (xhr) => {
+      const fullRoot = typeof source === "function" ? await source() : await loadGLTFModel(source, (xhr) => {
         if (xhr?.lengthComputable && xhr.total > 0) {
           showProgressiveBadge(Math.round((xhr.loaded / xhr.total) * 100));
         }
@@ -1273,6 +1348,42 @@ export async function loadModel() {
         const object = new THREE.Group();
         (lwo.meshes || []).forEach((mesh) => object.add(mesh));
         await afterLoad({ object });
+        break;
+      }
+
+      case "one4d":
+      case "one": {
+        // The One container (docs/one-format.md): its parts at their
+        // coarsest levels of detail, then at the level the camera calls for
+        // (startOneLevels).
+        const { openOneForViewer, createOneLod, applyOneScene, needsWebGL } = await loadOne();
+        const one = await openOneForViewer(modelPath, core.localFiles.get(modelPath));
+        one.problems.forEach((problem) => console.warn(`[one] ${problem.message}`));
+        if (core.rendererBackend === "webgpu" && needsWebGL(one.manifest)) {
+          toastHelper("webglOnlyModel", "error", { duration: 10000 });
+          throw new Error(`${core.fileObject.filename} has point clouds or splats, which need the WebGL renderer`);
+        }
+        // The point cloud and splat code only downloads for such parts.
+        const lod = createOneLod(one, {
+          gltf: (partUrl) => loadGLTFModel(partUrl, () => {}),
+          las: async (partUrl, options) => (await loadLasPointCloud())(new URL(partUrl, window.location.href).href, options),
+          splats: async (buffer, options) => (await loadSplats()).buildSplatModel(buffer, options),
+        });
+        const root = await lod.rootFor(lod.parts.map(() => 0));
+        updateLoadingStage("loadingLog.preparingGeometry", 99);
+        core.oneContainer = one;
+        core.oneLevels = lod;
+        if (lod.refinable) {
+          root.userData.isPreviewModel = true;
+          window.viewer.fullModelLoaded = false;
+          core.progressiveLoad = { preview: root };
+        }
+        await afterLoad({ object: root });
+        lod.commit(root);
+        await applyOneScene(one, window.Viewer);
+        // Not awaited: the viewer is usable on the coarse levels meanwhile.
+        if (lod.refinable) startOneLevels(one, lod, root);
+        else window.viewer.fullModelLoaded = true;
         break;
       }
 

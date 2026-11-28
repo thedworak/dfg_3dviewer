@@ -141,6 +141,12 @@ function renderToBlob(viewer, logo) {
   return canvasToPng(withWatermark(viewer.mainCanvas, logo));
 }
 
+// The current view as a PNG, without the logo (a .one4d's preview,
+// one/one-export.js).
+export function captureViewPng(viewer) {
+  return renderToBlob(viewer, null);
+}
+
 async function uploadThumbnail(blob, view = "side45") {
   const fileform = new FormData();
   fileform.append("path", core.fileObject.path);

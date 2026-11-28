@@ -215,6 +215,7 @@ export const VIEWER_I18N = {
       importAnnotationsXml: "Import annotations XML",
       IIIFimport: "Import 3IF",
       IIIFexport: "Export IIIF",
+      oneExport: "Save as .one4d",
       resetCameraPosition: "Reset camera position",
       resetSettings: "Reset settings",
       saveSettings: "Save settings",
@@ -1167,6 +1168,7 @@ export const VIEWER_I18N = {
       resultNone: "{ext} is not supported.",
       groups: {
         gltf: { name: "glTF", browser: "The viewer's native format: opened without conversion, with materials and animations.", server: "Validated and compressed (Meshopt, KTX2); from 2 MB a lighter preview loads first; thumbnails rendered in Blender." },
+        one: { name: "The One (draft)", browser: "One file with the levels of detail, point clouds, splats, timeline, Level of Certainty and metadata of a model (docs/one-format.md); the coarsest levels show first.", server: "" },
         mesh: { name: "Meshes", browser: "Read by three.js: a mesh with its materials, sections, measurements and annotations.", server: "Converted to GLB (Blender; 3MF with trimesh), then compressed, with a preview and thumbnails." },
         kept: { name: "Other 3D formats", browser: "Opened directly by three.js.", server: "Stored without conversion or thumbnails." },
         manifest: { name: "Manifests", browser: "A IIIF or AIM3D manifest opens its scene with the models it names; other JSON is read as three.js geometry.", server: "" },
@@ -1324,6 +1326,10 @@ export const VIEWER_I18N = {
       downloadError: "Failed to download model.",
 
       iiifManifestGenerated: "IIIF manifest has been generated.",
+      oneExportStarted: "Saving as .one4d…",
+      oneExported: "Saved {fileName}: {parts} part(s) and {embedded} linked file(s) inside.",
+      oneExportedWithLinks: "Saved {fileName}; {linked} linked file(s) could not be fetched and stay links (see the console).",
+      oneExportUnsupported: "A .{extension} model cannot be saved as .one4d yet.",
       iiifManifestGenerationError: "Error generating IIIF manifest.",
 
       containerNotFound: "Container element not found. Please check the Viewer configuration.",
@@ -2809,6 +2815,7 @@ export const VIEWER_I18N = {
       importAnnotationsXml: "Importuj annotacje XML",
       IIIFimport: "Importuj 3IF",
       IIIFexport: "Eksportuj do IIIF",
+      oneExport: "Zapisz jako .one4d",
       resetCameraPosition: "Resetuj pozycję kamery",
       resetSettings: "Resetuj ustawienia",
       saveSettings: "Zapisz ustawienia",
@@ -3813,6 +3820,7 @@ export const VIEWER_I18N = {
       resultNone: "{ext} nie jest obsługiwany.",
       groups: {
         gltf: { name: "glTF", browser: "Natywny format viewera: otwierany bez konwersji, z materiałami i animacjami.", server: "Walidacja i kompresja (Meshopt, KTX2); od 2 MB najpierw wczytuje się lżejszy podgląd; miniatury renderowane w Blenderze." },
+        one: { name: "The One (szkic)", browser: "Jeden plik z poziomami szczegółowości, chmurami punktów, splatami, osią czasu, poziomem pewności i metadanymi modelu (docs/one-format.md); najpierw pokazują się najlżejsze poziomy.", server: "" },
         mesh: { name: "Siatki", browser: "Czytane przez three.js: siatka z materiałami, przekrojami, pomiarami i adnotacjami.", server: "Konwersja do GLB (Blender; 3MF przez trimesh), potem kompresja, podgląd i miniatury." },
         kept: { name: "Inne formaty 3D", browser: "Otwierane bezpośrednio przez three.js.", server: "Zapisywane bez konwersji i bez miniatur." },
         manifest: { name: "Manifesty", browser: "Manifest IIIF lub AIM3D otwiera swoją scenę z modelami, które wskazuje; inny JSON czytany jest jako geometria three.js.", server: "" },
@@ -3970,6 +3978,10 @@ export const VIEWER_I18N = {
       downloadError: "Nie udało się pobrać modelu.",
 
       iiifManifestGenerated: "Manifest IIIF został wygenerowany.",
+      oneExportStarted: "Zapisywanie jako .one4d…",
+      oneExported: "Zapisano {fileName}: części: {parts}, dołączone pliki: {embedded}.",
+      oneExportedWithLinks: "Zapisano {fileName}; {linked} plik(i) nie dało się pobrać i zostają linkami (szczegóły w konsoli).",
+      oneExportUnsupported: "Modelu .{extension} nie da się jeszcze zapisać jako .one4d.",
       iiifManifestGenerationError: "Błąd podczas generowania manifestu IIIF.",
 
       containerNotFound: "Element kontenera nie został znaleziony. Proszę sprawdzić konfigurację Viewera.",
@@ -5454,6 +5466,7 @@ export const VIEWER_I18N = {
       importAnnotationsXml: "Anmerkungen XML importieren",
       IIIFimport: "3IF importieren",
       IIIFexport: "IIIF exportieren",
+      oneExport: "Als .one4d speichern",
       resetCameraPosition: "Kameraposition zurücksetzen",
       resetSettings: "Einstellungen zurücksetzen",
       saveSettings: "Einstellungen speichern",
@@ -6458,6 +6471,7 @@ export const VIEWER_I18N = {
       resultNone: "{ext} wird nicht unterstützt.",
       groups: {
         gltf: { name: "glTF", browser: "Das native Format des Viewers: ohne Umwandlung geöffnet, mit Materialien und Animationen.", server: "Validiert und komprimiert (Meshopt, KTX2); ab 2 MB lädt zuerst eine leichtere Vorschau; Vorschaubilder in Blender gerendert." },
+        one: { name: "The One (Entwurf)", browser: "Eine Datei mit den Detailstufen, Punktwolken, Splats, der Zeitachse, dem Grad der Gewissheit und den Metadaten eines Modells (docs/one-format.md); die gröbsten Stufen erscheinen zuerst.", server: "" },
         mesh: { name: "Netze", browser: "Von three.js gelesen: ein Netz mit Materialien, Schnitten, Messungen und Annotationen.", server: "In GLB umgewandelt (Blender; 3MF mit trimesh), dann komprimiert, mit Vorschau und Vorschaubildern." },
         kept: { name: "Weitere 3D-Formate", browser: "Direkt von three.js geöffnet.", server: "Ohne Umwandlung und ohne Vorschaubilder gespeichert." },
         manifest: { name: "Manifeste", browser: "Ein IIIF- oder AIM3D-Manifest öffnet seine Szene mit den genannten Modellen; anderes JSON wird als three.js-Geometrie gelesen.", server: "" },
@@ -6615,6 +6629,10 @@ export const VIEWER_I18N = {
       downloadError: "Fehler beim Herunterladen des Modells.",
 
       iiifManifestGenerated: "IIIF-Manifest wurde generiert.",
+      oneExportStarted: "Speichern als .one4d…",
+      oneExported: "{fileName} gespeichert: {parts} Teil(e) und {embedded} verknüpfte Datei(en) darin.",
+      oneExportedWithLinks: "{fileName} gespeichert; {linked} verknüpfte Datei(en) konnten nicht geladen werden und bleiben Links (siehe Konsole).",
+      oneExportUnsupported: "Ein .{extension}-Modell kann noch nicht als .one4d gespeichert werden.",
       iiifManifestGenerationError: "Fehler beim Generieren des IIIF-Manifests.",
 
       containerNotFound: "Container-Element nicht gefunden. Bitte überprüfen Sie die Viewer-Konfiguration.",

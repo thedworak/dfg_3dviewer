@@ -7,7 +7,9 @@
 //   node scripts/precompress.mjs dist/test
 //
 // What it compresses: the scripts, stylesheets, WebAssembly and SVG images
-// of the build - files that change only with a new build. Not the HTML pages,
+// of the build, and the environment maps (.hdr: Radiance RGBE, which no
+// server compresses on its own - 1.4 MB becomes 0.78 MB with Brotli) -
+// files that change only with a new build. Not the HTML pages,
 // viewer-settings.json or manifests/: those are edited on the server (the
 // Docker entrypoint, admins), and a stale copy would be served in their
 // place. Not the models either (binary or compressed already). A copy is
@@ -20,7 +22,7 @@ import { promisify } from 'util';
 const brotli = promisify(zlib.brotliCompress);
 const gzip = promisify(zlib.gzip);
 
-const COMPRESSIBLE = /\.(js|mjs|css|wasm|svg)$/;
+const COMPRESSIBLE = /\.(js|mjs|css|wasm|svg|hdr)$/;
 const MIN_BYTES = 1024;
 const MAX_RATIO = 0.9;
 
@@ -40,7 +42,7 @@ async function compress(file) {
       params: {
         [zlib.constants.BROTLI_PARAM_QUALITY]: zlib.constants.BROTLI_MAX_QUALITY,
         [zlib.constants.BROTLI_PARAM_SIZE_HINT]: data.length,
-        [zlib.constants.BROTLI_PARAM_MODE]: /\.wasm$/.test(file)
+        [zlib.constants.BROTLI_PARAM_MODE]: /\.(wasm|hdr)$/.test(file)
           ? zlib.constants.BROTLI_MODE_GENERIC
           : zlib.constants.BROTLI_MODE_TEXT,
       },

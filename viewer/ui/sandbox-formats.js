@@ -12,6 +12,7 @@ import { modelExtension } from "../model-extension.js";
 // extension no group names lands in "other", so a new format still shows.
 const FORMAT_GROUPS = [
   { id: "gltf", extensions: ["glb", "gltf"] },
+  { id: "one", extensions: ["one4d", "one"] },
   { id: "mesh", extensions: ["obj", "ply", "stl", "fbx", "dae", "wrl", "usd", "usda", "usdc", "usdz", "3mf"] },
   { id: "kept", extensions: ["3ds", "amf", "vox", "xyz", "pcd", "kmz", "lwo"] },
   { id: "manifest", extensions: ["json"] },

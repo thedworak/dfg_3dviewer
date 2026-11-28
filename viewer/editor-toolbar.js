@@ -99,6 +99,7 @@ export function getEditorToolbarIcon(icon) {
     annotateExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v11H9l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.2V7.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 10.2 12 7l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     manifestPreview: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6 3v18h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h5M9 11h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 18s1.8-3.2 5-3.2 5 3.2 5 3.2-1.8 3.2-5 3.2-5-3.2-5-3.2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="17" cy="18" r="1.2" fill="currentColor"/></svg>',
     IIIFexport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 18V9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 12.2L12 9l3.2 3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    oneExport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 7.5 12 12l8-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
     IIIFimport: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v12H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 9v9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.8 14.8 12 18l3.2-3.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
     hierarchy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v5H4zM15 4h5v5h-5zM4 15h5v5H4zM15 15h5v5h-5zM9 6h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     performance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 12 15 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
@@ -1544,6 +1545,7 @@ export function createEditorToolbar(viewer) {
       { key: "annotateExport", group: "file", icon: "annotateExport", onClick: () => viewer.downloadAnnotationsXmlFile(), primary: false },
       { key: "IIIFimport", group: "file", icon: "IIIFimport", onClick: () => viewer.trigger3IFManifestImport(), primary: false },
       { key: "IIIFexport", group: "file", icon: "IIIFexport", onClick: () => viewer.export3IFManifest(), primary: false },
+      { key: "oneExport", group: "file", icon: "oneExport", onClick: () => viewer.exportOneContainer(), primary: false },
       // The manifest as it would be exported now (ui/manifest-preview.js).
       { key: "manifestPreview", group: "file", icon: "manifestPreview", onClick: () => viewer.toggleManifestPreview(), pressed: true, primary: false },
     );
@@ -1704,6 +1706,7 @@ export function createEditorToolbar(viewer) {
         { key: "annotateExport", icon: "annotateExport", label: t("gui.annotateExport", "Export Annotations"), onClick: () => viewer.downloadAnnotationsXmlFile() },
         { key: "IIIFimport", icon: "IIIFimport", label: t("gui.IIIFimport", "Import 3IF"), onClick: () => viewer.trigger3IFManifestImport() },
         { key: "IIIFexport", icon: "IIIFexport", label: t("gui.IIIFexport", "Export to IIIF"), onClick: () => viewer.export3IFManifest() },
+        { key: "oneExport", icon: "oneExport", label: t("gui.oneExport", "Save as .one4d"), onClick: () => viewer.exportOneContainer() },
         { key: "manifestPreview", icon: "manifestPreview", label: t("gui.manifestPreview", "Preview manifest"), onClick: () => viewer.toggleManifestPreview() },
       ];
       submenuItems.forEach((item) => {
@@ -2094,7 +2097,7 @@ export function createEditorToolbar(viewer) {
     else if (tool.primary) toolbar.appendChild(button);
     else secondaryTray.appendChild(button);
     viewer.editorToolbarButtons[tool.key] = button;
-    if (["annotateTour", "annotatePhotos", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport"].includes(tool.key)) {
+    if (["annotateTour", "annotatePhotos", "annotateImport", "annotateExport", "IIIFimport", "IIIFexport", "oneExport"].includes(tool.key)) {
       viewer.annotateSubmenuButtons[tool.key] = button;
     }
     if (!tool.primary) viewer.editorSecondaryKeys.push(button);
@@ -2544,6 +2547,7 @@ export function updateEditorToolbarLabels(viewer) {
       annotateExport: t("gui.exportAnnotationsXml", "Export Annotations"),
       IIIFimport: t("gui.IIIFimport", "Import 3IF"),
       IIIFexport: t("gui.IIIFexport", "Export to IIIF"),
+      oneExport: t("gui.oneExport", "Save as .one4d"),
       manifestPreview: t("gui.manifestPreview", "Preview manifest"),
     };
     Object.entries(viewer.annotateSubmenuButtons).forEach(([key, button]) => {

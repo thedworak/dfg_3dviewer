@@ -17,6 +17,8 @@ import { decideExposure, decideModelBase, evaluatePublishChecks, measureFraming,
 import { MATERIAL_BASE, MATERIAL_PRESETS, resolveMaterialPreset, suggestMaterialPreset } from '../viewer/editor/material-presets.js';
 import { deviceTier, qualityForWeight } from '../viewer/editor/performance-rules.js';
 import { materialFromName, schroederRT, sendGain, synthesizeImpulseResponse, traceRoom } from '../viewer/room-acoustics.js';
+import { chooseLevel, screenMeasure } from '../viewer/one/one-lod.js';
+import { blobSource, bufferSource, isOneContainer, ONE_ALIGNMENT, openOneContainer, platformDeflate, timelineForViewer, writeOneContainer } from '../viewer/one/one-container.js';
 import { changedManifestBlocks, changedSessionLook, manifestModels, newSessionId, normalizeSessionBackground, normalizeSessionCamera, sameSessionCamera, sessionLook, SESSION_ID_PATTERN } from '../viewer/live-link-rules.js';
 import { dataAlert, dataColorScale, dataNumber, dataTableToCsv, dataTruthy, diffDataRows, guessKeyColumn, normalizeDataKey, normalizeLiveData, parseDataTable } from '../viewer/live-data-table.js';
 
@@ -10999,4 +11001,170 @@ test('model details: the Pagoda shows its shared, synthetic metadata in the view
   await expect(embedded.locator('.metadata-row', { hasText: 'Material' }).locator('.metadata-value')).toHaveText('Cardboard');
   await expect(embedded.locator('.metadata-synthetic')).toHaveCount(0);
   expect(requests).toHaveLength(1);
+});
+
+// The One (.one4d, docs/one-format.md): packed here from the Pagoda's two
+// levels of detail, plus a second part that appears on the timeline.
+async function packOneSample() {
+  const preview = new Uint8Array(fs.readFileSync('viewer/examples/pagoda/Pagoda-progressive.preview.glb'));
+  const full = new Uint8Array(fs.readFileSync('viewer/examples/pagoda/Pagoda-progressive.glb'));
+  return writeOneContainer({
+    format: 'one',
+    version: '0.1',
+    title: 'Pagoda 4D',
+    parts: [
+      { id: 'model', kind: 'mesh', role: 'primary', lods: ['mesh/lod0.glb', 'mesh/lod1.glb'] },
+      { id: 'addition', kind: 'mesh', path: 'mesh/lod0.glb', transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 14, 0, 0, 1] },
+    ],
+    timeline: { stages: [
+      { year: 1615, label: 'Built', parts: ['model'] },
+      { year: 1890, label: 'Addition', parts: ['model', 'addition'], type: 'modelled' },
+    ] },
+    certainty: { levels: [
+      { value: 10, code: 'A', color: '#2e7d32' },
+      { value: 2, code: 'C', color: '#c62828' },
+    ] },
+  }, { 'mesh/lod1.glb': full, 'mesh/lod0.glb': preview });
+}
+
+test('.one4d container: manifest first, parts aligned and in loading order, hashes checked', async () => {
+  const { bytes, manifest } = await packOneSample();
+  expect(isOneContainer(bytes)).toBe(true);
+  const one = await openOneContainer(bufferSource(bytes));
+  expect([...one.entries.keys()]).toEqual(['one.json', 'mesh/lod0.glb', 'mesh/lod1.glb']);
+  for (const name of one.entries.keys()) {
+    expect((await one.locate(name)).offset % ONE_ALIGNMENT).toBe(0);
+  }
+  expect(await one.verify('mesh/lod1.glb')).toBe(true);
+  expect(manifest.files['mesh/lod0.glb'].mediaType).toBe('model/gltf-binary');
+  expect(timelineForViewer(one.manifest).stages.map((stage) => stage.nodes)).toEqual([['one-model'], ['one-model', 'one-addition']]);
+  // A File/Blob reads the same.
+  const fromBlob = await openOneContainer(blobSource(new Blob([bytes])));
+  expect(fromBlob.manifest.title).toBe('Pagoda 4D');
+  // one.json gives every part's place: after the first read (one.json) a
+  // reader goes straight to a part, without the directory at the end.
+  const reads = [];
+  const counted = bufferSource(bytes);
+  const read = counted.read.bind(counted);
+  counted.read = (offset, length) => { reads.push([offset, length]); return read(offset, length); };
+  const direct = await openOneContainer(counted);
+  await direct.readFile('mesh/lod0.glb');
+  expect(reads).toEqual([[0, 65536], [manifest.files['mesh/lod0.glb'].offset, manifest.files['mesh/lod0.glb'].size]]);
+  // Deflated where it pays (a JSON part), stored where not, read back the same.
+  const json = new TextEncoder().encode(JSON.stringify({ values: Array.from({ length: 2000 }, (_, i) => i % 7) }));
+  const packed = await writeOneContainer(
+    { format: 'one', version: '0.1', parts: [{ id: 'photo', kind: 'image', path: 'res/photo.webp' }, { id: 'table', kind: 'data', path: 'data/table.json' }] },
+    { 'res/photo.webp': new Uint8Array(fs.readFileSync('viewer/examples/tempietto/photos/Tempietto_1783.webp')), 'data/table.json': json },
+    { deflate: platformDeflate },
+  );
+  expect(packed.manifest.files['data/table.json'].compression).toBe('deflate');
+  expect(packed.manifest.files['res/photo.webp'].compression).toBeUndefined();
+  const reread = await openOneContainer(bufferSource(packed.bytes));
+  expect(await reread.readText('data/table.json')).toBe(new TextDecoder().decode(json));
+  expect(await reread.verify('data/table.json')).toBe(true);
+  // A part the manifest names must be in the file.
+  await expect(writeOneContainer({ format: 'one', version: '0.1', parts: [{ id: 'a', kind: 'mesh', path: 'a.glb' }] }, {}))
+    .rejects.toThrow(/a\.glb is not in the container/);
+});
+
+test('.one4d in the viewer: coarse levels first, then the level the camera needs; parts on the timeline; the certainty scale', async ({ page }) => {
+  test.setTimeout(120_000);
+  const { bytes } = await packOneSample();
+  // Served without range support: the viewer reads the whole file once.
+  await page.route('**/examples/pagoda-4d.one4d', (route) => route.fulfill({ status: 200, body: Buffer.from(bytes), contentType: 'application/octet-stream' }));
+  await page.addInitScript(() => { window.__E2E__ = true; });
+  await page.goto('/?e2eModel=%2Fexamples%2Fpagoda-4d.one4d&ui=classic');
+  await waitForModel(page, 60_000);
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true, null, { timeout: 60_000 });
+
+  const parts = () => page.evaluate(() => {
+    const found = {};
+    window.viewer.scene.traverse((object) => {
+      if (object.userData.onePart && !found[object.name]) found[object.name] = { level: object.userData.onePart.level, visible: object.visible };
+    });
+    return found;
+  });
+  // The model at its finest level; the addition has one level.
+  await page.evaluate(() => window.Viewer.setTimelineYear(1615, { immediate: true }));
+  await expect.poll(parts).toEqual({ 'one-model': { level: 1, visible: true }, 'one-addition': { level: 0, visible: false } });
+  await page.evaluate(() => window.Viewer.setTimelineYear(1890, { immediate: true }));
+  await expect.poll(parts).toEqual({ 'one-model': { level: 1, visible: true }, 'one-addition': { level: 0, visible: true } });
+  expect(await page.evaluate(() => window.Viewer.certaintyScale.levels.map((level) => level.code))).toEqual(['A', 'C']);
+
+  // Far away the model needs only its coarse level; near again, the fine one.
+  const moveCamera = (factor) => page.evaluate((f) => {
+    const { camera } = window.viewer;
+    const target = window.Viewer.controls.target;
+    window.Viewer.controls.maxDistance = Infinity;
+    camera.position.sub(target).multiplyScalar(f).add(target);
+    camera.far = Math.max(camera.far, camera.position.distanceTo(target) * 4);
+    camera.updateProjectionMatrix();
+    window.Viewer.controls.update();
+  }, factor);
+  await moveCamera(40);
+  await expect.poll(parts, { timeout: 20_000 }).toEqual({ 'one-model': { level: 0, visible: true }, 'one-addition': { level: 0, visible: true } });
+  await moveCamera(1 / 40);
+  await expect.poll(parts, { timeout: 20_000 }).toEqual({ 'one-model': { level: 1, visible: true }, 'one-addition': { level: 0, visible: true } });
+});
+
+test('.one4d levels of detail: chosen by the size on screen, or by the geometric error, with hysteresis', () => {
+  const camera = { fov: 45, position: { x: 0, y: 0, z: 10 } };
+  const sphere = { center: { x: 0, y: 0, z: 0 }, radius: 2 };
+  const near = screenMeasure(camera, sphere, 800);
+  const far = screenMeasure({ ...camera, position: { x: 0, y: 0, z: 200 } }, sphere, 800);
+  const two = [{ path: 'lod0.glb' }, { path: 'lod1.glb' }];
+  expect([chooseLevel(two, near), chooseLevel(two, far)]).toEqual([1, 0]);
+  // Just under the threshold: the fine level stays once shown, is not taken before.
+  expect([chooseLevel(two, { share: 0.25, pixelsPerUnit: 1 }, 1), chooseLevel(two, { share: 0.25, pixelsPerUnit: 1 }, 0)]).toEqual([1, 0]);
+  // screenSize per level.
+  const sized = [{ path: 'a' }, { path: 'b', screenSize: 0.5 }];
+  expect([chooseLevel(sized, { share: 0.4, pixelsPerUnit: 1 }), chooseLevel(sized, { share: 0.6, pixelsPerUnit: 1 })]).toEqual([0, 1]);
+  // geometricError: the coarsest level whose error projects under 4 px.
+  const errors = [{ geometricError: 0.05 }, { geometricError: 0.01 }, { geometricError: 0.001 }];
+  expect([chooseLevel(errors, near), chooseLevel(errors, far), chooseLevel(errors, { share: 1, pixelsPerUnit: 1000 })]).toEqual([1, 0, 2]);
+  // An orthographic camera: the share from its frustum.
+  expect(screenMeasure({ isOrthographicCamera: true, top: 5, bottom: -5, zoom: 1 }, sphere, 800).share).toBeCloseTo(0.4);
+});
+
+test('Save as .one4d: the model, its scene and the files the scene links to, opened again from the file alone', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openViewer(page, '/examples/box.glb');
+  await waitForModel(page);
+  await page.evaluate(async () => {
+    const manifest = await (await fetch('/manifests/tempietto-aim3d-photos.json')).json();
+    window.viewer.fullModelLoaded = false;
+    await window.Viewer.setupManifesto(JSON.stringify(manifest), 'text');
+  });
+  await page.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.getPhotos().length, null, { timeout: 60_000 });
+  const exported = await page.evaluate(async () => {
+    const result = await window.Viewer.exportOneContainer({ save: false });
+    let binary = '';
+    for (let i = 0; i < result.bytes.length; i += 0x8000) binary += String.fromCharCode(...result.bytes.subarray(i, i + 0x8000));
+    return { base64: btoa(binary), embedded: result.embedded.map((item) => item.path), linked: result.linked, stages: window.Viewer.timelineState?.visualStages?.length };
+  });
+  // The photo is inside; the viewer's own settings (credits' logos, links) are not taken.
+  expect(exported.embedded).toEqual(['res/Tempietto_1783.webp']);
+  expect(exported.linked).toEqual([]);
+  const bytes = Buffer.from(exported.base64, 'base64');
+  const one = await openOneContainer(bufferSource(new Uint8Array(bytes)));
+  expect(one.manifest.scene).toBe('meta/scene.json');
+  expect(one.manifest.preview).toBe('meta/preview.webp');
+  expect(one.manifest.parts[0].lods.map((lod) => lod.path)).toEqual(['mesh/Tempietto.glb']);
+  const scene = await one.readJSON('meta/scene.json');
+  expect(scene.AIM3DViewer.photos[0].src).toBe('./res/Tempietto_1783.webp');
+  expect(JSON.stringify(scene)).not.toContain('/examples/tempietto/');
+
+  // Opened again: nothing but the .one4d comes from the server.
+  const page2 = await page.context().newPage();
+  const fetched = [];
+  page2.on('request', (request) => {
+    if (/examples\/(tempietto|box)/.test(request.url())) fetched.push(request.url());
+  });
+  await page2.route('**/examples/exported.one4d', (route) => route.fulfill({ status: 200, body: bytes }));
+  await page2.addInitScript(() => { window.__E2E__ = true; });
+  await page2.goto('/?e2eModel=%2Fexamples%2Fexported.one4d&ui=classic');
+  await page2.waitForFunction(() => window.viewer?.fullModelLoaded === true && window.Viewer.getPhotos().length, null, { timeout: 60_000 });
+  expect(await page2.evaluate(() => window.Viewer.getPhotos()[0].src)).toMatch(/^blob:/);
+  expect(await page2.evaluate(() => window.Viewer.timelineState?.visualStages?.length)).toBe(exported.stages);
+  expect(fetched).toEqual([]);
 });
