@@ -62,6 +62,54 @@ full model is shown (`fullModelLoaded`).
 
 .one4d overhead over its parts: 1250 bytes. One damaged byte detected by verify: yes (intact file verified: yes).
 
+## Five networks, the current viewer
+
+The GLB against the `.one4d` (deflated) again, on the viewer as it is now:
+levels chosen by the camera, the next level's bytes fetched as soon as the
+coarse one is shown (`docs/one-format.md`, *Levels of detail*). Same
+method, median of 3 runs, measured on 2026-11-28; the slowest is Chrome's
+"Slow 3G".
+
+#### fast (50 Mb/s, 20 ms)
+
+| Delivery | Requests | Shown after | Bytes until shown | Full model after | Bytes in all |
+|---|---:|---:|---:|---:|---:|
+| GLB | 1 | 2.9 s | 3.14 MB | 4.8 s | 3.14 MB |
+| .one4d, 2 LoD, deflated | 3 | 1.5 s | 0.60 MB | 7.6 s | 3.01 MB |
+
+#### 10 Mb/s, 40 ms
+
+| Delivery | Requests | Shown after | Bytes until shown | Full model after | Bytes in all |
+|---|---:|---:|---:|---:|---:|
+| GLB | 1 | 5.6 s | 3.14 MB | 7.6 s | 3.14 MB |
+| .one4d, 2 LoD, deflated | 3 | 2.7 s | 0.60 MB | 8.8 s | 3.01 MB |
+
+#### 4G (9 Mb/s, 85 ms)
+
+| Delivery | Requests | Shown after | Bytes until shown | Full model after | Bytes in all |
+|---|---:|---:|---:|---:|---:|
+| GLB | 1 | 6.0 s | 3.14 MB | 8.1 s | 3.14 MB |
+| .one4d, 2 LoD, deflated | 3 | 3.1 s | 0.60 MB | 9.4 s | 3.01 MB |
+
+#### 3G (1.6 Mb/s, 300 ms)
+
+| Delivery | Requests | Shown after | Bytes until shown | Full model after | Bytes in all |
+|---|---:|---:|---:|---:|---:|
+| GLB | 1 | 22.5 s | 3.14 MB | 25.1 s | 3.14 MB |
+| .one4d, 2 LoD, deflated | 3 | 10.6 s | 0.60 MB | 28.5 s | 3.01 MB |
+
+#### Slow 3G (0.4 Mb/s, 400 ms)
+
+| Delivery | Requests | Shown after | Bytes until shown | Full model after | Bytes in all |
+|---|---:|---:|---:|---:|---:|
+| GLB | 1 | 80.7 s | 3.14 MB | 85.0 s | 3.14 MB |
+| .one4d, 2 LoD, deflated | 3 | 33.1 s | 0.60 MB | 91.4 s | 3.01 MB |
+
+"Shown" is the moment the model can be turned, zoomed and annotated: from
+the `.one4d` 1.9-2.4 times sooner on every network, 47.6 s sooner on Slow
+3G. The finest level comes 1.2-6.4 s after the GLB's, while the model is
+already in use.
+
 ## What this says
 
 **Shown twice as fast as a plain GLB or a ZIP, on every network.** The

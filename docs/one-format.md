@@ -179,7 +179,11 @@ to change it: nearer, finer; further, coarser
 A level is left for a coarser one only below 70% of its threshold, so a
 camera at the edge does not make it flicker. Parts that keep their level
 are not loaded again, and the bytes of a level read once stay in memory
-(up to 512 MB per file): going back to a level costs no download.
+(up to 512 MB per file): going back to a level costs no download. As soon
+as the coarse levels are shown, the next finer level of every part starts
+downloading in the background, while the camera's intro flight runs; a
+level asked for while it is still downloading waits for that download
+instead of starting another.
 
 Textures are kept inside each level's GLB in 0.1. Sharing them between
 levels (one KTX2 file referenced by several GLBs) is planned for 0.2, as

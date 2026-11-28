@@ -934,6 +934,8 @@ export async function loadModel() {
         finishFirst();
       }
     };
+    // The next level's bytes start now, behind the coarse levels shown.
+    lod.prefetchNext();
     const timer = setInterval(step, 500);
     step();
   }

@@ -52,15 +52,25 @@ export async function openOneForViewer(modelPath, file = null) {
 }
 
 // A level's bytes are kept once read (up to BYTE_CACHE_LIMIT for the
-// container): going back to a level read before reads nothing again.
+// container): going back to a level read before reads nothing again. A
+// read under way is shared too: a level asked for while its prefetch is
+// still downloading waits for that download instead of starting another.
 const BYTE_CACHE_LIMIT = 512 * 1024 * 1024;
-async function readCached(one, path) {
+function readCached(one, path) {
   one.byteCache ??= new Map();
-  if (one.byteCache.has(path)) return one.byteCache.get(path);
-  const data = await one.readFile(path);
-  const used = [...one.byteCache.values()].reduce((sum, bytes) => sum + bytes.byteLength, 0);
-  if (used + data.byteLength <= BYTE_CACHE_LIMIT) one.byteCache.set(path, data);
-  return data;
+  if (!one.byteCache.has(path)) {
+    const pending = one.readFile(path).then((data) => {
+      one.cachedBytes = (one.cachedBytes || 0) + data.byteLength;
+      if (one.cachedBytes > BYTE_CACHE_LIMIT) {
+        one.byteCache.delete(path);
+        one.cachedBytes -= data.byteLength;
+      }
+      return data;
+    });
+    one.byteCache.set(path, pending);
+    pending.catch(() => one.byteCache.delete(path));
+  }
+  return one.byteCache.get(path);
 }
 
 // The parts drawn by this version (others are kept in the file, skipped).
@@ -168,6 +178,16 @@ export function createOneLod(one, loaders) {
         shown.set(part.id, { level: object.userData.onePart?.level ?? 0, object });
         sphereOf.set(part.id, new THREE.Box3().setFromObject(object).getBoundingSphere(new THREE.Sphere()));
       });
+    },
+    // The bytes of the next finer level of every part, fetched now in the
+    // background (readCached): the download overlaps the camera's intro
+    // flight, and the level is ready once the camera calls for it.
+    prefetchNext() {
+      return Promise.all(parts.map((part) => {
+        const lods = partLods(part);
+        const next = (shown.get(part.id)?.level ?? 0) + 1;
+        return next < lods.length ? readCached(one, lods[next].path).catch(() => null) : null;
+      }));
     },
     // The levels the camera calls for now.
     wanted(camera, viewHeight) {

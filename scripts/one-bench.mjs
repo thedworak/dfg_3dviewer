@@ -19,7 +19,7 @@
 //   pnpm run build:test        # once: the viewer this measures
 //   node scripts/one-bench.mjs [--dist dist/test] [--runs 3]
 //     [--model viewer/examples/pagoda/Pagoda-progressive.glb]
-//     [--profiles fast,4g,3g] [--json out.json]
+//     [--profiles fast,10m,4g,3g,slow3g] [--scenarios glb,one4d-deflate] [--json out.json]
 
 import { spawn } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -43,8 +43,10 @@ const PREVIEW = MODEL.replace(/\.glb$/i, ".preview.glb");
 const PORT = Number(args.port || 4199);
 const PROFILES = {
   fast: { label: "fast (50 Mb/s, 20 ms)", latency: 20, mbps: 50 },
+  "10m": { label: "10 Mb/s, 40 ms", latency: 40, mbps: 10 },
   "4g": { label: "4G (9 Mb/s, 85 ms)", latency: 85, mbps: 9 },
   "3g": { label: "3G (1.6 Mb/s, 300 ms)", latency: 300, mbps: 1.6 },
+  slow3g: { label: "Slow 3G (0.4 Mb/s, 400 ms)", latency: 400, mbps: 0.4 },
 };
 const profiles = String(args.profiles || "fast,4g,3g").split(",").filter((name) => PROFILES[name]);
 const browserPath = existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
@@ -85,13 +87,17 @@ async function prepare() {
   return { full, preview, one: bytes, oneDeflated: deflated, zip: readFileSync(join(BENCH_DIR, `${name}.zip`)) };
 }
 
-const SCENARIOS = [
+const ALL_SCENARIOS = [
   { id: "glb", label: "GLB", model: `/examples/one-bench/plain/${name}.glb`, query: "&preview=0" },
   { id: "glb+prev", label: "GLB + preview.glb", model: `/examples/one-bench/progressive/${name}.glb`, query: "&preview=1" },
   { id: "zip", label: "ZIP (deflated)", model: `/examples/one-bench/${name}.zip`, query: "" },
   { id: "one4d", label: ".one4d, 2 LoD, stored", model: `/examples/one-bench/${name}.one4d`, query: "" },
   { id: "one4d-deflate", label: ".one4d, 2 LoD, deflated", model: `/examples/one-bench/${name}-deflated.one4d`, query: "" },
 ];
+// --scenarios glb,one4d-deflate: only these (all by default).
+const SCENARIOS = args.scenarios
+  ? ALL_SCENARIOS.filter((scenario) => String(args.scenarios).split(",").includes(scenario.id))
+  : ALL_SCENARIOS;
 
 async function measure(browser, scenario, profile) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
